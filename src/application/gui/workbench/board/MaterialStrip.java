@@ -167,7 +167,7 @@ public final class MaterialStrip extends JComponent {
         for (int i = 0; i < ORDER.length; i++) {
             byte piece = (byte) (opponentSign * ORDER[i]);
             for (int n = 0; n < captured[i]; n++) {
-                Shapes.drawPiece(piece, g2, x, y, ICON, ICON);
+                Shapes.drawPiece(board.pieceSet(), piece, g2, x, y, ICON, ICON);
                 x += ICON * 0.58;
             }
             if (captured[i] > 0) {

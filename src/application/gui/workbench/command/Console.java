@@ -194,22 +194,36 @@ public final class Console extends JTextPane implements Theme.ConsoleLike {
         String trimmed = line.strip();
         String lower = trimmed.toLowerCase(Locale.ROOT);
         if (trimmed.startsWith("$ ")) {
-    return style(Theme.STATUS_INFO_TEXT, true);
+    return badge(Theme.STATUS_INFO_TEXT);
         }
         if (trimmed.startsWith("[exit 0")) {
-    return style(Theme.STATUS_SUCCESS_TEXT, true);
+    return badge(Theme.STATUS_SUCCESS_TEXT);
         }
         if (trimmed.startsWith("[exit ") || trimmed.startsWith("[error")) {
-    return style(Theme.STATUS_ERROR_TEXT, true);
+    return badge(Theme.STATUS_ERROR_TEXT);
         }
         if (trimmed.startsWith("[stopped]") || trimmed.startsWith("[")) {
-    return style(Theme.STATUS_WARNING_TEXT, true);
+    return badge(Theme.STATUS_WARNING_TEXT);
         }
         if (lower.contains("error") || lower.contains("exception")
                 || lower.contains("failed") || lower.contains("invalid")) {
     return style(Theme.STATUS_ERROR_TEXT, false);
         }
     return style(Theme.TERMINAL_TEXT, false);
+    }
+
+    /**
+     * Builds a bold "status badge" run for a bracketed status line (command
+     * echo, exit code, error, stopped): the line's status colour over a faint
+     * tinted background banner so finished-command status reads at a glance.
+     *
+     * @param color status colour
+     * @return attribute set
+     */
+    private static SimpleAttributeSet badge(Color color) {
+        SimpleAttributeSet attributes = style(color, true);
+        StyleConstants.setBackground(attributes, Theme.withAlpha(color, 38));
+        return attributes;
     }
 
     /**

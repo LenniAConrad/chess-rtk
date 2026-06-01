@@ -84,6 +84,11 @@ public abstract class WindowLifecycle extends WindowBase {
     protected static final String PREF_STATUS_BAR_VISIBLE = "layout.statusBarVisible";
 
     /**
+     * Preference key for the chess-piece artwork set.
+     */
+    protected static final String PREF_PIECE_SET = "display.pieceSet";
+
+    /**
      * Preference key for legal-move hover previews.
      */
     protected static final String PREF_SHOW_LEGAL_MOVES = "display.showLegalMovePreview";
@@ -247,6 +252,8 @@ public abstract class WindowLifecycle extends WindowBase {
      * Loads persisted board and analysis display settings.
      */
     protected void loadDisplaySettings() {
+        pieceSet = chess.images.assets.PieceSet.fromLabel(
+                WORKBENCH_PREFS.get(PREF_PIECE_SET, chess.images.assets.PieceSet.SLATE.name()));
         showLegalMovePreview = WORKBENCH_PREFS.getBoolean(PREF_SHOW_LEGAL_MOVES, true);
         showLastMoveHighlight = WORKBENCH_PREFS.getBoolean(PREF_SHOW_LAST_MOVE, true);
         showBestMoveArrows = WORKBENCH_PREFS.getBoolean(PREF_SHOW_BEST_ARROWS, true);
@@ -267,6 +274,7 @@ public abstract class WindowLifecycle extends WindowBase {
      * Saves board and analysis display settings.
      */
     protected void saveDisplaySettings() {
+        WORKBENCH_PREFS.put(PREF_PIECE_SET, pieceSet.name());
         WORKBENCH_PREFS.putBoolean(PREF_SHOW_LEGAL_MOVES, showLegalMovePreview);
         WORKBENCH_PREFS.putBoolean(PREF_SHOW_LAST_MOVE, showLastMoveHighlight);
         WORKBENCH_PREFS.putBoolean(PREF_SHOW_BEST_ARROWS, showBestMoveArrows);
@@ -394,6 +402,7 @@ public abstract class WindowLifecycle extends WindowBase {
      * @param refreshEval true to refresh evaluation immediately
      */
     protected void applyDisplaySettings(boolean refreshEval) {
+        board.setPieceSet(pieceSet);
         board.setShowLegalMovePreview(showLegalMovePreview);
         board.setShowLastMoveHighlight(showLastMoveHighlight);
         board.setShowSuggestedMoveArrow(showBestMoveArrows);
@@ -1080,9 +1089,9 @@ public abstract class WindowLifecycle extends WindowBase {
      * @return status bar component
      */
     private JComponent buildTitleBarSearch() {
-        final int radius = 5;
-        final int preferredWidth = 360;
-        final int preferredHeight = 22;
+        final int radius = Theme.RADIUS + 2;
+        final int preferredWidth = 380;
+        final int preferredHeight = 24;
         final boolean[] hovered = { false };
         JComponent box = new JComponent() {
             private static final long serialVersionUID = 1L;
@@ -1369,8 +1378,13 @@ public abstract class WindowLifecycle extends WindowBase {
                 if (hovered[0]) {
                     java.awt.Graphics2D g = (java.awt.Graphics2D) graphics.create();
                     try {
+                        g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
+                                java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
                         g.setColor(Theme.TAB_HOVER);
-                        g.fillRect(0, 0, getWidth(), getHeight());
+                        // Soft rounded hover pill so the cell reads as a clickable
+                        // affordance rather than a hard-edged band.
+                        g.fillRoundRect(0, 1, getWidth(), Math.max(1, getHeight() - 2),
+                                Theme.RADIUS, Theme.RADIUS);
                     } finally {
                         g.dispose();
                     }

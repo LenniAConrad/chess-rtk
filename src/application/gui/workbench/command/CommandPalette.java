@@ -225,6 +225,10 @@ public final class CommandPalette extends JPanel {
             }
             g.setColor(Theme.ELEVATED_SOLID);
             g.fillRoundRect(0, 0, bodyW, bodyH, PALETTE_RADIUS, PALETTE_RADIUS);
+            // Soft top highlight: the macOS frosted-glass cue on an opaque body,
+            // legible because the palette floats over its own drop shadow.
+            g.setColor(Theme.GLASS_HIGHLIGHT);
+            g.drawLine(PALETTE_RADIUS / 2, 1, bodyW - PALETTE_RADIUS / 2, 1);
             g.setColor(Theme.LINE);
             g.drawRoundRect(0, 0, bodyW, bodyH, PALETTE_RADIUS, PALETTE_RADIUS);
         } finally {

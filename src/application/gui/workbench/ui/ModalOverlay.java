@@ -55,9 +55,26 @@ public final class ModalOverlay {
     private final BackdropLayer backdropLayer = new BackdropLayer();
 
     /**
-     * Centred wrapper that owns the content panel.
+     * Centred wrapper that owns the content panel, painted as a softly elevated
+     * macOS-style sheet (frosted surface, drop shadow, rounded border) floating
+     * over the dimmed backdrop.
      */
-    private final JPanel chrome = new JPanel(new BorderLayout());
+    private final JPanel chrome = new JPanel(new BorderLayout()) {
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            Graphics2D g = (Graphics2D) graphics.create();
+            try {
+                Theme.paintElevatedCard(g, getWidth(), getHeight(), Theme.RADIUS + 5, 0f);
+            } finally {
+                g.dispose();
+            }
+        }
+    };
 
     /**
      * Whether the overlay is currently mounted.
@@ -119,9 +136,11 @@ public final class ModalOverlay {
      */
     public ModalOverlay(JFrame host) {
         this.host = host;
-        chrome.setOpaque(true);
+        chrome.setOpaque(false);
         chrome.setBackground(Theme.PANEL_SOLID);
-        chrome.setBorder(javax.swing.BorderFactory.createLineBorder(Theme.LINE));
+        // Pad so the opaque content sits inside the rounded sheet frame and the
+        // drop shadow has room beneath it.
+        chrome.setBorder(Theme.pad(Theme.SPACE_MD));
         backdropLayer.setLayout(new GridBagLayout());
         backdropLayer.setOpaque(false);
         backdropLayer.add(chrome, new GridBagConstraints());

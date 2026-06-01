@@ -19,10 +19,10 @@ import javax.swing.JComponent;
 import javax.swing.SwingUtilities;
 
 /**
- * A VS Code-style editor tab: a flat rectangle showing the panel name with a
- * close affordance. The active tab is lifted onto the panel surface and
- * underlined in the accent colour; every tab carries an {@code x} that hides
- * it from the strip.
+ * A VS Code macOS-style editor tab: a compact flat tab showing the panel name
+ * with a close affordance. The active tab lifts onto the editor surface with a
+ * quiet accent edge; every tab carries an {@code x} that hides it from the
+ * strip.
  */
 final class EditorTab extends JComponent {
 
@@ -34,7 +34,7 @@ final class EditorTab extends JComponent {
     /**
      * Tab height.
      */
-    private static final int HEIGHT = 30;
+    private static final int HEIGHT = 32;
 
     /**
      * Horizontal text padding.
@@ -319,7 +319,7 @@ final class EditorTab extends JComponent {
     }
 
     /**
-     * Paints the flat tab body, active underline, label, separator, and close
+     * Paints the flat tab body, active edge, label, separator, and close
      * affordance.
      *
      * @param graphics graphics context
@@ -333,15 +333,9 @@ final class EditorTab extends JComponent {
                     RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             int w = getWidth();
             int h = getHeight();
-            // VS Code-style tab body:
-            //  - Active tab background = PANEL_SOLID, matching the editor
-            //    pane host's background, so the active tab visually merges
-            //    with the content area below it (no visible seam).
-            //  - Inactive tabs sit on BG (the darker tab-strip surface),
-            //    hover lifts to TAB_HOVER.
-            //  - 3px accent bar along the TOP marks the active tab.
-            //  - Active label uses TEXT colour, not ACCENT, so the label
-            //    reads as content rather than as a coloured chip.
+            // VS Code macOS tab body: active tabs merge with the editor
+            // surface, inactive tabs sit on the title chrome, and separators
+            // stay soft so the strip feels native instead of boxed-in.
             Color background;
             if (selected) {
                 background = paneActive ? Theme.PANEL_SOLID : Theme.ELEVATED_SOLID;
@@ -352,22 +346,14 @@ final class EditorTab extends JComponent {
             }
             g.setColor(background);
             g.fillRect(0, 0, w, h);
-            // Thin trailing separator between tabs (the strip's "side" rule).
-            // Extends the full vertical span of the tab so the line meets the
-            // top and bottom edges flush, matching VS Code's tab separators.
-            g.setColor(Theme.LINE);
-            g.drawLine(w - 1, 0, w - 1, h - 1);
-            // Per-tab bottom separator: directly beneath the tab body so the
-            // line sits right against the cell, not down in a gap below the
-            // strip. Skipped on the active tab so it merges with the pane
-            // below — matches the VS Code reference where the bottom rule
-            // breaks under the selected tab.
+            g.setColor(Theme.withAlpha(Theme.LINE, Theme.isDark() ? 180 : 135));
+            if (!selected || !paneActive) {
+                g.drawLine(w - 1, 5, w - 1, h - 6);
+            }
             if (!selected) {
                 g.fillRect(0, h - 1, w, 1);
             } else {
-                // 1px accent rule — the subtlest VS Code-style top mark
-                // that still reads against the tab strip below.
-                g.setColor(paneActive ? Theme.ACCENT : Theme.LINE);
+                g.setColor(paneActive ? Theme.withAlpha(Theme.ACCENT, 235) : Theme.LINE);
                 g.fillRect(0, 0, w, 1);
             }
             g.setFont(Theme.font(12, Font.PLAIN));
@@ -389,7 +375,7 @@ final class EditorTab extends JComponent {
         Rectangle region = closeRegion();
         if (closeHover) {
             g.setColor(Theme.SECONDARY_BUTTON_PRESSED);
-            g.fillRoundRect(region.x, region.y, region.width, region.height, 6, 6);
+            g.fillRoundRect(region.x, region.y, region.width, region.height, Theme.RADIUS, Theme.RADIUS);
         }
         if (!selected && !hover) {
             return;

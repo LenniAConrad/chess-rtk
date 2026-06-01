@@ -313,7 +313,7 @@ public final class Ui {
      */
     public static JComponent optionGroup(String text, JComponent control) {
         JPanel panel = transparentPanel(new BorderLayout(6, 0));
-        control.setPreferredSize(new Dimension(120, 28));
+        control.setPreferredSize(new Dimension(120, Theme.CONTROL_HEIGHT));
         panel.add(label(text), BorderLayout.WEST);
         panel.add(control, BorderLayout.CENTER);
         return panel;
@@ -1337,10 +1337,7 @@ public final class Ui {
 
         /**
          * Button corner radius. Aligned with {@link Theme#RADIUS} so buttons
-         * match the subtle 3px rounding modern editor apps (VS Code, Cursor,
-         * Atom) use on interactive controls. Larger 8px pills looked too
-         * "designed"; structural surfaces around them are square so the
-         * mismatch felt out of place.
+         * keep the softer VS Code macOS control shape without becoming pills.
          */
         private static final int RADIUS = Theme.RADIUS;
 

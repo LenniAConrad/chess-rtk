@@ -76,7 +76,7 @@ public final class DatasetPanel extends JPanel {
     /**
      * Standard row height for dataset tables.
      */
-    private static final int TABLE_ROW_HEIGHT = 25;
+    private static final int TABLE_ROW_HEIGHT = Theme.TABLE_ROW_HEIGHT;
 
     /**
      * Labels used by the material histogram.
@@ -969,6 +969,11 @@ public final class DatasetPanel extends JPanel {
         private final JLabel detailLabel = new JLabel("-");
 
         /**
+         * Whether the pointer is currently over the tile.
+         */
+        private boolean hover;
+
+        /**
          * Creates a metric tile.
          *
          * @param title metric title
@@ -989,6 +994,25 @@ public final class DatasetPanel extends JPanel {
             add(titleLabel, BorderLayout.NORTH);
             add(valueLabel, BorderLayout.CENTER);
             add(detailLabel, BorderLayout.SOUTH);
+            addMouseListener(new java.awt.event.MouseAdapter() {
+                /**
+                 * {@inheritDoc}
+                 */
+                @Override
+                public void mouseEntered(java.awt.event.MouseEvent event) {
+                    hover = true;
+                    repaint();
+                }
+
+                /**
+                 * {@inheritDoc}
+                 */
+                @Override
+                public void mouseExited(java.awt.event.MouseEvent event) {
+                    hover = false;
+                    repaint();
+                }
+            });
         }
 
         /**
@@ -1017,10 +1041,12 @@ public final class DatasetPanel extends JPanel {
                 g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g.setColor(Theme.ELEVATED_SOLID);
                 g.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, Theme.RADIUS, Theme.RADIUS);
-                g.setColor(Theme.LINE);
+                // On hover, warm the border toward the tile's category colour
+                // as a quiet affordance that the tile carries a detail tooltip.
+                g.setColor(hover ? Theme.lerp(Theme.LINE, roleColor(role), 0.65f) : Theme.LINE);
                 g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, Theme.RADIUS, Theme.RADIUS);
                 g.setColor(roleColor(role));
-                g.fillRoundRect(0, 0, 3, getHeight() - 1, Theme.RADIUS, Theme.RADIUS);
+                g.fillRoundRect(0, 0, hover ? 4 : 3, getHeight() - 1, Theme.RADIUS, Theme.RADIUS);
             } finally {
                 g.dispose();
             }

@@ -26,9 +26,10 @@ public final class ChipGroup extends JComponent {
     private static final long serialVersionUID = 1L;
 
     /**
-     * Component height.
+     * Component height. Matches the shared compact-control height so chips line
+     * up with combos, toggles, and the segmented switcher on a toolbar row.
      */
-    private static final int HEIGHT = 30;
+    private static final int HEIGHT = Theme.CONTROL_HEIGHT;
 
     /**
      * Horizontal text padding inside a chip.

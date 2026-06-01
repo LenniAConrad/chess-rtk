@@ -4,7 +4,12 @@ import java.awt.LayoutManager;
 import javax.swing.JPanel;
 
 /**
- * Flat workbench surface for top-level editor regions.
+ * Flat, opaque workbench surface for top-level editor regions. Content panes
+ * stay dense and seam-free in the VS Code sense: the surface fully clears its
+ * own background so partial repaints never leave translucent trails, and it
+ * does not draw a rounded card. Elevation and frosted-glass cues are reserved
+ * for genuinely floating chrome (command palette, dialogs, popovers), where a
+ * controlled backdrop keeps text legible without expensive live blur.
  */
 public final class SurfacePanel extends JPanel {
 
@@ -14,7 +19,7 @@ public final class SurfacePanel extends JPanel {
     private static final long serialVersionUID = 1L;
 
     /**
-     * Creates a solid panel with a layout.
+     * Creates an opaque surface panel with a layout.
      *
      * @param layout layout manager
      */
@@ -24,12 +29,12 @@ public final class SurfacePanel extends JPanel {
     }
 
     /**
-     * Applies solid-panel defaults.
+     * Applies opaque-surface defaults.
      */
     private void configure() {
         setOpaque(true);
         setBackground(Theme.PANEL_SOLID);
         setForeground(Theme.TEXT);
-        setBorder(Theme.pad(10, 10, 10, 10));
+        setBorder(Theme.pad(Theme.SPACE_MD, Theme.SPACE_MD, Theme.SPACE_MD, Theme.SPACE_MD));
     }
 }

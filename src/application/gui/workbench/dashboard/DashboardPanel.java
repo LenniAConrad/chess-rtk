@@ -26,7 +26,11 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Insets;
+import java.awt.Container;
+import java.awt.Point;
 import java.awt.RenderingHints;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
@@ -41,6 +45,7 @@ import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 
 /**
  * The workbench Dashboard tab — a single operational overview of the current
@@ -336,7 +341,7 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         tagCloud.setAlignmentX(Component.LEFT_ALIGNMENT);
         context.add(tagCloud);
         context.add(Box.createVerticalStrut(Theme.SPACE_SM));
-        evalChart.setEmptyText("No eval yet.");
+        evalChart.setEmptyText("Analyze a position to chart its evaluation");
         evalChart.setAlignmentX(Component.LEFT_ALIGNMENT);
         context.add(caption("Eval · White"));
         context.add(Box.createVerticalStrut(Theme.SPACE_XS));
@@ -422,7 +427,7 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     private JComponent buildJobsCard() {
         jobTable.setFillsViewportHeight(true);
         jobTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        jobTable.setRowHeight(Theme.CONTROL_HEIGHT - 4);
+        jobTable.setRowHeight(Theme.TABLE_ROW_HEIGHT);
         jobTable.getTableHeader().setReorderingAllowed(false);
         jobTable.setAutoResizeMode(JTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS);
         Ui.styleComponentTree(jobTable);
@@ -771,30 +776,20 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     }
 
     /**
-     * Wraps dashboard content as a flat section. The dashboard still groups
-     * related facts, but it avoids boxed card chrome so the page reads like
-     * adjacent workbench regions.
+     * Wraps dashboard content as a softly elevated macOS-style grouped card:
+     * a rounded panel surface with a low-contrast border and a faint top
+     * highlight, so related facts read as a distinct group without heavy
+     * landing-page chrome. The card paints its own rounded surface, so it is
+     * non-opaque and lets the page wash show through its rounded corners.
      *
      * @param title section title
      * @param body section body
-     * @return section component
+     * @return card component
      */
     private static JComponent card(String title, JComponent body) {
-        JPanel cardPanel = new JPanel(new BorderLayout(0, Theme.SPACE_SM)) {
-            private static final long serialVersionUID = 1L;
-
-            /**
-             * {@inheritDoc}
-             */
-            @Override
-            public Dimension getMaximumSize() {
-                return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
-            }
-        };
-        cardPanel.setOpaque(true);
-        cardPanel.setBackground(Theme.PANEL_SOLID);
-        cardPanel.setBorder(Theme.pad(Theme.SPACE_MD, Theme.SPACE_SM,
-                Theme.SPACE_MD, Theme.SPACE_SM));
+        CardPanel cardPanel = new CardPanel();
+        cardPanel.setBorder(Theme.pad(Theme.SPACE_MD, Theme.SPACE_MD,
+                Theme.SPACE_MD, Theme.SPACE_MD));
         // Use the shared editor-style section label so Dashboard cards and
         // Analyze/Commands panels read as one design system; the previous
         // 13px bold title made Dashboard look like a separate older surface.
@@ -804,7 +799,158 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         // Cap the height so a card keeps its natural size inside a vertical
         // BoxLayout column instead of stretching to share spare space.
         cardPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        cardPanel.installHoverTracking();
         return cardPanel;
+    }
+
+    /**
+     * Softly elevated macOS-style grouped card with a frosted surface and a
+     * subtle hover-lift animation: hovering anywhere over the card warms its
+     * border toward the accent and deepens its drop shadow, eased over a short
+     * transition. The resting state (hover 0) is the default, so the card
+     * reads as a quiet grouped surface until the pointer enters it.
+     */
+    private static final class CardPanel extends JPanel {
+
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Corner radius for the card surface.
+         */
+        private static final int ARC = Theme.RADIUS + 3;
+
+        /**
+         * Hover transition duration in milliseconds.
+         */
+        private static final int HOVER_MS = 140;
+
+        /**
+         * Current eased hover amount, 0 (resting) to 1 (hovered).
+         */
+        private float hover;
+
+        /**
+         * Hover amount at the start of the active transition.
+         */
+        private float hoverStart;
+
+        /**
+         * Target hover amount for the active transition.
+         */
+        private float hoverTarget;
+
+        /**
+         * Wall-clock start of the active hover transition.
+         */
+        private long animationStartedAt;
+
+        /**
+         * Timer driving the hover-lift transition.
+         */
+        private final Timer hoverTimer;
+
+        /**
+         * Shared listener that tracks pointer enter/exit across the whole card.
+         */
+        private final transient MouseAdapter hoverListener = new MouseAdapter() {
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public void mouseEntered(MouseEvent event) {
+                animateTo(1f);
+            }
+
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public void mouseExited(MouseEvent event) {
+                Point point = SwingUtilities.convertPoint(event.getComponent(),
+                        event.getPoint(), CardPanel.this);
+                if (!contains(point)) {
+                    animateTo(0f);
+                }
+            }
+        };
+
+        CardPanel() {
+            super(new BorderLayout(0, Theme.SPACE_SM));
+            setOpaque(false);
+            setBackground(Theme.PANEL_SOLID);
+            hoverTimer = new Timer(16, event -> tick());
+            hoverTimer.setCoalesce(true);
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public Dimension getMaximumSize() {
+            return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
+        }
+
+        /**
+         * Installs hover tracking on the card and every current descendant so
+         * the lift animation responds to the pointer anywhere over the card.
+         */
+        void installHoverTracking() {
+            installHover(this);
+        }
+
+        private void installHover(Component component) {
+            component.addMouseListener(hoverListener);
+            if (component instanceof Container container) {
+                for (Component child : container.getComponents()) {
+                    installHover(child);
+                }
+            }
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public void removeNotify() {
+            hoverTimer.stop();
+            super.removeNotify();
+        }
+
+        private void animateTo(float target) {
+            if (Math.abs(hoverTarget - target) < 0.001f && hoverTimer.isRunning()) {
+                return;
+            }
+            hoverStart = hover;
+            hoverTarget = target;
+            animationStartedAt = System.currentTimeMillis();
+            if (!hoverTimer.isRunning()) {
+                hoverTimer.start();
+            }
+        }
+
+        private void tick() {
+            float progress = Math.min(1f,
+                    (System.currentTimeMillis() - animationStartedAt) / (float) HOVER_MS);
+            hover = hoverStart + (hoverTarget - hoverStart) * (float) Ui.easeOutCubic(progress);
+            if (progress >= 1f) {
+                hover = hoverTarget;
+                hoverTimer.stop();
+            }
+            repaint();
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            Graphics2D g = (Graphics2D) graphics.create();
+            try {
+                Theme.paintElevatedCard(g, getWidth(), getHeight(), ARC, hover);
+            } finally {
+                g.dispose();
+            }
+        }
     }
 
     /**

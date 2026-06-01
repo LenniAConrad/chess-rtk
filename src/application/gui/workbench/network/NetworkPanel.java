@@ -305,8 +305,7 @@ public final class NetworkPanel extends JPanel {
     /**
      * Toggle selecting whether the view follows the current MCTS leaf.
      */
-    private final ToggleBox mctsFollowLeafToggle =
-            new ToggleBox("Follow leaf", Defaults.NETWORK_MCTS_FOLLOW_LEAF);
+    private final ToggleBox mctsFollowLeafToggle = new ToggleBox("Follow leaf", true);
 
     /**
      * Status badge for MCTS progress.
@@ -744,6 +743,7 @@ public final class NetworkPanel extends JPanel {
         mctsPauseButton.setToolTipText("Pause or resume the PUCT worker while keeping the current leaf on screen.");
         mctsStopButton.setToolTipText("Stop PUCT and return the network view to the board/canned position.");
         mctsFollowLeafToggle.setToolTipText("When on, the network view shows the leaf currently being evaluated.");
+        mctsFollowLeafToggle.setSelected(Defaults.NETWORK_MCTS_FOLLOW_LEAF);
         mctsStatusBadge.setFixedTextWidth(NETWORK_MCTS_STATUS_TEXT_WIDTH);
         mctsStatusBadge.idle("MCTS idle");
 

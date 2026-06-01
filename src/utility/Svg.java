@@ -1,9 +1,11 @@
 package utility;
 
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.Shape;
+import java.awt.Stroke;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
@@ -167,6 +169,65 @@ public final class Svg {
         } finally {
             g2.setTransform(previous);
             g2.setRenderingHints(previousHints);
+        }
+    }
+
+    /**
+     * Renders a document as line art: every shape silhouette is filled with a
+     * flat base color and then stroked along its contours, producing an
+     * outline/line-art rendition of filled SVG geometry. The stroke width is
+     * given in the document's own coordinate units so the line keeps a constant
+     * relative weight at any output size.
+     *
+     * @param doc parsed SVG document
+     * @param g2 graphics context
+     * @param x left offset
+     * @param y top offset
+     * @param width output width
+     * @param height output height
+     * @param fill flat silhouette fill, or {@code null} to skip filling
+     * @param stroke contour stroke color, or {@code null} to skip stroking
+     * @param strokeWidthUnits stroke width in document coordinate units
+     */
+    public static void drawOutline(DocumentModel doc, Graphics2D g2, double x, double y, double width,
+            double height, Color fill, Color stroke, double strokeWidthUnits) {
+        if (doc == null) {
+            throw new IllegalArgumentException("SVG document is null");
+        }
+        if (g2 == null) {
+            throw new IllegalArgumentException("graphics context is null");
+        }
+        if (width <= 0.0 || height <= 0.0) {
+            return;
+        }
+        AffineTransform previous = g2.getTransform();
+        RenderingHints previousHints = (RenderingHints) g2.getRenderingHints().clone();
+        Stroke previousStroke = g2.getStroke();
+        try {
+            applyAntialiasing(g2);
+            g2.translate(x, y);
+            g2.scale(width / doc.viewBoxWidth(), height / doc.viewBoxHeight());
+            g2.translate(-doc.viewBoxX(), -doc.viewBoxY());
+            g2.setStroke(new BasicStroke((float) Math.max(0.0, strokeWidthUnits),
+                    BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            for (ShapeModel shape : doc.shapes()) {
+                if (shape.fill() == null) {
+                    continue;
+                }
+                Shape rendered = shape.transform().createTransformedShape(shape.path());
+                if (fill != null) {
+                    g2.setColor(fill);
+                    g2.fill(rendered);
+                }
+                if (stroke != null) {
+                    g2.setColor(stroke);
+                    g2.draw(rendered);
+                }
+            }
+        } finally {
+            g2.setTransform(previous);
+            g2.setRenderingHints(previousHints);
+            g2.setStroke(previousStroke);
         }
     }
 

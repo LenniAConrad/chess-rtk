@@ -669,6 +669,27 @@ public final class BoardPanel extends JPanel {
         showLegalMovePreview = show;
         repaint();
     }
+
+    /**
+     * Selects the piece artwork set, re-rendering cached piece bitmaps and
+     * repainting when the set changes.
+     *
+     * @param set piece artwork set
+     */
+    public void setPieceSet(chess.images.assets.PieceSet set) {
+        if (imageCache.pieceSet(set)) {
+            repaint();
+        }
+    }
+
+    /**
+     * Returns the active piece artwork set.
+     *
+     * @return active piece set
+     */
+    public chess.images.assets.PieceSet pieceSet() {
+        return imageCache.pieceSet();
+    }
     /**
      * Returns whether legal move previews are painted.
      * @return true when legal move previews are painted

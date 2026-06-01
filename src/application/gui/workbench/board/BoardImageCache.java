@@ -2,6 +2,7 @@ package application.gui.workbench.board;
 
 import application.gui.workbench.ui.RenderAcceleration;
 import chess.core.Piece;
+import chess.images.assets.PieceSet;
 import chess.images.assets.Shapes;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -31,6 +32,11 @@ final class BoardImageCache {
      * Cell size represented by {@link #pieceImageCache}.
      */
     private int pieceImageCacheCell = -1;
+
+    /**
+     * Active piece artwork set used to render cached piece bitmaps.
+     */
+    private PieceSet pieceSet = PieceSet.SLATE;
 
     /**
      * Cached board texture for the current board size.
@@ -88,10 +94,38 @@ final class BoardImageCache {
         }
         BufferedImage cached = pieceImageCache[index];
         if (cached == null) {
-            cached = renderPieceImage(piece, cell);
+            cached = renderPieceImage(pieceSet, piece, cell);
             pieceImageCache[index] = cached;
         }
         return cached;
+    }
+
+    /**
+     * Returns the active piece artwork set.
+     *
+     * @return active piece set
+     */
+    PieceSet pieceSet() {
+        return pieceSet;
+    }
+
+    /**
+     * Switches the piece artwork set, discarding cached bitmaps when it changes.
+     *
+     * @param set piece artwork set
+     * @return true when the set changed and caches were cleared
+     */
+    boolean pieceSet(PieceSet set) {
+        PieceSet next = set == null ? PieceSet.SLATE : set;
+        if (next == pieceSet) {
+            return false;
+        }
+        pieceSet = next;
+        Arrays.fill(pieceImageCache, null);
+        dragImageCache = null;
+        dragImageCachedPiece = Piece.EMPTY;
+        dragImageCachedCell = -1;
+        return true;
     }
 
     /**
@@ -103,7 +137,7 @@ final class BoardImageCache {
      */
     BufferedImage dragPieceImage(byte piece, int cell) {
         if (dragImageCache == null || dragImageCachedPiece != piece || dragImageCachedCell != cell) {
-            dragImageCache = renderPieceImage(piece, cell);
+            dragImageCache = renderPieceImage(pieceSet, piece, cell);
             dragImageCachedPiece = piece;
             dragImageCachedCell = cell;
         }
@@ -146,17 +180,18 @@ final class BoardImageCache {
     /**
      * Renders one embedded SVG piece into an exact-size bitmap.
      *
+     * @param set piece artwork set
      * @param piece signed piece code
      * @param cell target square size in pixels
      * @return rendered piece bitmap
      */
-    private static BufferedImage renderPieceImage(byte piece, int cell) {
+    private static BufferedImage renderPieceImage(PieceSet set, byte piece, int cell) {
         BufferedImage image = RenderAcceleration.translucentImage(cell, cell);
         Graphics2D graphics = image.createGraphics();
         try {
             graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-            Shapes.drawPiece(piece, graphics, 0, 0, cell, cell);
+            Shapes.drawPiece(set, piece, graphics, 0, 0, cell, cell);
         } finally {
             graphics.dispose();
         }

@@ -331,7 +331,11 @@ public final class SegmentedSwitcher extends JComponent {
             indicatorWidth = selectedBounds.width;
         }
         g.setColor(Theme.ACCENT);
-        g.fillRect(indicatorX, height - 2, indicatorWidth, 2);
+        // A slightly heavier, pill-capped underline reads as the active marker
+        // from across the toolbar, matching the VS Code active-tab accent.
+        int inset = Math.min(6, indicatorWidth / 6);
+        g.fillRoundRect(indicatorX + inset, height - 3,
+                Math.max(1, indicatorWidth - inset * 2), 3, 3, 3);
     }
 
     /**
@@ -351,9 +355,9 @@ public final class SegmentedSwitcher extends JComponent {
         g.fillRoundRect(r.x, r.y, r.width, r.height,
                 Math.max(arcLeft, arcRight) * 2, Math.max(arcLeft, arcRight) * 2);
         if (arcLeft == 0) {
-            g.fillRect(r.x, r.y, r.width / 2, r.height);
+            g.fillRect(r.x, r.y, (r.width + 1) / 2, r.height);
         } else if (arcRight == 0) {
-            g.fillRect(r.x + r.width / 2, r.y, r.width / 2, r.height);
+            g.fillRect(r.x + r.width / 2, r.y, (r.width + 1) / 2, r.height);
         }
     }
 

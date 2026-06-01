@@ -1,5 +1,6 @@
 package chess.images.assets;
 
+import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 
@@ -284,10 +285,60 @@ public final class Shapes {
      * @param height target height
      */
     public static void drawPiece(byte piece, Graphics2D g, double x, double y, double width, double height) {
-        DocumentModel doc = documentForPiece(piece);
-        if (doc != null) {
-            Svg.draw(doc, g, x, y, width, height);
+        drawPiece(PieceSet.SLATE, piece, g, x, y, width, height);
+    }
+
+    /**
+     * Outline-set fill for white pieces.
+     */
+    private static final Color OUTLINE_WHITE_FILL = new Color(0xF7F7F7);
+
+    /**
+     * Outline-set fill for black pieces.
+     */
+    private static final Color OUTLINE_BLACK_FILL = new Color(0x33363B);
+
+    /**
+     * Outline-set contour ink, shared by both colors for a single-weight look.
+     */
+    private static final Color OUTLINE_INK = new Color(0x23262B);
+
+    /**
+     * Outline-set contour stroke width as a fraction of the document viewBox.
+     */
+    private static final double OUTLINE_STROKE_FRACTION = 0.018;
+
+    /**
+     * Renders one piece using the requested {@link PieceSet}. The board reads
+     * the active set from preferences; image and PDF exports keep the default
+     * {@link PieceSet#SLATE} via the single-argument overload.
+     *
+     * @param set piece artwork set
+     * @param piece piece code from {@link Piece}
+     * @param g graphics context
+     * @param x target x position
+     * @param y target y position
+     * @param width target width
+     * @param height target height
+     */
+    public static void drawPiece(PieceSet set, byte piece, Graphics2D g,
+            double x, double y, double width, double height) {
+        if (set == PieceSet.STAUNTON) {
+            chess.images.assets.shape.StauntonPieces.draw(piece, g, x, y, width, height);
+            return;
         }
+        DocumentModel doc = documentForPiece(piece);
+        if (doc == null) {
+            return;
+        }
+        if (set == PieceSet.OUTLINE) {
+            boolean white = Piece.isWhitePiece(piece);
+            Color fill = white ? OUTLINE_WHITE_FILL : OUTLINE_BLACK_FILL;
+            double strokeUnits = doc.viewBoxWidth() * OUTLINE_STROKE_FRACTION;
+            Svg.drawOutline(doc, g, x, y, width, height, fill, OUTLINE_INK, strokeUnits);
+            return;
+        }
+        Svg.draw(doc, g, x, y, width, height);
     }
 
     /**

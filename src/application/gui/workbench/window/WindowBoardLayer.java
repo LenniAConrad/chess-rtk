@@ -10,9 +10,11 @@ import application.gui.workbench.game.SanRenderer;
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.session.LogPanel;
 import application.gui.workbench.ui.FileDialogs;
+import application.gui.workbench.ui.SegmentedSwitcher;
 import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Toast;
+import chess.images.assets.PieceSet;
 import chess.core.Setup;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -217,8 +219,39 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                 }),
                 iconButton("Copy FEN", event -> copyText(fenField.getText())),
                 createExportBoardButton()), c, 0, 3, 4, 1);
-        grid(panel, createPgnExplorerLauncher(), c, 0, 4, 4, 1);
+        JPanel pieceRow = transparentPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        pieceRow.add(label("Pieces"));
+        pieceRow.add(createPieceSetSwitcher());
+        grid(panel, pieceRow, c, 0, 4, 4, 1);
+        grid(panel, createPgnExplorerLauncher(), c, 0, 5, 4, 1);
         return panel;
+    }
+
+    /**
+     * Builds the segmented selector that switches the board's piece artwork
+     * set between the available {@link PieceSet} themes.
+     *
+     * @return piece-set switcher
+     */
+    private SegmentedSwitcher createPieceSetSwitcher() {
+        PieceSet[] sets = PieceSet.values();
+        String[] labels = new String[sets.length];
+        for (int i = 0; i < sets.length; i++) {
+            labels[i] = sets[i].label();
+        }
+        SegmentedSwitcher switcher = new SegmentedSwitcher(labels);
+        for (int i = 0; i < sets.length; i++) {
+            if (sets[i] == pieceSet) {
+                switcher.setSelectedIndex(i);
+            }
+        }
+        switcher.addActionListener(event -> {
+            pieceSet = PieceSet.values()[switcher.getSelectedIndex()];
+            board.setPieceSet(pieceSet);
+            saveDisplaySettings();
+        });
+        switcher.setToolTipText("Choose the chess piece artwork set");
+        return switcher;
     }
 
     /**

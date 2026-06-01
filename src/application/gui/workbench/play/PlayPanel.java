@@ -267,17 +267,29 @@ public final class PlayPanel extends JPanel {
         add(labeledRow("You play", sideChips), c);
 
         c.gridy++;
+        // Group the strength caption, its live Elo readout, and the slider into
+        // one unit: "Strength ........ 1800 · Club" directly above the slider,
+        // so the readout reads as the slider's value rather than a loose label.
         eloLabel.setForeground(Theme.TEXT);
         eloLabel.setFont(Theme.font(12, Font.BOLD));
-        add(labeledRow("Strength", eloLabel), c);
-
-        c.gridy++;
+        eloLabel.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
         Ui.styleSlider(eloSlider);
         eloSlider.setOpaque(false);
         eloSlider.setBackground(Theme.BG);
         eloSlider.setMajorTickSpacing(400);
         eloSlider.setMinorTickSpacing(Defaults.PLAY_ELO_STEP);
-        add(eloSlider, c);
+        JPanel strengthGroup = new JPanel(new java.awt.BorderLayout(0, 3));
+        strengthGroup.setOpaque(false);
+        JPanel strengthHeader = new JPanel(new java.awt.BorderLayout(8, 0));
+        strengthHeader.setOpaque(false);
+        JLabel strengthTitle = new JLabel("Strength");
+        strengthTitle.setForeground(Theme.MUTED);
+        strengthTitle.setFont(Theme.font(12, Font.PLAIN));
+        strengthHeader.add(strengthTitle, java.awt.BorderLayout.WEST);
+        strengthHeader.add(eloLabel, java.awt.BorderLayout.CENTER);
+        strengthGroup.add(strengthHeader, java.awt.BorderLayout.NORTH);
+        strengthGroup.add(eloSlider, java.awt.BorderLayout.CENTER);
+        add(strengthGroup, c);
 
         c.gridy++;
         add(labeledRow("Start from", startChips), c);

@@ -130,11 +130,20 @@ public final class MenuGlyphs {
          */
         @Override
         protected void paintBackground(Graphics graphics, JMenuItem item, Color backgroundColor) {
+            Color previous = graphics.getColor();
             ButtonModel model = item.getModel();
             boolean active = item.isEnabled() && (model.isArmed() || model.isRollover()
                     || model.isPressed() || (item instanceof JMenu && model.isSelected()));
             graphics.setColor(active ? Theme.SELECTION_SOLID : Theme.PANEL_SOLID);
             graphics.fillRect(0, 0, item.getWidth(), item.getHeight());
+            // Restore the inherited graphics color. BasicMenuItemUI.paintText
+            // sets the text color only for the armed/selected state; for an
+            // unselected enabled item it paints with whatever color the
+            // graphics already holds. Leaving the fill color set would render
+            // unselected labels invisibly (e.g. white-on-white), so the label
+            // would only appear on hover. The stock paintBackground restores
+            // the color for exactly this reason.
+            graphics.setColor(previous);
         }
 
         /**

@@ -49,7 +49,7 @@ public final class MctsPanel extends JPanel implements MctsSession.Listener {
     /**
      * Root move table row height.
      */
-    private static final int TABLE_ROW_HEIGHT = 27;
+    private static final int TABLE_ROW_HEIGHT = Theme.TABLE_ROW_HEIGHT;
 
     /**
      * Shared MCTS session.

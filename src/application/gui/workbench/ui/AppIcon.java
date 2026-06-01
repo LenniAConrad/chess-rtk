@@ -50,6 +50,11 @@ public final class AppIcon {
     private static final String MAC_APP_NAME_PROPERTY = "apple.awt.application.name";
 
     /**
+     * macOS system menu-bar property used by Swing/AWT.
+     */
+    private static final String MAC_SCREEN_MENU_BAR_PROPERTY = "apple.laf.useScreenMenuBar";
+
+    /**
      * Repository-relative PNG icon asset used by desktop launchers.
      */
     private static final Path ASSET_PATH = Path.of("assets", "logo", "app", "crtk-chemical-board.png");
@@ -87,6 +92,7 @@ public final class AppIcon {
     public static void installDesktopProperties() {
         setDefaultProperty(X11_WM_CLASS_PROPERTY, DESKTOP_APP_ID);
         setDefaultProperty(MAC_APP_NAME_PROPERTY, DESKTOP_APP_NAME);
+        setDefaultProperty(MAC_SCREEN_MENU_BAR_PROPERTY, "true");
     }
 
     /**

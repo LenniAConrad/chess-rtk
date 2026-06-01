@@ -747,6 +747,11 @@ public abstract class WindowBase extends JFrame {
     protected short[] visibleMoves = new short[0];
 
     /**
+     * Selected chess-piece artwork set.
+     */
+    protected chess.images.assets.PieceSet pieceSet = chess.images.assets.PieceSet.SLATE;
+
+    /**
      * Whether selected-piece legal destinations and drag targets are shown.
      */
     protected boolean showLegalMovePreview = true;

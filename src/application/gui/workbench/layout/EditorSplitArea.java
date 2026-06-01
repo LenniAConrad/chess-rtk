@@ -18,6 +18,7 @@ import java.util.Objects;
 import java.util.function.IntConsumer;
 import java.util.function.Supplier;
 import javax.swing.JComponent;
+import javax.swing.JLayeredPane;
 import javax.swing.MenuSelectionManager;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
@@ -183,6 +184,17 @@ public final class EditorSplitArea extends JPanel {
     private final JPanel centre = new JPanel(new BorderLayout());
 
     /**
+     * Layered host that stacks {@link #centre} beneath {@link #dropOverlay} so
+     * the drag drop-preview always composites above the editor content.
+     */
+    private final CenterStack layeredCentre = new CenterStack();
+
+    /**
+     * Top-layer overlay that paints the active drop-zone preview.
+     */
+    private final DropOverlay dropOverlay = new DropOverlay();
+
+    /**
      * Buttons used to split each editor group.
      */
     private final JToggleButton[] splitButtons = {
@@ -195,6 +207,12 @@ public final class EditorSplitArea extends JPanel {
     private final JToggleButton splitButton = splitButtons[PANE_PRIMARY];
 
     /**
+     * Per-pane "more tabs" buttons, shown only when a tab strip overflows its
+     * available width so every open tab stays reachable.
+     */
+    private final JToggleButton[] overflowButtons = new JToggleButton[PANE_QUATERNARY + 1];
+
+    /**
      * Creates an empty split area.
      */
     public EditorSplitArea() {
@@ -202,12 +220,32 @@ public final class EditorSplitArea extends JPanel {
         for (int pane = PANE_PRIMARY; pane <= PANE_QUATERNARY; pane++) {
             int paneId = pane;
             splitButtons[pane].addActionListener(event -> splitSelectedTabRightFromPane(paneId));
+            JToggleButton overflow = new JToggleButton("»");
+            overflow.setName("workbench.editor.tabs.overflow");
+            overflow.setToolTipText("Show all open tabs in this editor group");
+            overflow.getAccessibleContext().setAccessibleName("Show all open tabs");
+            Theme.commandTab(overflow);
+            overflow.setVisible(false);
+            overflow.addActionListener(event -> {
+                overflow.setSelected(false);
+                showTabOverflowMenu(paneId, overflow);
+            });
+            overflowButtons[pane] = overflow;
+            splitButtonHolders[pane].add(overflow);
             splitButtonHolders[pane].add(splitButtons[pane]);
+            paneStrip(pane).addComponentListener(new java.awt.event.ComponentAdapter() {
+                @Override
+                public void componentResized(java.awt.event.ComponentEvent event) {
+                    updateOverflowButton(paneId);
+                }
+            });
             EditorPaneShell.install(panePanel(pane), paneHeader(pane), paneStrip(pane), paneHost(pane),
                     splitButtonHolders[pane]);
         }
         applyChromeTheme();
-        add(centre, BorderLayout.CENTER);
+        layeredCentre.add(centre, JLayeredPane.DEFAULT_LAYER);
+        layeredCentre.add(dropOverlay, JLayeredPane.DRAG_LAYER);
+        add(layeredCentre, BorderLayout.CENTER);
     }
 
     private static JPanel splitButtonHolder() {
@@ -581,6 +619,51 @@ public final class EditorSplitArea extends JPanel {
         EditorTabStripState.remember(strip, isSplitActive(), open.size(), panels.size(), factoryBackedPanelCount());
         strip.revalidate();
         strip.repaint();
+        SwingUtilities.invokeLater(() -> updateOverflowButton(pane));
+    }
+
+    /**
+     * Shows or hides a pane's overflow button based on whether its tab strip
+     * has more tabs than fit in the available width.
+     *
+     * @param pane editor-group index
+     */
+    private void updateOverflowButton(int pane) {
+        JToggleButton button = overflowButtons[pane];
+        if (button == null) {
+            return;
+        }
+        JPanel strip = paneStrip(pane);
+        boolean overflowing = paneVisible(pane) && strip.getWidth() > 0
+                && strip.getPreferredSize().width > strip.getWidth() + 2;
+        if (button.isVisible() != overflowing) {
+            button.setVisible(overflowing);
+            JComponent holder = splitButtonHolders[pane];
+            holder.revalidate();
+            holder.repaint();
+        }
+    }
+
+    /**
+     * Pops up a menu listing every open tab in a pane so overflowed tabs stay
+     * reachable; selecting an entry activates that tab.
+     *
+     * @param pane editor-group index
+     * @param anchor button the menu drops from
+     */
+    private void showTabOverflowMenu(int pane, JComponent anchor) {
+        JPopupMenu menu = new JPopupMenu();
+        PopupMenus.style(menu);
+        int active = paneIndex(pane);
+        for (int index : tabsForPane(pane)) {
+            if (!validPanel(index)) {
+                continue;
+            }
+            int panelIndex = index;
+            String name = index == active ? "● " + names.get(index) : names.get(index);
+            menu.add(PopupMenus.item(name, () -> setPaneSelection(pane, panelIndex)));
+        }
+        menu.show(anchor, 0, anchor.getHeight());
     }
 
     private boolean needsReopenButton() {
@@ -689,7 +772,7 @@ public final class EditorSplitArea extends JPanel {
                 boolean clearedTarget = clearDragTarget();
                 if (dragZone != DROP_NONE || clearedTarget) {
                     dragZone = DROP_NONE;
-                    repaint();
+                    dropOverlay.repaint();
                 }
                 reorderWithinStrip(strip, tabList, draggedPanelIndex, stripX);
             } else {
@@ -705,7 +788,7 @@ public final class EditorSplitArea extends JPanel {
         int zone = dropZoneFor(inArea, body);
         if (zone != dragZone || clearedTarget) {
             dragZone = zone;
-            repaint();
+            dropOverlay.repaint();
         }
     }
 
@@ -791,7 +874,7 @@ public final class EditorSplitArea extends JPanel {
             dragTargetIndex = insertionIndex;
             dragTargetX = insertionX;
             dragZone = zone;
-            repaint();
+            dropOverlay.repaint();
         }
     }
 
@@ -860,6 +943,7 @@ public final class EditorSplitArea extends JPanel {
         int targetIndex = dragTargetIndex;
         dragZone = DROP_NONE;
         clearDragTarget();
+        dropOverlay.repaint();
         if (targetPane >= PANE_PRIMARY) {
             dockDraggedTab(draggedPanelIndex, targetPane, targetIndex);
             return;
@@ -1500,14 +1584,16 @@ public final class EditorSplitArea extends JPanel {
     }
 
     /**
-     * Paints the children, then the drop-zone hint while a tab is being
-     * dragged into the editor body.
+     * Paints the active drop-zone hint while a tab is being dragged into the
+     * editor body. Rendered by {@link DropOverlay} on the top layer of
+     * {@link #layeredCentre}, so it stays above tabs, split panes, and hosted
+     * panels even when those repaint independently mid-drag. The overlay shares
+     * this component's coordinate space because {@link #layeredCentre} fills the
+     * split area and the overlay fills the layered host.
      *
-     * @param graphics graphics
+     * @param g overlay graphics
      */
-    @Override
-    public void paint(Graphics graphics) {
-        super.paint(graphics);
+    private void paintDropPreview(Graphics2D g) {
         if (dragZone == DROP_NONE) {
             return;
         }
@@ -1516,19 +1602,14 @@ public final class EditorSplitArea extends JPanel {
         if (zone.isEmpty()) {
             return;
         }
-        Graphics2D g = (Graphics2D) graphics.create();
-        try {
-            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g.setColor(new Color(Theme.ACCENT.getRed(), Theme.ACCENT.getGreen(),
-                    Theme.ACCENT.getBlue(), DROP_FILL_ALPHA));
-            g.fillRect(zone.x, zone.y, zone.width, zone.height);
-            g.setColor(Theme.withAlpha(Theme.ACCENT, DROP_BORDER_ALPHA));
-            g.setStroke(new BasicStroke(1f));
-            g.drawRect(zone.x, zone.y, Math.max(0, zone.width - 1), Math.max(0, zone.height - 1));
-            paintTabInsertionMarker(g);
-        } finally {
-            g.dispose();
-        }
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setColor(new Color(Theme.ACCENT.getRed(), Theme.ACCENT.getGreen(),
+                Theme.ACCENT.getBlue(), DROP_FILL_ALPHA));
+        g.fillRect(zone.x, zone.y, zone.width, zone.height);
+        g.setColor(Theme.withAlpha(Theme.ACCENT, DROP_BORDER_ALPHA));
+        g.setStroke(new BasicStroke(1f));
+        g.drawRect(zone.x, zone.y, Math.max(0, zone.width - 1), Math.max(0, zone.height - 1));
+        paintTabInsertionMarker(g);
     }
 
     private void paintTabInsertionMarker(Graphics2D g) {
@@ -1584,5 +1665,64 @@ public final class EditorSplitArea extends JPanel {
     @Override
     public Dimension getPreferredSize() {
         return new Dimension(900, 620);
+    }
+
+    /**
+     * Center container that stacks the editor layout beneath the drop-preview
+     * overlay, sizing both children to fill. As a {@link JLayeredPane} it
+     * reports {@code isOptimizedDrawingEnabled() == false}, so any repaint that
+     * originates inside the editor layout re-composites the overlay on top —
+     * keeping the drop preview above tabs, split panes, and hosted panels.
+     */
+    private static final class CenterStack extends JLayeredPane {
+
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public void doLayout() {
+            int w = getWidth();
+            int h = getHeight();
+            for (Component child : getComponents()) {
+                child.setBounds(0, 0, w, h);
+            }
+        }
+    }
+
+    /**
+     * Transparent overlay that paints the active drop-zone preview on the top
+     * layer of {@link CenterStack}. It never intercepts pointer input, so the
+     * editor content and the in-flight tab drag below keep receiving events.
+     */
+    private final class DropOverlay extends JComponent {
+
+        private static final long serialVersionUID = 1L;
+
+        DropOverlay() {
+            setOpaque(false);
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public boolean contains(int x, int y) {
+            return false;
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            Graphics2D g = (Graphics2D) graphics.create();
+            try {
+                paintDropPreview(g);
+            } finally {
+                g.dispose();
+            }
+        }
     }
 }

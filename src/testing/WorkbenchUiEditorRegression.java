@@ -16,6 +16,7 @@ import java.util.function.Supplier;
 
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
@@ -51,6 +52,8 @@ final class WorkbenchUiEditorRegression {
         testSplitAreaThemeRefreshUpdatesHiddenTabs();
         testSplitAreaSupportsCornerEditorGroups();
         testSplitAreaDocksDraggedTabsBackIntoGroup();
+        testSplitAreaDropOverlayStaysAboveContent();
+        testSplitAreaShowsOverflowButtonWhenTabsDoNotFit();
         testSplitAreaExposesFlexibleTabActions();
         testEditorSplitActionsExposeClearStates();
         testSplitGroupsKeepLocalLayoutControls();
@@ -296,6 +299,77 @@ final class WorkbenchUiEditorRegression {
         assertTrue(secondary.isEmpty(), "source editor group is emptied after docking back");
         assertEquals(Integer.valueOf(2), invoke(area, "selectedIndex", new Class<?>[0]),
                 "docked tab becomes the active tab in the target group");
+    }
+
+    /**
+     * Verifies the split drag-and-drop preview renders on a dedicated top layer
+     * above the editor content, so it can never be painted under tabs, split
+     * panes, or hosted panels that repaint independently mid-drag.
+     */
+    private static void testSplitAreaDropOverlayStaysAboveContent() {
+        Class<?> areaType = type("layout.EditorSplitArea");
+        Object area = construct(areaType, new Class<?>[0]);
+        for (int i = 0; i < 2; i++) {
+            invoke(area, "addPanel", new Class<?>[] { String.class, JComponent.class },
+                    "Tab " + i, new JPanel());
+        }
+        invoke(area, "install", new Class<?>[0]);
+
+        JLayeredPane layered = (JLayeredPane) field(area, "layeredCentre");
+        JComponent centre = (JComponent) field(area, "centre");
+        JComponent overlay = (JComponent) field(area, "dropOverlay");
+
+        // Structural z-order invariant: the overlay lives above the content on a
+        // layered host that re-composites overlapping layers on partial repaints.
+        assertTrue(layered.getLayer((Component) overlay) > layered.getLayer((Component) centre),
+                "drop overlay sits on a higher layer than the editor content");
+        assertFalse(layered.isOptimizedDrawingEnabled(),
+                "layered host re-composites overlapping layers on child repaints");
+        assertFalse(overlay.isOpaque(), "drop overlay is transparent so content shows through");
+        assertFalse(overlay.contains(8, 8), "drop overlay passes pointer input through to content");
+
+        // Painting invariant: a right-edge drop preview fills the right half and
+        // leaves the left half untouched.
+        centre.setBounds(0, 0, 400, 300);
+        overlay.setBounds(0, 0, 400, 300);
+        setField(area, "dragZone", staticField(areaType, "DROP_RIGHT"));
+        BufferedImage image = paint(overlay, 400, 300);
+        assertTrue(alphaSum(image, 240, 40, 120, 200) > 0,
+                "drop overlay paints the preview in the targeted right half");
+        assertEquals(Integer.valueOf(0), Integer.valueOf(alphaSum(image, 20, 40, 120, 200)),
+                "drop overlay leaves the untargeted left half clear");
+    }
+
+    /**
+     * Verifies each editor group exposes a tab-overflow button that appears
+     * only when its tab strip cannot fit all open tabs, keeping overflowed tabs
+     * reachable.
+     */
+    private static void testSplitAreaShowsOverflowButtonWhenTabsDoNotFit() {
+        Class<?> areaType = type("layout.EditorSplitArea");
+        Object area = construct(areaType, new Class<?>[0]);
+        for (int i = 0; i < 9; i++) {
+            invoke(area, "addPanel", new Class<?>[] { String.class, JComponent.class },
+                    "Tab " + i, new JPanel());
+        }
+        invoke(area, "install", new Class<?>[0]);
+
+        JToggleButton[] overflow = (JToggleButton[]) field(area, "overflowButtons");
+        assertTrue(overflow[0] != null, "primary editor group has an overflow button");
+        assertEquals("workbench.editor.tabs.overflow", overflow[0].getName(),
+                "overflow button carries a stable name");
+        assertFalse(overflow[0].isVisible(), "overflow button is hidden before the strip is measured");
+
+        JPanel strip = (JPanel) field(area, "primaryStrip");
+        // A strip far narrower than its nine tabs must surface the overflow button.
+        strip.setSize(40, Theme.CONTROL_HEIGHT);
+        invoke(area, "updateOverflowButton", new Class<?>[] { int.class }, 0);
+        assertTrue(overflow[0].isVisible(), "overflow button shows when tabs do not fit the strip");
+
+        // A strip wide enough for every tab must hide it again.
+        strip.setSize(4000, Theme.CONTROL_HEIGHT);
+        invoke(area, "updateOverflowButton", new Class<?>[] { int.class }, 0);
+        assertFalse(overflow[0].isVisible(), "overflow button hides when every tab fits");
     }
 
     /**

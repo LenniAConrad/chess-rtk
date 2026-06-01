@@ -115,9 +115,28 @@ public final class PuzzlePanel extends JPanel {
     private final JLabel statusLabel = new JLabel("Load a PGN puzzle.");
 
     /**
-     * Branch progress label.
+     * Branch progress label, painted as a compact accent-tinted count pill.
      */
-    private final JLabel progressLabel = new JLabel("0 / 0");
+    private final JLabel progressLabel = new JLabel("0 / 0") {
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        protected void paintComponent(java.awt.Graphics graphics) {
+            java.awt.Graphics2D g = (java.awt.Graphics2D) graphics.create();
+            try {
+                g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
+                        java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                g.setColor(Theme.withAlpha(Theme.ACCENT, Theme.isDark() ? 48 : 30));
+                g.fillRoundRect(0, 0, getWidth(), getHeight(), Theme.RADIUS + 3, Theme.RADIUS + 3);
+            } finally {
+                g.dispose();
+            }
+            super.paintComponent(graphics);
+        }
+    };
 
     /**
      * Counter label for attempts, hints, and reveals.
@@ -298,7 +317,9 @@ public final class PuzzlePanel extends JPanel {
         titleLabel.setFont(Theme.font(13, Font.BOLD));
 
         progressLabel.setFont(Theme.font(12, Font.BOLD));
-        Theme.foreground(progressLabel, Theme.ForegroundRole.MUTED);
+        Theme.foreground(progressLabel, Theme.ForegroundRole.TEXT);
+        progressLabel.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        progressLabel.setBorder(Theme.pad(2, 10, 2, 10));
 
         GridBagConstraints c = constraints();
         c.gridy = 0;
@@ -316,7 +337,11 @@ public final class PuzzlePanel extends JPanel {
         c.weightx = 0;
         c.fill = GridBagConstraints.NONE;
         c.anchor = GridBagConstraints.EAST;
-        grid(header, progressLabel, c, 2, 0, 1, 1);
+        // Wrap so the count pill stays sized to its content (the header cell can
+        // stretch, but the pill must not become a full-width accent band).
+        JPanel progressWrap = transparentPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        progressWrap.add(progressLabel);
+        grid(header, progressWrap, c, 2, 0, 1, 1);
 
         JPanel controls = transparentPanel(new WrappingFlowLayout(FlowLayout.RIGHT, 8, 0));
         controls.add(labeledControl("", modeCombo));

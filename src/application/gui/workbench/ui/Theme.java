@@ -5,7 +5,9 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.Graphics2D;
 import java.awt.Insets;
+import java.awt.RenderingHints;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.AbstractButton;
@@ -170,24 +172,24 @@ public final class Theme {
     private static final String FOREGROUND_ROLE_PROPERTY = Theme.class.getName() + ".foregroundRole";
 
     /**
-     * VS Code Light (Visual Studio) primary foreground.
+     * VS Code macOS light primary foreground.
      */
-    private static final Color PASTEL_INK = new Color(0x000000);
+    private static final Color PASTEL_INK = new Color(0x1F1F24);
 
     /**
-     * VS Code Light (Visual Studio) secondary foreground.
+     * VS Code macOS light secondary foreground.
      */
-    private static final Color PASTEL_MUTED = new Color(0x6F6F6F);
+    private static final Color PASTEL_MUTED = new Color(0x6E6E73);
 
     /**
-     * VS Code Light (Visual Studio) chrome/widget background.
+     * VS Code macOS light chrome/widget background.
      */
-    private static final Color PASTEL_CHROME = new Color(0xF3F3F3);
+    private static final Color PASTEL_CHROME = new Color(0xF4F4F5);
 
     /**
-     * VS Code Light (Visual Studio) hover/subtle-fill base.
+     * VS Code macOS light hover/subtle-fill base.
      */
-    private static final Color PASTEL_SUBTLE = new Color(0xE8E8E8);
+    private static final Color PASTEL_SUBTLE = new Color(0xECECEF);
 
     /**
      * VS Code Light (Visual Studio) document/editor surface.
@@ -195,24 +197,25 @@ public final class Theme {
     private static final Color PASTEL_DOCUMENT = new Color(255, 255, 255);
 
     /**
-     * VS Code Light (Visual Studio) widget/menu border.
+     * VS Code macOS light widget/menu border.
      */
-    private static final Color PASTEL_BORDER = new Color(0xD4D4D4);
+    private static final Color PASTEL_BORDER = new Color(0xDADADF);
 
     /**
-     * VS Code Light Modern focus/action blue.
+     * macOS-style action blue, deepened from Apple's bright system blue so that
+     * white primary-button text clears the AA 4.5:1 contrast bar in light mode.
      */
-    private static final Color PASTEL_BLUE = new Color(0x005FB8);
+    private static final Color PASTEL_BLUE = new Color(0x0A5CC0);
 
     /**
-     * VS Code Light Modern primary button hover blue.
+     * macOS system blue hover.
      */
-    private static final Color PASTEL_BLUE_HOVER = new Color(0x0258A8);
+    private static final Color PASTEL_BLUE_HOVER = new Color(0x0077ED);
 
     /**
-     * Darkened VS Code Light Modern primary button pressed blue.
+     * macOS system blue pressed.
      */
-    private static final Color PASTEL_BLUE_PRESSED = new Color(0x004F96);
+    private static final Color PASTEL_BLUE_PRESSED = new Color(0x006EDB);
 
     /**
      * Accessible blue text for informational surfaces.
@@ -255,24 +258,24 @@ public final class Theme {
     private static final Color PASTEL_PURPLE = new Color(204, 154, 245);
 
     /**
-     * VS Code Dark (Visual Studio) primary foreground.
+     * VS Code macOS dark primary foreground.
      */
-    private static final Color DARK_INK = new Color(0xD4D4D4);
+    private static final Color DARK_INK = new Color(0xE8E8EA);
 
     /**
-     * VS Code Dark (Visual Studio) secondary foreground.
+     * VS Code macOS dark secondary foreground.
      */
-    private static final Color DARK_MUTED = new Color(0xA6A6A6);
+    private static final Color DARK_MUTED = new Color(0xA1A1A6);
 
     /**
-     * VS Code Dark (Visual Studio) menu/sidebar chrome background.
+     * VS Code macOS dark title/sidebar chrome background.
      */
-    private static final Color DARK_CHROME = new Color(0x252526);
+    private static final Color DARK_CHROME = new Color(0x2C2C2E);
 
     /**
-     * VS Code Dark (Visual Studio) widget border.
+     * VS Code macOS dark widget border.
      */
-    private static final Color DARK_SUBTLE = new Color(0x303031);
+    private static final Color DARK_SUBTLE = new Color(0x3A3A3C);
 
     /**
      * VS Code Dark (Visual Studio) editor surface.
@@ -280,29 +283,30 @@ public final class Theme {
     private static final Color DARK_DOCUMENT = new Color(0x1E1E1E);
 
     /**
-     * VS Code Dark (Visual Studio) popup/dropdown surface.
+     * VS Code macOS dark popup/dropdown surface.
      */
-    private static final Color DARK_ELEVATED = DARK_CHROME;
+    private static final Color DARK_ELEVATED = new Color(0x252526);
 
     /**
-     * VS Code Dark (Visual Studio) menu separator and input border.
+     * VS Code macOS dark menu separator and input border.
      */
-    private static final Color DARK_BORDER = new Color(0x454545);
+    private static final Color DARK_BORDER = new Color(0x48484A);
 
     /**
-     * VS Code Dark Modern focus/action blue.
+     * macOS-style action blue for dark mode: brighter than the light accent so
+     * it pops on dark chrome, while still clearing AA 4.5:1 for white text.
      */
-    private static final Color DARK_ACCENT = new Color(0x0078D4);
+    private static final Color DARK_ACCENT = new Color(0x0A6EE4);
 
     /**
-     * VS Code Dark Modern primary button hover blue.
+     * macOS system blue dark hover.
      */
-    private static final Color DARK_ACCENT_HOVER = new Color(0x026EC1);
+    private static final Color DARK_ACCENT_HOVER = new Color(0x2997FF);
 
     /**
-     * Darkened VS Code Dark Modern primary button pressed blue.
+     * macOS system blue dark pressed.
      */
-    private static final Color DARK_ACCENT_PRESSED = new Color(0x005FB8);
+    private static final Color DARK_ACCENT_PRESSED = new Color(0x0077ED);
 
     /**
      * Dark-mode vibrant pastel positive accent.
@@ -366,6 +370,23 @@ public final class Theme {
     public static Color PANEL_SOLID = blendOver(PANEL, BG);
 
     /**
+     * Soft top highlight for elevated, opaque floating chrome (command palette,
+     * dialogs). A faint light edge near the top reads as the macOS "frosted"
+     * language without translucent bodies that would muddy text over content.
+     */
+    public static Color GLASS_HIGHLIGHT = new Color(255, 255, 255, 112);
+
+    /**
+     * Root backdrop top wash, shown at window edges and during resize.
+     */
+    public static Color BACKDROP_TOP = new Color(0xF8F8FA);
+
+    /**
+     * Root backdrop bottom wash, shown at window edges and during resize.
+     */
+    public static Color BACKDROP_BOTTOM = new Color(0xEFEFF3);
+
+    /**
      * Elevated panel color.
      */
     public static Color ELEVATED = PASTEL_CHROME;
@@ -398,7 +419,7 @@ public final class Theme {
     /**
      * Table and tree selection color.
      */
-    public static Color SELECTION = new Color(0xE5EBF1);
+    public static Color SELECTION = new Color(0xDDEBFF);
 
     /**
      * Solid selection fallback for opaque renderers.
@@ -428,7 +449,7 @@ public final class Theme {
     /**
      * Secondary button pressed color.
      */
-    public static Color SECONDARY_BUTTON_PRESSED = new Color(0xDDDDDD);
+    public static Color SECONDARY_BUTTON_PRESSED = new Color(0xDFDFE4);
 
     /**
      * Secondary button text color.
@@ -453,7 +474,7 @@ public final class Theme {
     /**
      * Input border color.
      */
-    public static Color INPUT_BORDER = new Color(0xCECECE);
+    public static Color INPUT_BORDER = new Color(0xC6C6CC);
 
     /**
      * Input focus ring color.
@@ -483,7 +504,7 @@ public final class Theme {
     /**
      * Toggle-on background color.
      */
-    public static Color TOGGLE_ON_BG = new Color(0xBED6ED);
+    public static Color TOGGLE_ON_BG = new Color(0xD5EBFF);
 
     /**
      * Toggle-on track color.
@@ -732,7 +753,7 @@ public final class Theme {
     /**
      * Informational feedback surface.
      */
-    public static Color STATUS_INFO_BG = new Color(0xE5EBF1);
+    public static Color STATUS_INFO_BG = new Color(0xEAF4FF);
 
     /**
      * Informational feedback border.
@@ -814,16 +835,22 @@ public final class Theme {
 
     /**
      * Shared corner radius for compact custom-painted chrome (toggle switches,
-     * segmented selectors, chips). Kept small for the crisp, near-square VS
-     * Code look.
+     * segmented selectors, chips). VS Code on macOS is still dense, but its
+     * controls are softer than the near-square Windows/Linux chrome.
      */
-    public static final int RADIUS = 3;
+    public static final int RADIUS = 7;
 
     /**
      * Standard height for compact toolbar controls (combos, segmented
      * switchers, toggles) so a control row lines up on a single baseline.
      */
-    public static final int CONTROL_HEIGHT = 30;
+    public static final int CONTROL_HEIGHT = 32;
+
+    /**
+     * Shared row height for data tables (datasets, MCTS root moves, dashboard
+     * jobs) so every grid reads with the same comfortable, scannable density.
+     */
+    public static final int TABLE_ROW_HEIGHT = 28;
 
     // ------------------------------------------------------------------
     // Neural-network visualization palette
@@ -1100,13 +1127,17 @@ public final class Theme {
         return rgb == (PASTEL_BORDER.getRGB() & 0x00ff_ffff)
                 || rgb == 0xe5e5e5
                 || rgb == 0xd4d4d4
+                || rgb == 0xdadadf
+                || rgb == 0xc6c6cc
                 || rgb == 0xe1e5eb
                 || rgb == 0xc7cdd7
                 || rgb == (DARK_SUBTLE.getRGB() & 0x00ff_ffff)
                 || rgb == (DARK_BORDER.getRGB() & 0x00ff_ffff)
                 || rgb == 0x303031
+                || rgb == 0x3a3a3c
                 || rgb == 0x373737
                 || rgb == 0x454545
+                || rgb == 0x48484a
                 || rgb == 0x2b2b2b
                 || rgb == 0x3c3c3c;
     }
@@ -1204,30 +1235,33 @@ public final class Theme {
         TRANSPARENT = new Color(PASTEL_DOCUMENT.getRed(), PASTEL_DOCUMENT.getGreen(), PASTEL_DOCUMENT.getBlue(), 0);
         PANEL = PASTEL_DOCUMENT;
         PANEL_SOLID = blendOver(PANEL, BG);
+        GLASS_HIGHLIGHT = new Color(255, 255, 255, 112);
+        BACKDROP_TOP = new Color(0xF8F8FA);
+        BACKDROP_BOTTOM = new Color(0xEFEFF3);
         ELEVATED = PASTEL_CHROME;
         ELEVATED_SOLID = blendOver(ELEVATED, BG);
         LINE = PASTEL_BORDER;
         TEXT = PASTEL_INK;
         MUTED = PASTEL_MUTED;
         ACCENT = PASTEL_BLUE;
-        SELECTION = new Color(0xE5EBF1);
+        SELECTION = new Color(0xDDEBFF);
         SELECTION_SOLID = blendOver(SELECTION, BG);
         ACCENT_HOVER = PASTEL_BLUE_HOVER;
         ACCENT_PRESSED = PASTEL_BLUE_PRESSED;
         SECONDARY_BUTTON = PASTEL_CHROME;
         SECONDARY_BUTTON_HOVER = PASTEL_SUBTLE;
-        SECONDARY_BUTTON_PRESSED = new Color(0xDDDDDD);
+        SECONDARY_BUTTON_PRESSED = new Color(0xDFDFE4);
         SECONDARY_BUTTON_TEXT = PASTEL_INK;
         BUTTON_DISABLED_BG = PASTEL_CHROME;
         BUTTON_DISABLED_BORDER = PASTEL_BORDER;
         BUTTON_DISABLED_TEXT = PASTEL_MUTED;
-        INPUT_BORDER = new Color(0xCECECE);
+        INPUT_BORDER = new Color(0xC6C6CC);
         INPUT_FOCUS = PASTEL_BLUE;
         INPUT_DISABLED = PASTEL_CHROME;
         TOGGLE_BG = PASTEL_SUBTLE;
         TOGGLE_BORDER = INPUT_BORDER;
         TOGGLE_TRACK = PASTEL_MUTED;
-        TOGGLE_ON_BG = new Color(0xBED6ED);
+        TOGGLE_ON_BG = new Color(0xD5EBFF);
         TOGGLE_ON_TRACK = PASTEL_BLUE;
         TOGGLE_THUMB = PASTEL_DOCUMENT;
         INPUT = PASTEL_DOCUMENT;
@@ -1238,7 +1272,7 @@ public final class Theme {
         PRIMARY_BUTTON_TEXT = Color.WHITE;
         setFixedBoardAndEvalColors();
         TAB_ACCENT_UNDERLINE = withAlpha(ACCENT, 255);
-        TAB_HOVER = new Color(PASTEL_DOCUMENT.getRed(), PASTEL_DOCUMENT.getGreen(), PASTEL_DOCUMENT.getBlue(), 255);
+        TAB_HOVER = new Color(PASTEL_SUBTLE.getRed(), PASTEL_SUBTLE.getGreen(), PASTEL_SUBTLE.getBlue(), 255);
         TAB_IDLE = new Color(BG.getRed(), BG.getGreen(), BG.getBlue(), 255);
         SCROLLBAR_TRACK = new Color(PASTEL_CHROME.getRed(), PASTEL_CHROME.getGreen(), PASTEL_CHROME.getBlue(), 0);
         SCROLLBAR_THUMB = new Color(PASTEL_MUTED.getRed(), PASTEL_MUTED.getGreen(), PASTEL_MUTED.getBlue(), 80);
@@ -1255,7 +1289,7 @@ public final class Theme {
         STATUS_ERROR_BG = new Color(255, 241, 240);
         STATUS_ERROR_BORDER = PASTEL_CORAL;
         STATUS_ERROR_TEXT = PASTEL_CORAL_TEXT;
-        STATUS_INFO_BG = new Color(0xE5EBF1);
+        STATUS_INFO_BG = new Color(0xEAF4FF);
         STATUS_INFO_BORDER = PASTEL_BLUE;
         STATUS_INFO_TEXT = PASTEL_BLUE_TEXT;
         LOGO_BACKGROUND = new Color(PASTEL_PURPLE.getRed(), PASTEL_PURPLE.getGreen(), PASTEL_PURPLE.getBlue(), 230);
@@ -1279,26 +1313,29 @@ public final class Theme {
         TRANSPARENT = new Color(DARK_DOCUMENT.getRed(), DARK_DOCUMENT.getGreen(), DARK_DOCUMENT.getBlue(), 0);
         PANEL = DARK_DOCUMENT;
         PANEL_SOLID = blendOver(PANEL, BG);
+        GLASS_HIGHLIGHT = new Color(255, 255, 255, 24);
+        BACKDROP_TOP = new Color(0x303032);
+        BACKDROP_BOTTOM = new Color(0x242426);
         ELEVATED = DARK_ELEVATED;
         ELEVATED_SOLID = blendOver(ELEVATED, BG);
         LINE = DARK_SUBTLE;
         TEXT = DARK_INK;
         MUTED = DARK_MUTED;
         ACCENT = DARK_ACCENT;
-        SELECTION = new Color(0x3A3D41);
+        SELECTION = new Color(0x264F78);
         SELECTION_SOLID = blendOver(SELECTION, BG);
         ACCENT_HOVER = DARK_ACCENT_HOVER;
         ACCENT_PRESSED = DARK_ACCENT_PRESSED;
-        SECONDARY_BUTTON = DARK_CHROME;
-        SECONDARY_BUTTON_HOVER = DARK_SUBTLE;
-        SECONDARY_BUTTON_PRESSED = new Color(0x383A49);
+        SECONDARY_BUTTON = new Color(0x363638);
+        SECONDARY_BUTTON_HOVER = new Color(0x424245);
+        SECONDARY_BUTTON_PRESSED = new Color(0x4B4B4F);
         SECONDARY_BUTTON_TEXT = DARK_INK;
         BUTTON_DISABLED_BG = DARK_DOCUMENT;
         BUTTON_DISABLED_BORDER = DARK_SUBTLE;
         BUTTON_DISABLED_TEXT = new Color(0x868686);
         INPUT_BORDER = DARK_BORDER;
         INPUT_FOCUS = DARK_ACCENT;
-        INPUT_DISABLED = DARK_CHROME;
+        INPUT_DISABLED = new Color(0x323234);
         TOGGLE_BG = DARK_ELEVATED;
         TOGGLE_BORDER = DARK_BORDER;
         TOGGLE_TRACK = DARK_MUTED;
@@ -1313,7 +1350,7 @@ public final class Theme {
         PRIMARY_BUTTON_TEXT = Color.WHITE;
         setFixedBoardAndEvalColors();
         TAB_ACCENT_UNDERLINE = withAlpha(ACCENT, 255);
-        TAB_HOVER = new Color(0x222222);
+        TAB_HOVER = new Color(0x37373A);
         TAB_IDLE = new Color(BG.getRed(), BG.getGreen(), BG.getBlue(), 255);
         SCROLLBAR_TRACK = new Color(DARK_CHROME.getRed(), DARK_CHROME.getGreen(), DARK_CHROME.getBlue(), 0);
         SCROLLBAR_THUMB = new Color(DARK_MUTED.getRed(), DARK_MUTED.getGreen(), DARK_MUTED.getBlue(), 82);
@@ -1412,6 +1449,57 @@ public final class Theme {
     }
 
     /**
+     * Linearly interpolates between two colors in sRGB space.
+     *
+     * @param from start color
+     * @param to end color
+     * @param amount blend amount from 0 (from) to 1 (to)
+     * @return blended color
+     */
+    public static Color lerp(Color from, Color to, float amount) {
+        float t = Math.max(0f, Math.min(1f, amount));
+        return new Color(
+                Math.round(from.getRed() + (to.getRed() - from.getRed()) * t),
+                Math.round(from.getGreen() + (to.getGreen() - from.getGreen()) * t),
+                Math.round(from.getBlue() + (to.getBlue() - from.getBlue()) * t),
+                Math.round(from.getAlpha() + (to.getAlpha() - from.getAlpha()) * t));
+    }
+
+    /**
+     * Paints a restrained macOS-style "frosted glass" elevated card: a soft
+     * drop shadow, a lightly translucent rounded surface, a faint top highlight,
+     * and a low-contrast border that warms toward the accent as the hover
+     * amount rises. Reused by elevated surfaces (dashboard cards, floating
+     * chrome) so glass treatment stays consistent. The surface body stays
+     * near-opaque so text over it remains legible without true backdrop blur.
+     *
+     * @param g graphics context (its color/hints are modified; pass a scratch copy)
+     * @param width component width
+     * @param height component height
+     * @param arc corner radius
+     * @param hover hover amount from 0 (resting) to 1 (fully hovered)
+     */
+    public static void paintElevatedCard(Graphics2D g, int width, int height, int arc, float hover) {
+        float h = Math.max(0f, Math.min(1f, hover));
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        int shadow = 3;
+        int w = Math.max(0, width - 1);
+        int surfaceHeight = Math.max(0, height - 1 - shadow);
+        int baseShadowAlpha = isDark() ? 78 : 26;
+        int shadowAlpha = Math.round(baseShadowAlpha * (0.75f + 0.45f * h));
+        g.setColor(new Color(0, 0, 0, Math.max(0, Math.min(255, shadowAlpha))));
+        g.fillRoundRect(2, shadow, Math.max(0, w - 3), surfaceHeight, arc, arc);
+        g.setColor(new Color(0, 0, 0, Math.max(0, Math.min(255, shadowAlpha / 2))));
+        g.fillRoundRect(1, Math.max(0, shadow - 1), Math.max(0, w - 1), surfaceHeight, arc, arc);
+        g.setColor(withAlpha(PANEL_SOLID, 244));
+        g.fillRoundRect(0, 0, w, surfaceHeight, arc, arc);
+        g.setColor(GLASS_HIGHLIGHT);
+        g.drawLine(arc / 2, 1, Math.max(arc / 2, w - arc / 2), 1);
+        g.setColor(lerp(LINE, ACCENT, h * 0.85f));
+        g.drawRoundRect(0, 0, w, surfaceHeight, arc, arc);
+    }
+
+    /**
      * Returns a CSS hex string for Swing HTML snippets.
      *
      * @param color color
@@ -1422,14 +1510,15 @@ public final class Theme {
     }
 
     /**
-     * Installs the native look and feel plus consistent defaults.
+     * Installs the platform look and feel on macOS, otherwise the stable
+     * cross-platform look and feel, plus consistent workbench defaults.
      */
     public static void install() {
         try {
-            UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
+            UIManager.setLookAndFeel(preferredLookAndFeelClassName());
         } catch (ClassNotFoundException | InstantiationException | IllegalAccessException
                 | javax.swing.UnsupportedLookAndFeelException ex) {
-            LOGGER.log(Level.FINE, "Cross-platform LookAndFeel unavailable; keeping default LookAndFeel.", ex);
+            LOGGER.log(Level.FINE, "Preferred LookAndFeel unavailable; keeping default LookAndFeel.", ex);
         }
         installFontDefaults();
         UIManager.put("Panel.background", BG);
@@ -1528,6 +1617,28 @@ public final class Theme {
     }
 
     /**
+     * Returns the look and feel that best matches the current desktop.
+     *
+     * @return Swing look-and-feel class name
+     */
+    private static String preferredLookAndFeelClassName() {
+        return isMacOs()
+                ? UIManager.getSystemLookAndFeelClassName()
+                : UIManager.getCrossPlatformLookAndFeelClassName();
+    }
+
+    /**
+     * Returns whether the runtime is on macOS.
+     *
+     * @return true on macOS
+     */
+    private static boolean isMacOs() {
+        return System.getProperty("os.name", "")
+                .toLowerCase(java.util.Locale.ROOT)
+                .contains("mac");
+    }
+
+    /**
      * Installs default fonts for native Swing components that may be created
      * outside the workbench factories.
      */
@@ -1565,10 +1676,14 @@ public final class Theme {
     }
 
     /**
-     * VS Code-inspired system UI font candidates, ordered by platform fit and
-     * then broadly available Linux fallbacks.
+     * VS Code macOS-inspired system UI font candidates, ordered by platform
+     * fit and then broadly available Linux/Windows fallbacks.
      */
     private static final String[] UI_FONT_CANDIDATES = {
+        "SF Pro Text",
+        "SF Pro Display",
+        ".AppleSystemUIFont",
+        "Helvetica Neue",
         "Segoe UI",
         "Segoe WPC",
         "Ubuntu Sans",
@@ -1585,6 +1700,9 @@ public final class Theme {
      * Code and terminal font candidates for FENs, logs, commands, and reports.
      */
     private static final String[] MONO_FONT_CANDIDATES = {
+        "SF Mono",
+        "Menlo",
+        "Monaco",
         "Cascadia Mono",
         "Cascadia Code",
         "JetBrains Mono",
@@ -1595,9 +1713,7 @@ public final class Theme {
         "Noto Sans Mono",
         "DejaVu Sans Mono",
         "Liberation Mono",
-        "Consolas",
-        "Menlo",
-        "Monaco"
+        "Consolas"
     };
 
     /**

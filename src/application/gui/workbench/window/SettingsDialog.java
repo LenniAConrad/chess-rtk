@@ -6,6 +6,7 @@ import application.gui.workbench.ui.ModalOverlay;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
@@ -57,15 +58,25 @@ public final class SettingsDialog extends JPanel {
         setBorder(Theme.pad(Theme.SPACE_MD));
 
         JPanel header = Ui.transparentPanel(new BorderLayout());
+        JPanel titleColumn = Ui.transparentPanel(new BorderLayout(0, 2));
         JLabel title = new JLabel("Settings");
-        title.setFont(Theme.font(14, Font.BOLD));
+        title.setFont(Theme.font(15, Font.BOLD));
         title.setForeground(Theme.TEXT);
-        header.add(title, BorderLayout.WEST);
+        JLabel subtitle = new JLabel("Workbench appearance, board, sound, and engine options");
+        subtitle.setFont(Theme.font(11, Font.PLAIN));
+        Theme.foreground(subtitle, Theme.ForegroundRole.MUTED);
+        titleColumn.add(title, BorderLayout.NORTH);
+        titleColumn.add(subtitle, BorderLayout.CENTER);
+        header.add(titleColumn, BorderLayout.WEST);
         JButton close = Ui.button("Close", false, event -> overlay.hide());
         JPanel closeWrap = Ui.transparentPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         closeWrap.add(close);
         header.add(closeWrap, BorderLayout.EAST);
-        header.setBorder(Theme.pad(0, 0, Theme.SPACE_SM, 0));
+        // A hairline under the header separates the title band from the tabbed
+        // sections so the dialog reads with a clear top-level hierarchy.
+        header.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE),
+                Theme.pad(0, 0, Theme.SPACE_SM, 0)));
         add(header, BorderLayout.NORTH);
 
         tabs = Ui.tabbedPane();

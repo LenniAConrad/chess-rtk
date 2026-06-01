@@ -1,6 +1,7 @@
 package application.gui.workbench.network;
 
 import application.gui.workbench.ui.Theme;
+import java.awt.BasicStroke;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
@@ -29,6 +30,16 @@ final class LoadingPanel extends JPanel {
      * Vertical gap between title and detail text.
      */
     private static final int TEXT_GAP = 8;
+
+    /**
+     * Height of the decorative network glyph above the text.
+     */
+    private static final int GLYPH_HEIGHT = 52;
+
+    /**
+     * Gap between the glyph and the title.
+     */
+    private static final int GLYPH_GAP = 18;
 
     /**
      * Primary loading message.
@@ -129,9 +140,12 @@ final class LoadingPanel extends JPanel {
         g.setFont(Theme.font(12, Font.PLAIN));
         FontMetrics detailMetrics = g.getFontMetrics();
         int textW = Math.max(96, Math.min(TEXT_WIDTH, bounds.width - 2 * Theme.SPACE_XL));
-        int blockH = titleMetrics.getHeight() + TEXT_GAP + detailMetrics.getHeight();
+        int blockH = GLYPH_HEIGHT + GLYPH_GAP + titleMetrics.getHeight() + TEXT_GAP + detailMetrics.getHeight();
         int x = bounds.x + (bounds.width - textW) / 2;
-        int y = bounds.y + Math.max(Theme.SPACE_XL, (bounds.height - blockH) / 2);
+        int top = bounds.y + Math.max(Theme.SPACE_XL, (bounds.height - blockH) / 2);
+
+        paintNetworkGlyph(g, bounds.x + bounds.width / 2, top, GLYPH_HEIGHT);
+        int y = top + GLYPH_HEIGHT + GLYPH_GAP;
 
         g.setFont(Theme.font(15, Font.BOLD));
         String titleText = elide(g, title, textW);
@@ -143,6 +157,53 @@ final class LoadingPanel extends JPanel {
         g.setColor(Theme.MUTED);
         g.drawString(detailText, centeredX(g, detailText, x, textW),
                 y + titleMetrics.getHeight() + TEXT_GAP + detailMetrics.getAscent());
+    }
+
+    /**
+     * Paints a small, quiet neural-network motif (three layers of nodes joined
+     * by faint edges, with an accent output node) centered horizontally above
+     * the loading text, giving the empty/loading state visual guidance.
+     *
+     * @param g graphics context
+     * @param centerX horizontal center
+     * @param top top of the glyph
+     * @param size glyph height
+     */
+    private static void paintNetworkGlyph(Graphics2D g, int centerX, int top, int size) {
+        int[] counts = { 3, 2, 1 };
+        int columnGap = Math.round(size * 0.95f);
+        int totalWidth = columnGap * (counts.length - 1);
+        int firstX = centerX - totalWidth / 2;
+        int radius = Math.max(3, Math.round(size * 0.075f));
+        int[][] nodeX = new int[counts.length][];
+        int[][] nodeY = new int[counts.length][];
+        for (int col = 0; col < counts.length; col++) {
+            nodeX[col] = new int[counts[col]];
+            nodeY[col] = new int[counts[col]];
+            int span = counts[col] == 1 ? 0 : size;
+            int startY = top + (size - span) / 2;
+            for (int row = 0; row < counts[col]; row++) {
+                nodeX[col][row] = firstX + col * columnGap;
+                nodeY[col][row] = counts[col] == 1 ? top + size / 2
+                        : startY + Math.round(span * (row / (float) (counts[col] - 1)));
+            }
+        }
+        g.setStroke(new BasicStroke(1f));
+        g.setColor(Theme.withAlpha(Theme.MUTED, 90));
+        for (int col = 0; col < counts.length - 1; col++) {
+            for (int a = 0; a < counts[col]; a++) {
+                for (int b = 0; b < counts[col + 1]; b++) {
+                    g.drawLine(nodeX[col][a], nodeY[col][a], nodeX[col + 1][b], nodeY[col + 1][b]);
+                }
+            }
+        }
+        for (int col = 0; col < counts.length; col++) {
+            boolean output = col == counts.length - 1;
+            for (int row = 0; row < counts[col]; row++) {
+                g.setColor(output ? Theme.ACCENT : Theme.withAlpha(Theme.MUTED, 200));
+                g.fillOval(nodeX[col][row] - radius, nodeY[col][row] - radius, radius * 2, radius * 2);
+            }
+        }
     }
 
     /**

@@ -3,11 +3,14 @@ package application.gui.workbench.ui;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Graphics;
 import java.awt.RenderingHints;
 import java.awt.Shape;
 import java.awt.geom.RoundRectangle2D;
+import java.util.Locale;
 import javax.swing.JComponent;
 import javax.swing.Timer;
 
@@ -80,6 +83,21 @@ public final class EvalBar extends JComponent {
      * Guide line color over the light side of the rail.
      */
     private static final Color GUIDE_ON_LIGHT = new Color(0, 0, 0, 82);
+
+    /**
+     * Score-label color drawn over the white (light) end of the rail.
+     */
+    private static final Color LABEL_ON_LIGHT = new Color(0x222222);
+
+    /**
+     * Score-label color drawn over the black (dark) end of the rail.
+     */
+    private static final Color LABEL_ON_DARK = new Color(0xF1F1F1);
+
+    /**
+     * Score-label font size.
+     */
+    private static final int LABEL_FONT_SIZE = 9;
 
     /**
      * Animated visible white share.
@@ -295,8 +313,66 @@ public final class EvalBar extends JComponent {
             g.setStroke(FRAME_STROKE);
             g.setColor(Theme.EVAL_FRAME);
             g.drawRoundRect(x, y, w - 1, h - 1, BAR_ARC, BAR_ARC);
+            drawScoreLabel(g, x, y, w, h, split);
         } finally {
             g.dispose();
+        }
+    }
+
+    /**
+     * Draws the compact evaluation readout at the leading side's end of the
+     * rail (bottom when White is ahead, top when Black is ahead), so the actual
+     * score reads at a glance rather than only through the bar split.
+     *
+     * @param g graphics context
+     * @param x rail x
+     * @param y rail y
+     * @param w rail width
+     * @param h rail height
+     * @param split animated score split y coordinate
+     */
+    private void drawScoreLabel(Graphics2D g, int x, int y, int w, int h, int split) {
+        String text = compactLabel();
+        if (text.isEmpty() || h < 56) {
+            return;
+        }
+        g.setFont(Theme.font(LABEL_FONT_SIZE, Font.BOLD));
+        FontMetrics metrics = g.getFontMetrics();
+        if (metrics.stringWidth(text) > w - 2) {
+            return;
+        }
+        // Anchor to the settled (target) share so the readout sits at the
+        // winning side's end and does not flip ends while the bar animates.
+        boolean whiteLeads = targetWhiteShare >= 0.5;
+        int textX = x + (w - metrics.stringWidth(text)) / 2;
+        int textY = whiteLeads ? y + h - 5 : y + metrics.getAscent() + 4;
+        g.setColor(whiteLeads ? LABEL_ON_LIGHT : LABEL_ON_DARK);
+        g.drawString(text, textX, textY);
+    }
+
+    /**
+     * Returns a compact form of the current score label that fits the narrow
+     * rail: magnitude in pawns to one decimal, {@code Mn} for mates, or a short
+     * status word.
+     *
+     * @return compact label text
+     */
+    private String compactLabel() {
+        String value = label == null ? "" : label.strip();
+        if (value.isEmpty()) {
+            return "";
+        }
+        if (value.startsWith("#")) {
+            String digits = value.substring(1).replace("-", "").replace("+", "");
+            return "M" + (digits.isEmpty() ? "0" : digits);
+        }
+        try {
+            double magnitude = Math.abs(Double.parseDouble(value));
+            return magnitude >= 10.0
+                    ? String.valueOf(Math.round(magnitude))
+                    : String.format(Locale.ROOT, "%.1f", magnitude);
+        } catch (NumberFormatException ignored) {
+            return value.length() <= 3 ? value : "";
         }
     }
 

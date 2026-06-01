@@ -56,14 +56,19 @@ import javax.swing.table.TableCellRenderer;
 import application.gui.workbench.layout.LazyPanel;
 import application.gui.workbench.layout.FlatTabbedPaneUI;
 import application.gui.workbench.board.MarkupBrush;
+import application.gui.workbench.command.Console;
 import application.gui.workbench.dataset.DatasetChart;
 import application.gui.workbench.network.TensorViz;
+import application.gui.workbench.ui.EvalBar;
 import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.SettingsChipRow;
 import application.gui.workbench.ui.TagCloud;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import application.gui.workbench.window.LayoutMenu;
+import chess.core.Piece;
+import chess.images.assets.PieceSet;
+import chess.images.assets.Shapes;
 import application.gui.workbench.window.SettingsMenu;
 
 
@@ -93,6 +98,7 @@ final class WorkbenchUiRegression {
         testScrollPaneUsesSolidCorners();
         testWorkbenchRawScrollPanesUseSharedStyling();
         testPopupMenusUseSharedStyling();
+        testPopupMenuItemTextRendersWhenNotHovered();
         testWorkbenchRawPopupMenusUseSharedStyling();
         testWorkbenchRawStandardControlsUseSharedStyling();
         testViewportFillWrapperTracksAvailableHeight();
@@ -148,7 +154,92 @@ final class WorkbenchUiRegression {
         testTabbedPaneSwitchesWithoutSnapshotOverlay();
         testTabbedPaneRolloverIgnoresEmptyPanes();
         testConsoleAndLogsAreMovableWorkbenchTabs();
+        testPieceSetsRenderDistinctly();
+        testConsoleStatusLinesRenderBadges();
+        testEvalBarDrawsScoreLabel();
         WorkbenchUiEditorRegression.run();
+    }
+
+    /**
+     * Verifies each piece set renders a non-empty knight and that the three
+     * sets are visually distinct from one another.
+     */
+    private static void testPieceSetsRenderDistinctly() {
+        Theme.setMode(Theme.Mode.LIGHT);
+        java.util.Map<PieceSet, java.awt.image.BufferedImage> renders = new java.util.EnumMap<>(PieceSet.class);
+        for (PieceSet set : PieceSet.values()) {
+            java.awt.image.BufferedImage image =
+                    new java.awt.image.BufferedImage(80, 80, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            java.awt.Graphics2D g = image.createGraphics();
+            Shapes.drawPiece(set, Piece.WHITE_KNIGHT, g, 0, 0, 80, 80);
+            g.dispose();
+            assertTrue(maxAlpha(image) > 200, set.label() + " set renders an opaque knight");
+            renders.put(set, image);
+        }
+        assertTrue(differingPixels(renders.get(PieceSet.SLATE), renders.get(PieceSet.STAUNTON)) > 200,
+                "Slate and Staunton knights are visually distinct");
+        assertTrue(differingPixels(renders.get(PieceSet.SLATE), renders.get(PieceSet.OUTLINE)) > 200,
+                "Slate and Outline knights are visually distinct");
+    }
+
+    /**
+     * Counts pixels that differ between two equally-sized images.
+     *
+     * @param first first image
+     * @param second second image
+     * @return count of differing pixels
+     */
+    private static int differingPixels(java.awt.image.BufferedImage first, java.awt.image.BufferedImage second) {
+        int count = 0;
+        for (int y = 0; y < first.getHeight(); y++) {
+            for (int x = 0; x < first.getWidth(); x++) {
+                if (first.getRGB(x, y) != second.getRGB(x, y)) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Verifies finished-command status lines carry a tinted badge background in
+     * the styled document, while plain output stays unbadged.
+     */
+    private static void testConsoleStatusLinesRenderBadges() {
+        Theme.setMode(Theme.Mode.DARK);
+        Console console = new Console();
+        console.applyConsoleTheme();
+        console.appendOutput("plain engine output line\n");
+        console.appendOutput("[exit 0] engine bestmove done\n");
+        javax.swing.text.StyledDocument doc = console.getStyledDocument();
+        javax.swing.text.AttributeSet plain = doc.getCharacterElement(1).getAttributes();
+        int secondLine = doc.getDefaultRootElement().getElement(1).getStartOffset();
+        javax.swing.text.AttributeSet badge = doc.getCharacterElement(secondLine + 1).getAttributes();
+        assertTrue(plain.getAttribute(javax.swing.text.StyleConstants.Background) == null,
+                "plain console output carries no badge background");
+        assertTrue(badge.getAttribute(javax.swing.text.StyleConstants.Background) instanceof java.awt.Color,
+                "exit-status console line carries a tinted badge background");
+    }
+
+    /**
+     * Verifies the eval bar paints a numeric readout at the leading side's end.
+     */
+    private static void testEvalBarDrawsScoreLabel() {
+        Theme.setMode(Theme.Mode.LIGHT);
+        EvalBar bar = new EvalBar();
+        bar.setCentipawns(150);
+        bar.setSize(22, 300);
+        java.awt.image.BufferedImage image = paint(bar, 22, 300);
+        int darkLabelPixels = 0;
+        for (int y = 270; y < 298; y++) {
+            for (int x = 3; x < 19; x++) {
+                java.awt.Color pixel = new java.awt.Color(image.getRGB(x, y), true);
+                if (pixel.getRed() < 110 && pixel.getGreen() < 110 && pixel.getBlue() < 110) {
+                    darkLabelPixels++;
+                }
+            }
+        }
+        assertTrue(darkLabelPixels > 0, "eval bar draws a dark score label over the white (White-ahead) end");
     }
 
     /**
@@ -384,6 +475,38 @@ final class WorkbenchUiRegression {
         assertEquals(themeColor("TEXT"), item.getForeground(), "popup item foreground");
         assertTrue(check.getIcon() != null, "popup check item uses workbench glyph");
         assertEquals(themeColor("LINE"), separator.getForeground(), "popup separator line color");
+    }
+
+    /**
+     * Verifies a styled popup-menu item actually paints its label when it is
+     * not hovered. The custom menu-item UI fills the row background and must
+     * restore the graphics color, because BasicMenuItemUI paints unselected
+     * label text with the inherited color — otherwise labels render invisibly
+     * (white-on-white) until the row is armed on hover.
+     */
+    private static void testPopupMenuItemTextRendersWhenNotHovered() {
+        for (Theme.Mode mode : new Theme.Mode[] { Theme.Mode.LIGHT, Theme.Mode.DARK }) {
+            Theme.setMode(mode);
+            JPopupMenu popup = new JPopupMenu();
+            JMenuItem item = new JMenuItem("Open PGN");
+            popup.add(item);
+            Ui.stylePopupMenu(popup);
+            item.getModel().setArmed(false);
+            item.setSize(180, 28);
+            BufferedImage image = paint(item, 180, 28);
+            int background = item.getBackground().getRGB() & 0xFFFFFF;
+            int labelPixels = 0;
+            for (int y = 0; y < image.getHeight(); y++) {
+                for (int x = 0; x < image.getWidth(); x++) {
+                    if ((image.getRGB(x, y) & 0xFFFFFF) != background) {
+                        labelPixels++;
+                    }
+                }
+            }
+            assertTrue(labelPixels > 20,
+                    mode + " popup item paints a visible label when not hovered");
+        }
+        Theme.setMode(Theme.Mode.LIGHT);
     }
 
     /**
@@ -1614,34 +1737,34 @@ final class WorkbenchUiRegression {
     }
 
     /**
-     * Verifies the workbench uses VS Code Visual Studio neutral and control tokens
+     * Verifies the workbench uses its macOS-flavored neutral and accent tokens
      * consistently across light and dark modes.
      */
     private static void testThemeUsesVscodeVisualStudioColorTokens() {
         Theme.setMode(Theme.Mode.LIGHT);
-        assertColor(new Color(0xF3F3F3), themeColor("BG"), "light Visual Studio widget background");
-        assertColor(Color.WHITE, themeColor("PANEL_SOLID"), "light VS Code editor background");
-        assertColor(new Color(0xF3F3F3), themeColor("ELEVATED_SOLID"), "light VS Code dropdown background");
-        assertColor(new Color(0xD4D4D4), themeColor("LINE"), "light widget border");
-        assertColor(new Color(0xCECECE), themeColor("INPUT_BORDER"), "light input border");
-        assertColor(new Color(0xFFFFFF), themeColor("TAB_HOVER"), "light VS Code tab hover");
-        assertColor(new Color(0xF3F3F3), themeColor("TAB_IDLE"), "light inactive tab");
-        assertColor(new Color(0x000000), themeColor("TEXT"), "light foreground");
-        assertColor(new Color(0x6F6F6F), themeColor("MUTED"), "light muted foreground");
-        assertColor(new Color(0x005FB8), themeColor("ACCENT"), "light VS Code focus accent");
-        assertColor(new Color(0xBED6ED), themeColor("TOGGLE_ON_BG"), "light active option fill");
+        assertColor(new Color(0xF4F4F5), themeColor("BG"), "light macOS widget background");
+        assertColor(Color.WHITE, themeColor("PANEL_SOLID"), "light editor background");
+        assertColor(new Color(0xF4F4F5), themeColor("ELEVATED_SOLID"), "light dropdown background");
+        assertColor(new Color(0xDADADF), themeColor("LINE"), "light widget border");
+        assertColor(new Color(0xC6C6CC), themeColor("INPUT_BORDER"), "light input border");
+        assertColor(new Color(0xECECEF), themeColor("TAB_HOVER"), "light tab hover");
+        assertColor(new Color(0xF4F4F5), themeColor("TAB_IDLE"), "light inactive tab");
+        assertColor(new Color(0x1F1F24), themeColor("TEXT"), "light foreground");
+        assertColor(new Color(0x6E6E73), themeColor("MUTED"), "light muted foreground");
+        assertColor(new Color(0x0A5CC0), themeColor("ACCENT"), "light macOS focus accent");
+        assertColor(new Color(0xD5EBFF), themeColor("TOGGLE_ON_BG"), "light active option fill");
 
         Theme.setMode(Theme.Mode.DARK);
-        assertColor(new Color(0x252526), themeColor("BG"), "dark Visual Studio menu background");
-        assertColor(new Color(0x1E1E1E), themeColor("PANEL_SOLID"), "dark VS Code editor background");
-        assertColor(new Color(0x252526), themeColor("ELEVATED_SOLID"), "dark VS Code dropdown background");
-        assertColor(new Color(0x303031), themeColor("LINE"), "dark widget border");
-        assertColor(new Color(0x454545), themeColor("INPUT_BORDER"), "dark menu/input border");
-        assertColor(new Color(0x222222), themeColor("TAB_HOVER"), "dark VS Code tab hover");
-        assertColor(new Color(0x252526), themeColor("TAB_IDLE"), "dark inactive tab");
-        assertColor(new Color(0xD4D4D4), themeColor("TEXT"), "dark foreground");
-        assertColor(new Color(0xA6A6A6), themeColor("MUTED"), "dark muted foreground");
-        assertColor(new Color(0x0078D4), themeColor("ACCENT"), "dark VS Code focus accent");
+        assertColor(new Color(0x2C2C2E), themeColor("BG"), "dark macOS menu background");
+        assertColor(new Color(0x1E1E1E), themeColor("PANEL_SOLID"), "dark editor background");
+        assertColor(new Color(0x252526), themeColor("ELEVATED_SOLID"), "dark dropdown background");
+        assertColor(new Color(0x3A3A3C), themeColor("LINE"), "dark widget border");
+        assertColor(new Color(0x48484A), themeColor("INPUT_BORDER"), "dark menu/input border");
+        assertColor(new Color(0x37373A), themeColor("TAB_HOVER"), "dark tab hover");
+        assertColor(new Color(0x2C2C2E), themeColor("TAB_IDLE"), "dark inactive tab");
+        assertColor(new Color(0xE8E8EA), themeColor("TEXT"), "dark foreground");
+        assertColor(new Color(0xA1A1A6), themeColor("MUTED"), "dark muted foreground");
+        assertColor(new Color(0x0A6EE4), themeColor("ACCENT"), "dark macOS focus accent");
         assertColor(new Color(36, 137, 219, 130), themeColor("TOGGLE_ON_BG"),
                 "dark active option fill");
         Theme.setMode(Theme.Mode.LIGHT);
