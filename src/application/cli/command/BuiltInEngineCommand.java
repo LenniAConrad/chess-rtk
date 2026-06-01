@@ -67,10 +67,149 @@ public final class BuiltInEngineCommand {
 	private static final String OPT_UCI = "--uci";
 
 	/**
+	 * {@code --search} option selecting the search algorithm.
+	 */
+	private static final String OPT_SEARCH = "--search";
+
+	/**
 	 * Utility class; prevent instantiation.
 	 */
 	private BuiltInEngineCommand() {
 		// utility
+	}
+
+	/**
+	 * Search algorithm for the built-in engine. {@link #MCTS} is the historical
+	 * default (PUCT policy/value tree search); {@link #ALPHA_BETA} runs the
+	 * iterative-deepening alpha-beta searcher, which is materially stronger with
+	 * the classical and NNUE evaluators (NNUE's incremental accumulator is only
+	 * exploited by alpha-beta).
+	 */
+	private enum SearchKind {
+		/**
+		 * PUCT Monte-Carlo tree search (default; the only search before this).
+		 */
+		MCTS,
+		/**
+		 * Iterative-deepening alpha-beta with transposition table and pruning.
+		 */
+		ALPHA_BETA
+	}
+
+	/**
+	 * Uniform façade over the two built-in searchers so the command's option
+	 * parsing, output formatting, and per-depth UCI streaming stay search-agnostic.
+	 */
+	private sealed interface Searcher extends AutoCloseable permits MctsSearcher, AlphaBetaSearcher {
+		/**
+		 * Searches a position to the given limits.
+		 *
+		 * @param position root position
+		 * @param limits search limits
+		 * @return final search result
+		 */
+		Result search(Position position, Limits limits);
+
+		/**
+		 * Searches a position, streaming a UCI {@code info} line per completed depth.
+		 *
+		 * @param position root position
+		 * @param limits search limits
+		 * @return final search result
+		 */
+		Result searchInfo(Position position, Limits limits);
+
+		/**
+		 * Returns the active evaluator label for summary output.
+		 *
+		 * @return evaluator name
+		 */
+		String evaluatorName();
+
+		/**
+		 * Releases searcher resources.
+		 */
+		@Override
+		void close();
+	}
+
+	/**
+	 * {@link Searcher} backed by the MCTS engine; also exposes the underlying
+	 * {@link Mcts} for the MCTS-only {@code --uci} loop.
+	 *
+	 * @param mcts wrapped MCTS searcher
+	 */
+		private record MctsSearcher(Mcts mcts) implements Searcher {
+			/**
+			 * Searches a position with the configured MCTS limits.
+			 */
+			@Override
+			public Result search(Position position, Limits limits) {
+				return mcts.search(position, limits);
+			}
+
+			/**
+			 * Searches a position and emits UCI search information.
+			 */
+			@Override
+			public Result searchInfo(Position position, Limits limits) {
+				return mcts.search(position, limits, BuiltInEngineCommand::printUciInfo);
+			}
+
+			/**
+			 * Returns the evaluator name used by the wrapped searcher.
+			 */
+			@Override
+			public String evaluatorName() {
+				return mcts.evaluatorName();
+			}
+
+			/**
+			 * Releases wrapped MCTS resources.
+			 */
+			@Override
+			public void close() {
+				mcts.close();
+		}
+	}
+
+	/**
+	 * {@link Searcher} backed by the alpha-beta engine.
+	 *
+	 * @param engine wrapped alpha-beta searcher
+	 */
+		private record AlphaBetaSearcher(AlphaBeta engine) implements Searcher {
+			/**
+			 * Searches a position with the configured alpha-beta limits.
+			 */
+			@Override
+			public Result search(Position position, Limits limits) {
+				return engine.search(position, limits);
+			}
+
+			/**
+			 * Searches a position and emits UCI search information.
+			 */
+			@Override
+			public Result searchInfo(Position position, Limits limits) {
+				return engine.search(position, limits, BuiltInEngineCommand::printUciInfo);
+			}
+
+			/**
+			 * Returns the evaluator name used by the wrapped searcher.
+			 */
+			@Override
+			public String evaluatorName() {
+				return engine.evaluatorName();
+			}
+
+			/**
+			 * Releases wrapped alpha-beta resources.
+			 */
+			@Override
+			public void close() {
+				engine.close();
+		}
 	}
 
 	/**
@@ -142,7 +281,11 @@ public final class BuiltInEngineCommand {
 		/**
 		 * Stores whether to run the UCI loop.
 		 */
-		boolean uciLoop
+		boolean uciLoop,
+		/**
+		 * Stores the search algorithm.
+		 */
+		SearchKind search
 	) {
 	}
 
@@ -153,9 +296,11 @@ public final class BuiltInEngineCommand {
 	 */
 	public static void runBuiltIn(Argv a) {
 		Options opts = parseOptions(a);
-		try (Mcts searcher = createSearcher(opts)) {
+		try (Searcher searcher = createSearcher(opts)) {
 			if (opts.uciLoop()) {
-				MctsUci.run(System.in, System.out, searcher);
+				// --uci is rejected for alpha-beta at parse time, so this is
+				// always an MctsSearcher; MctsUci.run is MCTS-specific.
+				MctsUci.run(System.in, System.out, ((MctsSearcher) searcher).mcts());
 				return;
 			}
 			List<String> fens = CommandSupport.resolveFenInputs(CMD_BUILTIN, opts.input(), opts.fen());
@@ -181,7 +326,7 @@ public final class BuiltInEngineCommand {
 	 * @param opts command options
 	 * @param blankBeforeSummary blank before summary value
 	 */
-	private static void searchAndPrint(String entry, Mcts searcher, Options opts, boolean blankBeforeSummary) {
+	private static void searchAndPrint(String entry, Searcher searcher, Options opts, boolean blankBeforeSummary) {
 		try {
 			Position position = EngineOps.parsePositionOrNull(entry, CMD_BUILTIN, opts.verbose());
 			if (position == null) {
@@ -218,6 +363,7 @@ public final class BuiltInEngineCommand {
 		boolean lc0 = a.flag(OPT_LC0);
 		boolean otis = a.flag(OPT_OTIS);
 		boolean uciLoop = a.flag(OPT_UCI);
+		SearchKind search = parseSearch(a.string(OPT_SEARCH));
 		Path weights = a.path(OPT_WEIGHTS);
 		Integer depthOpt = a.integer(OPT_DEPTH, OPT_DEPTH_SHORT);
 		int depth = depthOpt == null ? Limits.DEFAULT_DEPTH : depthOpt;
@@ -229,6 +375,9 @@ public final class BuiltInEngineCommand {
 		long maxDuration = CommandSupport.optionalDurationMs(durationOpt, defaultDuration);
 		String fen;
 		if (uciLoop) {
+			if (search == SearchKind.ALPHA_BETA) {
+				throw new CommandFailure(CMD_BUILTIN + ": " + OPT_UCI + " requires " + OPT_SEARCH + " mcts", 2);
+			}
 			if (input != null) {
 				System.err.println(CMD_BUILTIN + ": " + OPT_UCI + " cannot be combined with " + OPT_INPUT);
 				System.exit(2);
@@ -260,7 +409,25 @@ public final class BuiltInEngineCommand {
 					+ OPT_EVALUATOR + " nnue, lc0, or otis");
 			System.exit(2);
 		}
-		return new Options(verbose, input, fen, limits, parseFormat(format), evaluator, weights, uciLoop);
+		return new Options(verbose, input, fen, limits, parseFormat(format), evaluator, weights, uciLoop, search);
+	}
+
+	/**
+	 * Resolves the search algorithm from {@code --search}, defaulting to MCTS.
+	 *
+	 * @param value optional {@code --search} value
+	 * @return selected search kind
+	 */
+	private static SearchKind parseSearch(String value) {
+		if (value == null) {
+			return SearchKind.MCTS;
+		}
+		return switch (value.trim().toLowerCase(Locale.ROOT)) {
+			case "mcts" -> SearchKind.MCTS;
+			case "alpha-beta", "alphabeta", "ab" -> SearchKind.ALPHA_BETA;
+			default -> throw new CommandFailure(CMD_BUILTIN + ": unknown " + OPT_SEARCH + " value '" + value
+					+ "' (use alpha-beta or mcts)", 2);
+		};
 	}
 
 	/**
@@ -310,16 +477,23 @@ public final class BuiltInEngineCommand {
 	 * @return MCTS searcher
 	 * @throws IOException if model weights cannot be loaded
 	 */
-	private static Mcts createSearcher(Options opts) throws IOException {
+	private static Searcher createSearcher(Options opts) throws IOException {
+		if (opts.search() == SearchKind.ALPHA_BETA) {
+			// Alpha-beta drives any CentipawnEvaluator (classical/NNUE strongest;
+			// LC0/OTIS run per-leaf with no batching, so they are slow here). A
+			// per-invocation table — the CLI searches one position per run, so a
+			// persistent TT would only add memory with no cross-search reuse.
+			return new AlphaBetaSearcher(new AlphaBeta(createEvaluator(opts), false));
+		}
 		if (opts.evaluator() == Kind.LC0) {
 			Path weights = opts.weights() == null ? Path.of(Config.getLc0ModelPath()) : opts.weights();
-			return Mcts.lc0(weights);
+			return new MctsSearcher(Mcts.lc0(weights));
 		}
 		if (opts.evaluator() == Kind.OTIS) {
 			Path weights = opts.weights() == null ? chess.nn.otis.Model.DEFAULT_WEIGHTS : opts.weights();
-			return Mcts.otis(weights);
+			return new MctsSearcher(Mcts.otis(weights));
 		}
-		return new Mcts(createEvaluator(opts));
+		return new MctsSearcher(new Mcts(createEvaluator(opts)));
 	}
 
 	/**
@@ -398,11 +572,11 @@ public final class BuiltInEngineCommand {
 	 * @param opts parsed options
 	 * @return final search result
 	 */
-	private static Result search(Mcts searcher, Position position, Options opts) {
+	private static Result search(Searcher searcher, Position position, Options opts) {
 		if (opts.format() != OutputFormat.UCI_INFO) {
 			return searcher.search(position, opts.limits());
 		}
-		return searcher.search(position, opts.limits(), BuiltInEngineCommand::printUciInfo);
+		return searcher.searchInfo(position, opts.limits());
 	}
 
 	/**

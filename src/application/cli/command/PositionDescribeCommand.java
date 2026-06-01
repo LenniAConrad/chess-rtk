@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Locale;
 
 import application.Config;
-import application.cli.command.CommandSupport.OutputMode;
 import chess.core.Position;
 import chess.describe.ClassicalPositionDescriptionGenerator;
 import chess.describe.PositionDescriptionDetail;
@@ -73,6 +72,16 @@ public final class PositionDescribeCommand {
     private static final String OPT_MAX_NEW = "--max-new";
 
     /**
+     * Dedicated JSONL format for future position-description model training.
+     */
+    private static final String FORMAT_TRAINING_JSONL = "training-jsonl";
+
+    /**
+     * Stable schema marker for position-description training rows.
+     */
+    private static final String TRAINING_SCHEMA = "crtk.position_description.training.v1";
+
+    /**
      * Prevents instantiation.
      */
     private PositionDescribeCommand() {
@@ -114,7 +123,7 @@ public final class PositionDescribeCommand {
         boolean stdin = a.flag(OPT_STDIN);
         Path input = a.path(OPT_INPUT, OPT_INPUT_SHORT);
         Path output = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
-        OutputMode outputMode = outputMode(a);
+        OutputFormat outputFormat = outputFormat(a);
         Engine engine = Engine.parse(a.string(OPT_ENGINE));
         PositionDescriptionDetail detail = PositionDescriptionDetail.parse(a.string(OPT_DETAIL));
         Integer budget = a.integer(OPT_BUDGET, OPT_MAX_CANDIDATES);
@@ -129,17 +138,17 @@ public final class PositionDescribeCommand {
         a.ensureConsumed();
         String selectedFen = CommandSupport.resolveSelectedFen(COMMAND, fen, rest, startPos, randomPos, false);
         validateInputSelectors(input, stdin, selectedFen);
-        return new Options(verbose, stdin, input, output, selectedFen, outputMode, engine, detail, candidateBudget,
+        return new Options(verbose, stdin, input, output, selectedFen, outputFormat, engine, detail, candidateBudget,
                 modelPath, maxNew == null ? 128 : Math.max(1, maxNew));
     }
 
     /**
-     * Resolves the requested output mode from legacy and explicit selectors.
+     * Resolves the requested output format from legacy and explicit selectors.
      *
      * @param a argument parser
-     * @return output mode
+     * @return output format
      */
-    private static OutputMode outputMode(Argv a) {
+    private static OutputFormat outputFormat(Argv a) {
         String format = CommandSupport.trimToNull(a.string(OPT_FORMAT));
         boolean json = a.flag(OPT_JSON);
         boolean jsonl = a.flag(OPT_JSONL);
@@ -148,20 +157,22 @@ public final class PositionDescribeCommand {
             throw new CommandFailure(COMMAND + ": use only one of --format, --json, or --jsonl", 2);
         }
         if (json) {
-            return OutputMode.JSON;
+            return OutputFormat.JSON;
         }
         if (jsonl) {
-            return OutputMode.JSONL;
+            return OutputFormat.JSONL;
         }
         if (format == null) {
-            return OutputMode.TEXT;
+            return OutputFormat.TEXT;
         }
         return switch (format.toLowerCase(Locale.ROOT)) {
-            case "text", "txt" -> OutputMode.TEXT;
-            case "json" -> OutputMode.JSON;
-            case "jsonl", "ndjson" -> OutputMode.JSONL;
+            case "text", "txt" -> OutputFormat.TEXT;
+            case "json" -> OutputFormat.JSON;
+            case "jsonl", "ndjson" -> OutputFormat.JSONL;
+            case FORMAT_TRAINING_JSONL, "training", "train-jsonl" -> OutputFormat.TRAINING_JSONL;
             default -> throw new CommandFailure(COMMAND
-                    + ": unsupported --format " + format + " (expected text, json, or jsonl)", 2);
+                    + ": unsupported --format " + format
+                    + " (expected text, json, jsonl, or training-jsonl)", 2);
         };
     }
 
@@ -217,10 +228,11 @@ public final class PositionDescribeCommand {
      * @return rendered output body
      */
     private static String render(List<Row> rows, Options options) {
-        return switch (options.outputMode()) {
+        return switch (options.outputFormat()) {
             case TEXT -> renderText(rows);
             case JSON -> renderJson(rows, options);
             case JSONL -> renderJsonl(rows, options);
+            case TRAINING_JSONL -> renderTrainingJsonl(rows, options);
         };
     }
 
@@ -270,6 +282,19 @@ public final class PositionDescribeCommand {
     }
 
     /**
+     * Renders deterministic training rows for future T5 distillation.
+     *
+     * @param rows generated rows
+     * @param options parsed options
+     * @return newline-delimited training JSON
+     */
+    private static String renderTrainingJsonl(List<Row> rows, Options options) {
+        return String.join(System.lineSeparator(),
+                rows.stream().map(row -> trainingRowJson(row, options)).toList())
+                + System.lineSeparator();
+    }
+
+    /**
      * Renders one generated row as a compact JSON object.
      *
      * @param row generated row
@@ -286,6 +311,55 @@ public final class PositionDescribeCommand {
                 + ",\"description\":" + CommandSupport.jsonString(row.description())
                 + ",\"input\":" + row.input().toJson()
                 + "}";
+    }
+
+    /**
+     * Renders one deterministic training row.
+     *
+     * @param row generated row
+     * @param options parsed options
+     * @return JSON object
+     */
+    private static String trainingRowJson(Row row, Options options) {
+        T5PositionDescriptionGenerator promptBuilder =
+                new T5PositionDescriptionGenerator(options.modelPath(), options.maxNewTokens());
+        return "{\"schema\":" + CommandSupport.jsonString(TRAINING_SCHEMA)
+                + ",\"index\":" + row.index()
+                + ",\"id\":" + CommandSupport.jsonString(row.id())
+                + ",\"task\":\"describe_position\""
+                + ",\"detail\":" + CommandSupport.jsonString(options.detail().label())
+                + ",\"fen\":" + CommandSupport.jsonString(row.input().fen())
+                + ",\"prompt\":" + CommandSupport.jsonString(promptBuilder.prompt(row.input(), options.detail()))
+                + ",\"target\":" + CommandSupport.jsonString(row.description())
+                + ",\"classical_text\":" + CommandSupport.jsonString(row.description())
+                + ",\"input\":" + row.input().toJson()
+                + ",\"metadata\":" + trainingMetadataJson(options)
+                + "}";
+    }
+
+    /**
+     * Renders deterministic metadata shared by all rows in one export.
+     *
+     * @param options parsed options
+     * @return JSON object
+     */
+    private static String trainingMetadataJson(Options options) {
+        return "{\"source\":\"position describe\""
+                + ",\"source_engine\":" + CommandSupport.jsonString(options.engine().label())
+                + ",\"candidate_budget\":" + candidateBudgetJson(options.candidateBudget())
+                + ",\"max_new_tokens\":" + options.maxNewTokens()
+                + ",\"model_path\":" + CommandSupport.jsonString(options.modelPath().toString())
+                + "}";
+    }
+
+    /**
+     * Renders the candidate budget as JSON.
+     *
+     * @param budget parsed candidate budget
+     * @return number or null
+     */
+    private static String candidateBudgetJson(int budget) {
+        return budget < 0 ? "null" : Integer.toString(budget);
     }
 
     /**
@@ -368,6 +442,31 @@ public final class PositionDescribeCommand {
     }
 
     /**
+     * Position-description output format.
+     */
+    private enum OutputFormat {
+        /**
+         * Existing human-readable text output.
+         */
+        TEXT,
+
+        /**
+         * One JSON value.
+         */
+        JSON,
+
+        /**
+         * One JSON object per position.
+         */
+        JSONL,
+
+        /**
+         * One model-training JSON object per position.
+         */
+        TRAINING_JSONL
+    }
+
+    /**
      * Parsed command options.
      *
      * @param verbose true to include verbose diagnostics
@@ -375,7 +474,7 @@ public final class PositionDescribeCommand {
      * @param input input file path
      * @param output output file path
      * @param fen selected single-position FEN
-     * @param outputMode output format
+     * @param outputFormat output format
      * @param engine description engine
      * @param detail requested detail level
      * @param candidateBudget candidate output budget
@@ -388,7 +487,7 @@ public final class PositionDescribeCommand {
             Path input,
             Path output,
             String fen,
-            OutputMode outputMode,
+            OutputFormat outputFormat,
             Engine engine,
             PositionDescriptionDetail detail,
             int candidateBudget,

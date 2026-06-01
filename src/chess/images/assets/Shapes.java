@@ -164,6 +164,21 @@ public final class Shapes {
     public static final BufferedImage BlackPawn = renderSvg(BLACK_PAWN_DOCUMENT);
 
     /**
+     * Default rendered logo size in pixels.
+     */
+    private static final int LOGO_SIZE = 512;
+
+    /**
+     * Parsed ChessRTK logo SVG.
+     */
+    private static final DocumentModel LOGO_DOCUMENT = Svg.parse(SvgShapes.logo());
+
+    /**
+     * Rendered ChessRTK logo image.
+     */
+    public static final BufferedImage Logo = renderSvg(LOGO_DOCUMENT, LOGO_SIZE, LOGO_SIZE);
+
+    /**
      * Renders one embedded SVG by file name.
      *
      * @param fileName embedded SVG file name

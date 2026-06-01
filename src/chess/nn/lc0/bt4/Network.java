@@ -138,13 +138,20 @@ public final class Network implements AutoCloseable {
     }
 
     /**
-     * Loads a network using the CPU backend.
+     * Loads a network using the pure-Java CPU backend, bypassing GPU backend
+     * selection entirely.
+     *
+     * <p>Unlike {@link #load(Path)}, this never consults {@code crtk.lc0.bt4.backend}
+     * and never touches global state, so callers that specifically need the CPU
+     * path (for example the workbench activation visualizer, which needs the
+     * intermediate tensors only the CPU path exposes) can request it without
+     * mutating JVM-wide backend selection.
      *
      * @param path path to the weights file
      * @return CPU-backed network
      * @throws IOException if the weights cannot be read or parsed
      */
-    private static Network loadCpu(Path path) throws IOException {
+    public static Network loadCpu(Path path) throws IOException {
         return create(BinLoader.loadWeights(path));
     }
 

@@ -111,4 +111,9 @@ public final class Pictures {
 	 * A {@code BufferedImage} representing the image of a rook icon.
 	 */
 	public static final BufferedImage IconRook = Shapes.WhiteRook;
+
+	/**
+	 * A {@code BufferedImage} of the ChessRTK logo (squircle, knight, and flask).
+	 */
+	public static final BufferedImage Logo = Shapes.Logo;
 }

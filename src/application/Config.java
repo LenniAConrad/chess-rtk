@@ -436,28 +436,28 @@ public final class Config {
     /**
      * Used for holding the parsed Filter tree for the puzzle quality filter.
      */
-    private static Filter puzzleQuality;
+    private static volatile Filter puzzleQuality;
 
     /**
      * Used for holding the parsed Filter tree for the puzzle winning filter.
      */
-    private static Filter puzzleWinning;
+    private static volatile Filter puzzleWinning;
 
     /**
      * Used for holding the parsed Filter tree for the puzzle drawing filter.
      */
-    private static Filter puzzleDrawing;
+    private static volatile Filter puzzleDrawing;
 
     /**
      * Used for holding the parsed Filter tree for the puzzle acceleration
      * filter.
      */
-    private static Filter puzzleAccelerate;
+    private static volatile Filter puzzleAccelerate;
 
     /**
      * Used for holding the parsed Filter tree for the puzzle verification filter.
      */
-    private static Filter puzzleVerify;
+    private static volatile Filter puzzleVerify;
 
     /**
      * Used for static initialization of the configuration at class load time.

@@ -623,6 +623,7 @@ public final class CliRegistry {
 				.about("Builds a shared structured position-description input and renders it with a deterministic classical generator. The T5 path is accepted for configuration checks but remains unavailable until trained weights exist.")
 				.example("crtk position describe --fen \"<FEN>\" --detail normal")
 				.example("crtk position describe --input positions.txt --format jsonl")
+				.example("crtk position describe --input positions.txt --format training-jsonl")
 				.example("crtk position describe --fen \"<FEN>\" --engine t5 --model models/t5-position.bin"));
 		return position;
 	}

@@ -1608,13 +1608,14 @@ public final class HelpCommand {
 			  --startpos                 Use the standard chess start position
 			  --randompos                Use a reachable random legal standard position
 			  --input|-i PATH            Input FEN file
-			  --uci                      Run the minimal built-in UCI loop
+			  --uci                      Run the minimal built-in UCI loop (mcts only)
+			  --search alpha-beta|mcts   Search algorithm (default: mcts; alpha-beta is stronger)
 			  --evaluator KIND           classical, nnue, lc0, or otis (default: classical)
 			  --classical|--nnue|--lc0|--otis
 			                              Shortcut evaluator selectors
 			  --weights PATH             NNUE, LC0, or OTIS weights path
-			  --depth|-d N               Search depth hint (default: 3)
-			  --max-nodes|--nodes N      MCTS playout budget; 0 disables the node cap
+			  --depth|-d N               Search depth: plies (alpha-beta) or playout hint (mcts); default 3
+			  --max-nodes|--nodes N      Search node/playout budget; 0 disables the node cap
 			  --max-duration D           Time budget, e.g. 5s; 0 means no time cap
 			  --format FORMAT            uci-info, uci, san, both, or summary (default: uci-info)
 			  --verbose|-v               Print stack trace on failure
@@ -1654,12 +1655,16 @@ public final class HelpCommand {
 			  --divide|--per-move        Print per-root-move table
 			  --format FMT               Output: detail, table, stockfish
 			  --threads N                Worker threads for root moves (default: 1)
+			  --gpu                      Use native GPU perft when available
+			  --split N                  CPU expansion depth for GPU perft
 			  --verbose|-v               Print stack trace on failure
 
 			engine perft-suite options:
 			  --depth|-d N               Depth to validate, 1..6 (default: 6)
 			  --threads N                Worker threads for positions (default: 1)
 			  --suite PATH               Custom tab-delimited suite file
+			  --gpu                      Use native GPU perft when available
+			  --split N                  CPU expansion depth for GPU perft
 
 			  Custom suite rows may be:
 			    name<TAB>depth<TAB>fen<TAB>nodes
@@ -1686,7 +1691,7 @@ public final class HelpCommand {
 			  --stdin                    Read FEN rows from standard input
 			  --engine MODE              classical or t5 (default: classical)
 			  --detail LEVEL             brief, normal, or full (default: normal)
-			  --format FMT               text, json, or jsonl (default: text)
+			  --format FMT               text, json, jsonl, or training-jsonl (default: text)
 			  --json                     Alias for --format json
 			  --jsonl                    Alias for --format jsonl
 			  --budget N                 Maximum candidate moves in generated text
