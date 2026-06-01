@@ -1,14 +1,18 @@
-[<img src="assets/logo/app/crtk-chemical-board.png" alt="ChessRTK" width="96">][website-link]
+<div align="center">
 
-### ChessRTK
+[<img src="assets/logo/app/crtk-chemical-board.png" alt="ChessRTK" width="128">][website-link]
 
-A deterministic chess programming toolkit.
+# ChessRTK
 
-[Explore ChessRTK docs][website-link]
-[Report bug][issue-link] | [Command reference][commands-link] | [PDF manual][manual-link]
-[![Build][build-badge]][build-link] [![License][license-badge]][license-link]
-[![Java][java-badge]][build-docs-link] [![Commits][commits-badge]][commits-link]
-[![Website][website-badge]][website-link] [![Docs][docs-badge]][website-link]
+**A deterministic chess programming toolkit.**
+
+**[Explore ChessRTK docs »][website-link]**
+
+[Report bug][issue-link] · [Command reference][commands-link] · [PDF manual][manual-link]
+
+[![License][license-badge]][license-link] [![Java][java-badge]][build-docs-link]
+
+</div>
 
 ## Overview
 
@@ -135,19 +139,14 @@ used to produce your results.
 
 [agents-link]: wiki/ai-agents.md
 [assets-link]: assets
-[build-badge]: https://img.shields.io/github/actions/workflow/status/LenniAConrad/chess-rtk/ci.yml?branch=main&style=for-the-badge&label=build&logo=github
 [build-docs-link]: wiki/build-and-install.md
-[build-link]: https://github.com/LenniAConrad/chess-rtk/actions/workflows/ci.yml
 [commands-link]: wiki/command-reference.md
-[commits-badge]: https://img.shields.io/github/last-commit/LenniAConrad/chess-rtk?style=for-the-badge&label=commits
-[commits-link]: https://github.com/LenniAConrad/chess-rtk/commits/main
 [development-link]: wiki/development-notes.md
-[docs-badge]: https://img.shields.io/badge/docs-website%20%2B%20PDF-1487a6?style=for-the-badge
 [docs-link]: docs
 [getting-started-link]: wiki/getting-started.md
 [issue-link]: https://github.com/LenniAConrad/chess-rtk/issues
 [java-badge]: https://img.shields.io/badge/java-17%2B-1487a6?style=for-the-badge
-[license-badge]: https://img.shields.io/github/license/LenniAConrad/chess-rtk?style=for-the-badge&label=license&color=success
+[license-badge]: https://img.shields.io/badge/license-GPL--3.0-success?style=for-the-badge
 [license-link]: LICENSE.txt
 [manual-link]: docs/chessrtk-manual.pdf
 [native-link]: native
@@ -155,6 +154,5 @@ used to produce your results.
 [readme-link]: README.md
 [scripts-link]: scripts
 [src-link]: src
-[website-badge]: https://img.shields.io/website?style=for-the-badge&down_color=red&down_message=offline&label=website&up_color=success&up_message=online&url=https%3A%2F%2FLenniAConrad.github.io%2Fchess-rtk%2F
 [website-link]: https://LenniAConrad.github.io/chess-rtk/
 [wiki-link]: wiki
