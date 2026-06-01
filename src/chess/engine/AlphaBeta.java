@@ -828,7 +828,7 @@ public final class AlphaBeta implements AutoCloseable {
             int ply,
             boolean pvNode,
             NegamaxSetup setup) {
-        short ttMove = setup.entry() == null ? Move.NO_MOVE : setup.entry().bestMove;
+        short ttMove = setup.entry() == null ? Move.NO_MOVE : Transposition.moveOf(setup.entry().data);
         short[] moves = orderedMoves(position, setup.legalMoves(), Move.NO_MOVE, ttMove, context, ply);
         Position.State state = context.state(ply);
         NegamaxSearchState searchState = new NegamaxSearchState(setup.alpha());
@@ -1332,13 +1332,18 @@ public final class AlphaBeta implements AutoCloseable {
      * @return score or {@link #NO_SCORE}
      */
     private static int transpositionScore(Transposition entry, int depth, int alpha, int beta) {
-        if (entry == null || entry.depth < depth) {
+        if (entry == null) {
             return NO_SCORE;
         }
-        int score = entry.score;
-        if (entry.flag == TT_EXACT
-                || (entry.flag == TT_LOWER && score >= beta)
-                || (entry.flag == TT_UPPER && score <= alpha)) {
+        long data = entry.data;
+        if (Transposition.depthOf(data) < depth) {
+            return NO_SCORE;
+        }
+        int score = Transposition.scoreOf(data);
+        byte flag = Transposition.flagOf(data);
+        if (flag == TT_EXACT
+                || (flag == TT_LOWER && score >= beta)
+                || (flag == TT_UPPER && score <= alpha)) {
             return score;
         }
         return NO_SCORE;

@@ -45,7 +45,10 @@ final class TranspositionTable {
      */
     Transposition probe(long key) {
         Transposition entry = entries[index(key)];
-        return entry != null && entry.key == key ? entry : null;
+        // Tear-tolerant validation: key holds signature ^ data, so a half-written
+        // entry (concurrent Lazy SMP store) fails this check and is treated as a
+        // miss rather than returning a corrupt payload.
+        return entry != null && (entry.key ^ entry.data) == key ? entry : null;
     }
 
     /**
@@ -56,7 +59,7 @@ final class TranspositionTable {
      */
     short bestMove(long key) {
         Transposition entry = probe(key);
-        return entry == null ? Move.NO_MOVE : entry.bestMove;
+        return entry == null ? Move.NO_MOVE : Transposition.moveOf(entry.data);
     }
 
     /**
@@ -72,17 +75,21 @@ final class TranspositionTable {
     void store(long key, int depth, int score, byte flag, short bestMove, int generation) {
         int index = index(key);
         Transposition entry = entries[index];
+        long packed = Transposition.pack(depth, score, flag, bestMove);
         if (entry == null) {
             entry = new Transposition();
             entries[index] = entry;
-        } else if (entry.key != key && entry.depth > depth && entry.generation == generation) {
-            return;
+        } else {
+            long storedKey = entry.key ^ entry.data;
+            if (storedKey != key && Transposition.depthOf(entry.data) > depth
+                    && entry.generation == generation) {
+                return;
+            }
         }
-        entry.key = key;
-        entry.depth = depth;
-        entry.score = score;
-        entry.flag = flag;
-        entry.bestMove = bestMove;
+        // Write the payload first, then the XOR-folded key, so a concurrent reader
+        // sees either the old or the new consistent entry, never a torn mix.
+        entry.data = packed;
+        entry.key = key ^ packed;
         entry.generation = generation;
     }
 
