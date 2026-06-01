@@ -4,6 +4,7 @@ import chess.core.Move;
 import chess.core.MoveList;
 import chess.core.Piece;
 import chess.core.Position;
+import chess.gpu.BackendNames;
 import chess.nn.ActivationSink;
 import chess.nn.lc0.bt4.PolicyEncoder;
 import java.io.IOException;
@@ -157,27 +158,405 @@ public final class Model implements AutoCloseable {
     private static final int MAX_NAME_BYTES = 4096;
 
     /**
-     * Loaded random projection weights.
+     * Pure-Java CPU backend identifier reported by {@link #backend()}.
+     */
+    public static final String BACKEND_CPU = "java-i249-random-v2";
+
+    /**
+     * CUDA backend identifier reported by {@link #backend()}.
+     */
+    public static final String BACKEND_CUDA = BackendNames.CUDA;
+
+    /**
+     * ROCm backend identifier reported by {@link #backend()}.
+     */
+    public static final String BACKEND_ROCM = BackendNames.ROCM;
+
+    /**
+     * oneAPI backend identifier reported by {@link #backend()}.
+     */
+    public static final String BACKEND_ONEAPI = BackendNames.ONEAPI;
+
+    /**
+     * Loaded random projection weights (null when a GPU backend is active).
      */
     private final Weights weights;
 
     /**
-     * Creates a model.
-     *
-     * @param weights parsed weights
+     * CUDA backend instance (null when inactive).
      */
-    private Model(Weights weights) {
+    private final chess.nn.otis.cuda.Backend cuda;
+
+    /**
+     * ROCm backend instance (null when inactive).
+     */
+    private final chess.nn.otis.rocm.Backend rocm;
+
+    /**
+     * oneAPI backend instance (null when inactive).
+     */
+    private final chess.nn.otis.oneapi.Backend oneapi;
+
+    /**
+     * Creates a model bound to a single active backend.
+     *
+     * @param weights parsed weights for the CPU path, or null when a GPU backend is active
+     * @param cuda CUDA backend, or null
+     * @param rocm ROCm backend, or null
+     * @param oneapi oneAPI backend, or null
+     */
+    private Model(Weights weights, chess.nn.otis.cuda.Backend cuda,
+            chess.nn.otis.rocm.Backend rocm, chess.nn.otis.oneapi.Backend oneapi) {
         this.weights = weights;
+        this.cuda = cuda;
+        this.rocm = rocm;
+        this.oneapi = oneapi;
     }
 
     /**
-     * Loads an OTIS placeholder model from disk.
+     * Loads an OTIS model from disk, selecting an inference backend.
+     *
+     * <p>Backend selection follows {@code -Dcrtk.otis.backend}:
+     * <ul>
+     *   <li>{@code auto} (default): first available GPU backend (CUDA, then ROCm,
+     *       then oneAPI) that initializes, else the pure-Java CPU path</li>
+     *   <li>{@code cpu}: force the pure-Java path</li>
+     *   <li>{@code cuda}: force CUDA (throws if init fails/unavailable)</li>
+     *   <li>{@code rocm|amd|hip}: force ROCm (AMD)</li>
+     *   <li>{@code oneapi|intel}: force oneAPI (Intel)</li>
+     * </ul>
+     *
+     * @param path model path
+     * @return loaded model
+     * @throws IOException if the file cannot be read/parsed, or if a forced GPU backend fails to initialize
+     */
+    public static Model load(Path path) throws IOException {
+        if (path == null) {
+            throw new IllegalArgumentException("path == null");
+        }
+        BackendRequest request = BackendRequest.fromSystemProperty();
+        BackendAvailability availability = BackendAvailability.detect();
+        request.requireAvailable(availability);
+        Model accelerated = loadAccelerated(path, request, availability);
+        return accelerated != null ? accelerated : loadCpu(path);
+    }
+
+    /**
+     * Attempts requested GPU backends in priority order.
+     *
+     * @param path path to the weights file
+     * @param request requested backend preferences
+     * @param availability detected backend availability
+     * @return initialized accelerated model, or {@code null} to fall back to CPU
+     * @throws IOException if a forced backend fails to initialize
+     */
+    private static Model loadAccelerated(Path path, BackendRequest request, BackendAvailability availability)
+            throws IOException {
+        Model model = tryLoadBackend(path, request.preferCuda(), availability.cuda(), request.forceCuda(), "CUDA",
+                Model::loadCuda);
+        if (model != null) {
+            return model;
+        }
+        model = tryLoadBackend(path, request.preferRocm(), availability.rocm(), request.forceRocm(), "ROCm",
+                Model::loadRocm);
+        if (model != null) {
+            return model;
+        }
+        return tryLoadBackend(path, request.preferOneapi(), availability.oneapi(), request.forceOneapi(), "oneAPI",
+                Model::loadOneapi);
+    }
+
+    /**
+     * Attempts one optional backend and preserves forced-backend failure behavior.
+     *
+     * @param path path to the weights file
+     * @param preferred whether this backend should be attempted
+     * @param available whether this backend is available
+     * @param forced whether failure should be fatal
+     * @param label user-facing backend label
+     * @param loader backend loader
+     * @return initialized model, or {@code null} when skipped or optional setup fails
+     * @throws IOException if a forced backend fails to initialize
+     */
+    private static Model tryLoadBackend(Path path, boolean preferred, boolean available, boolean forced, String label,
+            BackendLoader loader) throws IOException {
+        if (!preferred || !available) {
+            return null;
+        }
+        try {
+            return loader.load(path);
+        } catch (RuntimeException e) {
+            if (forced) {
+                throw new IOException(label + " backend requested but failed to initialize.", e);
+            }
+            return null;
+        }
+    }
+
+    /**
+     * Loads a model using the CUDA backend.
+     *
+     * @param path path to the weights file
+     * @return CUDA-backed model instance
+     */
+    private static Model loadCuda(Path path) {
+        try (CudaBackendHolder holder = new CudaBackendHolder(chess.nn.otis.cuda.Backend.create(path))) {
+            Model model = new Model(null, holder.backend, null, null);
+            holder.detach();
+            return model;
+        }
+    }
+
+    /**
+     * Loads a model using the ROCm backend.
+     *
+     * @param path path to the weights file
+     * @return ROCm-backed model instance
+     */
+    private static Model loadRocm(Path path) {
+        try (RocmBackendHolder holder = new RocmBackendHolder(chess.nn.otis.rocm.Backend.create(path))) {
+            Model model = new Model(null, null, holder.backend, null);
+            holder.detach();
+            return model;
+        }
+    }
+
+    /**
+     * Loads a model using the oneAPI backend.
+     *
+     * @param path path to the weights file
+     * @return oneAPI-backed model instance
+     */
+    private static Model loadOneapi(Path path) {
+        try (OneapiBackendHolder holder = new OneapiBackendHolder(chess.nn.otis.oneapi.Backend.create(path))) {
+            Model model = new Model(null, null, null, holder.backend);
+            holder.detach();
+            return model;
+        }
+    }
+
+    /**
+     * Backend loader callback.
+     */
+    @FunctionalInterface
+    private interface BackendLoader {
+
+        /**
+         * Loads a backend-specific model.
+         *
+         * @param path path to the weights file
+         * @return initialized model
+         */
+        Model load(Path path);
+    }
+
+    /**
+     * Helper that owns a CUDA backend until detached or closed.
+     */
+    private static final class CudaBackendHolder implements AutoCloseable {
+
+        /**
+         * Owned backend instance, or {@code null} once detached.
+         */
+        private chess.nn.otis.cuda.Backend backend;
+
+        /**
+         * Creates a holder that owns the provided backend until detached or closed.
+         *
+         * @param backend backend instance to manage
+         */
+        private CudaBackendHolder(chess.nn.otis.cuda.Backend backend) {
+            this.backend = backend;
+        }
+
+        /**
+         * Releases ownership so the backend is not closed by this holder.
+         */
+        private void detach() {
+            backend = null;
+        }
+
+        /**
+         * Closes the backend if it is still attached.
+         */
+        @Override
+        public void close() {
+            if (backend != null) {
+                backend.close();
+            }
+        }
+    }
+
+    /**
+     * Helper that owns a ROCm backend until detached or closed.
+     */
+    private static final class RocmBackendHolder implements AutoCloseable {
+
+        /**
+         * Owned backend instance, or {@code null} once detached.
+         */
+        private chess.nn.otis.rocm.Backend backend;
+
+        /**
+         * Creates a holder that owns the provided backend until detached or closed.
+         *
+         * @param backend backend instance to manage
+         */
+        private RocmBackendHolder(chess.nn.otis.rocm.Backend backend) {
+            this.backend = backend;
+        }
+
+        /**
+         * Releases ownership so the backend is not closed by this holder.
+         */
+        private void detach() {
+            backend = null;
+        }
+
+        /**
+         * Closes the backend if it is still attached.
+         */
+        @Override
+        public void close() {
+            if (backend != null) {
+                backend.close();
+            }
+        }
+    }
+
+    /**
+     * Helper that owns a oneAPI backend until detached or closed.
+     */
+    private static final class OneapiBackendHolder implements AutoCloseable {
+
+        /**
+         * Owned backend instance, or {@code null} once detached.
+         */
+        private chess.nn.otis.oneapi.Backend backend;
+
+        /**
+         * Creates a holder that owns the provided backend until detached or closed.
+         *
+         * @param backend backend instance to manage
+         */
+        private OneapiBackendHolder(chess.nn.otis.oneapi.Backend backend) {
+            this.backend = backend;
+        }
+
+        /**
+         * Releases ownership so the backend is not closed by this holder.
+         */
+        private void detach() {
+            backend = null;
+        }
+
+        /**
+         * Closes the backend if it is still attached.
+         */
+        @Override
+        public void close() {
+            if (backend != null) {
+                backend.close();
+            }
+        }
+    }
+
+    /**
+     * Throws when a forced backend is unavailable.
+     *
+     * @param forced whether the backend was explicitly requested
+     * @param available whether the backend is available
+     * @param message exception message
+     * @throws IOException if the forced backend is unavailable
+     */
+    private static void requireBackendAvailable(boolean forced, boolean available, String message) throws IOException {
+        if (forced && !available) {
+            throw new IOException(message);
+        }
+    }
+
+    /**
+     * Parsed OTIS backend request.
+     *
+     * @param preferCuda whether CUDA may be attempted
+     * @param preferRocm whether ROCm may be attempted
+     * @param preferOneapi whether oneAPI may be attempted
+     * @param forceCuda whether CUDA failure is fatal
+     * @param forceRocm whether ROCm failure is fatal
+     * @param forceOneapi whether oneAPI failure is fatal
+     */
+    private record BackendRequest(
+            boolean preferCuda,
+            boolean preferRocm,
+            boolean preferOneapi,
+            boolean forceCuda,
+            boolean forceRocm,
+            boolean forceOneapi) {
+
+        /**
+         * Parses {@code crtk.otis.backend} into backend preferences.
+         *
+         * @return parsed backend request
+         */
+        static BackendRequest fromSystemProperty() {
+            String backend = System.getProperty("crtk.otis.backend");
+            if (backend == null) {
+                backend = "auto";
+            }
+            backend = backend.trim().toLowerCase(java.util.Locale.ROOT);
+            boolean auto = backend.equals("auto");
+            boolean cuda = backend.equals(BACKEND_CUDA);
+            boolean rocm = backend.equals(BACKEND_ROCM) || backend.equals("amd") || backend.equals("hip");
+            boolean oneapi = backend.equals(BACKEND_ONEAPI) || backend.equals("intel");
+            return new BackendRequest(auto || cuda, auto || rocm, auto || oneapi, cuda, rocm, oneapi);
+        }
+
+        /**
+         * Throws when a forced backend is unavailable.
+         *
+         * @param availability detected backend availability
+         * @throws IOException if a forced backend is unavailable
+         */
+        void requireAvailable(BackendAvailability availability) throws IOException {
+            requireBackendAvailable(forceCuda, availability.cuda(),
+                    "CUDA backend requested but unavailable (JNI library not loaded and/or no CUDA device).");
+            requireBackendAvailable(forceRocm, availability.rocm(),
+                    "ROCm backend requested but unavailable (JNI library not loaded and/or no ROCm device).");
+            requireBackendAvailable(forceOneapi, availability.oneapi(),
+                    "oneAPI backend requested but unavailable (JNI library not loaded and/or no Intel GPU device).");
+        }
+    }
+
+    /**
+     * Detected OTIS backend availability.
+     *
+     * @param cuda whether CUDA is available
+     * @param rocm whether ROCm is available
+     * @param oneapi whether oneAPI is available
+     */
+    private record BackendAvailability(boolean cuda, boolean rocm, boolean oneapi) {
+
+        /**
+         * Detects available native backends.
+         *
+         * @return availability snapshot
+         */
+        static BackendAvailability detect() {
+            return new BackendAvailability(
+                    chess.nn.otis.cuda.Backend.isAvailable(),
+                    chess.nn.otis.rocm.Backend.isAvailable(),
+                    chess.nn.otis.oneapi.Backend.isAvailable());
+        }
+    }
+
+    /**
+     * Loads an OTIS placeholder model using the pure-Java CPU path.
      *
      * @param path model path
      * @return loaded model
      * @throws IOException if the file cannot be read or parsed
      */
-    public static Model load(Path path) throws IOException {
+    public static Model loadCpu(Path path) throws IOException {
         if (path == null) {
             throw new IllegalArgumentException("path == null");
         }
@@ -253,7 +632,7 @@ public final class Model implements AutoCloseable {
             if (in.hasRemaining()) {
                 throw new IOException("Unexpected bytes at end of OTIS weights file.");
             }
-            return new Model(weights.withParameterCount());
+            return new Model(weights.withParameterCount(), null, null, null);
         } catch (BufferUnderflowException | IllegalArgumentException ex) {
             throw new IOException("Malformed OTIS weights file.", ex);
         }
@@ -265,16 +644,34 @@ public final class Model implements AutoCloseable {
      * @return info
      */
     public Info info() {
+        if (cuda != null) {
+            return cuda.info();
+        }
+        if (rocm != null) {
+            return rocm.info();
+        }
+        if (oneapi != null) {
+            return oneapi.info();
+        }
         return weights.info;
     }
 
     /**
-     * Returns backend label.
+     * Returns the active backend label.
      *
-     * @return backend name
+     * @return {@code "cuda"}, {@code "rocm"}, {@code "oneapi"}, or the pure-Java CPU label
      */
     public String backend() {
-        return "java-i249-random-v2";
+        if (cuda != null) {
+            return BACKEND_CUDA;
+        }
+        if (rocm != null) {
+            return BACKEND_ROCM;
+        }
+        if (oneapi != null) {
+            return BACKEND_ONEAPI;
+        }
+        return BACKEND_CPU;
     }
 
     /**
@@ -283,7 +680,7 @@ public final class Model implements AutoCloseable {
      * @return architecture summary
      */
     public String architectureLabel() {
-        return architectureLabel(weights.info);
+        return architectureLabel(info());
     }
 
     /**
@@ -354,6 +751,15 @@ public final class Model implements AutoCloseable {
         if (position == null) {
             throw new IllegalArgumentException("position == null");
         }
+        if (cuda != null) {
+            return predictNative(position, sink, cuda::predictEncoded);
+        }
+        if (rocm != null) {
+            return predictNative(position, sink, rocm::predictEncoded);
+        }
+        if (oneapi != null) {
+            return predictNative(position, sink, oneapi::predictEncoded);
+        }
         float[] input = encodeInput(position);
         float[] tokens = squareTokens(position, input);
         float[] salience = squareSalience(tokens);
@@ -413,11 +819,40 @@ public final class Model implements AutoCloseable {
     }
 
     /**
-     * Releases model resources.
+     * Runs one prediction through an active native backend.
+     *
+     * @param position source position
+     * @param sink activation sink, or null
+     * @param predictor native encoded predictor
+     * @return prediction
+     */
+    private Prediction predictNative(Position position, ActivationSink sink,
+            java.util.function.Function<float[], Prediction> predictor) {
+        float[] input = encodeInput(position);
+        Prediction prediction = predictor.apply(input);
+        if (sink != null) {
+            sink.put("otis.input", new int[] { INPUT_PLANES, 8, 8 }, input);
+            sink.put("otis.policy.logits", new int[] { prediction.policy().length }, prediction.policy());
+            sink.put("otis.value.wdl", new int[] { 3 }, prediction.wdl());
+            sink.put("otis.value.scalar", new int[] { 1 }, new float[] { prediction.value() });
+        }
+        return prediction;
+    }
+
+    /**
+     * Releases model resources (notably GPU device memory when a GPU backend is active).
      */
     @Override
     public void close() {
-        // Pure Java placeholder owns no native resources.
+        if (cuda != null) {
+            cuda.close();
+        }
+        if (rocm != null) {
+            rocm.close();
+        }
+        if (oneapi != null) {
+            oneapi.close();
+        }
     }
 
     /**

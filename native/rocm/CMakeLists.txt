@@ -17,12 +17,26 @@ target_include_directories(lc0_rocm PRIVATE ${JNI_INCLUDE_DIRS})
 add_library(t5_rocm SHARED t5_rocm_jni.hip)
 target_include_directories(t5_rocm PRIVATE ${JNI_INCLUDE_DIRS})
 
+add_library(otis_rocm SHARED otis_rocm_jni.hip)
+target_include_directories(otis_rocm PRIVATE ${JNI_INCLUDE_DIRS})
+
+add_library(perft_rocm SHARED perft_rocm_jni.hip)
+target_include_directories(perft_rocm PRIVATE ${JNI_INCLUDE_DIRS})
+
 target_link_libraries(lc0_rocm PRIVATE HIP::device)
 target_link_libraries(t5_rocm PRIVATE HIP::device hipblas)
+target_link_libraries(otis_rocm PRIVATE HIP::device)
+target_link_libraries(perft_rocm PRIVATE HIP::device)
 
 set_target_properties(lc0_rocm PROPERTIES
   HIP_SEPARABLE_COMPILATION ON
 )
 set_target_properties(t5_rocm PROPERTIES
+  HIP_SEPARABLE_COMPILATION ON
+)
+set_target_properties(otis_rocm PROPERTIES
+  HIP_SEPARABLE_COMPILATION ON
+)
+set_target_properties(perft_rocm PROPERTIES
   HIP_SEPARABLE_COMPILATION ON
 )

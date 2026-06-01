@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPU Acceleration | ChessRTK</title>
+  <meta name="description" content="The deterministic chess research toolkit — GPU Acceleration.">
+  <link rel="icon" href="assets/logo/crtk-logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      var key = "crtk-theme";
+      var isTheme = function (value) { return value === "light" || value === "dark"; };
+      var urlTheme = "";
+      var stored = "";
+      try { urlTheme = new URLSearchParams(window.location.search).get("theme"); } catch (e) {}
+      try { stored = localStorage.getItem(key); } catch (e) {}
+      var theme = isTheme(urlTheme) ? urlTheme : (isTheme(stored) ? stored : "");
+      if (!theme) {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      if (isTheme(urlTheme)) {
+        try { localStorage.setItem(key, urlTheme); } catch (e) {}
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body class="is-doc">
+
+  <header class="topnav">
+    <div class="topnav-inner">
+      <a class="topnav-brand" href="index.html">
+        <img src="assets/logo/crtk-logo.svg" alt="" width="32" height="32">
+        <span>ChessRTK</span>
+      </a>
+      <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="topnav-links">
+        <a class="" href="getting-started.html">Get started</a>
+        <a class="" href="command-reference.html">Commands</a>
+        <a class="" href="workbench.html">Workbench</a>
+        <a class="" href="wiki-index.html">Docs</a>
+        <a class="" href="chessrtk-manual.pdf">Manual</a>
+        <a class="topnav-gh" href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="doc-shell">
+    <aside class="sidebar" id="sidebar">
+      <label class="search-label" for="doc-search">Search the docs</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search pages..." autocomplete="off">
+      <div id="search-results" class="search-results" hidden></div>
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="overview">Overview</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>Commands</h2>
+<a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+</section>
+<section class="nav-section"><h2>Desktop Workbench</h2>
+<a class="" href="workbench.html" data-title="workbench">Workbench</a>
+</section>
+<section class="nav-section"><h2>Engines &amp; Models</h2>
+<a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
+<a class="" href="lc0.html" data-title="lc0 networks">LC0 Networks</a>
+<a class="active" href="gpu.html" data-title="gpu acceleration">GPU Acceleration</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
+<a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="ai-agents.html" data-title="ai agents &amp; automation">AI Agents &amp; Automation</a>
+</section>
+<section class="nav-section"><h2>Project</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="support.html" data-title="support">Support</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <main class="doc-main">
+      <article class="content">
+        <p class="content-kicker">Engines &amp; Models</p>
+        <h1 id="gpu-acceleration">GPU Acceleration</h1>
+<p>Everything in crtk runs on the CPU, and most of it stays there. GPU acceleration is an <strong>optional</strong> add-on aimed at the two workloads that actually saturate a device: <strong>perft</strong> move-enumeration and <strong>OTIS / LC0 neural-network inference</strong>. It ships as native JNI shared libraries — CUDA for NVIDIA, ROCm for AMD, oneAPI for Intel — loaded at runtime if they happen to be on the path. When a backend is missing or refuses to initialize, crtk <strong>falls back to the CPU</strong> without comment and returns the same answer. You opt in deliberately: <code>--gpu</code> for perft, a backend property for the evaluators. The device only ever sees the heavy batches.</p>
+<p>What follows: reading backend status with <code>engine gpu</code>, running <code>engine perft --gpu</code> and <code>engine perft-suite --gpu</code>, building the native libraries under <code>native/cuda</code>, <code>native/rocm</code>, and <code>native/oneapi</code>, and how the runtime finds and links them.</p>
+<blockquote><p>All of this is optional. If you only need the CPU toolkit, skip the page — nothing here is load-bearing for the rest of crtk.</p></blockquote>
+<h2 id="what-gpu-acceleration-does-and-does-not-do">What GPU acceleration does (and does not) do</h2>
+<p>The backends move arithmetic, not logic. Results are identical either way: perft node counts match to the digit, and the evaluators run the same model weights regardless of where the matrix multiplies land.</p>
+<p><strong>Accelerated on the GPU when a backend is present:</strong></p>
+<ul>
+<li><strong>Perft enumeration</strong> — <code>engine perft --gpu</code> and <code>engine perft-suite --gpu</code> hand packed subtree batches to the device through the <code>perft_&lt;vendor&gt;</code> library.</li>
+<li><strong>OTIS inference</strong> — <code>.bin</code> policy/WDL evaluation on the GPU, auto-selected by the OTIS model.</li>
+<li><strong>LC0 CNN inference</strong> — <code>.bin</code> policy + value inference on the GPU.</li>
+<li><strong>LC0 BT4 inference</strong> — compact BT4 <code>.bin</code> (magic <code>BT4J</code>) policy + value inference on the GPU. The BT4 path is simplified and experimental; treat it as a usable evaluator, not a bit-exact LC0 reimplementation.</li>
+<li><strong>T5 text generation</strong> — the <code>fen text</code> / <code>puzzle text</code> summary pipeline can offload matrix multiplies (CUDA/ROCm run greedy decoding end-to-end on the device; oneAPI offloads GEMMs).</li>
+</ul>
+<p><strong>Always on the CPU (no GPU path):</strong> legal move generation, make/undo, FEN/SAN/UCI parsing, the built-in MCTS engine (<code>engine builtin</code> / <code>engine java</code>), the forced-mate prover (<code>engine mate</code>), and the classical/NNUE evaluators. External UCI engines such as Stockfish or LC0 manage their own hardware independently of crtk&#x27;s native backends.</p>
+<p>This is what makes the GPU safe to leave on in a test harness. A GPU run of <code>engine perft</code> returns the same totals as the CPU run, and <code>engine perft-suite</code> checks against the same expected counts whichever path it took. See <a href="quality-and-testing.html">Quality and Testing</a> for how the perft suite serves as a regression gate.</p>
+<p><img src="assets/diagrams/crtk-position-toolbox.png" alt="ChessRTK position toolbox: one shared chess core feeding evaluation and analysis" loading="lazy"></p>
+<h2 id="check-backend-status-engine-gpu">Check backend status: <code>engine gpu</code></h2>
+<p>Run this before anything else. It prints one line per backend across all three vendors, so a single glance tells you what is loaded and what can actually reach a device on this machine.</p>
+<pre><code class="language-bash">crtk engine gpu</code></pre>
+<p>Each line reports three fields:</p>
+<ul>
+<li><code>loaded=yes|no</code> — whether the native library was found and linked into the JVM.</li>
+<li><code>available=yes|no</code> — whether the runtime could initialize a usable device.</li>
+<li><code>deviceCount=N</code> — number of devices the backend sees.</li>
+</ul>
+<p>Example output on a machine with one NVIDIA GPU and CUDA libraries on the path:</p>
+<pre><code class="language-text">LC0 CNN CUDA JNI backend: loaded=yes, available=yes (deviceCount=1)
+LC0 BT4 CUDA JNI backend: loaded=yes, available=yes (deviceCount=1)
+LC0 CNN ROCm JNI backend: loaded=no, available=no (deviceCount=0)
+LC0 BT4 ROCm JNI backend: loaded=no, available=no (deviceCount=0)
+LC0 CNN oneAPI JNI backend: loaded=no, available=no (deviceCount=0)
+LC0 BT4 oneAPI JNI backend: loaded=no, available=no (deviceCount=0)
+OTIS CUDA JNI backend: loaded=yes, available=yes (deviceCount=1)
+OTIS ROCm JNI backend: loaded=no, available=no (deviceCount=0)
+OTIS oneAPI JNI backend: loaded=no, available=no (deviceCount=0)
+PERFT CUDA JNI backend: loaded=yes, available=yes (deviceCount=1)
+PERFT ROCm JNI backend: loaded=no, available=no (deviceCount=0)
+PERFT oneAPI JNI backend: loaded=no, available=no (deviceCount=0)</code></pre>
+<p><code>loaded=no</code> means the library never made it onto <code>java.library.path</code> (or the vendor-specific path env var was unset) — a placement problem, not a hardware one. <code>loaded=yes, available=no</code> is the more interesting failure: the library linked, but it found no usable device. That points at drivers or <code>deviceCount</code>, not the build. Add <code>--verbose</code> for more detail.</p>
+<pre><code class="language-bash">crtk engine gpu --verbose</code></pre>
+<h2 id="gpu-perft-engine-perft-gpu-and-engine-perft-suite-gpu">GPU perft: <code>engine perft --gpu</code> and <code>engine perft-suite --gpu</code></h2>
+<p>Perft counts the leaf nodes in the legal move tree to a fixed depth — the standard way to check that a move generator is both correct and fast. The GPU path changes only how the work is divided; the count is the same.</p>
+<p>The division is a tradeoff you control. crtk expands the tree on the CPU down to a <strong>split depth</strong>, packs the resulting legal positions, and ships them to the device, which counts the remaining subtrees in parallel. <code>--split N</code> sets that CPU depth. Each subtree the device receives is one large, independent unit of work — good for the GPU, until a subtree is deep enough to exhaust device memory or stall. When that happens, raise <code>--split</code>: more of the tree expands on the CPU, the per-device subtrees shrink, and the batch fits.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Flag</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--gpu</code></td>
+<td>Use the native GPU perft backend when available; otherwise fall back to CPU</td>
+</tr>
+<tr>
+<td><code>--split N</code></td>
+<td>CPU expansion depth before the subtree batch is sent to the device</td>
+</tr>
+<tr>
+<td><code>--depth</code>, <code>-d N</code></td>
+<td>Perft depth</td>
+</tr>
+<tr>
+<td><code>--threads N</code></td>
+<td>CPU worker threads for root moves (also used during expansion)</td>
+</tr>
+<tr>
+<td><code>--divide</code>, <code>--per-move</code></td>
+<td>Print a per-root-move node table</td>
+</tr>
+<tr>
+<td><code>--format FMT</code></td>
+<td>Output format: <code>detail</code>, <code>table</code>, or <code>stockfish</code></td>
+</tr>
+</tbody></table></div>
+<p>Run perft from the start position to depth 6, expanding three plies on the CPU before the GPU handles the rest:</p>
+<pre><code class="language-bash">crtk engine perft --startpos --depth 6 --gpu --split 3</code></pre>
+<p>Run perft on a custom position with a per-root-move breakdown:</p>
+<pre><code class="language-bash">crtk engine perft --fen &quot;&lt;FEN&gt;&quot; --depth 6 --gpu --split 3 --divide</code></pre>
+<p>With no native perft backend loaded, <code>--gpu</code> does nothing visible: the same perft runs on the CPU and returns the same totals. That interchangeability is the whole point — it lets the regression suite treat GPU and CPU runs as equivalent.</p>
+<p>The suite accepts the same two GPU flags, so you can validate a whole battery of known positions on the device:</p>
+<pre><code class="language-bash">crtk engine perft-suite --depth 6 --gpu --split 3</code></pre>
+<div class="table-wrap"><table>
+<thead><tr>
+<th><code>engine perft-suite</code> flag</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--depth</code>, <code>-d N</code></td>
+<td>Depth to validate, 1..6 (default: 6)</td>
+</tr>
+<tr>
+<td><code>--gpu</code></td>
+<td>Use the native GPU perft backend when available</td>
+</tr>
+<tr>
+<td><code>--split N</code></td>
+<td>CPU expansion depth for GPU perft</td>
+</tr>
+<tr>
+<td><code>--threads N</code></td>
+<td>Worker threads across positions</td>
+</tr>
+<tr>
+<td><code>--suite PATH</code></td>
+<td>Custom tab-delimited suite file</td>
+</tr>
+</tbody></table></div>
+<p>See <a href="quality-and-testing.html">Quality and Testing</a> for the suite file format and how perft is used as a determinism gate, and <a href="command-reference.html">Command Reference</a> for the full option list.</p>
+<h2 id="gpu-evaluators-otis-and-lc0">GPU evaluators: OTIS and LC0</h2>
+<p>The neural-network backends are chosen by system property rather than CLI flag — the commands stay the same whether the work runs on a GPU or not. The default is <code>auto</code>: take a GPU if one is there, otherwise the CPU. So <code>engine eval --otis</code> and <code>engine eval --lc0</code> are unchanged, as are the OTIS/LC0 paths inside <code>puzzle mine</code>, <code>fen tags</code>, and <code>fen text</code> / <code>puzzle text</code>. You change where the math happens without touching how you ask for it.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Property</th>
+<th>Default</th>
+<th>Forces</th>
+<th>Notes</th>
+</tr></thead><tbody>
+<tr>
+<td><code>-Dcrtk.lc0.backend</code></td>
+<td><code>auto</code></td>
+<td><code>cpu</code>, <code>cuda</code>, <code>rocm</code>, <code>oneapi</code></td>
+<td>Shared LC0 CNN backend selector; ROCm aliases <code>amd</code>/<code>hip</code>, oneAPI alias <code>intel</code></td>
+</tr>
+<tr>
+<td><code>-Dcrtk.lc0.bt4.backend</code></td>
+<td>inherits LC0</td>
+<td><code>auto</code>, <code>cpu</code>, <code>cuda</code>, <code>rocm</code>, <code>oneapi</code></td>
+<td>Optional BT4-specific override</td>
+</tr>
+<tr>
+<td><code>-Dcrtk.otis.backend</code></td>
+<td><code>auto</code></td>
+<td><code>cpu</code>, <code>cuda</code>, <code>rocm</code>, <code>oneapi</code></td>
+<td>OTIS policy/WDL backend selector</td>
+</tr>
+<tr>
+<td><code>-Dcrtk.t5.backend</code></td>
+<td><code>auto</code></td>
+<td><code>cpu</code>, <code>cuda</code>, <code>rocm</code>, <code>oneapi</code></td>
+<td>T5 summary pipeline backend selector</td>
+</tr>
+</tbody></table></div>
+<p>Force OTIS onto a CUDA device for an evaluation:</p>
+<pre><code class="language-bash">java -Dcrtk.otis.backend=cuda -jar crtk.jar engine eval --otis --fen &quot;&lt;FEN&gt;&quot;</code></pre>
+<p>Pin LC0 CNN inference to the CPU even when a GPU is present:</p>
+<pre><code class="language-bash">java -Dcrtk.lc0.backend=cpu -jar crtk.jar engine eval --lc0 --fen &quot;&lt;FEN&gt;&quot;</code></pre>
+<p>One expectation to set straight: crtk&#x27;s neural networks are usable evaluators, not bit-exact reimplementations of upstream LC0/BT4. The GPU and CPU paths agree because they run the same crtk weights — but those weights will not track a stock LC0 binary move-for-move, and the BT4 backend is simplified and experimental on top of that. See <a href="lc0.html">LC0 CNN evaluator</a> and <a href="t5.html">T5 summaries</a> for what these models actually deliver.</p>
+<h2 id="building-the-native-libraries">Building the native libraries</h2>
+<p>Each vendor backend lives in its own directory and builds with CMake. There are <strong>no third-party Java dependencies</strong> — JNI plus the vendor runtime, nothing else. Build the one that matches your hardware:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Vendor</th>
+<th>Directory</th>
+<th>Runtime needed</th>
+<th>Library names (Linux)</th>
+</tr></thead><tbody>
+<tr>
+<td>NVIDIA</td>
+<td><code>native/cuda</code></td>
+<td>CUDA toolkit (<code>nvcc</code>, <code>cudart</code>, <code>cublas</code>)</td>
+<td><code>liblc0_cuda.so</code>, <code>libotis_cuda.so</code>, <code>libt5_cuda.so</code>, <code>libperft_cuda.so</code></td>
+</tr>
+<tr>
+<td>AMD</td>
+<td><code>native/rocm</code></td>
+<td>ROCm toolkit (HIP / <code>hipcc</code>)</td>
+<td><code>liblc0_rocm.so</code>, <code>libotis_rocm.so</code>, <code>libt5_rocm.so</code>, <code>libperft_rocm.so</code></td>
+</tr>
+<tr>
+<td>Intel</td>
+<td><code>native/oneapi</code></td>
+<td>SYCL toolchain (Intel oneAPI <code>icpx</code>/<code>dpcpp</code> or LLVM <code>-fsycl</code>)</td>
+<td><code>liblc0_oneapi.so</code>, <code>libotis_oneapi.so</code>, <code>libt5_oneapi.so</code>, <code>libperft_oneapi.so</code></td>
+</tr>
+</tbody></table></div>
+<p>All three want CMake 3.18+, a C++17 toolchain, and a full JDK 17+ — a JRE will not do, because the build needs <code>jni.h</code>. Linux is the most-tested target. Each directory keeps its own <code>README.md</code> with the full build, run, and troubleshooting matrix.</p>
+<h3 id="cuda-nvidia">CUDA (NVIDIA)</h3>
+<pre><code class="language-bash">cmake -S native/cuda -B native/cuda/build -DCMAKE_BUILD_TYPE=Release
+cmake --build native/cuda/build -j</code></pre>
+<h3 id="rocm-amd">ROCm (AMD)</h3>
+<pre><code class="language-bash">cmake -S native/rocm -B native/rocm/build -DCMAKE_BUILD_TYPE=Release
+cmake --build native/rocm/build -j</code></pre>
+<h3 id="oneapi-intel">oneAPI (Intel)</h3>
+<pre><code class="language-bash">cmake -S native/oneapi -B native/oneapi/build -DCMAKE_BUILD_TYPE=Release
+cmake --build native/oneapi/build -j</code></pre>
+<p>If your default compiler does not understand <code>-fsycl</code>, point CMake at one that does:</p>
+<pre><code class="language-bash">cmake -S native/oneapi -B native/oneapi/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=icpx</code></pre>
+<p>If CMake cannot find JNI, set <code>JAVA_HOME</code> to your JDK root and re-run the configure step. On Windows, reach for a multi-config generator (for example <code>-G &quot;Visual Studio 17 2022&quot; -A x64</code>) and <code>--config Release</code>; outputs land under <code>build/Release/</code> with <code>.dll</code> extensions.</p>
+<h2 id="how-java-loads-the-native-libraries">How Java loads the native libraries</h2>
+<p>Each backend loads through <code>System.loadLibrary</code>, which means the built libraries have to sit somewhere on the JVM&#x27;s library path. The usual move is to point <code>java.library.path</code> straight at the vendor build directory:</p>
+<pre><code class="language-bash">java -Djava.library.path=native/cuda/build -jar crtk.jar engine gpu</code></pre>
+<p>Discovery order, from most to least common:</p>
+<ul>
+<li>Add the vendor <code>build/</code> directory to <code>-Djava.library.path</code>.</li>
+<li>Copy the built library next to where you launch crtk (there is a small fallback that probes the current directory).</li>
+<li>Set the per-backend, per-vendor path env var for an explicit absolute path, for example <code>CRTK_OTIS_CUDA_LIB</code>, <code>CRTK_PERFT_ROCM_LIB</code>, or <code>CRTK_T5_ONEAPI_LIB</code>.</li>
+</ul>
+<p>Backend selection at runtime:</p>
+<ul>
+<li>LC0 CNN / BT4, OTIS, and T5 each read their <code>-Dcrtk.&lt;area&gt;.backend</code> property (<code>auto</code> by default) and auto-select a loaded GPU backend when <code>auto</code>.</li>
+<li>Perft uses <code>-Dcrtk.perft.backend</code> — <code>auto</code> tries CUDA, then ROCm, then oneAPI; you can force a vendor with <code>cuda</code>, <code>rocm</code>, or <code>oneapi</code>.</li>
+</ul>
+<p>Once it builds, confirm the whole chain resolves with <code>engine gpu</code> — you want <code>loaded=yes, available=yes</code>:</p>
+<pre><code class="language-bash">java -Djava.library.path=native/cuda/build -jar crtk.jar engine gpu --verbose</code></pre>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Symptom</th>
+<th>Likely cause and fix</th>
+</tr></thead><tbody>
+<tr>
+<td><code>engine gpu</code> shows <code>loaded=no</code></td>
+<td>Library not on the path. Pass <code>-Djava.library.path=native/&lt;vendor&gt;/build</code> or set the per-backend <code>CRTK_*_LIB</code> env var</td>
+</tr>
+<tr>
+<td><code>UnsatisfiedLinkError: no &lt;lib&gt; in java.library.path</code></td>
+<td>Same as above — the named library was not found</td>
+</tr>
+<tr>
+<td><code>loaded=yes, available=no</code>, <code>deviceCount=0</code></td>
+<td>Library linked but no usable device. Check drivers: <code>nvidia-smi</code> / <code>CUDA_VISIBLE_DEVICES</code> (CUDA), <code>rocminfo</code> / <code>HIP_VISIBLE_DEVICES</code> (ROCm), <code>sycl-ls</code> / <code>ONEAPI_DEVICE_SELECTOR</code> (oneAPI)</td>
+</tr>
+<tr>
+<td><code>libcudart.so</code> / <code>libcublas.so</code> not found (Linux)</td>
+<td>Add the CUDA lib dir to <code>LD_LIBRARY_PATH</code> (often <code>/usr/local/cuda/lib64</code>)</td>
+</tr>
+<tr>
+<td><code>libamdhip64.so</code> / <code>libhipblas.so</code> not found (Linux)</td>
+<td>Add the ROCm lib dir to <code>LD_LIBRARY_PATH</code> (often <code>/opt/rocm/lib</code>)</td>
+</tr>
+<tr>
+<td><code>libsycl.so</code> not found (Linux)</td>
+<td>Add the oneAPI runtime lib dir to <code>LD_LIBRARY_PATH</code> (often <code>/opt/intel/oneapi/compiler/latest/linux/lib</code>)</td>
+</tr>
+<tr>
+<td>GPU perft slow or out of memory</td>
+<td>Raise <code>--split N</code> so more of the tree is expanded on the CPU before the device batch</td>
+</tr>
+<tr>
+<td>CMake cannot find JNI</td>
+<td>Install a full JDK (not a JRE) and set <code>JAVA_HOME</code> to its root</td>
+</tr>
+</tbody></table></div>
+<p>A backend that refuses to load is never fatal here — crtk drops to the CPU and carries on. That is why <code>--gpu</code> and the <code>auto</code> backend setting are safe to leave on by default; the worst case is that they do nothing. For broader environment checks run <a href="troubleshooting.html"><code>doctor</code></a>, and reach for each vendor&#x27;s <code>native/&lt;vendor&gt;/README.md</code> when you need the complete platform notes.</p>
+<h2 id="related-pages">Related pages</h2>
+<ul>
+<li><a href="build-and-install.html">Build and Install</a> — building crtk itself with <code>javac --release 17</code></li>
+<li><a href="quality-and-testing.html">Quality and Testing</a> — perft and the regression suite</li>
+<li><a href="lc0.html">LC0 CNN evaluator</a> — the LC0/BT4 evaluation path and its fidelity caveats</li>
+<li><a href="t5.html">T5 summaries</a> — the natural-language pipeline that can use the GPU</li>
+<li><a href="command-reference.html">Command Reference</a> — full <code>engine perft</code>, <code>engine perft-suite</code>, and <code>engine gpu</code> options</li>
+<li><a href="configuration.html">Configuration</a> — system properties and config values</li>
+</ul>
+      </article>
+      <aside class="toc"><h2>On this page</h2>
+<a class="toc-h2" href="#what-gpu-acceleration-does-and-does-not-do">What GPU acceleration does (and does not) do</a>
+<a class="toc-h2" href="#check-backend-status-engine-gpu">Check backend status: engine gpu</a>
+<a class="toc-h2" href="#gpu-perft-engine-perft-gpu-and-engine-perft-suite-gpu">GPU perft: engine perft --gpu and engine perft-suite --gpu</a>
+<a class="toc-h2" href="#gpu-evaluators-otis-and-lc0">GPU evaluators: OTIS and LC0</a>
+<a class="toc-h2" href="#building-the-native-libraries">Building the native libraries</a>
+<a class="toc-h3" href="#cuda-nvidia">CUDA (NVIDIA)</a>
+<a class="toc-h3" href="#rocm-amd">ROCm (AMD)</a>
+<a class="toc-h3" href="#oneapi-intel">oneAPI (Intel)</a>
+<a class="toc-h2" href="#how-java-loads-the-native-libraries">How Java loads the native libraries</a>
+<a class="toc-h2" href="#troubleshooting">Troubleshooting</a>
+<a class="toc-h2" href="#related-pages">Related pages</a></aside>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a class="footer-logo" href="index.html">
+          <img src="assets/logo/crtk-logo.svg" alt="" width="40" height="40">
+          <span>ChessRTK</span>
+        </a>
+        <p>The deterministic chess research toolkit. Free, open-source, and built on one shared Java chess core.</p>
+        <p class="footer-license">Licensed under GPL-3.0-only.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col"><h3>Documentation</h3><ul>
+          <li><a href="getting-started.html">Getting Started</a></li>
+          <li><a href="command-reference.html">Command Reference</a></li>
+          <li><a href="configuration.html">Configuration</a></li>
+          <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          <li><a href="chessrtk-manual.pdf">Manual (PDF)</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Workflows</h3><ul>
+          <li><a href="mining.html">Puzzle Mining</a></li>
+          <li><a href="datasets.html">ML Datasets</a></li>
+          <li><a href="piece-tags.html">Tagging</a></li>
+          <li><a href="book-publishing.html">Book Publishing</a></li>
+          <li><a href="ai-agents.html">AI Agents</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Project</h3><ul>
+          <li><a href="architecture.html">Architecture</a></li>
+          <li><a href="quality-and-testing.html">Quality &amp; Testing</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk/issues" target="_blank" rel="noopener">Issues</a></li>
+        </ul></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; ChessRTK contributors &middot; GPL-3.0-only</span>
+      <span>Documentation generated from the repository <a href="wiki-index.html">wiki</a>.</span>
+    </div>
+  </footer>
+
+</body>
+</html>

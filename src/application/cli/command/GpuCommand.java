@@ -39,6 +39,20 @@ public final class GpuCommand {
 				chess.nn.lc0.cnn.oneapi.Support.isAvailable(), chess.nn.lc0.cnn.oneapi.Support.deviceCount());
 		printBackend("LC0 BT4 oneAPI", chess.nn.lc0.bt4.oneapi.Support.isLoaded(),
 				chess.nn.lc0.bt4.oneapi.Support.isAvailable(), chess.nn.lc0.bt4.oneapi.Support.deviceCount());
+
+		printBackend("OTIS CUDA", chess.nn.otis.cuda.Support.isLoaded(),
+				chess.nn.otis.cuda.Support.isAvailable(), chess.nn.otis.cuda.Support.deviceCount());
+		printBackend("OTIS ROCm", chess.nn.otis.rocm.Support.isLoaded(),
+				chess.nn.otis.rocm.Support.isAvailable(), chess.nn.otis.rocm.Support.deviceCount());
+		printBackend("OTIS oneAPI", chess.nn.otis.oneapi.Support.isLoaded(),
+				chess.nn.otis.oneapi.Support.isAvailable(), chess.nn.otis.oneapi.Support.deviceCount());
+
+		printBackend("PERFT CUDA", chess.nn.perft.cuda.Support.isLoaded(),
+				chess.nn.perft.cuda.Support.isAvailable(), chess.nn.perft.cuda.Support.deviceCount());
+		printBackend("PERFT ROCm", chess.nn.perft.rocm.Support.isLoaded(),
+				chess.nn.perft.rocm.Support.isAvailable(), chess.nn.perft.rocm.Support.deviceCount());
+		printBackend("PERFT oneAPI", chess.nn.perft.oneapi.Support.isLoaded(),
+				chess.nn.perft.oneapi.Support.isAvailable(), chess.nn.perft.oneapi.Support.deviceCount());
 	}
 
 	/**

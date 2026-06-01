@@ -17,3 +17,13 @@ add_library(t5_oneapi SHARED t5_oneapi_jni.cpp)
 target_include_directories(t5_oneapi PRIVATE ${JNI_INCLUDE_DIRS})
 target_compile_options(t5_oneapi PRIVATE -fsycl)
 target_link_options(t5_oneapi PRIVATE -fsycl)
+
+add_library(otis_oneapi SHARED otis_oneapi_jni.cpp)
+target_include_directories(otis_oneapi PRIVATE ${JNI_INCLUDE_DIRS})
+target_compile_options(otis_oneapi PRIVATE -fsycl)
+target_link_options(otis_oneapi PRIVATE -fsycl)
+
+add_library(perft_oneapi SHARED perft_oneapi_jni.cpp)
+target_include_directories(perft_oneapi PRIVATE ${JNI_INCLUDE_DIRS})
+target_compile_options(perft_oneapi PRIVATE -fsycl)
+target_link_options(perft_oneapi PRIVATE -fsycl)

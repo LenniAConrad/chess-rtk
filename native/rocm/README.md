@@ -1,90 +1,139 @@
-# `native/rocm`: optional ROCm backend (JNI)
+# ROCm/HIP Native Backend
 
-This directory contains optional native shared libraries:
-- `lc0_rocm` used by the Java LC0 CNN and BT4 evaluators under `src/chess/nn/lc0/cnn/` and `src/chess/nn/lc0/bt4/`.
-- `t5_rocm` used by the T5 tag-to-text pipeline under `src/chess/nn/t5/`.
+This directory holds the **optional ROCm/HIP backend** for ChessRTK ("crtk"): a small set of JNI shared libraries that offload work to AMD GPUs. The libraries are entirely optional — crtk runs fully on the CPU without them. When a library and a compatible AMD device are present, crtk auto-detects them and uses the GPU for two performance paths in particular: **bulk perft** (`engine perft --gpu`, `engine perft-suite --gpu`) and **OTIS** policy/WDL inference. The same source tree also builds GPU paths for the LC0 CNN and BT4 evaluators and the T5 tag-to-text decoder. Every GPU path falls back to deterministic CPU code when ROCm is unavailable, so nothing here changes results — it only changes throughput.
 
-If present at runtime, the Java code can:
-- Detect whether ROCm is usable (`chess.nn.lc0.cnn.rocm.Support.isAvailable()` / `deviceCount()`, `chess.nn.lc0.bt4.rocm.Support.isAvailable()` / `deviceCount()`).
-- Run LC0 CNN `.bin` policy+value inference on the GPU (`chess.nn.lc0.cnn.rocm.Backend`), which is auto-selected by `chess.nn.lc0.cnn.Network` when `-Dcrtk.lc0.backend=auto` (default) and ROCm is available.
-- Run compact BT4 `.bin` policy+value inference on the GPU (`chess.nn.lc0.bt4.rocm.Backend`), auto-selected by `chess.nn.lc0.bt4.Network` when `-Dcrtk.lc0.bt4.backend=auto` or the shared LC0 backend property selects ROCm.
-- Run end-to-end T5 greedy decoding on the GPU (`chess.nn.t5.rocm.Backend`), with a CPU fallback when ROCm cannot initialize.
+> The neural-network paths (LC0 CNN, BT4, OTIS, T5) are usable evaluators, not bit-exact replicas of upstream engines. The BT4 path in particular is simplified and experimental. The perft path is exact node counting and is verified against the CPU core.
 
-This JNI library intentionally has **no third-party Java dependencies**; it uses JNI and the ROCm HIP runtime.
+## What this backend provides
 
-## Supported platforms
-This should build anywhere CMake can find:
-- A C++17 toolchain
-- The ROCm toolkit (HIP compiler/runtime)
-- A JDK with JNI headers
+This directory has **no third-party Java dependencies**. It links only against JNI and the ROCm HIP runtime. Each `.hip` file is a thin shim that maps generic GPU macros (alloc, memcpy, synchronize, device count) onto HIP calls and then includes a shared implementation from `../common/`. The actual kernels are written once and compiled for every vendor backend (CUDA, ROCm, oneAPI), which keeps the GPU math identical across vendors.
 
-In practice, Linux is the most tested target. Windows and macOS are typically not used for ROCm.
+| Library (Linux) | Java backend package | Purpose | Shared kernel source |
+| --- | --- | --- | --- |
+| `libperft_rocm.so` | `chess.nn.perft.rocm` | Split-depth bulk perft node counting | `../common/perft_gpu_impl.inl`, `../common/perft_core.h` |
+| `libotis_rocm.so` | `chess.nn.otis.rocm` | OTIS policy/WDL inference | `../common/otis_gpu_impl.inl` |
+| `liblc0_rocm.so` | `chess.nn.lc0.cnn.rocm`, `chess.nn.lc0.bt4.rocm` | LC0 CNN and BT4 policy+value inference | `../common/lc0_bt4_gpu_impl.inl` |
+| `libt5_rocm.so` | `chess.nn.t5.rocm` | T5 greedy decoding for natural-language summaries | (in `t5_rocm_jni.hip`) |
+
+The brief focus of this page is the **perft** and **OTIS** paths; the LC0 and T5 libraries build from the same `CMakeLists.txt` and load the same way.
+
+## Prerequisites
+
+- A **C++17 toolchain**.
+- The **ROCm toolkit**, which provides HIP and the `hipcc` compiler/runtime. The libraries link against `HIP::device`; the T5 library additionally links against `hipblas`.
+- **CMake 3.18+** (required for first-class HIP language support).
+- A full **Java 17+ JDK** (not just a JRE) so CMake can find `jni.h` via `find_package(JNI)`.
+
+Linux is the primary and most-tested target for ROCm. Windows and macOS are not typical ROCm platforms.
 
 ## Build
-Prerequisites:
-- CMake 3.18+ (HIP language support)
-- ROCm toolkit (provides HIP/hipcc)
-- Java 17+ JDK (for `jni.h`)
 
-### Linux (single-config generators)
+From the repository root:
 
 ```bash
 cmake -S native/rocm -B native/rocm/build -DCMAKE_BUILD_TYPE=Release
 cmake --build native/rocm/build -j
 ```
 
-Output:
-- Linux: `native/rocm/build/liblc0_rocm.so`, `native/rocm/build/libt5_rocm.so`
-- Windows: `native/rocm/build/Release/lc0_rocm.dll` (if supported)
-
-If CMake cannot find JNI, set `JAVA_HOME` to your JDK root and re-run configure.
-
-## Run
-The libraries must be loadable via `System.loadLibrary("lc0_rocm")` and/or `System.loadLibrary("t5_rocm")`.
-
-Two common ways:
-- Add the build directory to `java.library.path`.
-- Copy the built library next to where you run Java from (there is a small fallback in `chess.nn.lc0.cnn.rocm.Support` that tries the current directory).
-- Or set `CRTK_T5_ROCM_LIB` to the absolute `t5_rocm` library path (T5 only).
-
-Example (quick backend check; opens a window):
+If CMake cannot locate HIP/ROCm, make sure `hipcc` is on `PATH`, or pass an explicit prefix:
 
 ```bash
-mkdir -p out
-javac --release 17 -d out $(find src -name "*.java")
-java -cp out -Djava.library.path=native/rocm/build application.Main display --fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" --show-backend
+cmake -S native/rocm -B native/rocm/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/opt/rocm
 ```
 
-Example (force ROCm backend; opens a window; errors out if ROCm cannot initialize):
+If CMake cannot find JNI, set `JAVA_HOME` to your JDK root and re-run the configure step.
+
+### Build output
+
+The build produces these shared libraries in `native/rocm/build/`:
+
+- `libperft_rocm.so`
+- `libotis_rocm.so`
+- `liblc0_rocm.so`
+- `libt5_rocm.so`
+
+The configure step also writes `native/rocm/build/compile_commands.json` (handy for editor/clangd integration with the HIP and JNI headers).
+
+## Loading the libraries from Java
+
+Each library is loaded lazily by its `Support` class via `System.loadLibrary`. crtk finds it through one of:
+
+- `-Djava.library.path=native/rocm/build` pointing at the directory that holds the built libraries.
+- The current working directory (a small fallback in the loader checks there).
+- An explicit absolute path in an environment variable: `CRTK_PERFT_ROCM_LIB` for perft, `CRTK_OTIS_ROCM_LIB` for OTIS, `CRTK_T5_ROCM_LIB` for T5.
+
+To confirm what crtk sees at runtime, run the GPU status command:
 
 ```bash
-java -cp out -Djava.library.path=native/rocm/build -Dcrtk.lc0.backend=rocm application.Main display --fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" --show-backend
+java -jar crtk.jar -Djava.library.path=native/rocm/build engine gpu
 ```
 
-Backend selection:
-- Default: `-Dcrtk.lc0.backend=auto` (use CUDA/ROCm/oneAPI if available, else CPU)
-- Force CPU: `-Dcrtk.lc0.backend=cpu`
-- Force ROCm: `-Dcrtk.lc0.backend=rocm` (aliases: `amd`, `hip`)
-- LC0 BT4 override: `-Dcrtk.lc0.bt4.backend=auto|cpu|rocm|amd|hip`
+It prints one line per vendor backend. A working ROCm install looks like:
 
-T5 selection:
-- Default: `-Dcrtk.t5.backend=auto` (use CUDA/ROCm/oneAPI if available, else CPU)
-- Force CPU: `-Dcrtk.t5.backend=cpu`
-- Force ROCm: `-Dcrtk.t5.backend=rocm` (aliases: `amd`, `hip`)
+```text
+PERFT ROCm JNI backend: loaded=yes, available=yes (deviceCount=1)
+OTIS ROCm JNI backend: loaded=yes, available=yes (deviceCount=1)
+```
 
-In code, call `chess.nn.lc0.cnn.rocm.Support.isAvailable()` / `chess.nn.lc0.cnn.rocm.Support.deviceCount()`,
-`chess.nn.lc0.bt4.rocm.Support.isAvailable()` / `chess.nn.lc0.bt4.rocm.Support.deviceCount()`, and
-`chess.nn.t5.rocm.Support.isAvailable()` / `chess.nn.t5.rocm.Support.deviceCount()`.
+When the library is missing or no AMD device is visible, the same command reports `loaded=no, available=no (deviceCount=0)` and crtk silently uses the CPU.
 
-## Notes
-- The CNN backend loads ChessRTK LC0 CNN `.bin` weights; the BT4 backend loads compact BT4 weights with magic `BT4J`.
-- Use `crtk.lc0.backend` / `crtk.lc0.threads` for configuration.
+## Using the GPU paths
+
+### Bulk perft
+
+`engine perft` and `engine perft-suite` accept `--gpu` to request the native backend, plus `--split` to control how deep the CPU expands the move tree before handing batched leaf positions to the device. Raise `--split` if the remaining device depth is too high for one launch.
+
+```bash
+java -jar crtk.jar -Djava.library.path=native/rocm/build engine perft --startpos --depth 6 --gpu --split 3
+```
+
+```bash
+java -jar crtk.jar -Djava.library.path=native/rocm/build engine perft-suite --depth 6 --gpu --split 3
+```
+
+If `--gpu` is requested but no native perft backend is available, crtk falls back to the deterministic CPU perft. Node counts are identical either way.
+
+### OTIS inference
+
+OTIS evaluation is available through `engine eval` and `engine analyze` with the `otis` evaluator. The backend is selected automatically when a device is present:
+
+```bash
+java -jar crtk.jar -Djava.library.path=native/rocm/build engine eval --fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" --otis
+```
+
+## Backend selection (system properties)
+
+Each GPU path reads a `-D` system property to choose its backend. The default is `auto`, which tries available vendor backends (CUDA, then ROCm, then oneAPI) and otherwise uses the CPU.
+
+| Path | Property | Values |
+| --- | --- | --- |
+| Perft | `crtk.perft.backend` | `auto`, `rocm` (aliases `amd`, `hip`), and other vendors |
+| OTIS | `crtk.otis.backend` | `auto`, `cpu`, `rocm` (aliases `amd`, `hip`) |
+| LC0 CNN | `crtk.lc0.backend` | `auto`, `cpu`, `rocm` (aliases `amd`, `hip`) |
+| LC0 BT4 | `crtk.lc0.bt4.backend` | `auto`, `cpu`, `rocm` (aliases `amd`, `hip`) |
+| T5 | `crtk.t5.backend` | `auto`, `cpu`, `rocm` (aliases `amd`, `hip`) |
+
+Force the ROCm OTIS backend (and fail loudly if it cannot initialize) like this:
+
+```bash
+java -jar crtk.jar -Djava.library.path=native/rocm/build -Dcrtk.otis.backend=rocm engine eval --fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" --otis
+```
+
+In code, the capability checks are `chess.nn.perft.rocm.Support.isAvailable()` / `.deviceCount()` and the matching `Support` classes under `chess.nn.otis.rocm`, `chess.nn.lc0.cnn.rocm`, `chess.nn.lc0.bt4.rocm`, and `chess.nn.t5.rocm`. `isAvailable()` returns `true` only when the library loaded *and* a device is visible.
 
 ## Troubleshooting
-- VSCode squiggles on `#include <jni.h>` / HIP headers: run the CMake configure step once to generate `native/rocm/build/compile_commands.json` and reload VSCode (this repo sets `C_Cpp.default.compileCommands` accordingly).
-- CMake cannot find HIP/ROCm: ensure `hipcc` is on `PATH`, or pass `-DCMAKE_PREFIX_PATH=/opt/rocm` when configuring.
-- CMake cannot find JNI: ensure you installed a full JDK (not just a JRE) and set `JAVA_HOME` to the JDK root.
-- `UnsatisfiedLinkError: no lc0_rocm in java.library.path`: pass `-Djava.library.path=...` pointing at the directory containing the built library, or copy the library into your working directory.
-- `libamdhip64.so...: cannot open shared object file` (Linux): ensure the ROCm runtime is installed and discoverable (often via `LD_LIBRARY_PATH=/opt/rocm/lib`).
-- `libhipblas.so...: cannot open shared object file` (Linux): ensure ROCm BLAS is installed and on `LD_LIBRARY_PATH`.
-- `deviceCount=0` but you expect a GPU: check AMD driver install, `rocminfo`, and `HIP_VISIBLE_DEVICES`.
+
+- **`UnsatisfiedLinkError: no perft_rocm in java.library.path`** — pass `-Djava.library.path=native/rocm/build`, copy the library into your working directory, or set `CRTK_PERFT_ROCM_LIB` to the absolute `.so` path. The same applies to `otis_rocm` (`CRTK_OTIS_ROCM_LIB`) and `t5_rocm` (`CRTK_T5_ROCM_LIB`).
+- **CMake cannot find HIP/ROCm** — ensure `hipcc` is on `PATH`, or pass `-DCMAKE_PREFIX_PATH=/opt/rocm`.
+- **CMake cannot find JNI** — install a full JDK (not a JRE) and set `JAVA_HOME` to the JDK root.
+- **`libamdhip64.so ...: cannot open shared object file`** — the ROCm runtime is not discoverable; add it to the loader path, e.g. `LD_LIBRARY_PATH=/opt/rocm/lib`.
+- **`libhipblas.so ...: cannot open shared object file`** — ROCm BLAS (needed by the T5 library) is missing or off `LD_LIBRARY_PATH`.
+- **`deviceCount=0` but you expect a GPU** — check the AMD driver install, run `rocminfo`, and review `HIP_VISIBLE_DEVICES`.
+
+## Related pages
+
+- [Native In-House Engine and GPU Backends](in-house-engine.md)
+- [LC0 Integration](lc0.md)
+- [Build and Install](build-and-install.md)
+- [Command Reference](command-reference.md)
+- [Troubleshooting](troubleshooting.md)

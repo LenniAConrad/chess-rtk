@@ -22,13 +22,27 @@ target_include_directories(lc0_cuda PRIVATE ${JNI_INCLUDE_DIRS})
 add_library(t5_cuda SHARED t5_cuda_jni.cu)
 target_include_directories(t5_cuda PRIVATE ${JNI_INCLUDE_DIRS})
 
+add_library(otis_cuda SHARED otis_cuda_jni.cu)
+target_include_directories(otis_cuda PRIVATE ${JNI_INCLUDE_DIRS})
+
+add_library(perft_cuda SHARED perft_cuda_jni.cu)
+target_include_directories(perft_cuda PRIVATE ${JNI_INCLUDE_DIRS})
+
 # Link CUDA runtime.
 target_link_libraries(lc0_cuda PRIVATE CUDA::cudart)
 target_link_libraries(t5_cuda PRIVATE CUDA::cudart CUDA::cublas)
+target_link_libraries(otis_cuda PRIVATE CUDA::cudart)
+target_link_libraries(perft_cuda PRIVATE CUDA::cudart)
 
 set_target_properties(lc0_cuda PROPERTIES
   CUDA_SEPARABLE_COMPILATION ON
 )
 set_target_properties(t5_cuda PROPERTIES
+  CUDA_SEPARABLE_COMPILATION ON
+)
+set_target_properties(otis_cuda PROPERTIES
+  CUDA_SEPARABLE_COMPILATION ON
+)
+set_target_properties(perft_cuda PROPERTIES
   CUDA_SEPARABLE_COMPILATION ON
 )

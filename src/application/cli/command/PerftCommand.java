@@ -5,7 +5,9 @@ import static application.cli.Constants.OPT_DEPTH;
 import static application.cli.Constants.OPT_DEPTH_SHORT;
 import static application.cli.Constants.OPT_DIVIDE;
 import static application.cli.Constants.OPT_FORMAT;
+import static application.cli.Constants.OPT_GPU;
 import static application.cli.Constants.OPT_PER_MOVE;
+import static application.cli.Constants.OPT_SPLIT;
 import static application.cli.Constants.OPT_SUITE;
 import static application.cli.Constants.OPT_THREADS;
 import static application.cli.Constants.OPT_VERBOSE;
@@ -26,6 +28,7 @@ import application.console.Bar;
 import chess.core.Move;
 import chess.core.Position;
 import chess.debug.LogService;
+import chess.debug.gpu.GpuPerft;
 import chess.debug.Perft;
 import chess.debug.Perft.DivideEntry;
 import chess.debug.Perft.DivideResult;
@@ -132,8 +135,10 @@ public final class PerftCommand {
 	private static void runPerft(Argv a, String commandName, String heading) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
 		boolean divideFlag = a.flag(OPT_DIVIDE, OPT_PER_MOVE);
+		boolean gpu = a.flag(OPT_GPU);
 		Integer depth = a.integer(OPT_DEPTH, OPT_DEPTH_SHORT);
 		Integer threads = a.integer(OPT_THREADS);
+		Integer split = a.integer(OPT_SPLIT);
 		String formatValue = a.string(OPT_FORMAT);
 		PerftFormat format = parseFormat(formatValue, commandName);
 		boolean divide = divideFlag || format == PerftFormat.TABLE || format == PerftFormat.STOCKFISH;
@@ -145,6 +150,29 @@ public final class PerftCommand {
 		requireNonNegative(commandName, OPT_DEPTH, depth);
 		int workerThreads = threads == null ? 1 : threads;
 		requirePositive(commandName, OPT_THREADS, workerThreads);
+
+		if (gpu) {
+			if (split != null) {
+				requireNonNegative(commandName, OPT_SPLIT, split);
+			}
+			try {
+				if (divide) {
+					PerftFormat divideFormat = formatValue == null || formatValue.isBlank()
+							? PerftFormat.TABLE
+							: format;
+					runGpuDivide(heading, position, depth, split, workerThreads, divideFormat);
+				} else {
+					boolean detailedGpu = formatValue != null
+							&& (format == PerftFormat.TABLE || format == PerftFormat.DETAIL);
+					runGpuPerft(heading, position, depth, split, detailedGpu);
+				}
+			} catch (InterruptedException ex) {
+				Thread.currentThread().interrupt();
+				LogService.error(ex, commandName + " interrupted");
+				throw new CommandFailure(commandName + ": interrupted", ex, 130, verbose);
+			}
+			return;
+		}
 
 		try {
 			if (divide) {
@@ -161,6 +189,95 @@ public final class PerftCommand {
 			LogService.error(ex, commandName + " interrupted");
 			throw new CommandFailure(commandName + ": interrupted", ex, 130, verbose);
 		}
+	}
+
+	/**
+	 * Runs node-only perft on a native device backend, falling back to the CPU
+	 * when no backend is available.
+	 *
+	 * <p>
+	 * The device path expands the move tree on the CPU to a split depth and counts
+	 * {@code perft(remainingDepth)} for every frontier position on the GPU.
+	 * </p>
+	 *
+	 * @param heading heading prefix for output
+	 * @param position root position
+	 * @param depth perft depth
+	 * @param split optional CPU expansion depth (default chosen from depth)
+	 */
+	private static void runGpuPerft(String heading, Position position, int depth, Integer split,
+			boolean detailed) {
+		boolean available = GpuPerft.isAvailable();
+		System.out.println("FEN: " + position);
+		printRootStatus(position);
+		int splitDepth = split == null ? GpuPerft.defaultSplitDepth(depth) : split;
+		long start = System.nanoTime();
+
+		if (detailed) {
+			Stats stats;
+			String mode;
+			if (available && GpuPerft.isDetailedAvailable()) {
+				stats = GpuPerft.perftDetailed(position, depth, splitDepth);
+				mode = "gpu: " + GpuPerft.backendName() + ", split " + splitDepth;
+			} else if (available) {
+				stats = Perft.run(position, depth).stats();
+				mode = "gpu detailed unavailable; cpu fallback";
+			} else {
+				stats = Perft.run(position, depth).stats();
+				mode = "gpu unavailable; cpu fallback";
+			}
+			long nanos = System.nanoTime() - start;
+			System.out.println(heading + " depth " + depth + " (" + mode + ")");
+			printStats(stats);
+			printTiming(nanos, nanos <= 0L ? 0.0 : stats.nodes() * 1_000_000_000.0 / nanos);
+			return;
+		}
+
+		long nodes;
+		String mode;
+		if (available) {
+			nodes = GpuPerft.perft(position, depth, splitDepth);
+			mode = "gpu: " + GpuPerft.backendName() + ", split " + splitDepth;
+		} else {
+			nodes = position.perft(depth);
+			mode = "gpu unavailable; cpu fallback";
+		}
+		long nanos = System.nanoTime() - start;
+		System.out.println(heading + " depth " + depth + " (" + mode + ")");
+		System.out.println("nodes: " + nodes);
+		printTiming(nanos, nanos <= 0L ? 0.0 : nodes * 1_000_000_000.0 / nanos);
+	}
+
+	/**
+	 * Runs per-root-move divide on a native device backend, falling back to CPU
+	 * divide when no backend is available.
+	 *
+	 * @param heading heading prefix for output
+	 * @param position root position
+	 * @param depth perft depth
+	 * @param split optional CPU expansion depth for GPU mode
+	 * @param workerThreads CPU fallback worker count
+	 * @param format divide output format
+	 * @throws InterruptedException when CPU fallback workers are interrupted
+	 */
+	private static void runGpuDivide(
+			String heading,
+			Position position,
+			int depth,
+			Integer split,
+			int workerThreads,
+			PerftFormat format) throws InterruptedException {
+		boolean detailed = format != PerftFormat.STOCKFISH;
+		DivideResult result;
+		if (GpuPerft.isAvailable() && (!detailed || GpuPerft.isDetailedAvailable())) {
+			int splitDepth = split == null ? GpuPerft.defaultSplitDepth(depth) : split;
+			result = GpuPerft.divide(position, depth, splitDepth, detailed);
+		} else {
+			result = detailed
+					? Perft.divide(position, depth, workerThreads)
+					: Perft.divideNodes(position, depth, workerThreads);
+		}
+		printDivide(position, result, heading, format);
 	}
 
 	/**
@@ -193,12 +310,17 @@ public final class PerftCommand {
 		Integer depth = a.integer(OPT_DEPTH, OPT_DEPTH_SHORT);
 		Integer threads = a.integer(OPT_THREADS);
 		Path suite = a.path(OPT_SUITE);
+		boolean gpu = a.flag(OPT_GPU);
+		Integer split = a.integer(OPT_SPLIT);
 		a.ensureConsumed();
 
 		int workerThreads = threads == null ? 1 : threads;
 		requirePositive(commandName, OPT_THREADS, workerThreads);
+		if (split != null) {
+			requireNonNegative(commandName, OPT_SPLIT, split);
+		}
 		if (suite != null) {
-			runCustomPerftSuite(commandName, suite, depth, workerThreads);
+			runCustomPerftSuite(commandName, suite, depth, workerThreads, gpu, split);
 			return;
 		}
 
@@ -210,7 +332,9 @@ public final class PerftCommand {
 		}
 		Bar bar = new Bar(PerftSuite.rowCount(maxDepth), "perft-suite", false, System.err);
 		try {
-			PerftSuite.Summary summary = PerftSuite.validate(maxDepth, workerThreads, bar::step);
+			PerftSuite.Summary summary = gpu
+					? PerftSuite.validate(maxDepth, workerThreads, bar::step, gpuSuiteCounter(split))
+					: PerftSuite.validate(maxDepth, workerThreads, bar::step);
 			bar.finish();
 			PerftSuite.print(summary);
 			if (!summary.matches()) {
@@ -231,12 +355,16 @@ public final class PerftCommand {
 	 * @param suite suite path
 	 * @param defaultDepth optional default depth
 	 * @param workerThreads worker threads
+	 * @param gpu whether to request GPU node counting
+	 * @param split optional CPU expansion depth for GPU mode
 	 */
 	private static void runCustomPerftSuite(
 			String commandName,
 			Path suite,
 			Integer defaultDepth,
-			int workerThreads) {
+			int workerThreads,
+			boolean gpu,
+			Integer split) {
 		List<CustomPerftCase> cases = readCustomPerftSuite(commandName, suite, defaultDepth);
 		Bar bar = cases.size() > 1 ? new Bar(cases.size(), "perft-suite", false, System.err) : null;
 		List<PerftSuite.Row> rows = new ArrayList<>();
@@ -245,14 +373,15 @@ public final class PerftCommand {
 		try {
 			for (int i = 0; i < cases.size(); i++) {
 				CustomPerftCase testCase = cases.get(i);
-				Result result = Perft.run(new Position(testCase.fen()), testCase.depth(), workerThreads);
+				TimedNodes result = runSuiteCase(new Position(testCase.fen()), testCase.depth(), workerThreads,
+						gpu, split);
 				rows.add(new PerftSuite.Row(
 						i + 1,
 						testCase.name(),
 						testCase.depth(),
 						testCase.fen(),
 						testCase.nodes(),
-						result.stats().nodes(),
+						result.nodes(),
 						result.nanos()));
 				maxDepth = Math.max(maxDepth, testCase.depth());
 				CommandSupport.step(bar);
@@ -271,6 +400,60 @@ public final class PerftCommand {
 		} finally {
 			CommandSupport.finish(bar);
 		}
+	}
+
+	/**
+	 * Builds a perft-suite counter backed by GPU perft when available.
+	 *
+	 * @param split optional CPU expansion depth
+	 * @return suite counter
+	 */
+	private static PerftSuite.NodeCounter gpuSuiteCounter(Integer split) {
+		return (position, depth) -> countGpuOrCpu(position, depth, split);
+	}
+
+	/**
+	 * Runs one custom-suite row and returns a timed node count.
+	 *
+	 * @param position root position
+	 * @param depth perft depth
+	 * @param workerThreads CPU worker threads
+	 * @param gpu whether GPU was requested
+	 * @param split optional CPU expansion depth for GPU mode
+	 * @return timed node count
+	 * @throws InterruptedException when CPU workers are interrupted
+	 */
+	private static TimedNodes runSuiteCase(
+			Position position,
+			int depth,
+			int workerThreads,
+			boolean gpu,
+			Integer split) throws InterruptedException {
+		long start = System.nanoTime();
+		long nodes;
+		if (gpu) {
+			nodes = countGpuOrCpu(position, depth, split);
+		} else {
+			nodes = Perft.run(position, depth, workerThreads).stats().nodes();
+		}
+		return new TimedNodes(nodes, System.nanoTime() - start);
+	}
+
+	/**
+	 * Counts nodes using GPU perft when available, otherwise the node-only CPU
+	 * fallback used by other GPU perft paths.
+	 *
+	 * @param position root position
+	 * @param depth perft depth
+	 * @param split optional CPU expansion depth
+	 * @return node count
+	 */
+	private static long countGpuOrCpu(Position position, int depth, Integer split) {
+		if (GpuPerft.isAvailable()) {
+			int splitDepth = split == null ? GpuPerft.defaultSplitDepth(depth) : split;
+			return GpuPerft.perft(position, depth, splitDepth);
+		}
+		return position.perft(depth);
 	}
 
 	/**
@@ -612,6 +795,17 @@ public final class PerftCommand {
 			int depth,
 			String fen,
 			long nodes) {
+	}
+
+	/**
+	 * Timed node-only perft count.
+	 *
+	 * @param nodes calculated node count
+	 * @param nanos elapsed nanoseconds
+	 */
+	private record TimedNodes(
+			long nodes,
+			long nanos) {
 	}
 
 	/**

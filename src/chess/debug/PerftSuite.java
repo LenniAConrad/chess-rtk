@@ -168,12 +168,33 @@ public final class PerftSuite {
             int maxDepth,
             int threads,
             Runnable progress) throws InterruptedException {
+        return validate(maxDepth, threads, progress, MoveGenerator::perft);
+    }
+
+    /**
+     * Runs the validation suite using a caller-provided node counter.
+     *
+     * @param maxDepth validation depth to include
+     * @param threads worker thread count
+     * @param progress optional progress callback after each row
+     * @param counter node counter
+     * @return immutable validation summary
+     * @throws InterruptedException when interrupted while waiting for workers
+     */
+    public static Summary validate(
+            int maxDepth,
+            int threads,
+            Runnable progress,
+            NodeCounter counter) throws InterruptedException {
         requireDepth(maxDepth);
         requireThreads(threads);
-        if (threads == 1) {
-            return validateSequentially(maxDepth, progress);
+        if (counter == null) {
+            throw new IllegalArgumentException("counter == null");
         }
-        return validateConcurrently(maxDepth, threads, progress);
+        if (threads == 1) {
+            return validateSequentially(maxDepth, progress, counter);
+        }
+        return validateConcurrently(maxDepth, threads, progress, counter);
     }
 
     /**
@@ -181,15 +202,17 @@ public final class PerftSuite {
      *
      * @param maxDepth validation depth
      * @param progress optional progress callback
+     * @param counter node counter
      * @return immutable validation summary
      */
     private static Summary validateSequentially(
             int maxDepth,
-            Runnable progress) {
+            Runnable progress,
+            NodeCounter counter) {
         List<Row> rows = new ArrayList<>();
         long started = System.nanoTime();
         for (int caseIndex = 0; caseIndex < CASES.length; caseIndex++) {
-            rows.add(validateCase(maxDepth, caseIndex));
+            rows.add(validateCase(maxDepth, caseIndex, counter));
             if (progress != null) {
                 progress.run();
             }
@@ -203,13 +226,15 @@ public final class PerftSuite {
      * @param maxDepth validation depth
      * @param threads requested worker count
      * @param progress optional progress callback
+     * @param counter node counter
      * @return immutable validation summary
      * @throws InterruptedException when interrupted while waiting for workers
      */
     private static Summary validateConcurrently(
             int maxDepth,
             int threads,
-            Runnable progress) throws InterruptedException {
+            Runnable progress,
+            NodeCounter counter) throws InterruptedException {
         int workerCount = Math.min(threads, CASES.length);
         ExecutorService executor = Executors.newFixedThreadPool(workerCount);
         CompletionService<Row> completion = new ExecutorCompletionService<>(executor);
@@ -217,7 +242,7 @@ public final class PerftSuite {
         try {
             for (int caseIndex = 0; caseIndex < CASES.length; caseIndex++) {
                 final int index = caseIndex;
-                completion.submit(validateTask(maxDepth, index));
+                completion.submit(validateTask(maxDepth, index, counter));
             }
             Row[] rows = new Row[CASES.length];
             for (int completed = 0; completed < CASES.length; completed++) {
@@ -240,10 +265,11 @@ public final class PerftSuite {
      *
      * @param maxDepth validation depth
      * @param caseIndex zero-based case index
+     * @param counter node counter
      * @return row-producing task
      */
-    private static Callable<Row> validateTask(int maxDepth, int caseIndex) {
-        return () -> validateCase(maxDepth, caseIndex);
+    private static Callable<Row> validateTask(int maxDepth, int caseIndex, NodeCounter counter) {
+        return () -> validateCase(maxDepth, caseIndex, counter);
     }
 
     /**
@@ -251,13 +277,14 @@ public final class PerftSuite {
      *
      * @param maxDepth validation depth
      * @param caseIndex zero-based case index
+     * @param counter node counter
      * @return validation row
      */
-    private static Row validateCase(int maxDepth, int caseIndex) {
+    private static Row validateCase(int maxDepth, int caseIndex, NodeCounter counter) {
         Case testCase = CASES[caseIndex];
         Position position = Position.fromFen(testCase.fen());
         long calculatedStart = System.nanoTime();
-        long calculated = MoveGenerator.perft(position, maxDepth);
+        long calculated = counter.count(position, maxDepth);
         long calculatedNanos = System.nanoTime() - calculatedStart;
         return new Row(caseIndex + 1, testCase.name(), maxDepth, testCase.fen(),
                 testCase.truth(maxDepth), calculated, calculatedNanos);
@@ -559,5 +586,21 @@ public final class PerftSuite {
         public boolean matches() {
             return rows.stream().allMatch(Row::matches);
         }
+    }
+
+    /**
+     * Counts perft nodes for a suite row.
+     */
+    @FunctionalInterface
+    public interface NodeCounter {
+
+        /**
+         * Counts nodes from a root position at a depth.
+         *
+         * @param position root position
+         * @param depth perft depth
+         * @return node count
+         */
+        long count(Position position, int depth);
     }
 }
