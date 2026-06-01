@@ -857,11 +857,10 @@ public final class GameModel extends AbstractTableModel {
      * @param position position before move
      */
     private static void appendMovePrefix(StringBuilder sb, Position position) {
-        boolean first = sb.isEmpty();
-        if (!first) {
-            sb.append(' ');
-        }
-        if (first || position.isWhiteToMove()) {
+        // sanLine() already appends a trailing space after every move, so this only
+        // needs to add the move-number prefix (for White, or the first move of the
+        // line) — adding another leading space here doubled every separator.
+        if (sb.isEmpty() || position.isWhiteToMove()) {
             sb.append(plyLabel(position)).append(' ');
         }
     }
