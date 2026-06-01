@@ -971,59 +971,46 @@ public final class AlphaBeta implements AutoCloseable {
             boolean pvNode,
             NegamaxSetup setup) {
         short ttMove = setup.entry() == null ? Move.NO_MOVE : Transposition.moveOf(setup.entry().data);
-        short[] moves = orderedMoves(position, setup.legalMoves(), Move.NO_MOVE, ttMove, context, ply);
+        // Copy the legal moves into a stable array NOW, before singularExtension's
+        // verification search regenerates the shared move-gen scratch underneath
+        // us. This toArray is the same copy orderedMoves used to make; the
+        // expensive scoring/sort is deferred below.
+        short[] moves = setup.legalMoves().toArray();
         Position.State state = context.state(ply);
         NegamaxSearchState searchState = new NegamaxSearchState(setup.alpha());
         boolean improving = context.improving(ply, setup.staticEval());
         // Buffer of quiet moves searched before a cutoff, for the history/
-        // continuation-history malus (needed by either feature).
+        // continuation-history malus (needed by either feature). triedCount is a
+        // one-element holder so it can persist across the helper calls.
         boolean buffering = context.historyMalus() || context.contHistory();
         short[] triedQuiets = buffering ? context.triedQuietsBuffer(ply) : null;
         int[] triedContIdx = context.contHistory() ? context.triedContIdxBuffer(ply) : null;
-        int triedCount = 0;
+        int[] triedCount = { 0 };
         // Singular extension: probe whether the transposition move is much better
-        // than every alternative; if so it is extended one ply. Runs before the
-        // move loop so the verification search owns the per-ply scratch cleanly.
+        // than every alternative; if so it is extended one ply.
         int ttMoveExtension = singularExtension(context, position, setup, ttMove, depth, beta, ply);
         // Read after the singular probe (which restores it): NO_MOVE for a normal
         // node, or this node's own excluded move when it is itself a verification.
         short excluded = context.excluded(ply);
-        for (short move : moves) {
-            if (move == excluded) {
-                continue;
-            }
-            boolean tactical = isTacticalMove(position, move);
-            boolean losingCapture = context.seeLmr() && tactical && isLosingCapture(position, move);
-            int contIdx = !tactical && context.contHistory() ? contTargetIndex(position, move) : -1;
-            int moveExtension = move == ttMove ? ttMoveExtension : 0;
-            MoveDecision decision = new MoveDecision(
-                    setup.staticEval(),
-                    searchState.alpha,
-                    depth,
-                    searchState.searchedMoves,
-                    pvNode,
-                    setup.inCheck(),
-                    tactical,
-                    losingCapture,
-                    move,
-                    ply,
-                    improving,
-                    contIdx,
-                    moveExtension);
-            if (!shouldFutilityPrune(context, decision) && !shouldLateMovePrune(context, decision)) {
-                if (triedQuiets != null && !tactical && triedCount < triedQuiets.length) {
-                    if (triedContIdx != null) {
-                        triedContIdx[triedCount] = contIdx;
-                    }
-                    triedQuiets[triedCount] = move;
-                    triedCount++;
+        // Search the transposition move before scoring and sorting the rest, so a
+        // TT-move cutoff (the most common cutoff) skips ordering the whole list,
+        // including its per-capture SEE checks. Behaviour-identical: the TT move is
+        // already ordered first, so the searched moves and their order are unchanged.
+        boolean cutoff = false;
+        boolean ttSearched = false;
+        if (ttMove != Move.NO_MOVE && ttMove != excluded && arrayContains(moves, ttMove)) {
+            cutoff = searchNodeMove(context, position, state, depth, beta, ply, pvNode, setup,
+                    ttMove, ttMove, ttMoveExtension, improving, searchState, triedQuiets, triedContIdx, triedCount);
+            ttSearched = true;
+        }
+        if (!cutoff) {
+            scoreAndSortMoves(position, moves, Move.NO_MOVE, ttSearched ? Move.NO_MOVE : ttMove, context, ply);
+            for (short move : moves) {
+                if (move == excluded || (ttSearched && move == ttMove)) {
+                    continue;
                 }
-                int score = searchNegamaxMove(context, position, state, depth, beta, pvNode, decision);
-                searchState.recordScore(context, ply, move, score);
-                if (searchState.alpha >= beta) {
-                    if (!tactical) {
-                        context.recordQuietCutoff(move, depth, ply, triedQuiets, triedCount);
-                    }
+                if (searchNodeMove(context, position, state, depth, beta, ply, pvNode, setup,
+                        move, ttMove, ttMoveExtension, improving, searchState, triedQuiets, triedContIdx, triedCount)) {
                     break;
                 }
             }
@@ -1051,6 +1038,105 @@ public final class AlphaBeta implements AutoCloseable {
             context.updateCorrection(position, setup.staticEval(), searchState.bestScore);
         }
         return searchState.bestScore;
+    }
+
+    /**
+     * Searches one move at a negamax node: applies futility/late-move pruning,
+     * buffers quiet moves for the history malus, searches the move, records the
+     * result, and on a beta cutoff updates the quiet-move heuristics. Shared by
+     * the transposition-move-first path and the ordered move loop so both behave
+     * identically.
+     *
+     * @param context search context
+     * @param position mutable current position
+     * @param state reusable move undo state
+     * @param depth remaining depth
+     * @param beta beta bound
+     * @param ply current ply from root
+     * @param pvNode true at principal-variation nodes
+     * @param setup prepared node setup (static eval, check status)
+     * @param move move to search
+     * @param ttMove transposition move (extended when {@code move == ttMove})
+     * @param ttMoveExtension singular extension to apply to the transposition move
+     * @param improving whether the side to move is improving
+     * @param searchState mutable node search state
+     * @param triedQuiets quiet-move buffer, or null
+     * @param triedContIdx parallel continuation-index buffer, or null
+     * @param triedCount one-element holder of the tried-quiet count
+     * @return true when the move caused a beta cutoff
+     */
+    private static boolean searchNodeMove(
+            SearchContext context,
+            Position position,
+            Position.State state,
+            int depth,
+            int beta,
+            int ply,
+            boolean pvNode,
+            NegamaxSetup setup,
+            short move,
+            short ttMove,
+            int ttMoveExtension,
+            boolean improving,
+            NegamaxSearchState searchState,
+            short[] triedQuiets,
+            int[] triedContIdx,
+            int[] triedCount) {
+        boolean tactical = isTacticalMove(position, move);
+        boolean losingCapture = context.seeLmr() && tactical && isLosingCapture(position, move);
+        int contIdx = !tactical && context.contHistory() ? contTargetIndex(position, move) : -1;
+        int moveExtension = move == ttMove ? ttMoveExtension : 0;
+        MoveDecision decision = new MoveDecision(
+                setup.staticEval(),
+                searchState.alpha,
+                depth,
+                searchState.searchedMoves,
+                pvNode,
+                setup.inCheck(),
+                tactical,
+                losingCapture,
+                move,
+                ply,
+                improving,
+                contIdx,
+                moveExtension);
+        if (shouldFutilityPrune(context, decision) || shouldLateMovePrune(context, decision)) {
+            return false;
+        }
+        if (triedQuiets != null && !tactical && triedCount[0] < triedQuiets.length) {
+            if (triedContIdx != null) {
+                triedContIdx[triedCount[0]] = contIdx;
+            }
+            triedQuiets[triedCount[0]] = move;
+            triedCount[0]++;
+        }
+        int score = searchNegamaxMove(context, position, state, depth, beta, pvNode, decision);
+        searchState.recordScore(context, ply, move, score);
+        if (searchState.alpha >= beta) {
+            if (!tactical) {
+                context.recordQuietCutoff(move, depth, ply, triedQuiets, triedCount[0]);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Returns whether a move is present in a move array (cheap linear scan, no
+     * scoring), used to confirm a transposition move is legal here before
+     * searching it ahead of move ordering.
+     *
+     * @param moves legal move array
+     * @param move move to find
+     * @return true when present
+     */
+    private static boolean arrayContains(short[] moves, short move) {
+        for (short candidate : moves) {
+            if (candidate == move) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -1833,13 +1919,36 @@ public final class AlphaBeta implements AutoCloseable {
             SearchContext context,
             int ply) {
         short[] moves = moveList.toArray();
+        scoreAndSortMoves(position, moves, preferredMove, transpositionMove, context, ply);
+        return moves;
+    }
+
+    /**
+     * Scores and descending-sorts a move array in place (the expensive part of
+     * move ordering, including per-capture SEE). Split out from {@link #orderedMoves}
+     * so the search can copy the move list cheaply first and defer scoring until
+     * after the transposition move is tried.
+     *
+     * @param position parent position
+     * @param moves move array to score and sort in place
+     * @param preferredMove move to order first, or {@link Move#NO_MOVE}
+     * @param transpositionMove stored best move to order early, or {@link Move#NO_MOVE}
+     * @param context search context
+     * @param ply current ply from root
+     */
+    private static void scoreAndSortMoves(
+            Position position,
+            short[] moves,
+            short preferredMove,
+            short transpositionMove,
+            SearchContext context,
+            int ply) {
         int[] scores = new int[moves.length];
         for (int i = 0; i < moves.length; i++) {
             scores[i] = moveOrderScore(position, moves[i], preferredMove, transpositionMove, context, ply);
         }
         context.scoreMoves(position, moves, scores);
         insertionSortDescending(moves, scores);
-        return moves;
     }
 
     /**
