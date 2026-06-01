@@ -895,7 +895,7 @@ public final class Mcts implements AutoCloseable {
         if (child.proof != ProofState.UNKNOWN) {
             return proofValueForParent(child);
         }
-        if (child.visits() == 0) {
+        if (child.totalVisits() == 0) {
             return parent.visits() == 0 ? 0.0 : parent.q() - FPU_REDUCTION;
         }
         return -child.q();
@@ -923,8 +923,8 @@ public final class Mcts implements AutoCloseable {
         if (child.proof != ProofState.UNKNOWN) {
             return 0.0;
         }
-        double parentVisits = Math.sqrt(Math.max(1, parent.visits()));
-        return cpuct * child.prior * parentVisits / (1.0 + child.visits());
+        double parentVisits = Math.sqrt(Math.max(1, parent.totalVisits()));
+        return cpuct * child.prior * parentVisits / (1.0 + child.totalVisits());
     }
 
     /**
@@ -938,8 +938,18 @@ public final class Mcts implements AutoCloseable {
             return;
         }
         MoveList legal = node.position.legalMoves();
-        if (legal.isEmpty() || isDraw(node.position) || isRepetition(path)) {
-            initializeTerminalProof(node, legal.isEmpty(), isRepetition(path));
+        if (legal.isEmpty() || isDraw(node.position)) {
+            // Position-intrinsic terminals (checkmate/stalemate, fifty-move,
+            // insufficient material) are permanent and may be proven.
+            initializeTerminalProof(node, legal.isEmpty());
+            node.expanded = true;
+            return;
+        }
+        if (isRepetition(path)) {
+            // Repetition is a PATH property: it depends on the ancestors on the
+            // current path and changes when the tree is re-rooted, so it must NOT
+            // be baked into the node's permanent proof. Mark it a childless leaf;
+            // evaluateTask returns the per-evaluation draw value each time it is hit.
             node.expanded = true;
             return;
         }
@@ -1272,23 +1282,24 @@ public final class Mcts implements AutoCloseable {
      */
     private static void initializeDirectProof(Node node) {
         MoveList legal = node.position.legalMoves();
-        initializeTerminalProof(node, legal.isEmpty(), false);
+        initializeTerminalProof(node, legal.isEmpty());
     }
 
     /**
-     * Initializes terminal proof from legal move and draw state.
+     * Initializes a node's proof for a position-intrinsic terminal (checkmate,
+     * stalemate, fifty-move, or insufficient material). Repetition is deliberately
+     * NOT handled here because it is path-dependent and must not be made permanent.
      * @param node node value
-     * @param noLegalMoves no legal moves value
-     * @param repetition repetition value
+     * @param noLegalMoves whether the side to move has no legal moves
      */
-    private static void initializeTerminalProof(Node node, boolean noLegalMoves, boolean repetition) {
+    private static void initializeTerminalProof(Node node, boolean noLegalMoves) {
         if (noLegalMoves) {
             if (node.position.inCheck()) {
                 setProof(node, ProofState.LOSS, 0);
             } else {
                 setProof(node, ProofState.DRAW, 0);
             }
-        } else if (repetition || isDraw(node.position)) {
+        } else if (isDraw(node.position)) {
             setProof(node, ProofState.DRAW, 0);
         }
     }

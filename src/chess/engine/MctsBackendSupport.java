@@ -61,6 +61,20 @@ final class MctsBackendSupport {
         if (!Double.isFinite(sum) || sum <= 0.0) {
             return fallback;
         }
+        // Legal moves the policy head cannot represent (no encoder slot) would
+        // otherwise get prior 0 and become effectively unsearchable under PUCT;
+        // give each a small floor so MCTS can still reach them.
+        if (valid < moves.length) {
+            double floor = sum / valid * 0.05;
+            for (int i = 0; i < moves.length; i++) {
+                int index = indices[i];
+                boolean mapped = index >= 0 && index < logits.length && Float.isFinite(logits[index]);
+                if (!mapped) {
+                    out[i] = floor;
+                    sum += floor;
+                }
+            }
+        }
         for (int i = 0; i < out.length; i++) {
             out[i] /= sum;
         }

@@ -41,6 +41,11 @@ final class Stats {
      */
     double q() {
         int totalVisits = visits + virtualVisits;
-        return totalVisits == 0 ? 0.0 : (valueSum - virtualLossSum) / totalVisits;
+        // Virtual loss biases this node toward a WIN from its own side-to-move
+        // perspective, so the selecting parent (which scores children by -q) sees
+        // an in-flight node as least attractive and diversifies to other lines.
+        // virtualLossSum is zero on the default single-thread, batch-1 path, so q
+        // is unchanged there.
+        return totalVisits == 0 ? 0.0 : (valueSum + virtualLossSum) / totalVisits;
     }
 }

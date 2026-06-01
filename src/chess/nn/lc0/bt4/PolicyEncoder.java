@@ -351,15 +351,13 @@ public final class PolicyEncoder {
      * @return transformed token square
      */
     private static int transformSquare(int square, int transform) {
-        int file = square & 7;
-        int rank = square >>> 3;
-        if ((transform & (Encoder.MIRROR_TRANSFORM | Encoder.TRANSPOSE_TRANSFORM)) != 0) {
-            rank = 7 - rank;
-        }
-        if ((transform & (Encoder.FLIP_TRANSFORM | Encoder.TRANSPOSE_TRANSFORM)) != 0) {
-            file = 7 - file;
-        }
-        return (rank << 3) | file;
+        // Derive the square permutation directly from the input encoder's board
+        // transform so the policy lookup can never drift from how the board was
+        // canonicalized. The previous hand-written version omitted the diagonal
+        // coordinate swap for TRANSPOSE_TRANSFORM (it applied a 180-degree rotation
+        // instead), scrambling priors in the pawnless/canonical positions where
+        // LC0 chooses the transpose.
+        return Long.numberOfTrailingZeros(Encoder.transformBits(1L << square, transform));
     }
 
     /**

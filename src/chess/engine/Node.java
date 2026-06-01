@@ -103,4 +103,15 @@ final class Node {
     int visits() {
         return stats.visits;
     }
+
+    /**
+     * Real plus in-flight (virtual) visits, used by selection so virtual loss
+     * discourages re-selecting an in-flight node. Equals {@link #visits()} on the
+     * default single-thread, batch-1 path (no virtual visits).
+     *
+     * @return total visit count including virtual visits
+     */
+    int totalVisits() {
+        return stats.visits + stats.virtualVisits;
+    }
 }
