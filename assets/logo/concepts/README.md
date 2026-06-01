@@ -1,7 +1,11 @@
 # ChessRTK Logo Concepts
 
-These are exploratory vector logo directions for ChessRTK. They are not yet the
-canonical project logo.
+These are exploratory vector logo directions explored during ChessRTK's
+branding. They are kept for reference and history.
+
+> The adopted project logo is the teal "chemical board" flask at
+> [`assets/logo/app/crtk-chemical-board.svg`](../app/crtk-chemical-board.svg)
+> (also `.png`/`.ico`). The concepts below were not selected.
 
 | File | Idea | Best use |
 | --- | --- | --- |

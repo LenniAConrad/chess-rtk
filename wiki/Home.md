@@ -1,145 +1,50 @@
-# ChessRTK Wiki
+# ChessRTK
 
-![ChessRTK banner](../assets/banner/github/crtk-github-banner.png)
+ChessRTK (`crtk`) is a deterministic Java 17 chess research toolkit. One shared rules core powers the CLI, the desktop Workbench, engine workflows, puzzle mining, dataset export, board rendering, and PDF publishing.
 
-ChessRTK (`crtk`) is a Java 17 chess research toolkit for deterministic chess
-workflows: FEN and SAN handling, legal move generation, perft validation,
-engine analysis, puzzle mining, dataset export, board rendering, and native PDF
-book publishing.
-
-The project is organized around one shared position model. That means the same
-rules implementation drives command-line move lists, built-in search, UCI
-analysis, tags, datasets, diagrams, GUI views, and book output.
-
-## Navigation
-
-| Task | Read this | First command |
-| --- | --- | --- |
-| Install and verify ChessRTK | [Getting Started](getting-started) | `crtk doctor` |
-| Choose a workflow | [Use Cases](use-cases) | start with the matching task |
-| Copy command recipes | [Command Cheatsheet](command-cheatsheet) | `crtk move list --startpos --format both` |
-| Learn the command shape | [Command Reference](command-reference) | `crtk help --full` |
-| Configure Stockfish or LC0 | [Configuration](configuration) | `crtk engine uci-smoke --nodes 1` |
-| Mine tactical data | [Mining Puzzles](mining) | `crtk puzzle mine --random-count 50 --output dump/` |
-| Export training tensors | [Datasets](datasets) | `crtk record dataset npy -i dump/run.puzzles.json -o training/run` |
-| Publish diagrams or books | [Book Publishing](book-publishing) | `crtk book render -i books/puzzles.toml --check` |
-| Automate with stable outputs | [AI Agents and Automation](ai-agents) | `crtk move both --fen "<FEN>"` |
-| Check quality before pushing | [Quality and Testing](quality-and-testing) | `./scripts/run_regression_suite.sh recommended` |
-| Diagnose a failure | [Troubleshooting](troubleshooting) | start with the matching failure section |
-
-## Smoke Test
+## Start here
 
 ```bash
+git clone https://github.com/LenniAConrad/chess-rtk.git
+cd chess-rtk
+./install.sh
+
 crtk doctor
 crtk fen print --startpos
 crtk move list --startpos --format both
 crtk engine perft --startpos --depth 4 --threads 4
-crtk engine builtin --startpos --depth 3 --format summary
+crtk workbench
 ```
 
-If the launcher is not installed, use:
+Need the full setup path? Read [Getting Started](getting-started.md), [Build & Install](build-and-install.md), and [Configuration](configuration.md).
 
-```bash
-java -cp out application.Main <area> <action> [options]
-```
+## The Short Version
 
-## Documentation Formats
+- **One shared core.** FEN, SAN, UCI, legality, Chess960, perft, tags, diagrams, and books all use the same implementation.
+- **Scriptable CLI.** Commands follow `crtk <area> <action>` and keep stable text, JSON, and JSONL output.
+- **Desktop Workbench.** The Swing app wraps the same core for board analysis, play, command forms, datasets, publishing previews, and neural-network views.
+- **Research workflow.** Mine puzzles, drive UCI engines, export ML tensors, and render native PDFs without Maven, Gradle, LaTeX, or glue scripts.
 
-| Surface | Best for | Link |
+## Common Paths
+
+| Goal | Page | First command |
 | --- | --- | --- |
-| GitHub Wiki | browsing project knowledge inside GitHub | this wiki |
-| GitHub Pages site | website-style docs with a custom layout | [LenniAConrad.github.io/chess-rtk](https://LenniAConrad.github.io/chess-rtk/) |
-| PDF manual | offline reading, printing, and release attachments | [chessrtk-manual.pdf](https://LenniAConrad.github.io/chess-rtk/chessrtk-manual.pdf) |
-| CLI help | exact installed command options | `crtk help --full` |
+| Install and verify | [Getting Started](getting-started.md) | `crtk doctor` |
+| Learn the CLI shape | [Command Cheatsheet](command-cheatsheet.md) | `crtk move list --startpos` |
+| Validate move generation | [Quality and Testing](quality-and-testing.md) | `crtk engine perft-suite --depth 6 --threads 4` |
+| Configure Stockfish or LC0 | [Configuration](configuration.md) | `crtk engine bestmove --fen "<FEN>"` |
+| Mine tactical puzzles | [Puzzle Mining](mining.md) | `crtk puzzle mine --random-count 50 --output dump/` |
+| Publish books or diagrams | [Book Publishing](book-publishing.md) | `crtk book render -i books/puzzles.toml --check` |
+| Use the desktop app | [Workbench](workbench.md) | `crtk workbench` |
 
-## Desktop Workbench
-
-For interactive use, start with the native Swing workbench. It provides the
-board, command forms, datasets, logs, publishing previews, puzzles, and network
-visualizers in one desktop window. The CLI remains the interface for automation
-and reproducible batch runs.
-
-![ChessRTK Workbench analysis view](../assets/screenshots/workbench-analysis.png)
-
-## Command Areas
-
-| Area | Main commands | Notes |
-| --- | --- | --- |
-| Position handling | `fen validate`, `fen normalize`, `fen print`, `fen chess960` | Runs in-process; no UCI engine needed |
-| Move primitives | `move list`, `move to-san`, `move to-uci`, `move after`, `move play` | Stable outputs for scripts and agents |
-| Move generation checks | `engine perft`, `engine perft-suite` | Uses stored truth positions, not Stockfish |
-| Engine analysis | `engine analyze`, `engine bestmove`, `engine threats` | Uses configured UCI engines |
-| Built-in search | `engine builtin`, `engine java` | Java alpha-beta fallback and benchmark target |
-| Records and filters | `record files`, `record stats`, `record analysis-delta` | Reusable analysis dumps |
-| Dataset export | `record dataset npy`, `record dataset lc0`, `record dataset classifier` | Writes portable files directly |
-| Publishing | `book pdf`, `book render`, `book cover` | Native PDFs, no LaTeX required |
-| Desktop GUI | `workbench`, `gui` | Interactive board, command forms, logs, datasets, publishing, puzzles, and network views |
-
-## Common Workflows
-
-### Study One Position
-
-```bash
-crtk fen print --fen "<FEN>"
-crtk move list --fen "<FEN>" --format both
-crtk engine bestmove --fen "<FEN>" --format both --max-duration 2s
-```
-
-### Validate The Core
-
-```bash
-./scripts/run_regression_suite.sh core
-crtk engine perft-suite --depth 6 --threads 4
-```
-
-### Mine And Export Puzzles
-
-```bash
-crtk fen pgn --input games.pgn --output seeds.txt
-crtk puzzle mine --input seeds.txt --output dump/run.json --engine-instances 4
-crtk record export pgn --input dump/run.puzzles.json --output dump/run.pgn
-```
-
-## Architecture Summary
-
-![ChessRTK position toolbox](../assets/diagrams/crtk-position-toolbox.png)
-
-The main design rule is to avoid separate chess implementations for separate
-tools. FEN parsing, SAN conversion, legality, make/undo, perft, search,
-rendering, tagging, and export paths all meet at the same Java core.
-
-## Core Documentation
+## Documentation Map
 
 | Section | Pages |
 | --- | --- |
-| User setup | [Getting Started](getting-started), [Build & Install](build-and-install), [Configuration](configuration), [FAQ](faq), [Troubleshooting](troubleshooting) |
-| Commands | [Command Cheatsheet](command-cheatsheet), [Command Reference](command-reference), [Example Commands](example-commands) |
-| Workflows | [Mining Puzzles](mining), [Filter DSL](filter-dsl), [Datasets](datasets), [Book Publishing](book-publishing), [Tags](piece-tags), [Tag Reference](tag-reference) |
-| Engines | [In-House Engine](in-house-engine), [LC0](lc0), [T5 Text](t5) |
-| Developers | [Architecture](architecture), [Quality and Testing](quality-and-testing), [Development Notes](development-notes), [Releasing](releasing), [Roadmap](roadmap), [Glossary](glossary) |
+| Setup | [Getting Started](getting-started.md), [Build & Install](build-and-install.md), [Configuration](configuration.md), [Troubleshooting](troubleshooting.md) |
+| Commands | [Command Cheatsheet](command-cheatsheet.md), [Command Reference](command-reference.md), [Example Commands](example-commands.md) |
+| Workflows | [Puzzle Mining](mining.md), [Filter DSL](filter-dsl.md), [Datasets](datasets.md), [Book Publishing](book-publishing.md), [Tags](piece-tags.md) |
+| Engines | [In-House Engine](in-house-engine.md), [LC0](lc0.md), [GPU Acceleration](gpu.md), [T5 Text](t5.md) |
+| Project | [Architecture](architecture.md), [Quality and Testing](quality-and-testing.md), [Development Notes](development-notes.md), [Releasing](releasing.md) |
 
-## Website Version
-
-GitHub Wiki pages use GitHub's built-in Markdown renderer. For the website-style
-version with the custom sidebar, page table of contents, and generated HTML
-layout, use:
-
-```text
-https://LenniAConrad.github.io/chess-rtk/
-```
-
-For a single printable document, use:
-
-```text
-https://LenniAConrad.github.io/chess-rtk/chessrtk-manual.pdf
-```
-
-## Support
-
-Start with [Troubleshooting](troubleshooting). If you are reporting a bug,
-include the exact command, input FEN or file, Java version, operating system,
-engine protocol TOML if relevant, and whether this passes:
-
-```bash
-./scripts/run_regression_suite.sh recommended
-```
+For bug reports, start with [Troubleshooting](troubleshooting.md). Include the command, input FEN or file, Java version, operating system, and engine protocol TOML when an external engine is involved.

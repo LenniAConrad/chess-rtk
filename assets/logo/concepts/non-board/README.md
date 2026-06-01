@@ -1,5 +1,8 @@
 # Non-Board ChessRTK Logo Concepts
 
+> The adopted ChessRTK logo is the teal "chemical board" flask at
+> [`assets/logo/app/crtk-chemical-board.svg`](../../app/crtk-chemical-board.svg). These are earlier exploratory concepts, kept for reference.
+
 These concepts avoid the chessboard motif. They focus on ChessRTK as a command
 line, engine, data, and publishing toolkit.
 

@@ -1,1285 +1,1349 @@
 # Command reference
 
-All commands are subcommands of `application.Main`.
+One command-line interface drives every feature of ChessRTK ("crtk"), and one chess core sits underneath all of it. A FEN that validates in `fen validate` parses the same way in `move list`, `engine perft`, the workbench, and every dataset exporter — same parser, same move generator, same notation, so the same input always yields the same output. This page lists every area, subcommand, and option, grouped so you can find a command, copy its example, and trust the result to reproduce on the next machine.
 
-- Installed launcher: `crtk <area> <action> [options] [args]`
-- From classes: `java -cp out application.Main <area> <action> [options] [args]`
-- Built-in usage text: `crtk help --full`
+Invocations follow `crtk <area> <action> [options] [args]`. From a build tree rather than the installed launcher, that becomes `java -jar crtk.jar <area> <action> ...` or `java -cp out application.Main <area> <action> ...`. For anything this page leaves vague, `crtk help --full` prints the authoritative spec, and per-command help is either `crtk help <area> <action>` or `crtk <area> <action> --help`.
 
-Use grouped commands for scripts and automation: `record`, `fen`, `move`,
-`engine`, `position`, `book`, and `puzzle`.
+## Command style and global conventions
 
-Command style:
+The grammar is noun-verb: an *area* (the noun, such as `engine` or `record`) followed by an *action* (the verb, such as `bestmove` or `export`). A few areas add a second noun level, as in `record export plain` or `record dataset npy`. In scripts, spell out the full grouped form — it survives renames and reads clearly six months later.
 
-- Prefer the full grouped form in scripts: `crtk record export ...`,
-  `crtk record dataset ...`, `crtk move list ...`, `crtk engine bestmove ...`.
-- Use named flags for structured values such as `--fen`, `--input`, `--output`,
-  and `--format`.
-- Put options before free-form args when scripting. Use `--` or
-  `--end-of-options` if a value could be parsed as an option.
-- Contextual help works with either `crtk help move list` or
-  `crtk move list --help`.
+- Structured values go through named flags. `--fen`, `--input`/`-i`, `--output`/`-o`, and `--format` mean the same thing everywhere they appear.
+- When scripting, put options before free-form positional args, and guard anything that could be mistaken for a flag — a FEN, a SAN move, a negative number — with a leading `--`.
+- Position commands take the FEN positionally or via `--fen`; `--startpos` gives the standard start, `--randompos` a reachable random legal position.
+- `--verbose`/`-v` turns a failure into a full stack trace on nearly every command. The lists below leave it out unless it is the only option worth mentioning.
+- Row-oriented commands share `--json`, `--jsonl`, `--no-header`, and `--quiet`.
+- Engine-backed commands share one option block: `--protocol-path`/`-P`, `--max-nodes`/`--nodes`, `--max-duration`, `--multipv`, `--threads`, `--hash`, and `--wdl`/`--no-wdl`.
 
-The Java-native commands (`fen`, `move`, `position diff`, `engine benchmark`,
-`engine perft`, `engine perft-suite`, `engine builtin --classical`, and
-`engine static`) do not require an external engine. External UCI configuration
-is only needed for UCI-backed analysis, best-move, comparison, threat,
-smoke-test, and mining workflows.
+Most of the surface never touches an external engine. The in-process commands (`fen`, `move`, `position`, `engine benchmark`, `engine perft`, `engine perft-suite`, `engine mate`, `engine builtin`, `engine java`, `engine static`) run start to finish inside the JVM. A configured UCI engine is required only for the workflows that delegate search: `engine analyze`, the `engine bestmove*` family, `engine analyze-batch`, `engine bestmove-batch`, `engine compare`, `engine threats`, `engine uci-smoke`, the `--analyze` tagging paths, and `puzzle mine`.
 
-## Capability Overview
+## Areas at a glance
 
-| Area | Commands |
+| Area | Purpose |
 | --- | --- |
-| Position parsing and generation | `fen normalize`, `fen validate`, `fen generate`, `fen pgn`, `fen chess960`, `position diff` |
-| Board inspection and rendering | `fen print`, `fen display`, `fen render`, `book pdf` |
-| Move primitives | `move list`, `move uci`, `move san`, `move both`, `move to-san`, `move to-uci`, `move after`, `move play` |
-| Move-generation validation | `engine perft`, `engine perft-suite`, `engine benchmark` |
-| External UCI engines | `engine analyze`, `engine bestmove`, `engine analyze-batch`, `engine bestmove-batch`, `engine compare`, `engine threats`, `engine uci-smoke` |
-| In-process search and evaluation | `engine builtin`, `engine java`, `engine eval`, `engine static` |
-| Puzzle mining and conversion | `puzzle mine`, `puzzle pgn` |
-| Tagging and text generation | `fen tags`, `puzzle tags`, `fen text`, `puzzle text` |
-| Record processing | `record files`, `record stats`, `record tag-stats`, `record analysis-delta` |
-| Dataset export | `record dataset npy`, `record dataset lc0`, `record dataset classifier`, `record export training-jsonl`, `record export puzzle-jsonl` |
-| Publishing | `book collection`, `book study`, `book render`, `book cover`, `book pdf` |
-| Local health checks | `doctor`, `config show`, `config validate`, `engine gpu`, `version` |
+| `record` | Export, filter, split, and summarize `.record` files; build training datasets |
+| `fen` | Validate, normalize, generate, transform, and render FENs |
+| `gen` | Generate reusable data seeds and artifacts (alias surface) |
+| `batch` | Run multiple ChessRTK CLI commands from one script |
+| `move` | List, convert, and apply moves |
+| `engine` | Analyze, evaluate, search, prove mates, and validate move generation |
+| `mate` | Brute-force prove a forced mate without NN evaluation (shortcut for `engine mate`) |
+| `position` | Inspect and compare positions |
+| `book` | Render chess books, covers, studies, and diagram PDFs |
+| `puzzle` | Mine, convert, tag, and summarize puzzle lines |
+| `config` | Show and validate configuration |
+| `workbench` | Launch the native command and analysis workbench (alias `gui`) |
+| `doctor` | Check Java, config, protocol, engine, and local artifacts |
+| `clean` | Delete session cache and logs |
+| `help` | Show command help |
+| `version` | Print ChessRTK version metadata |
 
-## `record`
+## record
 
-Grouped record workflows. This keeps export, dataset, stats, and file-management
-operations under one entry point.
+A `.record` file is the canonical container for analyzed positions, puzzle trees, and engine PVs — JSON, or JSONL when you want streaming. Everything that produces analysis writes records; the `record` area is how you get them back out. It exports rows to text and tensor formats, merges, filters, and splits files, and summarizes what they hold. Spell out the grouped forms (`record export ...`, `record dataset ...`) in scripts.
 
-Usage:
-- `crtk record export plain ...`: convert `.record` JSON to `.plain`
-- `crtk record export csv ...`: convert `.record` JSON to CSV
-- `crtk record export pgn ...`: convert `.record` JSON to PGN games
-- `crtk record export puzzle-jsonl ...`: export LC0-policy-aware puzzle JSONL rows
-- `crtk record export training-jsonl ...`: export coarse/fine FEN labels
-- `crtk record dataset npy ...`: export eval-regression tensors
-- `crtk record dataset lc0 ...`: export LC0-style tensors
-- `crtk record dataset classifier ...`: export binary classifier tensors
-- `crtk record files ...`: merge/filter/split record files
-- `crtk record stats ...`: summarize record files
-- `crtk record tag-stats ...`: summarize tag distributions
-- `crtk record analysis-delta ...`: export evaluation stability metrics
+| Subcommand | Purpose |
+| --- | --- |
+| `record export plain` | Convert `.record` JSON to Leela-style `.plain` blocks |
+| `record export csv` | Convert `.record` JSON to CSV |
+| `record export pgn` | Convert `.record` JSON to PGN games |
+| `record export puzzle-jsonl` | Export verified puzzle rows as JSONL with LC0 policy values |
+| `record export puzzle-elo-jsonl` | Export verified puzzle records with Elo and position tags |
+| `record export training-jsonl` | Export coarse/fine FEN labels for training |
+| `record dataset npy` | Export NumPy evaluation-regression tensors |
+| `record dataset lc0` | Export LC0-style policy/value tensors |
+| `record dataset classifier` | Export one-logit binary classifier tensors |
+| `record files` | Merge, filter, or split record files |
+| `record stats` | Summarize record files |
+| `record tag-stats` | Summarize tag distributions |
+| `record analysis-delta` | Compare parent/child analysis changes |
 
-Use the full `record export ...` and `record dataset ...` forms in scripts.
+### record export plain
 
-## `fen`
+Convert a `.record` JSON array into Leela-style `.plain` blocks (mainline only by default).
 
-Grouped FEN and position workflows.
-
-Usage:
-- `crtk fen normalize ...`: normalize and validate a FEN
-- `crtk fen validate ...`: validate a FEN
-- `crtk fen after ...`: apply one move and print the resulting FEN
-- `crtk fen line ...`: apply a move line and print the resulting FEN
-- `crtk fen generate ...`: generate random legal FEN shards
-- `crtk fen pgn ...`: convert PGN games to FEN lists
-- `crtk fen chess960 ...`: print Chess960 starting positions
-- `crtk fen print ...`: pretty-print a FEN
-- `crtk fen display ...`: render a board image in a window
-- `crtk fen render ...`: save a board image to disk
-- `crtk fen tags ...`: generate tags for FENs, PGNs, or variations
-- `crtk fen text ...`: summarize position tags with T5
-
-## `move`
-
-Grouped move-listing, notation, and application workflows.
-
-Usage:
-- `crtk move list ...`: list legal moves for a FEN
-- `crtk move uci ...`: list legal moves in UCI
-- `crtk move san ...`: list legal moves in SAN
-- `crtk move both ...`: list legal moves in UCI and SAN
-- `crtk move to-san ...`: convert one UCI move to SAN
-- `crtk move to-uci ...`: convert one SAN move to UCI
-- `crtk move after ...`: apply one move and print the resulting FEN
-- `crtk move play ...`: apply a move line and print the resulting FEN
-
-## `engine`
-
-Grouped engine, evaluator, and move-generation workflows.
-
-Usage:
-- `crtk engine analyze ...`: analyze a FEN with the configured engine
-- `crtk engine bestmove ...`: print the best move for a FEN
-- `crtk engine bestmove-uci ...`: print the best move in UCI
-- `crtk engine bestmove-san ...`: print the best move in SAN
-- `crtk engine bestmove-both ...`: print the best move in UCI and SAN
-- `crtk engine analyze-batch ...`: emit batch analysis rows as JSONL
-- `crtk engine bestmove-batch ...`: emit batch best-move rows as JSONL
-- `crtk engine compare ...`: compare best moves from two UCI protocol files
-- `crtk engine benchmark ...`: benchmark the Java core move generator
-- `crtk engine builtin ...`: search with the in-house Java engine
-- `crtk engine java ...`: run the same built-in Java engine
-- `crtk engine threats ...`: analyze opponent threats
-- `crtk engine eval ...`: evaluate a FEN with LC0, OTIS, or classical heuristics
-- `crtk engine static ...`: evaluate a FEN with the classical backend
-- `crtk engine perft ...`: run perft on a position
-- `crtk engine perft-suite ...`: run the perft regression suite
-- `crtk engine gpu ...`: print GPU JNI backend status
-- `crtk engine uci-smoke ...`: start the engine and run a tiny bounded search
-
-## `position`
-
-Grouped position-inspection workflows.
-
-Usage:
-- `crtk position diff ...`: compare two FEN positions square-by-square and by state fields
-
-## `engine builtin`
-
-Search a position with ChessRTK's in-house Java engine. `engine java` runs the
-same implementation.
-
-The built-in engine is an in-process search and benchmarking engine. It is
-useful for deterministic local search, smoke tests, puzzle-solve timing, and
-automation that should not depend on spawning a UCI engine. It is not intended
-to be a top-tier engine competing with mature UCI engines.
-
-Examples:
+| Option | Description |
+| --- | --- |
+| `--input`/`-i PATH` | Input `.record` JSON file (required) |
+| `--output`/`-o PATH` | Output `.plain` file (default `dump/<input-stem>.plain`) |
+| `--export-all` / `--sidelines` | Include all sidelines (default: mainline only) |
+| `--filter`/`-f DSL` | Filter DSL to select which records are exported |
+| `--csv` | Also emit a CSV export |
+| `--csv-output`/`-C PATH` | Explicit CSV output path (default `dump/<input-stem>.csv`; also enables CSV) |
 
 ```bash
-crtk engine builtin --fen "<FEN>" --depth 20
-crtk engine builtin --fen "<FEN>" --depth 4 --format summary
-crtk engine builtin --fen "<FEN>" --depth 5 --nodes 250000 --format both
-crtk engine builtin --fen "<FEN>" --depth 8 --max-duration 2s --format summary
-crtk engine builtin --input positions.txt --depth 3 --format uci
-crtk engine builtin --evaluator nnue --weights models/crtk-halfkp.nnue --fen "<FEN>"
-crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin --fen "<FEN>"
+crtk record export plain --input dump/run.record --output dump/run.plain --sidelines
 ```
 
-Options:
-- `--input|-i <path>`: FEN list file (optional)
-- `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `--evaluator <classical|nnue|lc0>`: static evaluator family (default `classical`)
-- `--classical`: shortcut for `--evaluator classical`
-- `--nnue`: shortcut for `--evaluator nnue`
-- `--lc0`: shortcut for `--evaluator lc0`
-- `--otis`: shortcut for `--evaluator otis`
-- `--weights <path>`: NNUE, LC0, or OTIS evaluator weights path
-- `--depth|-d <n>`: maximum iterative-deepening depth in plies (default `3`)
-- `--max-nodes|--nodes <n>`: node budget; `0` means unlimited. If omitted,
-  the default is `250000` without `--depth`, and unlimited when `--depth` is
-  explicit.
-- `--max-duration <dur>`: wall-clock budget; `0` means unlimited. If omitted,
-  the default is `5s` without `--depth`, and unlimited when `--depth` is
-  explicit.
-- `--format <uci-info|uci|san|both|summary>`: output format (default
-  `uci-info`)
-- `--verbose|-v`: print stack traces on failure
-
-Evaluator notes:
-- `classical`: handcrafted evaluator with no model dependency.
-- `nnue`: pure-Java NNUE evaluator using `models/crtk-halfkp.nnue` by default,
-  or an explicit `--weights` path. If no NNUE weights are available, the
-  command fails with a missing-weights error instead of silently using the
-  smoke-test fallback.
-- `lc0`: pure-Java LC0 value evaluator using the configured LC0 CNN model path by
-  default, or an explicit `--weights` path.
-- `otis`: OTIS i249-style tactical sheaf policy/WDL evaluator using
-  `models/otis_policy_wdl_random.bin`
-  by default, or an explicit `--weights` path.
-
-Search notes:
-- Classical and NNUE modes use alpha-beta search. LC0 and OTIS modes use the
-  in-process MCTS backend so their policy priors can guide root exploration.
-- The search is single-threaded and owns an internal transposition table plus a
-  static-evaluation cache. The table size is fixed in code; `--threads` and
-  `--hash` are UCI-engine options, not built-in-engine options.
-- The default `uci-info` format prints one UCI-style `info depth ... pv ...`
-  line for each completed depth, then a final `bestmove ...` line.
-- If a slow evaluator exhausts the budget before depth 1 completes, `uci-info`
-  prints the static root fallback as `info depth 0 ... pv ...`.
-- Use `--format uci` for best-move-only UCI coordinate output.
-- `--format summary` prints the evaluator, best move, score, completed depth,
-  nodes, elapsed time, stopped flag, and principal variation.
-
-## `book`
-
-Grouped book and diagram PDF workflows.
-
-Usage:
-- `crtk book collection ...`: build a dense puzzle-collection book manifest from record JSON/JSONL
-- `crtk book study ...`: render annotated puzzle studies to PDF, cover, and optional normalized TOML
-- `crtk book render ...`: render a chess-book JSON/TOML file to a native PDF
-- `crtk book cover ...`: render a native PDF cover for a chess-book file
-- `crtk book pdf ...`: export chess diagrams to a PDF
-
-## `puzzle`
-
-Grouped puzzle mining, conversion, tag, and text workflows.
-
-Usage:
-- `crtk puzzle mine ...`: mine chess puzzles
-- `crtk puzzle pgn ...`: convert mixed puzzle dumps to PGN games
-- `crtk puzzle tags ...`: generate per-move tags for puzzle PVs
-- `crtk puzzle text ...`: run T5 over puzzle PVs
-
-## `record export plain`
-
-Convert a `.record` JSON array into Leela-style `.plain` blocks.
-
-Options:
-- `--input|-i <path>`: input `.record` (required)
-- `--output|-o <path>`: output `.plain` (optional; default `dump/<input-stem>.plain`)
-- `--filter|-f <dsl>`: Filter DSL to select which records are exported
-- `--sidelines|--export-all|-a`: include sidelines / export additional PVs when present
-- `--csv`: also emit a CSV export (default `dump/<input-stem>.csv`)
-- `--csv-output|-c <path>`: explicit CSV output path (also enables CSV export)
-
-## `record export csv`
+### record export csv
 
 Convert a `.record` JSON array directly to CSV (no `.plain` output).
 
-Options:
-- `--input|-i <path>`: input `.record` (required)
-- `--output|-o <path>`: output `.csv` (optional; default `dump/<input-stem>.csv`)
-- `--filter|-f <dsl>`: Filter DSL to select which records are exported
+| Option | Description |
+| --- | --- |
+| `--input`/`-i PATH` | Input `.record` JSON file (required) |
+| `--output`/`-o PATH` | Output CSV file (default `dump/<input-stem>.csv`) |
+| `--filter`/`-f DSL` | Filter DSL to select which records are exported |
 
-## `record export pgn`
+```bash
+crtk record export csv --input dump/run.record --filter "puzzle:true"
+```
+
+### record export pgn
 
 Convert a `.record` JSON array into one or more PGN games.
 
-Options:
-- `--input|-i <path>`: input `.record` (required)
-- `--output|-o <path>`: output `.pgn` (optional; default `dump/<input-stem>.pgn`)
-
-## `record analysis-delta`
-
-Export one JSONL row per record with evaluation stability metrics: initial and
-final eval, delta type/value, fluctuation range, and time/depth to final value.
-
-Options:
-- `--input|-i <path>`: input record file (required)
-- `--output|-o <path>`: output `.analysis-delta.jsonl` path (optional; default `dump/<input-stem>.analysis-delta.jsonl`)
-- `--verbose|-v`: print stack traces on failure
-
-## `puzzle pgn`
-
-Convert a mixed puzzle/non-puzzle dump into PGN games (filters to puzzles).
-If entries include a `kind` field, only `kind:"puzzle"` is kept; otherwise the
-configured puzzle verify filter is applied.
-
-Options:
-- `--input|-i <path>`: input dump (JSON array or JSONL)
-- `--output|-o <path>`: output `.pgn` (optional; default `dump/<input-stem>.pgn`)
-
-## `record files`
-
-Merge/filter/split record files.
-
-Options:
-- `--input|-i <path>`: input file or directory (repeatable; positionals allowed)
-- `--output|-o <path>`: output `.json` file or directory (required)
-- `--filter|-f <dsl>`: Filter-DSL string to select records
-- `--puzzles`: keep only puzzle records (uses `kind` or puzzle verify filter)
-- `--nonpuzzles`: keep only non-puzzle records
-- `--max-records <n>`: split output into parts with at most `n` records each
-- `--recursive`: recurse into directories
-- `--verbose|-v`: print stack traces on failure
-
-## `record dataset npy`
-
-Convert a `.record` JSON array into NumPy tensors:
-- `<stem>.features.npy` shaped `(N, 781)` float32
-- `<stem>.labels.npy` shaped `(N,)` float32 (pawns)
-
-Options:
-- `--input|-i <path>`: input `.record` (required)
-- `--output|-o <path>`: output stem (optional; default `dump/<input-stem>.dataset`)
-
-## `record dataset lc0`
-
-Convert a `.record` JSON array into LC0-style tensors:
-- `<stem>.lc0.inputs.npy` shaped `(N, 112*64)` float32
-- `<stem>.lc0.policy.npy` shaped `(N, policySize)` float32 (one-hot)
-- `<stem>.lc0.value.npy` shaped `(N,)` float32 (scalar in `[-1,1]`)
-- `<stem>.lc0.meta.json` metadata
-
-Options:
-- `--input|-i <path>`: input `.record` (required)
-- `--output|-o <path>`: output stem (optional; default `dump/<input-stem>.lc0`)
-- `--weights <path>`: optional LC0 weights to compress the policy to the net's size
-
-## `record export puzzle-jsonl`
-
-Convert `.record` rows into puzzle JSONL with LC0 policy values. This command
-requires ChessRTK LC0 CNN `.bin` weights so it can use the network policy map.
-
-Options:
-- `--input|-i <path>`: input `.record` file (required)
-- `--output|-o <path>`: output `.jsonl` path (optional; default `dump/<input-stem>.puzzle.jsonl`)
-- `--weights <path>`: ChessRTK LC0 CNN `.bin` weights path (required)
-- `--filter|-f <dsl>`: optional row-selection Filter DSL
-- `--puzzles`: keep only records classified as puzzles by the configured verify filter
-- `--nonpuzzles`: keep only records classified as non-puzzles
-- `--verbose|-v`: print stack traces on failure
-
-## `record dataset classifier`
-
-Convert one or more `.record` JSON/JSONL files into tensors for the one-logit
-binary classifier:
-- `<stem>.classifier.inputs.npy` shaped `(N, 21*64)` float32
-- `<stem>.classifier.labels.npy` shaped `(N,)` float32 (`0.0` negative, `1.0` positive)
-- `<stem>.classifier.meta.json` metadata
-
-Labeling:
-- `--label-filter <dsl>` overrides record kind and labels matching records as positive.
-- Without `--label-filter`, `kind:"puzzle"` and `kind:"nonpuzzle"` are used when present.
-- If `kind` is absent, the configured puzzle verification filter is used.
-
-Options:
-- `--input|-i <path>`: input record file or directory (repeatable; required)
-- `--output|-o <path>`: output stem (default `dump/<input-stem>.classifier` for a single file; required for multiple inputs/directories)
-- `--filter|-f <dsl>`: optional row-selection Filter DSL before labeling
-- `--label-filter <dsl>`: optional positive-label Filter DSL
-- `--max-positives <n>`: cap positive rows
-- `--max-negatives <n>`: cap negative rows
-- `--recursive`: recurse into input directories
-- `--verbose|-v`: print stack traces on failure
-
-## `record export training-jsonl`
-
-Convert one or more `.record` JSON/JSONL files into one-position-per-line
-training JSONL. Rows matching the puzzle DSL become verified puzzles, rows
-sharing a parent FEN with a puzzle become similar examples, and all remaining
-rows become random/negative examples.
-
-Options:
-- `--input|-i <path>`: input record file or directory (repeatable; required)
-- `--output|-o <path>`: output `.jsonl` path (default `dump/<input-stem>.training.jsonl` for a single file; required for multiple inputs/directories)
-- `--filter|-f <dsl>`: puzzle Filter DSL; defaults to configured puzzle verification
-- `--recursive`: recurse into input directories
-- `--include-engine-metadata`: retain engine/PV details as metadata
-- `--max-records <n>`: stop after writing `n` rows (`0` or omitted means no cap)
-- `--verbose|-v`: print stack traces on failure
-
-## `engine gpu`
-
-Print whether the optional GPU JNI backends are available (CUDA/ROCm/oneAPI) and what devices they see.
-
-Notes:
-- If you built a native library under `native/cuda/`, run with `-Djava.library.path=native/cuda/build`.
-
-## `engine uci-smoke`
-
-Start the configured UCI engine, apply optional engine settings, run a tiny
-bounded search from the standard start position, and print a concise health
-report. Use this before long mining or analysis jobs to catch bad engine paths,
-bad protocol TOML, and startup failures.
-
-Options:
-- `--protocol-path|-P <toml>`: override `Config.getProtocolPath()`
-- `--max-nodes|--nodes <n>`: search node cap (default `1`)
-- `--max-duration <dur>`: wall-clock search cap (default `5s`)
-- `--threads <n>`: set engine thread count
-- `--hash <mb>`: set engine hash size
-- `--wdl|--no-wdl`: enable/disable WDL output
-- `--verbose|-v`: print stack traces on failure
-
-## `fen generate`
-
-Generate random legal FEN shards to disk (standard + Chess960 mix).
-
-Options:
-- `--output|-o <dir>`: output directory (default `dump/all_positions_shards/`)
-- `--files <n>`: number of shard files to generate (default `1000`)
-- `--per-file <n>` / `--fens-per-file <n>`: FENs per file (default `100000`)
-- `--chess960-files <n>` / `--chess960 <n>`: how many of the first shard files use Chess960 starts (default `100`)
-- `--batch <n>`: positions generated per batch (default `2048`)
-- `--max-attempts <n>`: maximum candidate positions sampled per shard when filters are selective
-- `--ascii`: ASCII progress bar (useful when Unicode is borked)
-- `--verbose|-v`: print stack trace on failure
-
-Filters combine with AND: every selected condition must match.
-
-Filtering presets:
-- `--stage <name>`: `endgame`, `late-endgame`, `king-pawn`, `minor`, `rook`, or `queenless`
-- `--endgame`: queenless positions with at most 14 total pieces
-- `--late-endgame`: queenless positions with at most 8 total pieces
-- `--king-pawn-endgame`: no queens, rooks, bishops, or knights
-- `--minor-endgame`: queenless minor-piece endgames without rooks
-- `--rook-endgame`: queenless rook endgames without minor pieces
-- `--queenless`, `--opposite-bishops`
-
-Move-state filters:
-- `--side white|black|w|b`
-- `--in-check`, `--not-in-check`, `--checkmate`, `--stalemate`
-- `--en-passant` / `--ep`: legal en-passant capture available
-- `--promotion`, `--underpromotion`, `--capture`
-- `--castle-rights`, `--legal-castle`
-
-Count and material filters:
-- `--pieces <n>`, `--min-pieces <n>`, `--max-pieces <n>`
-- `--white-pieces <n>`, `--black-pieces <n>` plus `--min-*` / `--max-*` forms
-- `--pawns|--knights|--bishops|--rooks|--queens <n>` plus `--min-*` / `--max-*` forms
-- `--white-rooks <n>`, `--black-rooks <n>` and the same side-specific forms for pawns, knights, bishops, and queens
-- `--material <cp>`, `--min-material <cp>`, `--max-material <cp>`
-- `--material-diff <cp>`, `--min-material-diff <cp>`, `--max-material-diff <cp>`
-- `--max-material-imbalance <cp>`
-- `--legal-moves <n>`, `--fullmove <n>`, `--halfmove <n>` plus `--min-*` / `--max-*` forms
-
-Shortcut:
-- `crtk gen fens ...` is an alias for `crtk fen generate ...`
-
-Examples:
-- `crtk fen generate --output shards/ --files 2 --per-file 20 --chess960-files 1`
-- `crtk gen fens --output endgames/ --files 1 --per-file 100 --endgame --max-material-imbalance 300`
-- `crtk gen fens --output rook-endgames/ --files 1 --per-file 200 --rook-endgame --rooks 2`
-- `crtk gen fens --output specials/ --files 1 --per-file 25 --en-passant --max-attempts 250000`
-- `crtk gen fens --output promotions/ --files 1 --per-file 50 --promotion --capture --max-attempts 1000000`
-
-## `puzzle mine`
-
-Drive a UCI engine, apply Filter DSL gates, and emit JSON outputs for puzzles and non-puzzles.
-
-Inputs & outputs:
-- `--chess960|-9`: enable Chess960 mining
-- `--input|-i <path>`: `.pgn` or `.txt` seeds; omit to mine random seeds
-- `--output|-o <path>`: output directory or file-like root (`.json` / `.jsonl`)
-
-Engine & limits:
-- `--protocol-path|-P <toml>`: override `Config.getProtocolPath()`
-- `--engine-instances|-e <n>`: override `Config.getEngineInstances()`
-- `--max-nodes <n>`: override `Config.getMaxNodes()` (per position)
-- `--max-duration <dur>`: override `Config.getMaxDuration()` (per position), e.g. `60s`, `2m`, `60000`
-
-Random generation & bounds:
-- `--random-count <n>`: random seeds to generate (default `100`)
-- `--random-infinite`: continuously add random seeds (ignores wave/total caps)
-- `--max-waves <n>`: max waves (default `100`; ignored with `--random-infinite`)
-- `--max-frontier <n>`: frontier cap (default `5000`)
-- `--max-total <n>`: total processed cap (default `500000`; ignored with `--random-infinite`)
-
-Filter overrides:
-- `--puzzle-quality <dsl>`
-- `--puzzle-winning <dsl>`
-- `--puzzle-drawing <dsl>`
-- `--puzzle-accelerate <dsl>`
-- `--verbose|-v`: print stack traces on failure
-
-## `fen print`
-
-Pretty-print a FEN as ASCII (board + metadata + tags).
-
-Options:
-- `--fen "<FEN...>"` (or pass it positionally)
-- `--verbose|-v`: print stack traces on failure
-
-## `fen display`
-
-Render a board image in a window (with optional overlays).
-
-Options:
-- `--fen "<FEN...>"` (or pass it positionally)
-- `--arrow <uci>` / `--arrows <uci,uci,...>`: add arrow overlays
-- `--special-arrows`: include castling/en-passant hint arrows
-- `--circle <sq>` / `--circles <sq,sq,...>`: add circle overlays
-- `--legal <sq>`: highlight legal moves from a square (repeatable)
-- `--ablation`: overlay inverted per-piece ablation scores
-- `--show-backend|--backend`: print which evaluator backend was used
-- `--flip|--black-down`: render Black at the bottom
-- `--no-border`: hide the board frame
-- `--size <px>`: window size (square)
-- `--width <px>`, `--height <px>`: window size override
-- `--zoom <factor>`: zoom multiplier (1.0 = fit-to-window)
-- `--dark|--dark-mode`: dark window styling
-- `--details-inside`: show coordinates inside the board
-- `--details-outside`: show coordinates outside the board
-- `--shadow|--drop-shadow`: apply a subtle drop shadow
-- `--verbose|-v`: print stack traces on failure
-
-## `fen render`
-
-Render a board image to disk (PNG/JPG/BMP/SVG).
-
-Options:
-- `--fen "<FEN...>"` (or pass it positionally)
-- `--output|-o <path>`: output image/SVG path (required)
-- `--format <fmt>`: output format override (`png`, `jpg`, `bmp`, `svg`)
-- `--arrow <uci>` / `--arrows <uci,uci,...>`: add arrow overlays
-- `--special-arrows`: include castling/en-passant hint arrows
-- `--circle <sq>` / `--circles <sq,sq,...>`: add circle overlays
-- `--legal <sq>`: highlight legal moves from a square (repeatable)
-- `--ablation`: overlay inverted per-piece ablation scores
-- `--show-backend|--backend`: print which evaluator backend was used
-- `--flip|--black-down`: render Black at the bottom
-- `--no-border`: hide the board frame
-- `--size <px>`: board size (square)
-- `--width <px>`, `--height <px>`: image size override
-- `--dark|--dark-mode`: dark board styling
-- `--details-inside`: show coordinates inside the board
-- `--details-outside`: show coordinates outside the board
-- `--shadow|--drop-shadow`: apply a subtle drop shadow
-- `--verbose|-v`: print stack traces on failure
-
-## `book render`
-
-Render a chess-book JSON or TOML manifest directly to a native PDF.
-The renderer builds cover/front matter, a generated table of contents, mirrored margins, puzzle/solution spreads, page numbers, running headers, and recurring solution tables.
-Solution moves are rendered as figurine algebraic notation in captions and
-tables.
-
-See also: `book-publishing.md`.
-
-Options:
-- `--input|-i <path>`: input book manifest (`.json`, `.toml`, or TOML-like text)
-- `--output|-o <path>`: output PDF path (optional; default derived from the input path)
-- `--title <text>`: title override
-- `--subtitle <text>`: subtitle override
-- `--limit <n>`: render only the first `n` puzzles from the source manifest and update obvious source-count references in front matter
-- `--check|--validate`: validate layout, FENs, and solution lines without writing a PDF
-- `--free-watermark` / `--watermark`: add a noisy free-edition overlay to every page with visible print, resale, and unauthorized redistribution restrictions
-- `--watermark-id <text>`: embed a traceable watermark ID in page overlays and PDF metadata; implies `--watermark`
-- `--verbose|-v`: print stack traces on failure
-
-## `book collection`
-
-Build a puzzle-collection book manifest from analyzed record JSON/JSONL.
-The command converts the first PV in each accepted record into move-numbered
-SAN, writes a TOML manifest, and can optionally render the interior PDF and
-matching cover.
-
-See also: `book-publishing.md`.
-
-Options:
-- `--input|-i <path>`: input record JSON/JSONL file with `position` and `analysis`
-- `--output|-o <path>`: output TOML manifest path (optional; default derived from the input path as `*.book.toml`)
-- `--pdf-output <path>`: also render the interior PDF to this path
-- `--cover-output <path>`: also render the matching cover PDF to this path
-- `--title <text>`: book title (default `Chess Puzzle Collection`)
-- `--subtitle <text>`: subtitle override (default `"<count> Chess Puzzles"`)
-- `--author <text>`: author credit (default `Lennart A. Conrad`)
-- `--time <text>`: publication time string
-- `--location <text>`: publication location string
-- `--language <text>`: book language token (default `English`)
-- `--pages <n>`: printed page-count hint for the manifest and optional cover
-- `--limit <n>`: import at most the first `n` records from the source file
-- `--table-frequency <n>`: puzzle pages between solution tables (default `6`)
-- `--puzzle-rows <n>`: puzzle grid rows per page (default `5`)
-- `--puzzle-columns <n>`: puzzle grid columns per page (default `4`)
-- `--imprint <text>`: repeatable imprint line
-- `--dedication <text>`: repeatable dedication line
-- `--introduction <text>`: repeatable introduction paragraph
-- `--how-to-read <text>`: repeatable custom how-to-read paragraph
-- `--blurb <text>`: repeatable back-cover blurb paragraph
-- `--link <text>`: repeatable purchase link
-- `--afterword <text>`: repeatable closing paragraph
-- `--binding <type>`: `paperback`, `hardcover`, or `ebook` for `--cover-output`
-- `--interior <type>`: `white-bw`, `cream-bw`, `white-standard-color`, or `white-premium-color`
-- `--free-watermark` / `--watermark`: add a noisy free-edition overlay to `--pdf-output`
-- `--watermark-id <text>`: embed a traceable watermark ID in the interior PDF; implies `--watermark`
-- `--check|--validate`: validate the generated book model without writing files
-- `--verbose|-v`: print stack traces on failure
-
-## `book study`
-
-Render deeply annotated puzzle studies from a richer JSON or TOML manifest.
-This command keeps the composition-style fields intact: per-entry description
-text, comments, hints, analysis, and explicit figure lists. It can also write a
-normalized TOML manifest and render a matching cover in one pass.
-
-See also: `book-publishing.md`.
-
-Options:
-- `--input|-i <path>`: input puzzle-study manifest (`.json` or `.toml`)
-- `--output|-o <path>`: output interior PDF path (optional; defaults to `*.pdf` when no other output is requested)
-- `--manifest-output <path>`: also write a normalized TOML manifest
-- `--cover-output <path>`: also render the matching native cover PDF
-- `--title <text>`: book title override
-- `--subtitle <text>`: subtitle override
-- `--author <text>`: author override
-- `--time <text>`: publication time override
-- `--location <text>`: publication location override
-- `--blurb <text>`: repeatable back-cover blurb override
-- `--link <text>`: repeatable cover-link override
-- `--pages <n>`: printed page count for cover metadata / spine width
-- `--page-size <size>`: `a4`, `a5`, or `letter`
-- `--margin <n>`: page margin in PostScript points
-- `--diagrams-per-row <n>`: diagrams per row override
-- `--board-pixels <n>`: raster size per diagram before embedding
-- `--flip|--black-down`: render Black at the bottom
-- `--no-fen`: hide FEN text below diagrams
-- `--binding <type>`: `paperback`, `hardcover`, or `ebook` for `--cover-output`
-- `--interior <type>`: `white-bw`, `cream-bw`, `white-standard-color`, or `white-premium-color`
-- `--check|--validate`: validate the manifest and composition layout without writing files
-- `--verbose|-v`: print stack traces on failure
-
-## `book cover`
-
-Render a native vector PDF cover for a chess-book JSON or TOML manifest.
-The renderer builds the back blurb, front title/subtitle/author, spine text, barcode-safe box, and page-count-based spine width.
-
-See also: `book-publishing.md`.
-
-Dimension notes:
-- `paperback` adds 0.125 inch bleed on every outside edge.
-- `hardcover` adds 1.5 cm wrap and 1.0 cm hinge allowance.
-- Spine width is calculated from `--pages`, or else the supplied interior PDF page count, or else manifest `pages`, times the selected interior paper thickness.
-
-Options:
-- `--input|-i <path>`: input book manifest (`.json`, `.toml`, or TOML-like text)
-- `--pdf <path>`: interior PDF used to infer trim size and page count
-- `--output|-o <path>`: output cover PDF path (optional; default derived from the input path as `*-cover.pdf`)
-- `--title <text>`: title override
-- `--subtitle <text>`: subtitle override
-- `--binding <type>`: `paperback`, `hardcover`, or `ebook` (default `paperback`)
-- `--interior <type>`: `white-bw`, `cream-bw`, `white-standard-color`, or `white-premium-color`
-- `--pages <n>`: printed page count for spine width (default from the interior PDF, then book metadata, then an estimate)
-- `--check|--validate`: validate the manifest and print calculated cover dimensions without writing a PDF
-- `--verbose|-v`: print stack traces on failure
-
-## `fen chess960`
+| Option | Description |
+| --- | --- |
+| `--input`/`-i PATH` | Input `.record` JSON file (required) |
+| `--output`/`-o PATH` | Output PGN file (default `dump/<input-stem>.pgn`) |
+
+```bash
+crtk record export pgn --input dump/run.record --output dump/run.pgn
+```
+
+### record export puzzle-jsonl
+
+Export `.record` rows as puzzle JSONL annotated with LC0 policy values. The policy map comes from the network, so this one needs ChessRTK LC0 CNN `.bin` weights.
+
+| Option | Description |
+| --- | --- |
+| `--input`/`-i PATH` | Input `.record` JSON file (required) |
+| `--output`/`-o PATH` | Output JSONL file (default `dump/<input-stem>.puzzle.jsonl`) |
+| `--weights PATH` | ChessRTK LC0 CNN `.bin` weights path (required) |
+| `--filter`/`-f DSL` | Optional row-selection Filter DSL |
+| `--puzzles` | Keep only puzzle records |
+| `--nonpuzzles` | Keep only non-puzzle records |
+
+```bash
+crtk record export puzzle-jsonl --input dump/run.record --weights models/leela.bin --puzzles
+```
+
+### record export puzzle-elo-jsonl
+
+Export verified puzzle records as JSONL with Elo-style difficulty tags. By default it scores the puzzle trees in-process; if you already have a scored ratings CSV, point at it with `--ratings-csv` and the export skips straight to a single pass. Takes multiple inputs and directories.
+
+| Option | Description |
+| --- | --- |
+| `--input`/`-i PATH` | Input record file(s) or directories (repeatable; required) |
+| `--output`/`-o PATH` | Output JSONL file (default `dump/<input-stem>.puzzle-elo.jsonl`) |
+| `--recursive` | Recurse into input directories |
+| `--max-records N` | Score at most `N` verified puzzles (`0`/default: no cap) |
+| `--threads N` | Tree-scoring worker threads (default: available processors) |
+| `--ratings-csv PATH` | Reuse an existing scored rating CSV for a one-pass re-export |
+
+```bash
+crtk record export puzzle-elo-jsonl --input dump/puzzles/ --recursive --threads 8
+```
+
+### record export training-jsonl
+
+Flatten one or more record files into one-position-per-line training JSONL. Labels fall into three tiers: a row matching the puzzle DSL gets `coarse_label=1`/`fine_label=2`; a row that shares a parent FEN with a puzzle gets `coarse_label=1`/`fine_label=1`; everything else gets `coarse_label=0`/`fine_label=0`. Engine metadata never reaches the model — it stays out of the feature columns by design.
+
+| Option | Description |
+| --- | --- |
+| `--input`/`-i PATH` | Input record file(s) or directories (repeatable; required) |
+| `--output`/`-o PATH` | Output JSONL file (default `dump/<input-stem>.training.jsonl`) |
+| `--filter`/`-f DSL` | Puzzle Filter DSL; matching rows become `verified_puzzle` |
+| `--recursive` | Recurse into input directories |
+| `--include-engine-metadata` | Retain engine/PV details as metadata only |
+| `--max-records N` | Stop after writing `N` rows (`0`/default: no cap) |
+
+```bash
+crtk record export training-jsonl --input dump/run.record --output dump/train.jsonl
+```
+
+### record dataset npy
+
+Convert a `.record` JSON array into NumPy tensors: `<stem>.features.npy` shaped `(N, 781)` float32 and `<stem>.labels.npy` shaped `(N,)` float32 (pawns).
+
+| Option | Description |
+| --- | --- |
+| `--input`/`-i PATH` | Input `.record` JSON file (required) |
+| `--output`/`-o PATH` | Output dataset prefix (default `dump/<input-stem>.dataset`) |
+
+```bash
+crtk record dataset npy --input dump/run.record --output dump/run.dataset
+```
+
+### record dataset lc0
+
+Convert a `.record` JSON array into LC0-style tensors: `<stem>.lc0.inputs.npy` `(N, 112*64)`, `<stem>.lc0.policy.npy` `(N, policySize)` one-hot, `<stem>.lc0.value.npy` `(N,)` in `[-1,1]`, plus `<stem>.lc0.meta.json`.
+
+| Option | Description |
+| --- | --- |
+| `--input`/`-i PATH` | Input `.record` JSON file (required) |
+| `--output`/`-o PATH` | Output dataset prefix (default `dump/<input-stem>.lc0`) |
+| `--weights PATH` | Optional LC0 weights to compress the policy to the net's size |
+
+```bash
+crtk record dataset lc0 --input dump/run.record --weights models/leela.bin
+```
+
+### record dataset classifier
+
+Convert one or more record files into tensors for the one-logit binary classifier: `<stem>.classifier.inputs.npy` `(N, 21*64)`, `<stem>.classifier.labels.npy` `(N,)` (`0.0` negative, `1.0` positive), plus `<stem>.classifier.meta.json`. Labeling without `--label-filter` follows whatever the records carry: an explicit `kind:"puzzle"`/`kind:"nonpuzzle"` wins if present, and the configured puzzle verification filter decides the rest.
+
+| Option | Description |
+| --- | --- |
+| `--input`/`-i PATH` | Input record file(s) or directories (repeatable; required) |
+| `--output`/`-o PATH` | Output dataset prefix (default `dump/<input-stem>.classifier`; required for multiple inputs) |
+| `--filter`/`-f DSL` | Optional row-selection Filter DSL applied before labeling |
+| `--label-filter DSL` | Optional positive-label Filter DSL (overrides kind) |
+| `--max-positives N` | Cap positive rows |
+| `--max-negatives N` | Cap negative rows |
+| `--recursive` | Recurse into input directories |
+
+```bash
+crtk record dataset classifier --input dump/records/ --recursive --label-filter "puzzle:true"
+```
+
+### record files
+
+Merge, filter, and split record files.
+
+| Option | Description |
+| --- | --- |
+| `--input`/`-i PATH` | Input record file(s) or directories (repeatable; positionals allowed) |
+| `--output`/`-o PATH` | Output record file or directory (required) |
+| `--filter`/`-f DSL` | Filter DSL to select records |
+| `--puzzles` | Keep only puzzle records |
+| `--nonpuzzles` | Keep only non-puzzle records |
+| `--max-records N` | Split output into parts with at most `N` records each |
+| `--recursive` | Recurse into input directories |
+
+```bash
+crtk record files --input dump/shards/ --recursive --output dump/merged.record --max-records 10000
+```
+
+### record stats
+
+Summarize a `.record` or puzzle JSON/JSONL dump (counts, top tags, top engines).
+
+| Option | Description |
+| --- | --- |
+| `--input`/`-i PATH` | Input JSON array/JSONL file (required) |
+| `--top N` | Number of top tags/engines to show (default `10`) |
+
+```bash
+crtk record stats --input dump/run.record --top 20
+```
+
+### record tag-stats
+
+Summarize tag distributions in a dump.
+
+| Option | Description |
+| --- | --- |
+| `--input`/`-i PATH` | Input JSON array/JSONL file (required) |
+| `--top N` | Number of top tags to show (default `20`) |
+
+```bash
+crtk record tag-stats --input dump/run.record --top 30
+```
+
+### record analysis-delta
+
+Export one JSONL row per record with evaluation-stability metrics: initial and final eval, delta type/value, fluctuation range, and time/depth to final value.
+
+| Option | Description |
+| --- | --- |
+| `--input`/`-i PATH` | Input record file (required) |
+| `--output`/`-o PATH` | Output JSONL path (default `dump/<input-stem>.analysis-delta.jsonl`) |
+
+```bash
+crtk record analysis-delta --input dump/run.record
+```
+
+## fen
+
+Everything that begins with a FEN lives here: validation, normalization, generation, PGN conversion, Chess960 enumeration, board rendering, tagging, and text. They all share the same core, so a FEN normalized here is byte-for-byte the FEN every other command expects.
+
+| Subcommand | Purpose |
+| --- | --- |
+| `fen validate` | Validate a FEN |
+| `fen normalize` | Normalize and validate a FEN |
+| `fen after` | Apply one move and print the resulting FEN (alias of `move after`) |
+| `fen line` | Apply a move line and print the resulting FEN (alias of `move play`; `fen play` also works) |
+| `fen generate` | Generate random legal FEN shards |
+| `fen pgn` | Convert PGN games to FEN lists |
+| `fen chess960` | Print Chess960 starting positions by index or range |
+| `fen print` | Pretty-print a position as ASCII |
+| `fen display` | Render a position in a window |
+| `fen render` | Save a position image to disk |
+| `fen tags` | Generate tags for FENs, PGNs, or variations |
+| `fen text` | Summarize position tags with T5 |
+
+### fen validate
+
+Validate a FEN; prints `valid<TAB><normalized-fen>` on success.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | FEN to validate (or pass positionally) |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position |
+| `--stdin` | Read one FEN per non-blank stdin line |
+| `--json` | Emit one JSON object, or an array for multiple rows |
+| `--jsonl` | Emit one JSON object per row |
+| `--no-header` / `--quiet` | Script-friendly output toggles |
+
+```bash
+crtk fen validate "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+```
+
+### fen normalize
+
+Parse a FEN and print it back in the canonical form the core uses internally — useful when two FENs should be equal but a stray castling-rights or move-counter difference says otherwise. Same I/O options as `fen validate`.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | FEN to normalize (or pass positionally) |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position |
+| `--stdin` | Read one FEN per non-blank stdin line |
+| `--json` | Emit one JSON object, or an array for multiple rows |
+| `--jsonl` | Emit one JSON object per row |
+| `--no-header` / `--quiet` | Script-friendly output toggles |
+
+```bash
+crtk fen normalize --stdin < positions.txt
+```
+
+### fen after / fen line
+
+`fen after` is an alias for `move after`, and `fen line` (also `fen play`) is an alias for `move play`. See [move after](#move-after) and [move play](#move-play) for the full option set.
+
+```bash
+crtk fen after --fen "<FEN>" e2e4
+crtk fen line --fen "<FEN>" "e4 e5 Nf3 Nc6"
+```
+
+### fen generate
+
+Write random legal FEN shards to disk, mixing standard and Chess960 starts. Filters stack with AND — every condition you name has to hold, so a tight combination can reject most candidates and lean on `--max-attempts`. `gen fens` is an alias for this command.
+
+| Option | Description |
+| --- | --- |
+| `--output`/`-o PATH` | Output directory (default `dump/all_positions_shards`) |
+| `--files N` | Number of shard files to write |
+| `--per-file N` | FENs per shard file |
+| `--batch N` | Positions per RNG batch |
+| `--chess960-files N` | How many of the first shard files are seeded from Chess960 starts |
+| `--max-attempts N` | Candidate cap per shard when filters are selective |
+| `--ascii` | Use an ASCII progress bar |
+
+Stage presets: `--stage NAME` (`endgame`, `late-endgame`, `king-pawn`, `minor`, `rook`, `queenless`), `--endgame`, `--late-endgame`, `--king-pawn-endgame`, `--minor-endgame`, `--rook-endgame`, `--queenless`, `--opposite-bishops`.
+
+Move-state filters: `--side white|black|w|b`, `--in-check`, `--not-in-check`, `--checkmate`, `--stalemate`, `--en-passant`/`--ep`, `--promotion`, `--underpromotion`, `--capture`, `--castle-rights`, `--legal-castle`.
+
+Count and material filters (each supports an exact value plus `--min-*`/`--max-*` forms): `--pieces N`, `--white-pieces N`, `--black-pieces N`, `--pawns`/`--knights`/`--bishops`/`--rooks`/`--queens N`, side-specific forms such as `--white-rooks N`/`--black-rooks N`, `--material N`, `--material-diff N` (White minus Black, cp), `--max-material-imbalance N` (max absolute difference, cp), `--legal-moves N`, `--fullmove N`, `--halfmove N`.
+
+```bash
+crtk fen generate --output shards/ --files 2 --per-file 20 --chess960-files 1
+crtk gen fens --output rook-endgames/ --files 1 --per-file 200 --rook-endgame --rooks 2
+crtk gen fens --output specials/ --files 1 --per-file 25 --en-passant --max-attempts 250000
+```
+
+### fen pgn
+
+Convert PGN games into a FEN list (usable as seeds).
+
+| Option | Description |
+| --- | --- |
+| `--input`/`-i PATH` | Input PGN file (required) |
+| `--output`/`-o PATH` | Output FEN list (default `dump/<input-stem>.txt`) |
+| `--mainline` | Only output mainline positions |
+| `--pairs` | Output `parent child` FEN pairs per line |
+
+```bash
+crtk fen pgn --input games.pgn --mainline --output positions.txt
+```
+
+### fen chess960
 
 Print Chess960 starting positions in Scharnagl index order.
 
-Modes:
-- `crtk fen chess960 <index>` or `crtk fen chess960 --index <n>`: print one position.
-- `crtk fen chess960 --all`: print all 960 positions in order.
-- `crtk fen chess960 --random --count <n>`: print random positions.
+| Option | Description |
+| --- | --- |
+| `--index N` | Print one position by Scharnagl index (positional `N` is shorthand) |
+| `--random` | Print one random position |
+| `--count N` | Number of random positions with `--random` |
+| `--all` | Print all 960 positions in index order |
+| `--format FORMAT` | `fen` (default), `layout` (white back-rank only), or `both` (`index<TAB>layout<TAB>fen`) |
 
-Options:
-- `--format fen`: print FEN only (default)
-- `--format layout`: print the white back-rank layout only
-- `--format both`: print `index<TAB>layout<TAB>fen`
+```bash
+crtk fen chess960 518
+crtk fen chess960 --random --count 5 --format both
+```
 
-## `book pdf`
+### fen print
 
-Export chess diagrams to PDF from direct FEN input, a FEN list file, or a PGN file.
-PGN export currently uses one composition per game's mainline.
+Pretty-print a FEN as ASCII (board, metadata, and tags).
 
-Options:
-- `--fen "<FEN...>"`: input FEN (repeatable; a single positional FEN is also allowed)
-- `--input|-i <path>`: input FEN list or FEN-pair text file
-- `--pgn <path>`: input PGN file
-- `--output|-o <path>`: output PDF path (optional; default `dump/<input-stem>.pdf` or `dump/chess.pdf`)
-- `--title <text>`: document title override
-- `--page-size <size>`: `a4`, `a5`, or `letter`
-- `--diagrams-per-row <n>`: diagrams per row (default `2`)
-- `--board-pixels <n>`: raster size per diagram before embedding (default `900`)
-- `--flip|--black-down`: render Black at the bottom
-- `--no-fen`: hide FEN text below diagrams
-- `--verbose|-v`: print stack traces on failure
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | FEN to render (or pass positionally) |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position |
 
-## `gui`
+```bash
+crtk fen print --fen "<FEN>"
+```
 
-Alias for `workbench`. Launches the native Swing command and analysis workbench.
+### fen display
 
-Options:
-- `--fen "<FEN...>"` (or pass it positionally)
-- `--flip|--black-down`: render Black at the bottom
-- `-h|--help`: show help
+Render a board image in a window, with optional overlays and theming.
 
-## `workbench`
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | FEN to render (or pass positionally) |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position |
+| `--backend B` | Renderer backend (default: best available) |
+| `--show-backend` | Print renderer backend info |
+| `--flip` / `--black-down` | Render from Black's perspective / Black at the bottom |
+| `--size N` | Window size (pixels) |
+| `--width N` / `--height N` | Override window width / height |
+| `--zoom Z` | Zoom factor (default `1`) |
+| `--dark` / `--dark-mode` | Use dark theme |
+| `--accent HEX` | Tint squares/grid/frame with a hex color (e.g. `#4ab66f`) |
+| `--arrow`/`--arrows MOVES` | Draw arrow overlays (comma-separated squares) |
+| `--special-arrows` | Draw special (castle/en-passant) arrow overlays |
+| `--circle`/`--circles SQUARES` | Draw circle overlays |
+| `--legal SQUARE` | Overlay legal move dots from a square |
+| `--details-inside` / `--details-outside` | Show eval details inside / outside the board |
+| `--ablation` | Overlay evaluator ablation heatmap |
 
-Launch the native Swing workbench. The alias `gui` launches this same app.
-For interactive use, this is usually easier than writing CLI commands directly;
-the CLI remains the stable interface for scripts and batch automation.
+```bash
+crtk fen display --fen "<FEN>" --arrows e2e4,g1f3 --dark
+```
 
-Alias:
-- `gui`
+### fen render
 
-The workbench includes:
-- an analysis board with legal moves, click-to-move, PGN loading, ECO lookup,
-  static tags, board editing, MCTS controls, and engine command shortcuts
-- a command controller with curated templates, validation, and
-  command-specific flag tables
-- batch, dataset, publishing, console, logs, network, and puzzle tabs
+Save a board image to disk (PNG/JPG/BMP/SVG). Shares most overlay and theming options with `fen display`.
 
-Options:
-- `--fen "<FEN...>"` (or pass it positionally)
-- `--flip|--black-down`: render Black at the bottom
-- `-h|--help`: show help
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | FEN to render (or pass positionally) |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position |
+| `--output`/`-o PATH` | Output image/SVG path |
+| `--format FORMAT` | `png`, `jpg`, `bmp`, or `svg` |
+| `--backend B` / `--show-backend` | Renderer backend / print backend info |
+| `--flip` / `--black-down` | Render from Black's perspective / Black at the bottom |
+| `--size N` | Board size (pixels) |
+| `--width N` / `--height N` | Override image width / height |
+| `--zoom Z` | Zoom factor (default `1`) |
+| `--dark` / `--dark-mode` | Use dark theme |
+| `--accent HEX` | Tint squares/grid/frame with a hex color |
+| `--drop-shadow` / `--shadow` | Add a subtle drop shadow |
+| `--no-border` | Hide the outer border |
+| `--arrow`/`--arrows MOVES` | Draw arrow overlays |
+| `--special-arrows` | Draw special arrow overlays |
+| `--circle`/`--circles SQUARES` | Draw circle overlays |
+| `--legal SQUARE` | Overlay legal move dots from a square |
+| `--details-inside` / `--details-outside` | Show eval details inside / outside the board |
+| `--ablation` | Overlay evaluator ablation heatmap |
 
-Examples:
+```bash
+crtk fen render --fen "<FEN>" --output board.svg --size 800 --accent "#4ab66f"
+```
+
+### fen tags
+
+Generate tags for a FEN, FEN list, or PGN. With `config/book.eco.toml` in place, the output picks up `eco:`/`opening:` tags wherever a position matches the ECO book. Tagging is static by default; `--analyze` adds engine PV, mate, and enables data and pulls in the shared engine option block.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Input FEN (required unless `--input` or `--pgn` is set) |
+| `--input`/`-i PATH` | Input FEN list (supports parent/child pairs) |
+| `--pgn PATH` | Input PGN (use `--sidelines` for variations) |
+| `--include-fen` | Include the FEN in output |
+| `--sequence` | Interpret input as an ordered line (enable/disable tags) |
+| `--delta` | Emit per-move tag deltas as JSONL |
+| `--mainline` | With `--pgn`, only export the mainline |
+| `--sidelines` | With `--pgn`, include variations |
+| `--analyze` | Run engine analysis to enrich tags |
+| `--protocol-path`/`-P PATH` | Engine protocol TOML file |
+| `--max-nodes N` / `--max-duration D` | Per-position node / time limits |
+| `--multipv N` / `--threads N` / `--hash N` | Engine MultiPV / threads / hash (MB) |
+| `--wdl` / `--no-wdl` | Enable / disable WDL output |
+
+```bash
+crtk fen tags --fen "<FEN>" --include-fen
+crtk fen tags --pgn game.pgn --sidelines --analyze --max-nodes 200000
+```
+
+### fen text
+
+Feed one FEN or a FEN list through the T5 tag-to-text model and get a natural-language summary back.
+
+| Option | Description |
+| --- | --- |
+| `--model PATH` | T5 `.bin` model path (default: config `t5-model-path`) |
+| `--fen FEN` | Input FEN (required unless `--input` is set) |
+| `--input`/`-i PATH` | Input FEN file |
+| `--include-fen` | Emit JSON with `fen` + `summary` |
+| `--max-new N` | Max generated tokens (default `128`) |
+| `--analyze` | Run engine analysis to enrich tags |
+| `--protocol-path`/`-P PATH` | Engine protocol TOML file |
+| `--max-nodes N` / `--max-duration D` | Per-position node / time limits |
+| `--multipv N` / `--threads N` / `--hash N` | Engine MultiPV / threads / hash (MB) |
+| `--wdl` / `--no-wdl` | Enable / disable WDL output |
+
+```bash
+crtk fen text --fen "<FEN>" --include-fen
+```
+
+## gen
+
+A home for data-seed and artifact generators. For now it is a thin alias surface over the corresponding `fen` commands.
+
+### gen fens
+
+Alias for [fen generate](#fen-generate). Same options and behavior.
+
+```bash
+crtk gen fens --output endgames/ --files 1 --per-file 100 --endgame --max-material-imbalance 300
+```
+
+## batch
+
+Run multiple ChessRTK CLI commands from a single script.
+
+### batch run
+
+Run one CRTK command per line of a UTF-8 script, read from a file or standard input. Blank lines and lines starting with `#` are skipped, and a leading `crtk` token is optional, so a transcript of commands you typed by hand usually runs as-is.
+
+| Option | Description |
+| --- | --- |
+| `--input`/`-i PATH` | UTF-8 script with one CRTK command per non-comment line |
+| `--stdin` | Read script rows from standard input |
+| `--keep-going` | Continue running later rows after a command exits non-zero |
+| `--quiet` | Do not echo each command before it runs |
+
+```bash
+crtk batch run --input jobs.txt --keep-going
+```
+
+## move
+
+List legal moves, convert notation, apply moves. Nothing here calls an external engine — it is all the shared core. The listing commands (`list`, `uci`, `san`, `both`) share `--json`, `--jsonl`, `--fields`, `--no-header`, and `--quiet`. The single-move and sequence commands (`to-san`, `to-uci`, `after`, `play`) take a positional move or move list and assume the standard start when you give no FEN.
+
+| Subcommand | Purpose |
+| --- | --- |
+| `move list` | List legal moves (format-selectable) |
+| `move uci` | List legal moves in UCI |
+| `move san` | List legal moves in SAN |
+| `move both` | List legal moves in UCI and SAN |
+| `move to-san` | Convert one UCI move to SAN |
+| `move to-uci` | Convert one SAN move to UCI |
+| `move after` | Apply one move and print the resulting FEN |
+| `move play` | Apply a move line and print the resulting FEN |
+
+### move list
+
+List legal moves for a FEN.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Input FEN (or pass positionally) |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position |
+| `--format FORMAT` | `uci` (default), `san`, or `both` |
+| `--san` / `--both` | Aliases for `--format san` / `--format both` |
+| `--json` / `--jsonl` | Emit a JSON array / one JSON object per line |
+| `--fields LIST` | Output fields: `uci`, `san`, or `both` |
+| `--no-header` / `--quiet` | Script-friendly output toggles |
+
+```bash
+crtk move list --startpos --format both
+```
+
+### move uci / move san / move both
+
+List legal moves in a fixed notation: UCI, SAN, or both. Each accepts `--fen` (or positional FEN), `--startpos`, `--randompos`, `--json`, `--jsonl`, `--fields LIST`, `--no-header`, and `--quiet`.
+
+```bash
+crtk move uci --fen "<FEN>" --jsonl
+crtk move san --fen "<FEN>"
+crtk move both --fen "<FEN>"
+```
+
+### move to-san
+
+Convert a single UCI move to SAN in the given position (defaults to the standard start).
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Starting FEN (default: standard start) |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position explicitly |
+| `MOVE` | UCI move to convert (e.g. `e2e4`, `a7a8q`) |
+| `--json` / `--jsonl` | Emit one JSON object / one JSON object line |
+| `--no-header` / `--quiet` | Script-friendly output toggles |
+
+```bash
+crtk move to-san e2e4
+```
+
+### move to-uci
+
+Convert a single SAN move to UCI in the given position (defaults to the standard start).
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Starting FEN (default: standard start) |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position explicitly |
+| `MOVE` | SAN move to convert (e.g. `Nf3`, `exd5`, `O-O`) |
+| `--json` / `--jsonl` | Emit one JSON object / one JSON object line |
+| `--no-header` / `--quiet` | Script-friendly output toggles |
+
+```bash
+crtk move to-uci Nf3
+```
+
+### move after
+
+Apply a single move (UCI or SAN) and print the resulting FEN.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Starting FEN (default: standard start) |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position explicitly |
+| `MOVE` | UCI or SAN move to apply |
+| `--json` / `--jsonl` | Emit one JSON object / one JSON object line |
+| `--no-header` / `--quiet` | Script-friendly output toggles |
+
+```bash
+crtk move after --fen "<FEN>" e2e4
+```
+
+### move play
+
+Apply a UCI/SAN move sequence and print the resulting FEN. The list runs through the PGN sanitizer first, so move numbers and comments are stripped — you can paste a chunk of a game and it just plays.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Starting FEN (default: standard start) |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position explicitly |
+| `MOVES` | UCI/SAN move sequence to apply |
+| `--intermediate` | Print FEN after each ply instead of only the final FEN |
+| `--json` / `--jsonl` | Emit one JSON object / one per ply with `--intermediate` |
+| `--no-header` / `--quiet` | Script-friendly output toggles |
+
+```bash
+crtk move play --startpos "e4 e5 Nf3 Nc6" --intermediate
+```
+
+## engine
+
+The biggest area, and it covers three different things wearing one noun: external UCI analysis, in-process search and evaluation, and move-generation validation. The UCI-backed commands share `--protocol-path`/`-P`, `--max-nodes`/`--nodes`, `--max-duration`, `--multipv`, `--threads`, `--hash`, and `--wdl`/`--no-wdl`. Note that `--threads` and `--hash` configure the external engine; they do nothing to the built-in one.
+
+| Subcommand | Purpose |
+| --- | --- |
+| `engine analyze` | Analyze a position with the configured UCI engine |
+| `engine bestmove` | Print the best move (format-selectable) |
+| `engine bestmove-uci` | Print the best move in UCI |
+| `engine bestmove-san` | Print the best move in SAN |
+| `engine bestmove-both` | Print the best move in UCI and SAN |
+| `engine analyze-batch` | Analyze FEN batches as JSONL |
+| `engine bestmove-batch` | Find best moves for FEN batches as JSONL |
+| `engine compare` | Compare best moves from two UCI protocols |
+| `engine threats` | Analyze opponent threats via a null move |
+| `engine builtin` | Search with the built-in MCTS engine |
+| `engine java` | Run the same built-in MCTS engine |
+| `engine mate` | Brute-force prove a forced mate without NN evaluation |
+| `engine eval` | Evaluate a position with LC0, OTIS, or classical |
+| `engine static` | Evaluate a position with the classical backend |
+| `engine benchmark` | Benchmark the core move generator |
+| `engine perft` | Run perft on a position |
+| `engine perft-suite` | Run a perft regression suite |
+| `engine gpu` | Print GPU JNI backend status |
+| `engine uci-smoke` | Start engine and run a tiny UCI search |
+
+### engine analyze
+
+Analyze a position with the configured UCI engine and print PV summaries.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Input FEN (or pass positionally) |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position |
+| `--input`/`-i PATH` | Input FEN file |
+| `--protocol-path`/`-P PATH` | Engine protocol TOML file |
+| `--max-nodes`/`--nodes N` / `--max-duration D` | Per-position node / time limits (e.g. `5s`, `2m`) |
+| `--multipv N` / `--threads N` / `--hash N` | Engine MultiPV / threads / hash (MB) |
+| `--wdl` / `--no-wdl` | Enable / disable WDL output |
+
+```bash
+crtk engine analyze --fen "<FEN>" --multipv 3 --max-duration 5s
+```
+
+### engine bestmove
+
+Return the best move for a FEN.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Input FEN (or pass positionally) |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position |
+| `--input`/`-i PATH` | Input FEN file |
+| `--format FORMAT` | `uci` (default), `san`, or `both` |
+| `--san` / `--both` | Print SAN / UCI + SAN output |
+| `--protocol-path`/`-P PATH` | Engine protocol TOML file |
+| `--max-nodes`/`--nodes N` / `--max-duration D` | Per-position node / time limits |
+| `--multipv N` / `--threads N` / `--hash N` | Engine MultiPV / threads / hash (MB) |
+| `--wdl` / `--no-wdl` | Enable / disable WDL output |
+
+```bash
+crtk engine bestmove --fen "<FEN>" --both --max-nodes 200000
+```
+
+### engine bestmove-uci / bestmove-san / bestmove-both
+
+Fixed-notation best-move variants. Each accepts the same engine option block as `engine bestmove` (`--fen`/positional, `--startpos`, `--randompos`, `--input`/`-i`, `--protocol-path`/`-P`, `--max-nodes`/`--nodes`, `--max-duration`, `--multipv`, `--threads`, `--hash`, `--wdl`/`--no-wdl`) but emit only the corresponding notation.
+
+```bash
+crtk engine bestmove-uci --fen "<FEN>"
+crtk engine bestmove-san --fen "<FEN>"
+crtk engine bestmove-both --input positions.txt
+```
+
+### engine analyze-batch
+
+Analyze a FEN batch with an external UCI engine and emit machine-readable rows (JSONL by default). A successful row carries `ok`, `index`, the normalized `fen`, `engine`, and a `pv` array. A bad FEN does not abort the run — it comes back as `ok:false`, so one malformed line in a thousand-position batch costs you one line, not the batch.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Single input FEN |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position |
+| `--input`/`-i PATH` | Input FEN file |
+| `--stdin` | Read one FEN per non-blank stdin line |
+| `--output`/`-o PATH` | Write output to a file |
+| `--json` / `--jsonl` | Emit one JSON array / one JSON object per line (default) |
+| `--protocol-path`/`-P PATH` | Engine protocol TOML file (default: config) |
+| `--max-nodes`/`--nodes N` / `--max-duration D` | Per-position node / time limits |
+| `--multipv N` / `--threads N` / `--hash N` | Engine MultiPV / threads / hash (MB) |
+| `--wdl` / `--no-wdl` | Enable / disable WDL output |
+
+```bash
+crtk engine analyze-batch --input positions.txt --multipv 2 --output analysis.jsonl
+```
+
+### engine bestmove-batch
+
+Find best moves for a FEN batch and emit rows (JSONL by default) — `engine bestmove` at batch scale, trimmed to just the chosen move. Same I/O as `analyze-batch`, minus `--multipv`.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Single input FEN |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position |
+| `--input`/`-i PATH` | Input FEN file |
+| `--stdin` | Read one FEN per non-blank stdin line |
+| `--output`/`-o PATH` | Write output to a file |
+| `--json` / `--jsonl` | Emit one JSON array / one JSON object per line (default) |
+| `--protocol-path`/`-P PATH` | Engine protocol TOML file (default: config) |
+| `--max-nodes`/`--nodes N` / `--max-duration D` | Per-position node / time limits |
+| `--threads N` / `--hash N` | Engine threads / hash (MB) |
+| `--wdl` / `--no-wdl` | Enable / disable WDL output |
+
+```bash
+crtk engine bestmove-batch --stdin < positions.txt > bestmoves.jsonl
+```
+
+### engine compare
+
+Compare best moves from two UCI protocols across the same FEN input, with a per-row table and summary. `--json` emits a JSON object with `rows` and `summary`; `--jsonl` emits one comparison row per line.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Single input FEN |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position |
+| `--input`/`-i PATH` | Input FEN file |
+| `--stdin` | Read one FEN per non-blank stdin line |
+| `--left-protocol PATH` | Left engine protocol TOML file |
+| `--right-protocol PATH` | Right engine protocol TOML file |
+| `--protocol-a PATH` / `--protocol-b PATH` | Aliases for `--left-protocol` / `--right-protocol` |
+| `--protocol-path`/`-P PATH` | Default protocol when one side is omitted |
+| `--output`/`-o PATH` | Write output to a file |
+| `--json` / `--jsonl` | Emit rows plus summary as one JSON object / one comparison per line |
+| `--max-nodes`/`--nodes N` / `--max-duration D` | Per-engine, per-position node / time limits |
+| `--multipv N` / `--threads N` / `--hash N` | Engine MultiPV / threads / hash (MB) |
+| `--wdl` / `--no-wdl` | Enable / disable WDL output |
+
+```bash
+crtk engine compare --input positions.txt --left-protocol a.toml --right-protocol b.toml --json
+```
+
+### engine threats
+
+Compute opponent "threats" via a null move: the side to move is swapped, en-passant is cleared, and the position is analyzed with MultiPV. The resulting PV best moves are the threats. Positions where the side to move is in check are skipped (a null move would be illegal). When `--multipv` is unset, it defaults to all legal opponent moves.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Input FEN (or pass positionally) |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position |
+| `--protocol-path`/`-P PATH` | Engine protocol TOML file |
+| `--max-nodes N` / `--max-duration D` | Per-position node / time limits |
+| `--multipv N` | Engine MultiPV (default: all legal opponent moves) |
+| `--threads N` / `--hash N` | Engine threads / hash (MB) |
+| `--wdl` / `--no-wdl` | Enable / disable WDL output |
+
+```bash
+crtk engine threats --fen "<FEN>" --max-duration 3s
+```
+
+### engine builtin
+
+Search a position with ChessRTK's in-house MCTS engine (`engine java` is the same code under a friendlier name). It runs in-process, which makes it the right choice for deterministic local search, smoke tests, and any automation that shouldn't fork a UCI engine. Search is single-threaded behind an internal transposition table and static-eval cache; `--threads` and `--hash` are UCI options and have no effect here.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Input FEN (or pass positionally) |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position |
+| `--input`/`-i PATH` | Input FEN file |
+| `--uci` | Run the minimal built-in UCI loop instead of searching one FEN |
+| `--evaluator KIND` | `classical` (default), `nnue`, `lc0`, or `otis` |
+| `--classical` / `--nnue` / `--lc0` / `--otis` | Shortcut evaluator selectors |
+| `--weights PATH` | NNUE, LC0, or OTIS weights path |
+| `--depth`/`-d N` | Search depth hint (default `3`) |
+| `--max-nodes`/`--nodes N` | MCTS playout budget; `0` disables the node cap |
+| `--max-duration D` | Time budget (e.g. `5s`); `0` means no time cap |
+| `--format FORMAT` | `uci-info` (default), `uci`, `san`, `both`, or `summary` |
+
+Budget defaults: with no `--depth`, the playout budget defaults to roughly `250000` nodes and `5s`. With explicit `--depth` and no time budget, the effective budget is `depth * 1024` (minimum `256`) and time is unlimited. Evaluators: `classical` is handcrafted (no model); `nnue` uses `models/crtk-halfkp.nnue` by default; `lc0` uses the configured LC0 CNN model; `otis` uses `models/otis_policy_wdl_random.bin` by default.
+
+```bash
+crtk engine builtin --fen "<FEN>" --depth 8 --max-duration 2s --format summary
+crtk engine builtin --lc0 --weights models/leela.bin --fen "<FEN>"
+```
+
+### engine java
+
+The same built-in MCTS engine as `engine builtin`, same options. It exists because "java" is the name people reach for when they want the in-house engine.
+
+```bash
+crtk engine java --startpos --format summary
+```
+
+### engine mate
+
+Prove a forced mate with an in-process AND/OR search. No neural evaluator, no external engine — when it reports a mate, it has searched the proof tree, not guessed from a score.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Input FEN (or pass positionally) |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position |
+| `--input`/`-i PATH` | Input FEN file |
+| `--mate`/`--max-mate N` | Maximum mate distance in moves (default `4`) |
+| `--max-nodes`/`--nodes N` | Proof-node budget (default `5000000`; `0` means unlimited) |
+| `--threads N` | Proof-search worker threads for root moves (default `1`) |
+| `--format FORMAT` | `summary` (default), `uci`, `san`, `both`, `json`, or `jsonl` |
+| `--json` / `--jsonl` | Aliases for `--format json` / `--format jsonl` |
+
+```bash
+crtk engine mate --fen "<FEN>" --max-mate 6 --nodes 5000000 --threads 4 --format summary
+```
+
+### engine eval
+
+Evaluate a position with a selectable backend. Uses no UCI engine.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Input FEN (or pass positionally) |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position |
+| `--input`/`-i PATH` | Input FEN file |
+| `--evaluator MODE` | `auto` (default), `lc0`, `otis`, or `classical` |
+| `--lc0` / `--otis` / `--classical` | Shortcut evaluator selectors |
+| `--terminal-aware` / `--terminal` | Enable terminal-aware evaluation |
+| `--weights PATH` | LC0 or OTIS weights path |
+
+```bash
+crtk engine eval --fen "<FEN>" --lc0 --terminal-aware
+```
+
+### engine static
+
+Evaluate a position with the classical evaluator only.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Input FEN (or pass positionally) |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position |
+| `--input`/`-i PATH` | Input FEN file |
+| `--terminal-aware` / `--terminal` | Enable terminal-aware evaluation |
+
+```bash
+crtk engine static --fen "<FEN>"
+```
+
+### engine benchmark
+
+Time the in-process move generator by running detailed perft over several iterations. No external engine; this measures the core, not a UCI engine's search.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Input FEN (or pass positionally; defaults to the start position) |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position |
+| `--depth`/`-d N` | Perft depth (default `4`) |
+| `--iterations N` | Repetitions (default `3`) |
+| `--threads N` | Worker threads for root moves (default `1`) |
+| `--json` / `--jsonl` | Emit one JSON object / one JSON object line |
+
+```bash
+crtk engine benchmark --startpos --depth 5 --iterations 3 --threads 4
+```
+
+### engine perft
+
+Count move-generation nodes with the in-process `chess.core` generator. The report breaks the leaf count down by captures, en-passant captures, castles, promotions, checks, and checkmates, alongside elapsed time and nodes per second — enough detail to localize a movegen bug, not just notice one. With `--gpu`, counting moves to the native CUDA/ROCm/oneAPI backend when it is present and falls back to CPU when it isn't.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Input FEN (or pass positionally; defaults to the start position) |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position |
+| `--depth`/`-d N` | Depth for perft |
+| `--divide` / `--per-move` | Print a per-root-move detailed table |
+| `--format FMT` | `detail`, `table`, or `stockfish` (`table`/`stockfish` imply divide) |
+| `--threads N` | Worker threads for root moves (default `1`) |
+| `--gpu` | Use native GPU perft when available |
+| `--split N` | CPU expansion depth before device counting for `--gpu` |
+
+```bash
+crtk engine perft --startpos --depth 6 --threads 4
+crtk engine perft --fen "<FEN>" --depth 7 --gpu --split 3
+```
+
+### engine perft-suite
+
+Check the move generator against known-good node counts at one depth, for standard and Chess960 positions whose truth values live in the repo. The output is an aligned table with `Truth`, `Calculated`, `Speed`, and `Match` columns; a single `Match: no` is the regression you were looking for. No external engine. The built-in suite covers the standard start, Kiwipete, promotion, en-passant, open castling lanes, Chess960 starts and midgames, and a knight-heavy stress position.
+
+| Option | Description |
+| --- | --- |
+| `--depth`/`-d N` | Depth to validate, `1..6` (default `6`) |
+| `--threads N` | Worker threads for independent positions (default `1`) |
+| `--suite PATH` | Custom tab-delimited suite file |
+| `--gpu` | Use native GPU perft when available |
+| `--split N` | CPU expansion depth before device counting for `--gpu` |
+
+Custom suite rows may be `name<TAB>depth<TAB>fen<TAB>nodes`, `fen<TAB>depth<TAB>nodes`, `name<TAB>fen<TAB>nodes` (uses `--depth`, default `1`), or `fen<TAB>nodes` (uses `--depth`, default `1`).
+
+```bash
+crtk engine perft-suite --depth 5 --threads 4
+crtk engine perft-suite --suite my-suite.tsv
+```
+
+### engine gpu
+
+Report which optional GPU JNI backends (CUDA/ROCm/oneAPI) loaded and what devices they can see, one row each for the LC0 CNN, LC0 BT4, OTIS, and native perft backends. The first thing to run when a `--gpu` flag quietly fell back to CPU.
+
+| Option | Description |
+| --- | --- |
+| `--verbose`/`-v` | Print detailed output |
+
+Notes: when you build a native library under `native/cuda/`, run with `-Djava.library.path=native/cuda/build`. Backend selection is per evaluator via `-Dcrtk.lc0.backend=`, `-Dcrtk.lc0.bt4.backend=`, `-Dcrtk.t5.backend=`, and `-Dcrtk.otis.backend=` (`auto|cpu|cuda|rocm|amd|hip|oneapi|intel`). Perft uses `-Dcrtk.perft.backend=auto|cuda|rocm|amd|hip|oneapi|intel`; omit `--gpu` for the CPU path. `auto` (the default) picks the first available GPU backend and otherwise falls back to the pure-Java CPU path.
+
+```bash
+crtk engine gpu --verbose
+```
+
+### engine uci-smoke
+
+Start the configured UCI engine, apply any settings you pass, run a tiny bounded search from the start position, and print a short health report. Spend the few seconds on this before a long mining or analysis job — it surfaces a wrong engine path, broken protocol TOML, or a failed handshake now, instead of an hour in.
+
+| Option | Description |
+| --- | --- |
+| `--protocol-path`/`-P PATH` | Engine protocol TOML file (default: config) |
+| `--nodes`/`--max-nodes N` | Nodes for the smoke search (default `1`) |
+| `--max-duration D` | Timeout for the smoke search (default `5s`) |
+| `--threads N` | Optional engine thread count |
+| `--hash N` | Optional hash size in MB |
+| `--wdl` / `--no-wdl` | Enable / disable WDL output (if supported) |
+
+```bash
+crtk engine uci-smoke --protocol-path config/default.engine.toml
+```
+
+## mate
+
+A top-level shortcut for [engine mate](#engine-mate) — the same deterministic AND/OR proof search, no evaluator or network involved, hoisted to the top so a mate hunt is one word. `crtk mate` and its alias `crtk find-mate` take the identical option set.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Input FEN (or pass positionally) |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position |
+| `--input`/`-i PATH` | Input FEN file |
+| `--mate`/`--max-mate N` | Maximum mate distance in moves (default `4`) |
+| `--max-nodes`/`--nodes N` | Proof-node budget (`0` means unlimited) |
+| `--threads N` | Proof-search worker threads for root moves (default `1`) |
+| `--format FORMAT` | `summary` (default), `uci`, `san`, `both`, `json`, or `jsonl` |
+| `--json` / `--jsonl` | Aliases for `--format json` / `--format jsonl` |
+
+```bash
+crtk mate --fen "<FEN>" --mate 4
+crtk find-mate --fen "<FEN>" --mate 6 --max-nodes 5000000 --threads 4 --format summary
+```
+
+## position
+
+Two ways to look at a position closely. Both run in-process.
+
+| Subcommand | Purpose |
+| --- | --- |
+| `position diff` | Compare two FEN positions square-by-square and by state fields |
+| `position describe` | Emit deterministic position text, structured features, or training JSONL |
+
+### position diff
+
+Compare two FENs and report what moved: the state fields that differ and the squares that changed. JSON/JSONL output is one object with `equal`, `left`, `right`, `state`, and `board` fields.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Left/input FEN |
+| `--other FEN` | Right/comparison FEN |
+| `--right FEN` | Alias for `--other` |
+| `LEFT_FEN RIGHT_FEN` | Positional shorthand; quote each FEN |
+| `--json` / `--jsonl` | Emit one JSON object / one JSON object line |
+| `--no-header` / `--quiet` | Script-friendly output toggles |
+
+```bash
+crtk position diff --fen "<FEN_A>" --other "<FEN_B>" --json
+```
+
+### position describe
+
+Describe one FEN or a FEN list as deterministic classical text, structured features, or training JSONL. `classical` is the engine that works today; `t5` is wired up but waiting on trained weights, so reach for `classical` unless you have those.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Input FEN (or pass positionally) |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position |
+| `--input`/`-i PATH` | Input FEN list |
+| `--stdin` | Read FEN rows from standard input |
+| `--engine MODE` | `classical` (default) or `t5` |
+| `--detail LEVEL` | `brief`, `normal` (default), or `full` |
+| `--format FMT` | `text` (default), `json`, `jsonl`, or `training-jsonl` |
+| `--json` / `--jsonl` | Aliases for `--format json` / `--format jsonl` |
+| `--budget N` / `--max-candidates N` | Maximum candidate moves in generated text (`--max-candidates` is an alias) |
+| `--output`/`-o PATH` | Write output to a file |
+| `--model PATH` | Future T5 position-description model path |
+| `--max-new N` | Future T5 generated-token budget |
+
+```bash
+crtk position describe --fen "<FEN>" --detail full --format text
+```
+
+## book
+
+Turn records and manifests into print-ready PDFs. The renderer writes vector PDFs directly — interiors and covers, no external typesetter — with figurine algebraic notation in the captions and solution tables.
+
+| Subcommand | Purpose |
+| --- | --- |
+| `book collection` | Build a dense puzzle-collection book manifest from record JSON/JSONL |
+| `book study` | Render deeply annotated puzzle studies from JSON/TOML |
+| `book render` | Render a chess-book JSON/TOML file to a native PDF |
+| `book cover` | Render a native PDF cover for a chess-book file |
+| `book pdf` | Export chess diagrams to a PDF |
+
+### book collection
+
+Build a puzzle-collection manifest from analyzed record JSON/JSONL. It takes the first PV of each accepted record, renders it as move-numbered SAN, and writes a TOML manifest; point it at `--pdf-output` and `--cover-output` and it renders the interior and matching cover in the same pass.
+
+| Option | Description |
+| --- | --- |
+| `--input`/`-i PATH` | Input record JSON/JSONL with `position` and `analysis` PV |
+| `--output`/`-o PATH` | Output TOML manifest path (default `dump/<input-stem>.book.toml`) |
+| `--pdf-output PATH` | Also render the interior PDF to this path |
+| `--cover-output PATH` | Also render the matching cover PDF to this path |
+| `--title TEXT` | Book title (default `Chess Puzzle Collection`) |
+| `--subtitle TEXT` | Subtitle (default `"<count> Chess Puzzles"`) |
+| `--author TEXT` | Author credit (default `Lennart A. Conrad`) |
+| `--time TEXT` / `--location TEXT` | Publication time / location string |
+| `--language TEXT` | Book language token (default `English`) |
+| `--pages N` | Printed page-count hint for manifest and cover |
+| `--limit N` | Import at most `N` records from the source file |
+| `--table-frequency N` | Puzzle pages between solution tables (default `6`) |
+| `--puzzle-rows N` | Puzzle grid rows per page (default `5`) |
+| `--puzzle-columns N` | Puzzle grid columns per page (default `4`) |
+| `--imprint TEXT` | Repeatable imprint line |
+| `--dedication TEXT` | Repeatable dedication line |
+| `--introduction TEXT` | Repeatable introduction paragraph |
+| `--how-to-read TEXT` | Repeatable custom how-to-read paragraph |
+| `--blurb TEXT` | Repeatable back-cover blurb paragraph |
+| `--link TEXT` | Repeatable purchase link |
+| `--afterword TEXT` | Repeatable closing paragraph |
+| `--binding TYPE` | `paperback`, `hardcover`, or `ebook` for `--cover-output` |
+| `--interior TYPE` | `white-bw`, `cream-bw`, `white-standard-color`, or `white-premium-color` |
+| `--free-watermark` / `--watermark` | Add a noisy free-edition watermark to `--pdf-output` |
+| `--watermark-id TEXT` | Add a traceable ID to the watermark; implies `--watermark` |
+| `--check` / `--validate` | Validate the generated book model without writing files |
+
+```bash
+crtk book collection --input dump/puzzles.record --pdf-output book.pdf --title "Tactics Vol. 1"
+```
+
+### book study
+
+Render annotated puzzle studies from a richer JSON or TOML manifest. Where `book collection` flattens, this preserves the composition-style fields — per-entry descriptions, comments, hints, analysis, explicit figure lists — and can emit a normalized TOML manifest and a matching cover in the same run.
+
+| Option | Description |
+| --- | --- |
+| `--input`/`-i PATH` | Input puzzle-study JSON/TOML manifest |
+| `--output`/`-o PATH` | Output interior PDF path (default `dump/<input-stem>.pdf` when no other output is requested) |
+| `--manifest-output PATH` | Also write a normalized TOML manifest |
+| `--cover-output PATH` | Also render the matching native cover PDF |
+| `--title TEXT` / `--subtitle TEXT` | Title / subtitle override |
+| `--author TEXT` | Author override |
+| `--time TEXT` / `--location TEXT` | Publication time / location override |
+| `--blurb TEXT` | Repeatable back-cover blurb override |
+| `--link TEXT` | Repeatable purchase-link override |
+| `--pages N` | Printed page count for spine width / cover metadata |
+| `--page-size SIZE` | `a4`, `a5`, or `letter` |
+| `--margin N` | Page margin in PostScript points |
+| `--diagrams-per-row N` | Diagrams per row override |
+| `--board-pixels N` | Raster size per diagram before embedding |
+| `--flip` / `--black-down` | Render Black at the bottom |
+| `--no-fen` | Hide FEN text under diagrams |
+| `--binding TYPE` | `paperback`, `hardcover`, or `ebook` for `--cover-output` |
+| `--interior TYPE` | `white-bw`, `cream-bw`, `white-standard-color`, or `white-premium-color` |
+| `--check` / `--validate` | Validate the manifest and layout without writing files |
+
+```bash
+crtk book study --input study.toml --cover-output cover.pdf --page-size a5
+```
+
+### book render
+
+Render a chess-book JSON or TOML manifest straight to a native PDF. The renderer handles the bookmaking: front matter, a generated table of contents, mirrored margins for two-sided printing, puzzle and solution spreads, page numbers, running headers, and the recurring solution tables.
+
+| Option | Description |
+| --- | --- |
+| `--input`/`-i PATH` | Input chess-book JSON/TOML file |
+| `--output`/`-o PATH` | Output PDF path (default `dump/<input-stem>.pdf`) |
+| `--title TEXT` / `--subtitle TEXT` | Title / subtitle override |
+| `--limit N` | Render first `N` puzzles and update count text |
+| `--check` / `--validate` | Validate manifest, dimensions, FENs, and solution lines without writing |
+| `--free-watermark` / `--watermark` | Add a noisy free-edition watermark and print restrictions |
+| `--watermark-id TEXT` | Add a traceable ID to the watermark; implies `--watermark` |
+
+```bash
+crtk book render --input book.toml --output book.pdf
+```
+
+### book cover
+
+Render a native vector PDF cover for a chess-book manifest, laid out to print-shop tolerances. It places the back blurb, the front title/subtitle/author, spine text, and a barcode-safe box, then sizes the spine from the page count. Paperback adds 0.125 inch bleed on every outside edge; hardcover adds 1.5 cm wrap and 1.0 cm hinge allowance. Spine width is `--pages` if given, else the interior PDF's page count, else the manifest `pages`, times the selected paper thickness.
+
+| Option | Description |
+| --- | --- |
+| `--input`/`-i PATH` | Input chess-book JSON/TOML file |
+| `--pdf PATH` | Interior PDF used to infer trim size and page count |
+| `--output`/`-o PATH` | Output cover PDF path (default `dump/<input-stem>-cover.pdf`) |
+| `--title TEXT` / `--subtitle TEXT` | Title / subtitle override |
+| `--binding TYPE` | `paperback` (default), `hardcover`, or `ebook` |
+| `--interior TYPE` | `white-bw`, `cream-bw`, `white-standard-color`, or `white-premium-color` |
+| `--pages N` | Printed page count for spine width |
+| `--check` / `--validate` | Validate manifest and cover dimensions without writing |
+
+```bash
+crtk book cover --input book.toml --pdf book.pdf --binding hardcover
+```
+
+### book pdf
+
+Lay out chess diagrams in a PDF from FENs on the command line, a FEN list file, or a PGN — for PGN, one composition per game, following the mainline. The plain-diagram counterpart to the full book renderers when you just want boards on a page.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Input FEN (repeatable; a single positional FEN is also allowed) |
+| `--input`/`-i PATH` | Input FEN list / FEN-pair text file |
+| `--pgn PATH` | Input PGN file |
+| `--output`/`-o PATH` | Output PDF path (default `dump/<input-stem>.pdf` or `dump/chess.pdf`) |
+| `--title TEXT` | Document title override |
+| `--page-size SIZE` | `a4` (default), `a5`, or `letter` |
+| `--diagrams-per-row N` | Diagrams per row (default `2`) |
+| `--board-pixels N` | Raster size per diagram before embedding (default `900`) |
+| `--flip` / `--black-down` | Render Black at the bottom |
+| `--no-fen` | Hide FEN text under diagrams |
+
+```bash
+crtk book pdf --pgn game.pgn --output diagrams.pdf --diagrams-per-row 3
+```
+
+## puzzle
+
+Mine puzzles, convert them, tag them, describe them.
+
+| Subcommand | Purpose |
+| --- | --- |
+| `puzzle mine` | Mine chess puzzles |
+| `puzzle pgn` | Convert mixed puzzle dumps to PGN games |
+| `puzzle tags` | Generate per-move tags for puzzle PVs |
+| `puzzle text` | Run T5 over puzzle PVs |
+
+### puzzle mine
+
+Drive a UCI engine over seed positions, gate the results through the Filter DSL, and write JSON for both the puzzles and the rejects. Omit `--input` and it mines random seeds instead.
+
+| Option | Description |
+| --- | --- |
+| `--input`/`-i PATH` | Input `.txt` (FENs) or `.pgn` (games) seed file |
+| `--output`/`-o PATH` | Output root file or directory (`-` for stdout) |
+| `--protocol-path`/`-P PATH` | Engine protocol TOML file |
+| `--engine-instances`/`-E N` | Engine pool size |
+| `--max-nodes N` | Max nodes per position |
+| `--max-duration D` | Max duration per position (e.g. `5s`, `2m`, `60000`) |
+| `--random-count N` | Random seed count when no input is provided (default `100`) |
+| `--random-infinite` | Keep generating random seeds (ignores wave/total caps) |
+| `--max-waves N` | Cap number of waves (default `100`; ignored with `--random-infinite`) |
+| `--max-frontier N` | Cap frontier size per wave (default `5000`) |
+| `--max-total N` | Cap total processed positions (default `500000`; ignored with `--random-infinite`) |
+| `--puzzle-quality DSL` | Override puzzle quality filter DSL |
+| `--puzzle-winning DSL` | Override puzzle winning filter DSL |
+| `--puzzle-drawing DSL` | Override puzzle drawing filter DSL |
+| `--puzzle-accelerate DSL` | Override accelerate filter DSL |
+| `--chess960`/`-9` | Generate Chess960 positions |
+
+```bash
+crtk puzzle mine --input seeds.pgn --output dump/run --max-nodes 200000 --max-duration 5s
+```
+
+### puzzle pgn
+
+Pull the puzzles out of a mixed dump and write them as PGN games. When entries carry a `kind` field it keeps only `kind:"puzzle"`; without one, it falls back to the configured puzzle verify filter.
+
+| Option | Description |
+| --- | --- |
+| `--input`/`-i PATH` | Input mixed puzzle dump file (JSON array or JSONL) |
+| `--output`/`-o PATH` | Output PGN file (default `dump/<input-stem>.pgn`) |
+
+```bash
+crtk puzzle pgn --input dump/run.jsonl --output dump/run.pgn
+```
+
+### puzzle tags
+
+Analyze a root puzzle position, expand the engine's PVs, and emit JSONL rows with per-move tags and the deltas between them — what each move turns on or off.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Root puzzle FEN (required; positional FEN also accepted) |
+| `--multipv N` | Number of PVs to expand (default `3`) |
+| `--pv-plies N` | PV plies per line (default `12`) |
+| `--tag-multipv N` | Engine MultiPV during tag analysis (default `1`) |
+| `--analyze` | Run engine analysis to enrich tags (default) |
+| `--no-analyze` | Skip per-move analysis and use static tags |
+| `--protocol-path`/`-P PATH` | Engine protocol TOML file |
+| `--max-nodes N` / `--max-duration D` | Per-position node / time limits |
+| `--threads N` / `--hash N` | Engine threads / hash (MB) |
+| `--wdl` / `--no-wdl` | Enable / disable WDL output |
+
+```bash
+crtk puzzle tags --fen "<FEN>" --multipv 3 --pv-plies 12
+```
+
+### puzzle text
+
+Run the T5 tag-to-text model over a puzzle's PV expansion, turning the per-move tags into prose.
+
+| Option | Description |
+| --- | --- |
+| `--model PATH` | T5 `.bin` model path (default: config `t5-model-path`) |
+| `--fen FEN` | Root puzzle FEN (required; positional FEN also accepted) |
+| `--multipv N` | Number of PVs to expand (default `3`) |
+| `--pv-plies N` | PV plies per line (default `12`) |
+| `--tag-multipv N` | Engine MultiPV during tag analysis (default `1`) |
+| `--max-new N` | Max generated tokens (default `128`) |
+| `--include-fen` | Emit JSON with `fen` + `move` + `summary` |
+| `--analyze` | Run engine analysis to enrich tags (default) |
+| `--no-analyze` | Skip per-move analysis and use static tags |
+| `--protocol-path`/`-P PATH` | Engine protocol TOML file |
+| `--max-nodes N` / `--max-duration D` | Per-position node / time limits |
+| `--threads N` / `--hash N` | Engine threads / hash (MB) |
+| `--wdl` / `--no-wdl` | Enable / disable WDL output |
+
+```bash
+crtk puzzle text --fen "<FEN>" --include-fen --max-new 128
+```
+
+## config
+
+See what the CLI thinks its configuration is, and check that it holds together.
+
+| Subcommand | Purpose |
+| --- | --- |
+| `config show` | Print resolved configuration values used by the CLI |
+| `config validate` | Validate the current config file, protocol file, and configured model paths |
+
+```bash
+crtk config show
+crtk config validate
+```
+
+## workbench
+
+Launch the native Swing command and analysis workbench; the alias `gui` opens the same app. For exploring by hand it beats typing commands one at a time, while the CLI stays the stable surface for scripts and batch jobs.
+
+Inside, an analysis board handles legal moves, click-to-move, PGN loading, ECO lookup, static tags, board editing, MCTS controls, live UCI analysis, and engine command shortcuts. A Play tab runs human-vs-engine games on in-process alpha-beta or MCTS search backed by local Classical, NNUE, CNN, or OTIS. A command controller offers curated templates with validation, and the rest fan out across batch, dataset, publishing, console, logs, network, and puzzle tabs.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Start position (default: standard start FEN; positional FEN also accepted) |
+| `--flip` / `--black-down` | Render Black at the bottom |
+| `-h` / `--help` | Show help |
 
 ```bash
 crtk workbench
 crtk workbench --fen "<FEN>"
+crtk gui
 ```
 
-## `config`
+## doctor
 
-Show or validate CLI configuration.
+Check that the environment is sane: the runtime, the main config file, the configured engine protocol, whether the engine executable is findable, the model paths, and the output directory. A missing model file is a warning rather than an error, since models are optional local artifacts you may simply not have downloaded.
 
-Subcommands:
-- `show`: print resolved configuration values
-- `validate`: validate config + protocol files
+| Option | Description |
+| --- | --- |
+| `--strict` | Exit non-zero when warnings are present |
+| `--verbose`/`-v` | Print stack trace on failure |
 
-## `record stats`
+```bash
+crtk doctor
+crtk doctor --strict
+```
 
-Summarize a `.record` or puzzle JSON dump.
+## clean
 
-Options:
-- `--input|-i <path>`: input JSON array/JSONL (required)
-- `--top <n>`: show top-N tags/engines (default `10`)
-- `--verbose|-v`: print stack traces on failure
+Clear out the generated session cache and logs under `dump/session/`, leaving the cache directory itself in place.
 
-## `record tag-stats`
+| Option | Description |
+| --- | --- |
+| `--verbose`/`-v` | Print stack trace on failure |
 
-Summarize tag distributions in a dump.
+```bash
+crtk clean
+```
 
-Options:
-- `--input|-i <path>`: input JSON array/JSONL (required)
-- `--top <n>`: show top-N tags (default `20`)
-- `--verbose|-v`: print stack traces on failure
+## help
 
-## `fen tags`
+Show command help. `--full` prints the authoritative spec; this page is a curated read of it.
 
-Generate tags for a FEN or FEN list.
+| Option | Description |
+| --- | --- |
+| `--full` | Show the full help output (the authoritative spec) |
+| `<command>` | Show help for one command path (`crtk help <area> <action>`) |
 
-Notes:
-- If `config/book.eco.toml` is present, tags may include `eco:` / `opening:` for positions that match the ECO book.
-- `--delta` emits JSONL records with parent/child tag differences instead of plain JSON arrays.
+```bash
+crtk help --full
+crtk help engine bestmove
+```
 
-Options:
-- `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `--input|-i <path>`: FEN list, FEN-pair text file, or record-like position input
-- `--pgn <path>`: PGN input
-- `--include-fen`: include the FEN as a `META` tag when not using `--delta`
-- `--analyze`: run engine analysis to enrich tags (PV/mate/enables)
-- `--sequence`: interpret input as an ordered line (enable/disable tags)
-- `--delta`: emit per-move tag deltas as JSONL
-- `--mainline`: with `--pgn`, only export mainline positions
-- `--sidelines`: with `--pgn`, include variations
-- `--protocol-path|-P <path>`: engine protocol TOML file
-- `--max-nodes <n>`: max nodes per position
-- `--max-duration <duration>`: max duration per position (e.g. `5s`)
-- `--multipv <n>`: number of PVs
-- `--threads <n>`: engine threads
-- `--hash <n>`: engine hash (MB)
-- `--wdl`: enable WDL output (if supported)
-- `--no-wdl`: disable WDL output
-- `--verbose|-v`: print stack traces on failure
+## version
 
-## `puzzle tags`
+Print version metadata — handy in scripts and release checks that need to assert what they are running against.
 
-Analyze a root puzzle position, expand engine PVs, and emit JSONL rows with
-per-move tags and tag deltas.
+| Option | Description |
+| --- | --- |
+| `--json` / `--jsonl` | Emit one JSON object / one JSON object line |
+| `--no-header` / `--quiet` | Script-friendly output toggles |
 
-Options:
-- `--fen "<FEN...>"`: root puzzle FEN (required; positional FEN is also accepted)
-- `--multipv <n>`: number of PVs to expand (default `3`)
-- `--pv-plies <n>`: plies to keep from each PV (default `12`)
-- `--tag-multipv <n>`: MultiPV used while enriching tags (default `1`)
-- `--analyze`: run engine analysis to enrich tags (default)
-- `--no-analyze`: skip per-move analysis and use static tags
-- `--protocol-path|-P <path>`: engine protocol TOML file
-- `--max-nodes <n>`: max nodes per position
-- `--max-duration <duration>`: max duration per position (e.g. `5s`)
-- `--threads <n>`: engine threads
-- `--hash <n>`: engine hash (MB)
-- `--wdl`: enable WDL output (if supported)
-- `--no-wdl`: disable WDL output
-- `--verbose|-v`: print stack traces on failure
-
-## `puzzle text`
-
-Run the T5 tag-to-text model over a puzzle PV expansion.
-
-Options:
-- `--model <path>`: T5 `.bin` model path (defaults to `t5-model-path` in config)
-- `--fen "<FEN...>"`: root puzzle FEN (required; positional FEN is also accepted)
-- `--multipv <n>`: number of PVs to expand (default `3`)
-- `--pv-plies <n>`: plies to keep from each PV (default `12`)
-- `--tag-multipv <n>`: MultiPV used while enriching tags (default `1`)
-- `--max-new <n>`: max generated tokens (default `128`)
-- `--include-fen`: emit JSON with FEN, inferred move, and summary
-- `--analyze`: run engine analysis to enrich tags (default)
-- `--no-analyze`: skip per-move analysis and use static tags
-- `--protocol-path|-P <path>`: engine protocol TOML file
-- `--max-nodes <n>`: max nodes per position
-- `--max-duration <duration>`: max duration per position (e.g. `5s`)
-- `--threads <n>`: engine threads
-- `--hash <n>`: engine hash (MB)
-- `--wdl`: enable WDL output (if supported)
-- `--no-wdl`: disable WDL output
-- `--verbose|-v`: print stack traces on failure
-
-## `fen text`
-
-Run the T5 tag-to-text model for one FEN or a FEN list.
-
-Options:
-- `--model <path>`: T5 `.bin` model path (defaults to `t5-model-path` in config)
-- `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `--input|-i <path>`: FEN list file
-- `--include-fen`: emit JSON with FEN and summary
-- `--max-new <n>`: max generated tokens (default `128`)
-- `--analyze`: run engine analysis to enrich tags
-- `--protocol-path|-P <path>`: engine protocol TOML file
-- `--max-nodes <n>`: max nodes per position
-- `--max-duration <duration>`: max duration per position (e.g. `5s`)
-- `--multipv <n>`: number of PVs
-- `--threads <n>`: engine threads
-- `--hash <n>`: engine hash (MB)
-- `--wdl`: enable WDL output (if supported)
-- `--no-wdl`: disable WDL output
-- `--verbose|-v`: print stack traces on failure
-
-## `move list`
-
-List legal moves for a FEN.
-
-Options:
-- `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `--format <uci|san|both>`: output format (default `uci`)
-- `--san`: output SAN instead of UCI
-- `--both`: output UCI + SAN per move
-- `--json`: emit a JSON array of move objects
-- `--jsonl`: emit one move JSON object per line
-- `--fields <uci|san|both|uci,san>`: select output fields
-- `--no-header`: accepted for script-friendly consistency
-- `--quiet`: suppress non-row chatter where supported
-- `--verbose|-v`: print stack traces on failure
-
-## `move uci`
-
-List legal moves for a FEN (UCI only).
-
-Options:
-- `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `--json`: emit a JSON array of move objects
-- `--jsonl`: emit one move JSON object per line
-- `--fields <uci|san|both|uci,san>`: select output fields
-- `--no-header`: accepted for script-friendly consistency
-- `--quiet`: suppress non-row chatter where supported
-- `--verbose|-v`: print stack traces on failure
-
-## `move san`
-
-List legal moves for a FEN (SAN only).
-
-Options:
-- `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `--json`: emit a JSON array of move objects
-- `--jsonl`: emit one move JSON object per line
-- `--fields <uci|san|both|uci,san>`: select output fields
-- `--no-header`: accepted for script-friendly consistency
-- `--quiet`: suppress non-row chatter where supported
-- `--verbose|-v`: print stack traces on failure
-
-## `move both`
-
-List legal moves for a FEN (UCI + SAN).
-
-Options:
-- `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `--json`: emit a JSON array of move objects
-- `--jsonl`: emit one move JSON object per line
-- `--fields <uci|san|both|uci,san>`: select output fields
-- `--no-header`: accepted for script-friendly consistency
-- `--quiet`: suppress non-row chatter where supported
-- `--verbose|-v`: print stack traces on failure
-
-## `move to-san`
-
-Convert a single UCI move to SAN in the given position.
-
-Notes:
-- If no FEN is provided, the standard start position is used.
-
-Options:
-- `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `<move>`: UCI move token (e.g. `e2e4`, `a7a8q`)
-- `--json`: emit one JSON object
-- `--jsonl`: emit one JSON object line
-- `--no-header`: accepted for script-friendly consistency
-- `--quiet`: suppress non-row chatter where supported
-- `--verbose|-v`: print stack traces on failure
-
-## `move to-uci`
-
-Convert a single SAN move to UCI in the given position.
-
-Notes:
-- If no FEN is provided, the standard start position is used.
-
-Options:
-- `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `<move>`: SAN move token (e.g. `Nf3`, `exd5`, `O-O`)
-- `--json`: emit one JSON object
-- `--jsonl`: emit one JSON object line
-- `--no-header`: accepted for script-friendly consistency
-- `--quiet`: suppress non-row chatter where supported
-- `--verbose|-v`: print stack traces on failure
-
-## `move after`
-
-Apply a single move (UCI or SAN) and print the resulting FEN.
-
-Notes:
-- If no FEN is provided, the standard start position is used.
-
-Options:
-- `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `<move>`: move token (UCI or SAN)
-- `--json`: emit one JSON object
-- `--jsonl`: emit one JSON object line
-- `--no-header`: accepted for script-friendly consistency
-- `--quiet`: suppress non-row chatter where supported
-- `--verbose|-v`: print stack traces on failure
-
-## `move play`
-
-Apply a move sequence (UCI or SAN) and print the resulting FEN.
-
-Notes:
-- If no FEN is provided, the standard start position is used.
-- Move lists are cleaned using the PGN sanitizer (move numbers and comments are ignored).
-
-Options:
-- `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `<moves...>`: move sequence (UCI or SAN)
-- `--intermediate`: print intermediate FENs after each move instead of only the final FEN
-- `--json`: emit one JSON object
-- `--jsonl`: emit one JSON object line, or one per ply with `--intermediate`
-- `--no-header`: accepted for script-friendly consistency
-- `--quiet`: suppress non-row chatter where supported
-- `--verbose|-v`: print stack traces on failure
-
-## `fen normalize`
-
-Parse a FEN and print the normalized FEN used internally by ChessRTK.
-
-Options:
-- `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `--stdin`: read one FEN per non-blank stdin line
-- `--json`: emit one JSON object, or an array for multiple rows
-- `--jsonl`: emit one JSON object per row
-- `--no-header`: accepted for script-friendly consistency
-- `--quiet`: suppress non-row chatter where supported
-- `--verbose|-v`: print stack traces on failure
-
-## `fen validate`
-
-Validate a FEN and print `valid<TAB><normalized-fen>` on success.
-
-Options:
-- `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `--stdin`: read one FEN per non-blank stdin line
-- `--json`: emit one JSON object, or an array for multiple rows
-- `--jsonl`: emit one JSON object per row
-- `--no-header`: accepted for script-friendly consistency
-- `--quiet`: suppress non-row chatter where supported
-- `--verbose|-v`: print stack traces on failure
-
-## `engine analyze`
-
-Analyze a position with the engine and print PV summaries.
-
-Options:
-- `--input|-i <path>`: FEN list file (optional)
-- `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `--protocol-path|-P <toml>`: override `Config.getProtocolPath()`
-- `--max-nodes|--nodes <n>`: override `Config.getMaxNodes()`
-- `--max-duration <dur>`: override `Config.getMaxDuration()`, e.g. `60s`, `2m`, `60000`
-- `--multipv <n>`: set engine MultiPV
-- `--threads <n>`: set engine thread count
-- `--hash <mb>`: set engine hash size
-- `--wdl|--no-wdl`: enable/disable WDL output
-- `--verbose|-v`: print stack traces on failure
-
-## `engine threats`
-
-Compute opponent "threats" via a null move: the side to move is swapped, en-passant is cleared, and the resulting position is analyzed with MultiPV. The resulting PV best moves are the threats.
-
-Notes:
-- Positions where the side to move is in check are skipped (null move would be illegal).
-- If `--multipv` is not set, MultiPV defaults to all legal opponent moves in the null-move position.
-
-Options:
-- `--input|-i <path>`: FEN list file (optional)
-- `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `--protocol-path|-P <toml>`: override `Config.getProtocolPath()`
-- `--max-nodes|--nodes <n>`: override `Config.getMaxNodes()`
-- `--max-duration <dur>`: override `Config.getMaxDuration()`, e.g. `60s`, `2m`, `60000`
-- `--multipv <n>`: set engine MultiPV (default: all legal opponent moves)
-- `--threads <n>`: set engine thread count
-- `--hash <mb>`: set engine hash size
-- `--wdl|--no-wdl`: enable/disable WDL output
-- `--verbose|-v`: print stack traces on failure
-
-## `engine bestmove`
-
-Return the best move for a FEN.
-
-Options:
-- `--input|-i <path>`: FEN list file (optional)
-- `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `--format <uci|san|both>`: output format (default `uci`)
-- `--san`: output SAN instead of UCI
-- `--both`: output UCI + SAN
-- `--protocol-path|-P <toml>`: override `Config.getProtocolPath()`
-- `--max-nodes|--nodes <n>`: override `Config.getMaxNodes()`
-- `--max-duration <dur>`: override `Config.getMaxDuration()`, e.g. `60s`, `2m`, `60000`
-- `--multipv <n>`: set engine MultiPV
-- `--threads <n>`: set engine thread count
-- `--hash <mb>`: set engine hash size
-- `--wdl|--no-wdl`: enable/disable WDL output
-- `--verbose|-v`: print stack traces on failure
-
-## `engine bestmove-uci`
-
-Return the best move for a FEN (UCI only).
-
-Options:
-- `--input|-i <path>`: FEN list file (optional)
-- `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `--protocol-path|-P <toml>`: override `Config.getProtocolPath()`
-- `--max-nodes|--nodes <n>`: override `Config.getMaxNodes()`
-- `--max-duration <dur>`: override `Config.getMaxDuration()`, e.g. `60s`, `2m`, `60000`
-- `--multipv <n>`: set engine MultiPV
-- `--threads <n>`: set engine thread count
-- `--hash <mb>`: set engine hash size
-- `--wdl|--no-wdl`: enable/disable WDL output
-- `--verbose|-v`: print stack traces on failure
-
-## `engine bestmove-san`
-
-Return the best move for a FEN (SAN only).
-
-Options:
-- `--input|-i <path>`: FEN list file (optional)
-- `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `--protocol-path|-P <toml>`: override `Config.getProtocolPath()`
-- `--max-nodes|--nodes <n>`: override `Config.getMaxNodes()`
-- `--max-duration <dur>`: override `Config.getMaxDuration()`, e.g. `60s`, `2m`, `60000`
-- `--multipv <n>`: set engine MultiPV
-- `--threads <n>`: set engine thread count
-- `--hash <mb>`: set engine hash size
-- `--wdl|--no-wdl`: enable/disable WDL output
-- `--verbose|-v`: print stack traces on failure
-
-## `engine bestmove-both`
-
-Return the best move for a FEN (UCI + SAN).
-
-Options:
-- `--input|-i <path>`: FEN list file (optional)
-- `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `--protocol-path|-P <toml>`: override `Config.getProtocolPath()`
-- `--max-nodes|--nodes <n>`: override `Config.getMaxNodes()`
-- `--max-duration <dur>`: override `Config.getMaxDuration()`, e.g. `60s`, `2m`, `60000`
-- `--multipv <n>`: set engine MultiPV
-- `--threads <n>`: set engine thread count
-- `--hash <mb>`: set engine hash size
-- `--wdl|--no-wdl`: enable/disable WDL output
-- `--verbose|-v`: print stack traces on failure
-
-## `engine analyze-batch`
-
-Analyze a FEN batch with an external UCI engine and emit machine-readable rows.
-The default output is JSONL so the command can feed long-running automation
-pipelines. Use `--json` when a single JSON array is easier to consume.
-
-Each successful row includes `ok`, `index`, normalized `fen`, `engine`, and a
-`pv` array. Each PV object includes the best move in UCI/SAN, evaluation,
-depths, nodes, NPS, elapsed time, WDL/bound labels, and PV line in UCI/SAN.
-Invalid FEN rows are emitted as `ok:false` rows instead of aborting the batch.
-
-Options:
-- `--input|-i <path>`: FEN list file
-- `--stdin`: read one FEN per non-blank stdin line
-- `--fen "<FEN...>"`, `--startpos`, `--randompos`: single-position selectors
-- `--output|-o <path>`: write rows to a file instead of stdout
-- `--json`: emit one JSON array
-- `--jsonl`: emit one JSON object per line (default)
-- `--protocol-path|-P <toml>`: override `Config.getProtocolPath()`
-- `--max-nodes|--nodes <n>`: override `Config.getMaxNodes()`
-- `--max-duration <dur>`: override `Config.getMaxDuration()`
-- `--multipv <n>`: set engine MultiPV
-- `--threads <n>`: set engine thread count
-- `--hash <mb>`: set engine hash size
-- `--wdl|--no-wdl`: enable/disable WDL output
-- `--verbose|-v`: print stack traces on failure
-
-## `engine bestmove-batch`
-
-Run best-move searches for a FEN batch and emit one JSON object per position by
-default. This is the compact batch counterpart to `engine bestmove`.
-
-Options:
-- `--input|-i <path>`: FEN list file
-- `--stdin`: read one FEN per non-blank stdin line
-- `--fen "<FEN...>"`, `--startpos`, `--randompos`: single-position selectors
-- `--output|-o <path>`: write rows to a file instead of stdout
-- `--json`: emit one JSON array
-- `--jsonl`: emit one JSON object per line (default)
-- `--protocol-path|-P <toml>`: override `Config.getProtocolPath()`
-- `--max-nodes|--nodes <n>`: override `Config.getMaxNodes()`
-- `--max-duration <dur>`: override `Config.getMaxDuration()`
-- `--threads <n>`: set engine thread count
-- `--hash <mb>`: set engine hash size
-- `--wdl|--no-wdl`: enable/disable WDL output
-- `--verbose|-v`: print stack traces on failure
-
-## `engine compare`
-
-Compare the best move from two UCI protocol files over the same FEN input.
-Text output shows a compact row table and summary. `--json` emits a JSON object
-with `rows` and `summary`; `--jsonl` emits one comparison row per line.
-
-Options:
-- `--input|-i <path>`: FEN list file
-- `--stdin`: read one FEN per non-blank stdin line
-- `--fen "<FEN...>"`, `--startpos`, `--randompos`: single-position selectors
-- `--left-protocol <path>` / `--protocol-a <path>`: left protocol TOML
-- `--right-protocol <path>` / `--protocol-b <path>`: right protocol TOML
-- `--protocol-path|-P <toml>`: default protocol when one side is omitted
-- `--output|-o <path>`: write output to a file instead of stdout
-- `--json`: emit one JSON object with rows and summary
-- `--jsonl`: emit one JSON object per comparison row
-- `--max-nodes|--nodes <n>`: max nodes per engine per position
-- `--max-duration <dur>`: max duration per engine per position
-- `--multipv <n>`: set engine MultiPV
-- `--threads <n>`: set engine thread count
-- `--hash <mb>`: set engine hash size
-- `--wdl|--no-wdl`: enable/disable WDL output
-- `--verbose|-v`: print stack traces on failure
-
-## `engine benchmark`
-
-Benchmark the in-process Java move generator by running detailed perft for a
-position repeatedly. This command does not start an external engine.
-
-Options:
-- `--fen "<FEN...>"`: FEN string (or pass it positionally; defaults to start position)
-- `--startpos`: use the standard chess start position explicitly
-- `--randompos`: use one reachable random legal standard-chess position
-- `--depth|-d <n>`: perft depth (default: 4)
-- `--iterations <n>`: repetitions (default: 3)
-- `--threads <n>`: worker threads for legal root moves (default: 1)
-- `--json`: emit one JSON object
-- `--jsonl`: emit one JSON object line
-- `--verbose|-v`: print stack traces on failure
-
-## `engine perft`
-
-Run detailed perft on a position using the Java-native `chess.core` move
-generator. The output includes leaf nodes, captures, en-passant captures,
-castles, promotions, checks, checkmates, elapsed time, and nodes per second.
-When no position selector is provided, the command defaults to the standard
-start position.
-
-Options:
-- `--fen "<FEN...>"`: FEN string (or pass it positionally; defaults to start position)
-- `--startpos`: use the standard chess start position explicitly
-- `--randompos`: use one reachable random legal standard-chess position
-- `--depth|-d <n>`: perft depth (required)
-- `--divide|--per-move`: print per-root-move detailed counters as a table
-- `--format <detail|table|stockfish>`: output format. `table` and `stockfish`
-  imply divide; `detail` preserves the key-value divide rows.
-- `--threads <n>`: worker threads for legal root moves (default: 1)
-- `--verbose|-v`: print stack traces on failure
-
-## `engine perft-suite`
-
-Compare each critical standard and Chess960 perft position at one requested
-depth against stored in-repo truth values. The command shows a progress bar
-while the rows run, then prints an aligned table with `Truth`, `Calculated`,
-`Speed`, and `Match` columns. It never starts Stockfish or any other external
-engine process.
-
-The suite covers the standard start, Kiwipete, promotion, en-passant, open
-castling lanes, Chess960 starts/midgames, and a knight-heavy stress position.
-`Calculated` is always produced by the in-process Java core move generator.
-
-Options:
-- `--depth|-d <n>`: depth to validate, 1 through 6 (default: 6)
-- `--threads <n>`: worker threads for independent positions (default: 1)
-- `--suite <path>`: custom tab-delimited suite file
-
-Custom suite rows may be any of:
-
-- `name<TAB>depth<TAB>fen<TAB>nodes`
-- `fen<TAB>depth<TAB>nodes`
-- `name<TAB>fen<TAB>nodes` (uses `--depth`, default 1)
-- `fen<TAB>nodes` (uses `--depth`, default 1)
-
-## `position diff`
-
-Compare two FEN positions and print changed state fields plus changed board
-squares. Text output uses one diff per line. `--json` and `--jsonl` emit one
-object with `equal`, `left`, `right`, `state`, and `board` fields.
-
-Options:
-- `--fen "<FEN...>"`: left/input FEN
-- `--other "<FEN...>"`: right/comparison FEN
-- `--right "<FEN...>"`: alias for `--other`
-- positional `LEFT_FEN RIGHT_FEN`: quote each FEN
-- `--json`: emit one JSON object
-- `--jsonl`: emit one JSON object line
-- `--verbose|-v`: print stack traces on failure
-
-## `doctor`
-
-Check the local Java runtime, main config file, configured engine protocol,
-engine executable discovery, model paths, and output directory path. Missing
-model files are warnings because models are optional local artifacts.
-
-Options:
-- `--strict`: exit non-zero when warnings are present
-- `--verbose|-v`: print stack traces on failure
-
-## `fen pgn`
-
-Convert PGN games to a FEN list that can be used as seeds.
-
-Options:
-- `--input|-i <path>`: input PGN file (required)
-- `--output|-o <path>`: output `.txt` (optional; default derived)
-- `--pairs`: write "parent child" FEN pairs per line
-- `--mainline`: only output the mainline (skip variations)
-- `--verbose|-v`: print stack traces on failure
-
-## `engine eval`
-
-Evaluate a position using the Java LC0 evaluator with classical fallback, or
-force LC0, OTIS, or classical explicitly. This command does not use a UCI
-engine.
-
-Options:
-- `--input|-i <path>`: FEN list file (optional)
-- `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `--evaluator <mode>`: `auto`, `lc0`, `otis`, or `classical` (default: `auto`)
-- `--lc0`, `--otis`, `--classical`: shortcut evaluator selectors
-- `--weights <path>`: ChessRTK LC0 CNN or OTIS `.bin` weights path (optional)
-- `--terminal-aware`: use terminal-aware classical evaluation
-- `--verbose|-v`: print stack traces on failure
-
-## `engine static`
-
-Evaluate a position using the classical evaluator only.
-
-Options:
-- `--input|-i <path>`: FEN list file (optional)
-- `--fen "<FEN...>"`: FEN string (or pass it positionally)
-- `--terminal-aware`: use terminal-aware classical evaluation
-- `--verbose|-v`: print stack traces on failure
-
-## `clean`
-
-Delete session cache/logs under `dump/session/`.
-
-Options:
-- `--verbose|-v`: print stack traces on failure
-
-## `help`
-
-Print the built-in usage text.
-
-Options:
-- `--full`: show full built-in command reference
-- `<command>`: show help for one command path
-
-## `version`
-
-Print ChessRTK version metadata for scripts and release checks.
-
-Options:
-- `--json`: emit one JSON object
-- `--jsonl`: emit one JSON object line
-- `--no-header`: accepted for script-friendly consistency
-- `--quiet`: suppress non-row chatter where supported
+```bash
+crtk version
+crtk version --json
+```

@@ -1,166 +1,168 @@
-# AI Agents and Automation
+# Automation and AI Agents
 
-ChessRTK exposes deterministic chess primitives for CI, scripts, and LLM tool
-workflows. Use the narrowest command for the task: move conversion for notation,
-FEN commands for position validity, perft commands for move-generation checks,
-and bounded engine commands for analysis.
-
-These commands use the same correctness surface as the rest of the toolkit: one
-shared position model, deterministic output shapes, and regression-backed
-move-generation checks.
+A program driving `crtk` should never have to guess. Every command is a noun-verb invocation (`crtk move list`, `crtk engine bestmove`, `crtk fen validate`) that takes its inputs through named flags, writes a stable line-based or JSON/JSONL shape to stdout, and exits with a code that means what it says. One chess core handles legality, notation, and search for the entire toolkit, so the FEN/SAN/UCI semantics an agent learns from one command hold everywhere else. What follows: where the machine-readable contracts live, how to keep a run from going open-ended, and how to push a whole plan through in a single process.
 
 ![Agentic command contracts](../assets/diagrams/crtk-agentic-commands.png)
 
-Diagram source: `assets/diagrams/crtk-agentic-commands.dot`.
+## Why crtk Is Agent-Friendly
 
-## Automation Contract
+- **Deterministic outputs.** Move ordering, FEN normalization, perft counters, and the built-in search return the same answer for the same inputs and budgets. The core paths carry no hidden clocks and no randomized defaults.
+- **Stable contracts.** Most machine-facing commands take `--json` (one object or array) or `--jsonl` (one object per line); notation commands take `--format uci|san|both`. Parse a documented shape rather than scrape prose.
+- **Explicit inputs.** Positions come in through named flags (`--fen`, `--input`, `--startpos`, `--randompos`, `--stdin`), never positional guesswork. When a free-form argument could pass for a flag, separate it with `--`.
+- **Exit codes that mean something.** Success exits `0`; a bad FEN, a missing file, or a failed command exits non-zero. Errors go to stderr, so a failing run still leaves stdout clean for the parser.
+- **Bounded work.** Engine and search commands take `--max-nodes`, `--max-duration`, and `--multipv`; batch and export commands take `--limit`, `--max-records`, and `--max-total`. Nothing forces an agent to trust an unbounded run.
+- **One shared core.** Move generation is checked against stored perft truth positions (`engine perft-suite`), so a legality-sensitive workflow is correct without an external engine to vouch for it.
 
-- Machine-oriented commands prefer line-based or JSON/JSONL formats, explicit
-  flags, stable exit codes, and bounded search budgets.
-- Core move generation is validated against stored perft truth positions and
-  detailed counters, so legality-sensitive workflows do not depend on an
-  external engine.
-- The same core is reused for notation conversion, line application, perft
-  checks, builtin search, exporters, and higher-level automation workflows.
-- `./scripts/run_regression_suite.sh core` and
-  `./scripts/run_regression_suite.sh recommended` provide repeatable regression
-  entry points before longer CI or agent runs.
-
-## Quick Verification
-
-Before using the commands in longer automated runs, a fast smoke pass is:
+## Quickstart for an Agent
 
 ```bash
-mkdir -p out
-javac --release 17 -d out $(find src -name "*.java")
-java -cp out testing.CoreMoveGenerationRegressionTest
-java -cp out application.Main move list --format both --fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+crtk doctor                 # environment + config health
+crtk config validate        # config file is well-formed
+crtk version --json         # {"name":"ChessRTK","launcher":"crtk","version":"...","java":"..."}
+crtk help                   # area list; `crtk help <area> <action>` for any command
 ```
 
-## Command Contracts
-
-| Need | Command shape | Output contract |
-| --- | --- | --- |
-| Legal moves | `move list --format uci|san|both` | one move per line, deterministic order |
-| Legal moves as objects | `move list --jsonl` | one JSON move object per line |
-| UCI move list | `move uci --fen "<FEN>"` | one UCI move per line |
-| SAN move list | `move san --fen "<FEN>"` | one SAN move per line |
-| UCI and SAN together | `move both --fen "<FEN>"` | `uci<TAB>san` per line |
-| Convert one move | `move to-san`, `move to-uci` | one converted move |
-| Apply one move | `move after --fen "<FEN>" <move>` | resulting FEN |
-| Apply a line | `move play --fen "<FEN>" <moves...>` | final FEN, or every FEN with `--intermediate` |
-| Validate FEN | `fen validate --fen "<FEN>"` | `valid<TAB><normalized-fen>` on success, or JSON with `--json` |
-| Normalize FEN | `fen normalize --fen "<FEN>"` | normalized FEN, or JSON/JSONL with `--json`/`--jsonl` |
-| Chess960 starts | `fen chess960 <index>` | deterministic Scharnagl-indexed FEN |
-| Position diff | `position diff --fen "<FEN>" --other "<FEN>" --json` | changed state fields and board squares |
-| Best move | `engine bestmove --format uci|san|both` | one best move row |
-| Best move batch | `engine bestmove-batch --input <file>` | one JSON object per position by default |
-| Analysis batch | `engine analyze-batch --input <file> --multipv <n>` | one JSON object per position by default |
-| Engine comparison | `engine compare --left-protocol <a> --right-protocol <b>` | text table, JSON object with `--json`, rows with `--jsonl` |
-| Built-in fallback search | `engine builtin --format uci|san|both|summary` | bounded in-process search output |
-| Static evaluation | `engine static`, `engine eval` | one evaluation per input position |
-| Core benchmark | `engine benchmark --json` | one benchmark JSON object |
-| Movegen counters | `engine perft` | nodes and detailed counters |
-| Movegen regression | `engine perft-suite` | progress bar, then truth/calculated table; `--suite` accepts custom TSV rows |
-| Setup health | `doctor`, `config validate`, `engine uci-smoke` | diagnostics and process exit status |
-
-## Automation Sequence
-
-1. Run `crtk doctor` and `crtk config validate` before long jobs.
-2. Normalize input FENs with `fen normalize`.
-3. Use `move list --format both` to expose legal moves with both UCI and SAN.
-4. Use `move after` or `move play` to advance positions instead of editing FENs.
-5. Use `engine bestmove --format both` when a configured UCI engine is
-   available.
-6. Use `engine builtin --format summary` when in-process bounded search is
-   preferable.
-7. Use `engine bestmove-batch` or `engine analyze-batch` for large FEN sets
-   instead of parsing human analysis text.
-8. Run `engine perft-suite --depth 6 --threads <n>` after core move-generation
-   changes; use `--suite custom.tsv` for targeted regression rows.
-
-## Deterministic Move Tasks
-
-List legal moves:
+The smallest useful loop — is this position legal, and what can I play from it:
 
 ```bash
+crtk fen validate --fen "<FEN>" --json
+crtk fen normalize --fen "<FEN>" --json
 crtk move list --fen "<FEN>" --format both
 ```
 
-Convert moves:
+## Machine-Readable Output by Command
 
-```bash
-crtk move to-san --fen "<FEN>" e2e4
-crtk move to-uci --fen "<FEN>" Nf3
-```
+These are the commands worth reaching for first, paired with the contract each one emits.
 
-Apply a SAN or UCI line:
+| Task | Command | Output contract |
+| --- | --- | --- |
+| Validate a FEN | `fen validate --fen "<FEN>" --json` | `{"valid":true,"input":...,"fen":...}`; exits non-zero on invalid input |
+| Normalize a FEN | `fen normalize --fen "<FEN>" --json` | normalized FEN object; `--jsonl` for batched stdin rows |
+| List legal moves | `move list --fen "<FEN>" --jsonl` | one `{"uci":...,"san":...}` object per line |
+| Legal moves (text) | `move list --format both` | `uci<TAB>san` per line, deterministic order |
+| Convert one move | `move to-san`, `move to-uci` | one converted move; `--json` for an object |
+| Apply one move | `move after --fen "<FEN>" <move> --json` | resulting FEN as an object |
+| Apply a line | `move play --fen "<FEN>" <moves...> --jsonl` | final FEN, or one per ply with `--intermediate` |
+| Best move (engine) | `engine bestmove --format both` | one best-move row |
+| Best move (UCI/SAN) | `engine bestmove-uci`, `engine bestmove-san`, `engine bestmove-both` | one move row in the named notation |
+| Analyze a position | `engine analyze --multipv <n>` | per-PV analysis lines |
+| Best move, many FENs | `engine bestmove-batch --input <file>` | one JSON object per position (`--jsonl` default) |
+| Analyze, many FENs | `engine analyze-batch --input <file> --multipv <n>` | one JSON object per position (`--jsonl` default) |
+| Compare two engines | `engine compare --left-protocol <a> --right-protocol <b> --json` | rows plus summary as one object |
+| In-process search | `engine builtin --format summary` | bounded built-in MCTS output; no external process |
+| Prove a forced mate | `engine mate --format jsonl` | deterministic mate-prover row |
+| Static evaluation | `engine static`, `engine eval` | one evaluation per position |
+| Position diff | `position diff --fen "<L>" --other "<R>" --json` | changed state fields and board squares |
+| Position description | `position describe --format training-jsonl` | deterministic prompt/target row with features |
+| Perft counters | `engine perft --depth <d>` | nodes plus detailed counters |
+| Perft regression | `engine perft-suite --depth <d>` | progress bar, then truth/calculated/match table |
+| Core benchmark | `engine benchmark --json` | one benchmark object |
+| Version metadata | `version --json` | one object: name, launcher, version, java |
 
-```bash
-crtk move play --fen "<FEN>" "e4 e5 Nf3 Nc6"
-crtk move play --fen "<FEN>" e2e4 e7e5 g1f3 --intermediate
-```
+> Notation commands (`move list`, `move uci`, `move san`, `move both`, `move to-san`, `move to-uci`, `move after`, `move play`) and `fen validate`/`fen normalize` also accept `--no-header` and `--quiet` for script-friendly piping.
 
-These commands avoid parsing board diagrams and provide compact, line-oriented
-output.
+## Bounding Engine and Search Runs
 
-## Engine Tasks
+Cap every automated analysis. The budget flags are consistent across commands, so one agent-side policy covers all of them.
 
-External UCI engine:
+- **External UCI engine** (`engine analyze`, `bestmove`, `bestmove-batch`, `analyze-batch`, `compare`, `threats`): bound it with `--max-nodes` and `--max-duration` (`5s`, `500ms`), and pin `--multipv`, `--threads`, and `--hash` to keep the engine reproducible. Point at a protocol with `--protocol-path` (or `--left-protocol`/`--right-protocol` for `compare`).
+- **Built-in MCTS** (`engine builtin`, alias `engine java`): use `--depth`, `--max-nodes` (alias `--nodes`; `0` lifts the cap), and `--max-duration` (`0` means no time cap). It runs in-process, so `--threads`/`--hash` do not apply. Choose an evaluator with `--evaluator classical|nnue|lc0|otis`.
+- **Forced-mate prover** (`engine mate`): bound it with `--max-mate` (default `4`) and `--max-nodes`. This is brute force, no neural-network evaluation — depth, not heuristics, is what costs you.
+- **Mining / dataset / book** commands: cap volume with `--max-total`, `--max-waves`, `--max-frontier` (`puzzle mine`), `--max-records` (record exports), or `--limit` (`book collection`, `book render`).
 
 ```bash
 crtk engine bestmove --fen "<FEN>" --format both --max-duration 5s
 crtk engine analyze --fen "<FEN>" --multipv 3 --max-nodes 1000000
-crtk engine bestmove-batch --input positions.txt --max-duration 1s
-crtk engine analyze-batch --input positions.txt --multipv 3 --jsonl
-crtk engine compare --input positions.txt --left-protocol a.toml --right-protocol b.toml --json
-crtk engine threats --fen "<FEN>" --max-duration 2s
+crtk engine builtin --fen "<FEN>" --evaluator classical --max-nodes 100000 --max-duration 500ms --format summary
+crtk engine mate --fen "<FEN>" --max-mate 4 --format jsonl
 ```
 
-Built-in Java engine:
+See [In-House Engine](in-house-engine.md) and [LC0 Integration](lc0.md) for engine setup and evaluator details.
+
+## Batch Many Commands in One Run
+
+`batch run` reads a UTF-8 script, one `crtk` command per line. Blank rows and `#` comments are skipped, and the leading `crtk` token is optional. For a fixed plan, this beats shelling out repeatedly — the runtime starts once instead of once per call.
 
 ```bash
-crtk engine builtin --fen "<FEN>" --depth 4 --format summary
-crtk engine builtin --fen "<FEN>" --nodes 100000 --max-duration 500ms --format uci
+crtk batch run --input commands.crtk
+crtk batch run --stdin --keep-going
 ```
 
-For UCI engine commands, use explicit `--nodes`, `--max-duration`, `--threads`,
-and `--hash` values when you need reproducible behavior. For the built-in
-engine, use `--depth`, `--nodes`, `--max-duration`, and the evaluator flags;
-it does not spawn an engine process or accept UCI `--threads`/`--hash` options.
+Script behavior:
 
-## Move-Generation Checks
+- Each command is echoed before it runs; `--quiet` suppresses the echo and trims output to the results.
+- The run stops at the first command that exits non-zero. `--keep-going` continues through the remaining rows and still reports the failures.
+- `--stdin` reads the script from standard input — handy when the agent writes the plan as it goes.
 
-Single-position counters:
+Example `commands.crtk`:
+
+```text
+# normalize, list moves, then ask the engine
+fen normalize --fen "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1" --json
+move list --startpos --jsonl
+engine bestmove --startpos --format both --max-duration 2s
+```
+
+For large position sets, reach past `batch run` for the dedicated batch engine commands: they load the engine once and stream one JSON object per position.
 
 ```bash
-crtk engine perft --fen "<FEN>" --depth 5
-crtk engine perft --randompos --depth 4
-crtk engine perft --fen "<FEN>" --depth 5 --divide --threads 4
-crtk engine perft --fen "<FEN>" --depth 5 --format stockfish --threads 4
+crtk engine bestmove-batch --input positions.txt --max-duration 1s --jsonl
+crtk engine analyze-batch  --input positions.txt --multipv 3 --jsonl
 ```
 
-Regression suite:
+## Scripting Recipes
+
+**Verify legality before acting.** Validate, normalize, then enumerate.
 
 ```bash
-crtk engine perft-suite --depth 6 --threads 4
-crtk engine perft-suite --suite custom-perft.tsv --threads 4
-crtk engine benchmark --startpos --depth 5 --iterations 5 --json
+crtk fen validate --fen "<FEN>" --json || exit 1
+crtk move list --fen "<FEN>" --format both
 ```
 
-The suite prints a progress bar while positions run. After the progress bar
-finishes, it prints a table with `No`, `Depth`, `FEN`, `Truth`, `Calculated`,
-`Speed`, and `Match`.
+**Advance a game without hand-editing FEN fields.** Let the core apply the moves; it tracks castling rights, en passant, and clocks for you.
 
-Compare two positions without editing FEN fields by hand:
+```bash
+crtk move after --fen "<FEN>" e2e4 --json
+crtk move play --fen "<FEN>" "e4 e5 Nf3 Nc6" --jsonl
+crtk move play --fen "<FEN>" e2e4 e7e5 g1f3 --intermediate --jsonl
+```
+
+**Diff two candidate positions.** A structured field/square delta, not a string comparison that breaks on cosmetic FEN differences.
 
 ```bash
 crtk position diff --fen "<LEFT_FEN>" --other "<RIGHT_FEN>" --json
 ```
 
+**Tag positions deterministically** for labeling pipelines (no engine required unless you add `--analyze`):
+
+```bash
+crtk fen tags --fen "<FEN>" --include-fen
+crtk puzzle tags --fen "<FEN>" --no-analyze
+```
+
+**Generate natural-language summaries** with the local T5 model (see [T5 Summaries](t5.md)):
+
+```bash
+crtk fen text --fen "<FEN>" --include-fen
+crtk puzzle text --fen "<FEN>" --include-fen
+```
+
+## Move-Generation Checks in CI
+
+With one shared core, perft is the legality gate that matters. Run it after any change that could reach move generation — a regression here is silent everywhere else.
+
+```bash
+crtk engine perft --fen "<FEN>" --depth 5 --divide --threads 4
+crtk engine perft-suite --depth 6 --threads 4
+crtk engine perft-suite --suite custom-perft.tsv --threads 4
+crtk engine benchmark --startpos --depth 5 --iterations 5 --json
+```
+
+`engine perft-suite` prints a progress bar, then a table with `No`, `Depth`, `FEN`, `Truth`, `Calculated`, `Speed`, and `Match`. A custom `--suite` TSV takes `name<TAB>depth<TAB>fen<TAB>nodes` rows, with shorter variants falling back to `--depth`. GPU acceleration is optional through `--gpu` with `--split <n>`, and quietly drops to CPU when no backend is present. See [GPU Backends](gpu.md) and [Quality and Testing](quality-and-testing.md).
+
 ## Record and Dataset Plumbing
 
-Agents can keep data transformations explicit:
+Data transformations stay explicit and reproducible because nothing is implicit: inputs and outputs are named, and exports emit stable JSON/JSONL or tensor artifacts.
 
 ```bash
 crtk record files -i dump/ -o dump/merged.json --recursive --puzzles
@@ -169,19 +171,39 @@ crtk record tag-stats -i dump/merged.json
 crtk record analysis-delta -i dump/merged.json -o dump/merged.analysis-delta.jsonl
 ```
 
-Dataset exports:
+Dataset and JSONL exports:
 
 ```bash
 crtk record dataset npy -i dump/merged.json -o training/npy/merged
 crtk record dataset classifier -i dump/puzzles.json -i dump/nonpuzzles.json -o training/classifier/run
-crtk record export training-jsonl -i dump/puzzles.json -i dump/nonpuzzles.json -o training/run.jsonl
+crtk record export training-jsonl -i dump/puzzles.json -o training/run.jsonl --max-records 100000
 ```
+
+Puzzle mining (`puzzle mine`) writes `*.puzzles.json` / `*.nonpuzzles.json` and is gated by the Filter DSL. See [Puzzle Mining](mining.md), [Datasets](datasets.md), and [Filter DSL](filter-dsl.md).
+
+## Setup Gates for Pipelines
+
+Run these as preflight checks before the real work, at the top of a CI job or agent session:
+
+- `crtk doctor` — checks the runtime, config, protocol, engines, and local artifacts. `doctor --strict` exits non-zero on warnings, not only on errors.
+- `crtk config validate` — confirms the config file is well-formed.
+- `crtk engine uci-smoke` — starts the configured engine and runs a tiny bounded search, proving the protocol works end to end before you depend on it.
 
 ## Practical Rules
 
-- Prefer `--json`, `--jsonl`, or `--format uci|san|both|summary` flags over parsing prose.
-- Prefer FEN and UCI/SAN commands over GUI or image output for agent decisions.
-- Put engine budgets on every automated analysis command.
-- Keep `--verbose` off in normal pipelines and enable it only for failures.
-- Treat `doctor --strict`, `config validate`, and `engine uci-smoke` as setup
-  gates for CI jobs.
+- Take `--json`, `--jsonl`, or `--format uci|san|both|summary` over parsing prose.
+- Base decisions on FEN and UCI/SAN commands, not GUI or image output.
+- Put an explicit budget (`--max-nodes` and/or `--max-duration`) on every automated analysis command.
+- Leave `--verbose` off in normal pipelines; reach for it only when diagnosing a failure, since it prints stack traces.
+- Read the exit code: `0` is success, non-zero is failure, and stdout stays parseable on both.
+
+> The neural evaluators (`nnue`, `lc0`, `otis`) are working position evaluators, not bit-exact reproductions of the upstream engines. The BT4/LC0 CNN path is simplified and experimental: fine for analysis and labeling, but its scores are not LC0 parity and should not be quoted as such. When you need reference-grade evaluation, route it through an external UCI engine with `engine analyze`/`bestmove`.
+
+## Related Pages
+
+- [Command Reference](command-reference.md) — every area, action, and flag
+- [Command Cheatsheet](command-cheatsheet.md) — one-liners for common tasks
+- [Example Commands](example-commands.md) — copy-pasteable walkthroughs
+- [Outputs and Logs](outputs-and-logs.md) — output formats and where artifacts land
+- [Configuration](configuration.md) — config keys and engine protocols
+- [Use Cases](use-cases.md) — end-to-end workflows

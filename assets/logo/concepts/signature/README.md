@@ -1,5 +1,8 @@
 # Signature ChessRTK Logo Concepts
 
+> The adopted ChessRTK logo is the teal "chemical board" flask at
+> [`assets/logo/app/crtk-chemical-board.svg`](../../app/crtk-chemical-board.svg). These are earlier exploratory concepts, kept for reference.
+
 This round is intentionally less literal. The goal is to find a distinctive
 identity that can become recognizable on its own: state lattices, encoded
 strands, proof loops, command sigils, record weaves, and transposition knots.

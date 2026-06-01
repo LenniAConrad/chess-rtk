@@ -98,6 +98,7 @@ run_core() {
   ensure_compiled
   run_test testing.PositionRegressionTest
   run_test testing.CoreMoveGenerationRegressionTest
+  run_test testing.SplitPerftRegressionTest
   run_test testing.SANRegressionTest
   run_test testing.JsonRegressionTest
   run_test testing.XmlSecurityRegressionTest
@@ -128,6 +129,8 @@ run_engine() {
   run_test testing.PuzzleDifficultyRegressionTest
   run_test testing.BT4RegressionTest
   run_test testing.T5RegressionTest
+  run_test testing.OtisBackendRegressionTest
+  run_test testing.GpuPerftRegressionTest
 }
 
 run_uci() {

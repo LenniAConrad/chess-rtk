@@ -16,7 +16,7 @@ JAR_PATH="$APP_HOME/crtk.jar"
 LAUNCHER="/usr/local/bin/$APP_NAME"
 DESKTOP_ENTRY_NAME="crtk-workbench.desktop"
 DESKTOP_ENTRY="/usr/local/share/applications/$DESKTOP_ENTRY_NAME"
-DESKTOP_ICON="$APP_HOME/assets/logo/pieces/crtk-white-knight.png"
+DESKTOP_ICON="$APP_HOME/assets/logo/app/crtk-chemical-board.png"
 MODEL_DIR="$APP_HOME/models"
 MODEL_BASE_URL="https://media.githubusercontent.com/media/LenniAConrad/chess-models/main/models"
 MODEL_REMOTE_FILES=(
@@ -546,16 +546,19 @@ CUDA_RESULT="skipped" # built|skipped|failed
 CUDA_BUILD_DIR="$APP_HOME/native/cuda/build"
 CUDA_LIB_SO="$CUDA_BUILD_DIR/liblc0_cuda.so"
 CUDA_T5_LIB_SO="$CUDA_BUILD_DIR/libt5_cuda.so"
+CUDA_PERFT_LIB_SO="$CUDA_BUILD_DIR/libperft_cuda.so"
 
 ROCM_RESULT="skipped" # built|skipped|failed
 ROCM_BUILD_DIR="$APP_HOME/native/rocm/build"
 ROCM_LIB_SO="$ROCM_BUILD_DIR/liblc0_rocm.so"
 ROCM_T5_LIB_SO="$ROCM_BUILD_DIR/libt5_rocm.so"
+ROCM_PERFT_LIB_SO="$ROCM_BUILD_DIR/libperft_rocm.so"
 
 ONEAPI_RESULT="skipped" # built|skipped|failed
 ONEAPI_BUILD_DIR="$APP_HOME/native/oneapi/build"
 ONEAPI_LIB_SO="$ONEAPI_BUILD_DIR/liblc0_oneapi.so"
 ONEAPI_T5_LIB_SO="$ONEAPI_BUILD_DIR/libt5_oneapi.so"
+ONEAPI_PERFT_LIB_SO="$ONEAPI_BUILD_DIR/libperft_oneapi.so"
 
 manual_build_cuda_backend() {
   if ! command -v nvcc >/dev/null 2>&1; then
@@ -587,6 +590,11 @@ manual_build_cuda_backend() {
   if ! nvcc -shared -Xcompiler=-fPIC -O3 --std=c++17 \
       -I"${JAVA_HOME}/include" -I"${JAVA_HOME}/include/linux" \
       -o "$CUDA_T5_LIB_SO" "$APP_HOME/native/cuda/t5_cuda_jni.cu" -lcudart -lcublas; then
+    return 1
+  fi
+  if ! nvcc -shared -Xcompiler=-fPIC -O3 --std=c++17 \
+      -I"${JAVA_HOME}/include" -I"${JAVA_HOME}/include/linux" \
+      -o "$CUDA_PERFT_LIB_SO" "$APP_HOME/native/cuda/perft_cuda_jni.cu" -lcudart; then
     return 1
   fi
   return 0
@@ -731,7 +739,11 @@ manual_build_rocm_backend() {
     if "$hipcc_bin" -shared -fPIC -O3 --std=c++17 \
         -I"${JAVA_HOME}/include" -I"${JAVA_HOME}/include/linux" \
         -o "$ROCM_T5_LIB_SO" "$APP_HOME/native/rocm/t5_rocm_jni.hip" -lhipblas; then
-      return 0
+      if "$hipcc_bin" -shared -fPIC -O3 --std=c++17 \
+          -I"${JAVA_HOME}/include" -I"${JAVA_HOME}/include/linux" \
+          -o "$ROCM_PERFT_LIB_SO" "$APP_HOME/native/rocm/perft_rocm_jni.hip"; then
+        return 0
+      fi
     fi
   fi
   return 1
@@ -860,7 +872,11 @@ manual_build_oneapi_backend() {
     if "$cxx" -fsycl -shared -fPIC -O3 --std=c++17 \
         -I"${JAVA_HOME}/include" -I"${JAVA_HOME}/include/linux" \
         -o "$ONEAPI_T5_LIB_SO" "$APP_HOME/native/oneapi/t5_oneapi_jni.cpp"; then
-      return 0
+      if "$cxx" -fsycl -shared -fPIC -O3 --std=c++17 \
+          -I"${JAVA_HOME}/include" -I"${JAVA_HOME}/include/linux" \
+          -o "$ONEAPI_PERFT_LIB_SO" "$APP_HOME/native/oneapi/perft_oneapi_jni.cpp"; then
+        return 0
+      fi
     fi
   fi
   return 1
@@ -1053,6 +1069,10 @@ set -euo pipefail
 APP_HOME=$APP_HOME_LITERAL
 JAVA_BIN="\${JAVA_BIN:-java}"
 JAVA_OPTS="\${JAVA_OPTS:-}"
+DESKTOP_OPTS=(
+  -Dsun.awt.X11.XWMClass=crtk-workbench
+  "-Dapple.awt.application.name=ChessRTK Workbench"
+)
 # Java2D GPU acceleration. The OpenGL pipeline offloads board / network
 # rendering to the GPU when one is available, and silently falls back to
 # the software pipeline otherwise. Override via JAVA_OPTS to disable.
@@ -1082,7 +1102,7 @@ if [[ \${#LIB_DIRS[@]} -gt 0 && "\$JAVA_OPTS" != *"-Djava.library.path="* ]]; th
   LIB_OPT="-Djava.library.path=\$LIB_PATH"
 fi
 # shellcheck disable=SC2086
-exec "\$JAVA_BIN" "\${GPU_OPTS[@]}" \$JAVA_OPTS \$LIB_OPT -jar "\$APP_HOME/crtk.jar" "\$@"
+exec "\$JAVA_BIN" "\${DESKTOP_OPTS[@]}" "\${GPU_OPTS[@]}" \$JAVA_OPTS \$LIB_OPT -jar "\$APP_HOME/crtk.jar" "\$@"
 EOF
 
   $SUDO mv "$LAUNCHER_TMP" "$LAUNCHER"
@@ -1107,6 +1127,7 @@ Terminal=false
 Categories=Game;BoardGame;
 Keywords=chess;analysis;workbench;rtk;crtk;
 StartupNotify=true
+StartupWMClass=crtk-workbench
 EOF
 
   $SUDO mkdir -p "$(dirname "$DESKTOP_ENTRY")"
@@ -1159,3 +1180,4 @@ if [[ $INSTALL_DESKTOP -eq 1 && $INSTALL_LAUNCHER -eq 1 ]]; then
   info "Open \"ChessRTK Workbench\" from your applications menu."
 fi
 info "Run from anywhere with '$APP_NAME'."
+info "${C_YELLOW}★${C_RESET} Found ChessRTK useful? Please star the repo: https://github.com/LenniAConrad/chess-rtk"

@@ -1,381 +1,160 @@
-# ChessRTK (`crtk`)
+[<img src="assets/logo/app/crtk-chemical-board.png" alt="ChessRTK" width="96">][website-link]
 
-![ChessRTK Workbench analysis view](assets/screenshots/workbench-analysis.png)
+### ChessRTK
 
-ChessRTK is a Java 17 chess research toolkit with a native desktop workbench
-and a reproducible CLI: FEN and SAN handling, legal move generation, perft
-validation, engine analysis, puzzle mining, dataset export, board rendering,
-and native PDF book publishing.
+A deterministic chess programming toolkit.
 
-For day-to-day use, start with the workbench. It gives you a board, legal
-moves, PGN loading, ECO lookup, tag inspection, command forms, batch jobs, logs,
-datasets, publishing previews, network visualizers, puzzles, and settings in one
-desktop app. The CLI remains the stable interface for scripts, CI, reproducible
-jobs, and AI-agent workflows.
+[Explore ChessRTK docs][website-link]
+[Report bug][issue-link] | [Command reference][commands-link] | [PDF manual][manual-link]
+[![Build][build-badge]][build-link] [![License][license-badge]][license-link]
+[![Java][java-badge]][build-docs-link] [![Commits][commits-badge]][commits-link]
+[![Website][website-badge]][website-link] [![Docs][docs-badge]][website-link]
 
-[Website docs](docs/index.html) |
-[PDF manual](docs/chessrtk-manual.pdf) |
-[Markdown wiki](wiki/README.md) |
-[Getting started](wiki/getting-started.md) |
-[Workbench](wiki/workbench.md) |
-[Use cases](wiki/use-cases.md) |
-[Cheatsheet](wiki/command-cheatsheet.md) |
-[Command reference](wiki/command-reference.md) |
-[FAQ](wiki/faq.md) |
-[Troubleshooting](wiki/troubleshooting.md)
+## Overview
 
-## Highlights
+[ChessRTK][website-link] (`crtk`) is a deterministic chess programming toolkit for
+legal move generation, move validation, `perft` testing, FEN/PGN/SAN/UCI workflows,
+Chess960, UCI engine analysis, puzzle mining, dataset export, SVG board rendering,
+and native PDF publishing.
 
-- Native desktop GUI for analysis, commands, batch work, datasets, publishing,
-  logs, neural-network inspection, and puzzle practice.
-- Deterministic CLI commands for FEN, SAN/UCI, legal moves, perft, engines,
-  records, datasets, rendering, and book generation.
-- One shared Java chess core for the GUI, CLI, tests, renderers, exporters, and
-  publishing pipeline.
-- Native PDF output for diagrams, puzzle books, study collections, and covers;
-  no LaTeX step is required.
-- Regression checks for move generation, command behavior, docs, publishing,
-  workbench UI support, and installable launchers.
+ChessRTK is not a single playing engine. It is the toolbox around chess engines and
+chess data: a shared Java 17 rules core, a scriptable command line, a Swing desktop
+Workbench, record and dataset pipelines, rendering tools, and publication tooling.
+The same position model powers every surface, so legality, notation, tags, diagrams,
+engine jobs, datasets, and books do not drift apart.
 
-## Workbench
+See the [documentation][website-link] for setup, examples, command help, Workbench
+usage, dataset workflows, book publishing, and troubleshooting.
 
-Launch the desktop app from the applications menu after installation, or run:
+## Files
 
-```bash
-crtk workbench
-crtk workbench --fen "<FEN>"
-```
+This repository contains:
 
-The workbench is designed for interactive chess work that is awkward in a
-terminal: moving through a game, comparing legal moves, editing a board, opening
-PGNs, inspecting tags, checking command arguments, running batch jobs, reviewing
-logs, and visualizing NNUE/CNN/BT4 model internals.
+* [README.md][readme-link], the file you are currently reading.
+* [LICENSE.txt][license-link], the GNU General Public License version 3.
+* [src][src-link], the Java source for the CLI, Workbench, chess core, engines,
+  renderers, dataset writers, and regression tests.
+* [scripts][scripts-link], build, documentation, release, and regression helpers.
+* [wiki][wiki-link], the Markdown source for the generated documentation.
+* [docs][docs-link], the generated documentation site and PDF manual.
+* [assets][assets-link], logos, board assets, diagrams, screenshots, and social
+  preview graphics.
+* [native][native-link], optional CUDA, ROCm, and oneAPI native backends.
 
-| Analysis and PGN | Command controller | Network visualizer |
-| --- | --- | --- |
-| ![Workbench analysis board](assets/screenshots/workbench-analysis.png) | ![Workbench command controller](assets/screenshots/workbench-commands.png) | ![Workbench network visualizer](assets/screenshots/workbench-network.png) |
+Large local model weights belong under `models/` and are intentionally not tracked.
 
-## Scope
+## Using ChessRTK
 
-ChessRTK keeps chess-specific behavior in one shared Java core. The same
-position model is used for:
-
-- legal move generation, make/undo, attack detection, and perft counters
-- FEN, SAN, UCI move conversion, Chess960 starts, and line application
-- bounded built-in search plus optional external UCI engine analysis
-- position tags, puzzle mining, record filtering, and dataset writers
-- the Swing workbench, board images, diagram PDFs, puzzle books, and
-  print-cover generation
-
-This reduces differences between search, tags, datasets, rendering, and book
-output when they depend on castling rights, en-passant, promotion, notation, or
-move legality.
-
-## Setup
-
-Requirements:
-
-- Java 17+ JDK with `javac`
-- Optional: a UCI engine such as Stockfish for external analysis
-- Optional: local model files under `models/` for NNUE, LC0, and T5 workflows
-
-Build without Maven or Gradle:
-
-```bash
-mkdir -p out
-javac --release 17 -d out $(find src -name "*.java")
-java -cp out application.Main help
-```
-
-Install the `crtk` launcher on Debian/Ubuntu-style systems:
+Install the launcher on Debian/Ubuntu-style systems:
 
 ```bash
 ./install.sh
 crtk doctor
-crtk help
-crtk version
 ```
 
-If the launcher is not installed, replace `crtk ...` with:
-
-```bash
-java -cp out application.Main ...
-```
-
-## Initial Commands
-
-Inspect the starting position:
+Run a few deterministic chess-programming checks:
 
 ```bash
 crtk fen print --startpos
 crtk move list --startpos --format both
 crtk engine perft --startpos --depth 4 --threads 4
-```
-
-Work with one FEN:
-
-```bash
-crtk fen validate --fen "<FEN>"
-crtk fen normalize --fen "<FEN>"
-crtk fen validate --fen "<FEN>" --json
-crtk move after --fen "<FEN>" e2e4
-crtk move play --fen "<FEN>" "e4 e5 Nf3 Nc6"
-```
-
-Generate reusable position seeds:
-
-```bash
-crtk fen generate --output shards/ --files 2 --per-file 20 --chess960-files 1
-crtk gen fens --output endgames/ --files 1 --per-file 100 --rook-endgame --rooks 2
-crtk gen fens --output specials/ --files 1 --per-file 25 --en-passant --max-attempts 250000
-```
-
-Ask for a move:
-
-```bash
-crtk move list --fen "<FEN>" --jsonl
 crtk engine bestmove --fen "<FEN>" --format both --max-duration 2s
-crtk engine builtin --fen "<FEN>" --depth 3 --format summary
 ```
 
-Run batch checks:
+The command grammar is noun-then-verb:
+
+```text
+crtk <area> <action> [options] [args]
+```
+
+Examples include `crtk move list`, `crtk engine perft`,
+`crtk engine bestmove`, `crtk puzzle mine`, and `crtk book render`.
+
+Start the desktop Workbench:
 
 ```bash
-crtk engine bestmove-batch --input positions.txt --max-duration 1s
-crtk engine analyze-batch --input positions.txt --multipv 3 --jsonl
-crtk engine benchmark --startpos --depth 5 --iterations 5
-crtk position diff --fen "<FEN>" --other "<FEN>" --json
+crtk workbench
 ```
 
-Check your local setup:
+If the launcher is not installed, use the jar or classpath entry point:
 
 ```bash
-crtk doctor
-crtk config validate
-crtk engine uci-smoke --nodes 1 --max-duration 5s
+java -jar crtk.jar help
+java -cp out application.Main help
 ```
 
-## Command Areas
+Read the [getting started guide][getting-started-link] and
+[command reference][commands-link] for the full command surface.
 
-| Goal | Start with |
-| --- | --- |
-| Validate, normalize, and print positions | `fen validate`, `fen normalize`, `fen print` |
-| Generate random or filtered FEN shards | `fen generate`, `gen fens` |
-| List and convert legal moves | `move list`, `move uci`, `move san`, `move both`, `move to-san`, `move to-uci` |
-| Apply one move or a line | `move after`, `move play`, `fen after`, `fen line` |
-| Compare positions | `position diff` |
-| Verify move generation | `engine perft`, `engine perft-suite`, `engine benchmark` |
-| Use an external UCI engine | `engine analyze`, `engine bestmove`, `engine analyze-batch`, `engine bestmove-batch`, `engine compare`, `engine threats`, `engine uci-smoke` |
-| Search in-process | `engine builtin`, `engine java` |
-| Evaluate positions | `engine static`, `engine eval` |
-| Mine puzzle candidates | `puzzle mine`, `puzzle pgn` |
-| Tag positions and puzzle lines | `fen tags`, `puzzle tags` |
-| Generate text from tags | `fen text`, `puzzle text` |
-| Merge, filter, and summarize records | `record files`, `record stats`, `record tag-stats`, `record analysis-delta` |
-| Export ML datasets | `record dataset npy`, `record dataset lc0`, `record dataset classifier` |
-| Publish diagrams and books | `book pdf`, `book render`, `book cover`, `book collection`, `book study` |
-| Use the desktop workbench | Launch `ChessRTK Workbench` from the app menu, or run `workbench` or `gui` |
+## Compiling ChessRTK
 
-For the full command surface, run:
+ChessRTK builds with the stock JDK. There is no Maven, no Gradle, and no third-party
+Java dependency tree. Always compile for the Java 17 release:
 
 ```bash
-crtk help --full
+find src -name '*.java' | sort > /tmp/crtk-srcs.txt
+javac --release 17 -d out @/tmp/crtk-srcs.txt
+jar --create --file crtk.jar --main-class application.Main -C out .
 ```
 
-or open [wiki/command-reference.md](wiki/command-reference.md).
-
-## Workflow Examples
-
-### Verify The Chess Core
+Or use the regression runner:
 
 ```bash
-./scripts/run_regression_suite.sh core
-crtk engine perft-suite --depth 6 --threads 4
-crtk engine perft-suite --suite custom-perft.tsv --threads 4
+./scripts/run_regression_suite.sh build
+./scripts/run_regression_suite.sh jar
 ```
 
-`engine perft-suite` compares stored truth positions against ChessRTK's Java
-move generator. It does not call Stockfish or any other external engine.
+See [Build and Install][build-docs-link] for prerequisites, install paths, optional
+UCI engines, model files, and native GPU backends.
 
-### Mine Puzzle Records
+## Contributing
 
-```bash
-crtk fen pgn --input games.pgn --output seeds.txt
-crtk puzzle mine \
-  --input seeds.txt \
-  --output dump/run.json \
-  --engine-instances 4 \
-  --max-duration 60s
-crtk record stats --input dump/run.puzzles.json
-crtk record export pgn --input dump/run.puzzles.json --output dump/run.puzzles.pgn
-```
+ChessRTK prioritizes deterministic behavior and one shared chess core. Changes to
+legality, notation, engine workflows, rendering, datasets, or publishing should keep
+outputs stable and should update the docs when behavior changes.
 
-### Generate Filtered FEN Seeds
-
-```bash
-crtk gen fens \
-  --output training/endgames \
-  --files 4 \
-  --per-file 500 \
-  --endgame \
-  --max-material-imbalance 300
-
-crtk gen fens \
-  --output training/rook-endgames \
-  --files 2 \
-  --per-file 250 \
-  --rook-endgame \
-  --rooks 2 \
-  --max-attempts 500000
-
-crtk gen fens \
-  --output training/tactical-states \
-  --files 1 \
-  --per-file 100 \
-  --promotion \
-  --capture \
-  --max-attempts 1000000
-```
-
-Filters combine with AND, so each generated FEN must satisfy every selected
-condition.
-
-### Export Training Data
-
-```bash
-crtk record dataset npy \
-  --input dump/run.puzzles.json \
-  --output training/puzzles
-
-crtk record dataset lc0 \
-  --input dump/run.puzzles.json \
-  --output training/lc0/puzzles \
-  --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin
-```
-
-### Publish A Puzzle Book
-
-```bash
-crtk book render -i books/puzzles.toml --check
-crtk book render -i books/puzzles.toml -o dist/puzzles.pdf
-crtk book cover -i books/puzzles.toml --check \
-  --pdf dist/puzzles.pdf --binding paperback --interior white-bw
-crtk book cover -i books/puzzles.toml -o dist/puzzles-cover.pdf \
-  --pdf dist/puzzles.pdf --binding paperback --interior white-bw
-```
-
-ChessRTK writes native PDFs, so the publishing path does not require LaTeX.
-
-## Architecture
-
-![ChessRTK position toolbox](assets/diagrams/crtk-position-toolbox.png)
-
-ChessRTK is organized as a layered toolkit:
-
-1. `chess.core` owns board state, legality, notation, Chess960, and perft.
-2. `chess.engine`, `chess.eval`, and model packages add bounded search and
-   evaluation.
-3. `application.cli` exposes deterministic command contracts.
-4. Record, dataset, rendering, GUI, and book layers reuse the same position
-   model.
-5. Optional UCI engines and local model weights extend analysis depth without
-   replacing the Java core.
-
-See [wiki/architecture.md](wiki/architecture.md) and
-[wiki/development-notes.md](wiki/development-notes.md).
-
-## Built-In Engine And Optional Engines
-
-ChessRTK has two engine paths:
-
-- External UCI engines for strength-sensitive analysis, MultiPV, threats, and
-  long mining runs.
-- `engine builtin`, a Java alpha-beta searcher for bounded in-process search,
-  deterministic smoke tests, and machines with no external engine configured.
-
-Examples:
-
-```bash
-crtk engine bestmove --fen "<FEN>" --format both --max-duration 5s
-crtk engine builtin --fen "<FEN>" --depth 4 --nodes 100000 --format summary
-crtk engine builtin --nnue --fen "<FEN>"
-crtk engine builtin --lc0 --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin --fen "<FEN>"
-```
-
-More:
-
-- [Configuration](wiki/configuration.md)
-- [In-house Java engine](wiki/in-house-engine.md)
-- [LC0 UCI engine and Java evaluator](wiki/lc0.md)
-
-## Documentation
-
-The browsable documentation site is generated under [docs/index.html](docs/index.html).
-Open it directly in a browser, or publish the `docs/` directory with GitHub
-Pages. The Markdown source lives under [wiki/](wiki/).
-
-For offline reading or printing, use the generated
-[PDF manual](docs/chessrtk-manual.pdf). Rebuild the site and manual with:
-
-```bash
-python3 scripts/build_manual_pdf.py
-```
-
-The wiki is organized like a project handbook:
-
-- [Home](wiki/Home.md)
-- [Getting started](wiki/getting-started.md)
-- [Use cases](wiki/use-cases.md)
-- [Command cheatsheet](wiki/command-cheatsheet.md)
-- [FAQ](wiki/faq.md)
-- [Architecture](wiki/architecture.md)
-- [Quality and testing](wiki/quality-and-testing.md)
-- [Command reference](wiki/command-reference.md)
-- [Configuration](wiki/configuration.md)
-- [Example commands](wiki/example-commands.md)
-- [Mining puzzles](wiki/mining.md)
-- [Filter DSL](wiki/filter-dsl.md)
-- [Datasets](wiki/datasets.md)
-- [Book publishing](wiki/book-publishing.md)
-- [Piece and position tags](wiki/piece-tags.md)
-- [Tag reference](wiki/tag-reference.md)
-- [Outputs and logs](wiki/outputs-and-logs.md)
-- [Development notes](wiki/development-notes.md)
-- [Troubleshooting](wiki/troubleshooting.md)
-
-## Regression Checks
-
-Recommended local pass:
+Before sending changes, run:
 
 ```bash
 ./scripts/run_regression_suite.sh recommended
 ```
 
-Focused checks:
+See [Development Notes][development-link], [Quality and Testing][quality-link], and
+[AI Agents][agents-link] for repository conventions, test targets, and reproducible
+agent workflows.
 
-```bash
-./scripts/run_regression_suite.sh build
-./scripts/run_regression_suite.sh lint
-./scripts/run_regression_suite.sh docs
-./scripts/run_regression_suite.sh core
-./scripts/run_regression_suite.sh cli
-./scripts/run_regression_suite.sh engine
-./scripts/run_regression_suite.sh uci
-./scripts/run_regression_suite.sh book
-./scripts/run_regression_suite.sh perft-smoke
-```
+## Terms of use
 
-After move-generation, FEN, SAN, Chess960, or make/undo changes, run a deeper
-perft suite:
+ChessRTK is free software distributed under the
+[GNU General Public License version 3][license-link].
 
-```bash
-CRTK_PERFT_SUITE_DEPTH=6 CRTK_PERFT_THREADS=4 ./scripts/run_regression_suite.sh perft-smoke
-```
+You may use, modify, and redistribute it under the terms of that license. When you
+distribute modified versions, keep the license and corresponding source available.
+For research or published work, cite the repository and pin the commit hash or tag
+used to produce your results.
 
-## License
-
-ChessRTK is licensed under the GNU General Public License, version 3. See
-[LICENSE.txt](LICENSE.txt).
-
-If you use ChessRTK in research or published workflows, cite the repository and
-pin a commit hash or tag so the run can be reproduced.
+[agents-link]: wiki/ai-agents.md
+[assets-link]: assets
+[build-badge]: https://img.shields.io/github/actions/workflow/status/LenniAConrad/chess-rtk/ci.yml?branch=main&style=for-the-badge&label=build&logo=github
+[build-docs-link]: wiki/build-and-install.md
+[build-link]: https://github.com/LenniAConrad/chess-rtk/actions/workflows/ci.yml
+[commands-link]: wiki/command-reference.md
+[commits-badge]: https://img.shields.io/github/last-commit/LenniAConrad/chess-rtk?style=for-the-badge&label=commits
+[commits-link]: https://github.com/LenniAConrad/chess-rtk/commits/main
+[development-link]: wiki/development-notes.md
+[docs-badge]: https://img.shields.io/badge/docs-website%20%2B%20PDF-1487a6?style=for-the-badge
+[docs-link]: docs
+[getting-started-link]: wiki/getting-started.md
+[issue-link]: https://github.com/LenniAConrad/chess-rtk/issues
+[java-badge]: https://img.shields.io/badge/java-17%2B-1487a6?style=for-the-badge
+[license-badge]: https://img.shields.io/github/license/LenniAConrad/chess-rtk?style=for-the-badge&label=license&color=success
+[license-link]: LICENSE.txt
+[manual-link]: docs/chessrtk-manual.pdf
+[native-link]: native
+[quality-link]: wiki/quality-and-testing.md
+[readme-link]: README.md
+[scripts-link]: scripts
+[src-link]: src
+[website-badge]: https://img.shields.io/website?style=for-the-badge&down_color=red&down_message=offline&label=website&up_color=success&up_message=online&url=https%3A%2F%2FLenniAConrad.github.io%2Fchess-rtk%2F
+[website-link]: https://LenniAConrad.github.io/chess-rtk/
+[wiki-link]: wiki

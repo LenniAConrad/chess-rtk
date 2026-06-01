@@ -1,143 +1,171 @@
-# Example commands
+# Example Commands
 
-Examples assume you installed the launcher (`crtk`). If you run from classes, replace `crtk` with `java -cp out application.Main`.
+Every recipe below is something you can paste into a terminal and watch run to completion: study one position, verify the move generator, mine puzzles from a PGN, export training datasets, publish a puzzle book, run batch analysis. They lean on a single shared chess core, so move generation, FEN/SAN/UCI handling, and tagging behave the same whether the call comes from the CLI, a batch script, or the desktop [Workbench](workbench.md). Same inputs and flags, same output — which is what makes these recipes worth saving and rerunning.
 
-## Quick sanity checks
+The examples assume the `crtk` launcher is on your `PATH`. Running from compiled classes instead? Swap `crtk` for `java -cp out application.Main`. See [Getting Started](getting-started.md) for installation and [Command Reference](command-reference.md) for the full option list.
 
-- `crtk help` — show all commands + flags.
-- `crtk help --full` — show subcommands and detailed option groups.
-- `crtk doctor` — check Java, config, protocol, engine discovery, and local artifact paths.
-- `crtk doctor --strict` — treat setup warnings as failures.
-- `crtk config validate` — validate config + protocol file paths.
-- `crtk engine uci-smoke --nodes 1 --max-duration 5s` — start the configured engine and run a tiny bounded search.
-- `crtk engine gpu` — check whether the optional GPU JNI backends are usable (CUDA/ROCm/oneAPI).
-- `crtk engine perft-suite --depth 6 --threads 4` — validate critical stored-truth positions with the Java move generator.
-- `crtk fen print --fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"` — print the starting position.
-- `crtk config show` — dump resolved config values.
+## Conventions
 
-## Convert `.record` → `.plain` / CSV
+- Replace `<FEN>` with a real FEN string in double quotes.
+- Put named flags before free-form positional arguments when scripting, and use `--` if a value could look like a flag.
+- Engine-backed commands (`engine analyze`, `engine bestmove`, `puzzle mine`) use an external UCI engine resolved from your config or `--protocol-path`. Run [`crtk doctor`](troubleshooting.md) first if engine discovery is uncertain.
+- Bound every engine search with `--max-duration` or `--max-nodes` so runs are predictable.
 
-- `crtk record export plain -i data/input.record` — writes `data/input.plain`.
-- `crtk record export plain -i data/input.record --sidelines --csv` — also writes `data/input.csv`.
-- `crtk record export csv -i data/input.record -o dump/input.csv` — CSV only.
-- `crtk record export plain -i data/input.record -f "gate=AND;eval>=300"` — export only records matching a Filter DSL.
-- `crtk record files -i dump/ -o dump/merged.json` — merge many record files into one JSON array.
-- `crtk record files -i dump/ -o dump/merged.json --max-records 100000` — merge and split into 100k-sized parts.
-- `crtk record files -i dump/mixed.json -o dump/puzzles.json --puzzles` — keep only puzzle records.
+## Study One Position
 
-## Mine puzzles
+A position is worth looking at from several angles before you trust any single read of it. Pretty-print the board, list the legal moves in SAN, get a deterministic textual description, then hand it to a UCI engine.
 
-- `crtk puzzle mine --random-count 50 --output dump/` — mine 50 random seeds into timestamped outputs under `dump/`.
-- `crtk puzzle mine --input seeds/fens.txt --output dump/fens.json` — mine from a `.txt` file; writes `dump/fens.puzzles.json` + `dump/fens.nonpuzzles.json`.
-- `crtk puzzle mine --input games.pgn --output dump/pgn.json --engine-instances 4 --max-duration 60s` — mine from PGN.
-- `crtk puzzle mine --chess960 --random-count 200 --output dump/` — Chess960 random mining.
-- `crtk puzzle pgn -i dump/fens.puzzles.json -o dump/fens.pgn` — convert accepted puzzle records to PGN.
-- `crtk record files -i dump/ -o dump/filtered.json --recursive --puzzles` — collect puzzle records from a directory tree.
+```bash
+crtk fen print --fen "r1bqk2r/ppppbppp/3n4/4R3/8/8/PPPP1PPP/RNBQ1BK1 b kq - 2 8"
+crtk move list --fen "r1bqk2r/ppppbppp/3n4/4R3/8/8/PPPP1PPP/RNBQ1BK1 b kq - 2 8" --format both
+crtk position describe --fen "r1bqk2r/ppppbppp/3n4/4R3/8/8/PPPP1PPP/RNBQ1BK1 b kq - 2 8" --detail full
+crtk engine analyze --fen "r1bqk2r/ppppbppp/3n4/4R3/8/8/PPPP1PPP/RNBQ1BK1 b kq - 2 8" --multipv 3 --max-duration 5s
+```
 
-## Generate random FEN shards
+`fen print` and `move list` never touch an engine; they run in the core. `position describe` emits deterministic text from static analysis. Only `engine analyze` shells out — to the configured UCI engine — and prints the top three principal variations.
 
-- `crtk fen generate --output shards/ --files 2 --per-file 20 --chess960-files 1` — writes 2 shard files (first one Chess960).
-- `crtk gen fens --output endgames/ --files 2 --per-file 500 --endgame --max-material-imbalance 300` — generate broad queenless endgame seeds with bounded material imbalance.
-- `crtk gen fens --output endgames/ --files 1 --per-file 100 --rook-endgame --rooks 2 --max-material-imbalance 200` — generate balanced rook endgame seeds.
-- `crtk gen fens --output specials/ --files 1 --per-file 25 --en-passant --max-attempts 250000` — keep only positions where en passant is legally available.
-- `crtk gen fens --output promotions/ --files 1 --per-file 50 --promotion --capture --max-attempts 1000000` — keep positions with a legal promotion that also have at least one legal capture.
-- `crtk gen fens --output quiet-black/ --files 1 --per-file 100 --side black --not-in-check --min-pieces 10 --max-pieces 20` — keep quiet-ish Black-to-move middlegame/endgame positions by piece count.
-- `crtk fen chess960 518` — print the standard start position by its Chess960 index.
-- `crtk fen chess960 --all --format both > chess960.tsv` — export `index`, back-rank layout, and FEN for all 960 starts.
+### Visualize and Tag the Same Position
 
-## Export datasets (NumPy)
+The same position, seen rather than read: open it in a window with overlays, write a board image to disk, then emit deterministic tags and a natural-language summary.
 
-- `crtk record dataset npy -i dump/fens.puzzles.json -o training/pytorch/data/puzzles` — writes `puzzles.features.npy` + `puzzles.labels.npy`.
-- `crtk record dataset lc0 -i dump/fens.puzzles.json -o training/lc0/puzzles --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin` — write LC0-style input, policy, value, and metadata tensors.
-- `crtk record dataset classifier -i dump/fens.puzzles.json -i dump/fens.nonpuzzles.json -o training/classifier/fens` — writes 21-plane classifier inputs + 0/1 labels.
-- `crtk record export training-jsonl -i dump/fens.puzzles.json -i dump/fens.nonpuzzles.json -o training/fens.training.jsonl` — writes coarse/fine JSONL labels.
-- `crtk record export puzzle-jsonl -i dump/fens.puzzles.json -o training/fens.puzzle.jsonl --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin --puzzles` — write JSONL puzzle rows with LC0 policy indices.
-- `crtk record analysis-delta -i dump/fens.puzzles.json -o dump/fens.analysis-delta.jsonl` — writes evaluation stability metrics.
+```bash
+crtk fen display --fen "<FEN>" --arrow e5e1 --circle e4 --legal d6 --special-arrows
+crtk fen render --fen "<FEN>" -o dump/position.svg --arrow e2e4 --size 1200
+crtk fen tags --fen "<FEN>" --include-fen
+crtk fen text --fen "<FEN>" --model models/t5.bin --include-fen
+```
 
-## Publish diagrams and books
+`fen tags` produces a JSON tag set from the static tagger; add `--analyze --max-duration 2s --multipv 3` to fold engine output into the tags. `fen text` runs the T5 summarizer over those tags and returns a plain-English sentence. Treat that sentence as a readable gloss, not as analysis — T5 describes the tags it was given, it does not reason about the position.
 
-- `crtk book collection -i dump/mate1.json -o books/mate1.book.toml --subtitle "4,000 Mate in 1 Puzzles" --pdf-output dist/mate1.pdf --cover-output dist/mate1-cover.pdf --binding paperback --interior white-bw` — build a puzzle-collection manifest from analyzed records and render the matching interior + cover.
-- `crtk book study -i books/puzzle-studies.json --manifest-output books/puzzle-studies.toml -o dist/puzzle-studies.pdf --cover-output dist/puzzle-studies-cover.pdf --binding paperback --interior white-bw` — render richer annotated puzzle studies and optionally normalize them to TOML.
-- `crtk book pdf --fen "<FEN>" -o dump/position.pdf` — export one diagram to PDF.
-- `crtk book pdf -i seeds.txt -o dump/sheet.pdf --title "Training Sheet"` — export a FEN list to a diagram sheet PDF.
-- `crtk book pdf --pgn games.pgn -o dump/games.pdf --page-size a5 --diagrams-per-row 1` — export PGN mainlines to PDF.
-- `crtk book render -i books/puzzles.toml --check` — validate book layout, FENs, and solution lines without writing.
-- `crtk book render -i books/puzzles.toml -o dist/puzzles.pdf` — render a book manifest to a native vector PDF.
-- `crtk book cover -i books/puzzles.toml --pdf dist/puzzles.pdf --check --binding paperback --interior white-bw` — verify cover dimensions from the rendered interior PDF before rendering.
-- `crtk book cover -i books/puzzles.toml --pdf dist/puzzles.pdf -o dist/puzzles-cover.pdf --binding paperback --interior white-bw` — render a matching paperback cover from the interior PDF geometry.
+## Verify the Core (perft-suite)
 
-## Display a position (GUI)
+Before you trust anything downstream, confirm the move generator counts correctly. The suite checks it against stored ground-truth node counts across standard, Chess960, promotion, en-passant, castling, and stress positions — no external engine involved.
 
-- `crtk fen display --fen "r1bqk2r/ppppbppp/3n4/4R3/8/8/PPPP1PPP/RNBQ1BK1 b kq - 2 8" --special-arrows --arrow e5e1 --legal d6` — open a window.
-- `crtk fen display --fen "<FEN>" --arrow e2e4 --circle e4 --legal g1` — overlays for quick inspection.
-- `crtk fen display --fen "<FEN>" --ablation --show-backend` — show per-piece ablation (uses LC0 if available; otherwise classical).
-- `crtk fen render --fen "<FEN>" -o dump/position.png --arrow e2e4 --circle e4 --size 1200` — save a board image.
-- `crtk fen render --fen "<FEN>" -o dump/position.svg --format svg --flip` — save a vector board from Black's perspective.
-- `crtk gui --fen "r1bqk2r/ppppbppp/3n4/4R3/8/8/PPPP1PPP/RNBQ1BK1 b kq - 2 8"` — launch the Swing workbench.
+```bash
+crtk engine perft-suite --depth 6 --threads 4
+```
 
-## Analyze positions / best move with a UCI engine
+A clean pass means the move generator is sound on this build — and since every other workflow inherits its determinism from the core, this is the check worth running first. For one position with the full set of counters (nodes, captures, en-passant, castles, promotions, checks, checkmates), or a per-root-move breakdown, reach for `engine perft`:
 
-- `crtk engine analyze --fen "<FEN>" --max-duration 5s` — print PV summaries for a single position.
-- `crtk engine analyze -i positions.txt --max-nodes 1000000 --multipv 3 --threads 4 --hash 256` — analyze a FEN list with bounded UCI engine settings.
-- `crtk engine threats --fen "<FEN>" --max-duration 2s` — analyze opponent threats via a null move (MultiPV).
-- `crtk engine bestmove --fen "<FEN>"` — print the best move (UCI).
-- `crtk engine bestmove --fen "<FEN>" --format san` — print the best move (SAN).
-- `crtk engine bestmove-uci --fen "<FEN>"` — best move (UCI shortcut).
-- `crtk engine bestmove-san --fen "<FEN>"` — best move (SAN shortcut).
-- `crtk engine bestmove-both --fen "<FEN>"` — best move (UCI + SAN).
+```bash
+crtk engine perft --fen "<FEN>" --depth 5
+crtk engine perft --fen "<FEN>" --depth 5 --divide --threads 4
+crtk engine perft-suite --depth 6 --gpu --split 4
+```
 
-## Tags / moves
+The `--gpu` form routes node counting through the optional native CUDA/ROCm/oneAPI backend, and quietly falls back to CPU when no usable backend is present — so it never fails just because the hardware isn't there. Confirm what you actually have with `crtk engine gpu`. See [In-House Engine](in-house-engine.md) and [Architecture](architecture.md) for details.
 
-- `crtk fen tags --fen "<FEN>"` — emit tags as JSON.
-- `crtk fen tags --fen "<FEN>" --analyze --max-duration 2s --multipv 3 --wdl` — add engine-enriched tags.
-- `crtk fen tags -i positions.txt --sequence --delta --include-fen` — tag an ordered line and emit parent/child deltas.
-- `crtk fen tags --pgn games.pgn --delta --mainline` — emit per-move tag deltas as JSONL.
-- `crtk fen tags --pgn games.pgn --delta --sidelines` — include PGN variations in tag deltas.
-- `crtk puzzle tags --fen "<FEN>" --multipv 3 --pv-plies 12` — tag puzzle PV positions with per-move deltas.
-- `crtk puzzle tags --fen "<FEN>" --no-analyze --multipv 2` — tag puzzle PV positions using static tags only.
-- `crtk fen text --fen "<FEN>" --model models/t5.bin --include-fen` — summarize position tags with T5.
-- `crtk puzzle text --fen "<FEN>" --model models/t5.bin --include-fen` — summarize a puzzle PV line with T5.
-- `crtk fen normalize --fen "<FEN>"` — parse and print ChessRTK's normalized FEN.
-- `crtk fen validate --fen "<FEN>"` — print `valid` plus the normalized FEN on success.
-- `crtk move list --fen "<FEN>" --format both` — list legal moves (UCI + SAN).
-- `crtk move uci --fen "<FEN>"` — list legal moves (UCI shortcut).
-- `crtk move san --fen "<FEN>"` — list legal moves (SAN shortcut).
-- `crtk move both --fen "<FEN>"` — list legal moves (UCI + SAN shortcut).
-- `crtk move to-san --fen "<FEN>" e2e4` — convert a single move to SAN.
-- `crtk move to-uci --fen "<FEN>" Nf3` — convert a single move to UCI.
-- `crtk move after --fen "<FEN>" e2e4` — apply one move and print the resulting FEN.
-- `crtk move play --fen "<FEN>" e2e4 e7e5 g1f3` — apply a move sequence and print the final FEN.
-- `crtk move play --fen "<FEN>" e4 e5 Nf3 --intermediate` — apply a SAN line and print each intermediate FEN.
+## Mine Puzzles From a PGN
 
-## Stats
+A PGN of games is a seam of tactics waiting to be cut out. crtk walks candidate positions, runs the configured engine, and gates each line through its Filter DSL quality system — what survives is a puzzle.
 
-- `crtk record stats -i dump/fens.puzzles.json` — summarize a puzzle dump.
-- `crtk record tag-stats -i dump/fens.puzzles.json` — summarize tag distributions.
+```bash
+crtk puzzle mine --input games.pgn --output dump/pgn.json --engine-instances 4 --max-duration 60s
+```
 
-## Perft / PGN conversion
+Accepted lines land in `dump/pgn.puzzles.json`, rejected ones in `dump/pgn.nonpuzzles.json` — keep the rejects; they make excellent negatives for a classifier. Other seed sources follow the same shape:
 
-- `crtk engine perft --depth 4` — perft from the standard start position.
-- `crtk engine perft --startpos --depth 4` — same as the default start-position run, but explicit.
-- `crtk engine perft --randompos --depth 4` — perft from a reachable random legal standard-chess position.
-- `crtk engine perft --fen "<FEN>" --depth 5` — detailed counters for nodes, captures, en-passant captures, castles, promotions, checks, and checkmates.
-- `crtk engine perft --fen "<FEN>" --depth 5 --divide --threads 4` — per-root-move table with the same detailed counters.
-- `crtk engine perft --depth 3 --format stockfish --threads 4` — Stockfish-style `move: nodes` divide output.
-- `crtk engine perft-suite --depth 6 --threads 4` — compare critical standard, Chess960, promotion, en-passant, castling, and stress positions against stored truth values without starting an external engine.
-- `crtk fen pgn -i games.pgn -o seeds.txt` — extract FEN seeds from PGN.
-- `crtk fen pgn -i games.pgn -o pairs.txt --pairs --mainline` — extract parent/child FEN pairs from mainlines.
+```bash
+crtk puzzle mine --random-count 50 --output dump/
+crtk puzzle mine --input seeds/fens.txt --output dump/fens.json
+crtk puzzle mine --chess960 --random-count 200 --output dump/
+```
 
-## In-process eval and built-in search
+With a dump in hand, summarize it, turn it into PGN you can scroll through in any viewer, and look at how the tags break down:
 
-- `crtk engine eval --fen "<FEN>"` — evaluate in auto mode with Java LC0 and classical fallback.
-- `crtk engine eval --fen "<FEN>" --lc0 --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin` — force Java LC0 evaluation.
-- `crtk engine eval --fen "<FEN>" --evaluator classical` — force classical evaluation.
-- `crtk engine static --fen "<FEN>"` — classical evaluation shortcut.
-- `crtk engine builtin --fen "<FEN>" --depth 4 --format summary` — search with the built-in Java engine.
-- `crtk engine builtin --fen "<FEN>" --classical --depth 6 --nodes 250000 --format both` — bounded classical built-in search.
-- `crtk engine builtin --fen "<FEN>" --evaluator nnue --weights models/crtk-halfkp.nnue --depth 3 --format both` — use the Java NNUE evaluator at the search frontier.
-- `crtk engine builtin --fen "<FEN>" --lc0 --weights models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin --depth 2 --format summary` — use the Java LC0 value evaluator at the search frontier.
+```bash
+crtk record stats -i dump/pgn.puzzles.json
+crtk record tag-stats -i dump/pgn.puzzles.json
+crtk puzzle pgn -i dump/pgn.puzzles.json -o dump/pgn.pgn
+```
 
-## Useful helpers
+To merge or filter many mined files into one dump, use `record files` with the Filter DSL. See [Use Cases](use-cases.md) for the full puzzle-mining playbook.
 
-- `./scripts/fetch_lc0_net.sh --url <URL> --out nets` — download an Lc0 UCI network (kept local under `nets/`).
-- `./scripts/check_no_weights_tracked.sh` — guardrail: fail if weight files are accidentally tracked by git.
+## Export ML Datasets
+
+Records become training data once you encode them. The exporters all draw on the same FEN encoder, so a plane means the same thing in every format — no per-exporter drift in layout or labels to debug later.
+
+```bash
+crtk record dataset npy -i dump/pgn.puzzles.json -o training/pytorch/data/puzzles
+crtk record dataset classifier -i dump/pgn.puzzles.json -i dump/pgn.nonpuzzles.json -o training/classifier/fens
+crtk record dataset lc0 -i dump/pgn.puzzles.json -o training/lc0/puzzles --weights models/leela.bin
+```
+
+`dataset npy` writes a paired `puzzles.features.npy` + `puzzles.labels.npy`. `dataset classifier` takes both the puzzle and non-puzzle sources and writes plane inputs with 0/1 labels. `dataset lc0` emits LC0-style input, policy, value, and metadata tensors — pass `--weights` to compress the policy map. For text-pipeline training, export JSONL instead:
+
+```bash
+crtk record export training-jsonl -i dump/pgn.puzzles.json -i dump/pgn.nonpuzzles.json -o training/fens.training.jsonl
+crtk record export puzzle-jsonl -i dump/pgn.puzzles.json -o training/fens.puzzle.jsonl --puzzles --weights models/leela.bin
+crtk record export puzzle-elo-jsonl -i dump/pgn.puzzles.json -o training/fens.puzzle-elo.jsonl
+```
+
+One caveat on the LC0 path: it is a serviceable encoder/evaluator for generating datasets, not a bit-exact reproduction of LC0/BT4 inference. If your pipeline depends on matching Leela's numbers exactly, read [LC0 Integration](lc0.md) for the fidelity notes first; [Configuration](configuration.md) covers weight paths.
+
+## Publish a Puzzle Book
+
+Analyzed records go straight to a print-ready PDF, drawn as native vectors. No LaTeX, no typesetting toolchain to install and placate.
+
+```bash
+crtk book collection -i dump/pgn.puzzles.json -o books/tactics.book.toml \
+  --subtitle "Tactics From My Games" \
+  --pdf-output dist/tactics.pdf --cover-output dist/tactics-cover.pdf \
+  --binding paperback --interior white-bw
+```
+
+`book collection` builds a TOML manifest from the records, and when given `--pdf-output`/`--cover-output` renders the matching interior and cover in the same pass. A full render is slow enough that you'll want to catch bad layout, FENs, or solution lines before paying for it — `--check` does exactly that:
+
+```bash
+crtk book render -i books/tactics.book.toml --check
+crtk book render -i books/tactics.book.toml -o dist/tactics.pdf
+crtk book cover -i books/tactics.book.toml --pdf dist/tactics.pdf -o dist/tactics-cover.pdf --binding paperback --interior white-bw
+```
+
+For richer annotated studies, reach for `book study`. For a quick diagram sheet off a FEN list or PGN, `book pdf` is the short path:
+
+```bash
+crtk book pdf -i seeds.txt -o dump/sheet.pdf --title "Training Sheet"
+crtk book pdf --pgn games.pgn -o dump/games.pdf --page-size a5 --diagrams-per-row 1
+```
+
+## Batch Analysis
+
+A thousand positions analyzed one process-launch at a time is a thousand cold starts. The JSONL batch commands keep the engine warm across the whole list, which is why they're the fastest path for a FEN file:
+
+```bash
+crtk engine analyze-batch -i positions.txt --multipv 3 --max-duration 2s -o out/analysis.jsonl
+crtk engine bestmove-batch -i positions.txt --max-nodes 1000000 -o out/bestmoves.jsonl
+```
+
+Both emit one JSON object per line — pass `--json` for a single array instead. To put two engines or protocols on the same positions and see where they disagree, use `engine compare`:
+
+```bash
+crtk engine compare -i positions.txt --left-protocol sf.toml --right-protocol lc0.toml --max-duration 2s --jsonl
+```
+
+### Script Many Commands With `batch run`
+
+When a pipeline mixes everything — convert, mine, export, publish — you don't want it scattered across shell history. Put one `crtk` command per line in a file and let `batch run` drive it:
+
+```bash
+crtk batch run -i pipeline.crtk --keep-going
+```
+
+`pipeline.crtk` is a UTF-8 file, one command per non-comment line:
+
+```text
+# Build a tactics book end to end
+puzzle mine --input games.pgn --output dump/pgn.json --max-duration 30s
+record stats -i dump/pgn.puzzles.json
+record dataset classifier -i dump/pgn.puzzles.json -i dump/pgn.nonpuzzles.json -o training/classifier/fens
+book collection -i dump/pgn.puzzles.json -o books/tactics.book.toml --pdf-output dist/tactics.pdf --binding paperback --interior white-bw
+```
+
+`--keep-going` presses on after a command exits non-zero, `--quiet` drops the command echo, and `--stdin` reads the script from standard input. A whole research run, captured in one file you can rerun next month and trust to do the same thing.
+
+## See Also
+
+- [Command Reference](command-reference.md) — every area, action, and flag.
+- [Command Cheatsheet](command-cheatsheet.md) — terse one-liners by task.
+- [Getting Started](getting-started.md) — install and first run.
+- [Use Cases](use-cases.md) — deeper puzzle-mining and dataset workflows.
+- [Workbench](workbench.md) — drive all of the above from the desktop GUI.
