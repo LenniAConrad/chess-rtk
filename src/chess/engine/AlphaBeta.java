@@ -895,7 +895,7 @@ public final class AlphaBeta implements AutoCloseable {
         MoveList legalMoves = null;
         boolean inCheck = position.inCheck();
         if (inCheck) {
-            legalMoves = position.legalMoves();
+            legalMoves = context.legalMoves(position, true);
             if (legalMoves.isEmpty()) {
                 return NegamaxSetup.resolved(terminalScore(position, ply));
             }
@@ -941,7 +941,7 @@ public final class AlphaBeta implements AutoCloseable {
         }
 
         if (legalMoves == null) {
-            legalMoves = position.legalMoves();
+            legalMoves = context.legalMoves(position, false);
         }
         if (legalMoves.isEmpty()) {
             return NegamaxSetup.resolved(terminalScore(position, ply));
@@ -1572,7 +1572,7 @@ public final class AlphaBeta implements AutoCloseable {
             return QuiescenceSetup.resolved(0);
         }
         if (inCheck) {
-            MoveList legalMoves = position.legalMoves();
+            MoveList legalMoves = context.legalMoves(position, true);
             if (legalMoves.isEmpty()) {
                 return QuiescenceSetup.resolved(terminalScore(position, ply));
             }
@@ -1594,7 +1594,7 @@ public final class AlphaBeta implements AutoCloseable {
             }
             return QuiescenceSetup.resolved(Math.max(alpha, standPat));
         }
-        MoveList legalMoves = position.legalMoves();
+        MoveList legalMoves = context.legalMoves(position, false);
         if (legalMoves.isEmpty()) {
             return QuiescenceSetup.resolved(0);
         }
@@ -2495,6 +2495,24 @@ public final class AlphaBeta implements AutoCloseable {
         private final EvalCache evalCache = new EvalCache(EVAL_CACHE_ENTRIES);
 
         /**
+         * Reusable pseudo-legal scratch list for allocation-free move generation.
+         * Safe as a single shared buffer because each generated list is consumed
+         * (copied out by ordering) within the same node before any recursion.
+         */
+        private final MoveList genPseudo = new MoveList();
+
+        /**
+         * Reusable legal-move output list, paired with {@link #genPseudo}.
+         */
+        private final MoveList genLegal = new MoveList();
+
+        /**
+         * Reusable undo state for the transient play/undo legality checks inside
+         * move generation (distinct from the per-ply search {@link #states}).
+         */
+        private final Position.State genState = new Position.State();
+
+        /**
          * Killer quiet moves indexed by ply, with two slots per ply.
          */
         private final short[][] killers;
@@ -3037,6 +3055,20 @@ public final class AlphaBeta implements AutoCloseable {
          */
         private Position.State state(int ply) {
             return states[ply];
+        }
+
+        /**
+         * Generates legal moves into the shared scratch lists (allocation-free),
+         * reusing a known check status to skip a redundant king-attack scan. The
+         * returned list is valid only until the next generation in this context,
+         * which is always after the caller has consumed it.
+         *
+         * @param position position to generate for
+         * @param inCheck whether the side to move is in check
+         * @return the shared legal-move list
+         */
+        private MoveList legalMoves(Position position, boolean inCheck) {
+            return position.legalMoves(genPseudo, genLegal, genState, inCheck);
         }
 
         /**

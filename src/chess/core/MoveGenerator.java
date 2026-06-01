@@ -131,6 +131,29 @@ public final class MoveGenerator {
         if (position == null) {
             throw new IllegalArgumentException("position == null");
         }
+        generateLegalMoves(position, pseudo, legal, state, isKingAttacked(position, position.isWhiteToMove()));
+    }
+
+    /**
+     * Generates all legal moves into caller-owned scratch with a precomputed
+     * check status, so a caller that already knows whether the side to move is in
+     * check does not pay a second king-attack scan.
+     *
+     * @param position position
+     * @param pseudo caller-owned pseudo-legal move scratch list
+     * @param legal caller-owned legal move output list
+     * @param state caller-owned undo state for legality validation
+     * @param inCheck whether the side to move is currently in check
+     */
+    public static void generateLegalMoves(
+            Position position,
+            MoveList pseudo,
+            MoveList legal,
+            Position.State state,
+            boolean inCheck) {
+        if (position == null) {
+            throw new IllegalArgumentException("position == null");
+        }
         if (pseudo == null) {
             throw new IllegalArgumentException("pseudo == null");
         }
@@ -143,7 +166,6 @@ public final class MoveGenerator {
         generatePseudoLegalMoves(position, pseudo);
         legal.clear();
         boolean white = position.isWhiteToMove();
-        boolean inCheck = isKingAttacked(position, white);
         long pinned = inCheck ? 0L : pinnedPieces(position, white);
         int king = position.kingSquare(white);
         int enPassant = position.enPassantSquare();

@@ -564,6 +564,23 @@ public class Position implements Comparable<Position> {
     }
 
     /**
+     * Generates legal moves into caller-owned scratch with a precomputed check
+     * status, returning the filled {@code legal} list. Lets a search hot path
+     * avoid per-node {@link MoveList}/{@link State} allocation and a redundant
+     * king-attack scan.
+     *
+     * @param pseudo caller-owned pseudo-legal scratch list
+     * @param legal caller-owned legal output list (returned)
+     * @param state caller-owned undo state for legality validation
+     * @param inCheck whether the side to move is currently in check
+     * @return the {@code legal} list, now filled
+     */
+    public MoveList legalMoves(MoveList pseudo, MoveList legal, State state, boolean inCheck) {
+        MoveGenerator.generateLegalMoves(this, pseudo, legal, state, inCheck);
+        return legal;
+    }
+
+    /**
      * Generates pseudo-legal moves for the side to move.
      *
      * <p>
