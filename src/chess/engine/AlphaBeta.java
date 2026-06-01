@@ -364,14 +364,24 @@ public final class AlphaBeta implements AutoCloseable {
     }
 
     /**
-     * Default enabled features for production searches. SEE pruning is a measured
-     * strength gain (~+70 Elo in self-play) and repetition detection is a
-     * correctness fix that measured strength-neutral. Check extensions are
-     * deliberately excluded: they measured net-negative at this engine's budgets
-     * (they remain available through the three-argument constructor for tuning).
+     * Default enabled features for production searches — the strongest measured
+     * configuration. SEE pruning + in-search repetition are the original shipped
+     * gains; LMR table, the improving heuristic (which also enables the eval-scaled
+     * null-move reduction), continuation history, and check extensions were each
+     * measured as net positive at real time controls (the full set scored ~+83 Elo
+     * single-threaded and ~+193 with Lazy SMP vs SEE+repetition alone, 100ms
+     * classical self-play). Features that measured neutral/negative (history malus,
+     * SEE-LMR, IIR, razoring, singular extensions, correction history) stay off but
+     * remain available through the three-argument constructor for tuning.
      */
     private static final Set<Feature> DEFAULT_FEATURES =
-            EnumSet.of(Feature.SEE_PRUNING, Feature.SEARCH_REPETITION);
+            EnumSet.of(
+                    Feature.SEE_PRUNING,
+                    Feature.SEARCH_REPETITION,
+                    Feature.LMR_TABLE,
+                    Feature.IMPROVING,
+                    Feature.CONT_HISTORY,
+                    Feature.CHECK_EXTENSION);
 
     /**
      * Enabled search features; see {@link Feature}.
