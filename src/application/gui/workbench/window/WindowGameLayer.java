@@ -76,6 +76,12 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
         gameModel.append(before, move, next);
         showGamePly(gameModel.currentPly());
         SoundService.play(cue);
+        // In Play mode, let the session react to the move just applied (human
+        // or engine) and schedule the engine reply or end the game. Outside a
+        // Play game this is a no-op. The engine reply re-enters this same method.
+        if (playSession != null && playSession.isActive() && currentPosition != null) {
+            playSession.onMovePlayed(currentPosition.copy());
+        }
     }
 
     /**
@@ -134,6 +140,7 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
      *
      * @param ply ply to show
      */
+    @Override
     protected void showGamePly(int ply) {
         List<Short> previousPath = gameModel.currentPath();
         short previousLastMove = gameModel.currentLastMove();
@@ -148,6 +155,9 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
      * @param row table row
      */
     protected void showGameRow(int row) {
+        if (playPositionLocked) {
+            return;
+        }
         List<Short> previousPath = gameModel.currentPath();
         short previousLastMove = gameModel.currentLastMove();
         gameModel.jumpToRow(row);
@@ -160,6 +170,9 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
      * @param delta ply delta
      */
     protected void navigateGame(int delta) {
+        if (playPositionLocked) {
+            return;
+        }
         List<Short> previousPath = gameModel.currentPath();
         short previousLastMove = gameModel.currentLastMove();
         if (gameModel.navigate(delta)) {

@@ -331,9 +331,9 @@ public final class CommandRunner {
     }
 
     /**
-     * Renders a CRTK argument list as a multiline command preview. The output
-     * stays shell-friendly on Unix-like systems while keeping value-taking
-     * options on the same line as their value.
+     * Renders a CRTK argument list as a multiline command preview. The launcher
+     * and command path stay on the first line, while options are split onto
+     * continued lines with value-taking options kept with their values.
      *
      * @param args CRTK arguments
      * @return multiline display command
@@ -343,13 +343,21 @@ public final class CommandRunner {
         withLauncher.add("crtk");
         withLauncher.addAll(args);
         StringBuilder out = new StringBuilder(withLauncher.size() * 20);
+        int i = 0;
         int line = 0;
-        for (int i = 0; i < withLauncher.size();) {
-            List<String> segment = previewSegment(withLauncher, i);
-            if (line > 0) {
-                out.append("  ");
+        if (!withLauncher.isEmpty()) {
+            List<String> commandPath = previewCommandPath(withLauncher);
+            out.append(CommandLine.join(commandPath));
+            i = commandPath.size();
+            line++;
+            if (i < withLauncher.size()) {
+                out.append(" \\");
+                out.append(System.lineSeparator());
             }
-            out.append(CommandLine.join(segment));
+        }
+        while (i < withLauncher.size()) {
+            List<String> segment = previewSegment(withLauncher, i);
+            out.append("  ").append(CommandLine.join(segment));
             i += segment.size();
             if (i < withLauncher.size()) {
                 out.append(" \\");
@@ -358,6 +366,21 @@ public final class CommandRunner {
             line++;
         }
         return out.toString();
+    }
+
+    /**
+     * Returns the launcher plus leading command path tokens before the first
+     * option.
+     *
+     * @param tokens launcher and CRTK arguments
+     * @return command-path display segment
+     */
+    private static List<String> previewCommandPath(List<String> tokens) {
+        int end = 1;
+        while (end < tokens.size() && !isOptionToken(tokens.get(end))) {
+            end++;
+        }
+        return List.copyOf(tokens.subList(0, end));
     }
 
     /**

@@ -21,6 +21,10 @@ import application.gui.workbench.game.PuzzlePanel;
 import application.gui.workbench.layout.EditorSplitArea;
 import application.gui.workbench.mcts.MctsPanel;
 import application.gui.workbench.mcts.MctsSession;
+import application.gui.workbench.play.MctsOpponent;
+import application.gui.workbench.play.PlayPanel;
+import application.gui.workbench.play.PlaySession;
+import application.gui.workbench.play.StrengthModel;
 import application.gui.workbench.network.NetworkPanel;
 import application.gui.workbench.publish.PublishingPanel;
 import application.gui.workbench.publish.ReportPanel;
@@ -149,6 +153,11 @@ public abstract class WindowBase extends JFrame {
     protected static final int TAB_PUZZLES = 10;
 
     /**
+     * Play-vs-engine tab index.
+     */
+    protected static final int TAB_PLAY = 11;
+
+    /**
      * Board view.
      */
     protected final BoardPanel board = new BoardPanel();
@@ -187,6 +196,21 @@ public abstract class WindowBase extends JFrame {
      * All materialized MCTS inspection panels, including duplicates.
      */
     protected final List<MctsPanel> mctsPanels = new ArrayList<>();
+
+    /**
+     * Human-versus-engine game controller, created with the concrete window.
+     */
+    protected PlaySession playSession;
+
+    /**
+     * Canonical Play-vs-engine setup panel.
+     */
+    protected PlayPanel playPanel;
+
+    /**
+     * Whether position-entry controls are locked because a Play game is active.
+     */
+    protected boolean playPositionLocked;
 
     /**
      * Shared, observable session model the Dashboard tab renders from.
@@ -534,6 +558,46 @@ public abstract class WindowBase extends JFrame {
      */
     protected MctsPanel createDetachedMctsPanel() {
         return createMctsPanelInstance(false);
+    }
+
+    /**
+     * Returns the Play-vs-engine setup panel, creating it on first use.
+     *
+     * @return play panel
+     */
+    protected PlayPanel playPanel() {
+        if (playPanel == null) {
+            playPanel = new PlayPanel(playSession(), this::currentFen);
+        }
+        return playPanel;
+    }
+
+    /**
+     * Returns the shared Play-vs-engine session, creating it on first use. The
+     * opponent provider maps the selected backend to a concrete engine.
+     *
+     * @return play session
+     */
+    protected PlaySession playSession() {
+        if (playSession == null) {
+            playSession = new PlaySession(new WindowPlayHost(this), new StrengthModel(),
+                    WindowBase::createOpponent);
+        }
+        return playSession;
+    }
+
+    /**
+     * Creates an opponent backend for the Play session from the selected search
+     * algorithm and evaluation network.
+     *
+     * @param config selected search + network
+     * @return a fresh opponent
+     */
+    private static application.gui.workbench.play.Opponent createOpponent(PlaySession.Config config) {
+        return switch (config.search()) {
+            case MCTS -> new MctsOpponent(config.network());
+            default -> new application.gui.workbench.play.AlphaBetaOpponent(config.network());
+        };
     }
 
     /**
@@ -1126,6 +1190,27 @@ public abstract class WindowBase extends JFrame {
      * @return detached MCTS tab
      */
     protected abstract JComponent createDetachedMctsTab();
+
+    /**
+     * Creates the Play-vs-engine tab.
+     *
+     * @return play tab
+     */
+    protected abstract JComponent createPlayTab();
+
+    /**
+     * Creates a detached Play-vs-engine tab instance.
+     *
+     * @return detached play tab
+     */
+    protected abstract JComponent createDetachedPlayTab();
+
+    /**
+     * Locks or unlocks position-entry controls while a Play game is active.
+     *
+     * @param locked true to lock position entry
+     */
+    protected abstract void setPlayPositionLocked(boolean locked);
 
     /**
      * Creates the Puzzles tab.

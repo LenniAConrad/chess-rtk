@@ -22,6 +22,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Consumer;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -224,7 +225,7 @@ public final class CommandForm extends JPanel {
     public void resetDefaults(TemplateContext context) {
         for (Field field : fields) {
             field.enabled = field.option.enabledByDefault();
-            field.value = field.option.initialValue(context);
+            setDynamicDefault(field, field.option.initialValue(context));
         }
         syncControls();
     }
@@ -251,12 +252,23 @@ public final class CommandForm extends JPanel {
             if (field.option.source() == ValueSource.STATIC) {
                 continue;
             }
+            String fresh = field.option.initialValue(context);
             if (field.editor != null && field.editor.isFocusOwner()) {
+                field.dynamicValue = fresh;
+                if (valuesEqual(field.value, fresh)) {
+                    field.manuallyOverridden = false;
+                }
                 continue;
             }
-            String fresh = field.option.initialValue(context);
+            if (field.manuallyOverridden) {
+                field.dynamicValue = fresh;
+                if (valuesEqual(field.value, fresh)) {
+                    field.manuallyOverridden = false;
+                }
+                continue;
+            }
             if (!fresh.equals(field.value)) {
-                field.value = fresh;
+                setDynamicDefault(field, fresh);
                 changed = true;
             }
         }
@@ -636,7 +648,10 @@ public final class CommandForm extends JPanel {
         field.defaultBorder = text.getBorder();
         Ui.onTextChange(() -> {
             field.value = text.getText();
-            autoEnableOnEdit(field);
+            if (!rebuilding) {
+                markManualOverride(field);
+                autoEnableOnEdit(field);
+            }
             updateFieldValidity(field);
             fireChange();
         }, text);
@@ -669,7 +684,10 @@ public final class CommandForm extends JPanel {
         combo.addActionListener(event -> {
             Object selected = combo.getSelectedItem();
             field.value = selected == null ? "" : selected.toString();
-            autoEnableOnEdit(field);
+            if (!rebuilding) {
+                markManualOverride(field);
+                autoEnableOnEdit(field);
+            }
             fireChange();
         });
         return combo;
@@ -701,6 +719,43 @@ public final class CommandForm extends JPanel {
             field.enabled = true;
             field.toggle.setSelected(true);
         }
+    }
+
+    /**
+     * Marks a dynamic field as user-overridden once it no longer matches the
+     * latest shared context value.
+     *
+     * @param field option field
+     */
+    private static void markManualOverride(Field field) {
+        if (field.option.source() == ValueSource.STATIC) {
+            return;
+        }
+        field.manuallyOverridden = !valuesEqual(field.value, field.dynamicValue);
+    }
+
+    /**
+     * Applies a dynamic context value as the field's current default.
+     *
+     * @param field option field
+     * @param value dynamic value
+     */
+    private static void setDynamicDefault(Field field, String value) {
+        String normalized = value == null ? "" : value;
+        field.value = normalized;
+        field.dynamicValue = normalized;
+        field.manuallyOverridden = false;
+    }
+
+    /**
+     * Compares option values after normalizing null to the empty string.
+     *
+     * @param first first value
+     * @param second second value
+     * @return true when equal
+     */
+    private static boolean valuesEqual(String first, String second) {
+        return Objects.equals(first == null ? "" : first, second == null ? "" : second);
     }
 
     /**
@@ -1045,6 +1100,18 @@ public final class CommandForm extends JPanel {
         private String value;
 
         /**
+         * Latest value supplied by the shared workbench context for dynamic
+         * options.
+         */
+        private String dynamicValue;
+
+        /**
+         * Whether a dynamic value has been edited independently of the shared
+         * workbench context.
+         */
+        private boolean manuallyOverridden;
+
+        /**
          * Whether the current value is valid.
          */
         private boolean valid = true;
@@ -1080,7 +1147,7 @@ public final class CommandForm extends JPanel {
         Field(CommandOption option, boolean enabled, String value) {
             this.option = option;
             this.enabled = enabled;
-            this.value = value == null ? "" : value;
+            setDynamicDefault(this, value);
         }
     }
 

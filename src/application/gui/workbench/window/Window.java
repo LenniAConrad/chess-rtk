@@ -2,6 +2,7 @@ package application.gui.workbench.window;
 
 import application.gui.workbench.game.EngineEval;
 import application.gui.workbench.game.FenInput;
+import application.gui.workbench.ui.AppIcon;
 import application.gui.workbench.ui.Theme;
 import chess.uci.Output;
 import java.awt.Component;
@@ -28,7 +29,8 @@ public final class Window extends WindowCommandLayer {
      * @param whiteDown true when white is rendered at the bottom
      */
     public Window(String initialFen, boolean whiteDown) {
-        setTitle("Workbench");
+        setTitle(AppIcon.DESKTOP_APP_NAME);
+        AppIcon.applyTo(this);
         loadThemeSetting();
         Theme.install();
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);

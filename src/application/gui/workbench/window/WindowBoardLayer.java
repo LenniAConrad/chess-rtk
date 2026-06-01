@@ -96,6 +96,10 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      */
     protected JComponent createBoardTab() {
         board.setMoveHandler(this::playMove);
+        // In Play mode, only let the human pick up a piece when it is their turn
+        // and the engine is idle. Outside a Play game this always allows input.
+        board.setDragStartFilter(context ->
+                playSession == null || playSession.isHumanInputAllowed());
         evalBar.setToolTipText("Engine evaluation");
 
         // The eval bar is a child of the board panel so it paints inside the
@@ -406,7 +410,8 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
              */
             @Override
             public void mouseClicked(MouseEvent event) {
-                if (event.getClickCount() == 2) {
+                if (event.getClickCount() == 2
+                        && (playSession == null || playSession.isHumanInputAllowed())) {
                     int row = movesTable.getSelectedRow();
                     if (row >= 0 && row < visibleMoves.length) {
                         playMove(visibleMoves[row]);
@@ -503,8 +508,28 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * @param fen validated FEN
      */
     protected void applyBoardEditorFen(String fen) {
+        if (playPositionLocked) {
+            toast(application.gui.workbench.ui.Toast.Kind.WARNING,
+                    "Finish or resign the game before changing the position");
+            return;
+        }
         startNewGame(fen);
         appendConsole("Board editor applied " + fen + "\n");
+    }
+
+    /**
+     * Locks or unlocks position-entry controls while a Play game is active so
+     * the displayed position cannot drift from the one the engine is playing.
+     *
+     * @param locked true to lock entry controls
+     */
+    @Override
+    protected void setPlayPositionLocked(boolean locked) {
+        playPositionLocked = locked;
+        fenField.setEnabled(!locked);
+        if (boardEditorPanel != null) {
+            boardEditorPanel.setEnabled(!locked);
+        }
     }
 
     /**
@@ -902,8 +927,8 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         field.setEditable(false);
         field.setLineWrap(false);
         field.setWrapStyleWord(false);
-        field.setRows(3);
-        field.setColumns(88);
+        field.setRows(1);
+        field.setColumns(72);
     }
 
     /**
@@ -1007,6 +1032,30 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      */
     protected JComponent createDetachedMctsTab() {
         return createDetachedMctsPanel();
+    }
+
+    /**
+     * Creates the Play-vs-engine tab.
+     *
+     * @return play tab
+     */
+    @Override
+    protected JComponent createPlayTab() {
+        return playPanel();
+    }
+
+    /**
+     * Creates a Play-vs-engine tab. Play is registered single-instance (no
+     * duplicate factory), so this is not currently reached; it returns the
+     * canonical play panel via the lazy session getter rather than binding a
+     * second panel to the shared session (which would NPE on a null session and
+     * drive the main board). Genuine per-tab Play needs its own session + host.
+     *
+     * @return play tab
+     */
+    @Override
+    protected JComponent createDetachedPlayTab() {
+        return playPanel();
     }
 
     /**

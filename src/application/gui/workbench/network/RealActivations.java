@@ -455,8 +455,12 @@ public final class RealActivations {
                     bt4LoadError = "model file missing: " + BT4_PATH;
                 } else {
                     report(progress, LABEL_BT4, Phase.LOADING_MODEL, BT4_PATH);
-                    System.setProperty("crtk.lc0.bt4.backend", "cpu");
-                    bt4Network = chess.nn.lc0.bt4.Network.load(BT4_PATH);
+                    // The visualizer needs intermediate tensors. Those are
+                    // exposed by the Java CPU path; GPU backends only return
+                    // final policy/value outputs. Use the dedicated CPU loader
+                    // so we never mutate JVM-wide backend selection (which would
+                    // otherwise pin later BT4 search/engine loads to CPU too).
+                    bt4Network = chess.nn.lc0.bt4.Network.loadCpu(BT4_PATH);
                 }
             }
             if (bt4Network == null) {
@@ -505,7 +509,10 @@ public final class RealActivations {
                     otisLoadError = "model file missing: " + OTIS_PATH;
                 } else {
                     report(progress, LABEL_OTIS, Phase.LOADING_MODEL, OTIS_PATH);
-                    otisModel = chess.nn.otis.Model.load(OTIS_PATH);
+                    // The visualizer needs intermediate tensors. Those are
+                    // exposed by the Java CPU path; GPU backends only return
+                    // final policy/value outputs.
+                    otisModel = chess.nn.otis.Model.loadCpu(OTIS_PATH);
                 }
             }
             if (otisModel == null) {

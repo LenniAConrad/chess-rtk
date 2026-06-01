@@ -452,6 +452,9 @@ public abstract class WindowLifecycle extends WindowBase {
         }
         mctsPanels.clear();
         mctsSession.close();
+        if (playSession != null) {
+            playSession.dispose();
+        }
         super.dispose();
     }
 
@@ -916,6 +919,12 @@ public abstract class WindowLifecycle extends WindowBase {
                 () -> new LazyPanel("MCTS", this::createDetachedMctsTab));
         tabs.addPanel("Puzzles", new LazyPanel("Puzzles", this::createPuzzleTab),
                 () -> new LazyPanel("Puzzles", this::createDetachedPuzzleTab));
+        // Play is single-instance: a PlaySession owns one game, one board, and a
+        // single listener, so a duplicate Play tab cannot coexist (it would fight
+        // over the session and drive the main board). Register without a duplicate
+        // factory, like Commands/Batch. Per-tab Play (own session+host) is future
+        // work; see createDetachedPlayTab.
+        tabs.addPanel("Play", new LazyPanel("Play", this::createPlayTab));
         tabs.install();
         tabs.setSelectionListener(index -> onWorkbenchTabVisibilityChanged());
         tabs.select(TAB_DASHBOARD);

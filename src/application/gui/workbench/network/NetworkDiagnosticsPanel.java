@@ -349,8 +349,24 @@ public final class NetworkDiagnosticsPanel extends JPanel {
                 safeCount(() -> chess.nn.lc0.cnn.rocm.Support.deviceCount())));
         out.add(gpu("LC0 oneAPI", safeLoaded(() -> chess.nn.lc0.cnn.oneapi.Support.isLoaded()),
                 safeCount(() -> chess.nn.lc0.cnn.oneapi.Support.deviceCount())));
+        out.add(gpu("BT4 CUDA", safeLoaded(() -> chess.nn.lc0.bt4.cuda.Support.isLoaded()),
+                safeCount(() -> chess.nn.lc0.bt4.cuda.Support.deviceCount())));
+        out.add(gpu("BT4 ROCm", safeLoaded(() -> chess.nn.lc0.bt4.rocm.Support.isLoaded()),
+                safeCount(() -> chess.nn.lc0.bt4.rocm.Support.deviceCount())));
+        out.add(gpu("BT4 oneAPI", safeLoaded(() -> chess.nn.lc0.bt4.oneapi.Support.isLoaded()),
+                safeCount(() -> chess.nn.lc0.bt4.oneapi.Support.deviceCount())));
+        out.add(gpu("T5 CUDA", safeLoaded(() -> chess.nn.t5.cuda.Support.isLoaded()),
+                safeCount(() -> chess.nn.t5.cuda.Support.deviceCount())));
+        out.add(gpu("T5 ROCm", safeLoaded(() -> chess.nn.t5.rocm.Support.isLoaded()),
+                safeCount(() -> chess.nn.t5.rocm.Support.deviceCount())));
         out.add(gpu("T5 oneAPI", safeLoaded(() -> chess.nn.t5.oneapi.Support.isLoaded()),
                 safeCount(() -> chess.nn.t5.oneapi.Support.deviceCount())));
+        out.add(gpu("OTIS CUDA", safeLoaded(() -> chess.nn.otis.cuda.Support.isLoaded()),
+                safeCount(() -> chess.nn.otis.cuda.Support.deviceCount())));
+        out.add(gpu("OTIS ROCm", safeLoaded(() -> chess.nn.otis.rocm.Support.isLoaded()),
+                safeCount(() -> chess.nn.otis.rocm.Support.deviceCount())));
+        out.add(gpu("OTIS oneAPI", safeLoaded(() -> chess.nn.otis.oneapi.Support.isLoaded()),
+                safeCount(() -> chess.nn.otis.oneapi.Support.deviceCount())));
         return out;
     }
 

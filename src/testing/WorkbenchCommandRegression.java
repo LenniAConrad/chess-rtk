@@ -2,6 +2,7 @@ package testing;
 
 import static testing.WorkbenchTestSupport.*;
 
+import java.awt.Component;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -42,6 +43,8 @@ final class WorkbenchCommandRegression {
         testCommandFormMovesHelperCopyToTooltips();
         testDynamicOptionRefresh();
         testDynamicOptionRefreshSkipsUnchangedValues();
+        testCommandFormRefreshesUneditedDynamicDepth();
+        testCommandFormPreservesManualDynamicDepth();
         testEngineTemplateContextFeedsExternalConfigOptions();
         testEngineBatchTasksUseExternalConfigOptions();
         testBatchPanelStartsWithEmptyInputAndSharedDuration();
@@ -52,7 +55,7 @@ final class WorkbenchCommandRegression {
         testRunArtifactsDesktopOpenHandlesRuntimeFailures();
         testCommandLineTokenizerPreservesQuotedArguments();
         testCommandPreviewQuoting();
-        testCommandPreviewHeightCapsAtSixRows();
+        testCommandPreviewHeightCapsAtFourRows();
         testPublishingPreviewFenCompaction();
         testPublishingVisualPreviewPages();
         testPublishingVisualPreviewPaintsTaskLayouts();
@@ -235,6 +238,51 @@ final class WorkbenchCommandRegression {
         invoke(options, "refreshDynamicValues", new Class<?>[] { type("CommandTemplates$TemplateContext") },
                 templateContext("8/8/8/8/8/8/K7/7k b - - 1 1", "2s", "4", "3", "1"));
         assertTrue(events[0] > 0, "changed dynamic values still fire events");
+    }
+
+    /**
+     * Verifies unedited command-form depth fields keep following the shared
+     * workbench depth context.
+     */
+    private static void testCommandFormRefreshesUneditedDynamicDepth() {
+        JComponent form = (JComponent) construct(type("CommandForm"), new Class<?>[0]);
+        invoke(form, "setTemplate",
+                new Class<?>[] { type("CommandTemplates$CommandTemplate"),
+                        type("CommandTemplates$TemplateContext") },
+                template("Perft"), templateContext(START_FEN, "2s", "4", "3", "1"));
+
+        invoke(form, "refreshDynamicValues", new Class<?>[] { type("CommandTemplates$TemplateContext") },
+                templateContext(START_FEN, "2s", "6", "3", "1"));
+        assertEquals("6", valueAfterFlag(formArgs(form), "--depth"),
+                "unedited perft depth follows shared context");
+    }
+
+    /**
+     * Verifies manually edited command-form depth fields are not overwritten by
+     * later preview refreshes that still carry the old shared depth.
+     */
+    private static void testCommandFormPreservesManualDynamicDepth() {
+        JComponent form = (JComponent) construct(type("CommandForm"), new Class<?>[0]);
+        invoke(form, "setTemplate",
+                new Class<?>[] { type("CommandTemplates$CommandTemplate"),
+                        type("CommandTemplates$TemplateContext") },
+                template("Perft"), templateContext(START_FEN, "2s", "4", "3", "1"));
+
+        JTextField depth = textFieldWithTooltip(form, "Search or perft depth");
+        depth.setText("6");
+        assertEquals("6", valueAfterFlag(formArgs(form), "--depth"),
+                "edited perft depth is reflected in args");
+
+        invoke(form, "refreshDynamicValues", new Class<?>[] { type("CommandTemplates$TemplateContext") },
+                templateContext(START_FEN, "2s", "4", "3", "1"));
+        assertEquals("6", valueAfterFlag(formArgs(form), "--depth"),
+                "edited perft depth survives stale shared context refresh");
+
+        depth.setText("4");
+        invoke(form, "refreshDynamicValues", new Class<?>[] { type("CommandTemplates$TemplateContext") },
+                templateContext(START_FEN, "2s", "7", "3", "1"));
+        assertEquals("7", valueAfterFlag(formArgs(form), "--depth"),
+                "matching shared depth resumes dynamic refreshes");
     }
 
     /**
@@ -479,6 +527,41 @@ final class WorkbenchCommandRegression {
     }
 
     /**
+     * Returns command args from a command form.
+     *
+     * @param form command form
+     * @return command args
+     */
+    private static List<String> formArgs(JComponent form) {
+        return stringList(invoke(form, "args", new Class<?>[0]));
+    }
+
+    /**
+     * Finds a text field by tooltip fragment.
+     *
+     * @param component root component
+     * @param tooltip tooltip fragment
+     * @return matching text field
+     */
+    private static JTextField textFieldWithTooltip(Component component, String tooltip) {
+        if (component instanceof JTextField field
+                && field.getToolTipText() != null
+                && field.getToolTipText().contains(tooltip)) {
+            return field;
+        }
+        if (component instanceof java.awt.Container container) {
+            for (Component child : container.getComponents()) {
+                try {
+                    return textFieldWithTooltip(child, tooltip);
+                } catch (AssertionError ex) {
+                    // Continue searching siblings.
+                }
+            }
+        }
+        throw new AssertionError("missing text field with tooltip: " + tooltip);
+    }
+
+    /**
      * Recursively collects runnable CLI paths and aliases.
      *
      * @param command current command node
@@ -579,28 +662,28 @@ final class WorkbenchCommandRegression {
         assertEquals("crtk book render --title \"A B\"", command, "quoted command preview");
         String block = (String) invokeStatic(type("CommandRunner"), "displayCommandBlock",
                 new Class<?>[] { List.class }, List.of("book", "render", "--title", "A B"));
-        assertEquals("crtk \\\n  book \\\n  render \\\n  --title \"A B\"", block,
+        assertEquals("crtk book render \\\n  --title \"A B\"", block,
                 "multiline command preview");
         String fenBlock = (String) invokeStatic(type("CommandRunner"), "displayCommandBlock",
                 new Class<?>[] { List.class }, List.of("move", "list", "--fen", START_FEN, "--format", "both"));
-        assertEquals("crtk \\\n  move \\\n  list \\\n  --fen \"" + START_FEN + "\" \\\n  --format both",
+        assertEquals("crtk move list \\\n  --fen \"" + START_FEN + "\" \\\n  --format both",
                 fenBlock, "value-taking options stay with their values");
         String flagBlock = (String) invokeStatic(type("CommandRunner"), "displayCommandBlock",
                 new Class<?>[] { List.class }, List.of("move", "after", "--json", "e2e4"));
-        assertEquals("crtk \\\n  move \\\n  after \\\n  --json \\\n  e2e4", flagBlock,
+        assertEquals("crtk move after \\\n  --json \\\n  e2e4", flagBlock,
                 "boolean flags do not absorb trailing positional arguments");
     }
 
     /**
-     * Verifies the command preview grows for short commands but caps tall
+     * Verifies the command preview stays compact for short commands but caps tall
      * commands so the scroll pane handles overflow.
      */
-    private static void testCommandPreviewHeightCapsAtSixRows() {
-        String shortCommand = "crtk \\\n  move \\\n  list";
-        assertEquals(Integer.valueOf(3), invokeStatic(type("WindowCommandLayer"), "previewRows",
+    private static void testCommandPreviewHeightCapsAtFourRows() {
+        String shortCommand = "crtk move list";
+        assertEquals(Integer.valueOf(1), invokeStatic(type("WindowCommandLayer"), "previewRows",
                 new Class<?>[] { String.class }, shortCommand), "short preview keeps compact minimum");
         String tallCommand = String.join("\n", List.of("crtk", "a", "b", "c", "d", "e", "f", "g"));
-        assertEquals(Integer.valueOf(6), invokeStatic(type("WindowCommandLayer"), "previewRows",
-                new Class<?>[] { String.class }, tallCommand), "tall preview caps at six rows");
+        assertEquals(Integer.valueOf(4), invokeStatic(type("WindowCommandLayer"), "previewRows",
+                new Class<?>[] { String.class }, tallCommand), "tall preview caps at four rows");
     }
 }

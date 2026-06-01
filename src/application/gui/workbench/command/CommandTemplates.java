@@ -204,6 +204,9 @@ public final class CommandTemplates {
                         resultFormatChoice("table", false, "Compact table output"),
                         resultFormatChoice("stockfish", false, "Stockfish-compatible divide output"),
                         threadsOption(false),
+                        flag("--gpu", false, "Count on the GPU when a native backend is available "
+                                + "(node total; choose 'table' format for the full breakdown)"),
+                        opt("--split", "", false, "GPU CPU-expansion depth (advanced; blank = auto)"),
                         commonVerbose())),
     new CommandTemplate("Apply move", List.of("move", "after"), withTrailingArgument("e2e4",
                         positionOptions(

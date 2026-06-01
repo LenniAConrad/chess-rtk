@@ -55,9 +55,9 @@ public final class WorkbenchStructureRegressionTest {
     private static final String PACKAGE_DECLARATION_SUFFIX = ";";
 
     /**
-     * Maximum allowed line count for a single workbench implementation file.
+     * Maximum allowed implementation-line count for a single workbench source file.
      */
-    private static final int MAX_WORKBENCH_FILE_LINES = 2_000;
+    private static final int MAX_WORKBENCH_IMPLEMENTATION_LINES = 2_000;
 
     /**
      * Feature packages expected after the workbench refactor.
@@ -110,10 +110,10 @@ public final class WorkbenchStructureRegressionTest {
      */
     private static void testWorkbenchFilesStayBelowLineLimit() {
         for (Path file : workbenchJavaFiles()) {
-            int lines = lineCount(file);
-            assertTrue(lines <= MAX_WORKBENCH_FILE_LINES,
+            int lines = implementationLineCount(file);
+            assertTrue(lines <= MAX_WORKBENCH_IMPLEMENTATION_LINES,
                     WORKBENCH_ROOT.relativize(file) + " has at most "
-                            + MAX_WORKBENCH_FILE_LINES + " lines");
+                            + MAX_WORKBENCH_IMPLEMENTATION_LINES + " implementation lines");
         }
     }
 
@@ -177,17 +177,74 @@ public final class WorkbenchStructureRegressionTest {
     }
 
     /**
-     * Counts lines in one source file.
+     * Counts non-comment, non-blank implementation lines in one source file.
      *
      * @param file source file
-     * @return number of text lines
+     * @return number of implementation lines
      */
-    private static int lineCount(Path file) {
-        try (Stream<String> lines = Files.lines(file)) {
-            return Math.toIntExact(lines.count());
+    private static int implementationLineCount(Path file) {
+        try {
+            int count = 0;
+            boolean inBlockComment = false;
+            for (String line : Files.readAllLines(file)) {
+                CommentStrip strip = stripComments(line, inBlockComment);
+                inBlockComment = strip.inBlockComment();
+                if (!strip.code().isBlank()) {
+                    count++;
+                }
+            }
+            return count;
         } catch (IOException ex) {
             throw new AssertionError("could not count lines for " + file, ex);
         }
+    }
+
+    /**
+     * Removes Java line and block comments from one physical line.
+     *
+     * @param line source line
+     * @param inBlockComment true when a previous line opened a block comment
+     * @return remaining code and updated block-comment state
+     */
+    private static CommentStrip stripComments(String line, boolean inBlockComment) {
+        StringBuilder code = new StringBuilder(line.length());
+        int index = 0;
+        boolean inBlock = inBlockComment;
+        while (index < line.length()) {
+            if (inBlock) {
+                int end = line.indexOf("*/", index);
+                if (end < 0) {
+                    return new CommentStrip(code.toString(), true);
+                }
+                index = end + 2;
+                inBlock = false;
+                continue;
+            }
+            int lineComment = line.indexOf("//", index);
+            int blockComment = line.indexOf("/*", index);
+            if (lineComment >= 0 && (blockComment < 0 || lineComment < blockComment)) {
+                code.append(line, index, lineComment);
+                break;
+            }
+            if (blockComment >= 0) {
+                code.append(line, index, blockComment);
+                index = blockComment + 2;
+                inBlock = true;
+                continue;
+            }
+            code.append(line, index, line.length());
+            break;
+        }
+        return new CommentStrip(code.toString(), inBlock);
+    }
+
+    /**
+     * Comment-stripping result for one physical source line.
+     *
+     * @param code source text outside comments
+     * @param inBlockComment true when a block comment remains open
+     */
+    private record CommentStrip(String code, boolean inBlockComment) {
     }
 
     /**

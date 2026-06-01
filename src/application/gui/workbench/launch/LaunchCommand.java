@@ -1,5 +1,6 @@
 package application.gui.workbench.launch;
 
+import application.gui.workbench.ui.AppIcon;
 import application.gui.workbench.ui.RenderAcceleration;
 import application.gui.workbench.window.Window;
 import chess.core.Setup;
@@ -46,6 +47,7 @@ public final class LaunchCommand {
         }
 
         String initialFen = fen == null || fen.isBlank() ? Setup.getStandardStartFEN() : fen;
+        AppIcon.installDesktopProperties();
         RenderAcceleration.installForWorkbench();
         SwingUtilities.invokeLater(() -> new Window(initialFen, whiteDown));
     }

@@ -91,6 +91,11 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
      * Updates the current position from the FEN field.
      */
     protected void setPositionFromField() {
+        if (playPositionLocked) {
+            toast(application.gui.workbench.ui.Toast.Kind.WARNING,
+                    "Finish or resign the game before changing the position");
+            return;
+        }
         startNewGame(fenField.getText());
     }
 

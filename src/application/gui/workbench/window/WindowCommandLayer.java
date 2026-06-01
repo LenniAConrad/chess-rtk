@@ -222,7 +222,7 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
      */
     private static int previewRows(String text) {
         if (text == null || text.isBlank()) {
-            return 3;
+            return 1;
         }
         int lines = 1;
         for (int i = 0; i < text.length(); i++) {
@@ -230,7 +230,7 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
                 lines++;
             }
         }
-        return Math.max(3, Math.min(6, lines));
+        return Math.max(1, Math.min(4, lines));
     }
 
     /**

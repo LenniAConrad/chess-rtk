@@ -682,6 +682,9 @@ public final class Ui {
         field.setFont(Theme.font(13, Font.PLAIN));
         field.setHorizontalAlignment(SwingConstants.RIGHT);
         field.setMinimumSize(new Dimension(32, Theme.CONTROL_HEIGHT - 2));
+        if (field.getFormatter() instanceof NumberFormatter formatter) {
+            formatter.setCommitsOnValidEdit(true);
+        }
     }
 
     /**

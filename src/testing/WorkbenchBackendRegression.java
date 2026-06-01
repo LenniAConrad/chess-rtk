@@ -989,6 +989,7 @@ final class WorkbenchBackendRegression {
         Object provider = construct(type("RealActivations"), new Class<?>[0]);
         invoke(panel, "refresh", new Class<?>[] { type("RealActivations"), String.class },
                 provider, "NNUE");
+        assertNetworkBackendRows((JComponent) panel);
 
         JTextPane configPane = (JTextPane) field(panel, "configPane");
         String text = configPane.getText();
@@ -1008,6 +1009,21 @@ final class WorkbenchBackendRegression {
                 "diagnostics config comments are styled differently");
         assertPaintsOpaqueCorner((JComponent) panel, 380, 680,
                 "network diagnostics paints opaquely");
+    }
+
+    /**
+     * Verifies the runtime backend list covers every optional NN native backend
+     * family currently present in the codebase.
+     *
+     * @param panel diagnostics component
+     */
+    private static void assertNetworkBackendRows(JComponent panel) {
+        for (String label : List.of("Java2D", "LC0 CUDA", "LC0 ROCm", "LC0 oneAPI",
+                "BT4 CUDA", "BT4 ROCm", "BT4 oneAPI", "T5 CUDA", "T5 ROCm", "T5 oneAPI",
+                "OTIS CUDA", "OTIS ROCm", "OTIS oneAPI")) {
+            assertTrue(componentTreeHasLabelText(panel, label),
+                    "network diagnostics backend row exists: " + label);
+        }
     }
 
     /**

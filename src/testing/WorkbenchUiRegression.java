@@ -107,6 +107,7 @@ final class WorkbenchUiRegression {
         testDisabledComboUsesThemeBackground();
         testEnabledComboFillsArrowGutter();
         testSpinnerEditorUsesReadableInputColors();
+        testStyledSpinnerCommitsValidEdits();
         testSpinnerFillsArrowGutter();
         testGameLineImportInputKeepsMultilineHeight();
         testSettingsToggleRowsAreReadable();
@@ -785,6 +786,17 @@ final class WorkbenchUiRegression {
         assertTrue(field.getBorder().getBorderInsets(field).left <= 8,
                 "spinner editor avoids nested input border");
         Theme.setMode(Theme.Mode.LIGHT);
+    }
+
+    /**
+     * Verifies styled number spinners commit valid typed edits immediately.
+     */
+    private static void testStyledSpinnerCommitsValidEdits() {
+        JSpinner spinner = new JSpinner(new javax.swing.SpinnerNumberModel(4, 1, 99, 1));
+        Ui.styleSpinner(spinner);
+        JFormattedTextField field = ((JSpinner.DefaultEditor) spinner.getEditor()).getTextField();
+        field.setText("6");
+        assertEquals(Integer.valueOf(6), spinner.getValue(), "styled spinner commits valid edit");
     }
 
     /**

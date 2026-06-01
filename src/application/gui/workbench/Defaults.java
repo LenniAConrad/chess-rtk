@@ -152,6 +152,16 @@ public final class Defaults {
     public static final String WORKBENCH_FENS_PLACEHOLDER = "<dump/workbench-fens.txt>";
 
     /**
+     * Default opponent strength on the Play tab's Elo slider.
+     */
+    public static final int PLAY_ELO = 1200;
+
+    /**
+     * Tick step for the Play tab's Elo slider.
+     */
+    public static final int PLAY_ELO_STEP = 50;
+
+    /**
      * Default diagram PDF output path.
      */
     public static final String PUBLISH_DIAGRAMS_OUTPUT = PathOps.dumpPath("workbench-diagrams.pdf").toString();
