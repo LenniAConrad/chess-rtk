@@ -137,6 +137,18 @@ public final class AlphaBeta implements AutoCloseable {
     private static final int IIR_MIN_DEPTH = 4;
 
     /**
+     * Minimum remaining depth at which a singular-extension verification search is
+     * attempted.
+     */
+    private static final int SINGULAR_MIN_DEPTH = 8;
+
+    /**
+     * Per-depth centipawn margin subtracted from the transposition score to form
+     * the singular-extension verification beta.
+     */
+    private static final int SINGULAR_MARGIN_PER_DEPTH = 2;
+
+    /**
      * Node interval between wall-clock stop checks.
      */
     private static final int STOP_CHECK_INTERVAL = 1024;
@@ -283,7 +295,19 @@ public final class AlphaBeta implements AutoCloseable {
          * margin under the TT score), extend it by one ply; conversely, when the TT
          * score is already failing high well above beta, reduce ("multi-cut"-style).
          */
-        SINGULAR_EXT
+        SINGULAR_EXT,
+
+        /**
+         * Static-evaluation correction history: a small table keyed by pawn-and-king
+         * structure (and side to move) accumulates the running gap between the
+         * search result and the static evaluation, and that learned correction is
+         * added back into future static evaluations. This corrects systematic bias
+         * the fixed evaluator cannot, sharpening every static-eval-driven decision
+         * (reverse-futility, null-move, razoring, futility, improving, stand-pat).
+         * Inspired by the correction-history idea used in modern engines such as
+         * Stockfish; this is an independent reimplementation.
+         */
+        CORRECTION_HISTORY
     }
 
     /**
@@ -291,6 +315,26 @@ public final class AlphaBeta implements AutoCloseable {
      * {@link Feature#HISTORY_MALUS}).
      */
     private static final int HISTORY_MAX = 1 << 14;
+
+    /**
+     * Number of buckets in each static-eval correction table (power of two).
+     */
+    private static final int CORRECTION_ENTRIES = 1 << 14;
+
+    /**
+     * Gravity bound on a stored correction value.
+     */
+    private static final int CORRECTION_MAX = 1 << 12;
+
+    /**
+     * Divisor mapping a stored correction value to an applied centipawn delta.
+     */
+    private static final int CORRECTION_DIV = 32;
+
+    /**
+     * Absolute cap (centipawns) on the correction applied to a static evaluation.
+     */
+    private static final int CORRECTION_CLAMP = 96;
 
     /**
      * Continuation-history score at or above which a quiet move is reduced one ply
@@ -804,6 +848,13 @@ public final class AlphaBeta implements AutoCloseable {
             int ply,
             boolean pvNode) {
         context.visitNode();
+        // Hard recursion ceiling: a pathological run of forced extensions (check +
+        // singular can stack) could otherwise drive ply past the per-ply scratch
+        // arrays. Fall back to a static evaluation rather than overrun them. The
+        // bound guarantees ply and ply+1 indices stay valid.
+        if (ply + 2 >= context.pvLength.length) {
+            return staticScore(context, position, ply);
+        }
         context.pvLength[ply] = 0;
         NegamaxSetup setup = prepareNegamax(context, position, depth, alpha, beta, ply, pvNode);
         if (setup.resolved()) {
@@ -859,7 +910,10 @@ public final class AlphaBeta implements AutoCloseable {
         long key = position.signature();
         Transposition entry = context.transpositions.probe(key);
         int transpositionScore = transpositionScore(entry, depth, alpha, beta);
-        if (transpositionScore != NO_SCORE) {
+        // During a singular-extension verification search this node excludes one
+        // move, so the stored full-node bound does not apply: probe for ordering
+        // but never take the cutoff.
+        if (transpositionScore != NO_SCORE && context.excluded(ply) == Move.NO_MOVE) {
             return NegamaxSetup.resolved(transpositionScore);
         }
 
@@ -927,10 +981,21 @@ public final class AlphaBeta implements AutoCloseable {
         short[] triedQuiets = buffering ? context.triedQuietsBuffer(ply) : null;
         int[] triedContIdx = context.contHistory() ? context.triedContIdxBuffer(ply) : null;
         int triedCount = 0;
+        // Singular extension: probe whether the transposition move is much better
+        // than every alternative; if so it is extended one ply. Runs before the
+        // move loop so the verification search owns the per-ply scratch cleanly.
+        int ttMoveExtension = singularExtension(context, position, setup, ttMove, depth, beta, ply);
+        // Read after the singular probe (which restores it): NO_MOVE for a normal
+        // node, or this node's own excluded move when it is itself a verification.
+        short excluded = context.excluded(ply);
         for (short move : moves) {
+            if (move == excluded) {
+                continue;
+            }
             boolean tactical = isTacticalMove(position, move);
             boolean losingCapture = context.seeLmr() && tactical && isLosingCapture(position, move);
             int contIdx = !tactical && context.contHistory() ? contTargetIndex(position, move) : -1;
+            int moveExtension = move == ttMove ? ttMoveExtension : 0;
             MoveDecision decision = new MoveDecision(
                     setup.staticEval(),
                     searchState.alpha,
@@ -943,7 +1008,8 @@ public final class AlphaBeta implements AutoCloseable {
                     move,
                     ply,
                     improving,
-                    contIdx);
+                    contIdx,
+                    moveExtension);
             if (!shouldFutilityPrune(context, decision) && !shouldLateMovePrune(context, decision)) {
                 if (triedQuiets != null && !tactical && triedCount < triedQuiets.length) {
                     if (triedContIdx != null) {
@@ -963,7 +1029,9 @@ public final class AlphaBeta implements AutoCloseable {
             }
         }
         byte flag = transpositionFlag(searchState.bestScore, searchState.originalAlpha, beta);
-        if (!isMateScore(searchState.bestScore)) {
+        // A verification search (excluded move set) searched a restricted move set,
+        // so its result must not be stored under the full-node key.
+        if (excluded == Move.NO_MOVE && !isMateScore(searchState.bestScore)) {
             context.transpositions.store(
                     setup.key(),
                     depth,
@@ -972,7 +1040,73 @@ public final class AlphaBeta implements AutoCloseable {
                     searchState.bestMove,
                     context.generation);
         }
+        // Learn the static-eval correction when the searched score is a usable
+        // bound on the (corrected) static eval: exact, a fail-high above it, or a
+        // fail-low below it. Skipped in check, in a verification search, and for
+        // mate scores (handled inside updateCorrection).
+        if (excluded == Move.NO_MOVE && !setup.inCheck() && setup.staticEval() != NO_SCORE
+                && (flag == TT_EXACT
+                        || (flag == TT_LOWER && searchState.bestScore > setup.staticEval())
+                        || (flag == TT_UPPER && searchState.bestScore < setup.staticEval()))) {
+            context.updateCorrection(position, setup.staticEval(), searchState.bestScore);
+        }
         return searchState.bestScore;
+    }
+
+    /**
+     * Computes a singular extension for the transposition move: when a reduced
+     * verification search of every <em>other</em> move fails low beneath a margin
+     * under the stored score, the transposition move is "singular" (clearly best)
+     * and is searched one ply deeper. Returns 0 when singular extensions are off,
+     * the preconditions are unmet, or the move is not singular.
+     *
+     * @param context search context
+     * @param position mutable current position (the node, before any move)
+     * @param setup prepared node setup (holds the transposition entry)
+     * @param ttMove transposition move, or {@link Move#NO_MOVE}
+     * @param depth remaining depth at this node
+     * @param beta beta bound
+     * @param ply current ply from root
+     * @return 1 to extend the transposition move, or 0
+     */
+    private static int singularExtension(
+            SearchContext context,
+            Position position,
+            NegamaxSetup setup,
+            short ttMove,
+            int depth,
+            int beta,
+            int ply) {
+        if (!context.singularExt()
+                || ttMove == Move.NO_MOVE
+                || setup.inCheck()
+                || depth < SINGULAR_MIN_DEPTH
+                || setup.entry() == null
+                || context.excluded(ply) != Move.NO_MOVE) {
+            return 0;
+        }
+        long data = setup.entry().data;
+        int ttScore = Transposition.scoreOf(data);
+        byte ttFlag = Transposition.flagOf(data);
+        // Need a trustworthy lower bound on the move's value from a deep-enough
+        // search, and a non-mate score (mate distances must not be perturbed).
+        if (Transposition.depthOf(data) < depth - 3
+                || (ttFlag != TT_LOWER && ttFlag != TT_EXACT)
+                || isMateScore(ttScore)) {
+            return 0;
+        }
+        int singularBeta = Math.max(-INF + 1, ttScore - SINGULAR_MARGIN_PER_DEPTH * depth);
+        int singularDepth = (depth - 1) / 2;
+        context.setExcluded(ply, ttMove);
+        int value;
+        try {
+            value = negamax(context, position, singularDepth, singularBeta - 1, singularBeta, ply, false);
+        } finally {
+            context.setExcluded(ply, Move.NO_MOVE);
+        }
+        // Every alternative failed below singularBeta: the transposition move stands
+        // alone, so extend it.
+        return value < singularBeta ? 1 : 0;
     }
 
     /**
@@ -998,13 +1132,19 @@ public final class AlphaBeta implements AutoCloseable {
         position.play(decision.move(), state);
         try {
             context.movePlayed(position, decision.move(), state, decision.ply() + 1);
-            // Extend a move that gives check by one ply (so forcing lines are not
-            // cut at the horizon), capped so extended lines can't overrun the
-            // scratch arrays. A checking move is never also reduced.
-            int extension = context.checkExtensions()
-                    && position.inCheck()
-                    && decision.ply() + 1 < context.maxExtendedPly()
-                    ? 1 : 0;
+            // A move proven singular is forced one ply deeper; otherwise extend a
+            // checking move by one ply so forcing lines are not cut at the horizon.
+            // Both are capped so extended lines can't overrun the scratch arrays,
+            // and an extended move is never also reduced.
+            int extension = decision.singularExtension();
+            if (extension == 0
+                    && context.checkExtensions()
+                    && position.inCheck()) {
+                extension = 1;
+            }
+            if (decision.ply() + 1 >= context.maxExtendedPly()) {
+                extension = 0;
+            }
             int childDepth = depth - 1 + extension;
             int reduction = extension > 0 ? 0 : lateMoveReduction(context, decision);
             if (decision.searchedMoves() == 0) {
@@ -1068,7 +1208,8 @@ public final class AlphaBeta implements AutoCloseable {
         }
 
         Position.State state = context.nullState(ply);
-        int reducedDepth = Math.max(0, depth - 1 - nullMoveReduction(depth));
+        int reducedDepth = Math.max(0,
+                depth - 1 - nullMoveReduction(depth, staticEval, beta, context.improvingFeature()));
         position.playNull(state);
         int score;
         try {
@@ -1168,13 +1309,23 @@ public final class AlphaBeta implements AutoCloseable {
     }
 
     /**
-     * Computes the null-move depth reduction.
+     * Computes the null-move depth reduction. When {@code evalScaled} is set, a
+     * static evaluation comfortably above beta reduces harder (a voluntary pass is
+     * then more likely to still fail high), bounded by a few plies. With it off the
+     * reduction is the historical depth-only formula, so the baseline is unchanged.
      *
      * @param depth remaining depth before the null move
+     * @param staticEval static evaluation, or {@link #NO_SCORE}
+     * @param beta beta bound
+     * @param evalScaled whether to add the eval-margin term
      * @return plies to reduce after the skipped turn
      */
-    private static int nullMoveReduction(int depth) {
-        return 2 + depth / 6;
+    private static int nullMoveReduction(int depth, int staticEval, int beta, boolean evalScaled) {
+        int reduction = 2 + depth / 6;
+        if (evalScaled && staticEval != NO_SCORE) {
+            reduction += Math.min(3, Math.max(0, (staticEval - beta) / 200));
+        }
+        return reduction;
     }
 
     /**
@@ -1361,6 +1512,11 @@ public final class AlphaBeta implements AutoCloseable {
             int ply,
             int qply) {
         context.visitNode();
+        // Hard recursion ceiling (see negamax): never index the per-ply arrays out
+        // of range, even under a pathological extension/quiescence chain.
+        if (ply + 2 >= context.pvLength.length) {
+            return staticScore(context, position, ply);
+        }
         context.pvLength[ply] = 0;
         QuiescenceSetup setup = prepareQuiescence(context, position, alpha, beta, ply, qply);
         if (setup.resolved()) {
@@ -1947,7 +2103,7 @@ public final class AlphaBeta implements AutoCloseable {
      * @param ply ply value
      */
     private static int staticScore(SearchContext context, Position position, int ply) {
-        int score = context.evaluate(position, ply);
+        int score = context.evaluate(position, ply) + context.correctionFor(position);
         if (score > MAX_STATIC_SCORE) {
             return MAX_STATIC_SCORE;
         }
@@ -2234,6 +2390,18 @@ public final class AlphaBeta implements AutoCloseable {
         private final boolean singularExt;
 
         /**
+         * Whether static-eval correction history is enabled.
+         */
+        private final boolean correctionHistory;
+
+        /**
+         * Static-eval correction table keyed by pawn-and-king structure plus side to
+         * move. Gravity-bounded; only allocated when {@link #correctionHistory} is
+         * set. Per-SearchContext (hence per-thread under Lazy SMP).
+         */
+        private final int[] correction;
+
+        /**
          * Static evaluation (side-to-move perspective) recorded for each ply on the
          * current search path, or {@link #NO_SCORE} when unknown (e.g. in check).
          * Used by the improving heuristic. Only maintained when
@@ -2267,6 +2435,14 @@ public final class AlphaBeta implements AutoCloseable {
          * keyed by the move two plies back.
          */
         private final short[] contHist2;
+
+        /**
+         * Per-ply move currently excluded from search at that ply, used by singular
+         * extensions (the verification search omits the transposition move).
+         * {@link Move#NO_MOVE} when nothing is excluded. Only allocated when
+         * {@link #singularExt} is set.
+         */
+        private final short[] excluded;
 
         /**
          * Per-ply scratch holding the quiet moves searched at a node before a
@@ -2392,11 +2568,14 @@ public final class AlphaBeta implements AutoCloseable {
             this.iir = features.contains(Feature.IIR);
             this.razoring = features.contains(Feature.RAZORING);
             this.singularExt = features.contains(Feature.SINGULAR_EXT);
-            // Check extensions can deepen the main search beyond the nominal
-            // depth, so when they are enabled reserve a full extra depth's worth
-            // of plies (plus quiescence headroom) and cap the extension ply below
-            // that ceiling. When disabled the arrays keep their original size.
-            int extensionHeadroom = checkExtensions ? limits.depth() : 0;
+            this.correctionHistory = features.contains(Feature.CORRECTION_HISTORY);
+            this.correction = correctionHistory ? new int[CORRECTION_ENTRIES] : null;
+            // Check and singular extensions can both deepen the main search beyond
+            // the nominal depth, so when either is enabled reserve a full extra
+            // depth's worth of plies (plus quiescence headroom) and cap the
+            // extension ply below that ceiling. When disabled the arrays keep their
+            // original size.
+            int extensionHeadroom = (checkExtensions || singularExt) ? limits.depth() : 0;
             int searchPlies = limits.depth() + extensionHeadroom + QUIESCENCE_MAX_PLY + 4;
             this.maxExtendedPly = searchPlies - QUIESCENCE_MAX_PLY - 2;
             this.incrementalState = evaluator.openSearchState(root, searchPlies);
@@ -2419,6 +2598,7 @@ public final class AlphaBeta implements AutoCloseable {
             // (movePiece*64+moveTo) target, i.e. 768*768 buckets per ply offset.
             this.contHist1 = contHistory ? new short[768 * 768] : null;
             this.contHist2 = contHistory ? new short[768 * 768] : null;
+            this.excluded = singularExt ? new short[searchPlies] : null;
             for (int i = 0; i < searchPlies; i++) {
                 states[i] = new Position.State();
                 nullStates[i] = new Position.State();
@@ -2433,6 +2613,9 @@ public final class AlphaBeta implements AutoCloseable {
                 // The root has no preceding move, so its continuation context is
                 // empty (-1 piece is treated as "no context" by lookups).
                 Arrays.fill(contPiece, -1);
+            }
+            if (singularExt) {
+                Arrays.fill(excluded, Move.NO_MOVE);
             }
             if (searchRepetition) {
                 pathKeys[0] = root.signatureCore();
@@ -2607,6 +2790,93 @@ public final class AlphaBeta implements AutoCloseable {
          */
         private boolean singularExt() {
             return singularExt;
+        }
+
+        /**
+         * Returns whether static-eval correction history is enabled.
+         *
+         * @return true when correction history is active
+         */
+        private boolean correctionHistory() {
+            return correctionHistory;
+        }
+
+        /**
+         * Correction-table bucket for a position, keyed by pawn-and-king structure
+         * and side to move (the placement signals the evaluator's systematic bias).
+         *
+         * @param position position to key
+         * @return bucket index in {@code [0, CORRECTION_ENTRIES)}
+         */
+        private static int correctionKey(Position position) {
+            long w = position.pieces(Position.WHITE_PAWN)
+                    ^ Long.rotateLeft(position.pieces(Position.WHITE_KING), 1);
+            long b = position.pieces(Position.BLACK_PAWN)
+                    ^ Long.rotateLeft(position.pieces(Position.BLACK_KING), 1);
+            long h = w * 0x9E3779B97F4A7C15L ^ Long.rotateLeft(b, 32) * 0xC2B2AE3D27D4EB4FL;
+            if (!position.isWhiteToMove()) {
+                h = ~h;
+            }
+            h ^= h >>> 29;
+            return (int) h & (CORRECTION_ENTRIES - 1);
+        }
+
+        /**
+         * Returns the learned static-eval correction (centipawns) for a position,
+         * or zero when correction history is disabled. Clamped to a safe magnitude.
+         *
+         * @param position position being evaluated
+         * @return signed centipawn correction
+         */
+        private int correctionFor(Position position) {
+            if (!correctionHistory) {
+                return 0;
+            }
+            int c = correction[correctionKey(position)] / CORRECTION_DIV;
+            return Math.max(-CORRECTION_CLAMP, Math.min(CORRECTION_CLAMP, c));
+        }
+
+        /**
+         * Folds the gap between a node's searched score and its (corrected) static
+         * evaluation back into the correction table via a gravity-bounded update, so
+         * future evaluations of similar pawn structures are nudged toward reality.
+         * No-op when disabled, in check (no static eval), or for mate scores.
+         *
+         * @param position node position
+         * @param staticEval the node's static evaluation (already corrected)
+         * @param bestScore the node's searched score
+         */
+        private void updateCorrection(Position position, int staticEval, int bestScore) {
+            if (!correctionHistory || staticEval == NO_SCORE || isMateScore(bestScore)) {
+                return;
+            }
+            int key = correctionKey(position);
+            int diff = bestScore - staticEval;
+            correction[key] += diff - correction[key] * Math.abs(diff) / CORRECTION_MAX;
+        }
+
+        /**
+         * Returns the move currently excluded from search at a ply (singular
+         * extensions), or {@link Move#NO_MOVE} when none / the feature is off.
+         *
+         * @param ply ply from root
+         * @return excluded move, or {@link Move#NO_MOVE}
+         */
+        private short excluded(int ply) {
+            return excluded == null ? Move.NO_MOVE : excluded[ply];
+        }
+
+        /**
+         * Sets (or clears with {@link Move#NO_MOVE}) the excluded move at a ply for
+         * a singular-extension verification search. A no-op when the feature is off.
+         *
+         * @param ply ply from root
+         * @param move move to exclude, or {@link Move#NO_MOVE} to clear
+         */
+        private void setExcluded(int ply, short move) {
+            if (excluded != null) {
+                excluded[ply] = move;
+            }
         }
 
         /**

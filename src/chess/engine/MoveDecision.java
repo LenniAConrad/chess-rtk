@@ -26,6 +26,8 @@ package chess.engine;
  *        (used to scale reductions; always false when the improving feature is off)
  * @param contIdx continuation-history target index ({@code piece*64 + to}) for a
  *        quiet move, or -1 (used to reduce good-continuation quiets less)
+ * @param singularExtension pre-play ply extension forced for this move (1 when the
+ *        transposition move proved singular), or 0
  */
 record MoveDecision(
         int staticEval,
@@ -39,5 +41,6 @@ record MoveDecision(
         short move,
         int ply,
         boolean improving,
-        int contIdx) {
+        int contIdx,
+        int singularExtension) {
 }
