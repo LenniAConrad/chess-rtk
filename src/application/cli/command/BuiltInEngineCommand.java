@@ -368,7 +368,11 @@ public final class BuiltInEngineCommand {
 		Long nodesOpt = a.lng(OPT_MAX_NODES, OPT_NODES);
 		Duration durationOpt = a.duration(OPT_MAX_DURATION);
 		long defaultNodes = depthOpt == null ? Limits.DEFAULT_MAX_NODES : 0L;
-		long defaultDuration = depthOpt == null ? Limits.DEFAULT_MAX_DURATION_MILLIS : 0L;
+		// Only impose the default time cap when the caller gave neither a depth nor
+		// an explicit node budget; otherwise an explicit --max-nodes would be
+		// silently truncated by the 5s default.
+		long defaultDuration = (depthOpt == null && nodesOpt == null)
+				? Limits.DEFAULT_MAX_DURATION_MILLIS : 0L;
 		long maxNodes = nodesOpt == null ? defaultNodes : nodesOpt;
 		long maxDuration = CommandSupport.optionalDurationMs(durationOpt, defaultDuration);
 		String fen;
