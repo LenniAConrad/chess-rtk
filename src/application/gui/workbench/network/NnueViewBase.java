@@ -2,6 +2,7 @@ package application.gui.workbench.network;
 
 import application.gui.workbench.ui.HitRegions;
 import application.gui.workbench.ui.InspectorDialog;
+import application.gui.workbench.ui.ScrollableSupport;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import chess.nn.nnue.FeatureEncoder;
@@ -18,7 +19,6 @@ import java.util.List;
 import javax.swing.AbstractAction;
 import javax.swing.JComponent;
 import javax.swing.Scrollable;
-import javax.swing.SwingConstants;
 import javax.swing.KeyStroke;
 
 import static application.gui.workbench.network.NnueAtlas.*;
@@ -387,7 +387,7 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
      */
     @Override
     public Dimension getPreferredScrollableViewportSize() {
-    return getPreferredSize();
+        return ScrollableSupport.preferredViewportSize(this);
     }
 
     /**
@@ -400,7 +400,7 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
      */
     @Override
     public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction) {
-        return 24;
+        return ScrollableSupport.DEFAULT_UNIT_INCREMENT;
     }
 
     /**
@@ -413,7 +413,7 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
      */
     @Override
     public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) {
-        return Math.max(48, (orientation == SwingConstants.VERTICAL ? visibleRect.height : visibleRect.width) - 48);
+        return ScrollableSupport.blockIncrement(visibleRect, orientation, 48);
     }
 
     /**

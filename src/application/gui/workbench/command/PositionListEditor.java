@@ -33,12 +33,11 @@ import javax.swing.JTextArea;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import utility.CommandLine;
 
 import static application.gui.workbench.ui.Ui.button;
+import static application.gui.workbench.ui.Ui.changeListener;
 import static application.gui.workbench.ui.Ui.controlRow;
 import static application.gui.workbench.ui.Ui.emptyState;
 import static application.gui.workbench.ui.Ui.placeholder;
@@ -165,37 +164,7 @@ public final class PositionListEditor {
         component.add(top, BorderLayout.NORTH);
 
         styleAreas(input);
-        input.getDocument().addDocumentListener(new DocumentListener() {
-            /**
-             * Handles inserted input text.
-             *
-             * @param event document change event
-             */
-            @Override
-            public void insertUpdate(DocumentEvent event) {
-                onInputChanged();
-            }
-
-            /**
-             * Handles removed input text.
-             *
-             * @param event document change event
-             */
-            @Override
-            public void removeUpdate(DocumentEvent event) {
-                onInputChanged();
-            }
-
-            /**
-             * Handles changed input attributes.
-             *
-             * @param event document change event
-             */
-            @Override
-            public void changedUpdate(DocumentEvent event) {
-                onInputChanged();
-            }
-        });
+        input.getDocument().addDocumentListener(changeListener(this::onInputChanged));
         inputCard.setOpaque(false);
         JComponent editorScroll = scroll(input);
         editorScroll.setPreferredSize(new Dimension(editorScroll.getPreferredSize().width, EDITOR_HEIGHT));

@@ -293,7 +293,7 @@ public final class TagCloud extends JComponent implements Scrollable {
      */
     @Override
     public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) {
-        return Math.max(CHIP_HEIGHT + ROW_GAP, visibleRect.height - CHIP_HEIGHT);
+        return ScrollableSupport.verticalBlockIncrement(visibleRect, CHIP_HEIGHT + ROW_GAP, CHIP_HEIGHT);
     }
 
     /**

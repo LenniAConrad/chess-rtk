@@ -205,7 +205,7 @@ public final class CardGrid extends JPanel implements Scrollable {
      */
     @Override
     public Dimension getPreferredScrollableViewportSize() {
-        return getPreferredSize();
+        return ScrollableSupport.preferredViewportSize(this);
     }
 
     /**
@@ -213,7 +213,7 @@ public final class CardGrid extends JPanel implements Scrollable {
      */
     @Override
     public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction) {
-        return 24;
+        return ScrollableSupport.DEFAULT_UNIT_INCREMENT;
     }
 
     /**
@@ -221,7 +221,8 @@ public final class CardGrid extends JPanel implements Scrollable {
      */
     @Override
     public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) {
-        return Math.max(24, visibleRect.height - 24);
+        return ScrollableSupport.verticalBlockIncrement(visibleRect,
+                ScrollableSupport.DEFAULT_UNIT_INCREMENT);
     }
 
     /**

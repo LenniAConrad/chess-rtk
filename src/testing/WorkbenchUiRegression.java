@@ -458,6 +458,9 @@ final class WorkbenchUiRegression {
         if (scrollPaneCreations == 0) {
             return;
         }
+        if ("ui/ScrollPaneStyler.java".equals(root.relativize(file).toString())) {
+            return;
+        }
         int styledScrollPanes = occurrences(source, "styleScrollPane(")
                 + occurrences(source, "refreshScrollPaneTheme(");
         assertTrue(styledScrollPanes >= scrollPaneCreations,

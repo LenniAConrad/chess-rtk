@@ -654,7 +654,7 @@ public final class TreeGraphView extends JComponent {
                     edgeGraphics.setColor(Theme.withAlpha(Theme.ACCENT, 235));
                 } else {
                     edgeGraphics.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                    edgeGraphics.setColor(Theme.withAlpha(Theme.LINE, 220));
+                    edgeGraphics.setColor(Theme.withAlpha(Theme.MUTED, 105));
                 }
                 int midY = (y1 + y2) / 2;
                 edgePath.reset();
@@ -1172,7 +1172,7 @@ public final class TreeGraphView extends JComponent {
             return;
         }
         g.setStroke(new BasicStroke(1f));
-        g.setColor(Theme.withAlpha(Theme.MUTED, 105));
+        g.setColor(Theme.withAlpha(Theme.LINE, 220));
         double prevBottom = Double.NaN;
         for (Map.Entry<Integer, TreeLayout.Node[]> entry : rowsByLayer.entrySet()) {
             TreeLayout.Node[] row = entry.getValue();
