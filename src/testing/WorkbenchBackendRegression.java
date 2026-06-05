@@ -128,6 +128,10 @@ final class WorkbenchBackendRegression {
         testMctsTreeSnapshotCapsAndSelection();
         testMctsSessionLifecyclePublishesSnapshots();
         testMctsPanelInspectorUsesSolidSurface();
+        testTreeGraphLayerGuidesIncludeVerticalDividers();
+        testTreeGraphBoardThumbnailsHaveNoBoardBorder();
+        testTreeGraphSelectionRingWrapsFullCard();
+        testTreeGraphSelectedPathDrawsGreenEdges();
         testTreeGraphNodeCaptionClipsOverflowText();
         // Full MCTS tab registration coverage is intentionally not part of
         // this Workbench pass; the Network tab still covers shared MCTS
@@ -2159,11 +2163,9 @@ final class WorkbenchBackendRegression {
                     "Rgxg8=Q+",
                     1L);
             TreeLayout.Node node = new TreeLayout.Node("root", info, nodeX, nodeY, nodeW, nodeH,
-                    0, true, true, true, false, List.of());
+                    0, true, false, false, false, List.of());
             TreeLayout.Model model = new TreeLayout.Model(List.of(node), List.of(), width, 140, "root", 1, 0);
             view.setModel(model);
-            view.setTargetPath(Set.of("root"), true);
-            view.setSearchPath(Set.of("root"));
 
             BufferedImage image = paint(view, width, height);
             int panY = 14;
@@ -2176,6 +2178,285 @@ final class WorkbenchBackendRegression {
             assertTrue(insidePixels > 0, "tree node caption paints inside node");
             assertEquals(Integer.valueOf(0), Integer.valueOf(leakedPixels),
                     "tree node caption clips text to node bounds");
+        } finally {
+            Theme.setMode(previous);
+        }
+    }
+
+    /**
+     * Verifies selected/PV/search/target rings are drawn around the full tree
+     * card, including the caption area below the board.
+     */
+    private static void testTreeGraphSelectionRingWrapsFullCard() {
+        Theme.Mode previous = Theme.mode();
+        try {
+            Theme.setMode(Theme.Mode.DARK);
+            TreeGraphView view = new TreeGraphView();
+            int width = 160;
+            int height = 220;
+            view.setSize(width, height);
+            int nodeX = 56;
+            int nodeY = 28;
+            int nodeW = 48;
+            int nodeH = 82;
+            MctsSearch.NodeInfo info = new MctsSearch.NodeInfo(
+                    "root",
+                    "",
+                    new short[0],
+                    new short[0],
+                    Move.NO_MOVE,
+                    "root",
+                    "",
+                    "",
+                    "",
+                    0,
+                    100,
+                    0.40,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.55,
+                    0.10,
+                    0.35,
+                    "",
+                    "",
+                    0,
+                    START_FEN,
+                    "root",
+                    1L);
+            TreeLayout.Node node = new TreeLayout.Node("root", info, nodeX, nodeY, nodeW, nodeH,
+                    0, true, true, false, false, List.of());
+            TreeLayout.Model model = new TreeLayout.Model(List.of(node), List.of(), width, 140, "root", 1, 0);
+            view.setModel(model);
+
+            BufferedImage image = paint(view, width, height);
+            int panY = 14;
+            int captionY = panY + nodeY + nodeW;
+            int captionH = nodeH - nodeW;
+            int cardSidePixels = nonBackgroundPixels(image, Theme.BG,
+                    nodeX + nodeW, captionY + 4, 4, Math.max(1, captionH - 8));
+            assertTrue(cardSidePixels > 0, "selected tree node ring wraps caption side of full card");
+        } finally {
+            Theme.setMode(previous);
+        }
+    }
+
+    /**
+     * Verifies tree board thumbnails do not draw the standalone chessboard edge
+     * border; tree selection/PV/search state owns node outlines instead.
+     */
+    private static void testTreeGraphBoardThumbnailsHaveNoBoardBorder() {
+        Theme.Mode previous = Theme.mode();
+        try {
+            Theme.setMode(Theme.Mode.DARK);
+            TreeGraphView view = new TreeGraphView();
+            int width = 160;
+            int height = 220;
+            view.setSize(width, height);
+            int nodeX = 56;
+            int nodeY = 28;
+            int nodeW = 48;
+            int nodeH = 82;
+            MctsSearch.NodeInfo info = new MctsSearch.NodeInfo(
+                    "root",
+                    "",
+                    new short[0],
+                    new short[0],
+                    Move.NO_MOVE,
+                    "root",
+                    "",
+                    "",
+                    "",
+                    0,
+                    100,
+                    0.40,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.55,
+                    0.10,
+                    0.35,
+                    "",
+                    "",
+                    0,
+                    START_FEN,
+                    "root",
+                    1L);
+            TreeLayout.Node node = new TreeLayout.Node("root", info, nodeX, nodeY, nodeW, nodeH,
+                    0, true, false, false, false, List.of());
+            TreeLayout.Model model = new TreeLayout.Model(List.of(node), List.of(), width, 140, "root", 1, 0);
+            view.setModel(model);
+
+            BufferedImage image = paint(view, width, height);
+            int panY = 14;
+            Color edgePixel = new Color(image.getRGB(nodeX, panY + nodeY), true);
+            assertTrue(!Objects.equals(themeColor("BOARD_EDGE"), edgePixel),
+                    "tree board thumbnail omits the standalone board border");
+        } finally {
+            Theme.setMode(previous);
+        }
+    }
+
+    /**
+     * Verifies selecting a node can draw the green path edge back toward the
+     * root.
+     */
+    private static void testTreeGraphSelectedPathDrawsGreenEdges() {
+        Theme.Mode previous = Theme.mode();
+        try {
+            Theme.setMode(Theme.Mode.DARK);
+            int width = 220;
+            int height = 240;
+            TreeGraphView view = new TreeGraphView();
+            view.setSize(width, height);
+            MctsSearch.NodeInfo rootInfo = new MctsSearch.NodeInfo(
+                    "root",
+                    "",
+                    new short[0],
+                    new short[0],
+                    Move.NO_MOVE,
+                    "root",
+                    "",
+                    "",
+                    "",
+                    0,
+                    100,
+                    0.10,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.50,
+                    0.0,
+                    0.50,
+                    "",
+                    "",
+                    0,
+                    START_FEN,
+                    "root",
+                    1L);
+            MctsSearch.NodeInfo childInfo = new MctsSearch.NodeInfo(
+                    "child",
+                    "root",
+                    new short[0],
+                    new short[0],
+                    Move.NO_MOVE,
+                    "child",
+                    "",
+                    "",
+                    "",
+                    1,
+                    40,
+                    0.20,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.55,
+                    0.05,
+                    0.40,
+                    "",
+                    "",
+                    0,
+                    START_FEN,
+                    "child",
+                    2L);
+            TreeLayout.Node root = new TreeLayout.Node("root", rootInfo, 90, 28, 40, 64,
+                    0, true, false, false, false, List.of());
+            TreeLayout.Node child = new TreeLayout.Node("child", childInfo, 90, 132, 40, 64,
+                    1, false, false, false, false, List.of());
+            TreeLayout.Edge edge = new TreeLayout.Edge("root", "child", "", false);
+            TreeLayout.Model model = new TreeLayout.Model(List.of(root, child), List.of(edge),
+                    width, 230, "root", 2, 0);
+            view.setModel(model);
+            BufferedImage plain = paint(view, width, height);
+
+            view.setSelectedPath(Set.of("root", "child"));
+            BufferedImage selected = paint(view, width, height);
+            int differing = countDifferingPixels(plain, selected);
+            assertTrue(differing > 30, "selected tree path paints a green edge overlay");
+        } finally {
+            Theme.setMode(previous);
+        }
+    }
+
+    /**
+     * Verifies the tree layer guide overlay includes vertical divider lines
+     * between visible node columns.
+     */
+    private static void testTreeGraphLayerGuidesIncludeVerticalDividers() {
+        Theme.Mode previous = Theme.mode();
+        try {
+            Theme.setMode(Theme.Mode.DARK);
+            int width = 220;
+            int height = 180;
+            TreeGraphView view = new TreeGraphView();
+            view.setSize(width, height);
+            MctsSearch.NodeInfo leftInfo = new MctsSearch.NodeInfo(
+                    "left",
+                    "",
+                    new short[0],
+                    new short[0],
+                    Move.NO_MOVE,
+                    "left",
+                    "",
+                    "",
+                    "",
+                    0,
+                    10,
+                    0.10,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.50,
+                    0.0,
+                    0.50,
+                    "",
+                    "",
+                    0,
+                    START_FEN,
+                    "left",
+                    11L);
+            MctsSearch.NodeInfo rightInfo = new MctsSearch.NodeInfo(
+                    "right",
+                    "",
+                    new short[0],
+                    new short[0],
+                    Move.NO_MOVE,
+                    "right",
+                    "",
+                    "",
+                    "",
+                    0,
+                    8,
+                    -0.10,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.50,
+                    0.0,
+                    0.50,
+                    "",
+                    "",
+                    0,
+                    START_FEN,
+                    "right",
+                    12L);
+            TreeLayout.Node left = new TreeLayout.Node("left", leftInfo, 40, 40, 40, 64,
+                    0, false, false, false, false, List.of());
+            TreeLayout.Node right = new TreeLayout.Node("right", rightInfo, 120, 40, 40, 64,
+                    0, false, false, false, false, List.of());
+            TreeLayout.Model model = new TreeLayout.Model(List.of(left, right), List.of(),
+                    width, 150, null, 2, 0);
+            view.setModel(model);
+
+            view.setShowLayers(false);
+            BufferedImage plain = paint(view, width, height);
+            int plainCount = nonBackgroundPixels(plain, Theme.BG, 100, 0, 1, height);
+
+            view.setShowLayers(true);
+            BufferedImage guided = paint(view, width, height);
+            int guidedCount = nonBackgroundPixels(guided, Theme.BG, 100, 0, 1, height);
+            assertTrue(guidedCount > plainCount + 40,
+                    "tree layer guides paint a vertical divider between node columns");
         } finally {
             Theme.setMode(previous);
         }

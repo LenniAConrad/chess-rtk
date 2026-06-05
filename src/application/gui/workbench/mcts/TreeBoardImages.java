@@ -37,7 +37,7 @@ final class TreeBoardImages {
         try {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             Rectangle r = new Rectangle(0, 0, side, side);
-            BoardStyle.drawBoardSurface(g, r, true);
+            BoardStyle.drawBoardSurface(g, r, false);
             TensorViz.drawPositionPieces(g, r, fen, true);
         } finally {
             g.dispose();

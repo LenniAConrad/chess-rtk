@@ -91,6 +91,16 @@ public final class TreeGraphView extends JComponent {
     private static final int CULL_PAD = 48;
 
     /**
+     * Minimum visible gap before a vertical column divider is drawn.
+     */
+    private static final int MIN_COLUMN_DIVIDER_GAP_PX = 18;
+
+    /**
+     * Minimum screen-space spacing between coalesced vertical dividers.
+     */
+    private static final int MIN_COLUMN_DIVIDER_SPACING_PX = 14;
+
+    /**
      * Horizontal padding inside a node caption.
      */
     private static final int CAPTION_PAD_X = 8;
@@ -199,14 +209,20 @@ public final class TreeGraphView extends JComponent {
     private transient java.util.Set<String> targetPath = java.util.Set.of();
 
     /**
+     * Keys on the path from the root to the selected inspector node.
+     */
+    private transient java.util.Set<String> selectedPath = java.util.Set.of();
+
+    /**
      * True while a target line is being tracked: nodes/edges off the tracked
      * branch are dimmed toward the background so the branch stands out.
      */
     private transient boolean targetFocus;
 
     /**
-     * Whether to draw depth-level separator lines and labels (like an image
-     * editor's layer guides) so it is clear which ply each row is.
+     * Whether to draw depth-level separator lines, vertical column dividers, and
+     * labels (like an image editor's layer guides) so it is clear which ply each
+     * row is.
      */
     private transient boolean showLayers;
 
@@ -329,7 +345,18 @@ public final class TreeGraphView extends JComponent {
     }
 
     /**
-     * Toggles the depth-level guide lines and labels.
+     * Sets the selected-node ancestry path. Painted as a green overlay so a
+     * selected node can be read in context back to the root.
+     *
+     * @param keys node keys on the selected path
+     */
+    public void setSelectedPath(java.util.Set<String> keys) {
+        selectedPath = keys == null ? java.util.Set.of() : keys;
+        repaint();
+    }
+
+    /**
+     * Toggles the depth-level guide lines, vertical dividers, and labels.
      *
      * @param show true to draw level guides
      */
@@ -585,6 +612,7 @@ public final class TreeGraphView extends JComponent {
             g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
             if (showLayers) {
                 drawLayerLines(g);
+                drawLayerColumnLines(g);
             }
             Graphics2D world = (Graphics2D) g.create();
             try {
@@ -596,6 +624,7 @@ public final class TreeGraphView extends JComponent {
                 drawEdges(world, viewWorld);
                 drawTargetOverlay(world, viewWorld);
                 drawSearchOverlay(world, viewWorld);
+                drawSelectedOverlay(world, viewWorld);
                 drawNodes(world, viewWorld);
             } finally {
                 world.dispose();
@@ -694,7 +723,7 @@ public final class TreeGraphView extends JComponent {
      * @param view visible world rectangle
      */
     private void drawSearchOverlay(Graphics2D g, Rectangle view) {
-        drawPathOverlay(g, view, searchPath, SEARCH_COLOR);
+        drawPathOverlay(g, view, searchPath, SEARCH_COLOR, false);
     }
 
     /**
@@ -705,7 +734,18 @@ public final class TreeGraphView extends JComponent {
      * @param view visible world rectangle
      */
     private void drawTargetOverlay(Graphics2D g, Rectangle view) {
-        drawPathOverlay(g, view, targetPath, TARGET_COLOR);
+        drawPathOverlay(g, view, targetPath, TARGET_COLOR, false);
+    }
+
+    /**
+     * Overlays the selected inspector path in emerald, connecting the selected
+     * node back to the root.
+     *
+     * @param g world-space graphics
+     * @param view visible world rectangle
+     */
+    private void drawSelectedOverlay(Graphics2D g, Rectangle view) {
+        drawPathOverlay(g, view, selectedPath, SELECT_COLOR, true);
     }
 
     /**
@@ -716,8 +756,10 @@ public final class TreeGraphView extends JComponent {
      * @param view visible world rectangle
      * @param keys node keys defining the path
      * @param color overlay color
+     * @param includeTranspositions true to include dashed transposition edges
      */
-    private void drawPathOverlay(Graphics2D g, Rectangle view, java.util.Set<String> keys, Color color) {
+    private void drawPathOverlay(Graphics2D g, Rectangle view, java.util.Set<String> keys,
+            Color color, boolean includeTranspositions) {
         if (keys.isEmpty()) {
             return;
         }
@@ -727,7 +769,8 @@ public final class TreeGraphView extends JComponent {
             overlay.setStroke(new BasicStroke(3.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
             overlay.setColor(Theme.withAlpha(color, 245));
             for (TreeLayout.Edge edge : model.edges()) {
-                if (edge.transposition() || !keys.contains(edge.fromKey()) || !keys.contains(edge.toKey())) {
+                if ((!includeTranspositions && edge.transposition())
+                        || !keys.contains(edge.fromKey()) || !keys.contains(edge.toKey())) {
                     continue;
                 }
                 TreeLayout.Node from = byKey.get(edge.fromKey());
@@ -890,7 +933,7 @@ public final class TreeGraphView extends JComponent {
                 // Zoomed in past the cached tile resolution: draw the board straight
                 // into the world graphics so the squares and vector pieces stay
                 // razor-sharp however far in you zoom.
-                BoardStyle.drawBoardSurface(nodeGraphics, board, true);
+                BoardStyle.drawBoardSurface(nodeGraphics, board, false);
                 TensorViz.drawPositionPieces(nodeGraphics, board, node.info().fen(), true);
             } else {
                 BufferedImage image = boardImage(node.info().fen());
@@ -899,7 +942,7 @@ public final class TreeGraphView extends JComponent {
                     // thumbnail crisp at any board size / zoom.
                     nodeGraphics.drawImage(image, board.x, board.y, side, side, null);
                 } else {
-                    BoardStyle.drawBoardSurface(nodeGraphics, board, true);
+                    BoardStyle.drawBoardSurface(nodeGraphics, board, false);
                 }
             }
             short move = node.info().move();
@@ -992,43 +1035,28 @@ public final class TreeGraphView extends JComponent {
     /**
      * Draws the selection / PV / search / target rings for a node.
      *
-     * <p>Each ring hugs the board from just outside, nested outward, so it never
-     * cuts across the chess squares or caption text. Compact nodes use their whole
-     * box. A plain node draws no frame at all: a line on the board edge reads as a
-     * gray border laid over the chessboard.</p>
+     * <p>Each ring wraps the full node card from just outside, including both
+     * the mini-board and its caption. A plain node draws no frame at all: a line
+     * on the board edge reads as a gray border laid over the chessboard.</p>
      *
      * @param g world-space graphics
      * @param node node
      */
     private void drawNodeBorder(Graphics2D g, TreeLayout.Node node) {
-        Rectangle full = nodeBounds(node);
-        boolean boardNode = node.h() > node.w();
-        Rectangle highlight = boardNode ? new Rectangle(node.x(), node.y(), node.w(), node.w()) : full;
-        Graphics2D ring = g;
-        if (boardNode) {
-            ring = (Graphics2D) g.create();
-            ring.setClip(new Rectangle(highlight.x - 8, highlight.y - 8,
-                    highlight.width + 16, highlight.height + 8));
+        Rectangle highlight = nodeBounds(node);
+        if (targetPath.contains(node.key())) {
+            // Teal ring marks the user's tracked target line through this node.
+            drawOuterRing(g, highlight, 5, 2.4f, Theme.withAlpha(TARGET_COLOR, 235), 5);
         }
-        try {
-            if (targetPath.contains(node.key())) {
-                // Teal ring marks the user's tracked target line through this node.
-                drawOuterRing(ring, highlight, 5, 2.4f, Theme.withAlpha(TARGET_COLOR, 235), 5);
-            }
-            if (searchPath.contains(node.key())) {
-                // Amber ring marks the live search path through this node.
-                drawOuterRing(ring, highlight, 3, 2.2f, Theme.withAlpha(SEARCH_COLOR, 245), 4);
-            }
-            if (node.selected()) {
-                // Emerald ring marks the clicked/selected node.
-                drawOuterRing(ring, highlight, 1, 2.6f, SELECT_COLOR, 3);
-            } else if (node.onPrincipalVariation()) {
-                drawOuterRing(ring, highlight, 1, 1.8f, Theme.withAlpha(Theme.ACCENT, 210), 3);
-            }
-        } finally {
-            if (ring != g) {
-                ring.dispose();
-            }
+        if (searchPath.contains(node.key())) {
+            // Amber ring marks the live search path through this node.
+            drawOuterRing(g, highlight, 3, 2.2f, Theme.withAlpha(SEARCH_COLOR, 245), 4);
+        }
+        if (node.selected()) {
+            // Emerald ring marks the clicked/selected node.
+            drawOuterRing(g, highlight, 1, 2.6f, SELECT_COLOR, 3);
+        } else if (node.onPrincipalVariation()) {
+            drawOuterRing(g, highlight, 1, 1.8f, Theme.withAlpha(Theme.ACCENT, 210), 3);
         }
     }
 
@@ -1186,6 +1214,49 @@ public final class TreeGraphView extends JComponent {
                 g.drawLine(0, y, getWidth(), y);
             }
             prevBottom = row[0].y() + row[0].h();
+        }
+    }
+
+    /**
+     * Draws faint full-height vertical dividers in the open space between
+     * visible node columns. Dense or near-duplicate dividers are skipped so the
+     * guide layer remains readable when the tree is zoomed far out.
+     *
+     * @param g device-space graphics
+     */
+    private void drawLayerColumnLines(Graphics2D g) {
+        if (rowsByLayer.isEmpty()) {
+            return;
+        }
+        List<Integer> dividers = new ArrayList<>();
+        for (TreeLayout.Node[] row : rowsByLayer.values()) {
+            for (int i = 1; i < row.length; i++) {
+                TreeLayout.Node left = row[i - 1];
+                TreeLayout.Node right = row[i];
+                int leftScreenRight = (int) Math.round((left.x() + left.w()) * zoom + panX);
+                int rightScreenLeft = (int) Math.round(right.x() * zoom + panX);
+                if (rightScreenLeft - leftScreenRight < MIN_COLUMN_DIVIDER_GAP_PX) {
+                    continue;
+                }
+                int x = (leftScreenRight + rightScreenLeft) / 2;
+                if (x >= -2 && x <= getWidth() + 2) {
+                    dividers.add(x);
+                }
+            }
+        }
+        if (dividers.isEmpty()) {
+            return;
+        }
+        dividers.sort(Integer::compare);
+        g.setStroke(new BasicStroke(1f));
+        g.setColor(Theme.withAlpha(Theme.LINE, 160));
+        int lastX = Integer.MIN_VALUE / 2;
+        for (int x : dividers) {
+            if (x - lastX < MIN_COLUMN_DIVIDER_SPACING_PX) {
+                continue;
+            }
+            g.drawLine(x, 0, x, getHeight());
+            lastX = x;
         }
     }
 

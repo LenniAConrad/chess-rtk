@@ -226,7 +226,7 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
      */
     private final ToggleBox layersToggle = Ui.withTooltip(
             new ToggleBox("Layers", true),
-            "Show depth-level separator lines and per-level labels so it is clear which ply each row is");
+            "Show horizontal ply separators, vertical column dividers, and labels for the tree grid");
 
     /**
      * Auto-fit-while-running toggle.
@@ -918,20 +918,23 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
             view.clear();
             view.setSearchPath(Set.of());
             view.setTargetPath(Set.of(), false);
+            view.setSelectedPath(Set.of());
             return;
         }
         currentInfos = tree.nodes();
         String selectedId = tree.selectedNode() == null ? null : tree.selectedNode().id();
+        String activeSelectedId = inspectorNodeId != null ? inspectorNodeId : selectedId;
         int boardSize = ((Number) boardSizeSpinner.getValue()).intValue();
         TreeLayout.Model model = TreeLayout.layout(currentInfos, mergeToggle.isSelected(),
-                batchLeavesToggle.isSelected(), inspectorNodeId != null ? inspectorNodeId : selectedId,
-                boardSize, boardSize + CAPTION_HEIGHT, H_GAP, V_GAP);
+                batchLeavesToggle.isSelected(), activeSelectedId, boardSize, boardSize + CAPTION_HEIGHT,
+                H_GAP, V_GAP);
         view.setModel(model);
         // Compute the search-path and target overlays after currentInfos is
         // updated, so they map the live exploring line / target line against the
         // frame just rendered.
         view.setSearchPath(searchPathFor(pathSnapshot));
         view.setTargetPath(targetPathKeys(), targetMoves.length > 0);
+        view.setSelectedPath(selectedPathKeys(activeSelectedId));
         if (inspectorKey == null) {
             // Default the inspector to the root so children are immediately
             // listed. This only populates the inspector; it must not push the
@@ -1649,6 +1652,36 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
                     keys.add(merge ? Long.toString(node.signature()) : node.id());
                 }
             }
+        }
+        return keys;
+    }
+
+    /**
+     * Computes the keys on the path from the root to the selected inspector
+     * node, so the canvas can draw a persistent selected-path overlay.
+     *
+     * @param selectedId selected node id
+     * @return node keys from selected node back through its ancestors
+     */
+    private java.util.Set<String> selectedPathKeys(String selectedId) {
+        if (selectedId == null || selectedId.isBlank() || currentInfos.isEmpty()) {
+            return java.util.Set.of();
+        }
+        boolean merge = mergeToggle.isSelected();
+        java.util.Map<String, MctsSearch.NodeInfo> idToNode = new java.util.HashMap<>();
+        for (MctsSearch.NodeInfo n : currentInfos) {
+            idToNode.put(n.id(), n);
+        }
+        MctsSearch.NodeInfo cursor = idToNode.get(selectedId);
+        if (cursor == null) {
+            return java.util.Set.of();
+        }
+        java.util.Set<String> keys = new java.util.LinkedHashSet<>();
+        int guard = 0;
+        while (cursor != null && guard++ < 600) {
+            keys.add(merge ? Long.toString(cursor.signature()) : cursor.id());
+            String parentId = cursor.parentId();
+            cursor = parentId == null || parentId.isEmpty() ? null : idToNode.get(parentId);
         }
         return keys;
     }
