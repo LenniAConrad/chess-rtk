@@ -75,6 +75,46 @@ public final class SplitPaneStyler {
     }
 
     /**
+     * Builds a horizontal split pane wired with the workbench sash and the
+     * given resize weight (used as both the resize weight and the initial
+     * divider location). Centralises the split-pane boilerplate that was copied
+     * across every board/analysis/tool tab.
+     *
+     * @param left leading component
+     * @param right trailing component
+     * @param weight resize weight and initial divider location (0..1)
+     * @return the styled split pane
+     */
+    public static JSplitPane styledHorizontalSplit(java.awt.Component left, java.awt.Component right,
+            double weight) {
+        JSplitPane pane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, left, right);
+        pane.setOpaque(false);
+        pane.setResizeWeight(weight);
+        pane.setDividerLocation(weight);
+        SplitPaneStyler.style(pane);
+        return pane;
+    }
+
+    /**
+     * Builds a vertical split pane wired with the workbench sash, for stacking
+     * two independently scrollable regions (e.g. a setup form above a list).
+     *
+     * @param top leading component
+     * @param bottom trailing component
+     * @param weight resize weight and initial divider location (0..1)
+     * @return the styled split pane
+     */
+    public static JSplitPane styledVerticalSplit(java.awt.Component top, java.awt.Component bottom,
+            double weight) {
+        JSplitPane pane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, top, bottom);
+        pane.setOpaque(false);
+        pane.setResizeWeight(weight);
+        pane.setDividerLocation(weight);
+        SplitPaneStyler.style(pane);
+        return pane;
+    }
+
+    /**
      * Thin split-pane divider modelled after VS Code's transparent sash: no
      * grip, quiet at rest, accent colored only on hover/drag.
      */

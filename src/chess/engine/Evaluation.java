@@ -4,13 +4,7 @@ package chess.engine;
 import chess.classical.Wdl;
 
 /**
- * Tree node and value objects used by {@link Mcts}.
- *
- * @since 2026
- * @author Lennart A. Conrad
- */
-/**
- * WDL leaf value from side-to-move perspective.
+ * WDL leaf value from side-to-move perspective, used by {@link Mcts}.
  */
 record Evaluation(double pWin, double pDraw, double pLoss, double value) {
 

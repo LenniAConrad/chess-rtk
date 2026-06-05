@@ -27,18 +27,11 @@ public final class OtisView extends NetworkView {
     }
 
     /**
-     * Paints the empty placeholder.
-     *
-     * @param g graphics
-     * @param bounds bounds
+     * {@inheritDoc}
      */
     @Override
-    protected void paintEmpty(Graphics2D g, Rectangle bounds) {
-        g.setColor(Theme.BG);
-        g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
-        g.setColor(Theme.MUTED);
-        g.setFont(Theme.font(13, Font.PLAIN));
-        g.drawString("Loading OTIS snapshot...", PAD, 32);
+    protected String emptyStateTitle() {
+        return "Loading OTIS snapshot\u2026";
     }
 
     /**
@@ -314,6 +307,7 @@ public final class OtisView extends NetworkView {
         if (salience == null) {
             salience = data("otis.square.salience");
         }
+        salience = chessRtkToLerf(salience);
         int size = Math.max(96, Math.min(r.width - 28, r.height - 86));
         Rectangle board = new Rectangle(r.x + (r.width - size) / 2, r.y + 56, size, size);
         boolean whiteDown = TensorViz.whiteDownForSideToMove(fen);
@@ -340,7 +334,7 @@ public final class OtisView extends NetworkView {
     private void paintSheafBoard(Graphics2D g, Rectangle r) {
         TensorViz.drawSectionHeader(g, new Rectangle(r.x, r.y, r.width, 40),
                 "sheaf Laplacian", "signed delta^T delta heat-step pressure");
-        float[] laplacian = data("otis.sheaf.laplacian");
+        float[] laplacian = chessRtkToLerf(data("otis.sheaf.laplacian"));
         int size = Math.max(96, Math.min(r.width - 28, r.height - 86));
         Rectangle board = new Rectangle(r.x + (r.width - size) / 2, r.y + 56, size, size);
         boolean whiteDown = TensorViz.whiteDownForSideToMove(fen);
@@ -506,13 +500,20 @@ public final class OtisView extends NetworkView {
         int cellW = Math.max(18, grid.width / cols);
         int cellH = Math.max(18, grid.height / rows);
         float scale = scaleFor("otis:mosaic:" + key, maxAbs(values));
+        // These 8x8 maps are indexed by chess-rtk square (0 = a8). Row-major
+        // drawing already matches the board when White is down (a8 top-left);
+        // when Black is to move the board flips 180°, so rotate each map to keep
+        // every square's value over the same square the pieces are drawn on.
+        boolean whiteDown = TensorViz.whiteDownForSideToMove(fen);
         for (int c = 0; c < channels; c++) {
             int col = c % cols;
             int row = c / cols;
             Rectangle cell = new Rectangle(grid.x + col * cellW, grid.y + row * cellH,
                     Math.max(1, cellW - 3), Math.max(1, cellH - 3));
             float[] slice = new float[64];
-            System.arraycopy(values, c * 64, slice, 0, 64);
+            for (int i = 0; i < 64; i++) {
+                slice[i] = values[c * 64 + (whiteDown ? i : 63 - i)];
+            }
             TensorViz.drawGammaHeatmap(g, cell, slice, 8, 8, scale, tint);
             g.setColor(Theme.LINE);
             g.drawRect(cell.x, cell.y, cell.width - 1, cell.height - 1);
@@ -649,6 +650,28 @@ public final class OtisView extends NetworkView {
      * @param values 64 values
      * @return square or -1
      */
+    /**
+     * Converts a chess-rtk square-indexed array (0 = a8, as the OTIS sheaf
+     * tensors and the board pieces use) into the LERF order (0 = a1) that the
+     * shared board overlay / ring / tooltip helpers expect, by flipping the rank
+     * ({@code index ^ 56}). Without this the OTIS square overlays render
+     * vertically mirrored relative to the pieces (the lerf-based helpers are
+     * correct for the LERF-native CNN/BT4 views, but OTIS data is chess-rtk).
+     *
+     * @param rtk chess-rtk indexed values (may be null or short)
+     * @return LERF-ordered copy, or the input unchanged when null/short
+     */
+    private static float[] chessRtkToLerf(float[] rtk) {
+        if (rtk == null || rtk.length < 64) {
+            return rtk;
+        }
+        float[] lerf = new float[64];
+        for (int j = 0; j < 64; j++) {
+            lerf[j] = rtk[j ^ 56];
+        }
+        return lerf;
+    }
+
     private static int strongestSquare(float[] values) {
         if (values == null || values.length < 64) {
             return -1;

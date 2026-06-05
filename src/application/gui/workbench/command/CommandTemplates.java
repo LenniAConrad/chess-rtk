@@ -7,7 +7,6 @@ import application.cli.CliCommand;
 import application.cli.CliRegistry;
 import application.cli.PathOps;
 import chess.core.Setup;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.DefaultComboBoxModel;
@@ -86,15 +85,6 @@ public final class CommandTemplates {
      */
     public static DefaultComboBoxModel<CommandTemplate> commandModel() {
         return new DefaultComboBoxModel<>(commandTemplates().toArray(CommandTemplate[]::new));
-    }
-
-    /**
-     * Returns the batch-task combo model.
-     *
-     * @return combo model
-     */
-    public static DefaultComboBoxModel<BatchTask> batchModel() {
-        return new DefaultComboBoxModel<>(batchTasks().toArray(BatchTask[]::new));
     }
 
     /**
@@ -191,6 +181,9 @@ public final class CommandTemplates {
                         depthOption(true),
                         nodesOption(false),
                         durationOption(false),
+                        threadsOption(false),
+                        conflictingFlag("--max-strength", false, "Use time-bound max-strength defaults",
+                                "--depth", "--max-nodes"),
                         resultFormatChoice("summary", true, "Human-readable search summary"),
                         resultFormatChoice("uci-info", false, "UCI info transcript"),
                         resultFormatChoice("uci", false, "UCI best move only"),
@@ -246,8 +239,45 @@ public final class CommandTemplates {
                         opt("--max-new", "128", false, "Future T5 token budget"),
                         commonVerbose())),
     new CommandTemplate("Generate FENs", List.of("fen", "generate"), generateFenOptions())));
+        // Batch-style commands: they consume a multi-line --input list, which the
+        // Build form reveals as the position/command editor.
+        templates.add(new CommandTemplate("Bestmove batch", List.of("engine", "bestmove-batch"),
+                engineBatchOptions(true, false, true), BatchInputKind.FEN_LINES));
+        templates.add(new CommandTemplate("Analyze batch", List.of("engine", "analyze-batch"),
+                engineBatchOptions(true, true, true), BatchInputKind.FEN_LINES));
+        templates.add(new CommandTemplate("Tag FENs", List.of("fen", "tags"),
+                List.of(), BatchInputKind.FEN_LINES));
+        templates.add(new CommandTemplate("CLI script", List.of("batch", "run"),
+                List.of(flag("--keep-going", true, "Continue after a failed command")),
+                BatchInputKind.COMMAND_LINES));
+        templates.add(new CommandTemplate("Perft suite", List.of("engine", "perft-suite"),
+                List.of(depthOption(true), threadsOption(true))));
+        templates.add(new CommandTemplate("Benchmark", List.of("engine", "benchmark"),
+                List.of(depthOption(true), opt("--iterations", "3", true, "Benchmark iterations"))));
         templates.add(allCliTemplate());
         return List.copyOf(templates);
+    }
+
+    /**
+     * Builds the option list for an external-engine batch command, mirroring the
+     * historical {@code engine *-batch} argument set. Protocol path, max nodes,
+     * and hash auto-fill from the shared context and drop out when blank;
+     * duration/multipv/threads follow the per-command defaults.
+     *
+     * @param duration whether duration is enabled by default
+     * @param multipv whether MultiPV is enabled by default
+     * @param threads whether threads are enabled by default
+     * @return engine batch options
+     */
+    private static List<CommandOption> engineBatchOptions(boolean duration, boolean multipv, boolean threads) {
+        return List.of(
+                optSource("--protocol-path", ValueSource.PROTOCOL, true, "Engine protocol TOML path"),
+                nodesOption(true),
+                durationOption(duration),
+                multipvOption(multipv),
+                threadsOption(threads),
+                hashOption(true),
+                flag("--jsonl", true, "Emit one JSON object per line"));
     }
 
     /**
@@ -302,108 +332,6 @@ public final class CommandTemplates {
     private static boolean isWorkbenchLauncherPath(String commandPath) {
         return CMD_WORKBENCH.equals(commandPath)
                 || CMD_GUI.equals(commandPath);
-    }
-
-    /**
-     * Returns batch tasks.
-     *
-     * @return batch tasks
-     */
-    private static List<BatchTask> batchTasks() {
-        WorkflowControls bestmoveControls = new WorkflowControls(true, false, false, true);
-        WorkflowControls analyzeControls = new WorkflowControls(true, false, true, true);
-        WorkflowControls noControls = new WorkflowControls(false, false, false, false);
-        WorkflowControls perftControls = new WorkflowControls(false, true, false, true);
-        WorkflowControls benchControls = new WorkflowControls(false, true, false, false);
-        return List.of(
-                new BatchTask("Bestmove batch", BatchInputKind.FEN_LINES, bestmoveControls,
-                        (input, ctx) -> engineBatchArgs("bestmove-batch", input, ctx, bestmoveControls)),
-                new BatchTask("Analyze batch", BatchInputKind.FEN_LINES, analyzeControls,
-                        (input, ctx) -> engineBatchArgs("analyze-batch", input, ctx, analyzeControls)),
-                new BatchTask("Tag FENs", BatchInputKind.FEN_LINES, noControls,
-                        (input, ctx) -> List.of("fen", "tags", "--input", input.toString())),
-                new BatchTask("CLI script", BatchInputKind.COMMAND_LINES, noControls,
-                        (input, ctx) -> List.of("batch", "run", "--input", input.toString(),
-                                "--keep-going")),
-                new BatchTask("Perft suite", BatchInputKind.NONE, perftControls,
-                        (input, ctx) -> perftSuiteArgs(input, ctx, perftControls)),
-                new BatchTask("Benchmark", BatchInputKind.NONE, benchControls,
-                        (input, ctx) -> List.of("engine", "benchmark", "--depth",
-                                ctx.depth(), "--iterations", "3")));
-    }
-
-    /**
-     * Builds an external-engine batch command, honoring each {@link WorkflowControls}
-     * flag so the emitted arguments match the controls the task advertises.
-     *
-     * @param command batch subcommand
-     * @param input input file
-     * @param ctx current workbench context
-     * @param controls workflow controls declared by the batch task
-     * @return command arguments
-     */
-    private static List<String> engineBatchArgs(String command, Path input, TemplateContext ctx,
-            WorkflowControls controls) {
-        List<String> args = new ArrayList<>();
-        args.add("engine");
-        args.add(command);
-        args.add("--input");
-        args.add(input.toString());
-        addOptional(args, "--protocol-path", ctx.protocolPath());
-        addOptional(args, "--max-nodes", ctx.nodes());
-        if (controls.duration()) {
-            args.add("--max-duration");
-            args.add(ctx.duration());
-        }
-        if (controls.multipv()) {
-            args.add("--multipv");
-            args.add(ctx.multipv());
-        }
-        if (controls.threads()) {
-            addOptional(args, "--threads", ctx.threads());
-        }
-        addOptional(args, "--hash", ctx.hash());
-        args.add("--jsonl");
-        return List.copyOf(args);
-    }
-
-    /**
-     * Builds the perft-suite command, honoring declared controls.
-     *
-     * @param input input file
-     * @param ctx current workbench context
-     * @param controls workflow controls declared by the batch task
-     * @return command arguments
-     */
-    private static List<String> perftSuiteArgs(Path input, TemplateContext ctx, WorkflowControls controls) {
-        // perft-suite takes --suite (path), not --input, and the batch task is
-        // declared usesFenInput=false — match the historical behaviour of
-        // passing only --depth / --threads.
-        List<String> args = new ArrayList<>();
-        args.add("engine");
-        args.add("perft-suite");
-        if (controls.depth()) {
-            args.add("--depth");
-            args.add(ctx.depth());
-        }
-        if (controls.threads()) {
-            addOptional(args, "--threads", ctx.threads());
-        }
-        return List.copyOf(args);
-    }
-
-    /**
-     * Appends an optional flag/value pair when the value is present.
-     *
-     * @param args destination args
-     * @param flag command flag
-     * @param value option value
-     */
-    private static void addOptional(List<String> args, String flag, String value) {
-        if (value != null && !value.isBlank()) {
-            args.add(flag);
-            args.add(value.trim());
-        }
     }
 
     /**
@@ -1058,18 +986,7 @@ public final class CommandTemplates {
     }
 
     /**
-     * Tunable controls used by a batch workflow.
-     *
-     * @param duration whether duration is used
-     * @param depth whether depth is used
-     * @param multipv whether MultiPV is used
-     * @param threads whether thread count is used
-     */
-    public record WorkflowControls(boolean duration, boolean depth, boolean multipv, boolean threads) {
-    }
-
-    /**
-     * Input expected by a batch task.
+     * Input expected by a batch-style command's multi-line {@code --input} list.
      */
     public enum BatchInputKind {
         /**
@@ -1094,8 +1011,44 @@ public final class CommandTemplates {
      * @param name display name
      * @param baseArgs fixed command arguments
      * @param options command options
+     * @param inputKind multi-line input the command consumes via {@code --input},
+     *     or {@link BatchInputKind#NONE} for a single-position/no-input command
      */
-    public record CommandTemplate(String name, List<String> baseArgs, List<CommandOption> options) {
+    public record CommandTemplate(String name, List<String> baseArgs, List<CommandOption> options,
+            BatchInputKind inputKind) {
+
+        /**
+         * Creates a single-position or no-input command template.
+         *
+         * @param name display name
+         * @param baseArgs fixed command arguments
+         * @param options command options
+         */
+        public CommandTemplate(String name, List<String> baseArgs, List<CommandOption> options) {
+            this(name, baseArgs, options, BatchInputKind.NONE);
+        }
+
+        /**
+         * Normalizes nullable input metadata.
+         *
+         * @param name display name
+         * @param baseArgs fixed command arguments
+         * @param options command options
+         * @param inputKind multi-line input kind
+         */
+        public CommandTemplate {
+            inputKind = inputKind == null ? BatchInputKind.NONE : inputKind;
+        }
+
+        /**
+         * Returns whether this command reveals a multi-line position/command
+         * list editor (one that materializes an {@code --input} file).
+         *
+         * @return true when the command takes a multi-line input list
+         */
+        public boolean usesPositionList() {
+            return inputKind != BatchInputKind.NONE;
+        }
 
         /**
          * Returns the combo-box label for this template.
@@ -1108,90 +1061,4 @@ public final class CommandTemplates {
         }
     }
 
-    /**
-     * Batch task.
-     *
-     * @param name display name
-     * @param inputKind expected input text kind
-     * @param controls controls used by the task
-     * @param builder command argument builder
-     */
-    public record BatchTask(String name, BatchInputKind inputKind, WorkflowControls controls, BatchBuilder builder) {
-
-        /**
-         * Normalizes nullable task metadata.
-         *
-         * @param name display name
-         * @param inputKind expected input text kind
-         * @param controls controls used by the task
-         * @param builder command argument builder
-         */
-        public BatchTask {
-            inputKind = inputKind == null ? BatchInputKind.NONE : inputKind;
-        }
-
-        /**
-         * Returns whether the task consumes a FEN list.
-         *
-         * @return true for FEN-list tasks
-         */
-        public boolean usesFenInput() {
-            return inputKind == BatchInputKind.FEN_LINES;
-        }
-
-        /**
-         * Returns whether the task consumes command-script rows.
-         *
-         * @return true for command-script tasks
-         */
-        public boolean usesCommandInput() {
-            return inputKind == BatchInputKind.COMMAND_LINES;
-        }
-
-        /**
-         * Returns whether the task consumes text-area input.
-         *
-         * @return true when text input is required
-         */
-        public boolean usesTextInput() {
-            return inputKind != BatchInputKind.NONE;
-        }
-
-        /**
-         * Builds command args.
-         *
-         * @param input input path
-         * @param context template context
-         * @return args
-         */
-    List<String> build(Path input, TemplateContext context) {
-            return builder.build(input, context);
-        }
-
-        /**
-         * Returns the combo-box label for this batch task.
-         *
-         * @return display label
-         */
-        @Override
-        public String toString() {
-            return name;
-        }
-    }
-
-    /**
-     * Batch builder.
-     */
-    @FunctionalInterface
-    public interface BatchBuilder {
-
-        /**
-         * Builds command args.
-         *
-         * @param input input path
-         * @param context context
-         * @return args
-         */
-    List<String> build(Path input, TemplateContext context);
-    }
 }

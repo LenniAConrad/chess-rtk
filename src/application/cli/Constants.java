@@ -792,6 +792,73 @@ public final class Constants {
 	public static final String OPT_CIRCLES = "--circles";
 
 	/**
+	 * {@code --channel} option: a single tactical-incidence relation channel
+	 * (name or index) for {@code fen relations}.
+	 */
+	public static final String OPT_CHANNEL = "--channel";
+
+	/**
+	 * {@code --channels} option: a comma/space list of relation channels, or
+	 * {@code all}, for {@code fen relations}.
+	 */
+	public static final String OPT_CHANNELS = "--channels";
+
+	/**
+	 * {@code --montage} flag: render one small board per channel in a grid.
+	 */
+	public static final String OPT_MONTAGE = "--montage";
+
+	/**
+	 * {@code --legend} flag: draw a per-channel colour legend.
+	 */
+	public static final String OPT_LEGEND = "--legend";
+
+	/**
+	 * {@code --pieces} / {@code --no-pieces} flag: draw or hide the pieces under
+	 * the relation graph (default: draw). Use the negated {@code --no-pieces} form
+	 * for a graph-only view.
+	 */
+	public static final String OPT_PIECES = "--pieces";
+
+	/**
+	 * {@code --scramble} flag: degree-preserving randomization of the edges (the
+	 * falsifier visual).
+	 */
+	public static final String OPT_SCRAMBLE = "--scramble";
+
+	/**
+	 * {@code --seed} option: seed for the {@code --scramble} randomization.
+	 */
+	public static final String OPT_SEED = "--seed";
+
+	/**
+	 * {@code --coordinates} flag: draw file/rank coordinate labels on the board.
+	 */
+	public static final String OPT_COORDINATES = "--coordinates";
+
+	/**
+	 * {@code --coordinates-outside} flag: draw coordinate labels in an outer margin.
+	 */
+	public static final String OPT_COORDINATES_OUTSIDE = "--coordinates-outside";
+
+	/**
+	 * {@code --opacity} option: relation-arrow opacity (0..1) for
+	 * {@code fen relations}.
+	 */
+	public static final String OPT_OPACITY = "--opacity";
+
+	/**
+	 * {@code --color} option: per-channel colour override ({@code channel=#hex}),
+	 * repeatable, for {@code fen relations}.
+	 */
+	public static final String OPT_COLOR = "--color";
+
+	/**
+	 * {@code --stroke} option: relation-arrow line width for {@code fen relations}.
+	 */
+	public static final String OPT_STROKE = "--stroke";
+
+	/**
 	 * {@code --legal} option flag.
 	 */
 	public static final String OPT_LEGAL = "--legal";

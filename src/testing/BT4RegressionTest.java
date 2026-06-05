@@ -12,6 +12,7 @@ import java.util.List;
 
 import chess.core.Move;
 import chess.core.Position;
+import chess.gpu.BackendNames;
 import chess.nn.lc0.bt4.Architecture;
 import chess.nn.lc0.bt4.BinLoader;
 import chess.nn.lc0.bt4.Encoder;
@@ -35,6 +36,16 @@ public final class BT4RegressionTest {
     private static final String START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
     /**
+     * BT4-specific backend selection property.
+     */
+    private static final String BT4_BACKEND_PROPERTY = "crtk.lc0.bt4.backend";
+
+    /**
+     * Shared LC0 backend selection property used as a BT4 fallback.
+     */
+    private static final String LC0_BACKEND_PROPERTY = "crtk.lc0.backend";
+
+    /**
      * Prevents instantiation.
      */
     private BT4RegressionTest() {
@@ -48,12 +59,40 @@ public final class BT4RegressionTest {
      * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     public static void main(String[] args) throws IOException {
+        testBackendIdentifiers();
+        testCapabilityProbesAreGraceful();
         testEncoderClassicalPlanes();
         testEncoderModernAuxPlanes();
         testAttentionPolicyMap();
         testModelLoadAndForward();
+        testAutoBackendSelectsFirstLoadableGpu();
         testNativeBackendsWhenAvailable();
         System.out.println("BT4RegressionTest: all checks passed");
+    }
+
+    /**
+     * Verifies public BT4 backend identifiers stay aligned with shared GPU names.
+     */
+    private static void testBackendIdentifiers() {
+        assertEquals(BackendNames.CUDA, Network.BACKEND_CUDA, "BT4 CUDA backend id");
+        assertEquals(BackendNames.ROCM, Network.BACKEND_ROCM, "BT4 ROCm backend id");
+        assertEquals(BackendNames.ONEAPI, Network.BACKEND_ONEAPI, "BT4 oneAPI backend id");
+        assertFalse(Network.BACKEND_CPU.isBlank(), "BT4 CPU backend id is set");
+    }
+
+    /**
+     * Verifies native capability probes are safe to call on every host.
+     */
+    private static void testCapabilityProbesAreGraceful() {
+        assertTrue(chess.nn.lc0.bt4.cuda.Support.deviceCount() >= 0, "BT4 CUDA device count non-negative");
+        assertTrue(chess.nn.lc0.bt4.rocm.Support.deviceCount() >= 0, "BT4 ROCm device count non-negative");
+        assertTrue(chess.nn.lc0.bt4.oneapi.Support.deviceCount() >= 0, "BT4 oneAPI device count non-negative");
+        assertEquals(chess.nn.lc0.bt4.cuda.Support.isAvailable(),
+                chess.nn.lc0.bt4.cuda.Support.deviceCount() > 0, "BT4 CUDA availability matches device count");
+        assertEquals(chess.nn.lc0.bt4.rocm.Support.isAvailable(),
+                chess.nn.lc0.bt4.rocm.Support.deviceCount() > 0, "BT4 ROCm availability matches device count");
+        assertEquals(chess.nn.lc0.bt4.oneapi.Support.isAvailable(),
+                chess.nn.lc0.bt4.oneapi.Support.deviceCount() > 0, "BT4 oneAPI availability matches device count");
     }
 
     /**
@@ -124,6 +163,7 @@ public final class BT4RegressionTest {
             withBt4Backend("cpu", () -> {
                 try (Model model = Model.load(temp)) {
                     assertEquals("test-bt4", model.info().name(), "loaded model name");
+                    assertEquals(Network.BACKEND_CPU, model.backend(), "forced CPU model backend");
                     assertEquals(1, model.info().encoderLayers(), "loaded encoder count");
                     Position start = new Position(START_FEN);
                     Network.Prediction prediction = model.predict(start);
@@ -174,6 +214,90 @@ public final class BT4RegressionTest {
             });
         } finally {
             Files.deleteIfExists(temp);
+        }
+    }
+
+    /**
+     * Verifies auto backend selection prefers the first native backend that can
+     * initialize, including when BT4 inherits the shared LC0 backend property.
+     * @throws java.io.IOException if IOException is raised by the underlying operation
+     */
+    private static void testAutoBackendSelectsFirstLoadableGpu() throws IOException {
+        Architecture architecture = syntheticArchitecture();
+        Network.Weights weights = syntheticWeights(architecture);
+        Path temp = PathOps.createLocalTempFile("crtk-bt4-auto-test-", ".bin");
+        try {
+            writeWeights(temp, weights);
+            String expected = firstLoadableBackend(temp);
+            withBackendProperties("auto", null, () -> assertAutoBackend(temp, expected, "BT4 auto backend"));
+            withBackendProperties(null, "auto", () -> assertAutoBackend(temp, expected, "shared LC0 auto backend"));
+        } finally {
+            Files.deleteIfExists(temp);
+        }
+    }
+
+    /**
+     * Verifies one auto-selected backend.
+     *
+     * @param path weights path
+     * @param expected expected backend label
+     * @param label assertion label
+     * @throws IOException if loading fails
+     */
+    private static void assertAutoBackend(Path path, String expected, String label) throws IOException {
+        try (Network network = Network.load(path)) {
+            assertEquals(expected, network.backend(), label);
+        }
+    }
+
+    /**
+     * Returns the first native backend that can be forced successfully.
+     *
+     * @param path weights path
+     * @return expected auto backend
+     * @throws IOException if loading fails unexpectedly
+     */
+    private static String firstLoadableBackend(Path path) throws IOException {
+        String backend = loadableNativeBackend(path, Network.BACKEND_CUDA,
+                chess.nn.lc0.bt4.cuda.Support.isAvailable());
+        if (backend != null) {
+            return backend;
+        }
+        backend = loadableNativeBackend(path, Network.BACKEND_ROCM,
+                chess.nn.lc0.bt4.rocm.Support.isAvailable());
+        if (backend != null) {
+            return backend;
+        }
+        backend = loadableNativeBackend(path, Network.BACKEND_ONEAPI,
+                chess.nn.lc0.bt4.oneapi.Support.isAvailable());
+        return backend != null ? backend : Network.BACKEND_CPU;
+    }
+
+    /**
+     * Returns a backend name when it is available and can initialize this model.
+     *
+     * @param path weights path
+     * @param backend backend name
+     * @param available capability-probe result
+     * @return backend name, or {@code null}
+     * @throws IOException if loading fails unexpectedly
+     */
+    private static String loadableNativeBackend(Path path, String backend, boolean available) throws IOException {
+        if (!available) {
+            return null;
+        }
+        try {
+            withBt4Backend(backend, () -> {
+                try (Network network = Network.load(path)) {
+                    assertEquals(backend, network.backend(), "BT4 forced native backend " + backend);
+                }
+            });
+            return backend;
+        } catch (IOException e) {
+            if (isNativeInitFailure(e)) {
+                return null;
+            }
+            throw e;
         }
     }
 
@@ -412,16 +536,42 @@ public final class BT4RegressionTest {
      * @throws IOException if the action fails
      */
     private static void withBt4Backend(String backend, ThrowingAction action) throws IOException {
-        String previous = System.getProperty("crtk.lc0.bt4.backend");
-        System.setProperty("crtk.lc0.bt4.backend", backend);
+        withBackendProperties(backend, System.getProperty(LC0_BACKEND_PROPERTY), action);
+    }
+
+    /**
+     * Runs an action with temporary BT4 and shared LC0 backend properties.
+     *
+     * @param bt4Backend BT4 backend value, or null to clear
+     * @param lc0Backend shared LC0 backend value, or null to clear
+     * @param action action to run
+     * @throws IOException if the action fails
+     */
+    private static void withBackendProperties(String bt4Backend, String lc0Backend, ThrowingAction action)
+            throws IOException {
+        String previousBt4 = System.getProperty(BT4_BACKEND_PROPERTY);
+        String previousLc0 = System.getProperty(LC0_BACKEND_PROPERTY);
+        setOrClearProperty(BT4_BACKEND_PROPERTY, bt4Backend);
+        setOrClearProperty(LC0_BACKEND_PROPERTY, lc0Backend);
         try {
             action.run();
         } finally {
-            if (previous == null) {
-                System.clearProperty("crtk.lc0.bt4.backend");
-            } else {
-                System.setProperty("crtk.lc0.bt4.backend", previous);
-            }
+            setOrClearProperty(BT4_BACKEND_PROPERTY, previousBt4);
+            setOrClearProperty(LC0_BACKEND_PROPERTY, previousLc0);
+        }
+    }
+
+    /**
+     * Sets or clears one system property.
+     *
+     * @param property property name
+     * @param value property value, or null to clear
+     */
+    private static void setOrClearProperty(String property, String value) {
+        if (value == null) {
+            System.clearProperty(property);
+        } else {
+            System.setProperty(property, value);
         }
     }
 

@@ -25,6 +25,7 @@ import java.util.Locale;
 import application.Config;
 import chess.core.Position;
 import chess.describe.ClassicalPositionDescriptionGenerator;
+import chess.describe.EngineEvaluator;
 import chess.describe.PositionDescriptionDetail;
 import chess.describe.PositionDescriptionInput;
 import chess.describe.T5PositionDescriptionGenerator;
@@ -50,6 +51,16 @@ public final class PositionDescribeCommand {
      * Detail-level selector option.
      */
     private static final String OPT_DETAIL = "--detail";
+
+    /**
+     * Evaluation-source selector option ({@code static} or {@code engine}).
+     */
+    private static final String OPT_EVAL = "--eval";
+
+    /**
+     * Engine-evaluation search-depth selector option.
+     */
+    private static final String OPT_EVAL_DEPTH = "--eval-depth";
 
     /**
      * Legacy candidate-budget selector.
@@ -106,6 +117,9 @@ public final class PositionDescribeCommand {
         for (int i = 0; i < fens.size(); i++) {
             Position position = CommandSupport.parsePositionOrExit(fens.get(i), COMMAND, options.verbose());
             PositionDescriptionInput input = PositionDescriptionInput.from(position);
+            if (options.evalEngine()) {
+                input = input.withEvaluation(EngineEvaluator.evaluate(position, options.evalDepth()));
+            }
             String text = generator.generate(input, options.detail(), options.candidateBudget());
             rows.add(new Row(i + 1, "pos-" + (i + 1), input, text));
         }
@@ -131,6 +145,9 @@ public final class PositionDescribeCommand {
         String model = CommandSupport.trimToNull(a.string(OPT_MODEL));
         Path modelPath = model == null ? Path.of(Config.getT5ModelPath()) : Path.of(model);
         Integer maxNew = a.integer(OPT_MAX_NEW);
+        Integer evalDepthBox = a.integer(OPT_EVAL_DEPTH);
+        boolean evalEngine = parseEvalEngine(CommandSupport.trimToNull(a.string(OPT_EVAL)), evalDepthBox != null);
+        int evalDepth = evalDepthBox == null ? EngineEvaluator.DEFAULT_DEPTH : Math.max(1, evalDepthBox);
         boolean startPos = a.flag(OPT_STARTPOS);
         boolean randomPos = a.flag(OPT_RANDOMPOS);
         String fen = a.string(OPT_FEN);
@@ -139,7 +156,31 @@ public final class PositionDescribeCommand {
         String selectedFen = CommandSupport.resolveSelectedFen(COMMAND, fen, rest, startPos, randomPos, false);
         validateInputSelectors(input, stdin, selectedFen);
         return new Options(verbose, stdin, input, output, selectedFen, outputFormat, engine, detail, candidateBudget,
-                modelPath, maxNew == null ? 128 : Math.max(1, maxNew));
+                modelPath, maxNew == null ? 128 : Math.max(1, maxNew), evalEngine, evalDepth);
+    }
+
+    /**
+     * Resolves the evaluation source from the {@code --eval} value.
+     *
+     * <p>
+     * Supplying {@code --eval-depth} without an explicit {@code --eval} implies the
+     * engine source, since the depth only applies to a real search.
+     * </p>
+     *
+     * @param value raw {@code --eval} value, or null
+     * @param depthGiven true when {@code --eval-depth} was supplied
+     * @return true to use a real engine-search evaluation
+     */
+    private static boolean parseEvalEngine(String value, boolean depthGiven) {
+        if (value == null) {
+            return depthGiven;
+        }
+        return switch (value.toLowerCase(Locale.ROOT)) {
+            case "static", "classical" -> false;
+            case "engine", "search", "alphabeta" -> true;
+            default -> throw new CommandFailure(COMMAND
+                    + ": unsupported --eval " + value + " (expected static or engine)", 2);
+        };
     }
 
     /**
@@ -480,6 +521,8 @@ public final class PositionDescribeCommand {
      * @param candidateBudget candidate output budget
      * @param modelPath optional model path
      * @param maxNewTokens T5 generation budget
+     * @param evalEngine true to evaluate with a real engine search
+     * @param evalDepth engine-evaluation search depth in plies
      */
     private record Options(
             boolean verbose,
@@ -492,7 +535,9 @@ public final class PositionDescribeCommand {
             PositionDescriptionDetail detail,
             int candidateBudget,
             Path modelPath,
-            int maxNewTokens) {
+            int maxNewTokens,
+            boolean evalEngine,
+            int evalDepth) {
     }
 
     /**

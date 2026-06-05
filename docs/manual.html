@@ -449,6 +449,7 @@ blockquote p:last-child {
 <li><a href="#chapter-glossary">Glossary</a></li>
 <li><a href="#chapter-support">Support</a></li>
 <li><a href="#chapter-readme">Wiki Index</a></li></ol></section>
+<section><h2>Reference</h2><ol><li><a href="#chapter-engine-strength-tuning">Engine Strength Tuning — What Worked, What Didn&#x27;t</a></li></ol></section>
   </section>
   
 <section class="chapter">
@@ -558,10 +559,10 @@ crtk workbench</code></pre>
 <li>Print any position from a FEN, in the terminal or as an image.</li>
 <li>List, convert, and apply moves in UCI or SAN, including full move lines.</li>
 <li>Count positions exactly with <code>engine perft</code> and validate the move generator with <code>engine perft-suite</code>.</li>
-<li>Search positions with the built-in MCTS engine, with no external process.</li>
+<li>Search positions with the built-in engine, with no external process.</li>
 <li>Drive everything visually from the native Swing Workbench.</li>
 </ul>
-<p>Most of this runs against nothing but the core: positions, moves, perft, forced-mate search, and the built-in MCTS engine all work on a bare checkout. You only need Stockfish or LC0 for the UCI-backed commands — <code>engine analyze</code>, <code>engine bestmove</code>, <code>engine compare</code>, and puzzle mining. The neural evaluators (NNUE, LC0 CNN, OTIS) and T5 text summaries are optional too; they read local files under <code>models/</code>.</p>
+<p>Most of this runs against nothing but the core: positions, moves, perft, forced-mate search, and the built-in engine all work on a bare checkout. You only need Stockfish or LC0 for the UCI-backed commands — <code>engine analyze</code>, <code>engine bestmove</code>, <code>engine compare</code>, and puzzle mining. The neural evaluators (NNUE, LC0 CNN, OTIS) and T5 text summaries are optional too; they read local files under <code>models/</code>.</p>
 <h2 id="chapter-getting-started-requirements">Requirements</h2>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -646,8 +647,8 @@ crtk engine perft --startpos --depth 4 --divide</code></pre>
 <pre><code class="language-bash">crtk engine perft-suite --depth 5</code></pre>
 <p>Both take <code>--gpu</code>, which uses a native GPU backend when one is installed and falls back to the CPU when it isn&#x27;t.</p>
 <h3 id="chapter-getting-started-4-search-with-the-built-in-engine">4. Search with the built-in engine</h3>
-<p><code>engine builtin</code> runs the MCTS engine in-process — no subprocess, no socket, and the same budget always yields the same result. <code>--format summary</code> gives you something readable; bound the search with <code>--depth</code>, <code>--max-nodes</code>, or <code>--max-duration</code>.</p>
-<pre><code class="language-bash">crtk engine builtin --startpos --depth 3 --format summary --max-duration 2s</code></pre>
+<p><code>engine builtin</code> runs in-process — no subprocess, no socket, and the same single-thread budget always yields the same result. <code>--format summary</code> gives you something readable; bound the search with <code>--depth</code>, <code>--max-nodes</code>, or <code>--max-duration</code>.</p>
+<pre><code class="language-bash">crtk engine builtin --startpos --depth 6 --format summary --max-duration 2s</code></pre>
 <p>Out comes the chosen move, its score, the node count, and the principal variation in both UCI and SAN. When you want a proven forced mate rather than an evaluation — no neural net involved — reach for <code>engine mate</code>:</p>
 <pre><code class="language-bash">crtk engine mate --fen &quot;&lt;FEN&gt;&quot; --mate 3 --format san</code></pre>
 <p>For real playing strength, point <code>crtk</code> at Stockfish or LC0 and use <code>engine bestmove</code> or <code>engine analyze</code> (see <a href="#chapter-configuration">Configuration</a>):</p>
@@ -920,7 +921,7 @@ crtk engine perft-suite --depth 6 --threads 4</code></pre>
   <div class="chapter-body">
     <p>Five very different jobs run on one set of rules here. Analyzing a position, mining tactics, building training tensors, publishing a book, scripting an agent — all of them reach through the same legal move generator, the same make/undo, the same FEN/SAN/UCI/Chess960 layer. Nothing forks its own slightly-wrong notion of a legal move. That is the whole point, and it&#x27;s why the output is reproducible no matter which door you come in through. The page is sorted by who you are: find the persona that fits, take the recipe, follow the links when you want the depth.</p>
 <p><img src="assets/diagrams/crtk-pipeline-overview.png" alt="ChessRTK pipeline overview" loading="eager" decoding="sync"></p>
-<p>Every command reads as <code>crtk &lt;area&gt; &lt;action&gt; [options]</code>, noun then verb, and leans on explicit flags (<code>--fen</code>, <code>--input</code>, <code>--output</code>, <code>--format</code>) rather than positional guesswork — which is what keeps a script stable when you come back to it months later. The <code>fen</code>, <code>move</code>, and <code>position</code> primitives run in-process and ask for no engine at all. The <code>engine</code> area is where Stockfish or LC0 plug in, alongside a built-in MCTS searcher and a forced-mate prover.</p>
+<p>Every command reads as <code>crtk &lt;area&gt; &lt;action&gt; [options]</code>, noun then verb, and leans on explicit flags (<code>--fen</code>, <code>--input</code>, <code>--output</code>, <code>--format</code>) rather than positional guesswork — which is what keeps a script stable when you come back to it months later. The <code>fen</code>, <code>move</code>, and <code>position</code> primitives run in-process and ask for no engine at all. The <code>engine</code> area is where Stockfish or LC0 plug in, alongside a built-in searcher and a forced-mate prover.</p>
 <h2 id="chapter-use-cases-personas-at-a-glance">Personas At A Glance</h2>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -955,7 +956,7 @@ crtk engine perft-suite --depth 6 --threads 4</code></pre>
 </tr>
 </tbody></table></div>
 <h2 id="chapter-use-cases-chess-researchers">Chess Researchers</h2>
-<p>Start with the primitives — they tell you what&#x27;s legal, what a move does, what the position is — and reach for search only when you actually need it. The <code>fen</code>, <code>move</code>, and <code>position</code> commands run entirely in-process and need no configured engine, so they answer instantly and identically every time. When you want depth, the <code>engine</code> area adds UCI analysis, the built-in MCTS searcher, and a choice of evaluators: classical/static, NNUE, LC0 CNN, OTIS.</p>
+<p>Start with the primitives — they tell you what&#x27;s legal, what a move does, what the position is — and reach for search only when you actually need it. The <code>fen</code>, <code>move</code>, and <code>position</code> commands run entirely in-process and need no configured engine, so they answer instantly and identically every time. When you want depth, the <code>engine</code> area adds UCI analysis, the built-in searcher, and a choice of evaluators: classical/static, NNUE, LC0 CNN, OTIS.</p>
 <pre><code class="language-bash">crtk fen print --fen &quot;&lt;FEN&gt;&quot;
 crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both
 crtk engine analyze --fen &quot;&lt;FEN&gt;&quot; --multipv 3 --max-duration 5s
@@ -1061,11 +1062,11 @@ crtk version</code></pre>
 <h2 id="chapter-faq-what-is-chessrtk">What is ChessRTK?</h2>
 <p>ChessRTK (&quot;crtk&quot;) is a command-line workbench for chess research, automation, and content production. One shared chess core does the unglamorous, exacting work — legal move generation, make/undo, attack detection, FEN/SAN/UCI parsing, Chess960, perft — and everything else is built on top of it: external-engine analysis, a built-in search, several position evaluators, puzzle mining, deterministic tagging, machine-learning dataset export, and native PDF book publishing. It ships as a single <code>crtk.jar</code> and is driven entirely by <code>crtk &lt;area&gt; &lt;action&gt;</code>. Run <code>crtk help</code> to see every area.</p>
 <h2 id="chapter-faq-is-chessrtk-a-chess-engine">Is ChessRTK a chess engine?</h2>
-<p>It contains one, but that is the smaller half of the story. <code>engine builtin</code> (alias <code>engine java</code>) is an in-process MCTS searcher, and <code>engine mate</code> is a brute-force forced-mate prover that needs no neural network at all. When you want genuinely strong analysis you hand the position to an external UCI engine through <code>engine analyze</code>, <code>engine bestmove</code>, and friends. crtk is the research platform around those engines, not a replacement for them.</p>
+<p>It contains one, but that is the smaller half of the story. <code>engine builtin</code> (alias <code>engine java</code>) is an in-process searcher, and <code>engine mate</code> is a brute-force forced-mate prover that needs no neural network at all. When you want genuinely strong analysis you hand the position to an external UCI engine through <code>engine analyze</code>, <code>engine bestmove</code>, and friends. crtk is the research platform around those engines, not a replacement for them.</p>
 <pre><code class="language-bash">crtk engine builtin --startpos --max-nodes 20000 --format both
 crtk engine mate --fen &quot;6k1/5ppp/8/8/8/8/5PPP/4R1K1 w - - 0 1&quot; --mate 3</code></pre>
 <h2 id="chapter-faq-do-i-need-stockfish-or-lc0">Do I need Stockfish or LC0?</h2>
-<p>Not for the core. FEN, move, perft, tagging, the built-in MCTS, and the forced-mate prover all run in-process with nothing else installed. An external UCI engine — Stockfish, LC0, whatever you trust — only enters the picture for the UCI-backed commands: <code>engine analyze</code>, <code>engine bestmove</code>, <code>engine threats</code>, <code>engine compare</code>, <code>engine uci-smoke</code>, the <code>*-batch</code> variants, and <code>puzzle mine</code>. Describe your engine once in a protocol TOML, then pass it with <code>--protocol-path</code> or let it default from <code>crtk config show</code>.</p>
+<p>Not for the core. FEN, move, perft, tagging, the built-in engine, and the forced-mate prover all run in-process with nothing else installed. An external UCI engine — Stockfish, LC0, whatever you trust — only enters the picture for the UCI-backed commands: <code>engine analyze</code>, <code>engine bestmove</code>, <code>engine threats</code>, <code>engine compare</code>, <code>engine uci-smoke</code>, the <code>*-batch</code> variants, and <code>puzzle mine</code>. Describe your engine once in a protocol TOML, then pass it with <code>--protocol-path</code> or let it default from <code>crtk config show</code>.</p>
 <pre><code class="language-bash">crtk move list --startpos                 # in-process, no engine needed
 crtk engine perft --startpos --depth 5    # in-process
 crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot;        # needs a configured UCI engine</code></pre>
@@ -1075,7 +1076,7 @@ crtk engine bestmove --fen &quot;&lt;FEN&gt;&quot;        # needs a configured U
 crtk fen chess960 --random --count 5
 crtk puzzle mine --chess960 --random-count 100</code></pre>
 <h2 id="chapter-faq-is-the-output-deterministic-and-reproducible">Is the output deterministic and reproducible?</h2>
-<p>This is a design goal, not a happy accident. The shared core, perft, tagging, the built-in MCTS, and the dataset and export pipelines return the same output for the same input, which is what makes results worth diffing, caching, and regression-testing. <code>engine perft-suite</code> checks move generation against stored reference node counts. The one place determinism stops is the external UCI engine: its output depends on its own threads, hash, and node or time budgets, so pin those budgets when you need byte-stable engine results.</p>
+<p>This is a design goal, not a happy accident. The shared core, perft, tagging, the single-thread built-in search, and the dataset and export pipelines return the same output for the same input, which is what makes results worth diffing, caching, and regression-testing. <code>engine perft-suite</code> checks move generation against stored reference node counts. The one place determinism stops is the external UCI engine: its output depends on its own threads, hash, and node or time budgets, so pin those budgets when you need byte-stable engine results.</p>
 <pre><code class="language-bash">crtk engine perft-suite --depth 6 --threads 4</code></pre>
 <h2 id="chapter-faq-does-chessrtk-need-a-gpu">Does ChessRTK need a GPU?</h2>
 <p>No. CPU is the default and the floor. The native backends — CUDA, ROCm, oneAPI — optionally accelerate perft and the OTIS/LC0 evaluators, and when none is available crtk quietly falls back to CPU rather than failing. <code>engine gpu</code> reports what actually loaded on your machine; the <code>--gpu</code> flag opts perft into the accelerated path.</p>
@@ -1161,7 +1162,7 @@ Warnings:
 </ul>
 <pre><code class="language-bash">crtk engine uci-smoke -P config/default.engine.toml --max-nodes 1</code></pre>
 <ul>
-<li>To take the external engine out of the picture, use commands that never spawn a UCI process: <code>engine static</code> and <code>engine eval</code> (local evaluators), <code>engine builtin</code> / <code>engine java</code> (built-in MCTS searcher), <code>engine mate</code> (forced-mate prover), <code>move list</code>, <code>engine perft</code>, and <code>engine perft-suite</code>. If those run and <code>engine analyze</code> does not, the fault is in the external-engine configuration, not the chess core. See <a href="#chapter-configuration">Configuration</a> and <a href="#chapter-lc0">LC0</a> for protocol setup.</li>
+<li>To take the external engine out of the picture, use commands that never spawn a UCI process: <code>engine static</code> and <code>engine eval</code> (local evaluators), <code>engine builtin</code> / <code>engine java</code> (built-in searcher), <code>engine mate</code> (forced-mate prover), <code>move list</code>, <code>engine perft</code>, and <code>engine perft-suite</code>. If those run and <code>engine analyze</code> does not, the fault is in the external-engine configuration, not the chess core. See <a href="#chapter-configuration">Configuration</a> and <a href="#chapter-lc0">LC0</a> for protocol setup.</li>
 </ul>
 <h2 id="chapter-troubleshooting-perft-mismatches">Perft mismatches</h2>
 <p><strong>Symptom:</strong> <code>engine perft-suite</code> reports a failing row, or <code>engine perft</code> returns a node count that disagrees with a known reference.</p>
@@ -1232,7 +1233,7 @@ PERFT ROCm JNI backend: loaded=no, available=no (deviceCount=0)</code></pre>
 crtk version --json                                 # build metadata
 crtk fen print --startpos                           # render the start position as text
 crtk move list --startpos --format both             # legal moves in UCI + SAN
-crtk engine builtin --startpos --depth 3 --format summary   # in-process MCTS search
+crtk engine builtin --startpos --depth 6 --format summary   # in-process search
 crtk engine perft-suite --depth 5                   # movegen correctness regression</code></pre>
 <h2 id="chapter-command-cheatsheet-setup-and-diagnostics">Setup And Diagnostics</h2>
 <div class="table-wrap"><table>
@@ -1340,6 +1341,10 @@ crtk engine perft-suite --depth 5                   # movegen correctness regres
 <td><code>crtk fen render --fen &quot;&lt;FEN&gt;&quot; -o board.svg --arrows e2e4,d2d4 --dark</code></td>
 </tr>
 <tr>
+<td>Tactical-incidence relation graph</td>
+<td><code>crtk fen relations --fen &quot;&lt;FEN&gt;&quot; --montage -o relations.png</code></td>
+</tr>
+<tr>
 <td>Open a board window</td>
 <td><code>crtk fen display --fen &quot;&lt;FEN&gt;&quot;</code></td>
 </tr>
@@ -1422,7 +1427,7 @@ crtk engine perft-suite --depth 5                   # movegen correctness regres
 </tbody></table></div>
 <blockquote><p><code>crtk fen after</code> and <code>crtk fen line</code> are aliases for <code>move after</code> and <code>move play</code> — same behavior, whichever noun you reach for.</p></blockquote>
 <h2 id="chapter-command-cheatsheet-engine-analysis-and-search">Engine Analysis And Search</h2>
-<p>Three kinds of engine live here, and the verb tells you which. <code>engine analyze</code>/<code>bestmove</code>/<code>threats</code>/<code>compare</code> talk to an external UCI engine — Stockfish, LC0. <code>engine builtin</code>/<code>java</code> run the in-process MCTS engine, no external process required. <code>engine mate</code> proves forced mates by brute force, and <code>engine static</code>/<code>eval</code> just score a position.</p>
+<p>Three kinds of engine live here, and the verb tells you which. <code>engine analyze</code>/<code>bestmove</code>/<code>threats</code>/<code>compare</code> talk to an external UCI engine — Stockfish, LC0. <code>engine builtin</code>/<code>java</code> run the in-process built-in engine, no external process required. <code>engine mate</code> proves forced mates by brute force, and <code>engine static</code>/<code>eval</code> just score a position.</p>
 <div class="table-wrap"><table>
 <thead><tr>
 <th>Task</th>
@@ -1457,8 +1462,8 @@ crtk engine perft-suite --depth 5                   # movegen correctness regres
 <td><code>crtk engine compare --input positions.txt --left-protocol a.toml --right-protocol b.toml --jsonl</code></td>
 </tr>
 <tr>
-<td>In-process MCTS search</td>
-<td><code>crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 4 --format summary</code></td>
+<td>In-process built-in search</td>
+<td><code>crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 6 --format summary</code></td>
 </tr>
 <tr>
 <td>MCTS with LC0 evaluator</td>
@@ -1760,7 +1765,7 @@ crtk engine perft-suite --depth 5                   # movegen correctness regres
 </tr>
 <tr>
 <td>Offline in-process fallback</td>
-<td><code>crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 3 --format summary</code></td>
+<td><code>crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 6 --format summary</code></td>
 </tr>
 </tbody></table></div>
 <h2 id="chapter-command-cheatsheet-see-also">See Also</h2>
@@ -2302,6 +2307,10 @@ crtk engine perft-suite --depth 5                   # movegen correctness regres
 <td>Save a position image to disk</td>
 </tr>
 <tr>
+<td><code>fen relations</code></td>
+<td>Render the OTIS tactical-incidence relation channels as typed arrows</td>
+</tr>
+<tr>
 <td><code>fen tags</code></td>
 <td>Generate tags for FENs, PGNs, or variations</td>
 </tr>
@@ -2558,8 +2567,8 @@ crtk fen chess960 --random --count 5 --format both</code></pre>
 <td>Overlay legal move dots from a square</td>
 </tr>
 <tr>
-<td><code>--details-inside</code> / <code>--details-outside</code></td>
-<td>Show eval details inside / outside the board</td>
+<td><code>--coordinates</code> / <code>--coordinates-outside</code></td>
+<td>Draw file/rank labels inside the border / in an outer margin (aliases: <code>--details-inside</code> / <code>--details-outside</code>)</td>
 </tr>
 <tr>
 <td><code>--ablation</code></td>
@@ -2643,8 +2652,8 @@ crtk fen chess960 --random --count 5 --format both</code></pre>
 <td>Overlay legal move dots from a square</td>
 </tr>
 <tr>
-<td><code>--details-inside</code> / <code>--details-outside</code></td>
-<td>Show eval details inside / outside the board</td>
+<td><code>--coordinates</code> / <code>--coordinates-outside</code></td>
+<td>Draw file/rank labels inside the border / in an outer margin (aliases: <code>--details-inside</code> / <code>--details-outside</code>)</td>
 </tr>
 <tr>
 <td><code>--ablation</code></td>
@@ -2652,6 +2661,191 @@ crtk fen chess960 --random --count 5 --format both</code></pre>
 </tr>
 </tbody></table></div>
 <pre><code class="language-bash">crtk fen render --fen &quot;&lt;FEN&gt;&quot; --output board.svg --size 800 --accent &quot;#4ab66f&quot;</code></pre>
+<h3 id="chapter-command-reference-fen-relations">fen relations</h3>
+<p>Render the position as a <em>tactical-incidence graph</em>: typed, colour-coded arrows for each of the twelve relation channels the OTIS (oriented tactical-sheaf) network ingests. The edges come straight from the network&#x27;s incidence builder, so the picture matches the model&#x27;s input — and they are computed deterministically from the position alone, with no engine evaluation or model file.</p>
+<p><img src="assets/boards/crtk-relations.svg" alt="ChessRTK tactical-incidence relations: knight attacks, queen rays, and a pin, rendered by crtk" loading="eager" decoding="sync"></p>
+<p><em>Knight attacks (yellow), occlusion-aware queen rays (blue), and the absolute pin <code>Bc4 → f7</code> against the castled king (coral), drawn with <code>fen relations</code>.</em></p>
+<p>The twelve channels (<code>--channel</code>/<code>--channels</code> accept the name, an index <code>0..11</code>, or <code>all</code>):</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>#</th>
+<th>Channel</th>
+<th>Edges</th>
+</tr></thead><tbody>
+<tr>
+<td class="numeric">0</td>
+<td><code>us_attacks_them_piece</code></td>
+<td>side-to-move pieces attacking enemy pieces</td>
+</tr>
+<tr>
+<td class="numeric">1</td>
+<td><code>them_attacks_us_piece</code></td>
+<td>enemy pieces attacking ours</td>
+</tr>
+<tr>
+<td class="numeric">2</td>
+<td><code>us_defends_us_piece</code></td>
+<td>our pieces defending ours</td>
+</tr>
+<tr>
+<td class="numeric">3</td>
+<td><code>them_defends_them_piece</code></td>
+<td>enemy pieces defending theirs</td>
+</tr>
+<tr>
+<td class="numeric">4</td>
+<td><code>us_attacks_empty_near_king</code></td>
+<td>our pressure on empty squares in the enemy king zone</td>
+</tr>
+<tr>
+<td class="numeric">5</td>
+<td><code>them_attacks_empty_near_king</code></td>
+<td>enemy pressure on our king zone</td>
+</tr>
+<tr>
+<td class="numeric">6</td>
+<td><code>bishop_ray_visible</code></td>
+<td>visible bishop rays (stop at the first blocker)</td>
+</tr>
+<tr>
+<td class="numeric">7</td>
+<td><code>rook_ray_visible</code></td>
+<td>visible rook rays</td>
+</tr>
+<tr>
+<td class="numeric">8</td>
+<td><code>queen_ray_visible</code></td>
+<td>visible queen rays</td>
+</tr>
+<tr>
+<td class="numeric">9</td>
+<td><code>knight_attack</code></td>
+<td>knight attacks</td>
+</tr>
+<tr>
+<td class="numeric">10</td>
+<td><code>pawn_attack_forward_oriented</code></td>
+<td>pawn attacks (side-to-move oriented)</td>
+</tr>
+<tr>
+<td class="numeric">11</td>
+<td><code>king_ray_pin_candidate</code></td>
+<td>absolute-pin lines (pinner → pinned)</td>
+</tr>
+</tbody></table></div>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Option</th>
+<th>Description</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--fen FEN</code></td>
+<td>FEN to render (or pass positionally)</td>
+</tr>
+<tr>
+<td><code>--startpos</code> / <code>--randompos</code></td>
+<td>Use the standard start / a random legal position</td>
+</tr>
+<tr>
+<td><code>--output</code>/<code>-o PATH</code></td>
+<td>Output image/SVG path (required)</td>
+</tr>
+<tr>
+<td><code>--format FORMAT</code></td>
+<td><code>png</code>, <code>jpg</code>, <code>bmp</code>, or <code>svg</code> (default: from extension, else <code>png</code>)</td>
+</tr>
+<tr>
+<td><code>--channel NAME</code> / <code>--channels LIST</code></td>
+<td>One channel, a comma/space list, or <code>all</code> (default: all)</td>
+</tr>
+<tr>
+<td><code>--montage</code></td>
+<td>One small labelled board per channel in a grid (raster only)</td>
+</tr>
+<tr>
+<td><code>--legend</code></td>
+<td>Draw a per-channel colour legend (raster only)</td>
+</tr>
+<tr>
+<td><code>--no-pieces</code></td>
+<td>Graph-only view, without the pieces</td>
+</tr>
+<tr>
+<td><code>--scramble</code> / <code>--seed N</code></td>
+<td>Degree-preserving edge randomization (the falsifier visual)</td>
+</tr>
+<tr>
+<td><code>--accent HEX</code></td>
+<td>Tint the board squares/grid/frame (e.g. <code>#4ab66f</code>), as in <code>fen render</code></td>
+</tr>
+<tr>
+<td><code>--coordinates</code></td>
+<td>Draw file/rank coordinate labels (a–h, 1–8)</td>
+</tr>
+<tr>
+<td><code>--color CH=#HEX</code></td>
+<td>Override a channel&#x27;s arrow colour (repeatable; <code>;</code>-separated also works)</td>
+</tr>
+<tr>
+<td><code>--opacity F</code></td>
+<td>Arrow fill opacity <code>0..1</code> (default <code>0.42</code>; the border is drawn more opaque)</td>
+</tr>
+<tr>
+<td><code>--stroke W</code></td>
+<td>Arrow line width (default <code>3</code>)</td>
+</tr>
+<tr>
+<td><code>--coordinates</code> / <code>--coordinates-outside</code></td>
+<td>Coordinate labels inside the board / in an outer margin</td>
+</tr>
+<tr>
+<td><code>--no-border</code></td>
+<td>Hide the outer frame</td>
+</tr>
+<tr>
+<td><code>--drop-shadow</code> / <code>--shadow</code></td>
+<td>Add a drop shadow (raster only)</td>
+</tr>
+<tr>
+<td><code>--arrow</code>/<code>--arrows MOVES</code></td>
+<td>Extra manual arrows (e.g. <code>e2e4,d2d4</code>) over the graph</td>
+</tr>
+<tr>
+<td><code>--circle</code>/<code>--circles SQUARES</code></td>
+<td>Circle overlays (e.g. <code>e4,d5</code>)</td>
+</tr>
+<tr>
+<td><code>--legal SQUARE</code></td>
+<td>Overlay legal-move dots from a square</td>
+</tr>
+<tr>
+<td><code>--special-arrows</code></td>
+<td>Draw castling / en-passant hint arrows</td>
+</tr>
+<tr>
+<td><code>--flip</code> / <code>--black-down</code></td>
+<td>Render from Black&#x27;s perspective / Black at the bottom</td>
+</tr>
+<tr>
+<td><code>--size N</code> / <code>--width N</code> / <code>--height N</code></td>
+<td>Board size / image width / height (pixels)</td>
+</tr>
+</tbody></table></div>
+<p>It shares the board theming and overlay options with <code>fen render</code> (accent, border, coordinates, shadow, arrows, circles, legal dots).</p>
+<blockquote><p>Every channel is exactly the network&#x27;s input — the figure is built from the same <code>relationMasks</code> the OTIS network ingests, with no display-only adjustments. (The <code>pawn_attack_forward_oriented</code> channel points forward, as the name says; this is enforced identically in the Java and native GPU encoders.)</p></blockquote>
+<pre><code class="language-bash"># All twelve channels as a labelled small-multiples montage.
+crtk fen relations --startpos --montage --output relations.png
+
+# A single channel as a clean vector figure.
+crtk fen relations --fen &quot;&lt;FEN&gt;&quot; --channel knight_attack --no-pieces --output knights.svg
+
+# A couple of channels with a legend.
+crtk fen relations --fen &quot;&lt;FEN&gt;&quot; --channels &quot;0,1&quot; --legend --output attacks.png
+
+# Recolour a channel, tint the board, show coordinates, thinner arrows.
+crtk fen relations --fen &quot;&lt;FEN&gt;&quot; --channel knight_attack \
+  --color &quot;knight_attack=#ff2ec4&quot; --accent &quot;#4ab66f&quot; --coordinates \
+  --opacity 0.55 --stroke 2 --output knights.png</code></pre>
 <h3 id="chapter-command-reference-fen-tags">fen tags</h3>
 <p>Generate tags for a FEN, FEN list, or PGN. With <code>config/book.eco.toml</code> in place, the output picks up <code>eco:</code>/<code>opening:</code> tags wherever a position matches the ECO book. Tagging is static by default; <code>--analyze</code> adds engine PV, mate, and enables data and pulls in the shared engine option block.</p>
 <div class="table-wrap"><table>
@@ -3042,11 +3236,11 @@ crtk move both --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 </tr>
 <tr>
 <td><code>engine builtin</code></td>
-<td>Search with the built-in MCTS engine</td>
+<td>Search with the built-in engine</td>
 </tr>
 <tr>
 <td><code>engine java</code></td>
-<td>Run the same built-in MCTS engine</td>
+<td>Run the same built-in engine</td>
 </tr>
 <tr>
 <td><code>engine mate</code></td>
@@ -3365,7 +3559,7 @@ crtk engine bestmove-both --input positions.txt</code></pre>
 </tbody></table></div>
 <pre><code class="language-bash">crtk engine threats --fen &quot;&lt;FEN&gt;&quot; --max-duration 3s</code></pre>
 <h3 id="chapter-command-reference-engine-builtin">engine builtin</h3>
-<p>Search a position with ChessRTK&#x27;s in-house MCTS engine (<code>engine java</code> is the same code under a friendlier name). It runs in-process, which makes it the right choice for deterministic local search, smoke tests, and any automation that shouldn&#x27;t fork a UCI engine. Search is single-threaded behind an internal transposition table and static-eval cache; <code>--threads</code> and <code>--hash</code> are UCI options and have no effect here.</p>
+<p>Search a position with ChessRTK&#x27;s in-house engine (<code>engine java</code> is the same code under a friendlier name). It runs in-process, which makes it the right choice for deterministic local search, smoke tests, and any automation that shouldn&#x27;t fork a UCI engine. Classical and NNUE default to iterative alpha-beta search; LC0 and OTIS default to MCTS so their policy priors are used. Search is single-threaded by default for reproducibility; pass <code>--threads N</code> when you want alpha-beta Lazy SMP or MCTS workers.</p>
 <div class="table-wrap"><table>
 <thead><tr>
 <th>Option</th>
@@ -3388,6 +3582,10 @@ crtk engine bestmove-both --input positions.txt</code></pre>
 <td>Run the minimal built-in UCI loop instead of searching one FEN</td>
 </tr>
 <tr>
+<td><code>--search MODE</code></td>
+<td>Search algorithm (<code>alpha-beta</code> or <code>mcts</code>); default is alpha-beta for classical/NNUE and MCTS for LC0/OTIS</td>
+</tr>
+<tr>
 <td><code>--evaluator KIND</code></td>
 <td><code>classical</code> (default), <code>nnue</code>, <code>lc0</code>, or <code>otis</code></td>
 </tr>
@@ -3401,26 +3599,31 @@ crtk engine bestmove-both --input positions.txt</code></pre>
 </tr>
 <tr>
 <td><code>--depth</code>/<code>-d N</code></td>
-<td>Search depth hint (default <code>3</code>)</td>
+<td>Search target; default <code>8</code> for alpha-beta and <code>3</code> for MCTS</td>
 </tr>
 <tr>
 <td><code>--max-nodes</code>/<code>--nodes N</code></td>
-<td>MCTS playout budget; <code>0</code> disables the node cap</td>
+<td>Search node/playout budget; <code>0</code> disables the node cap</td>
 </tr>
 <tr>
 <td><code>--max-duration D</code></td>
 <td>Time budget (e.g. <code>5s</code>); <code>0</code> means no time cap</td>
 </tr>
 <tr>
+<td><code>--threads N</code></td>
+<td>Worker threads for alpha-beta Lazy SMP or MCTS (default <code>1</code>)</td>
+</tr>
+<tr>
 <td><code>--format FORMAT</code></td>
 <td><code>uci-info</code> (default), <code>uci</code>, <code>san</code>, <code>both</code>, or <code>summary</code></td>
 </tr>
 </tbody></table></div>
-<p>Budget defaults: with no <code>--depth</code>, the playout budget defaults to roughly <code>250000</code> nodes and <code>5s</code>. With explicit <code>--depth</code> and no time budget, the effective budget is <code>depth * 1024</code> (minimum <code>256</code>) and time is unlimited. Evaluators: <code>classical</code> is handcrafted (no model); <code>nnue</code> uses <code>models/crtk-halfkp.nnue</code> by default; <code>lc0</code> uses the configured LC0 CNN model; <code>otis</code> uses <code>models/otis_policy_wdl_random.bin</code> by default.</p>
+<p>Budget defaults: with no explicit budget, alpha-beta targets depth <code>8</code> and MCTS targets depth <code>3</code>, both under the default <code>250000</code> node/playout and <code>5s</code> caps. With explicit alpha-beta <code>--depth</code> and no node/time budget, the search runs until that depth completes. With explicit MCTS <code>--depth</code> and no node/time budget, the effective playout budget is <code>depth * 1024</code> (minimum <code>256</code>). Evaluators: <code>classical</code> is handcrafted (no model); <code>nnue</code> uses <code>models/crtk-halfkp.nnue</code> by default; <code>lc0</code> uses the configured LC0 CNN model; <code>otis</code> uses <code>models/otis_policy_wdl_random.bin</code> by default.</p>
+<p>Alpha-beta also checks exact root tactics before ordinary heuristic search: mate-in-one is tested directly, and forcing roots (check evasions or roots with checking moves) get the bounded default mate-in-four proof search. Proven lines return mate scores and <code>nodes: 0</code> because no alpha-beta nodes were spent. Its quiescence horizon also checks mate-in-one before standing pat or searching captures, so one-ply mate threats just past the requested depth remain exact. The deterministic root fallback uses the same guard when a tiny budget stops before depth one completes. The first quiescence ply also includes quiet checking moves; deeper quiescence remains capture/promotion-only unless the side to move is already in check.</p>
 <pre><code class="language-bash">crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 8 --max-duration 2s --format summary
 crtk engine builtin --lc0 --weights models/leela.bin --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 <h3 id="chapter-command-reference-engine-java">engine java</h3>
-<p>The same built-in MCTS engine as <code>engine builtin</code>, same options. It exists because &quot;java&quot; is the name people reach for when they want the in-house engine.</p>
+<p>The same built-in engine as <code>engine builtin</code>, same options. It exists because &quot;java&quot; is the name people reach for when they want the in-house engine.</p>
 <pre><code class="language-bash">crtk engine java --startpos --format summary</code></pre>
 <h3 id="chapter-command-reference-engine-mate">engine mate</h3>
 <p>Prove a forced mate with an in-process AND/OR search. No neural evaluator, no external engine — when it reports a mate, it has searched the proof tree, not guessed from a score.</p>
@@ -4616,7 +4819,7 @@ book collection -i dump/pgn.puzzles.json -o books/tactics.book.toml --pdf-output
   <p class="chapter-kicker">Commands · Chapter 10</p>
   <h1 id="chapter-configuration">Configuration</h1>
   <div class="chapter-body">
-    <p>Most of crtk needs no configuration at all. FEN handling, <code>move list</code>, SAN/UCI conversion, <code>engine perft</code>, <code>engine perft-suite</code>, <code>fen tags</code> without <code>--analyze</code>, <code>engine static</code>, <code>engine mate</code>, the built-in MCTS search (<code>engine builtin</code>), and the Workbench Play tab run entirely in-process — no external program, no model file, nothing to set up. Configuration enters the picture only at the edges: when you drive an external UCI engine (Stockfish/LC0), load a neural-network evaluator, ask for T5 natural-language summaries, want opening tags, or tune puzzle mining. Settings live in plain TOML files under <code>config/</code> and weight files under <code>models/</code>. This page documents each of them, how a value is resolved when several sources disagree, and how to confirm a setup with <code>config show</code>, <code>config validate</code>, and <code>doctor</code>.</p>
+    <p>Most of crtk needs no configuration at all. FEN handling, <code>move list</code>, SAN/UCI conversion, <code>engine perft</code>, <code>engine perft-suite</code>, <code>fen tags</code> without <code>--analyze</code>, <code>engine static</code>, <code>engine mate</code>, the built-in search (<code>engine builtin</code>), and the Workbench Play tab run entirely in-process — no external program, no model file, nothing to set up. Configuration enters the picture only at the edges: when you drive an external UCI engine (Stockfish/LC0), load a neural-network evaluator, ask for T5 natural-language summaries, want opening tags, or tune puzzle mining. Settings live in plain TOML files under <code>config/</code> and weight files under <code>models/</code>. This page documents each of them, how a value is resolved when several sources disagree, and how to confirm a setup with <code>config show</code>, <code>config validate</code>, and <code>doctor</code>.</p>
 <h2 id="chapter-configuration-at-a-glance">At a glance</h2>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -5331,6 +5534,10 @@ crtk workbench --flip</code></pre>
 <td>NNUE, LC0 CNN, BT4, and OTIS model diagnostics and visualizers</td>
 </tr>
 <tr>
+<td>Relations</td>
+<td>OTIS tactical-incidence relation channels drawn as typed arrows on a board</td>
+</tr>
+<tr>
 <td>Puzzles</td>
 <td>Interactive puzzle practice</td>
 </tr>
@@ -5348,7 +5555,7 @@ crtk workbench --flip</code></pre>
 <p>Both opponents run in-process. Play never spawns an external process.</p>
 <ul>
 <li><code>Alpha-Beta</code> is iterative deepening with a transposition table, null-move pruning, and quiescence, scoring leaves with the chosen evaluator.</li>
-<li><code>MCTS</code> is the in-process Monte Carlo Tree Search over the chosen policy/value backend — the same search family as the CLI&#x27;s <code>engine builtin</code> and <code>engine java</code>, which are also MCTS and also keep to the JVM rather than reaching for a UCI engine.</li>
+<li><code>MCTS</code> is the in-process Monte Carlo Tree Search over the chosen policy/value backend. The CLI&#x27;s <code>engine builtin --search mcts</code> path uses the same family, while the default classical/NNUE CLI path uses alpha-beta; both stay inside the JVM rather than reaching for a UCI engine.</li>
 </ul>
 <p>The Network selector decides which local model loads:</p>
 <div class="table-wrap"><table>
@@ -5389,6 +5596,8 @@ crtk workbench --flip</code></pre>
 <p>The Puzzles tab is where you actually solve the things you mined. Load the <code>*.puzzles.json</code> output of <code>puzzle mine</code>, work a position on the board, then reveal the principal variation and the move-by-move tags — the same deterministic tagging behind <code>puzzle tags</code>. See <a href="#chapter-mining">Puzzle mining</a> for how the sets are produced and gated by the Filter DSL.</p>
 <h2 id="chapter-workbench-network-visualizer">Network visualizer</h2>
 <p>The Network tab opens up the neural networks the toolkit has loaded — NNUE, the LC0 CNN, BT4, OTIS — and shows what they&#x27;re doing: loaded-model state, inference state, feature boards, activation summaries, atlases, trace views, runtime information, and exportable visualizations. As close as you can get to watching an evaluator look at a position.</p>
+<h2 id="chapter-workbench-relations">Relations</h2>
+<p>The Relations tab draws the OTIS <em>tactical incidence</em> graph — the twelve typed relation channels <code>A(x)</code> the oriented-tactical-sheaf network ingests — as colour-coded arrows over a board: us/them attacks and defenses, king-zone pressure, occlusion-aware bishop/rook/queen rays, knight and pawn attacks, and absolute-pin candidates. Toggle channels on and off, set the arrow opacity, and point it at the current analysis position (Sync to board) or a pasted FEN. The edges are computed deterministically from the position alone — no model file needed — and are the exact same <code>A(x)</code> the CLI <code>fen relations</code> command renders and the network reads.</p>
 <p><img src="assets/screenshots/workbench-network.png" alt="Workbench network visualizer" loading="eager" decoding="sync"></p>
 <p>Read this as a research and debugging aid, not ground truth about a reference engine. The networks are usable evaluators, but the LC0 CNN and BT4 paths are simplified and not bit-exact equivalents of upstream inference — so the activations are faithful to ChessRTK&#x27;s implementation, which is not quite the same thing as faithful to LC0 or BT4.</p>
 <h2 id="chapter-workbench-console-and-logs">Console and logs</h2>
@@ -5415,7 +5624,7 @@ crtk workbench --flip</code></pre>
   <p class="chapter-kicker">Engines &amp; Models · Chapter 13</p>
   <h1 id="chapter-in-house-engine">Built-in Engine</h1>
   <div class="chapter-body">
-    <p>Everything here runs inside the same process that issued the command — no UCI subprocess to spawn, no socket to configure, no background engine to outlive its job. The core is a deterministic PUCT-style MCTS searcher (<code>engine builtin</code> / <code>engine java</code>) that you point at one of four evaluators: classical/handcrafted, NNUE, LC0 CNN, or OTIS. Around it sit a standalone exhaustive forced-mate prover (<code>engine mate</code>), one-shot position evaluation (<code>engine eval</code> / <code>engine static</code>), an opponent-threat analyzer (<code>engine threats</code>), and a move-generator benchmark (<code>engine benchmark</code>). All of them share crtk&#x27;s one chess core, return the same answer for the same inputs and budget, and stop only where you tell them to — via explicit <code>--depth</code>, <code>--nodes</code>, and <code>--max-duration</code> limits. That combination is what makes it pleasant in scripts, CI, and research you need to reproduce.</p>
+    <p>Everything here runs inside the same process that issued the command — no UCI subprocess to spawn, no socket to configure, no background engine to outlive its job. The core built-in command (<code>engine builtin</code> / <code>engine java</code>) now defaults to deterministic alpha-beta for the classical and NNUE evaluators, while LC0 CNN and OTIS still default to the PUCT-style MCTS search that can use their policy priors. Around it sit a standalone exhaustive forced-mate prover (<code>engine mate</code>), one-shot position evaluation (<code>engine eval</code> / <code>engine static</code>), an opponent-threat analyzer (<code>engine threats</code>), and a move-generator benchmark (<code>engine benchmark</code>). All of them share crtk&#x27;s one chess core, return the same answer for the same inputs and budget, and stop only where you tell them to — via explicit <code>--depth</code>, <code>--nodes</code>, and <code>--max-duration</code> limits. That combination is what makes it pleasant in scripts, CI, and research you need to reproduce.</p>
 <p>It will not out-play Stockfish or LC0, and it isn&#x27;t trying to. The point is determinism and zero dependencies: a search that gives the same result every time and keeps working when no UCI engine is configured. When you need real playing strength, MultiPV, or large-scale mining, drive an external engine through <code>engine analyze</code> / <code>engine bestmove</code> instead — see <a href="#chapter-lc0">LC0 &amp; external engines</a> and <a href="#chapter-mining">Mining</a>.</p>
 <h2 id="chapter-in-house-engine-what-runs-entirely-in-process">What runs entirely in-process</h2>
 <div class="table-wrap"><table>
@@ -5426,7 +5635,7 @@ crtk workbench --flip</code></pre>
 </tr></thead><tbody>
 <tr>
 <td><code>engine builtin</code> / <code>engine java</code></td>
-<td>MCTS search with a selectable evaluator</td>
+<td>Alpha-beta or MCTS search with a selectable evaluator</td>
 <td>No</td>
 </tr>
 <tr>
@@ -5456,7 +5665,7 @@ crtk workbench --flip</code></pre>
 </tr>
 </tbody></table></div>
 <p><code>engine builtin</code> and <code>engine java</code> are the same command — <code>engine java</code> is an alias, so pick whichever reads better in your scripts. <code>engine mate</code> also answers to <code>engine find-mate</code>.</p>
-<h2 id="chapter-in-house-engine-mcts-search-engine-builtin-engine-java">MCTS search — <code>engine builtin</code> / <code>engine java</code></h2>
+<h2 id="chapter-in-house-engine-built-in-search-engine-builtin-engine-java">Built-in search — <code>engine builtin</code> / <code>engine java</code></h2>
 <p>Search a single position with the default classical evaluator:</p>
 <pre><code class="language-bash">crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 4 --format summary
 crtk engine builtin --startpos --depth 4 --format both
@@ -5466,7 +5675,7 @@ crtk engine java --fen &quot;&lt;FEN&gt;&quot; --depth 6</code></pre>
 <p>Or expose the searcher as a minimal UCI loop, which is enough for local protocol tests:</p>
 <pre><code class="language-bash">crtk engine builtin --uci</code></pre>
 <h3 id="chapter-in-house-engine-choosing-an-evaluator">Choosing an evaluator</h3>
-<p>Pass <code>--evaluator classical|nnue|lc0|otis</code>, or use the shortcut selectors <code>--classical</code>, <code>--nnue</code>, <code>--lc0</code>, <code>--otis</code>. The default is <code>classical</code>.</p>
+<p>Pass <code>--evaluator classical|nnue|lc0|otis</code>, or use the shortcut selectors <code>--classical</code>, <code>--nnue</code>, <code>--lc0</code>, <code>--otis</code>. The default is <code>classical</code>. Search defaults to <code>alpha-beta</code> for <code>classical</code> and <code>nnue</code>, and to <code>mcts</code> for <code>lc0</code> and <code>otis</code>; override it with <code>--search alpha-beta</code> or <code>--search mcts</code>.</p>
 <pre><code class="language-bash">crtk engine builtin --classical --depth 6 --fen &quot;&lt;FEN&gt;&quot;
 crtk engine builtin --nnue --fen &quot;&lt;FEN&gt;&quot;
 crtk engine builtin --evaluator nnue --weights models/crtk-halfkp.nnue --fen &quot;&lt;FEN&gt;&quot;
@@ -5482,20 +5691,28 @@ crtk engine builtin --otis --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 </tr></thead><tbody>
 <tr>
 <td><code>--depth N</code> / <code>-d N</code></td>
-<td>Search depth hint (default: <code>3</code>)</td>
+<td>Search target (default: <code>8</code> for alpha-beta, <code>3</code> for MCTS)</td>
 </tr>
 <tr>
 <td><code>--nodes N</code> / <code>--max-nodes N</code></td>
-<td>MCTS playout budget; <code>0</code> disables the node cap</td>
+<td>Search node/playout budget; <code>0</code> disables the node cap</td>
 </tr>
 <tr>
 <td><code>--max-duration D</code></td>
 <td>Wall-clock budget, e.g. <code>5s</code>; <code>0</code> means no time cap</td>
 </tr>
+<tr>
+<td><code>--threads N</code></td>
+<td>Worker threads for alpha-beta Lazy SMP or MCTS; default <code>1</code></td>
+</tr>
 </tbody></table></div>
 <pre><code class="language-bash">crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 5 --nodes 250000 --format both
 crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 8 --max-duration 2s --format summary</code></pre>
-<p>For the MCTS CLI, <code>--nodes</code> is the playout budget directly. Set <code>--depth</code> alone — with no <code>--nodes</code> and no <code>--max-duration</code> — and the command translates depth into a small playout budget rather than searching forever. Whenever you care about the exact budget, state it: pass <code>--nodes</code> or <code>--max-duration</code> explicitly.</p>
+<p>For alpha-beta, <code>--depth</code> is the iterative-deepening target. For MCTS, <code>--nodes</code> is the playout budget directly; set <code>--depth</code> alone — with no <code>--nodes</code> and no <code>--max-duration</code> — and the command translates depth into a small playout budget rather than searching forever. Whenever you care about the exact budget, state it: pass <code>--nodes</code> or <code>--max-duration</code> explicitly.</p>
+<p>Before spending heuristic search budget, alpha-beta checks immediate root mates directly. If the root is already forcing, either in check or with at least one checking move, it also runs the bounded mate prover up to the default mate-in-four horizon, so short tactical wins are reported exactly as mate scores instead of as ordinary centipawn preferences.</p>
+<p>At the horizon, alpha-beta quiescence also checks mate-in-one before standing pat or searching captures. That keeps one-ply mates from being flattened into static centipawn scores when they sit just beyond the requested depth.</p>
+<p>The same mate-in-one guard is used by the deterministic root fallback returned when a very small node or time budget stops before depth one completes.</p>
+<p>The first quiescence ply also includes quiet checking moves. Deeper quiescence stays capture/promotion-only unless the side to move is in check, keeping the extra tactical lookahead bounded.</p>
 <h3 id="chapter-in-house-engine-output-formats">Output formats</h3>
 <p><code>--format</code> accepts <code>uci-info</code>, <code>uci</code>, <code>san</code>, <code>both</code>, or <code>summary</code> (default: <code>uci-info</code>).</p>
 <div class="table-wrap"><table>
@@ -5667,7 +5884,7 @@ crtk engine benchmark --fen &quot;&lt;FEN&gt;&quot; --depth 4 --json</code></pre
 <ul>
 <li>One shared chess core handles legal move generation, make/undo, attack detection, FEN/SAN/UCI, and Chess960 for every command — the same code path the rest of crtk runs on.</li>
 <li>The same FEN, evaluator, and budget yield the same best move, score, and PV. Every time.</li>
-<li>The MCTS searcher is single-threaded and keeps its transposition state in-process and deterministic. That table is internal, with no <code>--hash</code> knob; when you pass <code>--threads</code>, <code>--hash</code>, and friends to the external commands, they go to the configured UCI engine, not to the in-house searcher.</li>
+<li>The in-house search is single-threaded by default and keeps its transposition state in-process. Pass <code>--threads N</code> only when you explicitly want alpha-beta Lazy SMP or MCTS workers; keep <code>--threads 1</code> for byte-stable comparisons. There is still no in-house <code>--hash</code> knob; <code>--hash</code> belongs to external UCI engines.</li>
 <li>Every run stops at an explicit <code>--depth</code>, <code>--nodes</code>, or <code>--max-duration</code> limit, which is exactly what makes the output safe to assert on in CI.</li>
 </ul>
 <h2 id="chapter-in-house-engine-when-to-use-which">When to use which</h2>
@@ -5894,7 +6111,7 @@ java -jar crtk.jar puzzle mine --input seeds.txt --output dump/lc0.json --engine
 <li><strong>LC0 BT4 inference</strong> — compact BT4 <code>.bin</code> (magic <code>BT4J</code>) policy + value inference on the GPU. The BT4 path is simplified and experimental; treat it as a usable evaluator, not a bit-exact LC0 reimplementation.</li>
 <li><strong>T5 text generation</strong> — the <code>fen text</code> / <code>puzzle text</code> summary pipeline can offload matrix multiplies (CUDA/ROCm run greedy decoding end-to-end on the device; oneAPI offloads GEMMs).</li>
 </ul>
-<p><strong>Always on the CPU (no GPU path):</strong> legal move generation, make/undo, FEN/SAN/UCI parsing, the built-in MCTS engine (<code>engine builtin</code> / <code>engine java</code>), the forced-mate prover (<code>engine mate</code>), and the classical/NNUE evaluators. External UCI engines such as Stockfish or LC0 manage their own hardware independently of crtk&#x27;s native backends.</p>
+<p><strong>Always on the CPU (no GPU path):</strong> legal move generation, make/undo, FEN/SAN/UCI parsing, the built-in alpha-beta/MCTS search (<code>engine builtin</code> / <code>engine java</code>), the forced-mate prover (<code>engine mate</code>), and the classical/NNUE evaluators. External UCI engines such as Stockfish or LC0 manage their own hardware independently of crtk&#x27;s native backends.</p>
 <p>This is what makes the GPU safe to leave on in a test harness. A GPU run of <code>engine perft</code> returns the same totals as the CPU run, and <code>engine perft-suite</code> checks against the same expected counts whichever path it took. See <a href="#chapter-quality-and-testing">Quality and Testing</a> for how the perft suite serves as a regression gate.</p>
 <p><img src="assets/diagrams/crtk-position-toolbox.png" alt="ChessRTK position toolbox: one shared chess core feeding evaluation and analysis" loading="eager" decoding="sync"></p>
 <h2 id="chapter-gpu-check-backend-status-engine-gpu">Check backend status: <code>engine gpu</code></h2>
@@ -8551,7 +8768,7 @@ crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code></pre>
 <tr>
 <td>In-process search</td>
 <td><code>engine builtin --format summary</code></td>
-<td>bounded built-in MCTS output; no external process</td>
+<td>bounded built-in search output; no external process</td>
 </tr>
 <tr>
 <td>Prove a forced mate</td>
@@ -8599,7 +8816,7 @@ crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code></pre>
 <p>Cap every automated analysis. The budget flags are consistent across commands, so one agent-side policy covers all of them.</p>
 <ul>
 <li><strong>External UCI engine</strong> (<code>engine analyze</code>, <code>bestmove</code>, <code>bestmove-batch</code>, <code>analyze-batch</code>, <code>compare</code>, <code>threats</code>): bound it with <code>--max-nodes</code> and <code>--max-duration</code> (<code>5s</code>, <code>500ms</code>), and pin <code>--multipv</code>, <code>--threads</code>, and <code>--hash</code> to keep the engine reproducible. Point at a protocol with <code>--protocol-path</code> (or <code>--left-protocol</code>/<code>--right-protocol</code> for <code>compare</code>).</li>
-<li><strong>Built-in MCTS</strong> (<code>engine builtin</code>, alias <code>engine java</code>): use <code>--depth</code>, <code>--max-nodes</code> (alias <code>--nodes</code>; <code>0</code> lifts the cap), and <code>--max-duration</code> (<code>0</code> means no time cap). It runs in-process, so <code>--threads</code>/<code>--hash</code> do not apply. Choose an evaluator with <code>--evaluator classical|nnue|lc0|otis</code>.</li>
+<li><strong>Built-in search</strong> (<code>engine builtin</code>, alias <code>engine java</code>): use <code>--depth</code>, <code>--max-nodes</code> (alias <code>--nodes</code>; <code>0</code> lifts the cap), and <code>--max-duration</code> (<code>0</code> means no time cap). It runs in-process; <code>--threads</code> is available for alpha-beta Lazy SMP or MCTS workers, while <code>--hash</code> is only for external UCI engines. Choose an evaluator with <code>--evaluator classical|nnue|lc0|otis</code>.</li>
 <li><strong>Forced-mate prover</strong> (<code>engine mate</code>): bound it with <code>--max-mate</code> (default <code>4</code>) and <code>--max-nodes</code>. This is brute force, no neural-network evaluation — depth, not heuristics, is what costs you.</li>
 <li><strong>Mining / dataset / book</strong> commands: cap volume with <code>--max-total</code>, <code>--max-waves</code>, <code>--max-frontier</code> (<code>puzzle mine</code>), <code>--max-records</code> (record exports), or <code>--limit</code> (<code>book collection</code>, <code>book render</code>).</li>
 </ul>
@@ -8769,7 +8986,7 @@ crtk record export training-jsonl -i dump/puzzles.json -o training/run.jsonl --m
 <h3 id="chapter-architecture-movegen-tooling-chess-debug">Movegen tooling (<code>chess.debug</code>)</h3>
 <p>Perft is how a move generator proves it is honest: count the leaves to a fixed depth and compare against numbers the chess world already agrees on. <code>Perft</code>, <code>SplitPerft</code>, and <code>PerftSuite</code> do exactly that, backing <code>engine perft</code>, <code>engine perft-suite</code>, and <code>engine benchmark</code>. The <code>chess.debug.gpu</code> package (<code>GpuPerft</code>, <code>NativePerftBackend</code>, <code>PositionCodec</code>) can hand the deep part of the tree to a native GPU library; <code>--split N</code> sets where the CPU stops expanding and the device takes over.</p>
 <h3 id="chapter-architecture-search-chess-engine">Search (<code>chess.engine</code>)</h3>
-<p>The built-in search never leaves the JVM, which keeps it dependency-free and trivially scriptable. <code>Mcts</code> and <code>MctsUci</code> provide the Monte Carlo Tree Search behind <code>engine builtin</code> and <code>engine java</code>; <code>AlphaBeta</code> (with <code>AspirationWindow</code>, <code>NegamaxSetup</code>, <code>QuiescenceSetup</code>) plays the Workbench Play opponent; <code>MateProver</code> and <code>ProofState</code> are the brute-force forced-mate prover behind <code>engine mate</code>. <code>EvaluatorBackend</code>, <code>SearchBackend</code>, and the <code>*Backend</code> classes (<code>CnnBackend</code>, <code>OtisBackend</code>, <code>Bt4Backend</code>) are the seam between search and whatever scores a position.</p>
+<p>The built-in search never leaves the JVM, which keeps it dependency-free and trivially scriptable. <code>AlphaBeta</code> (with <code>AspirationWindow</code>, <code>NegamaxSetup</code>, <code>QuiescenceSetup</code>) is the default <code>engine builtin</code> search for classical/NNUE and plays the Workbench Play opponent; <code>Mcts</code> and <code>MctsUci</code> provide the policy/value Monte Carlo Tree Search used by LC0/OTIS and by the minimal UCI loop. <code>MateProver</code> and <code>ProofState</code> are the brute-force forced-mate prover behind <code>engine mate</code>. <code>EvaluatorBackend</code>, <code>SearchBackend</code>, and the <code>*Backend</code> classes (<code>CnnBackend</code>, <code>OtisBackend</code>, <code>Bt4Backend</code>) are the seam between search and whatever scores a position.</p>
 <h3 id="chapter-architecture-evaluation-chess-eval-chess-classical">Evaluation (<code>chess.eval</code>, <code>chess.classical</code>)</h3>
 <p>One abstraction, several scorers behind it. <code>chess.eval</code> defines the evaluator interface (<code>Evaluator</code>, <code>Backend</code>, <code>Kind</code>, <code>Factory</code>) and ships <code>Classical</code>, <code>Nnue</code>, <code>Lc0</code>, and <code>Otis</code> implementations, plus <code>See</code> for static exchange evaluation. The classical scorer&#x27;s heavier scanning routines live in <code>chess.classical</code>, kept separate so the hot loops stay readable. Together they back <code>engine static</code> (classical only) and <code>engine eval</code> (<code>auto</code>, <code>lc0</code>, <code>otis</code>, or <code>classical</code>).</p>
 <h3 id="chapter-architecture-neural-networks-chess-nn-chess-gpu">Neural networks (<code>chess.nn</code>, <code>chess.gpu</code>)</h3>
@@ -9121,7 +9338,7 @@ crtk doctor --strict</code></pre>
 <li><code>chess.core</code> is the canonical rules engine: <code>Position</code> (mutable state, FEN round-trip, <code>play(...)</code>/<code>undo(...)</code>), <code>MoveGenerator</code> (pseudo-legal/legal generation, attack and pin detection), <code>MoveList</code> (compact encoded <code>short</code> moves), <code>Fen</code>, <code>SAN</code>, and <code>Setup</code> (standard, Chess960, and random starts). Note what is absent: there is no separate <code>bitboard</code> package, because the bitboard-backed code <em>is</em> the core.</li>
 <li><code>chess.debug</code> holds the perft runners. Plain perft lives in <code>Perft</code>, the stored-truth regression suite in <code>PerftSuite</code>. The optional GPU path expands frontier positions on the CPU through <code>SplitPerft</code>, then hands the heavy node counting to a native backend.</li>
 <li><code>chess.uci</code> is the external-engine protocol layer. It drives Stockfish/LC0 for <code>engine analyze</code>, <code>engine bestmove</code>, <code>engine threats</code>, <code>engine compare</code>, MultiPV, and the batch commands, and it hosts the Filter DSL that gates puzzle mining.</li>
-<li><code>chess.engine</code> is the built-in MCTS searcher behind <code>engine builtin</code> / <code>engine java</code>, plus the alpha-beta search Workbench Play uses. <code>chess.eval</code> is the in-process evaluator facade for <code>engine eval</code> and <code>engine static</code>.</li>
+<li><code>chess.engine</code> contains the alpha-beta search behind the default classical/NNUE <code>engine builtin</code> path and Workbench Play, plus the MCTS search used by LC0/OTIS and the minimal UCI loop. <code>chess.eval</code> is the in-process evaluator facade for <code>engine eval</code> and <code>engine static</code>.</li>
 <li><code>chess.nn</code> holds the neural-network evaluators: an LC0 CNN forward pass, the simplified BT4 attention path, the OTIS policy/WDL evaluator, and the T5 text models behind <code>fen text</code> and <code>puzzle text</code>. Each backend ships a pure-Java path plus optional CUDA/ROCm/oneAPI acceleration that falls back to the CPU when the native library is missing.</li>
 <li><code>chess.puzzle</code>, <code>chess.tag</code>, <code>chess.io</code>, <code>chess.book</code>, <code>chess.pdf</code>, and <code>chess.images</code> cover puzzle mining, deterministic tagging, record/dataset export, native PDF publishing (no LaTeX), and board rendering.</li>
 </ul>
@@ -9505,7 +9722,7 @@ jar --create --file crtk.jar --main-class application.Main -C out .</code></pre>
 </tr>
 <tr>
 <td><strong>MCTS</strong></td>
-<td>Monte Carlo Tree Search. The search algorithm behind crtk&#x27;s built-in engine, which grows a search tree by sampling promising lines under a playout budget. Invoked via <code>engine builtin</code> (alias <code>engine java</code>).</td>
+<td>Monte Carlo Tree Search. One of crtk&#x27;s built-in search algorithms, which grows a search tree by sampling promising lines under a playout budget. Invoked with <code>engine builtin --search mcts</code> (alias <code>engine java --search mcts</code>) and used by default for LC0/OTIS.</td>
 </tr>
 <tr>
 <td><strong>alpha-beta</strong></td>
@@ -9726,7 +9943,7 @@ crtk fen text --fen &quot;&lt;FEN&gt;&quot;</code></pre>
   <p class="chapter-kicker">Project · Chapter 30</p>
   <h1 id="chapter-readme">Wiki Index</h1>
   <div class="chapter-body">
-    <p>Everything in ChessRTK (&quot;crtk&quot;) runs through one chess core. A single legal move generator, one make/undo, one attack detector, one FEN/SAN/UCI/Chess960 codepath — and every command above it inherits the same answers. That is what makes the noun-verb CLI (<code>move list</code>, <code>engine bestmove</code>, <code>puzzle mine</code>) agree with the search, the tagger, the datasets, and the GUI down to the last bit. On top of the core sit external UCI analysis (Stockfish, LC0), a built-in MCTS search with a forced-mate prover, classical/NNUE/LC0/OTIS evaluators, position and tactic tagging, optional T5 summaries, puzzle mining driven by a Filter DSL, ML dataset export, native PDF publishing with no LaTeX, optional GPU backends for perft and OTIS, and a Swing desktop Workbench. This page is the index. Pick a section and follow the one-line descriptions to the page that goes deeper.</p>
+    <p>Everything in ChessRTK (&quot;crtk&quot;) runs through one chess core. A single legal move generator, one make/undo, one attack detector, one FEN/SAN/UCI/Chess960 codepath — and every command above it inherits the same answers. That is what makes the noun-verb CLI (<code>move list</code>, <code>engine bestmove</code>, <code>puzzle mine</code>) agree with the search, the tagger, the datasets, and the GUI down to the last bit. On top of the core sit external UCI analysis (Stockfish, LC0), built-in alpha-beta/MCTS search with a forced-mate prover, classical/NNUE/LC0/OTIS evaluators, position and tactic tagging, optional T5 summaries, puzzle mining driven by a Filter DSL, ML dataset export, native PDF publishing with no LaTeX, optional GPU backends for perft and OTIS, and a Swing desktop Workbench. This page is the index. Pick a section and follow the one-line descriptions to the page that goes deeper.</p>
 <p>Pages document what the code actually does. Licensed GPL-3.0-only.</p>
 <h2 id="chapter-readme-other-reading-formats">Other Reading Formats</h2>
 <p>The same content reaches you three ways, depending on whether you want to browse, read offline, or check the source of truth:</p>
@@ -9759,7 +9976,7 @@ crtk fen text --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 </ul>
 <h2 id="chapter-readme-engines-models">Engines &amp; Models</h2>
 <ul>
-<li><a href="#chapter-in-house-engine">Running engines</a> - the built-in MCTS engine (<code>engine builtin</code> / <code>engine java</code>) and the forced-mate prover (<code>engine mate</code>).</li>
+<li><a href="#chapter-in-house-engine">Running engines</a> - the built-in engine (<code>engine builtin</code> / <code>engine java</code>) and the forced-mate prover (<code>engine mate</code>).</li>
 <li><a href="#chapter-lc0">LC0 and the Java evaluator</a> - the LC0 UCI engine path plus the in-process LC0 CNN evaluator. Networks are usable evaluators, not bit-exact LC0/BT4 reproductions.</li>
 <li><a href="#chapter-gpu">GPU backends</a> - native CUDA, ROCm, and oneAPI backends for perft and OTIS, with automatic CPU fallback (<code>engine gpu</code>, <code>engine perft --gpu</code>).</li>
 </ul>
@@ -9873,9 +10090,146 @@ java -cp out application.Main engine builtin --startpos --depth 3 --format summa
 <h2 id="chapter-readme-project-policy-notes">Project Policy Notes</h2>
 <ul>
 <li>Source and shell scripts are tracked; everything generated is not. Analysis dumps, model weights, PDFs, and build output are local artifacts and stay out of git.</li>
-<li>UCI engines and model weights are optional. FEN, move, perft, Workbench Play, and the classical built-in MCTS all run in-process, so a fresh checkout does useful work before you download a single weight.</li>
+<li>UCI engines and model weights are optional. FEN, move, perft, Workbench Play, and the classical built-in search all run in-process, so a fresh checkout does useful work before you download a single weight.</li>
 <li>The neural-network paths are honest evaluators, not impersonations: no claim of bit-exact LC0 or BT4 parity, and the BT4 path remains simplified and experimental.</li>
 <li>Determinism and the single shared core are design goals, not accidents. One legality-and-notation implementation answers for the CLI, search, tagging, datasets, rendering, and GUI alike, which is why a result reproduces wherever you ask for it.</li>
+</ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <p class="chapter-kicker">Reference · Chapter 31</p>
+  <h1 id="chapter-engine-strength-tuning">Engine Strength Tuning — What Worked, What Didn&#x27;t</h1>
+  <div class="chapter-body">
+    <p>A running log of attempts to make the in-house <code>AlphaBeta</code> engine stronger, with the measured outcome of each. The point is to <strong>not relearn the same lessons</strong>: which techniques paid off, which didn&#x27;t, and — more importantly — the <em>methodology and gotchas</em> that decide whether a measurement can be trusted at all.</p>
+<p>The one rule that produced everything below: <strong>measure with self-play, never assert.</strong> Several textbook techniques that &quot;should&quot; help measured neutral or negative here; several that looked neutral at first were just under-sampled. Ship a change only when a gauntlet says it&#x27;s non-negative.</p>
+<h2 id="chapter-engine-strength-tuning-how-to-measure-the-harnesses">How to measure (the harnesses)</h2>
+<ul>
+<li><strong><code>src/testing/SelfPlayGauntlet.java</code></strong> — in-process A/B. Plays candidate vs baseline from a set of openings, <strong>each opening from both colors</strong> (so identical engines score exactly 50.0% — verified), at an <strong>equal fixed budget</strong> (<code>--nodes N</code> or <code>--movetime MS</code>). Prints W-D-L + a point Elo. Flags: <code>--a/--b CSV|all|none</code> (feature sets), <code>--threadsA/--threadsB</code>, <code>--eval classical|nnue</code>, <code>--openings N</code> (seeded reproducible generation), <code>--seed S</code>.</li>
+<li><strong><code>src/testing/NnueBench.java</code></strong> — NNUE correctness + speed. Prints a <strong>golden</strong> centipawn vector (must be byte-identical across builds → no eval change), a <strong>parity</strong> walk (incremental search-state eval == full eval at every make/undo node), a <strong>concurrent parity</strong> (8 threads, proves thread-safety), and an <strong>nps</strong> benchmark.</li>
+<li><strong><code>AlphaBeta.Feature</code></strong> enum + the 3-arg constructor let each technique be toggled independently, so the gauntlet can A/B one change in isolation, in one process.</li>
+</ul>
+<p>Build and run from a <strong>private output dir</strong> (see the gotcha about <code>out/</code> below), e.g.:</p>
+<pre><code class="language-bash">OUT=/tmp/crtk-ab &amp;&amp; rm -rf &quot;$OUT&quot; &amp;&amp; mkdir -p &quot;$OUT&quot;
+javac --release 17 -d &quot;$OUT&quot; $(find src -name &#x27;*.java&#x27;)
+java -cp &quot;$OUT&quot; testing.SelfPlayGauntlet --a SEE_PRUNING,SEARCH_REPETITION --b none \
+  --eval classical --nodes 5000 --openings 150</code></pre>
+<h2 id="chapter-engine-strength-tuning-what-worked-shipped">What worked (shipped)</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Technique</th>
+<th>Measured gain</th>
+<th>Notes</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>SEE pruning + capture ordering</strong></td>
+<td><strong>+73 Elo</strong> (300 games, classical, fixed nodes)</td>
+<td>Wire the existing <code>chess.eval.See</code> into the search: prune SEE-losing captures in quiescence; order losing captures last. Only &quot;capturing up&quot; (victim &lt; attacker) can be SEE-negative, so guard the SEE call on that.</td>
+</tr>
+<tr>
+<td><strong>In-search repetition detection</strong></td>
+<td><code>{SEE,REP}</code> vs old engine = <strong>+106</strong> fixed-nodes, <strong>+61</strong> fixed-time, <strong>+53</strong> NNUE</td>
+<td>The engine previously could not see repetitions/perpetuals during search. Scan a per-ply <code>signatureCore</code> path (step −2, bounded by the halfmove clock); return 0 on a repeat. Null move stores a sentinel so it can&#x27;t match.</td>
+</tr>
+<tr>
+<td><strong>NNUE incremental accumulator for BIG nets</strong></td>
+<td><strong>+34% nps</strong>, output-preserving</td>
+<td>The production 89MB net is a BIG (SFNNv13 + threats) net, for which <code>newSearchState</code> returned <code>null</code> — so every leaf ran a <em>full</em> feature-transformer rebuild (the incremental accumulator was dead code). <code>BigSearchState</code> keeps HalfKA PSQ incremental and rebuilds only threats per node. Verified bit-identical by a 7,759-node parity walk (0 mismatches).</td>
+</tr>
+<tr>
+<td><strong>Diversified Lazy SMP</strong></td>
+<td><strong>+67</strong> (classical), <strong>+66</strong> (NNUE), <strong>~+89</strong> with the lockless TT</td>
+<td>Naive SMP was <em>negative</em> (see below) — the fix is helper-thread <strong>depth-skip diversification</strong> (the classic <code>SKIP_SIZE</code>/<code>SKIP_PHASE</code> scheme) so threads cover different depths and fill the shared table diversely. Measured at fixed time. Enabled <strong>only at the Max strength setting</strong>.</td>
+</tr>
+<tr>
+<td><strong>LMR table + check extensions</strong></td>
+<td><strong>+32 Elo</strong> at deep search (600 games)</td>
+<td>Log-log LMR reductions + one-ply check extensions. <em>Neutral/negative when search is shallow</em> (see below) — enabled <strong>only at the Max setting</strong>, where NNUE + SMP make the search deep.</td>
+</tr>
+<tr>
+<td><strong>Internal iterative reduction (IIR)</strong></td>
+<td><strong>+14 Elo</strong> (300 games, classical, 20k fixed nodes)</td>
+<td>When a deep node has no transposition move to order first, search it one ply shallower to seed the TT cheaply instead of spending full depth with poor ordering. A shallow 5k-node screen was flat, so this is a depth-scaling gain.</td>
+</tr>
+<tr>
+<td><strong>Root, fallback, and horizon mate proof shortcuts</strong></td>
+<td>tactical correctness</td>
+<td>Alpha-beta now checks root mate-in-one directly, runs the bounded mate prover on forcing roots before spending heuristic search nodes, detects mate-in-one at the low-budget root fallback, detects mate-in-one at the quiescence horizon, and searches first-ply quiet checks in quiescence. Short proven mates return exact <code>#N</code> scores instead of static centipawns.</td>
+</tr>
+<tr>
+<td><strong>Tear-tolerant transposition table</strong></td>
+<td>correctness (clean SMP)</td>
+<td>Pack each entry&#x27;s depth/score/flag/move into one <code>long</code>; store the signature XOR-ed with it; validate via <code>(key ^ data) == signature</code>. A reader catching a concurrent (SMP) store mid-write fails the check and misses instead of returning a corrupt score.</td>
+</tr>
+</tbody></table></div>
+<p>The shipped alpha-beta default feature set is <code>{SEE_PRUNING, SEARCH_REPETITION, LMR_TABLE, IMPROVING, CONT_HISTORY, CHECK_EXTENSION, IIR}</code>. CLI searches stay single-threaded by default for reproducibility, but <code>engine builtin --threads N</code> opts into Lazy SMP; Workbench Max also enables Lazy SMP. Features that measured neutral or negative remain off by default behind <code>AlphaBeta.Feature</code>.</p>
+<h2 id="chapter-engine-strength-tuning-what-did-not-work-rejected-kept-as-off-by-default-toggles">What did NOT work (rejected — kept as off-by-default toggles)</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Technique</th>
+<th>Measured</th>
+<th>Why it&#x27;s off</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>Naive Lazy SMP</strong> (all threads run the identical search)</td>
+<td><strong>−29 Elo</strong></td>
+<td>Threads duplicated one search; the only benefit was TT cross-fill, swamped by contention. Diversification (above) was the fix.</td>
+</tr>
+<tr>
+<td><strong>LMR table at shallow search</strong></td>
+<td>+2 (neutral)</td>
+<td>Helps only once search is deep — see the depth-scaling lesson.</td>
+</tr>
+<tr>
+<td><strong>Check extensions at shallow search</strong></td>
+<td><strong>−6</strong></td>
+<td>Spends node breadth on forcing lines when there&#x27;s no depth to exploit.</td>
+</tr>
+<tr>
+<td><strong>History malus / gravity</strong></td>
+<td>+6 over 600 games (neutral); rechecked at +3 over 300 games</td>
+<td>Bonus-to-cutoff + malus-to-tried-quiets with decay. No measurable effect at this engine&#x27;s depths.</td>
+</tr>
+<tr>
+<td><strong>SEE-based bad-capture LMR</strong></td>
+<td>+7 (neutral)</td>
+<td>Reducing SEE-losing captures (instead of searching them full-depth). Within noise.</td>
+</tr>
+<tr>
+<td><strong>Main-search quiet-check ordering</strong></td>
+<td>−13 at 220 games (stopped early)</td>
+<td>A bonus for quiet checking moves looked plausible after quiet-check quiescence, but the longer run turned negative before the full sample. Kept off.</td>
+</tr>
+</tbody></table></div>
+<p>These remain in the code behind <code>AlphaBeta.Feature</code> so they can be re-measured (e.g. after a future depth increase) without reimplementing them.</p>
+<h2 id="chapter-engine-strength-tuning-the-lessons-that-will-save-the-most-time">The lessons that will save the most time</h2>
+<ol>
+<li><strong>Sample size dominates.</strong> A 48-game gauntlet has roughly <strong>±100 Elo</strong> of noise — enough to flip a true +73 to &quot;+22&quot; or a true 0 to &quot;−29.&quot; Several techniques read &quot;neutral&quot; or &quot;negative&quot; at 48 games and then settled at a different value by 300. <strong>Use ≥300 games before believing a ship/no-ship call</strong>, and confirm a marginal result with a second seed.</li>
+</ol>
+<ol>
+<li><strong>Depth-scaling techniques are invisible at shallow depth.</strong> LMR, check extensions, history, singular extensions, etc. pay off <em>more as search deepens</em>. This engine searches shallowly (NNUE ~12–28k nps; classical reaches ~depth 6–10 at a few-thousand-node budget), so they read neutral/negative on a shallow gauntlet. They flipped clearly positive at 20–30k nodes. <strong>Don&#x27;t reject a depth-scaling heuristic on a shallow measurement — re-test it deep</strong>, and gate it to the deep (Max) regime if it hurts when shallow.</li>
+</ol>
+<ol>
+<li><strong>Lazy SMP must diversify.</strong> N identical deterministic threads ≈ one search + overhead = <em>negative</em>. Helpers need a depth-skip (or move-order) scheme so they explore different parts of the tree. *<em>Measure SMP at fixed </em>time<em>, not fixed nodes</em>* (more threads = more nodes per unit time is the entire point).</li>
+</ol>
+<ol>
+<li><strong>The NNUE &quot;incremental accumulator&quot; can be dead code.</strong> For BIG nets it returned <code>null</code>, so the AB path fell back to a full forward pass per leaf — the real reason NNUE was slow. <strong>Before optimizing NNUE, confirm which path actually runs.</strong> An output-preserving speedup (verified bit-identical via the parity walk) needs <em>no</em> Elo measurement — more nps at identical eval is a pure win (deeper search in the same time).</li>
+</ol>
+<ol>
+<li><strong>Elo is not additive.</strong> Per-change gains were each measured against the <em>previous</em> config under different conditions; you can&#x27;t sum them. For a real total, run the <strong>full new config vs the original engine head-to-head</strong> at fixed time.</li>
+</ol>
+<h2 id="chapter-engine-strength-tuning-environment-tooling-gotchas">Environment / tooling gotchas</h2>
+<ul>
+<li><strong>The IDE clobbers <code>out/</code>.</strong> The VS Code <code>redhat.java</code> (Eclipse JDT) language server auto-builds the project on every file edit and intermittently rewrites/empties <code>out/</code>, causing flaky <code>ClassNotFoundException</code> mid-run. <strong>Compile and run from a private dir</strong> (<code>/tmp/crtk-…</code>) the IDE doesn&#x27;t manage. (The running workbench GUI from <code>crtk.jar</code> can also hold the tree.)</li>
+<li><strong>Don&#x27;t run two fixed-time gauntlets at once.</strong> Their threads contend for cores and skew each other&#x27;s wall-clock — fine for fixed-<em>nodes</em> (deterministic), wrong for fixed-<em>time</em>.</li>
+<li><strong>Build with <code>javac --release 17</code>.</strong> Bare JDK-21 emits false errors; the project targets 17. The Java Vector API (<code>jdk.incubator.vector</code>) is <strong>not</strong> available under the stock <code>--release 17</code> launch, so SIMD NNUE is out without a build/launch change.</li>
+<li><strong>Determinism is a feature here.</strong> Anything non-deterministic (Lazy SMP, sampling) is gated so the CLI, tests, and lower Play strengths stay reproducible.</li>
+</ul>
+<h2 id="chapter-engine-strength-tuning-open-levers-not-yet-attempted-risk-noted">Open levers (not yet attempted — risk noted)</h2>
+<ul>
+<li>*<em>Incremental NNUE </em>threats**<em> — threats ray-walk sliders and depend non-locally on occupancy, so a per-move delta risks silently changing eval. Only pursue behind the bit-exact parity harness; treat any divergence as a bug, not a tradeoff. Estimated </em>modest* (the threat rebuild is ~40% of the per-node cost).</li>
+<li><strong>Broaden SMP / deep-heuristics below the Max tier</strong> — a calibration tradeoff (it strengthens settings beyond their nominal Elo); make it an explicit Play &quot;use all cores&quot; option rather than silently shifting the slider&#x27;s meaning.</li>
+<li><strong>Re-test the shelved heuristics now that search is deeper</strong> (faster NNUE + SMP) — the depth-scaling lesson predicts some may now help.</li>
 </ul>
   </div>
 </section>

@@ -9,6 +9,9 @@ import java.util.Map;
 /**
  * Optional BT4 policy/value backend for experiments with real network priors.
  * It is intentionally opt-in because CPU BT4 inference is expensive.
+ *
+ * <p>The loader delegates to {@code Network.load(...)} so auto mode uses the
+ * first native BT4 backend that is available and initializes successfully.
  */
 final class Bt4SearchBackend implements SearchBackend {
 

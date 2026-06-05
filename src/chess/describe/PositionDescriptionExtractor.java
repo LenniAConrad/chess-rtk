@@ -67,8 +67,8 @@ public final class PositionDescriptionExtractor {
         PositionDescriptionInput.Material material = material(position);
         int cpWhite = Wdl.evaluateWhiteCentipawns(position);
         int cpSide = position.isWhiteToMove() ? cpWhite : -cpWhite;
-        PositionDescriptionInput.Evaluation evaluation =
-                new PositionDescriptionInput.Evaluation("classical-static", cpWhite, cpSide, Wdl.evaluate(position));
+        PositionDescriptionInput.Evaluation evaluation = new PositionDescriptionInput.Evaluation(
+                "classical-static", cpWhite, cpSide, Wdl.evaluate(position), 0);
         List<String> tags = cheapTags(position, side, status, phase, material, scan.summary(), evaluation);
         List<String> threats = threats(position, scan.summary());
         return new PositionDescriptionInput(

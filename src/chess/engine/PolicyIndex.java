@@ -4,13 +4,7 @@ package chess.engine;
 import chess.core.Position;
 
 /**
- * Policy/value backend implementations for {@link Mcts}.
- *
- * @since 2026
- * @author Lennart A. Conrad
- */
-/**
- * Maps one legal move to a policy-logit index.
+ * Maps one legal move to a policy-logit index, used by {@link Mcts}.
  */
 @FunctionalInterface
 interface PolicyIndex {

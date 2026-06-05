@@ -7,19 +7,19 @@ package chess.engine;
  */
 enum ProofState {
     /**
-     * U n k n o w n,.
+     * Not yet proven.
      */
     UNKNOWN,
     /**
-     * W i n,.
+     * Proven win for the side to move.
      */
     WIN,
     /**
-     * D r a w,.
+     * Proven draw.
      */
     DRAW,
     /**
-     * L o s s.
+     * Proven loss for the side to move.
      */
     LOSS
 }

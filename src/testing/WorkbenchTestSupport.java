@@ -479,24 +479,6 @@ final class WorkbenchTestSupport {
     }
 
     /**
-     * Finds a batch task by display name.
-     *
-     * @param name task name
-     * @return batch task
-     */
-    static Object batchTask(String name) {
-        DefaultComboBoxModel<?> model = (DefaultComboBoxModel<?>) invokeStatic(type("CommandTemplates"),
-                "batchModel", new Class<?>[0]);
-        for (int i = 0; i < model.getSize(); i++) {
-            Object task = model.getElementAt(i);
-            if (name.equals(invoke(task, "name", new Class<?>[0]))) {
-                return task;
-            }
-        }
-        throw new AssertionError("missing batch task: " + name);
-    }
-
-    /**
      * Finds a row by flag label.
      *
      * @param model option model

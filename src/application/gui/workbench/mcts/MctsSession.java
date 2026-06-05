@@ -26,6 +26,26 @@ public final class MctsSession implements AutoCloseable {
     private static final long PUBLISH_INTERVAL_NANOS = 125_000_000L;
 
     /**
+     * Minimum elapsed time between rebuilt (expensive) tree snapshots. The cheap
+     * root snapshot still publishes at {@link #PUBLISH_INTERVAL_NANOS}; the full
+     * node list — which can be hundreds of thousands of nodes — is rebuilt less
+     * often and reused in between so big trees stay interactive.
+     */
+    private static final long TREE_PUBLISH_INTERVAL_NANOS = 300_000_000L;
+
+    /**
+     * Maximum recorded growth frames retained for the scrubber.
+     */
+    private static final int MAX_HISTORY_FRAMES = 240;
+
+    /**
+     * Soft cap on total recorded node rows across all growth frames, so a search
+     * with a huge node budget cannot blow up memory; older frames are decimated
+     * (every other one dropped) once either bound is exceeded.
+     */
+    private static final int MAX_HISTORY_NODES = 1_200_000;
+
+    /**
      * Number of first playouts published individually for fast initial feedback.
      */
     private static final int WARMUP_PUBLISH_PLAYOUTS = 16;
@@ -76,14 +96,40 @@ public final class MctsSession implements AutoCloseable {
     private boolean requestedRootReuse;
 
     /**
-     * Currently selected node id for tree snapshots.
+     * Currently selected node id for tree snapshots. Volatile because it is
+     * written on the EDT ({@link #setSelectedNodeId}) and read on the search
+     * worker thread inside {@code publishFrame}, mirroring {@link #publishTreeOptions}.
      */
-    private String selectedNodeId = "root";
+    private volatile String selectedNodeId = "root";
+
+    /**
+     * Traversal controls applied to published tree snapshots. The Tree view
+     * raises these so it can render a deep, merged DAG; other consumers only
+     * read the root rows and selected node, so a larger tree is harmless.
+     */
+    private volatile MctsSearch.TreeOptions publishTreeOptions = MctsSearch.TreeOptions.defaults();
 
     /**
      * Latest immutable UI snapshot.
      */
     private Snapshot snapshot = Snapshot.idle(Game.STANDARD_START_FEN);
+
+    /**
+     * Recorded tree-growth frames for the scrubber (oldest first), bounded by
+     * {@link #MAX_HISTORY_FRAMES} and {@link #MAX_HISTORY_NODES}. EDT-confined.
+     */
+    private final List<MctsSearch.TreeSnapshot> history = new ArrayList<>();
+
+    /**
+     * Running total of node rows across {@link #history} for the memory bound.
+     */
+    private long historyNodes;
+
+    /**
+     * Last tree snapshot appended to {@link #history}, to skip duplicate frames
+     * (reused snapshots between rebuilds share the same reference).
+     */
+    private MctsSearch.TreeSnapshot lastRecordedTree;
 
     /**
      * Search backend exposed by the MCTS tab.
@@ -328,6 +374,29 @@ public final class MctsSession implements AutoCloseable {
     }
 
     /**
+     * Returns the number of recorded tree-growth frames available to scrub.
+     *
+     * @return recorded frame count
+     */
+    public int historySize() {
+        return history.size();
+    }
+
+    /**
+     * Returns a recorded growth frame by index (clamped to range), or null when
+     * no frames have been recorded.
+     *
+     * @param index frame index
+     * @return recorded tree snapshot, or null
+     */
+    public MctsSearch.TreeSnapshot historyFrame(int index) {
+        if (history.isEmpty()) {
+            return null;
+        }
+        return history.get(Math.max(0, Math.min(history.size() - 1, index)));
+    }
+
+    /**
      * Updates the requested root position.
      *
      * @param fen FEN
@@ -357,6 +426,7 @@ public final class MctsSession implements AutoCloseable {
     public void start(Config config) {
         Config safeConfig = config.normalized(snapshot.rootFen());
         stop();
+        clearHistory();
         int id;
         synchronized (lock) {
             generation++;
@@ -370,6 +440,16 @@ public final class MctsSession implements AutoCloseable {
                 "starting " + safeConfig.backend() + " MCTS",
                 null, safeConfig.rootFen(), safeConfig.backend(), null, null));
         SwingWorker<Void, Frame> active = new SwingWorker<>() {
+            /**
+             * Last rebuilt tree snapshot, reused between throttled rebuilds.
+             */
+            private MctsSearch.TreeSnapshot lastTree;
+
+            /**
+             * Monotonic time of the last tree-snapshot rebuild.
+             */
+            private long lastTreeNanos;
+
             /**
              * Runs the search loop away from the event-dispatch thread.
              *
@@ -387,7 +467,7 @@ public final class MctsSession implements AutoCloseable {
                             return null;
                         }
                     }
-                    publishFrame(id, safeConfig, localSearch, false, "running");
+                    publishFrame(id, safeConfig, localSearch, false, "running", true);
                     long lastPublish = 0L;
                     while (!isCancelled() && generation == id) {
                         RootRequest request = pollRootRequest();
@@ -407,10 +487,10 @@ public final class MctsSession implements AutoCloseable {
                                 reused = false;
                             }
                             publishFrame(id, safeConfig, localSearch, paused,
-                                    reused && request.reuse() ? "root reused" : "root reset");
+                                    reused && request.reuse() ? "root reused" : "root reset", true);
                         }
                         if (paused) {
-                            publishFrame(id, safeConfig, localSearch, true, "paused");
+                            publishFrame(id, safeConfig, localSearch, true, "paused", true);
                             Thread.sleep(80L);
                             continue;
                         }
@@ -420,7 +500,8 @@ public final class MctsSession implements AutoCloseable {
                         long nextPlayout = localSearch.playouts() + 1L;
                         long now = System.nanoTime();
                         if (shouldPublish(nextPlayout, now, lastPublish)) {
-                            publishFrame(id, safeConfig, localSearch, false, "running");
+                            publishFrame(id, safeConfig, localSearch, false, "running",
+                                    nextPlayout <= WARMUP_PUBLISH_PLAYOUTS);
                             lastPublish = now;
                         }
                         localSearch.iterate();
@@ -429,7 +510,7 @@ public final class MctsSession implements AutoCloseable {
                         }
                     }
                     if (!isCancelled() && generation == id) {
-                        publishFrame(id, safeConfig, localSearch, paused, "done");
+                        publishFrame(id, safeConfig, localSearch, paused, "done", true);
                     }
                 } finally {
                     if (localSearch != null) {
@@ -449,12 +530,17 @@ public final class MctsSession implements AutoCloseable {
              * @param status short status label
              */
             private void publishFrame(int id, Config config, MctsSearch localSearch,
-                    boolean pausedFrame, String status) {
+                    boolean pausedFrame, String status, boolean forceTree) {
                 MctsSearch.Snapshot root = localSearch.snapshot(pausedFrame);
-                MctsSearch.TreeSnapshot tree = localSearch.treeSnapshot(
-                        pausedFrame,
-                        MctsSearch.TreeOptions.defaults(),
-                        selectedNodeId);
+                MctsSearch.TreeSnapshot tree;
+                if (forceTree || lastTree == null
+                        || System.nanoTime() - lastTreeNanos >= TREE_PUBLISH_INTERVAL_NANOS) {
+                    tree = localSearch.treeSnapshot(pausedFrame, publishTreeOptions, selectedNodeId);
+                    lastTree = tree;
+                    lastTreeNanos = System.nanoTime();
+                } else {
+                    tree = lastTree;
+                }
                 State state = pausedFrame ? State.PAUSED : State.RUNNING;
                 String detail = status + " · " + localSearch.backendName()
                         + " · " + String.format("%,d", root.playouts()) + " visits";
@@ -558,6 +644,28 @@ public final class MctsSession implements AutoCloseable {
     }
 
     /**
+     * Sets the traversal controls used for published tree snapshots. Takes
+     * effect on the next worker frame; a deeper tree only adds nodes the Tree
+     * view renders and does not change search behaviour.
+     *
+     * @param options traversal controls, or null to restore the compact default
+     */
+    public void setTreeOptions(MctsSearch.TreeOptions options) {
+        publishTreeOptions = options == null
+                ? MctsSearch.TreeOptions.defaults()
+                : options.normalized();
+    }
+
+    /**
+     * Returns the traversal controls applied to published tree snapshots.
+     *
+     * @return current tree options
+     */
+    public MctsSearch.TreeOptions treeOptions() {
+        return publishTreeOptions;
+    }
+
+    /**
      * Updates the selected node id inside the latest bounded snapshot.
      *
      * @param nodeId node id
@@ -648,8 +756,63 @@ public final class MctsSession implements AutoCloseable {
      * @param frame worker frame
      */
     private void applyFrame(Frame frame) {
+        if (frame.tree() != null && frame.tree() != lastRecordedTree) {
+            recordTreeFrame(frame.tree());
+            lastRecordedTree = frame.tree();
+        }
         updateSnapshot(new Snapshot(frame.state(), frame.status(), frame.error(),
                 frame.rootFen(), frame.backend(), frame.root(), frame.tree()));
+    }
+
+    /**
+     * Appends a tree-growth frame and enforces the history memory bounds.
+     *
+     * @param tree newly published tree snapshot
+     */
+    private void recordTreeFrame(MctsSearch.TreeSnapshot tree) {
+        history.add(tree);
+        historyNodes += tree.nodes().size();
+        while ((history.size() > MAX_HISTORY_FRAMES || historyNodes > MAX_HISTORY_NODES)
+                && history.size() > 2) {
+            decimateHistory();
+        }
+    }
+
+    /**
+     * Halves the history resolution by dropping every other older frame, always
+     * keeping the first and last frames so the timeline still spans the search.
+     */
+    private void decimateHistory() {
+        List<MctsSearch.TreeSnapshot> kept = new ArrayList<>(history.size() / 2 + 2);
+        long nodes = 0;
+        int last = history.size() - 1;
+        for (int i = 0; i <= last; i++) {
+            if (i % 2 == 0 || i == last) {
+                MctsSearch.TreeSnapshot frame = history.get(i);
+                kept.add(frame);
+                nodes += frame.nodes().size();
+            }
+        }
+        history.clear();
+        history.addAll(kept);
+        historyNodes = nodes;
+    }
+
+    /**
+     * Clears the recorded growth history on the event-dispatch thread, so it is
+     * empty before a new search's frames begin to arrive.
+     */
+    private void clearHistory() {
+        Runnable clear = () -> {
+            history.clear();
+            historyNodes = 0;
+            lastRecordedTree = null;
+        };
+        if (SwingUtilities.isEventDispatchThread()) {
+            clear.run();
+        } else {
+            SwingUtilities.invokeLater(clear);
+        }
     }
 
     /**

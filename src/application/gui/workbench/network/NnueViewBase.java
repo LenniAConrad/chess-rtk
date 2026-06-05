@@ -603,18 +603,11 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
     }
 
     /**
-     * Paints the empty-state hint.
-     *
-     * @param g graphics
-     * @param bounds full bounds
+     * {@inheritDoc}
      */
     @Override
-    protected void paintEmpty(Graphics2D g, Rectangle bounds) {
-        g.setColor(Theme.BG);
-        g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
-        g.setColor(Theme.MUTED);
-        g.setFont(Theme.font(13, Font.PLAIN));
-        g.drawString("Loading NNUE snapshot...", PAD, 32);
+    protected String emptyStateTitle() {
+        return "Loading NNUE snapshot\u2026";
     }
 
     /**
@@ -798,6 +791,32 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
      */
     protected String decodeUsHalfKP(int featureIndex) {
     return decodeHalfKP(featureIndex, sideToMoveWhite());
+    }
+
+    /**
+     * Returns a feature label correct for the loaded network. CRTK nets use HalfKP
+     * (king-square + piece + square), so the index decodes to "Kc4 / Nf6". Upstream
+     * (Stockfish) nets use HalfKAv2_hm, an entirely different sparse encoding whose
+     * indices must NOT be cracked open with the HalfKP formula — doing so prints a
+     * bogus "king" square that has nothing to do with the board. For those, show
+     * the raw feature index instead.
+     *
+     * @param featureIndex sparse feature index
+     * @return a decoded HalfKP label, or a raw HalfKAv2 index for upstream nets
+     */
+    protected String featureLabel(int featureIndex) {
+        return isStockfishSnapshot() ? "HalfKAv2 #" + featureIndex : decodeUsHalfKP(featureIndex);
+    }
+
+    /**
+     * Returns whether HalfKP king/piece glyphs and board overlays are meaningful
+     * for the loaded snapshot. They are not for upstream (Stockfish HalfKAv2_hm)
+     * nets, whose feature indices are not HalfKP.
+     *
+     * @return true when HalfKP feature visualizations are valid
+     */
+    protected boolean halfKpFeaturesDecodable() {
+        return !isStockfishSnapshot();
     }
 
     /**

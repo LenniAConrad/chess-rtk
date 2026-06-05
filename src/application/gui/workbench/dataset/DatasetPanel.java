@@ -1,20 +1,24 @@
 package application.gui.workbench.dataset;
 
+import static application.gui.workbench.ui.Ui.setColumnWidth;
 import static application.gui.workbench.ui.Ui.button;
+import static application.gui.workbench.ui.Ui.card;
 import static application.gui.workbench.ui.Ui.caption;
 import static application.gui.workbench.ui.Ui.fillViewport;
 import static application.gui.workbench.ui.Ui.label;
 import static application.gui.workbench.ui.Ui.placeholder;
 import static application.gui.workbench.ui.Ui.scroll;
 import static application.gui.workbench.ui.Ui.styleFields;
-import static application.gui.workbench.ui.Ui.styleProgressBar;
-import static application.gui.workbench.ui.Ui.titled;
+import static application.gui.workbench.ui.Ui.surfaceHeader;
 import static application.gui.workbench.ui.Ui.transparentPanel;
 
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.ui.FileDialogs;
+import application.gui.workbench.ui.Spinner;
 import application.gui.workbench.ui.SurfacePanel;
+import application.gui.workbench.ui.WrappingFlowLayout;
 import application.gui.workbench.ui.Theme;
+import chess.core.Position;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -22,7 +26,6 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.GridLayout;
 import java.awt.RenderingHints;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
@@ -33,12 +36,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Consumer;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
@@ -123,9 +126,42 @@ public final class DatasetPanel extends JPanel {
     private final JLabel statusLabel = caption("No dataset loaded");
 
     /**
-     * Activity indicator shown while scanning.
+     * Circular activity indicator shown while scanning.
      */
-    private final JProgressBar progress = new JProgressBar();
+    private final Spinner spinner = new Spinner();
+
+    /**
+     * Callback that opens a FEN in the shared Board tab, or {@code null} when
+     * this panel has no navigation context.
+     */
+    private final transient Consumer<String> openFenInBoard;
+
+    /**
+     * Callback that opens a FEN in a new detached Board tab (its own board, so
+     * the shared analysis position is not overwritten), or {@code null}.
+     */
+    private final transient Consumer<String> openFenInNewBoard;
+
+    /**
+     * Larger spinner shown on the body's loading card during a scan.
+     */
+    private final Spinner loadingSpinner = new Spinner(44);
+
+    /**
+     * Loading-card headline; carries the dataset currently being scanned.
+     */
+    private final JLabel loadingTitle = new JLabel("Scanning…");
+
+    /**
+     * Loading-card hint line.
+     */
+    private final JLabel loadingHint =
+            new JLabel("Profiling every position — this can take a moment. No need to browse again.");
+
+    /**
+     * Whether a scan is currently running.
+     */
+    private boolean busy;
 
     /**
      * Source-size metric tile.
@@ -135,27 +171,27 @@ public final class DatasetPanel extends JPanel {
     /**
      * Row-count metric tile.
      */
-    private final MetricTile rowsMetric = new MetricTile("rows", DatasetChart.Role.ACCENT);
+    private final MetricTile rowsMetric = new MetricTile("rows", DatasetChart.Role.NEUTRAL);
 
     /**
      * Validity metric tile.
      */
-    private final MetricTile validMetric = new MetricTile("validity", DatasetChart.Role.SUCCESS);
+    private final MetricTile validMetric = new MetricTile("validity", DatasetChart.Role.NEUTRAL);
 
     /**
      * Duplicate-position metric tile.
      */
-    private final MetricTile duplicateMetric = new MetricTile("uniqueness", DatasetChart.Role.WARNING);
+    private final MetricTile duplicateMetric = new MetricTile("uniqueness", DatasetChart.Role.NEUTRAL);
 
     /**
      * Tag-coverage metric tile.
      */
-    private final MetricTile tagsMetric = new MetricTile("tags", DatasetChart.Role.PURPLE);
+    private final MetricTile tagsMetric = new MetricTile("tags", DatasetChart.Role.NEUTRAL);
 
     /**
      * Evaluation-coverage metric tile.
      */
-    private final MetricTile evalMetric = new MetricTile("scores", DatasetChart.Role.ACCENT);
+    private final MetricTile evalMetric = new MetricTile("scores", DatasetChart.Role.NEUTRAL);
 
     /**
      * Average-material metric tile.
@@ -183,14 +219,24 @@ public final class DatasetPanel extends JPanel {
     private final JLabel materialInsight = insightLabel();
 
     /**
-     * Quality chart.
+     * Row-health composition donut (unique / duplicate / invalid).
      */
-    private final DatasetChart qualityChart = new DatasetChart();
+    private final DonutChart qualityChart = new DonutChart();
 
     /**
-     * Side-to-move chart.
+     * Side-to-move composition donut (white / black).
      */
-    private final DatasetChart sideChart = new DatasetChart();
+    private final DonutChart sideChart = new DonutChart();
+
+    /**
+     * Position-type composition donut (quiet / check / mate / stalemate).
+     */
+    private final DonutChart positionMixChart = new DonutChart();
+
+    /**
+     * Tag and score coverage chart, measured against valid rows.
+     */
+    private final DatasetChart coverageChart = new DatasetChart();
 
     /**
      * Material distribution chart.
@@ -233,6 +279,33 @@ public final class DatasetPanel extends JPanel {
     private final JTable issueTable = new JTable(issueModel);
 
     /**
+     * Tabbed container hosting the sample and issue tables.
+     */
+    private JTabbedPane tableTabs;
+
+    /**
+     * Opens the selected sample's position in the shared Board tab.
+     */
+    private final JButton openInBoardButton = button("Open in Board", false, event -> openSelectedRowInBoard());
+
+    /**
+     * Opens the selected sample's position in a new detached Board tab.
+     */
+    private final JButton openInNewBoardButton =
+            button("Open in New Board", false, event -> openSelectedRowInNewBoard());
+
+    /**
+     * Copies the selected sample's FEN to the clipboard.
+     */
+    private final JButton copyFenButton = button("Copy FEN", false, event -> copySelectedFen());
+
+    /**
+     * Body card container: a welcome hero while no dataset is loaded, the full
+     * analytics (metrics, charts, tables) once a scan has rows.
+     */
+    private final JPanel bodyCard = new JPanel(new java.awt.CardLayout());
+
+    /**
      * Active background worker.
      */
     private transient SwingWorker<DatasetSummary, Void> worker;
@@ -243,10 +316,24 @@ public final class DatasetPanel extends JPanel {
     private DatasetSummary summary = DatasetSummary.empty();
 
     /**
-     * Creates the dataset panel.
+     * Creates a dataset panel with no Board navigation.
      */
     public DatasetPanel() {
+        this(null, null);
+    }
+
+    /**
+     * Creates the dataset panel.
+     *
+     * @param openFenInBoard callback that loads a FEN into the shared Board tab,
+     *     or {@code null} to omit the "Open in Board" affordance
+     * @param openFenInNewBoard callback that loads a FEN into a new detached
+     *     Board tab, or {@code null} to omit the "Open in New Board" affordance
+     */
+    public DatasetPanel(Consumer<String> openFenInBoard, Consumer<String> openFenInNewBoard) {
         super(new BorderLayout(0, 0));
+        this.openFenInBoard = openFenInBoard;
+        this.openFenInNewBoard = openFenInNewBoard;
         setOpaque(true);
         setBackground(Theme.BG);
         buildUi();
@@ -299,6 +386,7 @@ public final class DatasetPanel extends JPanel {
      */
     public void startAnalysis(Path source, long rowLimit) {
         cancelAnalysis();
+        setLoadingTarget(source);
         setBusy(true);
         setStatus("Scanning " + source, Theme.ForegroundRole.INFO);
         worker = new SwingWorker<>() {
@@ -366,10 +454,17 @@ public final class DatasetPanel extends JPanel {
      * Builds the visual layout.
      */
     private void buildUi() {
+        add(surfaceHeader("Datasets",
+                "Profile a positions dataset — file counts, validity, and tag / score coverage",
+                null), BorderLayout.NORTH);
         SurfacePanel page = new SurfacePanel(new BorderLayout(0, Theme.SPACE_MD));
         page.add(createToolbar(), BorderLayout.NORTH);
+        // The body fills the tab directly (the overview scrolls internally) so the
+        // sample / issue split gets the full height to divide — wrapping the whole
+        // page in a scroll instead let the charts dictate height and squeezed the
+        // tables into a thin strip.
         page.add(createBody(), BorderLayout.CENTER);
-        add(scroll(fillViewport(page)), BorderLayout.CENTER);
+        add(page, BorderLayout.CENTER);
     }
 
     /**
@@ -381,12 +476,12 @@ public final class DatasetPanel extends JPanel {
         styleFields(sourceField);
         sourceField.setToolTipText("Dataset file or directory");
         placeholder(sourceField, "Dataset file or directory");
-        JButton browse = button("Browse", false, event -> chooseDatasetPath());
+        // The empty-state hero carries the primary Browse… affordance; this
+        // toolbar no longer repeats it, so the source row is just the field.
         JPanel sourceRow = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
         sourceRow.add(sourceField, BorderLayout.CENTER);
-        sourceRow.add(browse, BorderLayout.EAST);
 
-        JPanel controls = transparentPanel(new FlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
+        JPanel controls = transparentPanel(new WrappingFlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
         styleFields(rowLimitField);
         rowLimitField.setColumns(10);
         rowLimitField.setToolTipText("Maximum rows to scan");
@@ -403,10 +498,10 @@ public final class DatasetPanel extends JPanel {
         toolbar.add(controls, BorderLayout.CENTER);
         wrapper.add(toolbar, BorderLayout.CENTER);
         JPanel status = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
-        progress.setIndeterminate(true);
-        styleProgressBar(progress);
         status.add(statusLabel, BorderLayout.CENTER);
-        status.add(progress, BorderLayout.EAST);
+        JPanel spinnerCell = transparentPanel(new FlowLayout(FlowLayout.RIGHT, 0, Theme.SPACE_XS));
+        spinnerCell.add(spinner);
+        status.add(spinnerCell, BorderLayout.EAST);
         wrapper.add(status, BorderLayout.SOUTH);
         return wrapper;
     }
@@ -449,10 +544,95 @@ public final class DatasetPanel extends JPanel {
      */
     private JComponent createBody() {
         JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, createOverview(), createTables());
-        split.setResizeWeight(0.58d);
-        split.setDividerLocation(0.58d);
+        // Give the sample / issue tables a roughly equal share with the charts and
+        // hand them half of any extra height, so inspecting rows is not squeezed
+        // into a thin strip under the overview.
+        split.setResizeWeight(0.5d);
         SplitPaneStyler.style(split);
-        return split;
+        // setDividerLocation(double) is ignored until the split has a real height,
+        // so place it 50/50 on the first sizing pass, then leave it to the user.
+        split.addComponentListener(new java.awt.event.ComponentAdapter() {
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent event) {
+                if (split.getHeight() > 0) {
+                    split.removeComponentListener(this);
+                    split.setDividerLocation(0.5d);
+                }
+            }
+        });
+
+        // Show a focused welcome hero until a dataset is scanned, so the tab is
+        // not a wall of repeated "No dataset loaded" placeholders; reveal the
+        // full analytics once there are rows.
+        bodyCard.setOpaque(false);
+        bodyCard.add(createEmptyHero(), "empty");
+        bodyCard.add(createLoadingCard(), "loading");
+        bodyCard.add(split, "loaded");
+        return bodyCard;
+    }
+
+    /**
+     * Builds the centered loading card shown while a scan runs, so the body
+     * reads as "working" instead of still inviting another Browse.
+     *
+     * @return loading component
+     */
+    private JComponent createLoadingCard() {
+        loadingSpinner.setAlignmentX(CENTER_ALIGNMENT);
+        loadingTitle.setAlignmentX(CENTER_ALIGNMENT);
+        loadingTitle.setFont(Theme.font(15, Font.BOLD));
+        Theme.foreground(loadingTitle, Theme.ForegroundRole.TEXT);
+        loadingHint.setAlignmentX(CENTER_ALIGNMENT);
+        loadingHint.setFont(Theme.font(12, Font.PLAIN));
+        Theme.foreground(loadingHint, Theme.ForegroundRole.MUTED);
+
+        JPanel stack = transparentPanel(null);
+        stack.setLayout(new javax.swing.BoxLayout(stack, javax.swing.BoxLayout.Y_AXIS));
+        stack.add(loadingSpinner);
+        stack.add(javax.swing.Box.createVerticalStrut(Theme.SPACE_MD));
+        stack.add(loadingTitle);
+        stack.add(javax.swing.Box.createVerticalStrut(Theme.SPACE_XS));
+        stack.add(loadingHint);
+
+        JPanel center = transparentPanel(new java.awt.GridBagLayout());
+        center.add(stack);
+        return center;
+    }
+
+    /**
+     * Points the loading card at the dataset about to be scanned.
+     *
+     * @param source dataset path being scanned
+     */
+    private void setLoadingTarget(Path source) {
+        String name = source == null ? "dataset"
+                : source.getFileName() == null ? source.toString() : source.getFileName().toString();
+        loadingTitle.setText("Scanning " + compactText(name, 40) + "…");
+    }
+
+    /**
+     * Builds the centered welcome hero shown before any dataset is scanned.
+     *
+     * @return hero component
+     */
+    private JComponent createEmptyHero() {
+        JButton browse = button("Browse…", true, event -> chooseDatasetPath());
+        return application.gui.workbench.ui.Ui.emptyState("Profile a dataset",
+                "Choose a .pgn or .jsonl file — or a directory — then Analyze to chart validity, "
+                        + "tags, score bands, and material across every position.",
+                browse);
+    }
+
+    /**
+     * Shows the body card that matches the current state: the loading card while
+     * a scan runs, the analytics once a scan has rows, otherwise the welcome hero.
+     */
+    private void updateBodyState() {
+        String card = busy ? "loading" : summary.rows() > 0L ? "loaded" : "empty";
+        ((java.awt.CardLayout) bodyCard.getLayout()).show(bodyCard, card);
     }
 
     /**
@@ -462,19 +642,39 @@ public final class DatasetPanel extends JPanel {
      */
     private JComponent createOverview() {
         JPanel overview = transparentPanel(new BorderLayout(0, Theme.SPACE_MD));
-        JPanel top = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
-        top.add(createMetrics(), BorderLayout.NORTH);
-        top.add(createInsights(), BorderLayout.CENTER);
-        overview.add(top, BorderLayout.NORTH);
-        JPanel charts = transparentPanel(new GridLayout(2, 3, Theme.SPACE_MD, Theme.SPACE_MD));
-        charts.add(titled("Dataset Health", qualityChart));
-        charts.add(titled("Side Balance", sideChart));
-        charts.add(titled("Material Bands", materialChart));
-        charts.add(titled("Score Bands", evalChart));
-        charts.add(titled("Top Tags", tagChart));
-        charts.add(titled("Engine Sources", engineChart));
+        // Paint the page surface so the overview reads identically whether or not
+        // its internal scroll is engaged (it sits in the upper split pane and
+        // scrolls when the charts overflow their half).
+        overview.setOpaque(true);
+        overview.setBackground(Theme.PANEL_SOLID);
+        // The KPI tiles lead the overview; the former prose "insight" strip below
+        // them restated the same numbers, so it was dropped — each insight now
+        // rides as a hover tooltip on its related tile (see updateInsights).
+        overview.add(createMetrics(), BorderLayout.NORTH);
+        qualityChart.setEmpty("No dataset loaded", "Choose a .pgn or .jsonl file, then Analyze");
+        sideChart.setEmpty("No dataset loaded", "Side-to-move balance appears after a scan");
+        positionMixChart.setEmpty("No dataset loaded", "Quiet / check / mate mix appears after a scan");
+        materialChart.setEmpty("No dataset loaded", "Material spread appears after a scan");
+        evalChart.setEmpty("No dataset loaded", "Score bands appear once rows are scored");
+        coverageChart.setEmpty("No dataset loaded", "Tag and score coverage appears after a scan");
+        tagChart.setEmpty("No dataset loaded", "The most common tags appear after a scan");
+        engineChart.setEmpty("No dataset loaded", "Source engines appear after a scan");
+        // Responsive grid: the charts reflow and fill the width just like the KPI
+        // strip above, with a slightly larger gap for breathing room. A smaller
+        // minimum column keeps them in several columns (rather than collapsing to
+        // one tall stack) as the panel narrows, so they "extend" like the tiles.
+        application.gui.workbench.ui.CardGrid charts =
+                new application.gui.workbench.ui.CardGrid(270, Theme.SPACE_LG);
+        charts.add(card("Dataset Health", qualityChart));
+        charts.add(card("Side Balance", sideChart));
+        charts.add(card("Position Mix", positionMixChart));
+        charts.add(card("Material Bands", materialChart));
+        charts.add(card("Score Bands", evalChart));
+        charts.add(card("Coverage", coverageChart));
+        charts.add(card("Top Tags", tagChart));
+        charts.add(card("Engine Sources", engineChart));
         overview.add(charts, BorderLayout.CENTER);
-        return overview;
+        return scroll(fillViewport(overview));
     }
 
     /**
@@ -483,7 +683,11 @@ public final class DatasetPanel extends JPanel {
      * @return metrics component
      */
     private JComponent createMetrics() {
-        JPanel metrics = transparentPanel(new GridLayout(1, 7, Theme.SPACE_SM, 0));
+        // Responsive KPI strip: tiles flow across the width and wrap on narrow
+        // windows instead of being squeezed thin in a fixed 1x7 row. Same gap as
+        // the chart grid below so the whole overview shares one rhythm.
+        application.gui.workbench.ui.CardGrid metrics =
+                new application.gui.workbench.ui.CardGrid(150, Theme.SPACE_LG);
         metrics.add(filesMetric);
         metrics.add(rowsMetric);
         metrics.add(validMetric);
@@ -495,35 +699,6 @@ public final class DatasetPanel extends JPanel {
     }
 
     /**
-     * Creates the analytical insight strip.
-     *
-     * @return insight strip
-     */
-    private JComponent createInsights() {
-        JPanel insights = transparentPanel(new GridLayout(1, 4, Theme.SPACE_SM, 0));
-        insights.add(insight("Quality", qualityInsight));
-        insights.add(insight("Coverage", coverageInsight));
-        insights.add(insight("Balance", balanceInsight));
-        insights.add(insight("Material", materialInsight));
-        return insights;
-    }
-
-    /**
-     * Creates one insight cell.
-     *
-     * @param title insight title
-     * @param value insight text
-     * @return insight component
-     */
-    private static JComponent insight(String title, JLabel value) {
-        JPanel panel = transparentPanel(new BorderLayout(0, 2));
-        panel.setBorder(Theme.pad(5, 7, 5, 7));
-        panel.add(caption(title), BorderLayout.NORTH);
-        panel.add(value, BorderLayout.CENTER);
-        return panel;
-    }
-
-    /**
      * Creates the sample and issue table area.
      *
      * @return table component
@@ -531,10 +706,168 @@ public final class DatasetPanel extends JPanel {
     private JComponent createTables() {
         configureTable(sampleTable);
         configureTable(issueTable);
-        JTabbedPane tabs = application.gui.workbench.ui.Ui.tabbedPane();
-        tabs.addTab("Samples", tableScroll(sampleTable));
-        tabs.addTab("Issues", tableScroll(issueTable));
-        return tabs;
+        wireRowActions(sampleTable);
+        wireRowActions(issueTable);
+        tableTabs = application.gui.workbench.ui.Ui.tabbedPane();
+        tableTabs.addTab("Samples", emptyAwareTable(sampleTable, sampleModel,
+                "No samples loaded", "Choose a dataset and Analyze to inspect its rows."));
+        tableTabs.addTab("Issues", emptyAwareTable(issueTable, issueModel,
+                "No issues found", "Validation problems appear here after a scan."));
+        tableTabs.addChangeListener(event -> updateRowActions());
+
+        JPanel actions = transparentPanel(new WrappingFlowLayout(FlowLayout.RIGHT, Theme.SPACE_SM, 0));
+        actions.add(copyFenButton);
+        if (openFenInNewBoard != null) {
+            actions.add(openInNewBoardButton);
+        }
+        if (openFenInBoard != null) {
+            actions.add(openInBoardButton);
+        }
+        JPanel wrap = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
+        wrap.add(actions, BorderLayout.NORTH);
+        wrap.add(tableTabs, BorderLayout.CENTER);
+        updateRowActions();
+        return wrap;
+    }
+
+    /**
+     * Enables row-level selection to open or copy a position: a selection
+     * listener keeps the action buttons in sync and a double-click on a row
+     * opens it in the Board tab.
+     *
+     * @param table sample or issue table
+     */
+    private void wireRowActions(JTable table) {
+        table.getSelectionModel().addListSelectionListener(event -> {
+            if (!event.getValueIsAdjusting()) {
+                updateRowActions();
+            }
+        });
+        table.addMouseListener(new java.awt.event.MouseAdapter() {
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent event) {
+                if (event.getClickCount() == 2 && javax.swing.SwingUtilities.isLeftMouseButton(event)) {
+                    openSelectedRowInBoard();
+                }
+            }
+        });
+    }
+
+    /**
+     * Returns the table behind the active tab.
+     *
+     * @return the visible sample or issue table
+     */
+    private JTable activeTable() {
+        return tableTabs != null && tableTabs.getSelectedIndex() == 1 ? issueTable : sampleTable;
+    }
+
+    /**
+     * Returns the sample backing the active table's selected row.
+     *
+     * @return selected sample row, or {@code null} when nothing is selected
+     */
+    private DatasetSummary.SampleRow selectedRow() {
+        JTable table = activeTable();
+        DatasetTableModel model = table == issueTable ? issueModel : sampleModel;
+        int view = table.getSelectedRow();
+        if (view < 0) {
+            return null;
+        }
+        return model.rowAt(table.convertRowIndexToModel(view));
+    }
+
+    /**
+     * Refreshes the enablement of the row-action buttons for the current
+     * selection.
+     */
+    private void updateRowActions() {
+        DatasetSummary.SampleRow row = selectedRow();
+        boolean hasFen = row != null && !row.fen().isBlank();
+        copyFenButton.setEnabled(hasFen);
+        openInBoardButton.setEnabled(hasFen && openFenInBoard != null);
+        openInNewBoardButton.setEnabled(hasFen && openFenInNewBoard != null);
+    }
+
+    /**
+     * Opens the selected sample's position in the shared Board tab.
+     */
+    private void openSelectedRowInBoard() {
+        openSelected(openFenInBoard, "Opened position in Board");
+    }
+
+    /**
+     * Opens the selected sample's position in a new detached Board tab.
+     */
+    private void openSelectedRowInNewBoard() {
+        openSelected(openFenInNewBoard, "Opened position in a new Board tab");
+    }
+
+    /**
+     * Sends the selected row's FEN to a navigation sink. Rows whose text is not
+     * a parseable position (e.g. malformed issue rows) are rejected with a status
+     * note rather than handed to the board.
+     *
+     * @param sink callback that loads the FEN, or {@code null} to do nothing
+     * @param successMessage status shown once the position is handed off
+     */
+    private void openSelected(Consumer<String> sink, String successMessage) {
+        if (sink == null) {
+            return;
+        }
+        DatasetSummary.SampleRow row = selectedRow();
+        if (row == null || row.fen().isBlank()) {
+            setStatus("Select a position row first", Theme.ForegroundRole.WARNING);
+            return;
+        }
+        String fen = row.fen();
+        try {
+            new Position(fen);
+        } catch (RuntimeException ex) {
+            setStatus("That row is not a valid position", Theme.ForegroundRole.WARNING);
+            return;
+        }
+        sink.accept(fen);
+        setStatus(successMessage, Theme.ForegroundRole.SUCCESS);
+    }
+
+    /**
+     * Copies the selected row's FEN to the system clipboard.
+     */
+    private void copySelectedFen() {
+        DatasetSummary.SampleRow row = selectedRow();
+        if (row == null || row.fen().isBlank()) {
+            setStatus("Select a row with a FEN first", Theme.ForegroundRole.WARNING);
+            return;
+        }
+        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(row.fen()), null);
+        setStatus("FEN copied", Theme.ForegroundRole.SUCCESS);
+    }
+
+    /**
+     * Wraps a table so it shows a centered empty-state while its model has no
+     * rows, swapping to the scrolled table once it is populated.
+     *
+     * @param table data table
+     * @param model the table's model
+     * @param title empty-state title
+     * @param hint empty-state hint
+     * @return card-wrapped table
+     */
+    private static JComponent emptyAwareTable(JTable table, javax.swing.table.TableModel model,
+            String title, String hint) {
+        JPanel card = new JPanel(new java.awt.CardLayout());
+        card.setOpaque(false);
+        card.add(tableScroll(table), "table");
+        card.add(application.gui.workbench.ui.Ui.emptyState(title, hint), "empty");
+        Runnable toggle = () -> ((java.awt.CardLayout) card.getLayout())
+                .show(card, model.getRowCount() == 0 ? "empty" : "table");
+        model.addTableModelListener(event -> toggle.run());
+        toggle.run();
+        return card;
     }
 
     /**
@@ -545,7 +878,7 @@ public final class DatasetPanel extends JPanel {
      */
     private static JScrollPane tableScroll(JTable table) {
         JScrollPane pane = scroll(table);
-        pane.setPreferredSize(new Dimension(560, 210));
+        pane.setPreferredSize(new Dimension(560, 320));
         return pane;
     }
 
@@ -571,18 +904,6 @@ public final class DatasetPanel extends JPanel {
         }
     }
 
-    /**
-     * Sets preferred table column width.
-     *
-     * @param columns column model
-     * @param index column index
-     * @param width preferred width
-     */
-    private static void setColumnWidth(TableColumnModel columns, int index, int width) {
-        if (index < columns.getColumnCount()) {
-            columns.getColumn(index).setPreferredWidth(width);
-        }
-    }
 
     /**
      * Opens a dataset file chooser.
@@ -640,6 +961,7 @@ public final class DatasetPanel extends JPanel {
         sampleModel.setRows(summary.samples());
         issueModel.setRows(summary.issues());
         copyReportButton.setEnabled(hasReport());
+        updateBodyState();
     }
 
     /**
@@ -651,8 +973,14 @@ public final class DatasetPanel extends JPanel {
                 summary.truncated() ? "row limit reached" : "rows scanned");
         validMetric.setMetric(summary.rows() == 0L ? "-" : percent(summary.validRatio()),
                 format(summary.validPositions()) + " valid / " + format(summary.rows()));
+        // Quality-critical tiles flip green/amber by their actual result so the
+        // KPI strip's only colour carries meaning (clean vs. needs attention).
+        validMetric.setRole(summary.rows() == 0L ? DatasetChart.Role.NEUTRAL
+                : summary.validRatio() >= 1.0d ? DatasetChart.Role.SUCCESS : DatasetChart.Role.WARNING);
         duplicateMetric.setMetric(summary.validPositions() == 0L ? "-" : percent(1.0d - summary.duplicateRatio()),
                 format(summary.duplicatePositions()) + " duplicate FENs");
+        duplicateMetric.setRole(summary.validPositions() == 0L ? DatasetChart.Role.NEUTRAL
+                : summary.duplicatePositions() == 0L ? DatasetChart.Role.SUCCESS : DatasetChart.Role.WARNING);
         tagsMetric.setMetric(summary.validPositions() == 0L ? "-" : percent(ratio(summary.withTags(), summary.validPositions())),
                 format(summary.withTags()) + " tagged rows");
         evalMetric.setMetric(summary.validPositions() == 0L ? "-" : percent(ratio(summary.withEval(), summary.validPositions())),
@@ -668,43 +996,77 @@ public final class DatasetPanel extends JPanel {
     private void updateInsights() {
         if (summary.rows() == 0L) {
             setInsight(qualityInsight, "Load a dataset to profile row quality.", Theme.ForegroundRole.MUTED);
-            setInsight(coverageInsight, "Tags and scores will be measured per valid row.", Theme.ForegroundRole.MUTED);
-            setInsight(balanceInsight, "Side-to-move balance will appear after scanning.", Theme.ForegroundRole.MUTED);
-            setInsight(materialInsight, "Material range will show opening/endgame spread.", Theme.ForegroundRole.MUTED);
-            return;
+            setInsight(coverageInsight, "Tags and scores per valid row.", Theme.ForegroundRole.MUTED);
+            setInsight(balanceInsight, "Side-to-move balance after scanning.", Theme.ForegroundRole.MUTED);
+            setInsight(materialInsight, "Material spread after scanning.", Theme.ForegroundRole.MUTED);
+        } else {
+            boolean clean = summary.invalidRows() == 0L && summary.duplicatePositions() == 0L;
+            setInsight(qualityInsight, clean
+                            ? "Clean scan: no invalid rows or duplicate FENs."
+                            : format(summary.invalidRows()) + " invalid, "
+                                    + format(summary.duplicatePositions()) + " duplicate.",
+                    clean ? Theme.ForegroundRole.SUCCESS : Theme.ForegroundRole.WARNING);
+            // Quality keeps the one genuine pass/warn status colour; the rest are
+            // neutral descriptive text. The role colours already live on the KPI
+            // tile edges, so colouring every insight line as well just makes a
+            // distracting rainbow.
+            setInsight(coverageInsight,
+                    "Tags " + percent(ratio(summary.withTags(), summary.validPositions()))
+                            + " · scores " + percent(ratio(summary.withEval(), summary.validPositions())) + ".",
+                    Theme.ForegroundRole.MUTED);
+            setInsight(balanceInsight, sideBalanceText(), Theme.ForegroundRole.MUTED);
+            setInsight(materialInsight,
+                    summary.validPositions() == 0L ? "No valid positions to profile."
+                            : "Avg " + Math.round(summary.averageMaterial()) + " cp · " + materialRangeText() + ".",
+                    Theme.ForegroundRole.MUTED);
         }
-        boolean clean = summary.invalidRows() == 0L && summary.duplicatePositions() == 0L;
-        setInsight(qualityInsight, clean
-                        ? "Clean scan: no invalid rows or duplicate FENs."
-                        : format(summary.invalidRows()) + " invalid, "
-                                + format(summary.duplicatePositions()) + " duplicate.",
-                clean ? Theme.ForegroundRole.SUCCESS : Theme.ForegroundRole.WARNING);
-        setInsight(coverageInsight,
-                "Tags " + percent(ratio(summary.withTags(), summary.validPositions()))
-                        + " · scores " + percent(ratio(summary.withEval(), summary.validPositions())) + ".",
-                coverageRole());
-        setInsight(balanceInsight, sideBalanceText(), sideBalanceRole());
-        setInsight(materialInsight,
-                summary.validPositions() == 0L ? "No valid positions to profile."
-                        : "Avg " + Math.round(summary.averageMaterial()) + " cp · " + materialRangeText() + ".",
-                Theme.ForegroundRole.INFO);
+        // Surface the prose on hover over the related KPI tile rather than as an
+        // always-visible strip, so the overview leads with the numbers.
+        validMetric.setTooltip(qualityInsight.getText());
+        tagsMetric.setTooltip(coverageInsight.getText());
+        rowsMetric.setTooltip(balanceInsight.getText());
+        materialMetric.setTooltip(materialInsight.getText());
     }
 
     /**
      * Updates chart components.
      */
     private void updateCharts() {
-        qualityChart.setBars(List.of(
-                new DatasetChart.Bar("unique valid", Math.max(0L,
+        // Compositional metrics read as donuts: row health is a clean/dup/invalid
+        // whole, side-to-move is a white/black whole. Semantic green/amber/red is
+        // reserved for the health ring where it means clean vs. bad.
+        qualityChart.setSegments(List.of(
+                new DonutChart.Segment("unique valid", Math.max(0L,
                         summary.validPositions() - summary.duplicatePositions()), DatasetChart.Role.SUCCESS),
-                new DatasetChart.Bar("duplicate valid", summary.duplicatePositions(), DatasetChart.Role.WARNING),
-                new DatasetChart.Bar("invalid row", summary.invalidRows(), DatasetChart.Role.ERROR)));
-        sideChart.setBars(List.of(
-                new DatasetChart.Bar("white to move", summary.whiteToMove(), DatasetChart.Role.ACCENT),
-                new DatasetChart.Bar("black to move", summary.blackToMove(), DatasetChart.Role.PURPLE)));
+                new DonutChart.Segment("duplicate", summary.duplicatePositions(), DatasetChart.Role.WARNING),
+                new DonutChart.Segment("invalid", summary.invalidRows(), DatasetChart.Role.ERROR)),
+                "rows");
+        sideChart.setSegments(List.of(
+                new DonutChart.Segment("white to move", summary.whiteToMove(), DatasetChart.Role.ACCENT),
+                new DonutChart.Segment("black to move", summary.blackToMove(), DatasetChart.Role.NEUTRAL)),
+                "positions");
+        // Position mix partitions valid rows into disjoint states. Checkmate is a
+        // subset of in-check and stalemate is disjoint from it, so "in check"
+        // counts non-mating checks and the four slices sum to the valid total.
+        long mates = summary.checkmates();
+        long stalemates = summary.stalemates();
+        long checksNonMate = Math.max(0L, summary.inCheck() - mates);
+        long quiet = Math.max(0L, summary.validPositions() - summary.inCheck() - stalemates);
+        positionMixChart.setSegments(List.of(
+                new DonutChart.Segment("quiet", quiet, DatasetChart.Role.NEUTRAL),
+                new DonutChart.Segment("in check", checksNonMate, DatasetChart.Role.ACCENT),
+                new DonutChart.Segment("checkmate", mates, DatasetChart.Role.ERROR),
+                new DonutChart.Segment("stalemate", stalemates, DatasetChart.Role.WARNING)),
+                "positions");
+        // Coverage reads against the valid total, so each bar's faint track is
+        // 100% and a half-filled bar means half the valid rows carry that signal.
+        coverageChart.setBars(List.of(
+                new DatasetChart.Bar("tagged", summary.withTags(), DatasetChart.Role.SUCCESS),
+                new DatasetChart.Bar("scored", summary.withEval(), DatasetChart.Role.ACCENT)),
+                summary.validPositions());
         materialChart.setBuckets(MATERIAL_LABELS, summary.materialBuckets(), DatasetChart.Role.ACCENT);
-        evalChart.setBuckets(EVAL_LABELS, summary.evalBuckets(), DatasetChart.Role.PURPLE);
-        tagChart.setBars(namedBars(summary.topTags(), DatasetChart.Role.PURPLE));
+        evalChart.setBuckets(EVAL_LABELS, summary.evalBuckets(), DatasetChart.Role.ACCENT);
+        tagChart.setBars(namedBars(summary.topTags(), DatasetChart.Role.ACCENT));
         engineChart.setBars(namedBars(summary.topEngines(), DatasetChart.Role.ACCENT));
     }
 
@@ -737,10 +1099,13 @@ public final class DatasetPanel extends JPanel {
      * @param busy true while scanning
      */
     private void setBusy(boolean busy) {
+        this.busy = busy;
         analyzeButton.setEnabled(!busy);
         stopButton.setEnabled(busy);
         copyReportButton.setEnabled(!busy && hasReport());
-        progress.setVisible(busy);
+        spinner.setSpinning(busy);
+        loadingSpinner.setSpinning(busy);
+        updateBodyState();
     }
 
     /**
@@ -801,7 +1166,11 @@ public final class DatasetPanel extends JPanel {
      * @param role foreground role
      */
     private static void setInsight(JLabel label, String text, Theme.ForegroundRole role) {
-        label.setText(text == null ? "" : text);
+        String value = text == null ? "" : text;
+        label.setText(value);
+        // The insight cells are an equal-width 4-column grid, so a long line can
+        // clip; keep the full text reachable on hover.
+        label.setToolTipText(value.isBlank() ? null : value);
         Theme.foreground(label, role);
     }
 
@@ -882,38 +1251,6 @@ public final class DatasetPanel extends JPanel {
     }
 
     /**
-     * Returns the semantic role for side-balance insight.
-     *
-     * @return foreground role
-     */
-    private Theme.ForegroundRole sideBalanceRole() {
-        long total = summary.whiteToMove() + summary.blackToMove();
-        if (total <= 0L) {
-            return Theme.ForegroundRole.MUTED;
-        }
-        double whiteRatio = ratio(summary.whiteToMove(), total);
-        return Math.abs(whiteRatio - 0.5d) <= 0.15d
-                ? Theme.ForegroundRole.SUCCESS : Theme.ForegroundRole.WARNING;
-    }
-
-    /**
-     * Returns the semantic role for metadata coverage.
-     *
-     * @return foreground role
-     */
-    private Theme.ForegroundRole coverageRole() {
-        if (summary.validPositions() == 0L) {
-            return Theme.ForegroundRole.MUTED;
-        }
-        double coverage = (ratio(summary.withTags(), summary.validPositions())
-                + ratio(summary.withEval(), summary.validPositions())) / 2.0d;
-        if (coverage >= 0.75d) {
-            return Theme.ForegroundRole.SUCCESS;
-        }
-        return coverage >= 0.35d ? Theme.ForegroundRole.WARNING : Theme.ForegroundRole.MUTED;
-    }
-
-    /**
      * Formats a count.
      *
      * @param value count
@@ -949,9 +1286,11 @@ public final class DatasetPanel extends JPanel {
         private static final long serialVersionUID = 1L;
 
         /**
-         * Accent role painted on the tile edge.
+         * Accent role painted on the tile edge. Mutable so quality-critical
+         * tiles can flip green/amber to reflect the actual scan result instead
+         * of carrying a fixed decorative hue.
          */
-        private final DatasetChart.Role role;
+        private DatasetChart.Role role;
 
         /**
          * Metric title.
@@ -1027,6 +1366,42 @@ public final class DatasetPanel extends JPanel {
             setToolTipText(titleLabel.getText() + ": " + valueLabel.getText()
                     + " - " + detailLabel.getText());
             repaint();
+        }
+
+        /**
+         * Sets a richer hover tooltip (e.g. the analytical insight prose) on the
+         * tile and its labels, so it shows wherever the pointer rests on the tile.
+         *
+         * @param text tooltip text
+         */
+        void setTooltip(String text) {
+            String tip = text == null || text.isBlank() ? null : text;
+            setToolTipText(tip);
+            titleLabel.setToolTipText(tip);
+            valueLabel.setToolTipText(tip);
+            detailLabel.setToolTipText(tip);
+        }
+
+        /**
+         * Sets the accent role painted on the tile edge.
+         *
+         * @param newRole accent role (treated as neutral when {@code null})
+         */
+        void setRole(DatasetChart.Role newRole) {
+            this.role = newRole == null ? DatasetChart.Role.NEUTRAL : newRole;
+            repaint();
+        }
+
+        /**
+         * Gives the tile a card-like proportion so the metric strip reads as a
+         * row of stat cards rather than a thin band of text.
+         *
+         * @return preferred size
+         */
+        @Override
+        public Dimension getPreferredSize() {
+            Dimension base = super.getPreferredSize();
+            return new Dimension(Math.max(132, base.width), Math.max(78, base.height));
         }
 
         /**

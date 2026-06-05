@@ -106,7 +106,7 @@
       <article class="content">
         <p class="content-kicker">Engines &amp; Models</p>
         <h1 id="built-in-engine">Built-in Engine</h1>
-<p>Everything here runs inside the same process that issued the command — no UCI subprocess to spawn, no socket to configure, no background engine to outlive its job. The core is a deterministic PUCT-style MCTS searcher (<code>engine builtin</code> / <code>engine java</code>) that you point at one of four evaluators: classical/handcrafted, NNUE, LC0 CNN, or OTIS. Around it sit a standalone exhaustive forced-mate prover (<code>engine mate</code>), one-shot position evaluation (<code>engine eval</code> / <code>engine static</code>), an opponent-threat analyzer (<code>engine threats</code>), and a move-generator benchmark (<code>engine benchmark</code>). All of them share crtk&#x27;s one chess core, return the same answer for the same inputs and budget, and stop only where you tell them to — via explicit <code>--depth</code>, <code>--nodes</code>, and <code>--max-duration</code> limits. That combination is what makes it pleasant in scripts, CI, and research you need to reproduce.</p>
+<p>Everything here runs inside the same process that issued the command — no UCI subprocess to spawn, no socket to configure, no background engine to outlive its job. The core built-in command (<code>engine builtin</code> / <code>engine java</code>) now defaults to deterministic alpha-beta for the classical and NNUE evaluators, while LC0 CNN and OTIS still default to the PUCT-style MCTS search that can use their policy priors. Around it sit a standalone exhaustive forced-mate prover (<code>engine mate</code>), one-shot position evaluation (<code>engine eval</code> / <code>engine static</code>), an opponent-threat analyzer (<code>engine threats</code>), and a move-generator benchmark (<code>engine benchmark</code>). All of them share crtk&#x27;s one chess core, return the same answer for the same inputs and budget, and stop only where you tell them to — via explicit <code>--depth</code>, <code>--nodes</code>, and <code>--max-duration</code> limits. That combination is what makes it pleasant in scripts, CI, and research you need to reproduce.</p>
 <p>It will not out-play Stockfish or LC0, and it isn&#x27;t trying to. The point is determinism and zero dependencies: a search that gives the same result every time and keeps working when no UCI engine is configured. When you need real playing strength, MultiPV, or large-scale mining, drive an external engine through <code>engine analyze</code> / <code>engine bestmove</code> instead — see <a href="lc0.html">LC0 &amp; external engines</a> and <a href="mining.html">Mining</a>.</p>
 <h2 id="what-runs-entirely-in-process">What runs entirely in-process</h2>
 <div class="table-wrap"><table>
@@ -117,7 +117,7 @@
 </tr></thead><tbody>
 <tr>
 <td><code>engine builtin</code> / <code>engine java</code></td>
-<td>MCTS search with a selectable evaluator</td>
+<td>Alpha-beta or MCTS search with a selectable evaluator</td>
 <td>No</td>
 </tr>
 <tr>
@@ -147,7 +147,7 @@
 </tr>
 </tbody></table></div>
 <p><code>engine builtin</code> and <code>engine java</code> are the same command — <code>engine java</code> is an alias, so pick whichever reads better in your scripts. <code>engine mate</code> also answers to <code>engine find-mate</code>.</p>
-<h2 id="mcts-search-engine-builtin-engine-java">MCTS search — <code>engine builtin</code> / <code>engine java</code></h2>
+<h2 id="built-in-search-engine-builtin-engine-java">Built-in search — <code>engine builtin</code> / <code>engine java</code></h2>
 <p>Search a single position with the default classical evaluator:</p>
 <pre><code class="language-bash">crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 4 --format summary
 crtk engine builtin --startpos --depth 4 --format both
@@ -157,7 +157,7 @@ crtk engine java --fen &quot;&lt;FEN&gt;&quot; --depth 6</code></pre>
 <p>Or expose the searcher as a minimal UCI loop, which is enough for local protocol tests:</p>
 <pre><code class="language-bash">crtk engine builtin --uci</code></pre>
 <h3 id="choosing-an-evaluator">Choosing an evaluator</h3>
-<p>Pass <code>--evaluator classical|nnue|lc0|otis</code>, or use the shortcut selectors <code>--classical</code>, <code>--nnue</code>, <code>--lc0</code>, <code>--otis</code>. The default is <code>classical</code>.</p>
+<p>Pass <code>--evaluator classical|nnue|lc0|otis</code>, or use the shortcut selectors <code>--classical</code>, <code>--nnue</code>, <code>--lc0</code>, <code>--otis</code>. The default is <code>classical</code>. Search defaults to <code>alpha-beta</code> for <code>classical</code> and <code>nnue</code>, and to <code>mcts</code> for <code>lc0</code> and <code>otis</code>; override it with <code>--search alpha-beta</code> or <code>--search mcts</code>.</p>
 <pre><code class="language-bash">crtk engine builtin --classical --depth 6 --fen &quot;&lt;FEN&gt;&quot;
 crtk engine builtin --nnue --fen &quot;&lt;FEN&gt;&quot;
 crtk engine builtin --evaluator nnue --weights models/crtk-halfkp.nnue --fen &quot;&lt;FEN&gt;&quot;
@@ -173,20 +173,28 @@ crtk engine builtin --otis --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 </tr></thead><tbody>
 <tr>
 <td><code>--depth N</code> / <code>-d N</code></td>
-<td>Search depth hint (default: <code>3</code>)</td>
+<td>Search target (default: <code>8</code> for alpha-beta, <code>3</code> for MCTS)</td>
 </tr>
 <tr>
 <td><code>--nodes N</code> / <code>--max-nodes N</code></td>
-<td>MCTS playout budget; <code>0</code> disables the node cap</td>
+<td>Search node/playout budget; <code>0</code> disables the node cap</td>
 </tr>
 <tr>
 <td><code>--max-duration D</code></td>
 <td>Wall-clock budget, e.g. <code>5s</code>; <code>0</code> means no time cap</td>
 </tr>
+<tr>
+<td><code>--threads N</code></td>
+<td>Worker threads for alpha-beta Lazy SMP or MCTS; default <code>1</code></td>
+</tr>
 </tbody></table></div>
 <pre><code class="language-bash">crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 5 --nodes 250000 --format both
 crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 8 --max-duration 2s --format summary</code></pre>
-<p>For the MCTS CLI, <code>--nodes</code> is the playout budget directly. Set <code>--depth</code> alone — with no <code>--nodes</code> and no <code>--max-duration</code> — and the command translates depth into a small playout budget rather than searching forever. Whenever you care about the exact budget, state it: pass <code>--nodes</code> or <code>--max-duration</code> explicitly.</p>
+<p>For alpha-beta, <code>--depth</code> is the iterative-deepening target. For MCTS, <code>--nodes</code> is the playout budget directly; set <code>--depth</code> alone — with no <code>--nodes</code> and no <code>--max-duration</code> — and the command translates depth into a small playout budget rather than searching forever. Whenever you care about the exact budget, state it: pass <code>--nodes</code> or <code>--max-duration</code> explicitly.</p>
+<p>Before spending heuristic search budget, alpha-beta checks immediate root mates directly. If the root is already forcing, either in check or with at least one checking move, it also runs the bounded mate prover up to the default mate-in-four horizon, so short tactical wins are reported exactly as mate scores instead of as ordinary centipawn preferences.</p>
+<p>At the horizon, alpha-beta quiescence also checks mate-in-one before standing pat or searching captures. That keeps one-ply mates from being flattened into static centipawn scores when they sit just beyond the requested depth.</p>
+<p>The same mate-in-one guard is used by the deterministic root fallback returned when a very small node or time budget stops before depth one completes.</p>
+<p>The first quiescence ply also includes quiet checking moves. Deeper quiescence stays capture/promotion-only unless the side to move is in check, keeping the extra tactical lookahead bounded.</p>
 <h3 id="output-formats">Output formats</h3>
 <p><code>--format</code> accepts <code>uci-info</code>, <code>uci</code>, <code>san</code>, <code>both</code>, or <code>summary</code> (default: <code>uci-info</code>).</p>
 <div class="table-wrap"><table>
@@ -358,7 +366,7 @@ crtk engine benchmark --fen &quot;&lt;FEN&gt;&quot; --depth 4 --json</code></pre
 <ul>
 <li>One shared chess core handles legal move generation, make/undo, attack detection, FEN/SAN/UCI, and Chess960 for every command — the same code path the rest of crtk runs on.</li>
 <li>The same FEN, evaluator, and budget yield the same best move, score, and PV. Every time.</li>
-<li>The MCTS searcher is single-threaded and keeps its transposition state in-process and deterministic. That table is internal, with no <code>--hash</code> knob; when you pass <code>--threads</code>, <code>--hash</code>, and friends to the external commands, they go to the configured UCI engine, not to the in-house searcher.</li>
+<li>The in-house search is single-threaded by default and keeps its transposition state in-process. Pass <code>--threads N</code> only when you explicitly want alpha-beta Lazy SMP or MCTS workers; keep <code>--threads 1</code> for byte-stable comparisons. There is still no in-house <code>--hash</code> knob; <code>--hash</code> belongs to external UCI engines.</li>
 <li>Every run stops at an explicit <code>--depth</code>, <code>--nodes</code>, or <code>--max-duration</code> limit, which is exactly what makes the output safe to assert on in CI.</li>
 </ul>
 <h2 id="when-to-use-which">When to use which</h2>
@@ -387,7 +395,7 @@ crtk engine benchmark --fen &quot;&lt;FEN&gt;&quot; --depth 4 --json</code></pre
       </article>
       <aside class="toc"><h2>On this page</h2>
 <a class="toc-h2" href="#what-runs-entirely-in-process">What runs entirely in-process</a>
-<a class="toc-h2" href="#mcts-search-engine-builtin-engine-java">MCTS search — engine builtin / engine java</a>
+<a class="toc-h2" href="#built-in-search-engine-builtin-engine-java">Built-in search — engine builtin / engine java</a>
 <a class="toc-h3" href="#choosing-an-evaluator">Choosing an evaluator</a>
 <a class="toc-h3" href="#bounding-the-search">Bounding the search</a>
 <a class="toc-h3" href="#output-formats">Output formats</a>

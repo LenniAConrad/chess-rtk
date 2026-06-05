@@ -115,12 +115,12 @@ public final class Lc0 implements CentipawnEvaluator {
      * position are already cached from evaluation.
      *
      * @param position position whose legal moves are being ordered
-     * @param moves legal moves aligned with {@code scores}
+     * @param moves legal moves aligned with the prefix of {@code scores}
      * @param scores mutable ordering scores to adjust in place
      */
     @Override
     public void scoreMoves(Position position, short[] moves, int[] scores) {
-        if (position == null || moves == null || scores == null || moves.length != scores.length) {
+        if (position == null || moves == null || scores == null || scores.length < moves.length) {
             return;
         }
         float[] policy = policy(position.signature());

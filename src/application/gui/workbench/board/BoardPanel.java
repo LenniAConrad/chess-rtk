@@ -802,6 +802,23 @@ public final class BoardPanel extends JPanel {
         boardMarkups.add(new BoardMarkup(from, to, MarkupBrush.forThemeColor(color)));
         repaint();
     }
+
+    /**
+     * Adds a persistent arrow with an exact colour and line width, for dense
+     * overlays such as the tactical-incidence relation graph where the default
+     * markup width is too heavy.
+     * @param from origin square
+     * @param to destination square
+     * @param color exact arrow colour (alpha honoured)
+     * @param lineWidth arrow line width in pixels
+     */
+    public void addArrow(byte from, byte to, Color color, int lineWidth) {
+        if (!isSquareIndex(from) || !isSquareIndex(to) || color == null) {
+            return;
+        }
+        boardMarkups.add(new BoardMarkup(from, to, new MarkupBrush("custom", color, Math.max(1, lineWidth))));
+        repaint();
+    }
     /**
      * Sets the duration of move/snapback/snap/flip animations.
      * @param moveMs move animation duration in milliseconds
@@ -1133,7 +1150,8 @@ public final class BoardPanel extends JPanel {
     private void drawMarkupArrow(Graphics2D g, Rectangle board, BoardMarkup markup) {
         int cell = Math.max(1, board.width / 8);
         float lineWidth = Math.max(5f, cell * markup.brush().lineWidth() / 64f);
-        arrowPainter.draw(g, center(board, markup.from()), center(board, markup.to()), lineWidth, lineWidth);
+        double gap = cell * BoardStyle.ARROW_PIECE_GAP_FRACTION;
+        arrowPainter.draw(g, center(board, markup.from()), center(board, markup.to()), lineWidth, gap);
     }
     private static Color markupColor(Color color, double opacity) {
         int alpha = (int) Math.round(color.getAlpha() * Math.max(0.0, Math.min(1.0, opacity)));
@@ -1400,8 +1418,9 @@ public final class BoardPanel extends JPanel {
         if (!showSuggestedMoveArrow || suggestedMove == Move.NO_MOVE || !legalSuggestedMove(suggestedMove)) {
             return;
         }
+        double gap = Math.max(1, board.width / 8) * BoardStyle.ARROW_PIECE_GAP_FRACTION;
         arrowPainter.drawSuggested(g, center(board, Move.getFromIndex(suggestedMove)),
-                center(board, Move.getToIndex(suggestedMove)));
+                center(board, Move.getToIndex(suggestedMove)), gap);
     }
     private void drawAnimatedMove(Graphics2D g, Rectangle board) {
         if (!moveAnimationActive) {

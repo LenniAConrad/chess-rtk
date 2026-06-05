@@ -413,6 +413,16 @@ public final class CliRegistry {
 				.usage("[options]")
 				.example("crtk fen render --randompos --output dist/random-position.png")
 				.example("crtk fen render --fen \"<FEN>\" --output dist/position.png"));
+		fen.add(CliCommand.leaf("relations", "Render the OTIS tactical-incidence relation channels",
+				application.cli.command.PositionRelationsCommand::runRelations)
+				.detailHelpKey("fen relations")
+				.usage("[options]")
+				.about("Draw the 12-channel tactical-incidence graph (typed colour-coded arrows) over the "
+						+ "board: attacks, defenses, king-zone pressure, slider rays, knight/pawn attacks, "
+						+ "and pin candidates. Deterministic and weightless; the edges match the OTIS network input.")
+				.example("crtk fen relations --startpos --montage --output dist/relations.png")
+				.example("crtk fen relations --fen \"<FEN>\" --channel knight_attack --output dist/knights.svg")
+				.example("crtk fen relations --fen \"<FEN>\" --channels \"0,1\" --legend --output dist/attacks.png"));
 		fen.add(CliCommand.leaf("tags", "Generate tags for FENs, PGNs, or variations", TagsCommand::runTags)
 				.detailHelpKey("fen tags")
 				.usage("[options]")
@@ -557,12 +567,13 @@ public final class CliRegistry {
 				.usage("[options]")
 				.example("crtk engine benchmark --startpos --depth 5 --iterations 5")
 				.example("crtk engine benchmark --fen \"<FEN>\" --depth 4 --json"));
-		engine.add(CliCommand.leaf("builtin", "Search with the built-in MCTS engine", BuiltInEngineCommand::runBuiltIn)
+		engine.add(CliCommand.leaf("builtin", "Search with the built-in engine", BuiltInEngineCommand::runBuiltIn)
 				.detailHelpKey("engine builtin")
 				.alias("java")
 				.usage("[options]")
 				.example("crtk engine builtin --startpos --depth 4 --format summary")
 				.example("crtk engine builtin --fen \"<FEN>\" --depth 4 --format summary")
+				.example("crtk engine builtin --startpos --max-strength --max-duration 5s")
 				.example("crtk engine builtin --uci"));
 		engine.add(CliCommand.leaf("threats", "Analyze opponent threats", ThreatsCommand::runThreats)
 				.detailHelpKey("engine threats")

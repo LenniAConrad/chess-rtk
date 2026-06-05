@@ -62,7 +62,8 @@ final class InputChrome {
      */
     static Border border(boolean focused, boolean hovered, boolean compact) {
         Color lineColor = focused ? Theme.INPUT_FOCUS : hovered ? Theme.ACCENT_HOVER : Theme.INPUT_BORDER;
-        Border line = BorderFactory.createLineBorder(lineColor);
+        // Rounded outline (RADIUS) so inputs match buttons, cards, and chips.
+        Border line = new RoundedInputBorder(lineColor);
         Border inner = compact ? Theme.pad(4, 8, 4, 8) : Theme.pad(7, 9, 7, 9);
         return BorderFactory.createCompoundBorder(line, inner);
     }

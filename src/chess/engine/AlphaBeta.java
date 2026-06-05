@@ -137,6 +137,39 @@ public final class AlphaBeta implements AutoCloseable {
     private static final int IIR_MIN_DEPTH = 4;
 
     /**
+     * Quiet root positions with no checking move get only a narrow exact proof
+     * probe, so ordinary searches are not taxed by the full mate-prover horizon.
+     */
+    private static final int QUIET_ROOT_MATE_PROBE_MOVES = 2;
+
+    /**
+     * Node cap for the no-root-check quiet mate probe.
+     */
+    private static final long QUIET_ROOT_MATE_PROBE_NODES = 2_000L;
+
+    /**
+     * Minimum remaining depth at which ProbCut may attempt a reduced tactical
+     * confirmation search.
+     */
+    private static final int PROBCUT_MIN_DEPTH = 5;
+
+    /**
+     * Extra centipawn margin above beta required before ProbCut trusts a tactical
+     * fail-high.
+     */
+    private static final int PROBCUT_MARGIN = 220;
+
+    /**
+     * Margin reduction when the side to move is already improving statically.
+     */
+    private static final int PROBCUT_IMPROVING_MARGIN = 60;
+
+    /**
+     * Child search depth used by ProbCut is parent depth minus this value.
+     */
+    private static final int PROBCUT_REDUCTION = 4;
+
+    /**
      * Minimum remaining depth at which a singular-extension verification search is
      * attempted.
      */
@@ -229,6 +262,13 @@ public final class AlphaBeta implements AutoCloseable {
         CHECK_EXTENSION,
 
         /**
+         * Quiet checking moves receive a move-ordering bonus, so forcing quiets are
+         * tried before ordinary history-scored quiets instead of relying on a later
+         * check extension to repair poor ordering.
+         */
+        CHECK_ORDERING,
+
+        /**
          * Draw detection by repetition inside the search tree (the engine could
          * not previously see repetitions/perpetuals during search).
          */
@@ -274,6 +314,14 @@ public final class AlphaBeta implements AutoCloseable {
         CONT_HISTORY,
 
         /**
+         * Capture history: capture ordering learns which (moving piece, target
+         * square, captured piece type) captures cause beta cutoffs, rather than
+         * relying only on fixed MVV-LVA plus SEE. Inspired by Stockfish's capture
+         * history table; independently implemented here.
+         */
+        CAPTURE_HISTORY,
+
+        /**
          * Internal iterative reduction: when a node that should have a best move
          * cached (sufficient depth, PV or expected-cut node) has no transposition
          * move to try first, reduce its depth by one instead of searching it in full
@@ -281,6 +329,24 @@ public final class AlphaBeta implements AutoCloseable {
          * re-visit far more cheaply than a full-width search would.
          */
         IIR,
+
+        /**
+         * Root score ordering: after each completed iterative-deepening pass, keep
+         * every searched root move's score and use those previous scores to order
+         * non-PV root moves on the next depth. The previous best move still receives
+         * the normal preferred-move priority; this mainly stabilizes the rest of the
+         * root list so deeper searches spend fewer nodes rediscovering known-bad
+         * alternatives.
+         */
+        ROOT_SCORE_ORDERING,
+
+        /**
+         * ProbCut: at deep non-PV nodes, try high-SEE captures and queen promotions
+         * against a beta-plus-margin window. If quiescence and a reduced search both
+         * confirm the tactical fail-high, prune the full move search. Conceptually
+         * inspired by Stockfish's ProbCut stage; independently implemented here.
+         */
+        PROBCUT,
 
         /**
          * Razoring: at shallow depth, when even a generous margin over the static
@@ -311,10 +377,107 @@ public final class AlphaBeta implements AutoCloseable {
     }
 
     /**
-     * Bound on the magnitude of a gravity history value (used by
-     * {@link Feature#HISTORY_MALUS}).
+     * Bound on the magnitude of a gravity history value.
      */
     private static final int HISTORY_MAX = 1 << 14;
+
+    /**
+     * Move-ordering tier bonuses ({@link #moveOrderScore}). The hierarchy is
+     * preferred (PV) move &gt; transposition move &gt; winning/equal captures &gt;
+     * promotions &gt; killers &gt; quiets (history-scored), with SEE-losing captures
+     * pushed below quiets. Compile-time constants, so substituting them is free.
+     */
+    private static final int ORDER_PREFERRED = 1_000_000;
+
+    /**
+     * Ordering bonus for the transposition-table move.
+     */
+    private static final int ORDER_TT = 900_000;
+
+    /**
+     * Ordering bonus for a winning or equal capture (and en passant).
+     */
+    private static final int ORDER_CAPTURE = 100_000;
+
+    /**
+     * Ordering penalty for a SEE-losing capture, dropping it below quiets.
+     */
+    private static final int ORDER_LOSING_CAPTURE = -100_000;
+
+    /**
+     * Ordering bonus for a promotion.
+     */
+    private static final int ORDER_PROMOTION = 80_000;
+
+    /**
+     * Ordering bonus for a killer move.
+     */
+    private static final int ORDER_KILLER = 70_000;
+
+    /**
+     * Ordering bonus for a quiet checking move searched at the quiescence horizon.
+     */
+    private static final int ORDER_QUIET_CHECK = 60_000;
+
+    /**
+     * Ordering bonus for a quiet checking move in the main search. Kept below the
+     * killer tier so proven cutoff moves still sort first.
+     */
+    private static final int ORDER_MAIN_QUIET_CHECK = 55_000;
+
+    /**
+     * Root-ordering tier for moves that have a score from the previous completed
+     * iterative-deepening pass. Kept below the preferred and TT tiers, but above
+     * static capture/promotion tiers, because a searched previous root score is a
+     * stronger ordering signal than one-ply move shape.
+     */
+    private static final int ORDER_ROOT_PREVIOUS = 500_000;
+
+    /**
+     * Clamp for previous root scores before adding them to an ordering tier.
+     */
+    private static final int ROOT_PREVIOUS_SCORE_CLAMP = 100_000;
+
+    /**
+     * Root score table indexed by the unsigned 16-bit encoded move.
+     */
+    private static final int ROOT_SCORE_TABLE_SIZE = 1 << 16;
+
+    /**
+     * Initial per-ply move-score scratch width. A legal chess position fits inside
+     * this in normal play; rows grow defensively if a generated list is larger.
+     */
+    private static final int MOVE_SCORE_BUFFER_SIZE = 256;
+
+    /**
+     * Number of distinct (piece, square) pairs, i.e. {@code 12 * 64}: the
+     * continuation-history dimension. The one- and two-ply tables are
+     * {@code CONT_PIECE_SQUARES * CONT_PIECE_SQUARES} entries, indexed by a
+     * context (piece, to) over a move (piece, to).
+     */
+    private static final int CONT_PIECE_SQUARES = 12 * 64;
+
+    /**
+     * Upper bound on quiet moves tracked per ply for the history malus; a chess
+     * position has at most ~218 legal moves, so 256 is a safe cap.
+     */
+    private static final int MAX_TRIED_QUIETS = 256;
+
+    /**
+     * Captured piece-type buckets for capture history (pawn through king).
+     */
+    private static final int CAPTURE_HISTORY_TYPES = 6;
+
+    /**
+     * Number of capture-history buckets: moving piece, destination square, and
+     * captured piece type.
+     */
+    private static final int CAPTURE_HISTORY_BUCKETS = CONT_PIECE_SQUARES * CAPTURE_HISTORY_TYPES;
+
+    /**
+     * Upper bound on captures tracked per ply for capture-history maluses.
+     */
+    private static final int MAX_TRIED_CAPTURES = 64;
 
     /**
      * Number of buckets in each static-eval correction table (power of two).
@@ -367,12 +530,12 @@ public final class AlphaBeta implements AutoCloseable {
      * Default enabled features for production searches — the strongest measured
      * configuration. SEE pruning + in-search repetition are the original shipped
      * gains; LMR table, the improving heuristic (which also enables the eval-scaled
-     * null-move reduction), continuation history, and check extensions were each
-     * measured as net positive at real time controls (the full set scored ~+83 Elo
-     * single-threaded and ~+193 with Lazy SMP vs SEE+repetition alone, 100ms
-     * classical self-play). Features that measured neutral/negative (history malus,
-     * SEE-LMR, IIR, razoring, singular extensions, correction history) stay off but
-     * remain available through the three-argument constructor for tuning.
+     * null-move reduction), continuation history, check extensions, and IIR were
+     * each measured as net positive in fixed-budget self-play. Features that
+     * measured neutral/negative (history malus, capture history, SEE-LMR, root
+     * score ordering, quiet-check ordering, ProbCut, razoring, singular extensions,
+     * correction history) stay off but remain available through the three-argument
+     * constructor for tuning.
      */
     private static final Set<Feature> DEFAULT_FEATURES =
             EnumSet.of(
@@ -381,7 +544,8 @@ public final class AlphaBeta implements AutoCloseable {
                     Feature.LMR_TABLE,
                     Feature.IMPROVING,
                     Feature.CONT_HISTORY,
-                    Feature.CHECK_EXTENSION);
+                    Feature.CHECK_EXTENSION,
+                    Feature.IIR);
 
     /**
      * Enabled search features; see {@link Feature}.
@@ -519,6 +683,12 @@ public final class AlphaBeta implements AutoCloseable {
                     new short[0]);
         }
 
+        Result forcedMate = forcedMateRootResult(root, legalMoves, started);
+        if (forcedMate != null) {
+            notifyDepth(listener, forcedMate);
+            return forcedMate;
+        }
+
         // Use the shared table when this searcher persists one across moves,
         // otherwise a fresh per-search table. The generation base ensures a
         // shared table's prior-move entries are not seen as the current search's.
@@ -563,6 +733,92 @@ public final class AlphaBeta implements AutoCloseable {
     }
 
     /**
+     * Returns an exact short-mate proof before heuristic search spends budget.
+     *
+     * @param root root position
+     * @param legalMoves legal root moves
+     * @param started search start timestamp
+     * @return forced-mate result, or null if no bounded proof was found
+     */
+    private static Result forcedMateRootResult(Position root, MoveList legalMoves, long started) {
+        short mateInOne = findMateInOne(root, legalMoves);
+        if (mateInOne != Move.NO_MOVE) {
+            return new Result(
+                    mateInOne,
+                    MATE_SCORE - 1,
+                    1,
+                    0L,
+                    elapsedSince(started),
+                    false,
+                    new short[] { mateInOne });
+        }
+        boolean forcingRoot = root.inCheck() || hasRootCheck(root, legalMoves);
+        MateProver.Proof proof = forcingRoot
+                ? MateProver.proveMate(root)
+                : MateProver.proveMate(
+                        root,
+                        QUIET_ROOT_MATE_PROBE_MOVES,
+                        QUIET_ROOT_MATE_PROBE_NODES);
+        if (proof == null) {
+            return null;
+        }
+        return new Result(
+                proof.bestMove(),
+                MATE_SCORE - proof.plies(),
+                proof.plies(),
+                0L,
+                elapsedSince(started),
+                false,
+                proof.principalVariation());
+    }
+
+    /**
+     * Returns a mate-in-one move without entering the broader proof search.
+     *
+     * @param root position to inspect
+     * @param legalMoves legal moves from the position
+     * @return mating move, or {@link Move#NO_MOVE}
+     */
+    private static short findMateInOne(Position root, MoveList legalMoves) {
+        Position.State state = new Position.State();
+        for (int i = 0; i < legalMoves.size(); i++) {
+            short move = legalMoves.raw(i);
+            root.play(move, state);
+            try {
+                if (root.inCheck() && root.legalMoves().isEmpty()) {
+                    return move;
+                }
+            } finally {
+                root.undo(move, state);
+            }
+        }
+        return Move.NO_MOVE;
+    }
+
+    /**
+     * Returns whether the root has at least one checking move.
+     *
+     * @param root root position
+     * @param legalMoves legal root moves
+     * @return true when a legal root move gives check
+     */
+    private static boolean hasRootCheck(Position root, MoveList legalMoves) {
+        Position.State state = new Position.State();
+        for (int i = 0; i < legalMoves.size(); i++) {
+            short move = legalMoves.raw(i);
+            root.play(move, state);
+            try {
+                if (root.inCheck()) {
+                    return true;
+                }
+            } finally {
+                root.undo(move, state);
+            }
+        }
+        return false;
+    }
+
+    /**
      * Runs one search worker on its own position copy and {@link SearchContext},
      * sharing the given transposition table. Used directly for single-threaded
      * search and as the per-thread body for Lazy SMP.
@@ -590,7 +846,14 @@ public final class AlphaBeta implements AutoCloseable {
         Position root = position.copy();
         MoveList legalMoves = root.legalMoves();
         try (SearchContext context =
-                new SearchContext(started, limits, evaluator, root, table, generationStart, features)) {
+                new SearchContext(
+                        started,
+                        limits,
+                        evaluator,
+                        root,
+                        table,
+                        generationStart,
+                        features)) {
             Result best = staticRootResult(root, legalMoves, context, started);
             if (context.shouldStop()) {
                 Result stopped = best.withRuntime(context.nodes, elapsedSince(started), true);
@@ -601,6 +864,9 @@ public final class AlphaBeta implements AutoCloseable {
                 return stopped;
             }
             short preferred = best.bestMove();
+            int[] previousRootScores = features.contains(Feature.ROOT_SCORE_ORDERING)
+                    ? newRootScoreTable()
+                    : null;
             for (int depth = 1; depth <= limits.depth(); depth++) {
                 if (threadIndex > 0 && skipIteration(threadIndex, depth)) {
                     // Helper diversification: this thread skips this depth so the
@@ -616,7 +882,8 @@ public final class AlphaBeta implements AutoCloseable {
                             legalMoves,
                             depth,
                             preferred,
-                            best.scoreCentipawns());
+                            best.scoreCentipawns(),
+                            previousRootScores);
                     preferred = outcome.bestMove();
                     best = new Result(
                             outcome.bestMove(),
@@ -706,6 +973,8 @@ public final class AlphaBeta implements AutoCloseable {
      * @param depth target depth
      * @param preferredMove move to order first, or {@link Move#NO_MOVE}
      * @param previousScore completed previous-iteration score
+     * @param previousRootScores root move scores from the previous completed
+     *        depth, or null when root score ordering is disabled
      * @return root outcome with an exact score for the completed depth
      */
     private static RootOutcome searchRootWithAspiration(
@@ -714,18 +983,44 @@ public final class AlphaBeta implements AutoCloseable {
             MoveList legalMoves,
             int depth,
             short preferredMove,
-            int previousScore) {
+            int previousScore,
+            int[] previousRootScores) {
+        int[] iterationRootScores = previousRootScores == null ? null : newRootScoreTable();
         if (depth < ASPIRATION_START_DEPTH || isMateScore(previousScore)) {
-            return searchRoot(context, root, legalMoves, depth, preferredMove, -INF, INF);
+            RootOutcome outcome = searchRoot(
+                    context,
+                    root,
+                    legalMoves,
+                    depth,
+                    preferredMove,
+                    -INF,
+                    INF,
+                    previousRootScores,
+                    iterationRootScores);
+            publishRootScores(previousRootScores, iterationRootScores);
+            return outcome;
         }
 
         int window = ASPIRATION_WINDOW;
         int alpha = Math.max(-INF, previousScore - window);
         int beta = Math.min(INF, previousScore + window);
         while (true) {
-            RootOutcome outcome = searchRoot(context, root, legalMoves, depth, preferredMove, alpha, beta);
+            if (iterationRootScores != null) {
+                Arrays.fill(iterationRootScores, NO_SCORE);
+            }
+            RootOutcome outcome = searchRoot(
+                    context,
+                    root,
+                    legalMoves,
+                    depth,
+                    preferredMove,
+                    alpha,
+                    beta,
+                    previousRootScores,
+                    iterationRootScores);
             AspirationWindow widened = widenedAspirationWindow(outcome.score(), alpha, beta, window);
             if (widened == null) {
+                publishRootScores(previousRootScores, iterationRootScores);
                 return outcome;
             }
             alpha = widened.alpha();
@@ -765,6 +1060,10 @@ public final class AlphaBeta implements AutoCloseable {
      * @param preferredMove move to order first, or {@link Move#NO_MOVE}
      * @param alpha initial alpha bound
      * @param beta initial beta bound
+     * @param previousRootScores root move scores from the previous completed
+     *        depth, or null when root score ordering is disabled
+     * @param iterationRootScores destination for this depth's searched root
+     *        scores, or null when root score ordering is disabled
      * @return root outcome
      */
     private static RootOutcome searchRoot(
@@ -774,16 +1073,19 @@ public final class AlphaBeta implements AutoCloseable {
             int depth,
             short preferredMove,
             int alpha,
-            int beta) {
+            int beta,
+            int[] previousRootScores,
+            int[] iterationRootScores) {
         context.clearPv();
         context.prepareMoveOrdering(root);
         short ttMove = context.transpositions.bestMove(root.signature());
-        short[] moves = orderedMoves(root, legalMoves, preferredMove, ttMove, context, 0);
+        short[] moves = orderedRootMoves(root, legalMoves, preferredMove, ttMove, context, previousRootScores);
         Position.State state = new Position.State();
         RootSearchState searchState = new RootSearchState(depth, alpha);
 
         for (short move : moves) {
             int score = searchRootMove(context, root, move, depth, beta, searchState, state);
+            recordRootMoveScore(iterationRootScores, move, score);
             searchState.recordScore(context, move, score, depth);
             if (searchState.alpha >= beta) {
                 recordCutoff(root, context, move, depth, 0);
@@ -794,7 +1096,7 @@ public final class AlphaBeta implements AutoCloseable {
         context.transpositions.store(
                 root.signature(),
                 depth,
-                searchState.bestScore,
+                scoreToTransposition(searchState.bestScore, 0),
                 flag,
                 searchState.bestMove,
                 context.generation);
@@ -802,16 +1104,59 @@ public final class AlphaBeta implements AutoCloseable {
     }
 
     /**
+     * Allocates and initializes a per-root score table.
+     *
+     * @return table indexed by unsigned encoded move, filled with {@link #NO_SCORE}
+     */
+    private static int[] newRootScoreTable() {
+        int[] scores = new int[ROOT_SCORE_TABLE_SIZE];
+        Arrays.fill(scores, NO_SCORE);
+        return scores;
+    }
+
+    /**
+     * Publishes the final scores from a completed root iteration for next-depth
+     * ordering. Failed aspiration-window probes are discarded by passing only the
+     * accepted iteration table here.
+     *
+     * @param previousRootScores persistent previous-depth table, or null
+     * @param iterationRootScores accepted current-depth table, or null
+     */
+    private static void publishRootScores(int[] previousRootScores, int[] iterationRootScores) {
+        if (previousRootScores == null || iterationRootScores == null) {
+            return;
+        }
+        for (int i = 0; i < iterationRootScores.length; i++) {
+            if (iterationRootScores[i] != NO_SCORE) {
+                previousRootScores[i] = iterationRootScores[i];
+            }
+        }
+    }
+
+    /**
+     * Records one searched root move score into the current iteration table.
+     *
+     * @param iterationRootScores current-depth score table, or null
+     * @param move searched root move
+     * @param score root-perspective score returned by search
+     */
+    private static void recordRootMoveScore(int[] iterationRootScores, short move, int score) {
+        if (iterationRootScores != null) {
+            iterationRootScores[move & 0xFFFF] = score;
+        }
+    }
+
+    /**
      * Searches one root move with PVS re-search rules.
      *
      * @param context search context
      * @param root mutable root position
+     * @param move move encoded in CRTK move format
      * @param depth target search depth
      * @param beta beta bound
      * @param searchState mutable root-search state
      * @param state reusable position state
      * @return score for the searched root move
-     * @param move move encoded in CRTK move format
      */
     private static int searchRootMove(
             SearchContext context,
@@ -866,6 +1211,11 @@ public final class AlphaBeta implements AutoCloseable {
             return staticScore(context, position, ply);
         }
         context.pvLength[ply] = 0;
+        alpha = Math.max(alpha, -MATE_SCORE + ply);
+        beta = Math.min(beta, MATE_SCORE - ply - 1);
+        if (alpha >= beta) {
+            return alpha;
+        }
         NegamaxSetup setup = prepareNegamax(context, position, depth, alpha, beta, ply, pvNode);
         if (setup.resolved()) {
             return setup.resolvedScore();
@@ -919,7 +1269,7 @@ public final class AlphaBeta implements AutoCloseable {
 
         long key = position.signature();
         Transposition entry = context.transpositions.probe(key);
-        int transpositionScore = transpositionScore(entry, depth, alpha, beta);
+        int transpositionScore = transpositionScore(entry, depth, alpha, beta, ply);
         // During a singular-extension verification search this node excludes one
         // move, so the stored full-node bound does not apply: probe for ordering
         // but never take the cutoff.
@@ -947,6 +1297,10 @@ public final class AlphaBeta implements AutoCloseable {
             int nullScore = tryNullMovePruning(context, position, depth, beta, ply, pvNode, staticEval);
             if (nullScore != NO_SCORE) {
                 return NegamaxSetup.resolved(nullScore);
+            }
+            int probCutScore = tryProbCut(context, position, depth, beta, ply, pvNode, staticEval, improving, entry);
+            if (probCutScore != NO_SCORE) {
+                return NegamaxSetup.resolved(probCutScore);
             }
         }
 
@@ -996,6 +1350,8 @@ public final class AlphaBeta implements AutoCloseable {
         short[] triedQuiets = buffering ? context.triedQuietsBuffer(ply) : null;
         int[] triedContIdx = context.contHistory() ? context.triedContIdxBuffer(ply) : null;
         int[] triedCount = { 0 };
+        short[] triedCaptures = context.captureHistory() ? context.triedCapturesBuffer(ply) : null;
+        int[] triedCaptureCount = { 0 };
         // Singular extension: probe whether the transposition move is much better
         // than every alternative; if so it is extended one ply.
         int ttMoveExtension = singularExtension(context, position, setup, ttMove, depth, beta, ply);
@@ -1010,7 +1366,8 @@ public final class AlphaBeta implements AutoCloseable {
         boolean ttSearched = false;
         if (ttMove != Move.NO_MOVE && ttMove != excluded && arrayContains(moves, ttMove)) {
             cutoff = searchNodeMove(context, position, state, depth, beta, ply, pvNode, setup,
-                    ttMove, ttMove, ttMoveExtension, improving, searchState, triedQuiets, triedContIdx, triedCount);
+                    ttMove, ttMove, ttMoveExtension, improving, searchState, triedQuiets, triedContIdx, triedCount,
+                    triedCaptures, triedCaptureCount);
             ttSearched = true;
         }
         if (!cutoff) {
@@ -1020,7 +1377,8 @@ public final class AlphaBeta implements AutoCloseable {
                     continue;
                 }
                 if (searchNodeMove(context, position, state, depth, beta, ply, pvNode, setup,
-                        move, ttMove, ttMoveExtension, improving, searchState, triedQuiets, triedContIdx, triedCount)) {
+                        move, ttMove, ttMoveExtension, improving, searchState, triedQuiets, triedContIdx, triedCount,
+                        triedCaptures, triedCaptureCount)) {
                     break;
                 }
             }
@@ -1028,11 +1386,11 @@ public final class AlphaBeta implements AutoCloseable {
         byte flag = transpositionFlag(searchState.bestScore, searchState.originalAlpha, beta);
         // A verification search (excluded move set) searched a restricted move set,
         // so its result must not be stored under the full-node key.
-        if (excluded == Move.NO_MOVE && !isMateScore(searchState.bestScore)) {
+        if (excluded == Move.NO_MOVE) {
             context.transpositions.store(
                     setup.key(),
                     depth,
-                    searchState.bestScore,
+                    scoreToTransposition(searchState.bestScore, ply),
                     flag,
                     searchState.bestMove,
                     context.generation);
@@ -1073,6 +1431,8 @@ public final class AlphaBeta implements AutoCloseable {
      * @param triedQuiets quiet-move buffer, or null
      * @param triedContIdx parallel continuation-index buffer, or null
      * @param triedCount one-element holder of the tried-quiet count
+     * @param triedCaptures capture-move buffer, or null
+     * @param triedCaptureCount one-element holder of the tried-capture count
      * @return true when the move caused a beta cutoff
      */
     private static boolean searchNodeMove(
@@ -1091,8 +1451,11 @@ public final class AlphaBeta implements AutoCloseable {
             NegamaxSearchState searchState,
             short[] triedQuiets,
             int[] triedContIdx,
-            int[] triedCount) {
+            int[] triedCount,
+            short[] triedCaptures,
+            int[] triedCaptureCount) {
         boolean tactical = isTacticalMove(position, move);
+        boolean capture = context.captureHistory() && isCaptureMove(position, move);
         boolean losingCapture = context.seeLmr() && tactical && isLosingCapture(position, move);
         int contIdx = !tactical && context.contHistory() ? contTargetIndex(position, move) : -1;
         int moveExtension = move == ttMove ? ttMoveExtension : 0;
@@ -1120,11 +1483,17 @@ public final class AlphaBeta implements AutoCloseable {
             triedQuiets[triedCount[0]] = move;
             triedCount[0]++;
         }
+        if (triedCaptures != null && capture && triedCaptureCount[0] < triedCaptures.length) {
+            triedCaptures[triedCaptureCount[0]] = move;
+            triedCaptureCount[0]++;
+        }
         int score = searchNegamaxMove(context, position, state, depth, beta, pvNode, decision);
         searchState.recordScore(context, ply, move, score);
         if (searchState.alpha >= beta) {
             if (!tactical) {
                 context.recordQuietCutoff(move, depth, ply, triedQuiets, triedCount[0]);
+            } else if (capture) {
+                context.recordCaptureCutoff(position, move, depth, triedCaptures, triedCaptureCount[0]);
             }
             return true;
         }
@@ -1182,7 +1551,7 @@ public final class AlphaBeta implements AutoCloseable {
             return 0;
         }
         long data = setup.entry().data;
-        int ttScore = Transposition.scoreOf(data);
+        int ttScore = scoreFromTransposition(Transposition.scoreOf(data), ply);
         byte ttFlag = Transposition.flagOf(data);
         // Need a trustworthy lower bound on the move's value from a deep-enough
         // search, and a non-mate score (mate distances must not be perturbed).
@@ -1388,6 +1757,122 @@ public final class AlphaBeta implements AutoCloseable {
     }
 
     /**
+     * Attempts ProbCut at a deep non-PV node: search only tactical moves that can
+     * plausibly exceed a beta-plus-margin threshold, first with quiescence and then
+     * with a reduced-depth null-window search.
+     *
+     * @param context search context
+     * @param position mutable current position
+     * @param depth remaining depth
+     * @param beta beta bound
+     * @param ply current ply from root
+     * @param pvNode true when this node is in a principal-variation window
+     * @param staticEval cached static evaluation from side-to-move perspective
+     * @param improving whether the side to move is statically improving
+     * @param entry transposition-table entry for this node, or null
+     * @return cutoff score or {@link #NO_SCORE}
+     */
+    private static int tryProbCut(
+            SearchContext context,
+            Position position,
+            int depth,
+            int beta,
+            int ply,
+            boolean pvNode,
+            int staticEval,
+            boolean improving,
+            Transposition entry) {
+        if (!context.probCut()
+                || pvNode
+                || depth < PROBCUT_MIN_DEPTH
+                || staticEval == NO_SCORE
+                || Math.abs(beta) >= MATE_THRESHOLD
+                || context.excluded(ply) != Move.NO_MOVE) {
+            return NO_SCORE;
+        }
+        int probCutBeta = beta + PROBCUT_MARGIN - (improving ? PROBCUT_IMPROVING_MARGIN : 0);
+        if (Math.abs(probCutBeta) >= MATE_THRESHOLD || ttRefutesProbCut(entry, depth, probCutBeta, ply)) {
+            return NO_SCORE;
+        }
+        MoveList tacticals = context.legalTacticals(position, false);
+        if (tacticals.isEmpty()) {
+            return NO_SCORE;
+        }
+        short[] moves = tacticals.toArray();
+        short ttMove = entry == null ? Move.NO_MOVE : Transposition.moveOf(entry.data);
+        scoreAndSortMoves(position, moves, Move.NO_MOVE, ttMove, context, ply);
+
+        Position.State state = context.state(ply);
+        int reducedDepth = Math.max(0, depth - PROBCUT_REDUCTION);
+        for (short move : moves) {
+            if (!isProbCutCandidate(position, move, staticEval, probCutBeta)) {
+                continue;
+            }
+            position.play(move, state);
+            try {
+                context.movePlayed(position, move, state, ply + 1);
+                int qscore = -quiescence(context, position, -probCutBeta, -probCutBeta + 1, ply + 1, 0);
+                if (qscore < probCutBeta) {
+                    continue;
+                }
+                int score = -negamax(context, position, reducedDepth, -probCutBeta, -probCutBeta + 1, ply + 1, false);
+                if (score >= probCutBeta && !isMateScore(score)) {
+                    return score;
+                }
+            } finally {
+                position.undo(move, state);
+            }
+        }
+        return NO_SCORE;
+    }
+
+    /**
+     * Returns whether the current transposition entry makes a ProbCut attempt
+     * unlikely to pay off.
+     *
+     * @param entry transposition entry, or null
+     * @param depth remaining depth
+     * @param probCutBeta beta-plus-margin threshold
+     * @return true when a fresh enough exact/upper entry is below the threshold
+     */
+    private static boolean ttRefutesProbCut(Transposition entry, int depth, int probCutBeta, int ply) {
+        if (entry == null || Transposition.depthOf(entry.data) < depth - 3) {
+            return false;
+        }
+        int score = scoreFromTransposition(Transposition.scoreOf(entry.data), ply);
+        byte flag = Transposition.flagOf(entry.data);
+        return !isMateScore(score)
+                && score < probCutBeta
+                && (flag == TT_EXACT || flag == TT_UPPER);
+    }
+
+    /**
+     * Returns whether a tactical move is large and stable enough to justify a
+     * ProbCut verification search.
+     *
+     * @param position parent position
+     * @param move tactical move
+     * @param staticEval cached static evaluation
+     * @param probCutBeta beta-plus-margin threshold
+     * @return true when the move can plausibly exceed {@code probCutBeta}
+     */
+    private static boolean isProbCutCandidate(Position position, short move, int staticEval, int probCutBeta) {
+        int threshold = probCutBeta - staticEval;
+        int gain = captureValue(position, move);
+        int promotion = Move.getPromotion(move);
+        if (promotion != 0) {
+            gain += Math.max(0, promotionValue(promotion) - Piece.VALUE_PAWN);
+        }
+        if (gain <= 0) {
+            return false;
+        }
+        if (promotion == 4 && gain >= threshold - PROBCUT_IMPROVING_MARGIN) {
+            return true;
+        }
+        return See.seeGreaterEqual(position, move, Math.max(0, threshold));
+    }
+
+    /**
      * Returns whether the side to move has enough non-pawn material for null-move
      * pruning to be reasonable.
      *
@@ -1427,18 +1912,9 @@ public final class AlphaBeta implements AutoCloseable {
     /**
      * Returns whether a quiet shallow move can be skipped by futility pruning.
      *
-     * @param staticEval static evaluation of the parent node
-     * @param alpha alpha bound
-     * @param depth remaining depth
-     * @param searchedMoves number of moves already searched at this node
-     * @param pvNode true for principal-variation nodes
-     * @param inCheck true when side to move is in check
-     * @param tactical true for captures, promotions, and en-passant
-     * @param move move being considered
      * @param context search context
-     * @param ply current ply from root
-     * @return true when the move can be skipped
      * @param decision move decision metadata
+     * @return true when the move can be skipped
      */
     private static boolean shouldFutilityPrune(SearchContext context, MoveDecision decision) {
         return decision.staticEval() != NO_SCORE
@@ -1494,16 +1970,9 @@ public final class AlphaBeta implements AutoCloseable {
     /**
      * Computes a late-move reduction for a quiet move.
      *
-     * @param depth remaining depth
-     * @param searchedMoves number of moves already searched at this node
-     * @param pvNode true for principal-variation nodes
-     * @param inCheck true when side to move is in check
-     * @param tactical true for captures, promotions, and en-passant
-     * @param move move being considered
      * @param context search context
-     * @param ply current ply from root
-     * @return reduction in plies, or zero for a full-depth search
      * @param decision move decision metadata
+     * @return reduction in plies, or zero for a full-depth search
      */
     private static int lateMoveReduction(SearchContext context, MoveDecision decision) {
         if (decision.pvNode()
@@ -1614,23 +2083,38 @@ public final class AlphaBeta implements AutoCloseable {
             return staticScore(context, position, ply);
         }
         context.pvLength[ply] = 0;
+        alpha = Math.max(alpha, -MATE_SCORE + ply);
+        beta = Math.min(beta, MATE_SCORE - ply - 1);
+        if (alpha >= beta) {
+            return alpha;
+        }
         QuiescenceSetup setup = prepareQuiescence(context, position, alpha, beta, ply, qply);
         if (setup.resolved()) {
             return setup.resolvedScore();
         }
 
-        short[] moves = orderedQuiescenceMoves(position, setup.legalMoves(), context, ply, setup.inCheck());
+        short[] moves = orderedQuiescenceMoves(
+                position,
+                setup.legalMoves(),
+                context,
+                ply,
+                setup.inCheck(),
+                qply == 0);
         int currentAlpha = setup.alpha();
         for (short move : moves) {
             if (!setup.inCheck()) {
-                if (shouldDeltaPrune(position, move, setup.standPat(), currentAlpha, false)) {
-                    continue;
-                }
-                // Skip captures that lose material outright; a losing capture
-                // almost never improves a quiet stand-pat and only deepens the
-                // tree. Check evasions (inCheck) are never pruned.
-                if (context.seePruning() && isLosingCapture(position, move)) {
-                    continue;
+                boolean tactical = isTacticalMove(position, move);
+                if (tactical) {
+                    if (shouldDeltaPrune(position, move, setup.standPat(), currentAlpha, false)) {
+                        continue;
+                    }
+                    // Skip captures that lose material outright; a losing capture
+                    // almost never improves a quiet stand-pat and only deepens the
+                    // tree. Check evasions (inCheck) and bounded quiet checks are
+                    // never pruned this way.
+                    if (context.seePruning() && isLosingCapture(position, move)) {
+                        continue;
+                    }
                 }
             }
             int score = searchQuiescenceMove(context, position, currentAlpha, beta, ply, qply, move);
@@ -1677,6 +2161,17 @@ public final class AlphaBeta implements AutoCloseable {
                     : QuiescenceSetup.search(legalMoves, true, NO_SCORE, alpha);
         }
 
+        MoveList horizonMoves = null;
+        if (qply == 0) {
+            horizonMoves = context.legalMoves(position, false);
+            if (horizonMoves.isEmpty()) {
+                return QuiescenceSetup.resolved(0);
+            }
+            if (findMateInOne(position, horizonMoves) != Move.NO_MOVE) {
+                return QuiescenceSetup.resolved(MATE_SCORE - ply - 1);
+            }
+        }
+
         int standPat = staticScore(context, position, ply);
         if (standPat >= beta) {
             if (!position.hasLegalMove()) {
@@ -1690,9 +2185,12 @@ public final class AlphaBeta implements AutoCloseable {
             }
             return QuiescenceSetup.resolved(Math.max(alpha, standPat));
         }
-        // Generate only tactical moves (the only moves quiescence searches when
-        // not in check). An empty tactical list is NOT stalemate, so fall back to
-        // a cheap legal-move probe before standing pat.
+        if (horizonMoves != null) {
+            return QuiescenceSetup.search(horizonMoves, false, standPat, Math.max(alpha, standPat));
+        }
+        // Generate only tactical moves below the first quiescence ply. An empty
+        // tactical list is NOT stalemate, so fall back to a cheap legal-move
+        // probe before standing pat.
         MoveList tacticals = context.legalTacticals(position, false);
         if (tacticals.isEmpty()) {
             if (!position.hasLegalMove()) {
@@ -1742,9 +2240,10 @@ public final class AlphaBeta implements AutoCloseable {
      * @param depth remaining search depth
      * @param alpha alpha bound
      * @param beta beta bound
+     * @param ply current ply from root
      * @return score or {@link #NO_SCORE}
      */
-    private static int transpositionScore(Transposition entry, int depth, int alpha, int beta) {
+    private static int transpositionScore(Transposition entry, int depth, int alpha, int beta, int ply) {
         if (entry == null) {
             return NO_SCORE;
         }
@@ -1752,7 +2251,7 @@ public final class AlphaBeta implements AutoCloseable {
         if (Transposition.depthOf(data) < depth) {
             return NO_SCORE;
         }
-        int score = Transposition.scoreOf(data);
+        int score = scoreFromTransposition(Transposition.scoreOf(data), ply);
         byte flag = Transposition.flagOf(data);
         if (flag == TT_EXACT
                 || (flag == TT_LOWER && score >= beta)
@@ -1835,6 +2334,54 @@ public final class AlphaBeta implements AutoCloseable {
     }
 
     /**
+     * Returns whether a move captures material.
+     *
+     * @param position parent position
+     * @param move move to inspect
+     * @return true for normal and en-passant captures
+     */
+    private static boolean isCaptureMove(Position position, short move) {
+        return captureHistoryIndex(position, move) >= 0;
+    }
+
+    /**
+     * Capture-history index for a move, keyed by moving piece, destination square,
+     * and captured piece type.
+     *
+     * @param position parent position
+     * @param move capture move
+     * @return table index, or -1 for non-captures / malformed moves
+     */
+    private static int captureHistoryIndex(Position position, short move) {
+        int from = Move.getFromIndex(move);
+        int to = Move.getToIndex(move);
+        int moving = pieceIndex(position.pieceAt(from));
+        int captured = capturedPieceType(position, move);
+        if (moving < 0 || captured < 0) {
+            return -1;
+        }
+        return (moving * 64 + to) * CAPTURE_HISTORY_TYPES + captured;
+    }
+
+    /**
+     * Dense captured-piece type for capture history.
+     *
+     * @param position parent position
+     * @param move move to inspect
+     * @return 0 for pawn through 5 for king, or -1 when the move is not a capture
+     */
+    private static int capturedPieceType(Position position, short move) {
+        int from = Move.getFromIndex(move);
+        int to = Move.getToIndex(move);
+        byte moving = position.pieceAt(from);
+        byte victim = position.pieceAt(to);
+        if (victim != Piece.EMPTY && Piece.isWhite(victim) != position.isWhiteToMove()) {
+            return Math.abs(victim) - 1;
+        }
+        return isEnPassantCapture(position, moving, from, to) ? Piece.PAWN - 1 : -1;
+    }
+
+    /**
      * Produces a deterministic fallback before the first full depth completes.
      *
      * @param root root position
@@ -1903,10 +2450,65 @@ public final class AlphaBeta implements AutoCloseable {
         if (isDraw(position)) {
             return 0;
         }
-        if (!position.hasLegalMove()) {
+        MoveList legalMoves = position.legalMoves();
+        if (legalMoves.isEmpty()) {
             return -terminalScore(position, ply);
         }
+        if (findMateInOne(position, legalMoves) != Move.NO_MOVE) {
+            return -(MATE_SCORE - ply - 1);
+        }
         return -staticScore(context, position, ply);
+    }
+
+    /**
+     * Orders root moves. When previous root scores are available, searched
+     * previous-depth scores dominate ordinary static move shape for non-PV moves;
+     * the explicit preferred and transposition moves still stay first.
+     *
+     * @param position root position before the moves
+     * @param moveList root legal moves
+     * @param preferredMove previous best move, or {@link Move#NO_MOVE}
+     * @param transpositionMove stored root move, or {@link Move#NO_MOVE}
+     * @param context search context containing history and evaluator hooks
+     * @param previousRootScores previous-depth scores indexed by encoded move, or
+     *        null when disabled
+     * @return sorted root move array
+     */
+    private static short[] orderedRootMoves(
+            Position position,
+            MoveList moveList,
+            short preferredMove,
+            short transpositionMove,
+            SearchContext context,
+            int[] previousRootScores) {
+        short[] moves = moveList.toArray();
+        int[] scores = context.scoreBuffer(0, moves.length);
+        for (int i = 0; i < moves.length; i++) {
+            scores[i] = moveOrderScore(position, moves[i], preferredMove, transpositionMove, context, 0)
+                    + rootPreviousScoreBonus(moves[i], previousRootScores);
+        }
+        context.scoreMoves(position, moves, scores);
+        insertionSortDescending(moves, scores, moves.length);
+        return moves;
+    }
+
+    /**
+     * Converts a previous-depth root score into a move-ordering bonus.
+     *
+     * @param move encoded move
+     * @param previousRootScores previous-depth score table, or null
+     * @return ordering bonus, or zero when no previous score is available
+     */
+    private static int rootPreviousScoreBonus(short move, int[] previousRootScores) {
+        if (previousRootScores == null) {
+            return 0;
+        }
+        int previous = previousRootScores[move & 0xFFFF];
+        if (previous == NO_SCORE) {
+            return 0;
+        }
+        int clamped = Math.max(-ROOT_PREVIOUS_SCORE_CLAMP, Math.min(ROOT_PREVIOUS_SCORE_CLAMP, previous));
+        return ORDER_ROOT_PREVIOUS + clamped;
     }
 
     /**
@@ -1953,22 +2555,24 @@ public final class AlphaBeta implements AutoCloseable {
             short transpositionMove,
             SearchContext context,
             int ply) {
-        int[] scores = new int[moves.length];
+        int[] scores = context.scoreBuffer(ply, moves.length);
         for (int i = 0; i < moves.length; i++) {
             scores[i] = moveOrderScore(position, moves[i], preferredMove, transpositionMove, context, ply);
         }
         context.scoreMoves(position, moves, scores);
-        insertionSortDescending(moves, scores);
+        insertionSortDescending(moves, scores, moves.length);
     }
 
     /**
-     * Orders quiescence moves, filtering non-tactical moves outside check.
+     * Orders quiescence moves, filtering non-tactical moves outside check except
+     * for bounded first-ply quiet checks.
      *
      * @param position parent position
      * @param moveList legal moves for the node
      * @param context search context containing history and killer tables
      * @param ply current ply from root
      * @param inCheck true when the side to move is in check
+     * @param includeQuietChecks true to include legal quiet checks
      * @return sorted move array containing all legal evasions in check, or only
      *         tactical moves otherwise
      */
@@ -1977,33 +2581,34 @@ public final class AlphaBeta implements AutoCloseable {
             MoveList moveList,
             SearchContext context,
             int ply,
-            boolean inCheck) {
+            boolean inCheck,
+            boolean includeQuietChecks) {
         if (inCheck) {
             return orderedMoves(position, moveList, Move.NO_MOVE, Move.NO_MOVE, context, ply);
         }
         short[] allMoves = moveList.toArray();
-        int tacticalCount = 0;
+        short[] moves = new short[allMoves.length];
+        int[] scores = context.scoreBuffer(ply, allMoves.length);
+        int candidateCount = 0;
         for (short move : allMoves) {
-            if (isTacticalMove(position, move)) {
-                tacticalCount++;
-            }
-        }
-        if (tacticalCount == 0) {
-            return new short[0];
-        }
-        short[] moves = new short[tacticalCount];
-        int[] scores = new int[tacticalCount];
-        int index = 0;
-        for (short move : allMoves) {
-            if (!isTacticalMove(position, move)) {
+            boolean tactical = isTacticalMove(position, move);
+            boolean quietCheck = !tactical && includeQuietChecks && givesCheck(position, move, context.checkState());
+            if (!tactical && !quietCheck) {
                 continue;
             }
-            moves[index] = move;
-            scores[index] = moveOrderScore(position, move, Move.NO_MOVE, Move.NO_MOVE, context, ply);
-            index++;
+            moves[candidateCount] = move;
+            scores[candidateCount] = moveOrderScore(position, move, Move.NO_MOVE, Move.NO_MOVE, context, ply);
+            if (quietCheck) {
+                scores[candidateCount] += ORDER_QUIET_CHECK;
+            }
+            candidateCount++;
         }
+        if (candidateCount == 0) {
+            return new short[0];
+        }
+        moves = Arrays.copyOf(moves, candidateCount);
         context.scoreMoves(position, moves, scores);
-        insertionSortDescending(moves, scores);
+        insertionSortDescending(moves, scores, candidateCount);
         return moves;
     }
 
@@ -2025,9 +2630,9 @@ public final class AlphaBeta implements AutoCloseable {
             short transpositionMove,
             SearchContext context,
             int ply) {
-        int score = move == preferredMove ? 1_000_000 : 0;
+        int score = move == preferredMove ? ORDER_PREFERRED : 0;
         if (move == transpositionMove) {
-            score += 900_000;
+            score += ORDER_TT;
         }
         int from = Move.getFromIndex(move);
         int to = Move.getToIndex(move);
@@ -2036,18 +2641,22 @@ public final class AlphaBeta implements AutoCloseable {
         if (victim != Piece.EMPTY && Piece.isWhite(victim) != position.isWhiteToMove()) {
             // Winning/equal captures sort ahead of quiets; SEE-losing captures
             // drop below quiets so they are searched last.
-            int base = context.seePruning() && isLosingCapture(position, move) ? -100_000 : 100_000;
-            score += base + Piece.getValue(victim) * 10 - Piece.getValue(moving);
+            int base = context.seePruning() && isLosingCapture(position, move) ? ORDER_LOSING_CAPTURE : ORDER_CAPTURE;
+            score += base + Piece.getValue(victim) * 10 - Piece.getValue(moving)
+                    + context.captureHistoryScore(position, move);
         } else if (isEnPassantCapture(position, moving, from, to)) {
-            score += 100_000 + Piece.VALUE_PAWN * 10 - Piece.getValue(moving);
+            score += ORDER_CAPTURE + Piece.VALUE_PAWN * 10 - Piece.getValue(moving)
+                    + context.captureHistoryScore(position, move);
         }
         int promotion = Move.getPromotion(move);
         if (promotion != 0) {
-            score += 80_000 + promotionValue(promotion);
+            score += ORDER_PROMOTION + promotionValue(promotion);
         }
         if (score == 0) {
             if (context.isKiller(move, ply)) {
-                score += 70_000;
+                score += ORDER_KILLER;
+            } else if (context.checkOrdering() && givesCheck(position, move, context.checkState())) {
+                score += ORDER_MAIN_QUIET_CHECK;
             }
             score += context.historyScore(move);
             if (context.contHistory()) {
@@ -2103,6 +2712,22 @@ public final class AlphaBeta implements AutoCloseable {
         return Move.getPromotion(move) != 0
                 || (victim != Piece.EMPTY && Piece.isWhite(victim) != position.isWhiteToMove())
                 || isEnPassantCapture(position, moving, from, to);
+    }
+
+    /**
+     * Returns whether a legal move gives check.
+     *
+     * @param position parent position
+     * @param move encoded move
+     * @return true when the opponent is in check after the move
+     */
+    private static boolean givesCheck(Position position, short move, Position.State state) {
+        position.play(move, state);
+        try {
+            return position.inCheck();
+        } finally {
+            position.undo(move, state);
+        }
     }
 
     /**
@@ -2167,9 +2792,10 @@ public final class AlphaBeta implements AutoCloseable {
      *
      * @param moves move array
      * @param scores parallel score array
+     * @param length number of aligned entries to sort
      */
-    private static void insertionSortDescending(short[] moves, int[] scores) {
-        for (int i = 1; i < moves.length; i++) {
+    private static void insertionSortDescending(short[] moves, int[] scores, int length) {
+        for (int i = 1; i < length; i++) {
             short move = moves[i];
             int score = scores[i];
             int j = i - 1;
@@ -2224,8 +2850,8 @@ public final class AlphaBeta implements AutoCloseable {
      *
      * @param context search context that owns the evaluation cache
      * @param position position to evaluate statically
+     * @param ply ply from root
      * @return score clamped to the non-mate static range
-     * @param ply ply value
      */
     private static int staticScore(SearchContext context, Position position, int ply) {
         int score = context.evaluate(position, ply) + context.correctionFor(position);
@@ -2257,6 +2883,49 @@ public final class AlphaBeta implements AutoCloseable {
      */
     private static boolean isMateScore(int score) {
         return Math.abs(score) >= MATE_THRESHOLD;
+    }
+
+    /**
+     * Converts a root-relative mate score into a transposition-table score.
+     *
+     * <p>
+     * Search scores encode mate distance from the root by adding/subtracting the
+     * current ply. A transposition-table entry can be probed at a different ply,
+     * so mate scores must be stored relative to the table position itself. This
+     * mirrors the standard engine convention used by Stockfish-style searches.
+     * Non-mate scores are stored unchanged.
+     * </p>
+     *
+     * @param score root-relative search score
+     * @param ply current ply from root
+     * @return score normalized for table storage
+     */
+    private static int scoreToTransposition(int score, int ply) {
+        if (score >= MATE_THRESHOLD) {
+            return score + ply;
+        }
+        if (score <= -MATE_THRESHOLD) {
+            return score - ply;
+        }
+        return score;
+    }
+
+    /**
+     * Converts a transposition-table score back into the current root-relative
+     * search frame.
+     *
+     * @param score table-normalized score
+     * @param ply current ply from root
+     * @return root-relative score for this probe
+     */
+    private static int scoreFromTransposition(int score, int ply) {
+        if (score >= MATE_THRESHOLD) {
+            return score - ply;
+        }
+        if (score <= -MATE_THRESHOLD) {
+            return score + ply;
+        }
+        return score;
     }
 
     /**
@@ -2500,9 +3169,24 @@ public final class AlphaBeta implements AutoCloseable {
         private final boolean contHistory;
 
         /**
+         * Whether capture history is maintained and used for capture ordering.
+         */
+        private final boolean captureHistory;
+
+        /**
+         * Whether quiet checking moves get a main-search ordering bonus.
+         */
+        private final boolean checkOrdering;
+
+        /**
          * Whether internal iterative reductions are enabled.
          */
         private final boolean iir;
+
+        /**
+         * Whether ProbCut tactical pre-search pruning is enabled.
+         */
+        private final boolean probCut;
 
         /**
          * Whether shallow razoring into quiescence is enabled.
@@ -2549,8 +3233,8 @@ public final class AlphaBeta implements AutoCloseable {
 
         /**
          * One-ply continuation history, indexed by
-         * {@code (contextPiece*64 + contextTo) * 768 + (movePiece*64 + moveTo)} and
-         * bounded like the butterfly history. Only allocated when
+         * {@code (contextPiece*64 + contextTo) * CONT_PIECE_SQUARES + (movePiece*64 + moveTo)}
+         * and bounded like the butterfly history. Only allocated when
          * {@link #contHistory} is set.
          */
         private final short[] contHist1;
@@ -2560,6 +3244,12 @@ public final class AlphaBeta implements AutoCloseable {
          * keyed by the move two plies back.
          */
         private final short[] contHist2;
+
+        /**
+         * Capture history indexed by moving piece, destination square, and captured
+         * piece type. Only allocated when {@link #captureHistory} is set.
+         */
+        private final short[] captureHist;
 
         /**
          * Per-ply move currently excluded from search at that ply, used by singular
@@ -2583,6 +3273,11 @@ public final class AlphaBeta implements AutoCloseable {
          * allocated/used when {@link #contHistory} is set.
          */
         private final int[][] triedQuietContIdx;
+
+        /**
+         * Per-ply scratch holding captures searched before a capture cutoff.
+         */
+        private final short[][] triedCaptures;
 
         /**
          * Core position signature ({@link Position#signatureCore()}) at each ply
@@ -2620,6 +3315,13 @@ public final class AlphaBeta implements AutoCloseable {
         private final EvalCache evalCache = new EvalCache(EVAL_CACHE_ENTRIES);
 
         /**
+         * Reusable per-ply score rows for move ordering. The first {@code n}
+         * entries align with the currently ordered {@code n} moves; rows may be
+         * longer than the active move list.
+         */
+        private final int[][] moveScores;
+
+        /**
          * Reusable pseudo-legal scratch list for allocation-free move generation.
          * Safe as a single shared buffer because each generated list is consumed
          * (copied out by ordering) within the same node before any recursion.
@@ -2636,6 +3338,11 @@ public final class AlphaBeta implements AutoCloseable {
          * move generation (distinct from the per-ply search {@link #states}).
          */
         private final Position.State genState = new Position.State();
+
+        /**
+         * Reusable undo state for transient checking-move probes during move ordering.
+         */
+        private final Position.State checkState = new Position.State();
 
         /**
          * Killer quiet moves indexed by ply, with two slots per ply.
@@ -2708,7 +3415,10 @@ public final class AlphaBeta implements AutoCloseable {
             this.seeLmr = features.contains(Feature.SEE_LMR);
             this.improvingFeature = features.contains(Feature.IMPROVING);
             this.contHistory = features.contains(Feature.CONT_HISTORY);
+            this.captureHistory = features.contains(Feature.CAPTURE_HISTORY);
+            this.checkOrdering = features.contains(Feature.CHECK_ORDERING);
             this.iir = features.contains(Feature.IIR);
+            this.probCut = features.contains(Feature.PROBCUT);
             this.razoring = features.contains(Feature.RAZORING);
             this.singularExt = features.contains(Feature.SINGULAR_EXT);
             this.correctionHistory = features.contains(Feature.CORRECTION_HISTORY);
@@ -2728,19 +3438,21 @@ public final class AlphaBeta implements AutoCloseable {
             this.nullStates = new Position.State[searchPlies];
             this.killers = new short[searchPlies][2];
             this.pathKeys = new long[searchPlies];
+            this.moveScores = new int[searchPlies][MOVE_SCORE_BUFFER_SIZE];
             // The tried-quiet buffer feeds both the history malus and the
             // continuation-history malus, so it is needed by either feature.
             boolean needTried = historyMalus || contHistory;
-            // Chess positions have at most ~218 legal moves; 256 is a safe bound.
-            this.triedQuiets = needTried ? new short[searchPlies][256] : null;
-            this.triedQuietContIdx = contHistory ? new int[searchPlies][256] : null;
+            this.triedQuiets = needTried ? new short[searchPlies][MAX_TRIED_QUIETS] : null;
+            this.triedQuietContIdx = contHistory ? new int[searchPlies][MAX_TRIED_QUIETS] : null;
             this.pathEval = improvingFeature ? new int[searchPlies] : null;
             this.contPiece = contHistory ? new int[searchPlies] : null;
             this.contTo = contHistory ? new int[searchPlies] : null;
             // Continuation history is keyed by (contextPiece*64+contextTo) over the
-            // (movePiece*64+moveTo) target, i.e. 768*768 buckets per ply offset.
-            this.contHist1 = contHistory ? new short[768 * 768] : null;
-            this.contHist2 = contHistory ? new short[768 * 768] : null;
+            // (movePiece*64+moveTo) target, i.e. CONT_PIECE_SQUARES^2 buckets.
+            this.contHist1 = contHistory ? new short[CONT_PIECE_SQUARES * CONT_PIECE_SQUARES] : null;
+            this.contHist2 = contHistory ? new short[CONT_PIECE_SQUARES * CONT_PIECE_SQUARES] : null;
+            this.captureHist = captureHistory ? new short[CAPTURE_HISTORY_BUCKETS] : null;
+            this.triedCaptures = captureHistory ? new short[searchPlies][MAX_TRIED_CAPTURES] : null;
             this.excluded = singularExt ? new short[searchPlies] : null;
             for (int i = 0; i < searchPlies; i++) {
                 states[i] = new Position.State();
@@ -2776,8 +3488,8 @@ public final class AlphaBeta implements AutoCloseable {
          * Evaluates a position with a small signature cache.
          *
          * @param position position to evaluate
+         * @param ply ply from root
          * @return centipawn score
-         * @param ply ply value
          */
         private int evaluate(Position position, int ply) {
             long key = position.signature();
@@ -2909,12 +3621,39 @@ public final class AlphaBeta implements AutoCloseable {
         }
 
         /**
+         * Returns whether capture history is enabled.
+         *
+         * @return true when capture history is maintained
+         */
+        private boolean captureHistory() {
+            return captureHistory;
+        }
+
+        /**
+         * Returns whether quiet checking moves get an ordering bonus.
+         *
+         * @return true when quiet checks are ordered above ordinary quiets
+         */
+        private boolean checkOrdering() {
+            return checkOrdering;
+        }
+
+        /**
          * Returns whether internal iterative reductions are enabled.
          *
          * @return true when IIR is active
          */
         private boolean iir() {
             return iir;
+        }
+
+        /**
+         * Returns whether ProbCut is enabled.
+         *
+         * @return true when tactical ProbCut pruning is active
+         */
+        private boolean probCut() {
+            return probCut;
         }
 
         /**
@@ -2933,15 +3672,6 @@ public final class AlphaBeta implements AutoCloseable {
          */
         private boolean singularExt() {
             return singularExt;
-        }
-
-        /**
-         * Returns whether static-eval correction history is enabled.
-         *
-         * @return true when correction history is active
-         */
-        private boolean correctionHistory() {
-            return correctionHistory;
         }
 
         /**
@@ -3079,12 +3809,12 @@ public final class AlphaBeta implements AutoCloseable {
             int score = 0;
             int p1 = contPiece[ply];
             if (p1 >= 0) {
-                score += contHist1[(p1 * 64 + contTo[ply]) * 768 + targetIdx];
+                score += contHist1[(p1 * 64 + contTo[ply]) * CONT_PIECE_SQUARES + targetIdx];
             }
             if (ply >= 1) {
                 int p2 = contPiece[ply - 1];
                 if (p2 >= 0) {
-                    score += contHist2[(p2 * 64 + contTo[ply - 1]) * 768 + targetIdx];
+                    score += contHist2[(p2 * 64 + contTo[ply - 1]) * CONT_PIECE_SQUARES + targetIdx];
                 }
             }
             return score;
@@ -3104,15 +3834,44 @@ public final class AlphaBeta implements AutoCloseable {
             }
             int p1 = contPiece[ply];
             if (p1 >= 0) {
-                int idx = (p1 * 64 + contTo[ply]) * 768 + targetIdx;
+                int idx = (p1 * 64 + contTo[ply]) * CONT_PIECE_SQUARES + targetIdx;
                 contHist1[idx] = gravityShort(contHist1[idx], delta);
             }
             if (ply >= 1) {
                 int p2 = contPiece[ply - 1];
                 if (p2 >= 0) {
-                    int idx = (p2 * 64 + contTo[ply - 1]) * 768 + targetIdx;
+                    int idx = (p2 * 64 + contTo[ply - 1]) * CONT_PIECE_SQUARES + targetIdx;
                     contHist2[idx] = gravityShort(contHist2[idx], delta);
                 }
+            }
+        }
+
+        /**
+         * Returns the learned capture-history score for a capture.
+         *
+         * @param position parent position
+         * @param move move to score
+         * @return bounded capture-history value, or zero when disabled/non-capture
+         */
+        private int captureHistoryScore(Position position, short move) {
+            if (!captureHistory) {
+                return 0;
+            }
+            int index = captureHistoryIndex(position, move);
+            return index < 0 ? 0 : captureHist[index];
+        }
+
+        /**
+         * Applies a gravity-bounded capture-history delta.
+         *
+         * @param position parent position
+         * @param move capture move
+         * @param delta signed bonus or malus
+         */
+        private void applyCaptureGravity(Position position, short move, int delta) {
+            int index = captureHistoryIndex(position, move);
+            if (index >= 0) {
+                captureHist[index] = gravityShort(captureHist[index], delta);
             }
         }
 
@@ -3124,6 +3883,16 @@ public final class AlphaBeta implements AutoCloseable {
          */
         private short[] triedQuietsBuffer(int ply) {
             return triedQuiets[ply];
+        }
+
+        /**
+         * Returns the per-ply scratch buffer for capture moves tried at a node.
+         *
+         * @param ply current ply
+         * @return reusable capture buffer
+         */
+        private short[] triedCapturesBuffer(int ply) {
+            return triedCaptures[ply];
         }
 
         /**
@@ -3146,10 +3915,26 @@ public final class AlphaBeta implements AutoCloseable {
         }
 
         /**
+         * Returns a reusable score row for move ordering at this ply.
+         *
+         * @param ply current search ply
+         * @param required required active prefix length
+         * @return score row with at least {@code required} entries
+         */
+        private int[] scoreBuffer(int ply, int required) {
+            int[] scores = moveScores[ply];
+            if (scores.length < required) {
+                scores = Arrays.copyOf(scores, required);
+                moveScores[ply] = scores;
+            }
+            return scores;
+        }
+
+        /**
          * Lets the evaluator add any position-specific move priors.
          *
          * @param position position whose moves are being ordered
-         * @param moves legal moves aligned with {@code scores}
+         * @param moves legal moves aligned with the prefix of {@code scores}
          * @param scores mutable move-ordering scores
          */
         private void scoreMoves(Position position, short[] moves, int[] scores) {
@@ -3180,6 +3965,15 @@ public final class AlphaBeta implements AutoCloseable {
          */
         private Position.State state(int ply) {
             return states[ply];
+        }
+
+        /**
+         * Returns the reusable checking-probe state.
+         *
+         * @return caller-owned transient state
+         */
+        private Position.State checkState() {
+            return checkState;
         }
 
         /**
@@ -3222,10 +4016,10 @@ public final class AlphaBeta implements AutoCloseable {
          * Records one visited node and checks budgets.
          */
         private void visitNode() {
-            nodes++;
             if (nodes >= maxNodes) {
                 throw SEARCH_STOPPED;
             }
+            nodes++;
             if (deadline == Long.MAX_VALUE) {
                 return;
             }
@@ -3254,8 +4048,26 @@ public final class AlphaBeta implements AutoCloseable {
          * @return true when another fallback probe may run
          */
         private boolean recordRootFallbackProbe() {
+            if (shouldStop()) {
+                return false;
+            }
             nodes++;
-            return !shouldStop();
+            return true;
+        }
+
+        /**
+         * Shifts a quiet cutoff move into the killer table for a ply, demoting the
+         * previous primary killer to the secondary slot. A no-op when the move is
+         * already the primary killer or the ply is past the killer table.
+         *
+         * @param move quiet cutoff move
+         * @param ply current ply
+         */
+        private void updateKillers(short move, int ply) {
+            if (ply < killers.length && killers[ply][0] != move) {
+                killers[ply][1] = killers[ply][0];
+                killers[ply][0] = move;
+            }
         }
 
         /**
@@ -3266,10 +4078,7 @@ public final class AlphaBeta implements AutoCloseable {
          * @param ply current ply
          */
         private void recordQuietCutoff(short move, int depth, int ply) {
-            if (ply < killers.length && killers[ply][0] != move) {
-                killers[ply][1] = killers[ply][0];
-                killers[ply][0] = move;
-            }
+            updateKillers(move, ply);
             int index = historyIndex(move);
             int bonus = depth * depth;
             history[index] = Math.min(1_000_000, history[index] + bonus);
@@ -3290,10 +4099,7 @@ public final class AlphaBeta implements AutoCloseable {
          */
         private void recordQuietCutoff(short move, int depth, int ply, short[] tried, int triedCount) {
             if (historyMalus) {
-                if (ply < killers.length && killers[ply][0] != move) {
-                    killers[ply][1] = killers[ply][0];
-                    killers[ply][0] = move;
-                }
+                updateKillers(move, ply);
                 int bonus = Math.min(depth * depth, HISTORY_MAX);
                 applyGravity(historyIndex(move), bonus);
                 for (int i = 0; i < triedCount; i++) {
@@ -3312,6 +4118,29 @@ public final class AlphaBeta implements AutoCloseable {
                 int bonus = Math.min(depth * depth, HISTORY_MAX);
                 for (int i = 0; i < triedCount; i++) {
                     applyContGravity(ply, contIdx[i], tried[i] == move ? bonus : -bonus);
+                }
+            }
+        }
+
+        /**
+         * Records a beta cutoff from a capture and penalizes captures searched
+         * earlier at the same node.
+         *
+         * @param position parent position
+         * @param move cutoff capture
+         * @param depth remaining depth
+         * @param tried buffer of capture moves tried before the cutoff
+         * @param triedCount number of valid entries in {@code tried}
+         */
+        private void recordCaptureCutoff(Position position, short move, int depth, short[] tried, int triedCount) {
+            if (!captureHistory) {
+                return;
+            }
+            int bonus = Math.min(depth * depth, HISTORY_MAX);
+            applyCaptureGravity(position, move, bonus);
+            for (int i = 0; i < triedCount; i++) {
+                if (tried[i] != move) {
+                    applyCaptureGravity(position, tried[i], -bonus);
                 }
             }
         }

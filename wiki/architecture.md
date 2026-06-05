@@ -45,7 +45,7 @@ Perft is how a move generator proves it is honest: count the leaves to a fixed d
 
 ### Search (`chess.engine`)
 
-The built-in search never leaves the JVM, which keeps it dependency-free and trivially scriptable. `Mcts` and `MctsUci` provide the Monte Carlo Tree Search behind `engine builtin` and `engine java`; `AlphaBeta` (with `AspirationWindow`, `NegamaxSetup`, `QuiescenceSetup`) plays the Workbench Play opponent; `MateProver` and `ProofState` are the brute-force forced-mate prover behind `engine mate`. `EvaluatorBackend`, `SearchBackend`, and the `*Backend` classes (`CnnBackend`, `OtisBackend`, `Bt4Backend`) are the seam between search and whatever scores a position.
+The built-in search never leaves the JVM, which keeps it dependency-free and trivially scriptable. `AlphaBeta` (with `AspirationWindow`, `NegamaxSetup`, `QuiescenceSetup`) is the default `engine builtin` search for classical/NNUE and plays the Workbench Play opponent; `Mcts` and `MctsUci` provide the policy/value Monte Carlo Tree Search used by LC0/OTIS and by the minimal UCI loop. `MateProver` and `ProofState` are the brute-force forced-mate prover behind `engine mate`. `EvaluatorBackend`, `SearchBackend`, and the `*Backend` classes (`CnnBackend`, `OtisBackend`, `Bt4Backend`) are the seam between search and whatever scores a position.
 
 ### Evaluation (`chess.eval`, `chess.classical`)
 

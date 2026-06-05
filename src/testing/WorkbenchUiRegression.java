@@ -128,7 +128,7 @@ final class WorkbenchUiRegression {
         testSplitPaneSashAnimatesHover();
         testWorkbenchSplitPanesUseSharedStyler();
         testChartsRevealNewData();
-        testCommandFormOptionalTogglesFillLeadColumn();
+        testCommandFormLeadColumnAligns();
         testCommandFormFlagsWrapAcrossColumns();
         testThemeColorContrast();
         testThemeUsesVscodeVisualStudioColorTokens();
@@ -136,7 +136,7 @@ final class WorkbenchUiRegression {
         testNetworkArchitectureBlocksKeepReadableNeutralFill();
         testNnueAtlasPlaneLabelsUseUniformColor();
         testHorizontalMetricBarKeepsLabelLaneClear();
-        testBoardMarkupBrushesFollowThemeMode();
+        testBoardMarkupBrushesUseFixedDistinctColors();
         testThemeRefreshPreservesLabelRoles();
         testThemeRefreshUpdatesLineBorders();
         testThemeRefreshRestoresCustomControlUis();
@@ -286,7 +286,9 @@ final class WorkbenchUiRegression {
     }
 
     /**
-     * Verifies command-heavy UI surfaces have visible type separators.
+     * Verifies the command palette groups blank actions by category with
+     * dividers, and that the command-template selector is a single dropdown
+     * (the former 14-button category strip was consolidated to one combo).
      */
     private static void testCommandPaletteGroupsActionsByCategory() {
         String paletteSource;
@@ -306,8 +308,8 @@ final class WorkbenchUiRegression {
                 "command palette uses dividers between action groups");
         assertTrue(paletteSource.contains("new PaletteRow.ActionRow(action, NO_HITS, false)"),
                 "grouped command rows do not repeat the category prefix");
-        assertTrue(commandLayerSource.contains("toolbarSeparator()"),
-                "command template strip uses visible category separators");
+        assertTrue(commandLayerSource.contains("commandCombo"),
+                "command template selector is consolidated into a single dropdown");
     }
 
     /**
@@ -329,20 +331,27 @@ final class WorkbenchUiRegression {
         } catch (java.io.IOException ex) {
             throw new AssertionError("unable to read workbench window sources", ex);
         }
-        assertTrue(lifecycle.contains("tabs.addPanel(\"Console\", createConsolePanel())"),
-                "Console is registered as a workbench tab");
-        assertTrue(lifecycle.contains("tabs.addPanel(\"Logs\", new LazyPanel(\"Logs\", this::createLogTab)"),
-                "Logs is registered as a lazy workbench tab");
-        assertTrue(lifecycle.contains("() -> new LazyPanel(\"Logs\", this::createDetachedLogTab)"),
-                "Logs can create detached/split instances");
+        // Console and Logs are now first-class top-level surfaces: each is its
+        // own movable RegisteredView with a duplicate factory, so they can be
+        // split, docked side-by-side, resized, and duplicated like the other
+        // surfaces — not Run modes and not a fixed bottom dock.
+        assertTrue(lifecycle.contains("new RegisteredView(\"Run\", createRunWorkspaceTab())"),
+                "Run is registered as a movable workbench tab");
+        assertTrue(lifecycle.contains("new RegisteredView(\"Console\", createConsolePanel(), "
+                + "this::createDetachedConsolePanel)"),
+                "Console is a first-class, duplicable top-level surface");
+        assertTrue(lifecycle.contains("this::createDetachedLogTab"),
+                "Logs is a first-class, duplicable top-level surface");
         assertFalse(lifecycle.contains("buildBottomDock"),
-                "Console and Logs are no longer hosted in a fixed bottom dock");
+                "Console and Logs are not hosted in a fixed bottom dock");
         assertTrue(base.contains("protected static final int TAB_CONSOLE = 6;"),
                 "Console has a stable top-level tab index");
         assertTrue(base.contains("protected static final int TAB_LOGS = 7;"),
                 "Logs has a stable top-level tab index");
         assertTrue(dashboardActions.contains("window.selectTab(WindowBase.TAB_CONSOLE);"),
-                "Dashboard opens the movable Console tab directly");
+                "Dashboard opens the Console surface directly");
+        assertTrue(lifecycle.contains("selectTab(TAB_LOGS)"),
+                "the Logs action focuses the top-level Logs surface");
     }
 
     /**
@@ -1675,10 +1684,10 @@ final class WorkbenchUiRegression {
     }
 
     /**
-     * Verifies command-builder optional toggles fill the shared lead column so
-     * short flags such as --quiet align with longer flags such as --no-header.
+     * Verifies the command-builder required-row lead column pins its control to
+     * the shared lead width so stacked required rows line up.
      */
-    private static void testCommandFormOptionalTogglesFillLeadColumn() {
+    private static void testCommandFormLeadColumnAligns() {
         JComponent toggle = (JComponent) construct(type("ToggleBox"),
                 new Class<?>[] { String.class, boolean.class }, "--quiet", true);
         JComponent holder = (JComponent) invokeStatic(type("CommandForm"), "fixedLead",
@@ -1688,36 +1697,34 @@ final class WorkbenchUiRegression {
 
         int leadWidth = (Integer) staticField(type("CommandForm"), "LEAD_WIDTH");
         assertEquals(Integer.valueOf(leadWidth), Integer.valueOf(toggle.getWidth()),
-                "optional toggle fills command lead column");
+                "required lead column pins its control to the lead width");
     }
 
     /**
-     * Verifies command-builder flags wrap horizontally into additional columns
-     * when the optional section has enough width.
+     * Verifies command-builder flag cells flow into additional columns when the
+     * optional section is wide and stack into one column when it is narrow.
      */
     private static void testCommandFormFlagsWrapAcrossColumns() {
-        JComponent grid = (JComponent) construct(type("CommandForm$FlagGridPanel"), new Class<?>[0]);
+        JPanel flow = new JPanel(new application.gui.workbench.ui.WrappingFlowLayout(
+                java.awt.FlowLayout.LEFT, 12, 4));
         for (int i = 0; i < 6; i++) {
-            JPanel row = new JPanel();
-            row.setPreferredSize(new Dimension(520, 36));
-            grid.add(row);
+            JPanel cell = new JPanel();
+            cell.setPreferredSize(new Dimension(220, 36));
+            flow.add(cell);
         }
 
-        grid.setSize(1600, 200);
-        grid.doLayout();
-        Component first = grid.getComponent(0);
-        Component second = grid.getComponent(1);
-        Component fourth = grid.getComponent(3);
+        flow.setSize(1600, 200);
+        flow.doLayout();
+        Component first = flow.getComponent(0);
+        Component second = flow.getComponent(1);
         assertEquals(Integer.valueOf(first.getY()), Integer.valueOf(second.getY()),
-                "wide flags share a row");
-        assertTrue(second.getX() > first.getX(), "second flag sits to the right of the first");
-        assertTrue(fourth.getY() > first.getY(), "wide flags wrap after fitting columns");
+                "flag cells share a row when wide");
+        assertTrue(second.getX() > first.getX(), "second cell sits to the right of the first");
 
-        grid.setSize(540, 260);
-        grid.doLayout();
-        assertEquals(Integer.valueOf(first.getX()), Integer.valueOf(second.getX()),
-                "narrow flags use one column");
-        assertTrue(second.getY() > first.getY(), "narrow flags stack vertically");
+        flow.setSize(244, 400);
+        flow.doLayout();
+        assertTrue(flow.getComponent(1).getY() > flow.getComponent(0).getY(),
+                "flag cells stack into one column when narrow");
     }
 
     /**
@@ -1755,15 +1762,15 @@ final class WorkbenchUiRegression {
         assertColor(new Color(0xD5EBFF), themeColor("TOGGLE_ON_BG"), "light active option fill");
 
         Theme.setMode(Theme.Mode.DARK);
-        assertColor(new Color(0x2C2C2E), themeColor("BG"), "dark macOS menu background");
+        assertColor(new Color(0x2C2C2C), themeColor("BG"), "dark macOS menu background");
         assertColor(new Color(0x1E1E1E), themeColor("PANEL_SOLID"), "dark editor background");
-        assertColor(new Color(0x252526), themeColor("ELEVATED_SOLID"), "dark dropdown background");
-        assertColor(new Color(0x3A3A3C), themeColor("LINE"), "dark widget border");
-        assertColor(new Color(0x48484A), themeColor("INPUT_BORDER"), "dark menu/input border");
-        assertColor(new Color(0x37373A), themeColor("TAB_HOVER"), "dark tab hover");
-        assertColor(new Color(0x2C2C2E), themeColor("TAB_IDLE"), "dark inactive tab");
-        assertColor(new Color(0xE8E8EA), themeColor("TEXT"), "dark foreground");
-        assertColor(new Color(0xA1A1A6), themeColor("MUTED"), "dark muted foreground");
+        assertColor(new Color(0x252525), themeColor("ELEVATED_SOLID"), "dark dropdown background");
+        assertColor(new Color(0x3A3A3A), themeColor("LINE"), "dark widget border");
+        assertColor(new Color(0x484848), themeColor("INPUT_BORDER"), "dark menu/input border");
+        assertColor(new Color(0x373737), themeColor("TAB_HOVER"), "dark tab hover");
+        assertColor(new Color(0x2C2C2C), themeColor("TAB_IDLE"), "dark inactive tab");
+        assertColor(new Color(0xE8E8E8), themeColor("TEXT"), "dark foreground");
+        assertColor(new Color(0xA1A1A1), themeColor("MUTED"), "dark muted foreground");
         assertColor(new Color(0x0A6EE4), themeColor("ACCENT"), "dark macOS focus accent");
         assertColor(new Color(36, 137, 219, 130), themeColor("TOGGLE_ON_BG"),
                 "dark active option fill");
@@ -1866,19 +1873,28 @@ final class WorkbenchUiRegression {
     }
 
     /**
-     * Verifies board annotation brushes resolve colors lazily from the active
-     * theme instead of keeping stale colors from the mode in which they were
-     * created.
+     * Verifies board annotation brushes use fixed, theme-independent colours (an
+     * arrow keeps its colour in light and dark, as in every other chess UI) and
+     * that the four gesture colours are clearly distinct from one another.
      */
-    private static void testBoardMarkupBrushesFollowThemeMode() {
+    private static void testBoardMarkupBrushesUseFixedDistinctColors() {
         Theme.setMode(Theme.Mode.LIGHT);
-        MarkupBrush blue = new MarkupBrush("blue", Theme.ACCENT, 10);
-        Color lightBlue = blue.themedColor();
+        Color green = MarkupBrush.forGesture(0).themedColor();
+        Color red = MarkupBrush.forGesture(1).themedColor();
+        Color blue = MarkupBrush.forGesture(2).themedColor();
+        Color yellow = MarkupBrush.forGesture(3).themedColor();
 
+        // The colour must not change with the theme.
         Theme.setMode(Theme.Mode.DARK);
-        assertEquals(themeColor("ACCENT"), blue.themedColor(), "blue markup follows dark accent");
-        assertColorDistanceAtLeast(lightBlue, blue.themedColor(), 16.0,
-                "blue markup changes when the theme accent changes");
+        assertEquals(green, MarkupBrush.forGesture(0).themedColor(),
+                "green markup colour is theme-independent");
+        assertEquals(blue, MarkupBrush.forGesture(2).themedColor(),
+                "blue markup colour is theme-independent");
+
+        // The four gesture colours must be visually distinct.
+        assertColorDistanceAtLeast(green, red, 16.0, "green and red markups differ");
+        assertColorDistanceAtLeast(blue, yellow, 16.0, "blue and yellow markups differ");
+        assertColorDistanceAtLeast(green, blue, 16.0, "green and blue markups differ");
 
         Theme.setMode(Theme.Mode.LIGHT);
     }

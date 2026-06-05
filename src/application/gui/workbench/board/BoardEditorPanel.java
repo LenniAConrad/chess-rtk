@@ -2,6 +2,7 @@ package application.gui.workbench.board;
 
 import application.gui.workbench.ui.RenderAcceleration;
 import application.gui.workbench.ui.Theme;
+import chess.core.Move;
 import chess.core.Piece;
 import chess.core.Position;
 import chess.core.Setup;
@@ -35,8 +36,8 @@ import javax.swing.SpinnerNumberModel;
 
 import static application.gui.workbench.ui.Ui.button;
 import static application.gui.workbench.ui.Ui.buttonRow;
+import static application.gui.workbench.ui.Ui.caption;
 import static application.gui.workbench.ui.Ui.changeListener;
-import static application.gui.workbench.ui.Ui.collapsible;
 import static application.gui.workbench.ui.Ui.constraints;
 import static application.gui.workbench.ui.Ui.flow;
 import static application.gui.workbench.ui.Ui.grid;
@@ -71,17 +72,22 @@ public final class BoardEditorPanel extends JPanel {
     /**
      * Piece icon size used in the palette.
      */
-    private static final int TOOL_ICON_SIZE = 26;
+    private static final int TOOL_ICON_SIZE = 30;
 
     /**
      * Board-colored tile size used behind palette piece icons.
      */
-    private static final int TOOL_TILE_SIZE = 30;
+    private static final int TOOL_TILE_SIZE = 36;
 
     /**
      * Fixed size for each palette button.
      */
-    private static final Dimension TOOL_BUTTON_SIZE = new Dimension(46, 38);
+    private static final Dimension TOOL_BUTTON_SIZE = new Dimension(52, 46);
+
+    /**
+     * Preferred edge of the embedded editing board.
+     */
+    private static final int EDITOR_BOARD_SIZE = 344;
 
     /**
      * FEN marker for an unavailable optional field.
@@ -189,7 +195,13 @@ public final class BoardEditorPanel extends JPanel {
     private byte selectedPiece = Piece.WHITE_KING;
 
     /**
-     * Main workbench board used for direct setup editing, or null in tests.
+     * The editor's own interactive board, edited in place inside the panel.
+     */
+    private final transient BoardPanel editorBoard = new BoardPanel();
+
+    /**
+     * Board currently driven by setup edits; the embedded {@link #editorBoard}
+     * by default, or a host-supplied board when one is attached.
      */
     private transient BoardPanel hostBoard;
 
@@ -224,11 +236,33 @@ public final class BoardEditorPanel extends JPanel {
         this.currentFenSupplier = Objects.requireNonNull(currentFenSupplier, "currentFenSupplier");
         this.applyFenConsumer = Objects.requireNonNull(applyFenConsumer, "applyFenConsumer");
         this.copyTextConsumer = Objects.requireNonNull(copyTextConsumer, "copyTextConsumer");
+        configureEditorBoard();
         configurePanel();
         installControlListeners();
+        // Drive setup edits onto the editor's own board so the position is set
+        // right here in the panel; the host commits it to the game on Apply.
+        attachBoard(editorBoard);
+        setEditingBoardActive(true);
         if (!loadFen(this.currentFenSupplier.get())) {
             loadFen(Setup.getStandardStartFEN());
         }
+    }
+
+    /**
+     * Configures the embedded editing board.
+     */
+    private void configureEditorBoard() {
+        editorBoard.setShowNotation(true);
+        editorBoard.setShowSuggestedMoveArrow(false);
+        editorBoard.setShowLastMoveHighlight(false);
+        editorBoard.setShowLegalMovePreview(false);
+        editorBoard.setPositionInstant(new Position(Setup.getStandardStartFEN()), Move.NO_MOVE);
+        // Pin a square size so the rail scrolls rather than squishing the board
+        // into a non-square strip when vertical space is tight.
+        Dimension square = new Dimension(EDITOR_BOARD_SIZE, EDITOR_BOARD_SIZE);
+        editorBoard.setPreferredSize(square);
+        editorBoard.setMinimumSize(square);
+        editorBoard.setMaximumSize(square);
     }
 
     /**
@@ -361,33 +395,70 @@ public final class BoardEditorPanel extends JPanel {
         setOpaque(true);
         setBackground(Theme.PANEL_SOLID);
         setForeground(Theme.TEXT);
-        setBorder(Theme.pad(10, 10, 10, 10));
+        setBorder(Theme.pad(Theme.SPACE_MD));
 
         GridBagConstraints c = constraints();
-        c.insets = new Insets(0, 0, 8, 0);
-        grid(this, createHeader(), c, 0, 0, 1, 1);
-        c.insets = new Insets(0, 0, 10, 0);
-        grid(this, createPalettePanel(), c, 0, 1, 1, 1);
-        c.insets = new Insets(0, 0, 10, 0);
-        grid(this, collapsible("State", createStateControls(), true), c, 0, 2, 1, 1);
-        c.insets = new Insets(0, 0, 8, 0);
-        grid(this, collapsible("FEN", createFenPreview(), true), c, 0, 3, 1, 1);
+        int row = 0;
+        c.insets = new Insets(0, 0, Theme.SPACE_SM, 0);
+        grid(this, createHeader(), c, 0, row++, 1, 1);
+        c.insets = new Insets(0, 0, Theme.SPACE_MD, 0);
+        grid(this, createEditorBoardPanel(), c, 0, row++, 1, 1);
+        c.insets = new Insets(0, 0, Theme.SPACE_MD, 0);
+        grid(this, createPalettePanel(), c, 0, row++, 1, 1);
+        c.insets = new Insets(0, 0, Theme.SPACE_MD, 0);
+        grid(this, titledSection("State", createStateControls()), c, 0, row++, 1, 1);
+        c.insets = new Insets(0, 0, Theme.SPACE_MD, 0);
+        grid(this, titledSection("FEN", createFenPreview()), c, 0, row++, 1, 1);
         c.insets = new Insets(0, 0, 0, 0);
-        grid(this, createActionRows(), c, 0, 4, 1, 1);
-        c.gridy = 5;
+        grid(this, createActionRows(), c, 0, row++, 1, 1);
+        c.gridy = row;
         c.weighty = 1.0;
         add(transparentPanel(new BorderLayout()), c);
     }
 
     /**
-     * Creates the editor title row.
+     * Creates the editor title row with a short how-to hint.
      *
      * @return header component
      */
     private JComponent createHeader() {
-        JPanel header = transparentPanel(new BorderLayout(8, 0));
-        header.add(Theme.section("Editor"), BorderLayout.WEST);
+        JPanel header = transparentPanel(new BorderLayout(0, 2));
+        header.add(Theme.section("Position editor"), BorderLayout.NORTH);
+        header.add(caption("Pick a piece, then click squares. Right-click clears. Apply sets the board."),
+                BorderLayout.SOUTH);
         return header;
+    }
+
+    /**
+     * Wraps the embedded editing board so it stays square and centered.
+     *
+     * @return board panel
+     */
+    private JComponent createEditorBoardPanel() {
+        JPanel wrap = transparentPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        wrap.add(editorBoard);
+        return wrap;
+    }
+
+    /**
+     * Wraps a body under a flat section header.
+     *
+     * @param title section title
+     * @param body section body
+     * @return titled section
+     */
+    private static JComponent titledSection(String title, JComponent body) {
+        JPanel section = transparentPanel(new BorderLayout(0, 4));
+        section.add(Theme.section(title), BorderLayout.NORTH);
+        section.add(body, BorderLayout.CENTER);
+        return section;
+    }
+
+    /**
+     * Flips the editing board orientation.
+     */
+    private void flipBoard() {
+        editorBoard.setWhiteDown(!editorBoard.isWhiteDown());
     }
 
     /**
@@ -551,11 +622,12 @@ public final class BoardEditorPanel extends JPanel {
      * @return action rows
      */
     private JComponent createActionRows() {
-        JPanel actions = transparentPanel(new BorderLayout(0, 4));
+        JPanel actions = transparentPanel(new BorderLayout(0, 6));
         actions.add(buttonRow(FlowLayout.LEFT,
                 button("Current", false, event -> loadFen(currentFenSupplier.get())),
                 button("Start", false, event -> loadFen(Setup.getStandardStartFEN())),
-                button("Clear", false, event -> clearBoard())), BorderLayout.NORTH);
+                button("Clear", false, event -> clearBoard()),
+                button("Flip", false, event -> flipBoard())), BorderLayout.NORTH);
         actions.add(buttonRow(FlowLayout.LEFT,
                 button("Apply", true, event -> applyEditedFen()),
                 button("Copy FEN", false, event -> copyTextConsumer.accept(fen()))), BorderLayout.SOUTH);

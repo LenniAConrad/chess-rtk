@@ -2,12 +2,6 @@ package chess.engine;
 
 
 /**
- * Direct-mapped search caches used by {@link AlphaBeta}.
- *
- * @since 2026
- * @author Lennart A. Conrad
- */
-/**
  * Mutable transposition-table entry, packed for lock-free tear tolerance.
  *
  * <p>

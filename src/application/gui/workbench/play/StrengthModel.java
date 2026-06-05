@@ -289,6 +289,28 @@ public final class StrengthModel {
     }
 
     /**
+     * Reports whether the Elo curve produces any move-sampling weakening at a
+     * target Elo, i.e. whether {@link #samplingFor} would yield a positive
+     * temperature or blunder probability before any profile override. A
+     * search opponent that natively returns only a best move (alpha-beta) can use
+     * this to skip building a ranked candidate list when play is the arg-max
+     * best move anyway. Mirrors the temperature/blunder formulas in
+     * {@link #samplingFor}; profile overrides (which only an expert sets) are not
+     * considered, so the few hundred Elo just below {@link #MAX_ELO} where the
+     * curve already collapses to arg-max are reported as non-weakening.
+     *
+     * @param targetElo requested Elo
+     * @return whether sampling would draw an inferior move with any probability
+     */
+    public static boolean weakensAt(int targetElo) {
+        int elo = clamp(targetElo, MIN_ELO, MAX_ELO);
+        double weakness = 1.0 - fraction(elo);
+        double temperature = MAX_TEMPERATURE * weakness - 0.15;
+        double blunder = MAX_BLUNDER * weakness - 0.02;
+        return temperature > 1e-6 || blunder > 0.0;
+    }
+
+    /**
      * Selects the move to play from ranked candidates.
      *
      * <p>

@@ -26,11 +26,6 @@ public final class NnueAtlas {
     private static final int WHOLE_ATLAS_COLUMN_GAP = 8;
 
     /**
-     * Header and label chrome inside the whole pixel-plane overview card.
-     */
-    private static final int WHOLE_ATLAS_CHROME_HEIGHT = 60;
-
-    /**
      * Number of signed-ramp buckets used while rasterizing dense atlas images.
      */
     private static final int ATLAS_RAMP_BUCKETS = 4096;
@@ -255,18 +250,6 @@ public final class NnueAtlas {
         return Math.max(1, (int) Math.ceil(hidden / (double) columns));
     }
 
-    /**
-     * Picks the preferred height for the wrapped whole pixel-plane overview.
-     *
-     * @param contentWidth available inner width
-     * @param hidden hidden-layer dimension
-     * @param planes piece-plane count
-     * @return overview card height
-     */
-    public static int atlasWholeOverviewHeight(int contentWidth, int hidden, int planes) {
-        int rows = atlasWholeRowsPerColumn(Math.max(1, contentWidth - 20), hidden, planes);
-        return WHOLE_ATLAS_CHROME_HEIGHT + rows * atlasWholeSlotPitch(hidden);
-    }
 
     /**
      * Returns a compact key for the colours that influence atlas raster output.

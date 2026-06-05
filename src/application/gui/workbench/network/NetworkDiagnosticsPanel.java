@@ -135,8 +135,15 @@ public final class NetworkDiagnosticsPanel extends JPanel {
         setBackground(Theme.PANEL_SOLID);
         setBorder(includeConfigPreview ? Theme.pad(Theme.SPACE_MD)
                 : Theme.pad(Theme.SPACE_SM, 0, Theme.SPACE_SM, 0));
-        setPreferredSize(new Dimension(SIDEBAR_WIDTH, includeConfigPreview ? 600 : 280));
-        setMinimumSize(new Dimension(220, includeConfigPreview ? 260 : 180));
+        if (includeConfigPreview) {
+            setPreferredSize(new Dimension(SIDEBAR_WIDTH, 600));
+            setMinimumSize(new Dimension(220, 260));
+        } else {
+            // Dashboard mode sizes to its content so the host can wrap it in a
+            // scroll pane and reveal everything; a fixed height here would
+            // silently clip extra models, backends, or cache rows.
+            setMinimumSize(new Dimension(220, 0));
+        }
 
         JPanel top = Ui.transparentPanel(new BorderLayout(0, Theme.SPACE_MD));
         JPanel stack = Ui.transparentPanel(new GridBagLayout());
@@ -148,7 +155,10 @@ public final class NetworkDiagnosticsPanel extends JPanel {
         c.gridy = 0;
         stack.add(Ui.collapsible("Models", modelRows, true), c);
         c.gridy = 1;
-        stack.add(Ui.collapsible("Backends", gpuRows, !includeConfigPreview), c);
+        // Collapse the long backend matrix on the Dashboard (most rows read
+        // "not loaded" — low-value noise for a quick runtime glance); keep it
+        // expanded on the full Network tab, which is where backends are audited.
+        stack.add(Ui.collapsible("Backends", gpuRows, includeConfigPreview), c);
         c.gridy = 2;
         c.insets = new Insets(0, 0, 0, 0);
         stack.add(Ui.collapsible("Cache", cacheRows, true), c);

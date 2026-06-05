@@ -18,11 +18,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
-import javax.swing.ButtonGroup;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 
-import static application.gui.workbench.ui.Ui.toolbarSeparator;
+import static application.gui.workbench.ui.Ui.label;
+import static application.gui.workbench.ui.Ui.styleCombo;
 import static application.gui.workbench.ui.Ui.trimmed;
 
 /**
@@ -42,7 +42,10 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
      */
     protected void appendConsole(String text) {
         if (SwingUtilities.isEventDispatchThread()) {
-            console.appendOutput(text);
+            // Fan out to every open console (primary plus any duplicates).
+            for (application.gui.workbench.command.Console target : consoles) {
+                target.appendOutput(text);
+            }
         } else {
             SwingUtilities.invokeLater(() -> appendConsole(text));
         }
@@ -64,45 +67,27 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
     protected void installTemplates() {
         commandTemplates = CommandTemplates.commandTemplates();
         commandPicker.removeAll();
-        commandButtons.clear();
-        ButtonGroup group = new ButtonGroup();
-        String previousCategory = null;
+        // A single dropdown over every template, replacing a wrapping row of 14
+        // peer toggle buttons that dominated the toolbar. One compact control
+        // reads as "pick what to run" instead of a wall of equal-weight pills.
+        String[] names = new String[commandTemplates.size()];
         for (int i = 0; i < commandTemplates.size(); i++) {
-            CommandTemplate template = commandTemplates.get(i);
-            String category = commandCategoryOf(template.name());
-            if (previousCategory != null && !category.equals(previousCategory)) {
-                commandPicker.add(toolbarSeparator());
-            }
-            previousCategory = category;
-            javax.swing.JToggleButton tab = new javax.swing.JToggleButton(template.name());
-            Theme.commandTab(tab);
-            tab.setSelected(i == selectedCommandIndex);
-            int index = i;
-            tab.addActionListener(event -> selectCommandTemplate(index));
-            group.add(tab);
-            commandButtons.add(tab);
-            commandPicker.add(tab);
+            names[i] = commandTemplates.get(i).name();
         }
+        commandCombo = new javax.swing.JComboBox<>(names);
+        styleCombo(commandCombo);
+        if (selectedCommandIndex >= 0 && selectedCommandIndex < names.length) {
+            commandCombo.setSelectedIndex(selectedCommandIndex);
+        }
+        commandCombo.addActionListener(event -> {
+            if (!syncingCommandCombo) {
+                selectCommandTemplate(commandCombo.getSelectedIndex());
+            }
+        });
+        commandPicker.add(label("Command"));
+        commandPicker.add(commandCombo);
         commandPicker.revalidate();
         commandPicker.repaint();
-    }
-
-    /**
-     * Categorises a command template by name so the picker can render related
-     * commands together. Three categories: <em>inspect</em> reads the current
-     * position, <em>compute</em> runs an engine, <em>mutate</em> changes the
-     * board or produces new data.
-     *
-     * @param name template name
-     * @return category key
-     */
-    private static String commandCategoryOf(String name) {
-        return switch (name) {
-            case "Legal moves", "Tags", "Threats", "Position diff" -> "inspect";
-            case "Best move", "Mate", "Analyze", "Eval", "Built-in search", "Perft" -> "compute";
-            case "Apply move", "Generate FENs", "All CLI" -> "mutate";
-            default -> "inspect";
-        };
     }
 
     /**
@@ -115,8 +100,10 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
             return;
         }
         selectedCommandIndex = index;
-        for (int i = 0; i < commandButtons.size(); i++) {
-            commandButtons.get(i).setSelected(i == index);
+        if (commandCombo != null && commandCombo.getSelectedIndex() != index) {
+            syncingCommandCombo = true;
+            commandCombo.setSelectedIndex(index);
+            syncingCommandCombo = false;
         }
         updateCommandOptions();
         updateBuiltCommand();
@@ -153,7 +140,8 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
      */
     protected void configureGameTable() {
         gameTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        Theme.table(gameTable, 29);
+        Theme.table(gameTable, Theme.TABLE_ROW_HEIGHT);
+        gameTable.setAutoResizeMode(javax.swing.JTable.AUTO_RESIZE_LAST_COLUMN);
         gameTable.getColumnModel().getColumn(0).setPreferredWidth(64);
         gameTable.getColumnModel().getColumn(1).setPreferredWidth(120);
         gameTable.getColumnModel().getColumn(2).setPreferredWidth(110);
@@ -230,7 +218,7 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
                 lines++;
             }
         }
-        return Math.max(1, Math.min(4, lines));
+        return Math.max(1, Math.min(5, lines));
     }
 
     /**
@@ -256,12 +244,13 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
         commandPreviewUpdateQueued = false;
         commandForm.refreshDynamicValues(templateContext());
         updateBuiltCommand();
-        batchPanel.updateCommand();
         updatePublishCommand();
     }
 
     /**
-     * Builds arguments for the selected curated command template.
+     * Builds preview arguments for the selected command template. Batch-style
+     * commands show a stable {@code --input} placeholder path; the real file is
+     * written only at run time (see {@link #selectedTemplateRunArgs()}).
      *
      * @return command arguments
      */
@@ -271,6 +260,39 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
             return List.of();
         }
         List<String> args = new ArrayList<>(template.baseArgs());
+        if (template.usesPositionList()) {
+            args.add("--input");
+            args.add(Defaults.WORKBENCH_FENS_PLACEHOLDER);
+        }
+        args.addAll(commandForm.args());
+        return List.copyOf(args);
+    }
+
+    /**
+     * Builds runnable arguments for the selected command template. For a
+     * batch-style command this materializes the editor's positions/commands to
+     * a temporary file and substitutes the real {@code --input} path.
+     *
+     * @return command arguments
+     * @throws java.io.IOException when the input file cannot be written
+     */
+    protected List<String> selectedTemplateRunArgs() throws java.io.IOException {
+        CommandTemplate template = selectedCommandTemplate();
+        if (template == null) {
+            return List.of();
+        }
+        List<String> args = new ArrayList<>(template.baseArgs());
+        if (template.usesPositionList()) {
+            String prefix = template.inputKind() == CommandTemplates.BatchInputKind.COMMAND_LINES
+                    ? "crtk-workbench-commands-"
+                    : "crtk-workbench-fens-";
+            java.nio.file.Path input = application.cli.PathOps.createLocalTempFile(prefix, ".txt");
+            input.toFile().deleteOnExit();
+            java.nio.file.Files.writeString(input, commandForm.positionsText(),
+                    java.nio.charset.StandardCharsets.UTF_8);
+            args.add("--input");
+            args.add(input.toString());
+        }
         args.addAll(commandForm.args());
         return List.copyOf(args);
     }
@@ -331,27 +353,6 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
         }
         syncingDuration = true;
         try {
-            batchPanel.setDurationText(analysisDurationField.getText());
-            requestCommandPreviews();
-        } finally {
-            syncingDuration = false;
-        }
-    }
-
-    /**
-     * Synchronizes the analysis duration from the batch duration field.
-     *
-     * @param value duration text
-     */
-    protected void syncDurationFromBatch(String value) {
-        if (syncingDuration) {
-            return;
-        }
-        syncingDuration = true;
-        try {
-            if (!java.util.Objects.equals(value, analysisDurationField.getText())) {
-                analysisDurationField.setText(value);
-            }
             requestCommandPreviews();
         } finally {
             syncingDuration = false;

@@ -9,8 +9,10 @@ import application.gui.workbench.game.EcoExplorerPanel;
 import application.gui.workbench.game.SanRenderer;
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.session.LogPanel;
+import application.gui.workbench.command.Console;
 import application.gui.workbench.ui.FileDialogs;
-import application.gui.workbench.ui.SegmentedSwitcher;
+import application.gui.workbench.ui.WrappingFlowLayout;
+import application.gui.workbench.ui.HoldButton;
 import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Toast;
@@ -53,6 +55,7 @@ import static application.gui.workbench.ui.Ui.buttonRow;
 import static application.gui.workbench.ui.Ui.changeListener;
 import static application.gui.workbench.ui.Ui.collapsible;
 import static application.gui.workbench.ui.Ui.constraints;
+import static application.gui.workbench.ui.Ui.controlRow;
 import static application.gui.workbench.ui.Ui.fillViewport;
 import static application.gui.workbench.ui.Ui.flow;
 import static application.gui.workbench.ui.Ui.grid;
@@ -82,6 +85,17 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     private static final long serialVersionUID = 1L;
 
     /**
+     * Preferred size of the right-side rail next to the shared board (Analyze /
+     * Play / Relations all use the same rail proportion).
+     */
+    private static final Dimension SIDE_RAIL_SIZE = new Dimension(400, 560);
+
+    /**
+     * Vertical-only row padding shared by every settings-group row.
+     */
+    private static final Insets SETTINGS_ROW_INSETS = new Insets(3, 0, 3, 0);
+
+    /**
      * ECO explorer panel, created lazily with the board detail tabs.
      */
     protected EcoExplorerPanel ecoExplorerPanel;
@@ -92,47 +106,172 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     protected BoardEditorPanel boardEditorPanel;
 
     /**
+     * The shared board stage (board + material strips) re-parented into the
+     * active Analyze/Play/Relations mode slot.
+     */
+    private transient application.gui.workbench.board.BoardStage sharedBoardStage;
+
+    /**
+     * Board slot in the Analyze mode card; hosts the shared board when Analyze
+     * is active.
+     */
+    private transient JPanel analyzeBoardSlot;
+
+    /**
+     * Board slot in the Play mode card.
+     */
+    private transient JPanel playBoardSlot;
+
+    /**
+     * Board slot in the Relations mode card.
+     */
+    private transient JPanel relationsBoardSlot;
+
+    /**
+     * Relations control rail, retained so the shared board can be re-synced with
+     * its tactical overlay when the Relations mode activates.
+     */
+    private transient application.gui.workbench.relations.RelationsPanel relationsControls;
+
+    /**
+     * Settings piece-set picker, retained so {@link #applyPieceSet} can keep its
+     * selection in step when the set changes.
+     */
+    private transient application.gui.workbench.ui.ChipGroup pieceSetChips;
+
+    /**
+     * Creates the unified Board surface: one workspace hosting the Analyze,
+     * Play, Solve, and Relations modes behind a switcher, replacing the four
+     * former top-level tabs. Analyze is built eagerly (it wires the main board
+     * and the nested analysis tabs at startup); the other modes build lazily on
+     * first selection.
+     *
+     * @return board workspace component
+     */
+    protected JComponent createBoardWorkspaceTab() {
+        // One shared board backs the Analyze, Play, and Relations modes: it is
+        // re-parented into the active mode's slot and reconfigured for it by
+        // configureBoardForMode, so a position carries across modes with no
+        // duplicate widgets. Solve keeps its own board (puzzles step their own
+        // positions, independent of the analysis line). The eval bar lives on
+        // the shared board and paints inside its paint pass.
+        evalBar.setToolTipText("Engine evaluation");
+        board.setEvalBar(evalBar);
+        sharedBoardStage = new application.gui.workbench.board.BoardStage(board);
+        boardWorkspace = new application.gui.workbench.ui.SwitchedWorkspace(
+                new String[] { "Analyze", "Play", "Solve", "Relations" },
+                java.util.List.of(
+                        this::createBoardTab,
+                        this::createPlayTab,
+                        this::createPuzzleTab,
+                        this::createRelationsTab),
+                BOARD_ANALYZE);
+        boardWorkspace.setModeListener(this::configureBoardForMode);
+        return boardWorkspace;
+    }
+
+    /**
+     * Re-parents the single shared board into the activated board mode's slot
+     * and reconfigures it for that mode. Analyze and Play are interactive
+     * (turn-gated input, the analysis position, no relation overlay); Relations
+     * is a read-only tactical overlay; Solve keeps its own board, so this is a
+     * no-op for it.
+     *
+     * @param mode activated board mode (see BOARD_* constants)
+     */
+    private void configureBoardForMode(int mode) {
+        JPanel slot = switch (mode) {
+            case BOARD_ANALYZE -> analyzeBoardSlot;
+            case BOARD_PLAY -> playBoardSlot;
+            case BOARD_RELATIONS -> relationsBoardSlot;
+            default -> null;
+        };
+        if (slot == null || sharedBoardStage == null) {
+            return;
+        }
+        if (sharedBoardStage.getParent() != slot) {
+            slot.add(sharedBoardStage, BorderLayout.CENTER);
+            slot.revalidate();
+            slot.repaint();
+        }
+        if (mode == BOARD_RELATIONS) {
+            // A visualization, not an editor: dragging is disabled and the
+            // current position's relation channels are drawn onto the board.
+            board.setDragStartFilter(context -> false);
+            if (relationsControls != null) {
+                relationsControls.syncToBoard();
+            }
+        } else {
+            // Analyze / Play: interactive. Drop any relation overlay, re-arm the
+            // move funnel and turn-gated input, and restore the analysis line.
+            board.clearMarkup();
+            board.setMoveHandler(this::playMove);
+            board.setDragStartFilter(context ->
+                    playSession == null || playSession.isHumanInputAllowed());
+            if (currentPosition != null) {
+                board.setPositionInstant(currentPosition, chess.core.Move.NO_MOVE);
+            }
+        }
+    }
+
+    /**
+     * Creates an empty board slot: a transparent host the shared board stage is
+     * re-parented into when its owning mode activates.
+     *
+     * @return board slot panel
+     */
+    private JPanel boardSlotPanel() {
+        return transparentPanel(new BorderLayout());
+    }
+
+    /**
+     * Creates the unified Engine surface: one workspace hosting the neural
+     * network visualizer and the PUCT/MCTS search behind a switcher, replacing
+     * the former Network and MCTS top-level tabs. The Network mode is built
+     * first; the Search mode builds lazily on first selection.
+     *
+     * @return engine workspace component
+     */
+    protected JComponent createEngineWorkspaceTab() {
+        engineWorkspace = new application.gui.workbench.ui.SwitchedWorkspace(
+                new String[] { "Evaluator", "Search", "Tree" },
+                java.util.List.of(
+                        this::createNetworkTab,
+                        this::createMctsTab,
+                        this::createTreeTab),
+                ENGINE_NETWORK);
+        return engineWorkspace;
+    }
+
+    /**
+     * Creates the Run surface: the single command builder (Build). Batch
+     * workflows are now commands inside this builder, and the Console and Logs
+     * are first-class top-level surfaces, so the Run tab no longer needs a
+     * mode switcher.
+     *
+     * @return run workspace component
+     */
+    protected JComponent createRunWorkspaceTab() {
+        return createCommandTab();
+    }
+
+    /**
      * Creates the board tab.
      *
      * @return tab component
      */
     protected JComponent createBoardTab() {
-        board.setMoveHandler(this::playMove);
-        // In Play mode, only let the human pick up a piece when it is their turn
-        // and the engine is idle. Outside a Play game this always allows input.
-        board.setDragStartFilter(context ->
-                playSession == null || playSession.isHumanInputAllowed());
-        evalBar.setToolTipText("Engine evaluation");
-
-        // The eval bar is a child of the board panel so it paints inside the
-        // board's own paint pass — flush to the square, matched to its height,
-        // and free of the sibling-overlap flicker.
-        board.setEvalBar(evalBar);
-        JPanel boardStage = transparentPanel(new BorderLayout());
-        // Lichess-style material strips flush above and below the board, showing
-        // each side's captured pieces and a +N material advantage.
-        application.gui.workbench.board.MaterialStrip materialTop =
-                new application.gui.workbench.board.MaterialStrip(board);
-        application.gui.workbench.board.MaterialStrip materialBottom =
-                new application.gui.workbench.board.MaterialStrip(board);
-        board.setMaterialStrips(materialTop, materialBottom);
-        boardStage.add(materialTop, BorderLayout.NORTH);
-        boardStage.add(board, BorderLayout.CENTER);
-        boardStage.add(materialBottom, BorderLayout.SOUTH);
+        // The shared board is re-parented into this slot when Analyze activates;
+        // board wiring (move handler, drag filter, eval bar) lives in
+        // createBoardWorkspaceTab / configureBoardForMode.
+        analyzeBoardSlot = boardSlotPanel();
 
         JPanel side = transparentPanel(new BorderLayout(8, 8));
-        side.setPreferredSize(new Dimension(400, 560));
+        side.setPreferredSize(SIDE_RAIL_SIZE);
         side.add(createBoardSideHeader(), BorderLayout.NORTH);
         side.add(createMovesAndTags(), BorderLayout.CENTER);
 
-        JSplitPane boardPage = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, boardStage, side);
-        boardPage.setBorder(BorderFactory.createEmptyBorder());
-        boardPage.setOpaque(false);
-        boardPage.setContinuousLayout(true);
-        boardPage.setResizeWeight(0.68);
-        boardPage.setDividerSize(8);
-        boardPage.setDividerLocation(0.68);
-        SplitPaneStyler.style(boardPage);
+        JSplitPane boardPage = SplitPaneStyler.styledHorizontalSplit(analyzeBoardSlot, side, 0.68);
 
         analysisTabs = createSectionTabs();
         analysisTabs.addTab("Board", boardPage);
@@ -148,6 +287,24 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     protected JComponent createDetachedAnalysisTab() {
         return new AnalysisWorkspacePanel(currentFen(), board.isWhiteDown(), this::buildAnalyzeArgs,
                 args -> runCommand(args, null), this::copyText);
+    }
+
+    /**
+     * Opens a position in a new detached Board tab — an independent analysis
+     * workspace with its own board, so the shared analysis position is not
+     * overwritten. The new tab is added next to the current one and selected;
+     * the user can split it beside the source tab from the tab strip.
+     *
+     * @param fen FEN to load into the new board
+     */
+    @Override
+    protected void openFenInNewBoard(String fen) {
+        if (fen == null || fen.isBlank() || tabs == null) {
+            return;
+        }
+        JComponent workspace = new AnalysisWorkspacePanel(fen, board.isWhiteDown(), this::buildAnalyzeArgs,
+                args -> runCommand(args, null), this::copyText);
+        tabs.openInstance(TAB_BOARD, workspace);
     }
 
     /**
@@ -185,6 +342,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         // hierarchy pass but flagged as redundant by WorkbenchBoardRegression:
         // the FEN field and transport row already speak for themselves.
         styleFields(fenField);
+        fenField.setToolTipText("Paste a FEN and press Enter to load");
         fenField.addActionListener(event -> setPositionFromField());
         grid(panel, fenField, c, 0, 0, 4, 1);
 
@@ -202,16 +360,12 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         // doesn't read as four peer-level actions next to Load and Reset.
         JComponent transportGroup = transportButtonGroup(boardStartButton,
                 boardBackButton, boardForwardButton, boardEndButton);
-        grid(panel, buttonRow(FlowLayout.LEFT,
-                // Load FEN is demoted to secondary — pressing Enter in the
-                // FEN field already loads it, and the headline primary on
-                // the Analyze tab should be the analysis action, not the
-                // position-input action.
-                button("Load", false, event -> setPositionFromField())), c, 0, 2, 1, 1);
-        JPanel transportRow = transparentPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        // No separate "Load" button — pressing Enter in the FEN field loads the
+        // position (see the field tooltip), so the row is just transport + Reset.
+        JPanel transportRow = transparentPanel(new WrappingFlowLayout(FlowLayout.LEFT, 8, 0));
         transportRow.add(transportGroup);
         transportRow.add(iconButton("Reset", event -> startNewGame(Setup.getStandardStartFEN())));
-        grid(panel, transportRow, c, 1, 2, 3, 1);
+        grid(panel, transportRow, c, 0, 2, 4, 1);
         grid(panel, buttonRow(FlowLayout.LEFT,
                 iconButton("Flip", event -> {
                     board.setWhiteDown(!board.isWhiteDown());
@@ -219,39 +373,47 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                 }),
                 iconButton("Copy FEN", event -> copyText(fenField.getText())),
                 createExportBoardButton()), c, 0, 3, 4, 1);
-        JPanel pieceRow = transparentPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        pieceRow.add(label("Pieces"));
-        pieceRow.add(createPieceSetSwitcher());
-        grid(panel, pieceRow, c, 0, 4, 4, 1);
-        grid(panel, createPgnExplorerLauncher(), c, 0, 5, 4, 1);
+        // The piece-artwork picker lives once, in Settings > Display > Appearance —
+        // it was duplicated here on the rail. Removing the rail copy trims a row
+        // of chrome from the analyze rail without losing the control.
+        grid(panel, createPgnExplorerLauncher(), c, 0, 4, 4, 1);
         return panel;
     }
 
     /**
-     * Builds the segmented selector that switches the board's piece artwork
-     * set between the available {@link PieceSet} themes.
+     * Returns the piece-set option labels in {@link PieceSet} ordinal order, so a
+     * selector's index maps straight onto {@link PieceSet#values()}.
      *
-     * @return piece-set switcher
+     * @return piece-set labels
      */
-    private SegmentedSwitcher createPieceSetSwitcher() {
+    private static String[] pieceSetLabels() {
         PieceSet[] sets = PieceSet.values();
         String[] labels = new String[sets.length];
         for (int i = 0; i < sets.length; i++) {
             labels[i] = sets[i].label();
         }
-        SegmentedSwitcher switcher = new SegmentedSwitcher(labels);
-        for (int i = 0; i < sets.length; i++) {
-            if (sets[i] == pieceSet) {
-                switcher.setSelectedIndex(i);
-            }
+        return labels;
+    }
+
+    /**
+     * Applies a piece-artwork set to the board and keeps every piece-set control
+     * (the board toolbar switcher and the Settings picker) in sync so the two
+     * surfaces never drift. A no-op when the set is already active.
+     *
+     * @param set piece set to apply
+     */
+    protected void applyPieceSet(PieceSet set) {
+        if (set == null || set == pieceSet) {
+            return;
         }
-        switcher.addActionListener(event -> {
-            pieceSet = PieceSet.values()[switcher.getSelectedIndex()];
-            board.setPieceSet(pieceSet);
-            saveDisplaySettings();
-        });
-        switcher.setToolTipText("Choose the chess piece artwork set");
-        return switcher;
+        pieceSet = set;
+        board.setPieceSet(set);
+        saveDisplaySettings();
+        // Re-sync the Settings picker. ChipGroup.setSelectedIndex never fires its
+        // callback, so this cannot recurse back into applyPieceSet.
+        if (pieceSetChips != null) {
+            pieceSetChips.setSelectedIndex(set.ordinal());
+        }
     }
 
     /**
@@ -379,7 +541,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * @return advanced controls
      */
     protected JComponent createAdvancedAnalysisControls() {
-        JPanel panel = transparentPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        JPanel panel = transparentPanel(new WrappingFlowLayout(FlowLayout.LEFT, 6, 0));
         panel.add(optionGroup("Lines", analysisMultipvSpinner));
         panel.add(optionGroup("Threads", analysisThreadsSpinner));
         panel.add(button("Engine", false, event -> showEngineSettings()));
@@ -439,11 +601,22 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      */
     protected JComponent createMovesAndTags() {
         movesTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        Theme.table(movesTable, 27);
+        Theme.table(movesTable, Theme.TABLE_ROW_HEIGHT);
         // Render the SAN column with inline chess-piece SVGs. Pin the
         // columns so a model data refresh does not drop the custom renderer.
         movesTable.setAutoCreateColumnsFromModel(false);
         movesTable.getColumnModel().getColumn(1).setCellRenderer(new SanRenderer());
+        // Pin compact widths so the narrow index/SAN/UCI columns stop floating
+        // and the trailing flags column absorbs the slack instead of leaving a
+        // ragged, mostly-empty gap.
+        movesTable.setAutoResizeMode(javax.swing.JTable.AUTO_RESIZE_LAST_COLUMN);
+        javax.swing.table.TableColumnModel moveColumns = movesTable.getColumnModel();
+        moveColumns.getColumn(0).setMaxWidth(46);
+        moveColumns.getColumn(0).setPreferredWidth(46);
+        moveColumns.getColumn(1).setPreferredWidth(96);
+        if (moveColumns.getColumnCount() > 2) {
+            moveColumns.getColumn(2).setPreferredWidth(82);
+        }
         movesTable.addMouseListener(new MouseAdapter() {
             /**
              * Plays a legal move when a row is double-clicked.
@@ -473,6 +646,13 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         boardDetailTabs.addTab("Data", createAnalysisDataPanel());
         boardDetailTabs.addTab("Editor", createBoardEditorPanel());
         boardDetailTabs.addChangeListener(event -> syncBoardEditorMode());
+        // Open on the position-summary "Data" view rather than the full legal-move
+        // dump: the move count is already in the analysis status line, so leading
+        // with a 34-row table is noise. The Moves tab stays one click away.
+        int dataTab = boardDetailTabs.indexOfTab("Data");
+        if (dataTab >= 0) {
+            boardDetailTabs.setSelectedIndex(dataTab);
+        }
         syncBoardEditorMode();
         return boardDetailTabs;
     }
@@ -513,24 +693,22 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * @return editor component
      */
     protected JComponent createBoardEditorPanel() {
+        // The editor owns its own board now, so it no longer hijacks the shared
+        // board into setup-edit mode; Apply commits the edited position instead.
         boardEditorPanel = new BoardEditorPanel(this::currentFen, this::applyBoardEditorFen, this::copyText);
-        boardEditorPanel.attachBoard(board);
         return scroll(fillViewport(boardEditorPanel));
     }
 
     /**
-     * Synchronizes direct board editing with the selected side tab.
+     * Loads the current position into the editor whenever its tab is opened.
      */
     protected void syncBoardEditorMode() {
         if (boardEditorPanel == null || boardDetailTabs == null) {
-            board.setSetupEditMode(false);
             return;
         }
-        boolean active = isBoardEditorSelected();
-        if (active) {
+        if (isBoardEditorSelected()) {
             boardEditorPanel.loadFen(currentFen());
         }
-        boardEditorPanel.setEditingBoardActive(active);
     }
 
     /**
@@ -603,7 +781,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
 
         JPanel appearance = settingsGroupPanel();
         GridBagConstraints appearanceC = constraints();
-        appearanceC.insets = new Insets(3, 0, 3, 0);
+        appearanceC.insets = SETTINGS_ROW_INSETS;
         // VS Code-style horizontal chip picker for the workbench theme.
         // Replaces the previous single Dark-mode toggle so users see both
         // choices at a glance and can flip with one click.
@@ -612,23 +790,24 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         themePicker.setSelectedIndex(isDarkMode() ? 1 : 0);
         themePicker.setOnSelect(index -> setDarkMode(index == 1));
         themePicker.setToolTipText("Switch the workbench palette");
-        JPanel themeRow = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
-        JLabel themeLabel = new JLabel("Theme");
-        themeLabel.setFont(Theme.font(13, Font.BOLD));
-        Theme.foreground(themeLabel, Theme.ForegroundRole.TEXT);
-        JLabel themeDetail = new JLabel("Pick the workbench colour palette");
-        themeDetail.setFont(Theme.font(11, Font.PLAIN));
-        Theme.foreground(themeDetail, Theme.ForegroundRole.MUTED);
-        JPanel themeCopy = transparentPanel(new BorderLayout(0, 1));
-        themeCopy.add(themeLabel, BorderLayout.NORTH);
-        themeCopy.add(themeDetail, BorderLayout.CENTER);
-        themeRow.add(themeCopy, BorderLayout.CENTER);
-        themeRow.add(themePicker, BorderLayout.EAST);
-        grid(appearance, themeRow, appearanceC, 0, 0, 1, 1);
+        grid(appearance, createLabelDetailRow("Theme", "Pick the workbench colour palette",
+                themePicker), appearanceC, 0, 0, 1, 1);
+
+        // Piece artwork picker. Shares state with the board-toolbar switcher via
+        // applyPieceSet so the two never drift; consolidating the preference here
+        // is what makes the Settings dialog the one home for display choices.
+        application.gui.workbench.ui.ChipGroup piecePicker =
+                new application.gui.workbench.ui.ChipGroup(java.util.List.of(pieceSetLabels()));
+        piecePicker.setSelectedIndex(pieceSet.ordinal());
+        piecePicker.setOnSelect(index -> applyPieceSet(PieceSet.values()[index]));
+        piecePicker.setToolTipText("Choose the chess piece artwork set");
+        pieceSetChips = piecePicker;
+        grid(appearance, createLabelDetailRow("Pieces", "Artwork used to draw the pieces",
+                piecePicker), appearanceC, 0, 1, 1, 1);
 
         JPanel soundSettings = settingsGroupPanel();
         GridBagConstraints soundC = constraints();
-        soundC.insets = new Insets(3, 0, 3, 0);
+        soundC.insets = SETTINGS_ROW_INSETS;
         grid(soundSettings, settingsToggle("Sound effects",
                 "Play procedural feedback for controls, moves, loaded positions, puzzles, MCTS, and long jobs",
                 !SoundService.isMuted(), selected -> {
@@ -644,7 +823,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
 
         JPanel boardSettings = settingsGroupPanel();
         GridBagConstraints boardC = constraints();
-        boardC.insets = new Insets(3, 0, 3, 0);
+        boardC.insets = SETTINGS_ROW_INSETS;
         addSettingsToggle(boardSettings, boardC, 0, "Legal move preview",
                 "Show selected-piece destinations and legal drag targets on the board",
                 showLegalMovePreview, selected -> showLegalMovePreview = selected, false);
@@ -663,7 +842,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
 
         JPanel analysisSettings = settingsGroupPanel();
         GridBagConstraints analysisC = constraints();
-        analysisC.insets = new Insets(3, 0, 3, 0);
+        analysisC.insets = SETTINGS_ROW_INSETS;
         addSettingsToggle(analysisSettings, analysisC, 0, "Auto eval bar",
                 "Automatically refresh the side evaluation bar after position changes",
                 autoEvalBarEnabled, selected -> autoEvalBarEnabled = selected, true);
@@ -701,6 +880,32 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
+     * Builds a settings row with a bold title over a muted detail line on the
+     * left and a control on the right. Shared by the Appearance group's Theme and
+     * Pieces rows so the two read identically.
+     *
+     * @param title bold row title
+     * @param detail muted one-line description
+     * @param control right-aligned control
+     * @return row panel
+     */
+    private static JPanel createLabelDetailRow(String title, String detail, JComponent control) {
+        JLabel titleLabel = new JLabel(title);
+        titleLabel.setFont(Theme.font(13, Font.BOLD));
+        Theme.foreground(titleLabel, Theme.ForegroundRole.TEXT);
+        JLabel detailLabel = new JLabel(detail);
+        detailLabel.setFont(Theme.font(11, Font.PLAIN));
+        Theme.foreground(detailLabel, Theme.ForegroundRole.MUTED);
+        JPanel copy = transparentPanel(new BorderLayout(0, 1));
+        copy.add(titleLabel, BorderLayout.NORTH);
+        copy.add(detailLabel, BorderLayout.CENTER);
+        JPanel row = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        row.add(copy, BorderLayout.CENTER);
+        row.add(control, BorderLayout.EAST);
+        return row;
+    }
+
+    /**
      * Creates the external-engine configuration panel.
      *
      * @return engine settings panel
@@ -717,7 +922,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
 
         JPanel protocol = settingsGroupPanel();
         GridBagConstraints protocolC = constraints();
-        protocolC.insets = new Insets(3, 0, 3, 0);
+        protocolC.insets = SETTINGS_ROW_INSETS;
         grid(protocol, label("protocol"), protocolC, 0, 0, 1, 1);
         grid(protocol, engineProtocolField, protocolC, 1, 0, 2, 1);
         JButton chooseProtocol = button("Choose Protocol", false,
@@ -727,7 +932,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
 
         JPanel limits = settingsGroupPanel();
         GridBagConstraints limitsC = constraints();
-        limitsC.insets = new Insets(3, 0, 3, 0);
+        limitsC.insets = SETTINGS_ROW_INSETS;
         JPanel limitRow = flow(FlowLayout.LEFT);
         limitRow.add(label("nodes"));
         limitRow.add(engineNodesField);
@@ -788,14 +993,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         JComponent tools = scroll(fillViewport(createGameToolsPanel()));
         tools.setPreferredSize(new Dimension(390, 520));
 
-        JSplitPane gamePage = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, createGameHistoryPanel(), tools);
-        gamePage.setBorder(BorderFactory.createEmptyBorder());
-        gamePage.setOpaque(false);
-        gamePage.setContinuousLayout(true);
-        gamePage.setResizeWeight(0.68);
-        gamePage.setDividerSize(8);
-        gamePage.setDividerLocation(0.68);
-        SplitPaneStyler.style(gamePage);
+        JSplitPane gamePage = SplitPaneStyler.styledHorizontalSplit(createGameHistoryPanel(), tools, 0.68);
         return gamePage;
     }
 
@@ -838,7 +1036,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
 
         JPanel importTools = settingsGroupPanel();
         GridBagConstraints importC = constraints();
-        importC.insets = new Insets(3, 0, 3, 0);
+        importC.insets = SETTINGS_ROW_INSETS;
         JScrollPane gameInputScroll = configureGameInputScroll(gameInput);
         gameInput.setText("1. e4 e5 2. Nf3 Nc6");
         grid(importTools, label("input"), importC, 0, 0, 1, 1);
@@ -853,8 +1051,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                 button("New Game", false, event -> startNewGame(currentFen()))), importC, 1, 1, 3, 1);
 
         JComponent exportTools = buttonRow(FlowLayout.LEFT,
-                button("Copy FENs", false, event -> copyText(gameModel.fenList())),
-                button("Add to Batch", false, event -> batchPanel.appendCurrentFen()));
+                button("Copy FENs", false, event -> copyText(gameModel.fenList())));
 
         grid(panel, collapsible("Import", importTools, true), c, 0, 1, 4, 1);
         grid(panel, collapsible("Exports", exportTools, false), c, 0, 2, 4, 1);
@@ -899,6 +1096,38 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
 
         commandForm.setChangeListener(this::updateBuiltCommand);
         commandForm.setRunGate(this::updateCommandRunGate);
+        commandForm.setPositionContext(new application.gui.workbench.command.PositionListEditor.Context() {
+            /**
+             * Returns the current board FEN.
+             *
+             * @return current FEN
+             */
+            @Override
+            public String currentFen() {
+                return WindowBoardLayer.this.currentFen();
+            }
+
+            /**
+             * Shows a command-builder error dialog.
+             *
+             * @param title dialog title
+             * @param message dialog message
+             */
+            @Override
+            public void showError(String title, String message) {
+                WindowBoardLayer.this.showError(title, message);
+            }
+
+            /**
+             * Returns the parent component for modal dialogs.
+             *
+             * @return dialog parent component
+             */
+            @Override
+            public java.awt.Component dialogParent() {
+                return WindowBoardLayer.this;
+            }
+        });
         styleCommandPreviewField(commandField);
         depthModel.addChangeListener(event -> requestCommandPreviews());
         multipvModel.addChangeListener(event -> requestCommandPreviews());
@@ -906,14 +1135,19 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
 
         commandField.setEditable(false);
         commandField.setToolTipText("Generated command");
-        JPanel previewRow = transparentPanel(new BorderLayout(8, 4));
+        // A self-hugging band: BoxLayout would otherwise stretch an unbounded
+        // panel to fill the leftover height, leaving a tall empty preview band.
+        PreviewBand previewRow = new PreviewBand();
         JLabel previewLabel = new JLabel("$");
         previewLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 12));
         Theme.foreground(previewLabel, Theme.ForegroundRole.MUTED);
         previewRow.add(previewLabel, BorderLayout.WEST);
-        JScrollPane commandScroll = scroll(commandField);
+        // The preview row is ELEVATED_SOLID; declare it so the transparent
+        // command field's viewport matches the row instead of a darker box.
+        JScrollPane commandScroll = scroll(commandField, () -> Theme.ELEVATED_SOLID);
         commandScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-        commandScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        // Wrapping is on, so there is never horizontal overflow to scroll.
+        commandScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         previewRow.add(commandScroll, BorderLayout.CENTER);
         previewRow.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE),
@@ -937,15 +1171,17 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         topStack.add(commandForm);
         topStack.add(Box.createVerticalStrut(6));
         topStack.add(previewRow);
+        // Absorb leftover vertical space below the (self-hugging) preview band.
+        topStack.add(Box.createVerticalGlue());
         panel.add(topStack, BorderLayout.CENTER);
 
         runCommandButton = button("Run", true, event -> runSelectedTemplate());
-        panel.add(buttonRow(FlowLayout.LEFT,
+        panel.add(controlRow(FlowLayout.LEFT,
                 runCommandButton,
                 button("Copy", false, event -> copyBuiltCommand()),
                 button("Reset", false, event -> resetSelectedTemplate()),
                 button("Clear Flags", false, event -> clearOptionalTemplateOptions()),
-                button("Stop", false, event -> stopCommand())), BorderLayout.SOUTH);
+                new HoldButton("Stop", this::stopCommand, true)), BorderLayout.SOUTH);
 
         updateCommandOptions();
         updateBuiltCommand();
@@ -961,13 +1197,18 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      */
     private static void styleCommandPreviewField(javax.swing.JTextArea field) {
         field.setOpaque(false);
+        // Survive theme toggles as a transparent preview instead of being
+        // restyled into an opaque bordered input by Theme.area().
+        field.putClientProperty(Theme.CLIENT_TRANSPARENT_FIELD, Boolean.TRUE);
         field.setBorder(BorderFactory.createEmptyBorder());
         field.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
         field.setForeground(Theme.TEXT);
         field.setCaretColor(Theme.MUTED);
         field.setSelectionColor(Theme.SELECTION_SOLID);
         field.setEditable(false);
-        field.setLineWrap(false);
+        // Wrap long commands within the preview width instead of scrolling
+        // sideways; the band caps at five rows and scrolls vertically beyond.
+        field.setLineWrap(true);
         field.setWrapStyleWord(false);
         field.setRows(1);
         field.setColumns(72);
@@ -984,15 +1225,6 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
             runCommandButton.setToolTipText(ready ? null
                     : "Fix the highlighted fields before running");
         }
-    }
-
-    /**
-     * Creates the batch tab.
-     *
-     * @return tab
-     */
-    protected JComponent createBatchTab() {
-        return batchPanel.component();
     }
 
     /**
@@ -1068,12 +1300,21 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
-     * Creates an independent MCTS inspection tab sharing the session.
+     * Creates the live search-tree graph tab.
      *
-     * @return MCTS tab
+     * @return tree tab
      */
-    protected JComponent createDetachedMctsTab() {
-        return createDetachedMctsPanel();
+    protected JComponent createTreeTab() {
+        return treePanel();
+    }
+
+    /**
+     * Creates an independent search-tree graph tab instance.
+     *
+     * @return tree tab
+     */
+    protected JComponent createDetachedTreeTab() {
+        return createDetachedTreePanel();
     }
 
     /**
@@ -1083,21 +1324,55 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      */
     @Override
     protected JComponent createPlayTab() {
-        return playPanel();
+        // Play reads as a real game screen: the shared board on the left, the
+        // setup and in-game controls as a right rail. Play and Analyze share the
+        // one board and the same move funnel / turn-gated input, so a position
+        // carries straight across modes; board wiring lives in
+        // configureBoardForMode. The board is re-parented into this slot when
+        // Play activates.
+        playBoardSlot = boardSlotPanel();
+
+        // Fill the rail like a real game screen: setup/controls on top, the live
+        // move list below — chess.com / lichess show the moves beside the board
+        // during play. The list is a second view on the shared game model, so it
+        // tracks every move with no extra wiring.
+        javax.swing.JTable playMoves = new javax.swing.JTable(gameModel);
+        Theme.table(playMoves, Theme.TABLE_ROW_HEIGHT);
+        playMoves.setAutoResizeMode(javax.swing.JTable.AUTO_RESIZE_LAST_COLUMN);
+        playMoves.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        // The setup form scrolls on its own (it is tall once Advanced/Expert are
+        // open) and the move list scrolls on its own, joined by a resizable
+        // sash — so neither is ever clipped on a short window.
+        JComponent setup = scroll(fillViewport(playPanel()));
+        JComponent moves = titled("Moves", scroll(playMoves));
+        JSplitPane rail = SplitPaneStyler.styledVerticalSplit(setup, moves, 0.62);
+        rail.setPreferredSize(SIDE_RAIL_SIZE);
+
+        JSplitPane playPage = SplitPaneStyler.styledHorizontalSplit(playBoardSlot, rail, 0.68);
+        return playPage;
     }
 
     /**
-     * Creates a Play-vs-engine tab. Play is registered single-instance (no
-     * duplicate factory), so this is not currently reached; it returns the
-     * canonical play panel via the lazy session getter rather than binding a
-     * second panel to the shared session (which would NPE on a null session and
-     * drive the main board). Genuine per-tab Play needs its own session + host.
+     * Creates the tactical-incidence Relations tab: a dedicated read-only board on
+     * the left overlaid with the OTIS relation channels, and the channel/opacity
+     * controls as a right rail — mirroring the Play tab's split. The board shows
+     * the current analysis position (via the Sync control) or a pasted FEN.
      *
-     * @return play tab
+     * @return relations tab
      */
     @Override
-    protected JComponent createDetachedPlayTab() {
-        return playPanel();
+    protected JComponent createRelationsTab() {
+        // Relations overlays the OTIS tactical channels on the SHARED board: the
+        // board is re-parented into this slot and put read-only when Relations
+        // activates (see configureBoardForMode), which also re-syncs the overlay
+        // to the current position. So a position analyzed elsewhere is one click
+        // away from its tactical view, on the same board.
+        relationsBoardSlot = boardSlotPanel();
+        relationsControls =
+                new application.gui.workbench.relations.RelationsPanel(board, () -> currentPosition);
+        JComponent rail = scroll(fillViewport(relationsControls));
+        rail.setPreferredSize(SIDE_RAIL_SIZE);
+        return SplitPaneStyler.styledHorizontalSplit(relationsBoardSlot, rail, 0.68);
     }
 
     /**
@@ -1107,15 +1382,6 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      */
     protected JComponent createPuzzleTab() {
         return puzzlePanel();
-    }
-
-    /**
-     * Creates an independent puzzle trainer tab instance.
-     *
-     * @return puzzle tab
-     */
-    protected JComponent createDetachedPuzzleTab() {
-        return createDetachedPuzzlePanel();
     }
 
     /**
@@ -1151,9 +1417,11 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
-     * Saves the visible console text to a user-chosen log file.
+     * Saves the given console's visible text to a user-chosen log file.
+     *
+     * @param target console whose text to save
      */
-    protected void saveConsoleLog() {
+    protected void saveConsoleLog(application.gui.workbench.command.Console target) {
         JFileChooser chooser = FileDialogs.createFileChooser(null, PathOps.dumpPath("workbench-console.log").toFile(),
     new FileNameExtensionFilter("Log files", "log", "txt"));
         int result = chooser.showSaveDialog(this);
@@ -1161,7 +1429,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
             return;
         }
         File file = FileDialogs.ensureExtension(chooser.getSelectedFile(), ".log");
-        String contents = console.getText();
+        String contents = target.getText();
         runAsync(
                 () -> {
                     Files.writeString(file.toPath(), contents, StandardCharsets.UTF_8);
@@ -1176,25 +1444,59 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
-     * Creates console panel.
+     * Creates the primary console surface (uses the shared console instance and
+     * the shared run-state label).
      *
      * @return panel
      */
     protected JComponent createConsolePanel() {
+        return createConsolePanelInstance(true);
+    }
+
+    /**
+     * Creates an independent duplicate console surface with its own console
+     * instance, wired into the output fan-out via {@link #consoles}.
+     *
+     * @return duplicate console panel
+     */
+    protected JComponent createDetachedConsolePanel() {
+        return createConsolePanelInstance(false);
+    }
+
+    /**
+     * Builds a console surface. The primary surface reuses the shared
+     * {@code console} and {@code commandStateLabel}; a duplicate builds a fresh
+     * console (registered in {@link #consoles}) and its own state label so a
+     * Swing component is never parented twice.
+     *
+     * @param primary true for the canonical console surface
+     * @return console panel
+     */
+    private JComponent createConsolePanelInstance(boolean primary) {
+        Console target = primary ? console : new Console();
+        if (!primary) {
+            consoles.add(target);
+        }
+        JLabel state = primary ? commandStateLabel : new JLabel("Idle");
         JPanel panel = new SurfacePanel(new BorderLayout(6, 6));
         JPanel top = transparentPanel(new BorderLayout());
         top.add(Theme.section("Console"), BorderLayout.WEST);
-        Theme.foreground(commandStateLabel, Theme.ForegroundRole.MUTED);
-        commandStateLabel.setFont(Theme.font(12, Font.PLAIN));
-        commandStateLabel.setBorder(Theme.pad(0, Theme.SPACE_SM));
-        top.add(commandStateLabel, BorderLayout.CENTER);
-        top.add(buttonRow(FlowLayout.RIGHT,
+        Theme.foreground(state, Theme.ForegroundRole.MUTED);
+        state.setFont(Theme.font(12, Font.PLAIN));
+        state.setBorder(Theme.pad(0, Theme.SPACE_SM));
+        top.add(state, BorderLayout.CENTER);
+        top.add(controlRow(FlowLayout.RIGHT,
                 button("Open Logs", false, event -> showLogsDock()),
-                button("Save Log", false, event -> saveConsoleLog()),
-                button("Clear", false, event -> console.clearOutput()),
-                button("Stop", false, event -> stopCommand())), BorderLayout.EAST);
+                button("Save Log", false, event -> saveConsoleLog(target)),
+                new HoldButton("Clear", target::clearOutput, true),
+                new HoldButton("Stop", this::stopCommand, true)), BorderLayout.EAST);
         panel.add(top, BorderLayout.NORTH);
-        panel.add(scroll(console), BorderLayout.CENTER);
+        target.setPlaceholder("Run a command to see its output here.");
+        // The shared console is constructed eagerly (a WindowBase field) before
+        // the theme is applied; a duplicate is built fresh. Either way, apply the
+        // current theme now that it joins the tree so it is never light-on-dark.
+        target.applyConsoleTheme();
+        panel.add(scroll(target), BorderLayout.CENTER);
         return panel;
     }
 
@@ -1208,9 +1510,9 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
-     * Creates an independent persisted-log tab instance.
+     * Creates an independent duplicate logs surface.
      *
-     * @return log tab component
+     * @return duplicate logs component
      */
     protected JComponent createDetachedLogTab() {
         return createLogPanelInstance(false);
@@ -1244,6 +1546,36 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
             logPanel = panel;
         }
         return panel;
+    }
+
+    /**
+     * The generated-command preview band. Caps its own height to its content so
+     * the surrounding {@code BoxLayout} cannot stretch it into a tall empty
+     * band; the command field caps at five rows and scrolls vertically beyond.
+     */
+    private static final class PreviewBand extends JPanel {
+
+        /**
+         * Serialization identifier for Swing panel compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Creates the preview band.
+         */
+        PreviewBand() {
+            super(new BorderLayout(8, 4));
+        }
+
+        /**
+         * Bounds the band's height to its preferred content height.
+         *
+         * @return maximum size hugging the content height
+         */
+        @Override
+        public Dimension getMaximumSize() {
+            return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
+        }
     }
 
 }

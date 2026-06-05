@@ -108,7 +108,7 @@
         <h1 id="use-cases">Use Cases</h1>
 <p>Five very different jobs run on one set of rules here. Analyzing a position, mining tactics, building training tensors, publishing a book, scripting an agent — all of them reach through the same legal move generator, the same make/undo, the same FEN/SAN/UCI/Chess960 layer. Nothing forks its own slightly-wrong notion of a legal move. That is the whole point, and it&#x27;s why the output is reproducible no matter which door you come in through. The page is sorted by who you are: find the persona that fits, take the recipe, follow the links when you want the depth.</p>
 <p><img src="assets/diagrams/crtk-pipeline-overview.png" alt="ChessRTK pipeline overview" loading="lazy"></p>
-<p>Every command reads as <code>crtk &lt;area&gt; &lt;action&gt; [options]</code>, noun then verb, and leans on explicit flags (<code>--fen</code>, <code>--input</code>, <code>--output</code>, <code>--format</code>) rather than positional guesswork — which is what keeps a script stable when you come back to it months later. The <code>fen</code>, <code>move</code>, and <code>position</code> primitives run in-process and ask for no engine at all. The <code>engine</code> area is where Stockfish or LC0 plug in, alongside a built-in MCTS searcher and a forced-mate prover.</p>
+<p>Every command reads as <code>crtk &lt;area&gt; &lt;action&gt; [options]</code>, noun then verb, and leans on explicit flags (<code>--fen</code>, <code>--input</code>, <code>--output</code>, <code>--format</code>) rather than positional guesswork — which is what keeps a script stable when you come back to it months later. The <code>fen</code>, <code>move</code>, and <code>position</code> primitives run in-process and ask for no engine at all. The <code>engine</code> area is where Stockfish or LC0 plug in, alongside a built-in searcher and a forced-mate prover.</p>
 <h2 id="personas-at-a-glance">Personas At A Glance</h2>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -143,7 +143,7 @@
 </tr>
 </tbody></table></div>
 <h2 id="chess-researchers">Chess Researchers</h2>
-<p>Start with the primitives — they tell you what&#x27;s legal, what a move does, what the position is — and reach for search only when you actually need it. The <code>fen</code>, <code>move</code>, and <code>position</code> commands run entirely in-process and need no configured engine, so they answer instantly and identically every time. When you want depth, the <code>engine</code> area adds UCI analysis, the built-in MCTS searcher, and a choice of evaluators: classical/static, NNUE, LC0 CNN, OTIS.</p>
+<p>Start with the primitives — they tell you what&#x27;s legal, what a move does, what the position is — and reach for search only when you actually need it. The <code>fen</code>, <code>move</code>, and <code>position</code> commands run entirely in-process and need no configured engine, so they answer instantly and identically every time. When you want depth, the <code>engine</code> area adds UCI analysis, the built-in searcher, and a choice of evaluators: classical/static, NNUE, LC0 CNN, OTIS.</p>
 <pre><code class="language-bash">crtk fen print --fen &quot;&lt;FEN&gt;&quot;
 crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both
 crtk engine analyze --fen &quot;&lt;FEN&gt;&quot; --multipv 3 --max-duration 5s

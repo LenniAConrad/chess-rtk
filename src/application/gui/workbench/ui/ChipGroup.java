@@ -263,20 +263,21 @@ public final class ChipGroup extends JComponent {
             // VS Code-style segmented input: white field, hairline border,
             // and a pale active option instead of a saturated pill.
             g.setColor(Theme.INPUT);
-            g.fillRoundRect(0, 0, w, h, 3, 3);
+            g.fillRoundRect(0, 0, w, h, Theme.RADIUS, Theme.RADIUS);
             g.setColor(Theme.INPUT_BORDER);
-            g.drawRoundRect(0, 0, w - 1, h - 1, 3, 3);
+            g.drawRoundRect(0, 0, w - 1, h - 1, Theme.RADIUS, Theme.RADIUS);
             for (int i = 1; i < labels.size(); i++) {
                 g.setColor(Theme.LINE);
                 g.drawLine(chipX[i], 4, chipX[i], h - 5);
             }
             // Sliding active option.
+            int innerArc = Math.max(3, Theme.RADIUS - 2);
             g.setColor(Theme.SELECTION_SOLID);
             g.fillRoundRect((int) Math.round(indicatorX) + 2, 2,
-                    (int) Math.round(indicatorW) - 4, h - 4, 3, 3);
+                    (int) Math.round(indicatorW) - 4, h - 4, innerArc, innerArc);
             g.setColor(Theme.ACCENT);
             g.drawRoundRect((int) Math.round(indicatorX) + 2, 2,
-                    (int) Math.round(indicatorW) - 5, h - 5, 3, 3);
+                    (int) Math.round(indicatorW) - 5, h - 5, innerArc, innerArc);
             // Labels.
             g.setFont(Theme.font(12, Font.BOLD));
             FontMetrics fm = g.getFontMetrics();

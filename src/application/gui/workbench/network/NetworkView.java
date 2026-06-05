@@ -3,6 +3,7 @@ package application.gui.workbench.network;
 import application.gui.workbench.ui.HitRegions;
 import application.gui.workbench.ui.InspectorPanel;
 import application.gui.workbench.ui.Theme;
+import application.gui.workbench.ui.Ui;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.Graphics;
@@ -342,12 +343,36 @@ public abstract class NetworkView extends JComponent {
     }
 
     /**
-     * Paints the placeholder shown when there is no snapshot yet.
+     * Paints the placeholder shown when there is no snapshot yet: a centered
+     * loading/empty state, consistent across every network view.
      *
      * @param g graphics
      * @param bounds full component bounds
      */
-    protected abstract void paintEmpty(Graphics2D g, Rectangle bounds);
+    protected void paintEmpty(Graphics2D g, Rectangle bounds) {
+        g.setColor(Theme.BG);
+        g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+        Ui.paintEmptyState(g, bounds, emptyStateTitle(), emptyStateHint());
+    }
+
+    /**
+     * Returns the centered empty-state title; subclasses name their network
+     * kind (e.g. "Loading NNUE snapshot\u2026").
+     *
+     * @return empty-state title
+     */
+    protected String emptyStateTitle() {
+        return "Loading evaluator snapshot\u2026";
+    }
+
+    /**
+     * Returns the one-line hint shown beneath the empty-state title.
+     *
+     * @return empty-state hint
+     */
+    protected String emptyStateHint() {
+        return "Run PUCT or load an evaluator to populate this view.";
+    }
 
     /**
      * Paints the title/header band above the body.

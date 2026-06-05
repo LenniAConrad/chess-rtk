@@ -234,6 +234,9 @@ public final class EditorSplitArea extends JPanel {
             splitButtonHolders[pane].add(overflow);
             splitButtonHolders[pane].add(splitButtons[pane]);
             paneStrip(pane).addComponentListener(new java.awt.event.ComponentAdapter() {
+                /**
+                 * {@inheritDoc}
+                 */
                 @Override
                 public void componentResized(java.awt.event.ComponentEvent event) {
                     updateOverflowButton(paneId);
@@ -283,6 +286,29 @@ public final class EditorSplitArea extends JPanel {
     }
 
     /**
+     * Registers one {@link RegisteredView}. Equivalent to the matching
+     * {@link #addPanel(String, JComponent, Supplier)} call, but lets the shell
+     * drive its whole tab set from a {@link ViewRegistry} of data instead of a
+     * hand-wired sequence of {@code addPanel} calls.
+     *
+     * @param view view to register
+     */
+    public void addView(RegisteredView view) {
+        addPanel(view.title(), view.panel(), view.duplicateFactory());
+    }
+
+    /**
+     * Registers every view in a {@link ViewRegistry}, in order.
+     *
+     * @param registry registry whose views are added
+     */
+    public void addViews(ViewRegistry registry) {
+        for (RegisteredView view : registry.views()) {
+            addView(view);
+        }
+    }
+
+    /**
      * Opens another tab instance for a factory-backed panel.
      *
      * @param index source panel index
@@ -292,9 +318,22 @@ public final class EditorSplitArea extends JPanel {
         if (!validPanel(index) || panelFactories.get(index) == null) {
             return index;
         }
-        Supplier<JComponent> factory = panelFactories.get(index);
-        JComponent panel = factory.get();
-        if (panel == null) {
+        return openInstance(index, panelFactories.get(index).get());
+    }
+
+    /**
+     * Opens an additional tab for a duplicate-capable panel using a caller-built
+     * component instead of the registered factory's output — so the new tab can
+     * open preloaded (e.g. a board already on a chosen position). The new tab
+     * inherits the source tab's base name and duplicate factory, so it is named
+     * and behaves like a normal duplicate and remains selected.
+     *
+     * @param index source panel index whose name and factory the new tab inherits
+     * @param panel pre-built panel to host, or {@code null} to do nothing
+     * @return new panel index, or the source index when it cannot be opened
+     */
+    public int openInstance(int index, JComponent panel) {
+        if (!validPanel(index) || panel == null) {
             return index;
         }
         int copy = names.size();
@@ -302,7 +341,7 @@ public final class EditorSplitArea extends JPanel {
         names.add(nextDuplicateName(baseName));
         baseNames.add(baseName);
         panels.add(panel);
-        panelFactories.add(factory);
+        panelFactories.add(panelFactories.get(index));
         panelThemeModes.add(null);
         int targetPane = paneVisible(activePane) ? activePane : firstVisiblePane();
         open.add(copy);

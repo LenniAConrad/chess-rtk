@@ -49,7 +49,7 @@ These are the commands worth reaching for first, paired with the contract each o
 | Best move, many FENs | `engine bestmove-batch --input <file>` | one JSON object per position (`--jsonl` default) |
 | Analyze, many FENs | `engine analyze-batch --input <file> --multipv <n>` | one JSON object per position (`--jsonl` default) |
 | Compare two engines | `engine compare --left-protocol <a> --right-protocol <b> --json` | rows plus summary as one object |
-| In-process search | `engine builtin --format summary` | bounded built-in MCTS output; no external process |
+| In-process search | `engine builtin --format summary` | bounded built-in search output; no external process |
 | Prove a forced mate | `engine mate --format jsonl` | deterministic mate-prover row |
 | Static evaluation | `engine static`, `engine eval` | one evaluation per position |
 | Position diff | `position diff --fen "<L>" --other "<R>" --json` | changed state fields and board squares |
@@ -66,7 +66,7 @@ These are the commands worth reaching for first, paired with the contract each o
 Cap every automated analysis. The budget flags are consistent across commands, so one agent-side policy covers all of them.
 
 - **External UCI engine** (`engine analyze`, `bestmove`, `bestmove-batch`, `analyze-batch`, `compare`, `threats`): bound it with `--max-nodes` and `--max-duration` (`5s`, `500ms`), and pin `--multipv`, `--threads`, and `--hash` to keep the engine reproducible. Point at a protocol with `--protocol-path` (or `--left-protocol`/`--right-protocol` for `compare`).
-- **Built-in MCTS** (`engine builtin`, alias `engine java`): use `--depth`, `--max-nodes` (alias `--nodes`; `0` lifts the cap), and `--max-duration` (`0` means no time cap). It runs in-process, so `--threads`/`--hash` do not apply. Choose an evaluator with `--evaluator classical|nnue|lc0|otis`.
+- **Built-in search** (`engine builtin`, alias `engine java`): use `--depth`, `--max-nodes` (alias `--nodes`; `0` lifts the cap), and `--max-duration` (`0` means no time cap). It runs in-process; `--threads` is available for alpha-beta Lazy SMP or MCTS workers, while `--hash` is only for external UCI engines. Choose an evaluator with `--evaluator classical|nnue|lc0|otis`.
 - **Forced-mate prover** (`engine mate`): bound it with `--max-mate` (default `4`) and `--max-nodes`. This is brute force, no neural-network evaluation — depth, not heuristics, is what costs you.
 - **Mining / dataset / book** commands: cap volume with `--max-total`, `--max-waves`, `--max-frontier` (`puzzle mine`), `--max-records` (record exports), or `--limit` (`book collection`, `book render`).
 

@@ -182,7 +182,8 @@ public final class SvgIcon implements Icon {
             case "Add Current FEN", "Add FEN", "Add to Batch", "New Game", "Sample" -> Kind.PLUS;
             case "Publish", "Browse", "Load File", "Open PGN", "PGN Explorer", "Save PGN", "Save Report",
                     "Choose Input", "Choose Output", "Choose PDF", "Choose Cover", "Choose Manifest",
-                    "Choose Protocol", "Open Folder", "Open Selected" ->
+                    "Choose Protocol", "Open Folder", "Open Selected",
+                    "Export", "Export PNG", "Export SVG" ->
                     Kind.FILE;
             default -> null;
         };

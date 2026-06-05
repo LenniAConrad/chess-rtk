@@ -45,6 +45,23 @@ final class Networks {
     }
 
     /**
+     * Returns whether a network can actually be used, i.e. its weights file is
+     * present. The weightless Classical network is always available; the neural
+     * networks require their weights on disk. Lets the UI fall back to Classical
+     * (and warn) instead of silently degrading when a model file is missing.
+     *
+     * @param network selected network
+     * @return true when the network is usable
+     */
+    static boolean isAvailable(Network network) {
+        if (network == Network.CLASSICAL) {
+            return true;
+        }
+        Path path = weightsPath(network);
+        return path != null && java.nio.file.Files.isRegularFile(path);
+    }
+
+    /**
      * Builds a static evaluator for the alpha-beta search, falling back to the
      * classical evaluator when a neural network cannot be loaded so the opponent
      * is always usable.

@@ -20,6 +20,21 @@ public final class BoardStyle {
     public static final int BORDER_WIDTH = 2;
 
     /**
+     * Suggested-move arrow opacity, matching chessboard-arrows' canvas
+     * transparency. Shared by the live painter and the raster/SVG exporters so
+     * the arrow looks identical on screen and on export.
+     */
+    public static final int BOARD_ARROW_OPACITY = 204;
+
+    /**
+     * Distance, as a fraction of one square, that board arrows are pulled inward
+     * from each piece centre so they keep a clear gap instead of touching the
+     * start and target pieces (a quarter square, matching the legacy renderer).
+     * Shared by the live painter and the raster/SVG exporters.
+     */
+    public static final double ARROW_PIECE_GAP_FRACTION = 0.25;
+
+    /**
      * Prevents instantiation.
      */
     private BoardStyle() {
@@ -96,16 +111,24 @@ public final class BoardStyle {
      * @param drawBorder true to draw the board edge inside the rectangle
      */
     public static void drawBoardSurface(Graphics2D g, Rectangle board, boolean drawBorder) {
-        for (int row = 0; row < 8; row++) {
-            for (int col = 0; col < 8; col++) {
-                Rectangle cell = cellBounds(board, row, col);
-                g.setColor(squareColor(row, col));
-                g.fillRect(cell.x, cell.y, cell.width, cell.height);
+        Color savedColor = g.getColor();
+        Stroke savedStroke = g.getStroke();
+        try {
+            for (int row = 0; row < 8; row++) {
+                for (int col = 0; col < 8; col++) {
+                    Rectangle cell = cellBounds(board, row, col);
+                    g.setColor(squareColor(row, col));
+                    g.fillRect(cell.x, cell.y, cell.width, cell.height);
+                }
             }
-        }
-        if (drawBorder) {
-            g.setColor(Theme.BOARD_EDGE);
-            g.drawRect(board.x, board.y, board.width - 1, board.height - 1);
+            if (drawBorder) {
+                g.setStroke(new BasicStroke(1f));
+                g.setColor(Theme.BOARD_EDGE);
+                g.drawRect(board.x, board.y, board.width - 1, board.height - 1);
+            }
+        } finally {
+            g.setStroke(savedStroke);
+            g.setColor(savedColor);
         }
     }
 

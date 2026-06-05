@@ -9,6 +9,8 @@ import java.nio.file.Path;
 import java.util.List;
 
 import chess.core.Position;
+import chess.eval.Evaluator;
+import chess.nn.otis.Model;
 
 /**
  * Regression checks for lightweight CLI command routing and formatting.
@@ -95,10 +97,12 @@ public final class CLICommandRegressionTest {
 	 * @param args unused command-line arguments
 	 */
 	public static void main(String[] args) {
+		System.setProperty(Evaluator.LC0_DISABLED_PROPERTY, "true");
 		testChess960Lookup();
 		testChess960AllLayouts();
 		testFenHelpers();
 		testFenRenderSvgAccent();
+		testFenRelations();
 		testFilteredFenGenerationShortcut();
 		testFenGenerateFilterValidation();
 		testFenTagsLegalMoveTactics();
@@ -116,6 +120,7 @@ public final class CLICommandRegressionTest {
 		testHighValueResearchCommands();
 		testPositionDescribeClassicalGoldenOutput();
 		testPositionDescribeJsonlAndT5Failure();
+		testPositionDescribeEngineEval();
 		testHelpListsNewCommands();
 		testContextualHelpForms();
 		System.out.println("CLICommandRegressionTest: all checks passed");
@@ -247,6 +252,72 @@ public final class CLICommandRegressionTest {
 			assertFalse(svg.contains("fill=\"#cccccc\""), "accent SVG omits default dark square fill");
 		} catch (IOException ex) {
 			throw new AssertionError("fen render SVG accent test failed", ex);
+		}
+	}
+
+	/**
+	 * Verifies {@code fen relations} renders the OTIS tactical-incidence channels
+	 * deterministically (svg arrows, montage png) and that the underlying weightless
+	 * incidence builder is stable.
+	 */
+	private static void testFenRelations() {
+		try {
+			// The knight-attack channel from the start position is deterministic:
+			// four knights, three on-board jumps each, 12 directed edges.
+			Path svg = PathOps.createLocalTempFile("crtk-relations-", ".svg");
+			String stdout = TestSupport.runMain("fen", "relations", "--startpos",
+					"--channel", "knight_attack", "--output", svg.toString());
+			assertTrue(stdout.contains("12 edges"), "knight_attack channel has 12 edges from the start");
+			assertTrue(Files.readString(svg).contains("<polygon"), "relations svg draws arrow polygons");
+
+			// No absolute pins exist in the start position.
+			Path pin = PathOps.createLocalTempFile("crtk-relations-pin-", ".svg");
+			String pinOut = TestSupport.runMain("fen", "relations", "--startpos",
+					"--channel", "king_ray_pin_candidate", "--output", pin.toString());
+			assertTrue(pinOut.contains("0 edges"), "no pin candidates in the start position");
+
+			// The montage writes a non-empty raster.
+			Path montage = PathOps.createLocalTempFile("crtk-relations-montage-", ".png");
+			String montageOut = TestSupport.runMain("fen", "relations", "--startpos",
+					"--montage", "--output", montage.toString());
+			assertTrue(montageOut.contains("Saved relation montage"), "montage reports output");
+			assertTrue(Files.size(montage) > 0L, "montage png is non-empty");
+
+			// Shared fen-render features apply: accent, drop shadow, coordinates,
+			// comma-separated manual arrows/circles, special arrows.
+			Path styled = PathOps.createLocalTempFile("crtk-relations-styled-", ".png");
+			String styledOut = TestSupport.runMain("fen", "relations", "--startpos",
+					"--channel", "knight_attack", "--accent", "#b58863", "--drop-shadow",
+					"--coordinates-outside", "--arrows", "e2e4,d2d4", "--circles", "e4,d5",
+					"--special-arrows", "--output", styled.toString());
+			assertTrue(styledOut.contains("Saved relation graph"), "styled render reports output");
+			assertTrue(Files.size(styled) > 0L, "styled relation png is non-empty");
+
+			// The shared overlay path now splits comma lists for fen render too.
+			Path renderArrows = PathOps.createLocalTempFile("crtk-render-arrows-", ".png");
+			String renderOut = TestSupport.runMain("fen", "render", "--startpos",
+					"--arrows", "e2e4,d2d4", "--output", renderArrows.toString());
+			assertTrue(renderOut.contains("Saved board image"), "fen render accepts comma-separated arrows");
+
+			// The builder is weightless, deterministic, and matches the network input.
+			Position start = new Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+			long knightEdges = Model.incidenceEdges(start).stream().filter(e -> e.channel() == 9).count();
+			assertEquals(12, (int) knightEdges, "Model.incidenceEdges knight_attack count");
+			long pinEdges = Model.incidenceEdges(start).stream().filter(e -> e.channel() == 11).count();
+			assertEquals(0, (int) pinEdges, "Model.incidenceEdges pin count from start");
+
+			// The pawn channel is forward-oriented: the white e2 pawn (index 52)
+			// attacks d3/f3 (indices 43/45), NOT the backward d1/f1 (59/61). The Java
+			// encoder and the native GPU encoder share this; OtisBackendRegressionTest
+			// guards their parity.
+			long e2Forward = Model.incidenceEdges(start).stream()
+					.filter(e -> e.channel() == 10 && e.from() == 52 && (e.to() == 43 || e.to() == 45)).count();
+			long e2Backward = Model.incidenceEdges(start).stream()
+					.filter(e -> e.channel() == 10 && e.from() == 52 && (e.to() == 59 || e.to() == 61)).count();
+			assertEquals(2, (int) e2Forward, "white e2 pawn attacks forward (d3/f3)");
+			assertEquals(0, (int) e2Backward, "white e2 pawn does not attack backward (d1/f1)");
+		} catch (IOException ex) {
+			throw new AssertionError("fen relations test failed", ex);
 		}
 	}
 
@@ -707,23 +778,22 @@ public final class CLICommandRegressionTest {
 	 */
 	private static void testPositionDescribeClassicalGoldenOutput() {
 		assertEquals(
-				"White to move in an opening position with equal material and 20 legal moves.",
+				"White is to move in the opening, with the material level and little to choose between the two sides.",
 				TestSupport.runMain("position", "describe", FEN_OPTION, START_FEN, "--detail", "brief").strip(),
 				"position describe brief golden");
 		assertEquals(
-				"White to move in an opening position; status is normal. Material is equal material "
-						+ "(White Q1 R2 B2 N2 P8, Black Q1 R2 B2 N2 P8). Legal moves: 20 legal moves, "
-						+ "no forcing moves. Classical static evaluation is +8 cp for White. "
-						+ "Candidate moves: Nc3 (develops a minor piece), Nf3 (develops a minor piece), "
-						+ "d4 (takes central space).",
+				"White is to move in the opening, and the position is dead level. The static evaluation of "
+						+ "+0.1 for White and a WDL of 244/529/227 amount to next to nothing; this is as balanced "
+						+ "as a position gets. The natural course is to develop with Nc3, with Nf3 and d4 as "
+						+ "alternatives.",
 				TestSupport.runMain("position", "describe", FEN_OPTION, START_FEN, "--detail", "normal").strip(),
 				"position describe normal golden");
 		assertEquals(
-				"Side and phase: white to move, endgame, insufficient material. Material: equal material; "
-						+ "White Q0 R0 B0 N0 P0; Black Q0 R0 B0 N0 P0. Mobility: Legal moves: 3 legal moves, "
-						+ "no forcing moves. Evaluation: +8 cp for White from classical-static, with WDL 0/1000/0. "
-						+ "Tactics: no immediate forcing threats. Candidate moves: Kb2 (improves a piece), "
-						+ "Ka2 (improves a piece). Source signals: 32 cheap tags, FEN " + SIMPLE_FEN + ".",
+				"White is to move in a bare king-and-king endgame. The material is level and, with too little "
+						+ "left to force a checkmate, the result is not in doubt. The evaluation reads a nominal "
+						+ "+0.1 for White, but the WDL of 0/1000/0 tells the true story: a dead draw in which "
+						+ "neither side can make progress. The king can only shuffle - Kb2, Ka2 and Kb1 - and "
+						+ "none of it matters. The point has long since been split.",
 				TestSupport.runMain("position", "describe", FEN_OPTION, SIMPLE_FEN, "--detail", "full",
 						"--budget", "2").strip(),
 				"position describe full golden");
@@ -753,9 +823,9 @@ public final class CLICommandRegressionTest {
 					"position describe training-jsonl schema");
 			assertTrue(trainingLines[0].contains("\"prompt\":\"describe_position detail=brief max_new=64\\nfeatures:"),
 					"position describe training-jsonl prompt");
-			assertTrue(trainingLines[0].contains("\"target\":\"White to move in an opening position"),
+			assertTrue(trainingLines[0].contains("\"target\":\"White is to move in the opening"),
 					"position describe training-jsonl target");
-			assertTrue(trainingLines[0].contains("\"classical_text\":\"White to move in an opening position"),
+			assertTrue(trainingLines[0].contains("\"classical_text\":\"White is to move in the opening"),
 					"position describe training-jsonl classical text");
 			assertTrue(trainingLines[0].contains("\"input\":"), "position describe training-jsonl input");
 			assertTrue(trainingLines[0].contains("\"candidate_budget\":2"),
@@ -766,7 +836,7 @@ public final class CLICommandRegressionTest {
 			Path output = PathOps.createLocalTempFile("crtk-position-describe-output-", ".txt");
 			assertEquals("", TestSupport.runMain("position", "describe", FEN_OPTION, SIMPLE_FEN,
 					"--output", output.toString()), "position describe --output stdout");
-			assertTrue(Files.readString(output).contains("White to move in an endgame position"),
+			assertTrue(Files.readString(output).contains("bare king-and-king endgame"),
 					"position describe writes output file");
 		} catch (IOException ex) {
 			throw new AssertionError("position describe temp file failed", ex);
@@ -777,6 +847,43 @@ public final class CLICommandRegressionTest {
 		assertEquals(2, t5.exitCode(), "position describe t5 unavailable exit code");
 		assertTrue(t5.stderr().contains("T5 position-description generation is unavailable"),
 				"position describe t5 unavailable message");
+	}
+
+	/**
+	 * Verifies the opt-in engine evaluation corrects a false static verdict, stays
+	 * deterministic, reports forced mate, and rejects a bad source value.
+	 */
+	private static void testPositionDescribeEngineEval() {
+		// White is in check and a queen down on the static count, but Nxe5 captures
+		// the checking queen and wins: a real search must flip the verdict.
+		String tactic = "4k3/p7/8/4q3/8/5N2/P7/4K3 w - - 0 1";
+		String staticText = TestSupport.runMain("position", "describe", FEN_OPTION, tactic, "--detail", "normal")
+				.strip();
+		assertTrue(staticText.contains("Black is winning"), "position describe static misjudges tactic");
+		String engineText = TestSupport.runMain("position", "describe", FEN_OPTION, tactic, "--detail", "normal",
+				"--eval", "engine", "--eval-depth", "8").strip();
+		// The search flips the verdict to White's favor (clearly better or winning).
+		assertTrue(engineText.contains("White is clearly better") || engineText.contains("White is winning"),
+				"position describe engine corrects verdict");
+		assertTrue(!engineText.contains("Black is winning"), "position describe engine drops false verdict");
+		assertTrue(engineText.contains("engine evaluation"), "position describe engine eval label");
+		String engineRepeat = TestSupport.runMain("position", "describe", FEN_OPTION, tactic, "--detail", "normal",
+				"--eval", "engine", "--eval-depth", "8").strip();
+		assertEquals(engineText, engineRepeat, "position describe engine eval is deterministic");
+
+		// A mate in one is reported as a forced mate, and --eval-depth implies engine.
+		String mateFen = "6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1";
+		String mateText = TestSupport.runMain("position", "describe", FEN_OPTION, mateFen, "--detail", "brief",
+				"--eval-depth", "6").strip();
+		assertTrue(mateText.contains("forced mate in one"), "position describe engine forced mate");
+		String mateJson = TestSupport.runMain("position", "describe", FEN_OPTION, mateFen, "--json",
+				"--eval", "engine", "--eval-depth", "6");
+		assertTrue(mateJson.contains("\"source\":\"engine-d"), "position describe engine eval json source");
+		assertTrue(mateJson.contains("\"mate_in\":1"), "position describe engine eval json mate field");
+
+		FailureResult bad = TestSupport.runMainExpectFailure("position", "describe", FEN_OPTION, tactic,
+				"--eval", "bogus");
+		assertEquals(2, bad.exitCode(), "position describe bad eval source exit code");
 	}
 
 	/**
@@ -869,6 +976,8 @@ public final class CLICommandRegressionTest {
 		String engineBuiltin = TestSupport.runMain("help", ENGINE_COMMAND, "builtin");
 		assertTrue(engineBuiltin.contains("--startpos"), "help engine builtin startpos option");
 		assertTrue(engineBuiltin.contains("--randompos"), "help engine builtin randompos option");
+		assertTrue(engineBuiltin.contains("--search alpha-beta|mcts"), "help engine builtin search option");
+		assertTrue(engineBuiltin.contains("--threads N"), "help engine builtin threads option");
 
 		String engineEval = TestSupport.runMain("help", ENGINE_COMMAND, "eval");
 		assertTrue(engineEval.contains("--startpos"), "help engine eval startpos option");

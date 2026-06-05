@@ -676,7 +676,9 @@ static void add_ray_relations(std::vector<float>& masks, const int* board, const
 
 static void add_pawn_relations(std::vector<float>& masks, const int* board, const bool* nearOwnKing,
         const bool* nearThemKing, int from, int piece, bool own) {
-    int direction = is_white(piece) ? 1 : -1;
+    // Forward advance DECREASES the internal rank for White (rank 0 = the 8th
+    // rank), matching Model.java addPawnRelations for CPU/GPU parity.
+    int direction = is_white(piece) ? -1 : 1;
     int rank = from >> 3;
     int file = from & 7;
     const int offsets[2] = {-1, 1};

@@ -271,6 +271,7 @@ Everything that begins with a FEN lives here: validation, normalization, generat
 | `fen print` | Pretty-print a position as ASCII |
 | `fen display` | Render a position in a window |
 | `fen render` | Save a position image to disk |
+| `fen relations` | Render the OTIS tactical-incidence relation channels as typed arrows |
 | `fen tags` | Generate tags for FENs, PGNs, or variations |
 | `fen text` | Summarize position tags with T5 |
 
@@ -408,7 +409,7 @@ Render a board image in a window, with optional overlays and theming.
 | `--special-arrows` | Draw special (castle/en-passant) arrow overlays |
 | `--circle`/`--circles SQUARES` | Draw circle overlays |
 | `--legal SQUARE` | Overlay legal move dots from a square |
-| `--details-inside` / `--details-outside` | Show eval details inside / outside the board |
+| `--coordinates` / `--coordinates-outside` | Draw file/rank labels inside the border / in an outer margin (aliases: `--details-inside` / `--details-outside`) |
 | `--ablation` | Overlay evaluator ablation heatmap |
 
 ```bash
@@ -438,11 +439,82 @@ Save a board image to disk (PNG/JPG/BMP/SVG). Shares most overlay and theming op
 | `--special-arrows` | Draw special arrow overlays |
 | `--circle`/`--circles SQUARES` | Draw circle overlays |
 | `--legal SQUARE` | Overlay legal move dots from a square |
-| `--details-inside` / `--details-outside` | Show eval details inside / outside the board |
+| `--coordinates` / `--coordinates-outside` | Draw file/rank labels inside the border / in an outer margin (aliases: `--details-inside` / `--details-outside`) |
 | `--ablation` | Overlay evaluator ablation heatmap |
 
 ```bash
 crtk fen render --fen "<FEN>" --output board.svg --size 800 --accent "#4ab66f"
+```
+
+### fen relations
+
+Render the position as a *tactical-incidence graph*: typed, colour-coded arrows for each of the twelve relation channels the OTIS (oriented tactical-sheaf) network ingests. The edges come straight from the network's incidence builder, so the picture matches the model's input — and they are computed deterministically from the position alone, with no engine evaluation or model file.
+
+![ChessRTK tactical-incidence relations: knight attacks, queen rays, and a pin, rendered by crtk](../assets/boards/crtk-relations.svg)
+
+*Knight attacks (yellow), occlusion-aware queen rays (blue), and the absolute pin `Bc4 → f7` against the castled king (coral), drawn with `fen relations`.*
+
+The twelve channels (`--channel`/`--channels` accept the name, an index `0..11`, or `all`):
+
+| # | Channel | Edges |
+| --- | --- | --- |
+| 0 | `us_attacks_them_piece` | side-to-move pieces attacking enemy pieces |
+| 1 | `them_attacks_us_piece` | enemy pieces attacking ours |
+| 2 | `us_defends_us_piece` | our pieces defending ours |
+| 3 | `them_defends_them_piece` | enemy pieces defending theirs |
+| 4 | `us_attacks_empty_near_king` | our pressure on empty squares in the enemy king zone |
+| 5 | `them_attacks_empty_near_king` | enemy pressure on our king zone |
+| 6 | `bishop_ray_visible` | visible bishop rays (stop at the first blocker) |
+| 7 | `rook_ray_visible` | visible rook rays |
+| 8 | `queen_ray_visible` | visible queen rays |
+| 9 | `knight_attack` | knight attacks |
+| 10 | `pawn_attack_forward_oriented` | pawn attacks (side-to-move oriented) |
+| 11 | `king_ray_pin_candidate` | absolute-pin lines (pinner → pinned) |
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | FEN to render (or pass positionally) |
+| `--startpos` / `--randompos` | Use the standard start / a random legal position |
+| `--output`/`-o PATH` | Output image/SVG path (required) |
+| `--format FORMAT` | `png`, `jpg`, `bmp`, or `svg` (default: from extension, else `png`) |
+| `--channel NAME` / `--channels LIST` | One channel, a comma/space list, or `all` (default: all) |
+| `--montage` | One small labelled board per channel in a grid (raster only) |
+| `--legend` | Draw a per-channel colour legend (raster only) |
+| `--no-pieces` | Graph-only view, without the pieces |
+| `--scramble` / `--seed N` | Degree-preserving edge randomization (the falsifier visual) |
+| `--accent HEX` | Tint the board squares/grid/frame (e.g. `#4ab66f`), as in `fen render` |
+| `--coordinates` | Draw file/rank coordinate labels (a–h, 1–8) |
+| `--color CH=#HEX` | Override a channel's arrow colour (repeatable; `;`-separated also works) |
+| `--opacity F` | Arrow fill opacity `0..1` (default `0.42`; the border is drawn more opaque) |
+| `--stroke W` | Arrow line width (default `3`) |
+| `--coordinates` / `--coordinates-outside` | Coordinate labels inside the board / in an outer margin |
+| `--no-border` | Hide the outer frame |
+| `--drop-shadow` / `--shadow` | Add a drop shadow (raster only) |
+| `--arrow`/`--arrows MOVES` | Extra manual arrows (e.g. `e2e4,d2d4`) over the graph |
+| `--circle`/`--circles SQUARES` | Circle overlays (e.g. `e4,d5`) |
+| `--legal SQUARE` | Overlay legal-move dots from a square |
+| `--special-arrows` | Draw castling / en-passant hint arrows |
+| `--flip` / `--black-down` | Render from Black's perspective / Black at the bottom |
+| `--size N` / `--width N` / `--height N` | Board size / image width / height (pixels) |
+
+It shares the board theming and overlay options with `fen render` (accent, border, coordinates, shadow, arrows, circles, legal dots).
+
+> Every channel is exactly the network's input — the figure is built from the same `relationMasks` the OTIS network ingests, with no display-only adjustments. (The `pawn_attack_forward_oriented` channel points forward, as the name says; this is enforced identically in the Java and native GPU encoders.)
+
+```bash
+# All twelve channels as a labelled small-multiples montage.
+crtk fen relations --startpos --montage --output relations.png
+
+# A single channel as a clean vector figure.
+crtk fen relations --fen "<FEN>" --channel knight_attack --no-pieces --output knights.svg
+
+# A couple of channels with a legend.
+crtk fen relations --fen "<FEN>" --channels "0,1" --legend --output attacks.png
+
+# Recolour a channel, tint the board, show coordinates, thinner arrows.
+crtk fen relations --fen "<FEN>" --channel knight_attack \
+  --color "knight_attack=#ff2ec4" --accent "#4ab66f" --coordinates \
+  --opacity 0.55 --stroke 2 --output knights.png
 ```
 
 ### fen tags
@@ -645,8 +717,8 @@ The biggest area, and it covers three different things wearing one noun: externa
 | `engine bestmove-batch` | Find best moves for FEN batches as JSONL |
 | `engine compare` | Compare best moves from two UCI protocols |
 | `engine threats` | Analyze opponent threats via a null move |
-| `engine builtin` | Search with the built-in MCTS engine |
-| `engine java` | Run the same built-in MCTS engine |
+| `engine builtin` | Search with the built-in engine |
+| `engine java` | Run the same built-in engine |
 | `engine mate` | Brute-force prove a forced mate without NN evaluation |
 | `engine eval` | Evaluate a position with LC0, OTIS, or classical |
 | `engine static` | Evaluate a position with the classical backend |
@@ -790,7 +862,7 @@ crtk engine threats --fen "<FEN>" --max-duration 3s
 
 ### engine builtin
 
-Search a position with ChessRTK's in-house MCTS engine (`engine java` is the same code under a friendlier name). It runs in-process, which makes it the right choice for deterministic local search, smoke tests, and any automation that shouldn't fork a UCI engine. Search is single-threaded behind an internal transposition table and static-eval cache; `--threads` and `--hash` are UCI options and have no effect here.
+Search a position with ChessRTK's in-house engine (`engine java` is the same code under a friendlier name). It runs in-process, which makes it the right choice for deterministic local search, smoke tests, and any automation that shouldn't fork a UCI engine. Classical and NNUE default to iterative alpha-beta search; LC0 and OTIS default to MCTS so their policy priors are used. Search is single-threaded by default for reproducibility; pass `--threads N` when you want alpha-beta Lazy SMP or MCTS workers.
 
 | Option | Description |
 | --- | --- |
@@ -798,15 +870,28 @@ Search a position with ChessRTK's in-house MCTS engine (`engine java` is the sam
 | `--startpos` / `--randompos` | Use the standard start / a random legal position |
 | `--input`/`-i PATH` | Input FEN file |
 | `--uci` | Run the minimal built-in UCI loop instead of searching one FEN |
+| `--search MODE` | Search algorithm (`alpha-beta` or `mcts`); default is alpha-beta for classical/NNUE and MCTS for LC0/OTIS |
 | `--evaluator KIND` | `classical` (default), `nnue`, `lc0`, or `otis` |
 | `--classical` / `--nnue` / `--lc0` / `--otis` | Shortcut evaluator selectors |
 | `--weights PATH` | NNUE, LC0, or OTIS weights path |
-| `--depth`/`-d N` | Search depth hint (default `3`) |
-| `--max-nodes`/`--nodes N` | MCTS playout budget; `0` disables the node cap |
+| `--depth`/`-d N` | Search target; default `8` for alpha-beta and `3` for MCTS |
+| `--max-nodes`/`--nodes N` | Search node/playout budget; `0` disables the node cap |
 | `--max-duration D` | Time budget (e.g. `5s`); `0` means no time cap |
+| `--threads N` | Worker threads for alpha-beta Lazy SMP or MCTS (default `1`) |
 | `--format FORMAT` | `uci-info` (default), `uci`, `san`, `both`, or `summary` |
 
-Budget defaults: with no `--depth`, the playout budget defaults to roughly `250000` nodes and `5s`. With explicit `--depth` and no time budget, the effective budget is `depth * 1024` (minimum `256`) and time is unlimited. Evaluators: `classical` is handcrafted (no model); `nnue` uses `models/crtk-halfkp.nnue` by default; `lc0` uses the configured LC0 CNN model; `otis` uses `models/otis_policy_wdl_random.bin` by default.
+Budget defaults: with no explicit budget, alpha-beta targets depth `8` and MCTS targets depth `3`, both under the default `250000` node/playout and `5s` caps. With explicit alpha-beta `--depth` and no node/time budget, the search runs until that depth completes. With explicit MCTS `--depth` and no node/time budget, the effective playout budget is `depth * 1024` (minimum `256`). Evaluators: `classical` is handcrafted (no model); `nnue` uses `models/crtk-halfkp.nnue` by default; `lc0` uses the configured LC0 CNN model; `otis` uses `models/otis_policy_wdl_random.bin` by default.
+
+Alpha-beta also checks exact root tactics before ordinary heuristic search:
+mate-in-one is tested directly, and forcing roots (check evasions or roots with
+checking moves) get the bounded default mate-in-four proof search. Proven lines
+return mate scores and `nodes: 0` because no alpha-beta nodes were spent.
+Its quiescence horizon also checks mate-in-one before standing pat or searching
+captures, so one-ply mate threats just past the requested depth remain exact.
+The deterministic root fallback uses the same guard when a tiny budget stops
+before depth one completes.
+The first quiescence ply also includes quiet checking moves; deeper quiescence
+remains capture/promotion-only unless the side to move is already in check.
 
 ```bash
 crtk engine builtin --fen "<FEN>" --depth 8 --max-duration 2s --format summary
@@ -815,7 +900,7 @@ crtk engine builtin --lc0 --weights models/leela.bin --fen "<FEN>"
 
 ### engine java
 
-The same built-in MCTS engine as `engine builtin`, same options. It exists because "java" is the name people reach for when they want the in-house engine.
+The same built-in engine as `engine builtin`, same options. It exists because "java" is the name people reach for when they want the in-house engine.
 
 ```bash
 crtk engine java --startpos --format summary

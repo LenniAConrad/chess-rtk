@@ -4,13 +4,11 @@ import static testing.WorkbenchTestSupport.*;
 
 import java.awt.Component;
 import java.lang.reflect.Proxy;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JComponent;
-import javax.swing.JTextArea;
 import javax.swing.JTextField;
 
 import application.cli.CliCommand;
@@ -47,15 +45,15 @@ final class WorkbenchCommandRegression {
         testCommandFormPreservesManualDynamicDepth();
         testEngineTemplateContextFeedsExternalConfigOptions();
         testEngineBatchTasksUseExternalConfigOptions();
-        testBatchPanelStartsWithEmptyInputAndSharedDuration();
-        testBatchPanelRejectsEmptyCliScriptRows();
+        testPositionListEditorStartsEmpty();
+        testPositionListEditorRejectsEmptyCliScriptRows();
         testCommandTemplatesHaveCompactTabLabels();
         testCommandControllerCoversCliRegistry();
         testBatchRunnerOffersCliScriptForAllCliCommands();
         testRunArtifactsDesktopOpenHandlesRuntimeFailures();
         testCommandLineTokenizerPreservesQuotedArguments();
         testCommandPreviewQuoting();
-        testCommandPreviewHeightCapsAtFourRows();
+        testCommandPreviewHeightCapsAtFiveRows();
         testPublishingPreviewFenCompaction();
         testPublishingVisualPreviewPages();
         testPublishingVisualPreviewPaintsTaskLayouts();
@@ -303,103 +301,72 @@ final class WorkbenchCommandRegression {
     }
 
     /**
-     * Verifies batch engine workflows inherit external-engine settings.
+     * Verifies the merged "Analyze batch" Build template emits the external-engine
+     * flags when the shared context supplies their values.
      */
     private static void testEngineBatchTasksUseExternalConfigOptions() {
-        Object task = batchTask("Analyze batch");
-        List<String> args = stringList(invoke(task, "build",
-                new Class<?>[] { java.nio.file.Path.class, type("CommandTemplates$TemplateContext") },
-                java.nio.file.Path.of("positions.txt"),
+        JComponent form = (JComponent) construct(type("CommandForm"), new Class<?>[0]);
+        invoke(form, "setTemplate",
+                new Class<?>[] { type("CommandTemplates$CommandTemplate"),
+                        type("CommandTemplates$TemplateContext") },
+                template("Analyze batch"),
                 templateContext(START_FEN, "4s", "5", "3", "6",
-                        "config/default.engine.toml", "900", "128")));
+                        "config/default.engine.toml", "900", "128"));
+        List<String> args = stringList(invoke(form, "args", new Class<?>[0]));
 
         assertTrue(hasFlag(args, "--protocol-path"), "batch protocol flag");
         assertTrue(hasFlag(args, "--max-nodes"), "batch nodes flag");
         assertTrue(hasFlag(args, "--threads"), "batch threads flag");
         assertTrue(hasFlag(args, "--hash"), "batch hash flag");
         assertTrue(hasFlag(args, "--jsonl"), "batch jsonl flag");
+        assertTrue((Boolean) invoke(template("Analyze batch"), "usesPositionList", new Class<?>[0]),
+                "analyze batch reveals the position list");
     }
 
     /**
-     * Verifies batch workflows do not start with demo FENs hidden in the input
-     * and inherit the shared interactive duration default.
+     * Verifies the merged position-list editor starts empty (no demo FENs).
      */
-    private static void testBatchPanelStartsWithEmptyInputAndSharedDuration() {
-        Class<?> hostType = type("BatchPanel$Host");
-        Object host = Proxy.newProxyInstance(WorkbenchRegressionTest.class.getClassLoader(),
-                new Class<?>[] { hostType }, (proxy, method, args) -> {
-                    switch (method.getName()) {
-                        case "currentFen":
-                            return START_FEN;
-                        case "templateContext":
-                            return templateContext(START_FEN, "1s", "4", "2", "1");
-                        default:
-                            return null;
-                    }
-                });
-        Object panel = construct(type("BatchPanel"),
-                new Class<?>[] {
-                        hostType,
-                        javax.swing.SpinnerNumberModel.class,
-                        javax.swing.SpinnerNumberModel.class,
-                        javax.swing.SpinnerNumberModel.class
-                },
-                host,
-                new javax.swing.SpinnerNumberModel(4, 1, 99, 1),
-                new javax.swing.SpinnerNumberModel(2, 1, 20, 1),
-                new javax.swing.SpinnerNumberModel(1, 1, 256, 1));
-
-        JTextArea input = (JTextArea) field(panel, "batchInput");
-        JTextField duration = (JTextField) field(panel, "batchDurationField");
-        assertEquals("", input.getText(), "batch FEN input starts empty");
-        assertEquals("1s", duration.getText(), "batch duration uses shared default");
+    private static void testPositionListEditorStartsEmpty() {
+        Object editor = construct(type("PositionListEditor"),
+                new Class<?>[] { type("PositionListEditor$Context") }, positionListContext());
+        assertEquals("", invoke(editor, "text", new Class<?>[0]), "position list starts empty");
     }
 
     /**
      * Verifies command-script validation rejects launcher-only rows before the
      * runner creates a child process.
      */
-    private static void testBatchPanelRejectsEmptyCliScriptRows() {
-        Class<?> hostType = type("BatchPanel$Host");
-        Object host = Proxy.newProxyInstance(WorkbenchRegressionTest.class.getClassLoader(),
-                new Class<?>[] { hostType }, (proxy, method, args) -> {
-                    switch (method.getName()) {
-                        case "currentFen":
-                            return START_FEN;
-                        case "templateContext":
-                            return templateContext(START_FEN, "1s", "4", "2", "1");
-                        default:
-                            return null;
-                    }
-                });
-        Object panel = construct(type("BatchPanel"),
-                new Class<?>[] {
-                        hostType,
-                        javax.swing.SpinnerNumberModel.class,
-                        javax.swing.SpinnerNumberModel.class,
-                        javax.swing.SpinnerNumberModel.class
-                },
-                host,
-                new javax.swing.SpinnerNumberModel(4, 1, 99, 1),
-                new javax.swing.SpinnerNumberModel(2, 1, 20, 1),
-                new javax.swing.SpinnerNumberModel(1, 1, 256, 1));
+    private static void testPositionListEditorRejectsEmptyCliScriptRows() {
+        Object editor = construct(type("PositionListEditor"),
+                new Class<?>[] { type("PositionListEditor$Context") }, positionListContext());
 
-        JTextArea input = (JTextArea) field(panel, "batchInput");
-        input.setText("crtk version\nhelp batch run");
-        Object valid = invoke(panel, "scanCommandScript", new Class<?>[0]);
+        invoke(editor, "setText", new Class<?>[] { String.class }, "crtk version\nhelp batch run");
+        Object valid = invoke(editor, "scanCommandScript", new Class<?>[0]);
         assertEquals(Integer.valueOf(2), invoke(valid, "commands", new Class<?>[0]),
                 "valid command-script row count");
         assertEquals(Boolean.FALSE, invoke(valid, "hasError", new Class<?>[0]),
                 "valid command-script rows have no error");
 
-        input.setText("crtk");
-        Object invalid = invoke(panel, "scanCommandScript", new Class<?>[0]);
+        invoke(editor, "setText", new Class<?>[] { String.class }, "crtk");
+        Object invalid = invoke(editor, "scanCommandScript", new Class<?>[0]);
         assertEquals(Boolean.TRUE, invoke(invalid, "hasError", new Class<?>[0]),
                 "launcher-only command-script row is invalid");
         assertEquals(Integer.valueOf(1), invoke(invalid, "firstErrorLine", new Class<?>[0]),
                 "launcher-only command-script error line");
         assertEquals("missing command after crtk", invoke(invalid, "firstError", new Class<?>[0]),
                 "launcher-only command-script error text");
+    }
+
+    /**
+     * Builds a no-op position-list editor context for tests.
+     *
+     * @return proxy context
+     */
+    private static Object positionListContext() {
+        Class<?> contextType = type("PositionListEditor$Context");
+        return Proxy.newProxyInstance(WorkbenchRegressionTest.class.getClassLoader(),
+                new Class<?>[] { contextType }, (proxy, method, args) ->
+                        "currentFen".equals(method.getName()) ? START_FEN : null);
     }
 
     /**
@@ -450,22 +417,26 @@ final class WorkbenchCommandRegression {
     }
 
     /**
-     * Verifies the batch runner can execute arbitrary CLI command scripts.
+     * Verifies the merged "CLI script" Build template delegates to {@code batch
+     * run}, consumes a command list, and keeps going on failures.
      */
     private static void testBatchRunnerOffersCliScriptForAllCliCommands() {
-        Object task = batchTask("CLI script");
-        assertEquals("COMMAND_LINES", String.valueOf(invoke(task, "inputKind", new Class<?>[0])),
-                "CLI script uses command-line input");
-        assertEquals(Boolean.FALSE, invoke(task, "usesFenInput", new Class<?>[0]),
-                "CLI script does not validate commands as FEN");
-        assertEquals(Boolean.TRUE, invoke(task, "usesCommandInput", new Class<?>[0]),
-                "CLI script validates command rows");
-        Path script = Path.of("out", "tmp", "crtk-commands.txt");
-        List<String> args = stringList(invoke(task, "build",
-                new Class<?>[] { Path.class, type("CommandTemplates$TemplateContext") },
-                script, templateContext(START_FEN, "1s", "4", "2", "1")));
-        assertEquals(List.of("batch", "run", "--input", script.toString(), "--keep-going"), args,
+        Object template = template("CLI script");
+        assertEquals(List.of("batch", "run"),
+                stringList(invoke(template, "baseArgs", new Class<?>[0])),
                 "CLI script delegates to batch run");
+        assertEquals("COMMAND_LINES", String.valueOf(invoke(template, "inputKind", new Class<?>[0])),
+                "CLI script uses command-line input");
+        assertTrue((Boolean) invoke(template, "usesPositionList", new Class<?>[0]),
+                "CLI script reveals the command list");
+
+        JComponent form = (JComponent) construct(type("CommandForm"), new Class<?>[0]);
+        invoke(form, "setTemplate",
+                new Class<?>[] { type("CommandTemplates$CommandTemplate"),
+                        type("CommandTemplates$TemplateContext") },
+                template, templateContext(START_FEN, "1s", "4", "2", "1"));
+        assertTrue(hasFlag(stringList(invoke(form, "args", new Class<?>[0])), "--keep-going"),
+                "CLI script keeps going after failures");
     }
 
     /**
@@ -609,9 +580,9 @@ final class WorkbenchCommandRegression {
         Object data = construct(type("PublishPreview$Preview"),
                 new Class<?>[] { String.class, String.class, String.class, String.class, String.class,
                         boolean.class, String.class, int.class, boolean.class, boolean.class,
-                        boolean.class, boolean.class },
+                        boolean.class, boolean.class, java.util.List.class },
                 "Study Book", "Test Study", "Subtitle", "source", "output", Boolean.TRUE, "", 3,
-                Boolean.FALSE, Boolean.FALSE, Boolean.FALSE, Boolean.FALSE);
+                Boolean.FALSE, Boolean.FALSE, Boolean.FALSE, Boolean.FALSE, java.util.List.of());
         invoke(preview, "setPreview", new Class<?>[] { type("PublishPreview$Preview") }, data);
         assertEquals("page 1 / 3", invoke(preview, "pageLabel", new Class<?>[0]),
                 "publishing preview initial page");
@@ -643,11 +614,12 @@ final class WorkbenchCommandRegression {
             Object data = construct(type("PublishPreview$Preview"),
                     new Class<?>[] { String.class, String.class, String.class, String.class, String.class,
                             boolean.class, String.class, int.class, boolean.class, boolean.class,
-                            boolean.class, boolean.class },
+                            boolean.class, boolean.class, java.util.List.class },
                     workflows[i], "Preview Title", "Subtitle",
                     "current board FEN (rnbqkbnr/pppppppp/8/8/8/5N2/PPPPPPPP/RNBQKB1R b)",
                     "output preview", Boolean.TRUE, "", 4,
-                    Boolean.valueOf(cover[i]), Boolean.valueOf(diagram[i]), Boolean.FALSE, Boolean.FALSE);
+                    Boolean.valueOf(cover[i]), Boolean.valueOf(diagram[i]), Boolean.FALSE, Boolean.FALSE,
+                    java.util.List.of());
             invoke(preview, "setPreview", new Class<?>[] { type("PublishPreview$Preview") }, data);
             assertPaintsOpaqueCorner(preview, 320, 420, "publishing preview paints " + workflows[i]);
         }
@@ -678,12 +650,12 @@ final class WorkbenchCommandRegression {
      * Verifies the command preview stays compact for short commands but caps tall
      * commands so the scroll pane handles overflow.
      */
-    private static void testCommandPreviewHeightCapsAtFourRows() {
+    private static void testCommandPreviewHeightCapsAtFiveRows() {
         String shortCommand = "crtk move list";
         assertEquals(Integer.valueOf(1), invokeStatic(type("WindowCommandLayer"), "previewRows",
                 new Class<?>[] { String.class }, shortCommand), "short preview keeps compact minimum");
         String tallCommand = String.join("\n", List.of("crtk", "a", "b", "c", "d", "e", "f", "g"));
-        assertEquals(Integer.valueOf(4), invokeStatic(type("WindowCommandLayer"), "previewRows",
-                new Class<?>[] { String.class }, tallCommand), "tall preview caps at four rows");
+        assertEquals(Integer.valueOf(5), invokeStatic(type("WindowCommandLayer"), "previewRows",
+                new Class<?>[] { String.class }, tallCommand), "tall preview caps at five rows");
     }
 }

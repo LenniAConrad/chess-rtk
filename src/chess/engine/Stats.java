@@ -22,18 +22,6 @@ final class Stats {
      * Virtual loss sum.
      */
     double virtualLossSum;
-    /**
-     * Win sum.
-     */
-    double winSum;
-    /**
-     * Draw sum.
-     */
-    double drawSum;
-    /**
-     * Loss sum.
-     */
-    double lossSum;
 
     /**
      * Q.

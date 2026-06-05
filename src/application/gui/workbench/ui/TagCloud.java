@@ -387,9 +387,8 @@ public final class TagCloud extends JComponent implements Scrollable {
      * @param g graphics context
      */
     private void paintEmpty(Graphics2D g) {
-        g.setFont(Theme.font(11, Font.PLAIN));
-        g.setColor(Theme.MUTED);
-        g.drawString("No tags yet", PAD, PAD + 15);
+        Ui.paintEmptyState(g, new java.awt.Rectangle(0, 0, getWidth(), getHeight()),
+                "No tags yet", "Tags from the active position appear here.");
     }
 
     /**

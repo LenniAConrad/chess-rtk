@@ -8,15 +8,16 @@ import application.gui.workbench.ui.ChipGroup;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.Ui;
+import application.gui.workbench.ui.WrappingFlowLayout;
 import chess.core.Position;
 import java.awt.BorderLayout;
 import java.awt.Component;
-import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.Insets;
-import java.awt.LayoutManager;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -93,6 +94,44 @@ public final class CommandForm extends JPanel {
     private static final int FLAG_ROW_GAP = Theme.SPACE_XS;
 
     /**
+     * Corner radius for a flag cell — matches the app-wide control radius so
+     * cells read as the same family as buttons and cards.
+     */
+    private static final int CELL_ARC = Theme.RADIUS;
+
+    /**
+     * Inner padding inside a flag cell.
+     */
+    private static final int CELL_PAD_Y = 5;
+
+    /**
+     * Inner horizontal padding inside a flag cell.
+     */
+    private static final int CELL_PAD_X = 9;
+
+    /**
+     * Gap between a flag cell's lead control and its value editor.
+     */
+    private static final int CELL_GAP = Theme.SPACE_SM;
+
+    /**
+     * Optional-flag category labels.
+     */
+    private static final String CAT_INPUT = "Input";
+    private static final String CAT_LIMITS = "Search limits";
+    private static final String CAT_ENGINE = "Engine";
+    private static final String CAT_OUTPUT = "Output";
+    private static final String CAT_TEXT = "Text";
+    private static final String CAT_OPTIONS = "Options";
+    private static final String CAT_DIAGNOSTICS = "Diagnostics";
+
+    /**
+     * Category display order for the optional-flag section.
+     */
+    private static final List<String> CATEGORY_ORDER = List.of(CAT_INPUT, CAT_LIMITS, CAT_ENGINE,
+            CAT_OUTPUT, CAT_TEXT, CAT_OPTIONS, CAT_DIAGNOSTICS);
+
+    /**
      * Listener invoked whenever the built command changes.
      */
     private transient Runnable changeListener = () -> {
@@ -127,6 +166,12 @@ public final class CommandForm extends JPanel {
     private final transient List<FilterRow> optionalRows = new ArrayList<>();
 
     /**
+     * Optional-section category sections, so an emptied category hides its
+     * header during filtering.
+     */
+    private final transient List<CategorySection> categorySections = new ArrayList<>();
+
+    /**
      * Optional flags disclosure for command templates that expose advanced
      * switches.
      */
@@ -136,6 +181,22 @@ public final class CommandForm extends JPanel {
      * Suppresses change events while the form is being rebuilt.
      */
     private transient boolean rebuilding;
+
+    /**
+     * The currently selected template.
+     */
+    private transient CommandTemplate currentTemplate;
+
+    /**
+     * Multi-line position/command editor, lazily built and reused, embedded when
+     * the selected template consumes a {@code --input} list.
+     */
+    private transient PositionListEditor positionEditor;
+
+    /**
+     * Host callbacks for the position-list editor (current FEN, dialogs).
+     */
+    private transient PositionListEditor.Context positionContext;
 
     /**
      * Creates an empty command form.
@@ -176,6 +237,34 @@ public final class CommandForm extends JPanel {
     }
 
     /**
+     * Sets the host callbacks the embedded position-list editor uses for the
+     * current FEN, file dialogs, and error reporting.
+     *
+     * @param context position-editor host
+     */
+    public void setPositionContext(PositionListEditor.Context context) {
+        positionContext = context;
+    }
+
+    /**
+     * Returns whether the selected command reveals the multi-line position list.
+     *
+     * @return true when a position list is shown
+     */
+    public boolean hasPositionList() {
+        return currentTemplate != null && currentTemplate.usesPositionList();
+    }
+
+    /**
+     * Returns the current positions/commands text, or an empty string.
+     *
+     * @return positions text
+     */
+    public String positionsText() {
+        return positionEditor == null ? "" : positionEditor.text();
+    }
+
+    /**
      * Returns the optional-flag filter field so the host window can focus it.
      *
      * @return filter field
@@ -203,9 +292,14 @@ public final class CommandForm extends JPanel {
         rebuilding = true;
         fields.clear();
         optionalRows.clear();
+        categorySections.clear();
         optionalDisclosure = null;
+        currentTemplate = template;
         body.removeAll();
         if (template != null) {
+            if (template.usesPositionList()) {
+                installPositionEditor(template);
+            }
             for (CommandOption option : template.options()) {
                 fields.add(new Field(option, option.enabledByDefault(), option.initialValue(context)));
             }
@@ -215,6 +309,27 @@ public final class CommandForm extends JPanel {
         body.revalidate();
         body.repaint();
         fireChange();
+    }
+
+    /**
+     * Builds (once) and embeds the multi-line position/command editor for a
+     * batch-style template, above the option rows. The editor is reused across
+     * template switches so typed positions survive moving between batch
+     * commands.
+     *
+     * @param template selected batch-style template
+     */
+    private void installPositionEditor(CommandTemplate template) {
+        if (positionEditor == null) {
+            positionEditor = new PositionListEditor(positionContext == null
+                    ? new NoopPositionContext()
+                    : positionContext);
+            positionEditor.setChangeListener(this::fireChange);
+        }
+        positionEditor.setMode(template.inputKind());
+        positionEditor.component().setAlignmentX(LEFT_ALIGNMENT);
+        body.add(positionEditor.component());
+        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
     }
 
     /**
@@ -342,20 +457,114 @@ public final class CommandForm extends JPanel {
             filterRow.add(filterField, BorderLayout.CENTER);
             optionalPanel.add(filterRow);
             optionalPanel.add(Box.createVerticalStrut(Theme.SPACE_XS));
-            JPanel flagGrid = new FlagGridPanel();
-            flagGrid.setOpaque(false);
-            flagGrid.setAlignmentX(LEFT_ALIGNMENT);
-            for (Block block : optional) {
-                JComponent rendered = renderBlock(block, true);
-                flagGrid.add(rendered);
-                optionalRows.add(new FilterRow(rendered, block.searchText()));
-            }
-            optionalPanel.add(flagGrid);
+            buildCategorySections(optionalPanel, optional);
             optionalDisclosure = Ui.collapsible("Flags", optionalPanel, false);
             body.add(optionalDisclosure);
         }
         body.add(Box.createVerticalGlue());
         applyFilter();
+    }
+
+    /**
+     * Groups the optional blocks into titled category sections so dependent
+     * flags read as one box, sorted by type within each category. Each section
+     * is a category title above a wrapping row of self-contained flag cells.
+     *
+     * @param optionalPanel destination panel
+     * @param optional optional blocks in declaration order
+     */
+    private void buildCategorySections(JPanel optionalPanel, List<Block> optional) {
+        Map<String, List<Block>> byCategory = new LinkedHashMap<>();
+        for (String category : CATEGORY_ORDER) {
+            byCategory.put(category, new ArrayList<>());
+        }
+        for (Block block : optional) {
+            byCategory.computeIfAbsent(categoryOf(block), key -> new ArrayList<>()).add(block);
+        }
+        boolean first = true;
+        for (Map.Entry<String, List<Block>> entry : byCategory.entrySet()) {
+            List<Block> members = entry.getValue();
+            if (members.isEmpty()) {
+                continue;
+            }
+            members.sort((a, b) -> Integer.compare(typeRank(a), typeRank(b)));
+            if (!first) {
+                optionalPanel.add(Box.createVerticalStrut(Theme.SPACE_SM));
+            }
+            first = false;
+            JLabel header = new JLabel(entry.getKey());
+            header.setFont(Theme.font(11, Font.BOLD));
+            header.setForeground(Theme.MUTED);
+            header.setAlignmentX(LEFT_ALIGNMENT);
+            header.setBorder(Theme.pad(0, 2, Theme.SPACE_XS, 0));
+            optionalPanel.add(header);
+
+            JPanel flow = new JPanel(new WrappingFlowLayout(FlowLayout.LEFT, FLAG_COLUMN_GAP, FLAG_ROW_GAP));
+            flow.setOpaque(false);
+            flow.setAlignmentX(LEFT_ALIGNMENT);
+            List<FilterRow> rows = new ArrayList<>();
+            for (Block block : members) {
+                JComponent rendered = renderBlock(block, true);
+                flow.add(rendered);
+                FilterRow row = new FilterRow(rendered, block.searchText());
+                rows.add(row);
+                optionalRows.add(row);
+            }
+            optionalPanel.add(flow);
+            categorySections.add(new CategorySection(header, flow, rows));
+        }
+    }
+
+    /**
+     * Returns the display category for an optional block, derived from its
+     * existing metadata (exclusive group, value source, or flag name).
+     *
+     * @param block optional block
+     * @return category label
+     */
+    private static String categoryOf(Block block) {
+        if (block.isGroup()) {
+            return switch (block.group()) {
+                case "position source", "input source" -> CAT_INPUT;
+                case "evaluator" -> CAT_ENGINE;
+                case "move format", "output format", "output mode", "wdl toggle" -> CAT_OUTPUT;
+                case "text engine", "text detail" -> CAT_TEXT;
+                default -> CAT_OPTIONS;
+            };
+        }
+        CommandOption option = block.members().get(0).option;
+        switch (option.source()) {
+            case DURATION, DEPTH, MULTIPV, THREADS, NODES, HASH:
+                return CAT_LIMITS;
+            case PROTOCOL:
+                return CAT_ENGINE;
+            default:
+                break;
+        }
+        String flag = option.flag();
+        if ("--verbose".equals(flag)) {
+            return CAT_DIAGNOSTICS;
+        }
+        if (flag.startsWith("--json") || flag.startsWith("--jsonl") || "--quiet".equals(flag)
+                || "--no-header".equals(flag) || "--fields".equals(flag) || "--include-fen".equals(flag)
+                || "--output".equals(flag) || "--weights".equals(flag)) {
+            return "--weights".equals(flag) ? CAT_ENGINE : CAT_OUTPUT;
+        }
+        return CAT_OPTIONS;
+    }
+
+    /**
+     * Returns a within-category sort rank by control type: exclusive groups,
+     * then value flags, then boolean toggles.
+     *
+     * @param block optional block
+     * @return type rank
+     */
+    private static int typeRank(Block block) {
+        if (block.isGroup()) {
+            return 0;
+        }
+        return block.members().get(0).option.takesValue() ? 1 : 2;
     }
 
     /**
@@ -392,10 +601,12 @@ public final class CommandForm extends JPanel {
      * @return rendered component
      */
     private JComponent renderBlock(Block block, boolean optionalSection) {
-        if (block.isGroup()) {
-            return renderChipGroup(block, optionalSection);
-        }
-        return renderSingle(block.members().get(0), optionalSection);
+        JComponent content = block.isGroup()
+                ? renderChipGroup(block, optionalSection)
+                : renderSingle(block.members().get(0), optionalSection);
+        // Bind a flag's label and control into one bordered cell so they read
+        // as a single unit instead of a control floating in an empty row.
+        return new CellPanel(content);
     }
 
     /**
@@ -411,10 +622,7 @@ public final class CommandForm extends JPanel {
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setAlignmentX(LEFT_ALIGNMENT);
         panel.setOpaque(false);
-        // Padding-only border; the previous bottom divider line stacked with
-        // section headers and other group dividers, adding chrome noise.
-        // Spacing alone gives the chip group enough visual separation.
-        panel.setBorder(Theme.pad(Theme.SPACE_XS, 0, Theme.SPACE_SM, 0));
+        // The enclosing flag cell supplies the padding and border now.
         JLabel title = new JLabel(block.group());
         title.setFont(Theme.font(11, Font.BOLD));
         title.setForeground(Theme.MUTED);
@@ -431,6 +639,7 @@ public final class CommandForm extends JPanel {
         }
 
         boolean hasDetail = members.stream().anyMatch(CommandForm::needsValueEditor);
+        int detailIndent = optionalSection ? 0 : LEAD_WIDTH + Theme.SPACE_MD;
         java.awt.CardLayout cards = new java.awt.CardLayout();
         JPanel detail = new JPanel(cards);
         detail.setOpaque(false);
@@ -438,10 +647,10 @@ public final class CommandForm extends JPanel {
         detail.setMaximumSize(new Dimension(Integer.MAX_VALUE, ROW_HEIGHT));
         if (hasDetail) {
             if (hasNone) {
-                detail.add(memberCard(null), "0");
+                detail.add(memberCard(null, detailIndent), "0");
             }
             for (int m = 0; m < members.size(); m++) {
-                detail.add(memberCard(members.get(m)), Integer.toString(hasNone ? m + 1 : m));
+                detail.add(memberCard(members.get(m), detailIndent), Integer.toString(hasNone ? m + 1 : m));
             }
         }
 
@@ -474,24 +683,41 @@ public final class CommandForm extends JPanel {
             }
             fireChange();
         });
-        JPanel chipRow = new JPanel(new BorderLayout(Theme.SPACE_MD, 0));
-        chipRow.setOpaque(false);
-        chipRow.setAlignmentX(LEFT_ALIGNMENT);
-        chipRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, ROW_HEIGHT));
-        JPanel lead = new JPanel(new BorderLayout());
-        lead.setOpaque(false);
-        lead.add(title, BorderLayout.CENTER);
-        lead.setPreferredSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
-        lead.setMinimumSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
-        lead.setMaximumSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
-        applyGroupTooltip(lead, block);
+        applyGroupTooltip(title, block);
         applyGroupTooltip(chips, block);
-        JPanel selector = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        selector.setOpaque(false);
-        selector.add(chips);
-        chipRow.add(lead, BorderLayout.WEST);
-        chipRow.add(selector, BorderLayout.CENTER);
-        panel.add(chipRow);
+
+        if (optionalSection) {
+            // A compact, self-contained cell: the group title sits above its
+            // chips so the box hugs its content as it flows beside its peers.
+            chips.setAlignmentX(LEFT_ALIGNMENT);
+            JPanel chipsHolder = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+            chipsHolder.setOpaque(false);
+            chipsHolder.setAlignmentX(LEFT_ALIGNMENT);
+            chipsHolder.add(chips);
+            chipsHolder.setMaximumSize(new Dimension(Integer.MAX_VALUE,
+                    chipsHolder.getPreferredSize().height));
+            panel.add(title);
+            panel.add(Box.createVerticalStrut(Theme.SPACE_XS));
+            panel.add(chipsHolder);
+        } else {
+            JPanel chipRow = new JPanel(new BorderLayout(Theme.SPACE_MD, 0));
+            chipRow.setOpaque(false);
+            chipRow.setAlignmentX(LEFT_ALIGNMENT);
+            chipRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, ROW_HEIGHT));
+            JPanel lead = new JPanel(new BorderLayout());
+            lead.setOpaque(false);
+            lead.add(title, BorderLayout.CENTER);
+            lead.setPreferredSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
+            lead.setMinimumSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
+            lead.setMaximumSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
+            applyGroupTooltip(lead, block);
+            JPanel selector = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+            selector.setOpaque(false);
+            selector.add(chips);
+            chipRow.add(lead, BorderLayout.WEST);
+            chipRow.add(selector, BorderLayout.CENTER);
+            panel.add(chipRow);
+        }
         if (hasDetail) {
             panel.add(Box.createVerticalStrut(Theme.SPACE_XS));
             panel.add(detail);
@@ -514,14 +740,17 @@ public final class CommandForm extends JPanel {
      * Builds the detail card for one group member.
      *
      * @param field group member, or null for the "none" choice
+     * @param indent leading indent so the editor aligns under the chips
      * @return card component
      */
-    private JComponent memberCard(Field field) {
+    private JComponent memberCard(Field field, int indent) {
         JPanel card = new JPanel();
         card.setLayout(new BoxLayout(card, BoxLayout.X_AXIS));
         card.setOpaque(false);
         card.setAlignmentX(LEFT_ALIGNMENT);
-        card.add(Box.createHorizontalStrut(LEAD_WIDTH + Theme.SPACE_MD));
+        if (indent > 0) {
+            card.add(Box.createHorizontalStrut(indent));
+        }
         if (field == null) {
             JLabel none = new JLabel("no flag applied");
             none.setFont(Theme.font(11, Font.PLAIN));
@@ -568,7 +797,38 @@ public final class CommandForm extends JPanel {
             applyConflicts(field);
             fireChange();
         });
-        return optionRow(toggle, field);
+        return optionalFieldContent(toggle, field);
+    }
+
+    /**
+     * Builds the content of an optional flag cell: the toggle, and its value
+     * editor when the flag takes a value, hugging their content so the cell
+     * stays compact as it flows beside its peers.
+     *
+     * @param lead toggle control
+     * @param field option field
+     * @return cell content
+     */
+    private JComponent optionalFieldContent(JComponent lead, Field field) {
+        JPanel row = new JPanel();
+        row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
+        row.setOpaque(false);
+        row.setAlignmentX(LEFT_ALIGNMENT);
+        applyOptionTooltip(row, field.option);
+        lead.setAlignmentY(CENTER_ALIGNMENT);
+        row.add(lead);
+        if (field.option.takesValue() && !field.option.fixedChoice()) {
+            row.add(Box.createHorizontalStrut(CELL_GAP));
+            JComponent editor = valueEditor(field);
+            Dimension size = valueEditorSize(field);
+            editor.setPreferredSize(size);
+            editor.setMaximumSize(size);
+            editor.setMinimumSize(size);
+            editor.setAlignmentY(CENTER_ALIGNMENT);
+            row.add(editor);
+        }
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
+        return row;
     }
 
     /**
@@ -879,6 +1139,18 @@ public final class CommandForm extends JPanel {
             boolean visible = query.isEmpty() || row.text().contains(query);
             row.component().setVisible(visible);
         }
+        // Hide a category header/flow once every flag it holds is filtered out.
+        for (CategorySection section : categorySections) {
+            boolean anyVisible = false;
+            for (FilterRow row : section.rows()) {
+                if (row.component().isVisible()) {
+                    anyVisible = true;
+                    break;
+                }
+            }
+            section.header().setVisible(anyVisible);
+            section.flow().setVisible(anyVisible);
+        }
         body.revalidate();
         body.repaint();
     }
@@ -906,7 +1178,8 @@ public final class CommandForm extends JPanel {
                 return false;
             }
         }
-        return true;
+        // A batch-style command needs a valid, non-empty input list to run.
+        return !hasPositionList() || positionEditor == null || positionEditor.isReady();
     }
 
     /**
@@ -1243,11 +1516,60 @@ public final class CommandForm extends JPanel {
     }
 
     /**
-     * Wrapping optional-flag grid. It keeps each flag row internally aligned,
-     * but places rows side by side whenever the available width can fit more
-     * than one column.
+     * A category section in the optional area: a header and its flowing cells,
+     * tracked so filtering can hide the header once every cell is filtered out.
+     *
+     * @param header category title label
+     * @param flow wrapping container of flag cells
+     * @param rows the section's filterable rows
      */
-    private static final class FlagGridPanel extends JPanel {
+    private record CategorySection(JComponent header, JComponent flow, List<FilterRow> rows) {
+    }
+
+    /**
+     * Fallback position-editor context used only until the host wires a real
+     * one — provides no current FEN and a null dialog owner.
+     */
+    private static final class NoopPositionContext implements PositionListEditor.Context {
+
+        /**
+         * Returns an empty current FEN.
+         *
+         * @return empty string
+         */
+        @Override
+        public String currentFen() {
+            return "";
+        }
+
+        /**
+         * Ignores error reports.
+         *
+         * @param title error title
+         * @param message error message
+         */
+        @Override
+        public void showError(String title, String message) {
+            // no host wired yet
+        }
+
+        /**
+         * Returns no dialog owner.
+         *
+         * @return null
+         */
+        @Override
+        public java.awt.Component dialogParent() {
+            return null;
+        }
+    }
+
+    /**
+     * A rounded hairline-bordered cell that binds a flag's label and control
+     * into one unit. It paints its own surface so a theme toggle cannot restamp
+     * it, and hugs its content height so wrapping/stacking parents stay tight.
+     */
+    private static final class CellPanel extends JPanel {
 
         /**
          * Serialization identifier for Swing panel compatibility.
@@ -1255,208 +1577,50 @@ public final class CommandForm extends JPanel {
         private static final long serialVersionUID = 1L;
 
         /**
-         * Creates the wrapping flag grid.
+         * Wraps cell content with rounded chrome and padding.
+         *
+         * @param content cell content
          */
-        FlagGridPanel() {
-            super(new FlagGridLayout());
+        CellPanel(JComponent content) {
+            super(new BorderLayout());
             setOpaque(false);
+            setBorder(Theme.pad(CELL_PAD_Y, CELL_PAD_X, CELL_PAD_Y, CELL_PAD_X));
+            setAlignmentX(LEFT_ALIGNMENT);
+            content.setAlignmentX(LEFT_ALIGNMENT);
+            add(content, BorderLayout.CENTER);
         }
 
         /**
-         * Keeps BoxLayout parents from constraining the grid to one narrow
-         * preferred width.
+         * Hugs the content height so a BoxLayout parent cannot stretch the cell.
          *
-         * @return maximum grid size
+         * @return maximum size with content height
          */
         @Override
         public Dimension getMaximumSize() {
-            Dimension preferred = getPreferredSize();
-            return new Dimension(Integer.MAX_VALUE, preferred.height);
+            return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
+        }
+
+        /**
+         * Paints the rounded cell surface and hairline border.
+         *
+         * @param graphics graphics context
+         */
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            Graphics2D g = (Graphics2D) graphics.create();
+            try {
+                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                int w = getWidth();
+                int h = getHeight();
+                g.setColor(Theme.ELEVATED_SOLID);
+                g.fillRoundRect(0, 0, w - 1, h - 1, CELL_ARC, CELL_ARC);
+                g.setColor(Theme.CARD_BORDER);
+                g.drawRoundRect(0, 0, w - 1, h - 1, CELL_ARC, CELL_ARC);
+            } finally {
+                g.dispose();
+            }
+            super.paintComponent(graphics);
         }
     }
 
-    /**
-     * Responsive row-major layout for optional command flags.
-     */
-    private static final class FlagGridLayout implements LayoutManager {
-
-        /**
-         * Accepts a child without named layout constraints.
-         *
-         * @param name ignored constraint name
-         * @param component child component
-         */
-        @Override
-        public void addLayoutComponent(String name, Component component) {
-            // no named constraints
-        }
-
-        /**
-         * Removes a child from the layout.
-         *
-         * @param component removed component
-         */
-        @Override
-        public void removeLayoutComponent(Component component) {
-            // no cached component state
-        }
-
-        /**
-         * Calculates preferred size from the available parent width.
-         *
-         * @param parent parent container
-         * @return preferred layout size
-         */
-        @Override
-        public Dimension preferredLayoutSize(Container parent) {
-            return layoutSize(parent, availableWidth(parent));
-        }
-
-        /**
-         * Calculates minimum size from one minimum-width column.
-         *
-         * @param parent parent container
-         * @return minimum layout size
-         */
-        @Override
-        public Dimension minimumLayoutSize(Container parent) {
-            return layoutSize(parent, minimumColumnWidth(parent));
-        }
-
-        /**
-         * Lays out visible children in responsive rows.
-         *
-         * @param parent parent container
-         */
-        @Override
-        public void layoutContainer(Container parent) {
-            synchronized (parent.getTreeLock()) {
-                Insets insets = parent.getInsets();
-                int width = Math.max(0, parent.getWidth() - insets.left - insets.right);
-                int columnWidth = minimumColumnWidth(parent);
-                int columns = columnCount(width, columnWidth);
-                List<Component> visible = visibleChildren(parent);
-                int y = insets.top;
-                for (int rowStart = 0; rowStart < visible.size(); rowStart += columns) {
-                    int rowEnd = Math.min(visible.size(), rowStart + columns);
-                    int rowHeight = rowHeight(visible, rowStart, rowEnd);
-                    for (int index = rowStart; index < rowEnd; index++) {
-                        Component child = visible.get(index);
-                        int column = index - rowStart;
-                        child.setBounds(insets.left + column * (columnWidth + FLAG_COLUMN_GAP),
-                                y, columnWidth, rowHeight);
-                    }
-                    y += rowHeight + FLAG_ROW_GAP;
-                }
-            }
-        }
-
-        /**
-         * Computes the preferred or minimum layout size for a target width.
-         *
-         * @param parent parent container
-         * @param targetWidth available content width
-         * @return layout size
-         */
-        private static Dimension layoutSize(Container parent, int targetWidth) {
-            synchronized (parent.getTreeLock()) {
-                Insets insets = parent.getInsets();
-                int columnWidth = minimumColumnWidth(parent);
-                int columns = columnCount(Math.max(columnWidth, targetWidth), columnWidth);
-                List<Component> visible = visibleChildren(parent);
-                int height = 0;
-                for (int rowStart = 0; rowStart < visible.size(); rowStart += columns) {
-                    int rowEnd = Math.min(visible.size(), rowStart + columns);
-                    height += rowHeight(visible, rowStart, rowEnd);
-                    if (rowEnd < visible.size()) {
-                        height += FLAG_ROW_GAP;
-                    }
-                }
-                int rows = visible.isEmpty() ? 0 : (visible.size() + columns - 1) / columns;
-                int width = columns * columnWidth + Math.max(0, columns - 1) * FLAG_COLUMN_GAP;
-                if (rows == 0) {
-                    width = 0;
-                }
-                return new Dimension(width + insets.left + insets.right,
-                        height + insets.top + insets.bottom);
-            }
-        }
-
-        /**
-         * Returns the usable width for preferred-size calculations.
-         *
-         * @param parent parent container
-         * @return available width
-         */
-        private static int availableWidth(Container parent) {
-            int width = parent.getWidth();
-            if (width <= 0 && parent.getParent() != null) {
-                width = parent.getParent().getWidth();
-            }
-            if (width <= 0) {
-                width = minimumColumnWidth(parent);
-            }
-            Insets insets = parent.getInsets();
-            return Math.max(0, width - insets.left - insets.right);
-        }
-
-        /**
-         * Returns the largest preferred child width; this is the column width.
-         *
-         * @param parent parent container
-         * @return minimum useful column width
-         */
-        private static int minimumColumnWidth(Container parent) {
-            int width = 1;
-            for (Component child : parent.getComponents()) {
-                if (child.isVisible()) {
-                    width = Math.max(width, child.getPreferredSize().width);
-                }
-            }
-            return width;
-        }
-
-        /**
-         * Returns how many columns fit in the target width.
-         *
-         * @param width available width
-         * @param columnWidth column width
-         * @return column count
-         */
-        private static int columnCount(int width, int columnWidth) {
-            return Math.max(1, (width + FLAG_COLUMN_GAP) / Math.max(1, columnWidth + FLAG_COLUMN_GAP));
-        }
-
-        /**
-         * Returns visible child components in layout order.
-         *
-         * @param parent parent container
-         * @return visible children
-         */
-        private static List<Component> visibleChildren(Container parent) {
-            List<Component> visible = new ArrayList<>();
-            for (Component child : parent.getComponents()) {
-                if (child.isVisible()) {
-                    visible.add(child);
-                }
-            }
-            return visible;
-        }
-
-        /**
-         * Computes the maximum preferred height in one grid row.
-         *
-         * @param visible visible children
-         * @param start inclusive start index
-         * @param end exclusive end index
-         * @return row height
-         */
-        private static int rowHeight(List<Component> visible, int start, int end) {
-            int height = 0;
-            for (int i = start; i < end; i++) {
-                height = Math.max(height, visible.get(i).getPreferredSize().height);
-            }
-            return height;
-        }
-    }
 }

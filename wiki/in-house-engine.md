@@ -1,6 +1,6 @@
 # Built-in Engine
 
-Everything here runs inside the same process that issued the command — no UCI subprocess to spawn, no socket to configure, no background engine to outlive its job. The core is a deterministic PUCT-style MCTS searcher (`engine builtin` / `engine java`) that you point at one of four evaluators: classical/handcrafted, NNUE, LC0 CNN, or OTIS. Around it sit a standalone exhaustive forced-mate prover (`engine mate`), one-shot position evaluation (`engine eval` / `engine static`), an opponent-threat analyzer (`engine threats`), and a move-generator benchmark (`engine benchmark`). All of them share crtk's one chess core, return the same answer for the same inputs and budget, and stop only where you tell them to — via explicit `--depth`, `--nodes`, and `--max-duration` limits. That combination is what makes it pleasant in scripts, CI, and research you need to reproduce.
+Everything here runs inside the same process that issued the command — no UCI subprocess to spawn, no socket to configure, no background engine to outlive its job. The core built-in command (`engine builtin` / `engine java`) now defaults to deterministic alpha-beta for the classical and NNUE evaluators, while LC0 CNN and OTIS still default to the PUCT-style MCTS search that can use their policy priors. Around it sit a standalone exhaustive forced-mate prover (`engine mate`), one-shot position evaluation (`engine eval` / `engine static`), an opponent-threat analyzer (`engine threats`), and a move-generator benchmark (`engine benchmark`). All of them share crtk's one chess core, return the same answer for the same inputs and budget, and stop only where you tell them to — via explicit `--depth`, `--nodes`, and `--max-duration` limits. That combination is what makes it pleasant in scripts, CI, and research you need to reproduce.
 
 It will not out-play Stockfish or LC0, and it isn't trying to. The point is determinism and zero dependencies: a search that gives the same result every time and keeps working when no UCI engine is configured. When you need real playing strength, MultiPV, or large-scale mining, drive an external engine through `engine analyze` / `engine bestmove` instead — see [LC0 & external engines](lc0.md) and [Mining](mining.md).
 
@@ -8,7 +8,7 @@ It will not out-play Stockfish or LC0, and it isn't trying to. The point is dete
 
 | Command | What it does | Needs external engine? |
 | --- | --- | --- |
-| `engine builtin` / `engine java` | MCTS search with a selectable evaluator | No |
+| `engine builtin` / `engine java` | Alpha-beta or MCTS search with a selectable evaluator | No |
 | `engine mate` | Brute-force prover for forced mate-in-N | No |
 | `engine eval` | One-shot LC0 / OTIS / classical evaluation | No |
 | `engine static` | One-shot classical (handcrafted) evaluation | No |
@@ -17,7 +17,7 @@ It will not out-play Stockfish or LC0, and it isn't trying to. The point is dete
 
 `engine builtin` and `engine java` are the same command — `engine java` is an alias, so pick whichever reads better in your scripts. `engine mate` also answers to `engine find-mate`.
 
-## MCTS search — `engine builtin` / `engine java`
+## Built-in search — `engine builtin` / `engine java`
 
 Search a single position with the default classical evaluator:
 
@@ -41,7 +41,7 @@ crtk engine builtin --uci
 
 ### Choosing an evaluator
 
-Pass `--evaluator classical|nnue|lc0|otis`, or use the shortcut selectors `--classical`, `--nnue`, `--lc0`, `--otis`. The default is `classical`.
+Pass `--evaluator classical|nnue|lc0|otis`, or use the shortcut selectors `--classical`, `--nnue`, `--lc0`, `--otis`. The default is `classical`. Search defaults to `alpha-beta` for `classical` and `nnue`, and to `mcts` for `lc0` and `otis`; override it with `--search alpha-beta` or `--search mcts`.
 
 ```bash
 crtk engine builtin --classical --depth 6 --fen "<FEN>"
@@ -59,16 +59,34 @@ Three flags decide how long the search runs, and nothing else does:
 
 | Flag | Meaning |
 | --- | --- |
-| `--depth N` / `-d N` | Search depth hint (default: `3`) |
-| `--nodes N` / `--max-nodes N` | MCTS playout budget; `0` disables the node cap |
+| `--depth N` / `-d N` | Search target (default: `8` for alpha-beta, `3` for MCTS) |
+| `--nodes N` / `--max-nodes N` | Search node/playout budget; `0` disables the node cap |
 | `--max-duration D` | Wall-clock budget, e.g. `5s`; `0` means no time cap |
+| `--threads N` | Worker threads for alpha-beta Lazy SMP or MCTS; default `1` |
 
 ```bash
 crtk engine builtin --fen "<FEN>" --depth 5 --nodes 250000 --format both
 crtk engine builtin --fen "<FEN>" --depth 8 --max-duration 2s --format summary
 ```
 
-For the MCTS CLI, `--nodes` is the playout budget directly. Set `--depth` alone — with no `--nodes` and no `--max-duration` — and the command translates depth into a small playout budget rather than searching forever. Whenever you care about the exact budget, state it: pass `--nodes` or `--max-duration` explicitly.
+For alpha-beta, `--depth` is the iterative-deepening target. For MCTS, `--nodes` is the playout budget directly; set `--depth` alone — with no `--nodes` and no `--max-duration` — and the command translates depth into a small playout budget rather than searching forever. Whenever you care about the exact budget, state it: pass `--nodes` or `--max-duration` explicitly.
+
+Before spending heuristic search budget, alpha-beta checks immediate root mates
+directly. If the root is already forcing, either in check or with at least one
+checking move, it also runs the bounded mate prover up to the default mate-in-four
+horizon, so short tactical wins are reported exactly as mate scores instead of as
+ordinary centipawn preferences.
+
+At the horizon, alpha-beta quiescence also checks mate-in-one before standing pat
+or searching captures. That keeps one-ply mates from being flattened into static
+centipawn scores when they sit just beyond the requested depth.
+
+The same mate-in-one guard is used by the deterministic root fallback returned
+when a very small node or time budget stops before depth one completes.
+
+The first quiescence ply also includes quiet checking moves. Deeper quiescence
+stays capture/promotion-only unless the side to move is in check, keeping the
+extra tactical lookahead bounded.
 
 ### Output formats
 
@@ -195,7 +213,7 @@ Reproducibility was a design goal, not an afterthought:
 
 - One shared chess core handles legal move generation, make/undo, attack detection, FEN/SAN/UCI, and Chess960 for every command — the same code path the rest of crtk runs on.
 - The same FEN, evaluator, and budget yield the same best move, score, and PV. Every time.
-- The MCTS searcher is single-threaded and keeps its transposition state in-process and deterministic. That table is internal, with no `--hash` knob; when you pass `--threads`, `--hash`, and friends to the external commands, they go to the configured UCI engine, not to the in-house searcher.
+- The in-house search is single-threaded by default and keeps its transposition state in-process. Pass `--threads N` only when you explicitly want alpha-beta Lazy SMP or MCTS workers; keep `--threads 1` for byte-stable comparisons. There is still no in-house `--hash` knob; `--hash` belongs to external UCI engines.
 - Every run stops at an explicit `--depth`, `--nodes`, or `--max-duration` limit, which is exactly what makes the output safe to assert on in CI.
 
 ## When to use which

@@ -106,7 +106,7 @@
       <article class="content">
         <p class="content-kicker">Project</p>
         <h1 id="chessrtk-wiki">ChessRTK Wiki</h1>
-<p>Everything in ChessRTK (&quot;crtk&quot;) runs through one chess core. A single legal move generator, one make/undo, one attack detector, one FEN/SAN/UCI/Chess960 codepath — and every command above it inherits the same answers. That is what makes the noun-verb CLI (<code>move list</code>, <code>engine bestmove</code>, <code>puzzle mine</code>) agree with the search, the tagger, the datasets, and the GUI down to the last bit. On top of the core sit external UCI analysis (Stockfish, LC0), a built-in MCTS search with a forced-mate prover, classical/NNUE/LC0/OTIS evaluators, position and tactic tagging, optional T5 summaries, puzzle mining driven by a Filter DSL, ML dataset export, native PDF publishing with no LaTeX, optional GPU backends for perft and OTIS, and a Swing desktop Workbench. This page is the index. Pick a section and follow the one-line descriptions to the page that goes deeper.</p>
+<p>Everything in ChessRTK (&quot;crtk&quot;) runs through one chess core. A single legal move generator, one make/undo, one attack detector, one FEN/SAN/UCI/Chess960 codepath — and every command above it inherits the same answers. That is what makes the noun-verb CLI (<code>move list</code>, <code>engine bestmove</code>, <code>puzzle mine</code>) agree with the search, the tagger, the datasets, and the GUI down to the last bit. On top of the core sit external UCI analysis (Stockfish, LC0), built-in alpha-beta/MCTS search with a forced-mate prover, classical/NNUE/LC0/OTIS evaluators, position and tactic tagging, optional T5 summaries, puzzle mining driven by a Filter DSL, ML dataset export, native PDF publishing with no LaTeX, optional GPU backends for perft and OTIS, and a Swing desktop Workbench. This page is the index. Pick a section and follow the one-line descriptions to the page that goes deeper.</p>
 <p>Pages document what the code actually does. Licensed GPL-3.0-only.</p>
 <h2 id="other-reading-formats">Other Reading Formats</h2>
 <p>The same content reaches you three ways, depending on whether you want to browse, read offline, or check the source of truth:</p>
@@ -139,7 +139,7 @@
 </ul>
 <h2 id="engines-models">Engines &amp; Models</h2>
 <ul>
-<li><a href="in-house-engine.html">Running engines</a> - the built-in MCTS engine (<code>engine builtin</code> / <code>engine java</code>) and the forced-mate prover (<code>engine mate</code>).</li>
+<li><a href="in-house-engine.html">Running engines</a> - the built-in engine (<code>engine builtin</code> / <code>engine java</code>) and the forced-mate prover (<code>engine mate</code>).</li>
 <li><a href="lc0.html">LC0 and the Java evaluator</a> - the LC0 UCI engine path plus the in-process LC0 CNN evaluator. Networks are usable evaluators, not bit-exact LC0/BT4 reproductions.</li>
 <li><a href="gpu.html">GPU backends</a> - native CUDA, ROCm, and oneAPI backends for perft and OTIS, with automatic CPU fallback (<code>engine gpu</code>, <code>engine perft --gpu</code>).</li>
 </ul>
@@ -253,7 +253,7 @@ java -cp out application.Main engine builtin --startpos --depth 3 --format summa
 <h2 id="project-policy-notes">Project Policy Notes</h2>
 <ul>
 <li>Source and shell scripts are tracked; everything generated is not. Analysis dumps, model weights, PDFs, and build output are local artifacts and stay out of git.</li>
-<li>UCI engines and model weights are optional. FEN, move, perft, Workbench Play, and the classical built-in MCTS all run in-process, so a fresh checkout does useful work before you download a single weight.</li>
+<li>UCI engines and model weights are optional. FEN, move, perft, Workbench Play, and the classical built-in search all run in-process, so a fresh checkout does useful work before you download a single weight.</li>
 <li>The neural-network paths are honest evaluators, not impersonations: no claim of bit-exact LC0 or BT4 parity, and the BT4 path remains simplified and experimental.</li>
 <li>Determinism and the single shared core are design goals, not accidents. One legality-and-notation implementation answers for the CLI, search, tagging, datasets, rendering, and GUI alike, which is why a result reproduces wherever you ask for it.</li>
 </ul>

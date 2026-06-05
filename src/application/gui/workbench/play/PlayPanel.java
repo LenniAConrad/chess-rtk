@@ -11,27 +11,33 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.GridLayout;
 import java.awt.Insets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
+import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSlider;
 import javax.swing.JTextField;
+import javax.swing.JToggleButton;
 
 /**
  * Setup and control panel for human-versus-engine play.
  *
  * <p>
- * Lets the user pick a side, a target strength on a single Elo slider with
- * named tiers, and a start position (standard, the current board, or a pasted
- * FEN), then drives a {@link PlaySession}. Strength is mapped to a search budget
- * by {@link StrengthModel}; the displayed Elo is an approximate estimate, not a
- * calibrated rating.
+ * The opponent is chosen either as a one-tap preset bot or via "Custom", which
+ * reveals a distinct setup card with the manual search / network / strength
+ * controls. The user also picks a side and a start position (standard, the
+ * current board, or a pasted FEN), then drives a {@link PlaySession}. Strength is
+ * mapped to a search budget by {@link StrengthModel}; the displayed Elo is an
+ * approximate estimate, not a calibrated rating. When a chosen network's weights
+ * are missing, play falls back to Alpha-Beta + Classical and a note says so.
  * </p>
  */
 public final class PlayPanel extends JPanel {
@@ -138,6 +144,84 @@ public final class PlayPanel extends JPanel {
     private final JLabel resultBanner = new JLabel();
 
     /**
+     * Row wrapping the result caption + banner, hidden whole until a game ends
+     * so no stranded "Result" label sits in the idle form.
+     */
+    private JComponent resultRow;
+
+    /**
+     * In-game action row (Takeback/Hint/Draw/Resign), hidden until a game is
+     * active so the idle form leads with setup + New Game alone.
+     */
+    private JComponent inGameRow;
+
+    /**
+     * Row wrapping the status caption + label, shown only while a game is active.
+     */
+    private JComponent statusRow;
+
+    /**
+     * Selectable preset-bot toggles (one per {@link #BOTS} entry), plus a
+     * trailing "Custom" toggle for the advanced manual controls.
+     */
+    private final List<JToggleButton> botButtons = new ArrayList<>();
+
+    /**
+     * Radio group keeping exactly one opponent (a preset or Custom) selected.
+     */
+    private final ButtonGroup botGroup = new ButtonGroup();
+
+    /**
+     * The "Custom" opponent toggle — selected whenever the advanced controls
+     * are changed by hand rather than by a preset.
+     */
+    private JToggleButton customBotButton;
+
+    /**
+     * The "Custom setup" card holding the manual search / network / strength
+     * controls; shown only while the Custom opponent is selected, so presets stay
+     * a one-tap choice and the advanced knobs appear as a distinct panel.
+     */
+    private JComponent customCard;
+
+    /**
+     * Note shown when the selected network's weights are missing, warning that
+     * the always-available Classical evaluation will be used instead.
+     */
+    private final JLabel networkNote = new JLabel();
+
+    /**
+     * Guards the advanced-control listeners while a preset applies its values,
+     * so applying a preset does not bounce the selection back to Custom.
+     */
+    private boolean applyingBot;
+
+    /**
+     * A prebuilt opponent: a fixed Elo with a predetermined search algorithm
+     * and evaluation network.
+     *
+     * @param name display name
+     * @param elo approximate strength
+     * @param search search algorithm
+     * @param network evaluation network
+     */
+    private record Bot(String name, int elo, Opponent.Search search, Opponent.Network network) {
+    }
+
+    /**
+     * Prebuilt opponents, weakest to strongest. Each pins a search algorithm and
+     * network so picking one is a single decision; the Advanced section exposes
+     * the same controls for fine-tuning.
+     */
+    private static final List<Bot> BOTS = List.of(
+            new Bot("Rookie", 800, Opponent.Search.ALPHA_BETA, Opponent.Network.CLASSICAL),
+            new Bot("Casual", 1200, Opponent.Search.ALPHA_BETA, Opponent.Network.CLASSICAL),
+            new Bot("Club", 1600, Opponent.Search.ALPHA_BETA, Opponent.Network.NNUE),
+            new Bot("Expert", 2000, Opponent.Search.ALPHA_BETA, Opponent.Network.NNUE),
+            new Bot("Master", 2400, Opponent.Search.ALPHA_BETA, Opponent.Network.NNUE),
+            new Bot("Maximum", 2800, Opponent.Search.MCTS, Opponent.Network.OTIS));
+
+    /**
      * Creates the play panel.
      *
      * @param session game session to drive
@@ -160,7 +244,11 @@ public final class PlayPanel extends JPanel {
         buildUi();
         wireControls();
         updateEloLabel();
+        // The FEN field only matters for the "From FEN" start option; keep it
+        // hidden otherwise so the setup form stays clean instead of showing an
+        // empty disabled box (chess.com/lichess reveal extra inputs on demand).
         fenField.setEnabled(false);
+        fenField.setVisible(false);
         session.setListener(new PlaySession.Listener() {
             /**
              * Receives play-session status updates.
@@ -204,12 +292,16 @@ public final class PlayPanel extends JPanel {
     private void onSessionResult(String message, application.gui.workbench.ui.Toast.Kind kind) {
         if (message == null || message.isBlank()) {
             resultBanner.setText("");
-            resultBanner.setVisible(false);
+            if (resultRow != null) {
+                resultRow.setVisible(false);
+            }
             return;
         }
         resultBanner.setText(message);
         resultBanner.setForeground(resultColor(kind));
-        resultBanner.setVisible(true);
+        if (resultRow != null) {
+            resultRow.setVisible(true);
+        }
     }
 
     /**
@@ -240,6 +332,12 @@ public final class PlayPanel extends JPanel {
         drawButton.setEnabled(gameActive);
         takebackButton.setEnabled(gameActive && !engineThinking);
         hintButton.setEnabled(gameActive && !engineThinking);
+        if (inGameRow != null) {
+            inGameRow.setVisible(gameActive);
+        }
+        if (statusRow != null) {
+            statusRow.setVisible(gameActive);
+        }
     }
 
     /**
@@ -257,39 +355,33 @@ public final class PlayPanel extends JPanel {
 
         add(title("Play vs Engine"), c);
 
+        // Prebuilt opponents: pick one to set its strength, search, and network
+        // in a single tap (chess.com-style). The Advanced section below exposes
+        // the same knobs for anyone who wants to build a custom opponent.
         c.gridy++;
-        add(labeledRow("Search", searchChips), c);
+        JLabel opponentCaption = new JLabel("Opponent");
+        opponentCaption.setForeground(Theme.MUTED);
+        opponentCaption.setFont(Theme.font(12, Font.PLAIN));
+        add(opponentCaption, c);
+        c.gridy++;
+        add(buildBotPicker(), c);
+
+        // The manual search/network/strength knobs live in a distinct elevated
+        // card directly under the picker, revealed only when "Custom" is chosen,
+        // so presets stay one-tap and building your own is a clear, separate mode.
+        c.gridy++;
+        networkNote.setFont(Theme.font(12, Font.PLAIN));
+        networkNote.setForeground(Theme.STATUS_WARNING_BORDER);
+        networkNote.setVisible(false);
+        add(networkNote, c);
 
         c.gridy++;
-        add(labeledRow("Network", networkChips), c);
+        customCard = Ui.card("Custom setup", buildCustomControls());
+        customCard.setVisible(false);
+        add(customCard, c);
 
         c.gridy++;
         add(labeledRow("You play", sideChips), c);
-
-        c.gridy++;
-        // Group the strength caption, its live Elo readout, and the slider into
-        // one unit: "Strength ........ 1800 · Club" directly above the slider,
-        // so the readout reads as the slider's value rather than a loose label.
-        eloLabel.setForeground(Theme.TEXT);
-        eloLabel.setFont(Theme.font(12, Font.BOLD));
-        eloLabel.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
-        Ui.styleSlider(eloSlider);
-        eloSlider.setOpaque(false);
-        eloSlider.setBackground(Theme.BG);
-        eloSlider.setMajorTickSpacing(400);
-        eloSlider.setMinorTickSpacing(Defaults.PLAY_ELO_STEP);
-        JPanel strengthGroup = new JPanel(new java.awt.BorderLayout(0, 3));
-        strengthGroup.setOpaque(false);
-        JPanel strengthHeader = new JPanel(new java.awt.BorderLayout(8, 0));
-        strengthHeader.setOpaque(false);
-        JLabel strengthTitle = new JLabel("Strength");
-        strengthTitle.setForeground(Theme.MUTED);
-        strengthTitle.setFont(Theme.font(12, Font.PLAIN));
-        strengthHeader.add(strengthTitle, java.awt.BorderLayout.WEST);
-        strengthHeader.add(eloLabel, java.awt.BorderLayout.CENTER);
-        strengthGroup.add(strengthHeader, java.awt.BorderLayout.NORTH);
-        strengthGroup.add(eloSlider, java.awt.BorderLayout.CENTER);
-        add(strengthGroup, c);
 
         c.gridy++;
         add(labeledRow("Start from", startChips), c);
@@ -299,31 +391,42 @@ public final class PlayPanel extends JPanel {
         fenField.setToolTipText("Paste a FEN to start from (used when 'From FEN' is selected)");
         add(fenField, c);
 
+        // Prominent primary call-to-action — like chess.com's "Play" or
+        // lichess's "Play against computer": full-width, taller, the obvious
+        // next step once the setup above is chosen.
         c.gridy++;
-        JPanel buttons = new JPanel();
-        buttons.setOpaque(false);
-        buttons.setLayout(new javax.swing.BoxLayout(buttons, javax.swing.BoxLayout.X_AXIS));
-        buttons.add(newGameButton);
-        buttons.add(Box.createHorizontalStrut(8));
-        buttons.add(takebackButton);
-        buttons.add(Box.createHorizontalStrut(8));
-        buttons.add(hintButton);
-        buttons.add(Box.createHorizontalStrut(8));
-        buttons.add(drawButton);
-        buttons.add(Box.createHorizontalStrut(8));
-        buttons.add(resignButton);
-        buttons.add(Box.createHorizontalGlue());
-        add(buttons, c);
+        c.insets = new Insets(Theme.SPACE_MD, 0, Theme.SPACE_XS, 0);
+        newGameButton.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
+        newGameButton.setPreferredSize(new Dimension(0, Theme.CONTROL_HEIGHT_TALL));
+        add(newGameButton, c);
+        c.insets = new Insets(4, 0, 4, 0);
+
+        // In-game actions and the status line appear only during a game, so the
+        // idle form is just the setup rows + New Game (mirrors the resultRow
+        // idiom). applyGameState toggles their visibility.
+        c.gridy++;
+        JPanel inGame = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, Theme.SPACE_SM, 0));
+        inGame.setOpaque(false);
+        inGame.add(takebackButton);
+        inGame.add(hintButton);
+        inGame.add(drawButton);
+        inGame.add(resignButton);
+        inGameRow = inGame;
+        inGameRow.setVisible(false);
+        add(inGame, c);
 
         c.gridy++;
         statusLabel.setForeground(Theme.TEXT);
         statusLabel.setFont(Theme.font(12, Font.BOLD));
-        add(labeledRow("Status", statusLabel), c);
+        statusRow = labeledRow("Status", statusLabel);
+        statusRow.setVisible(false);
+        add(statusRow, c);
 
         c.gridy++;
         resultBanner.setFont(Theme.font(13, Font.BOLD));
-        resultBanner.setVisible(false);
-        add(labeledRow("Result", resultBanner), c);
+        resultRow = labeledRow("Result", resultBanner);
+        resultRow.setVisible(false);
+        add(resultRow, c);
 
         c.gridy++;
         JPanel expert = new JPanel();
@@ -332,7 +435,7 @@ public final class PlayPanel extends JPanel {
         deterministicToggle.setAlignmentX(Component.LEFT_ALIGNMENT);
         openingBookToggle.setAlignmentX(Component.LEFT_ALIGNMENT);
         expert.add(deterministicToggle);
-        expert.add(Box.createVerticalStrut(6));
+        expert.add(Box.createVerticalStrut(Theme.SPACE_SM));
         expert.add(openingBookToggle);
         add(Ui.collapsible("Expert", expert, false), c);
 
@@ -341,6 +444,194 @@ public final class PlayPanel extends JPanel {
         c.weighty = 1.0;
         c.fill = GridBagConstraints.BOTH;
         add(Box.createGlue(), c);
+
+        selectInitialBot();
+    }
+
+    /**
+     * Builds the prebuilt-opponent picker: a 2-column grid of selectable preset
+     * toggles plus a trailing "Custom" toggle.
+     *
+     * @return bot picker component
+     */
+    private JComponent buildBotPicker() {
+        JPanel grid = new JPanel(new GridLayout(0, 2, Theme.SPACE_SM, Theme.SPACE_SM));
+        grid.setOpaque(false);
+        for (Bot bot : BOTS) {
+            JToggleButton button = new JToggleButton(bot.name() + "  ·  " + bot.elo());
+            Theme.commandTab(button);
+            button.setToolTipText(bot.name() + " · " + bot.elo() + " Elo · "
+                    + bot.search().label() + " / " + bot.network().label());
+            button.addActionListener(event -> {
+                if (button.isSelected()) {
+                    applyBot(bot);
+                }
+            });
+            botGroup.add(button);
+            botButtons.add(button);
+            grid.add(button);
+        }
+        // "Custom" gets its own full-width row beneath the even preset grid (no
+        // orphaned half-cell), and reveals the Custom-setup card when chosen.
+        customBotButton = new JToggleButton("Custom");
+        Theme.commandTab(customBotButton);
+        customBotButton.setToolTipText("Set the search, network, and strength yourself below");
+        customBotButton.addActionListener(event -> {
+            if (customBotButton.isSelected()) {
+                setCustomVisible(true);
+            }
+        });
+        botGroup.add(customBotButton);
+
+        JPanel picker = new JPanel(new java.awt.BorderLayout(0, Theme.SPACE_SM));
+        picker.setOpaque(false);
+        picker.add(grid, java.awt.BorderLayout.NORTH);
+        picker.add(customBotButton, java.awt.BorderLayout.CENTER);
+        return picker;
+    }
+
+    /**
+     * Builds the Custom-setup controls: the manual search, network, and strength
+     * knobs shown inside the Custom card. A preset writes its values into these;
+     * editing them by hand switches the opponent to Custom.
+     *
+     * @return custom controls component
+     */
+    private JComponent buildCustomControls() {
+        eloLabel.setForeground(Theme.TEXT);
+        eloLabel.setFont(Theme.font(12, Font.BOLD));
+        eloLabel.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
+        eloLabel.setPreferredSize(new Dimension(96, Theme.CONTROL_HEIGHT));
+        eloLabel.setMaximumSize(new Dimension(96, Theme.CONTROL_HEIGHT));
+        Ui.styleSlider(eloSlider);
+        eloSlider.setOpaque(false);
+        eloSlider.setBackground(Theme.BG);
+        eloSlider.setMajorTickSpacing(400);
+        eloSlider.setMinorTickSpacing(Defaults.PLAY_ELO_STEP);
+
+        // Strength row: caption, the slider (grows to fill), and the live
+        // Elo/tier readout — its left edge aligned with the Search/Network chips.
+        JPanel strengthRow = new JPanel();
+        strengthRow.setOpaque(false);
+        strengthRow.setLayout(new javax.swing.BoxLayout(strengthRow, javax.swing.BoxLayout.X_AXIS));
+        JLabel strengthTitle = new JLabel("Strength");
+        strengthTitle.setForeground(Theme.MUTED);
+        strengthTitle.setFont(Theme.font(12, Font.PLAIN));
+        strengthTitle.setPreferredSize(new Dimension(78, Theme.CONTROL_HEIGHT));
+        strengthTitle.setMaximumSize(new Dimension(78, Theme.CONTROL_HEIGHT));
+        strengthTitle.setAlignmentY(Component.CENTER_ALIGNMENT);
+        eloSlider.setAlignmentY(Component.CENTER_ALIGNMENT);
+        eloLabel.setAlignmentY(Component.CENTER_ALIGNMENT);
+        strengthRow.add(strengthTitle);
+        strengthRow.add(eloSlider);
+        strengthRow.add(Box.createHorizontalStrut(Theme.SPACE_SM));
+        strengthRow.add(eloLabel);
+
+        JPanel controls = new JPanel(new GridBagLayout());
+        controls.setOpaque(false);
+        GridBagConstraints a = new GridBagConstraints();
+        a.gridx = 0;
+        a.gridy = 0;
+        a.fill = GridBagConstraints.HORIZONTAL;
+        a.weightx = 1.0;
+        a.anchor = GridBagConstraints.WEST;
+        a.insets = new Insets(Theme.SPACE_XS, 0, Theme.SPACE_XS, 0);
+        controls.add(labeledRow("Search", searchChips), a);
+        a.gridy++;
+        controls.add(labeledRow("Network", networkChips), a);
+        a.gridy++;
+        controls.add(strengthRow, a);
+        return controls;
+    }
+
+    /**
+     * Shows or hides the Custom-setup card, relaying out the form so hidden
+     * controls take no space.
+     *
+     * @param visible whether the Custom controls should be shown
+     */
+    private void setCustomVisible(boolean visible) {
+        if (customCard != null && customCard.isVisible() != visible) {
+            customCard.setVisible(visible);
+            revalidate();
+            repaint();
+        }
+    }
+
+    /**
+     * Updates the missing-weights note for the selected network. When a neural
+     * network's weights are absent the game falls back to the always-available
+     * Classical evaluation, so the note makes that visible instead of silently
+     * degrading. Classical is always available, so the note hides for it.
+     */
+    private void updateNetworkNote() {
+        Opponent.Network network = selectedNetwork();
+        if (Networks.isAvailable(network)) {
+            networkNote.setVisible(false);
+            return;
+        }
+        networkNote.setText(network.label() + " weights not found — using Classical");
+        networkNote.setVisible(true);
+        revalidate();
+        repaint();
+    }
+
+    /**
+     * Applies a preset opponent's strength, search, and network to the advanced
+     * controls without bouncing the selection back to Custom.
+     *
+     * @param bot preset opponent
+     */
+    private void applyBot(Bot bot) {
+        applyingBot = true;
+        try {
+            searchChips.setSelectedIndex(bot.search().ordinal());
+            networkChips.setSelectedIndex(bot.network().ordinal());
+            eloSlider.setValue(bot.elo());
+        } finally {
+            applyingBot = false;
+        }
+        updateEloLabel();
+        updateNetworkNote();
+        setCustomVisible(false);
+        PlayPrefs.setElo(bot.elo());
+        PlayPrefs.setSearch(bot.search());
+        PlayPrefs.setNetwork(bot.network());
+    }
+
+    /**
+     * Selects the "Custom" opponent and reveals its setup card, used when an
+     * advanced control is edited by hand rather than by a preset.
+     */
+    private void selectCustomBot() {
+        if (customBotButton != null && !customBotButton.isSelected()) {
+            customBotButton.setSelected(true);
+        }
+        setCustomVisible(true);
+    }
+
+    /**
+     * Highlights the preset matching the saved Elo/search/network on first
+     * build, falling back to Custom when none matches exactly.
+     */
+    private void selectInitialBot() {
+        int elo = PlayPrefs.elo();
+        Opponent.Search search = PlayPrefs.search();
+        Opponent.Network network = PlayPrefs.network();
+        for (int i = 0; i < BOTS.size(); i++) {
+            Bot bot = BOTS.get(i);
+            if (bot.elo() == elo && bot.search() == search && bot.network() == network) {
+                botButtons.get(i).setSelected(true);
+                setCustomVisible(false);
+                updateNetworkNote();
+                return;
+            }
+        }
+        if (customBotButton != null) {
+            customBotButton.setSelected(true);
+        }
+        setCustomVisible(true);
+        updateNetworkNote();
     }
 
     /**
@@ -350,11 +641,31 @@ public final class PlayPanel extends JPanel {
         eloSlider.addChangeListener(event -> {
             updateEloLabel();
             PlayPrefs.setElo(eloSlider.getValue());
+            if (!applyingBot) {
+                selectCustomBot();
+            }
         });
-        searchChips.setOnSelect(index -> PlayPrefs.setSearch(selectedSearch()));
-        networkChips.setOnSelect(index -> PlayPrefs.setNetwork(selectedNetwork()));
+        searchChips.setOnSelect(index -> {
+            PlayPrefs.setSearch(selectedSearch());
+            if (!applyingBot) {
+                selectCustomBot();
+            }
+        });
+        networkChips.setOnSelect(index -> {
+            PlayPrefs.setNetwork(selectedNetwork());
+            updateNetworkNote();
+            if (!applyingBot) {
+                selectCustomBot();
+            }
+        });
         sideChips.setOnSelect(PlayPrefs::setSideIndex);
-        startChips.setOnSelect(index -> fenField.setEnabled(index == 2));
+        startChips.setOnSelect(index -> {
+            boolean fromFen = index == 2;
+            fenField.setEnabled(fromFen);
+            fenField.setVisible(fromFen);
+            revalidate();
+            repaint();
+        });
         deterministicToggle.addActionListener(event ->
                 PlayPrefs.setDeterministic(deterministicToggle.isSelected()));
         openingBookToggle.addActionListener(event -> {
@@ -376,9 +687,18 @@ public final class PlayPanel extends JPanel {
             case 2 -> PlaySession.Side.RANDOM;
             default -> PlaySession.Side.WHITE;
         };
+        Opponent.Search searchAlgorithm = selectedSearch();
+        Opponent.Network network = selectedNetwork();
+        // If the chosen network's weights are missing, don't silently degrade
+        // (e.g. MCTS+OTIS quietly becoming a weak classical-MCTS bot): fall back
+        // to the always-available strong weightless engine, Alpha-Beta + Classical.
+        if (!Networks.isAvailable(network)) {
+            searchAlgorithm = Opponent.Search.ALPHA_BETA;
+            network = Opponent.Network.CLASSICAL;
+        }
         session.start(resolveStartFen(), side,
                 StrengthProfile.ofElo(eloSlider.getValue(), deterministicToggle.isSelected()),
-                new PlaySession.Config(selectedSearch(), selectedNetwork()));
+                new PlaySession.Config(searchAlgorithm, network));
     }
 
     /**
@@ -479,10 +799,10 @@ public final class PlayPanel extends JPanel {
      * @return styled title
      */
     private static JComponent title(String text) {
-        JLabel label = new JLabel(text);
-        label.setForeground(Theme.TEXT);
-        label.setFont(Theme.font(15, Font.BOLD));
-        label.setBorder(BorderFactory.createEmptyBorder(0, 0, 6, 0));
+        // Route through the shared panel-title helper so every panel heading
+        // uses one sentence-case FONT_TITLE treatment; keep a small bottom gap.
+        JLabel label = Theme.sectionTitle(text);
+        label.setBorder(BorderFactory.createEmptyBorder(0, 0, Theme.SPACE_XS, 0));
         return label;
     }
 

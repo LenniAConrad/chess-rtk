@@ -416,8 +416,12 @@ public final class PositionViewCommand {
 		double zoom = parseZoomFactor(a.string(OPT_ZOOM));
 		List<String> arrows = a.strings(OPT_ARROW, OPT_ARROWS);
 		boolean specialArrows = a.flag(OPT_SPECIAL_ARROWS);
-		boolean details = a.flag(OPT_DETAILS_INSIDE);
-		boolean detailsOutside = a.flag(OPT_DETAILS_OUTSIDE);
+		// --coordinates / --coordinates-outside are the primary names; the older
+		// --details-inside / --details-outside remain as aliases. Both toggle the
+		// file/rank coordinate labels (inside the border gutter, or in an outer
+		// margin), NOT evaluation details.
+		boolean details = a.flag(OPT_DETAILS_INSIDE, application.cli.Constants.OPT_COORDINATES);
+		boolean detailsOutside = a.flag(OPT_DETAILS_OUTSIDE, application.cli.Constants.OPT_COORDINATES_OUTSIDE);
 		boolean shadow = a.flag(OPT_SHADOW, OPT_DROP_SHADOW);
 		List<String> circles = a.strings(OPT_CIRCLE, OPT_CIRCLES);
 		List<String> legal = a.strings(OPT_LEGAL);
@@ -463,8 +467,12 @@ public final class PositionViewCommand {
 		int height = a.integerOr(0, OPT_HEIGHT);
 		List<String> arrows = a.strings(OPT_ARROW, OPT_ARROWS);
 		boolean specialArrows = a.flag(OPT_SPECIAL_ARROWS);
-		boolean details = a.flag(OPT_DETAILS_INSIDE);
-		boolean detailsOutside = a.flag(OPT_DETAILS_OUTSIDE);
+		// --coordinates / --coordinates-outside are the primary names; the older
+		// --details-inside / --details-outside remain as aliases. Both toggle the
+		// file/rank coordinate labels (inside the border gutter, or in an outer
+		// margin), NOT evaluation details.
+		boolean details = a.flag(OPT_DETAILS_INSIDE, application.cli.Constants.OPT_COORDINATES);
+		boolean detailsOutside = a.flag(OPT_DETAILS_OUTSIDE, application.cli.Constants.OPT_COORDINATES_OUTSIDE);
 		boolean shadow = a.flag(OPT_SHADOW, OPT_DROP_SHADOW);
 		List<String> circles = a.strings(OPT_CIRCLE, OPT_CIRCLES);
 		List<String> legal = a.strings(OPT_LEGAL);
@@ -718,7 +726,7 @@ public final class PositionViewCommand {
 	 * @param legalSquares  legal move overlay squares
 	 * @param specialArrows whether to include special arrow overlays
 	 */
-	private static void applyDisplayOverlays(
+	static void applyDisplayOverlays(
 			Render render,
 			Position pos,
 			List<String> arrows,
@@ -728,18 +736,39 @@ public final class PositionViewCommand {
 		if (specialArrows) {
 			render.addCastlingRights(pos).addEnPassant(pos);
 		}
-		for (String arrow : arrows) {
-			short move = Move.parse(arrow);
-			render.addArrow(move);
+		// Each token may itself be a comma/space-separated list (the documented
+		// `--arrows e2e4,d2d4` form) as well as a repeated flag.
+		for (String arrow : splitTokens(arrows)) {
+			render.addArrow(Move.parse(arrow));
 		}
-		for (String circle : circles) {
-			byte index = parseSquare(circle);
-			render.addCircle(index);
+		for (String circle : splitTokens(circles)) {
+			render.addCircle(parseSquare(circle));
 		}
-		for (String sq : legalSquares) {
-			byte index = parseSquare(sq);
-			render.addLegalMoves(pos, index);
+		for (String sq : splitTokens(legalSquares)) {
+			render.addLegalMoves(pos, parseSquare(sq));
 		}
+	}
+
+	/**
+	 * Flattens a list of option values, splitting each on commas/whitespace, so
+	 * {@code --arrows e2e4,d2d4} and repeated {@code --arrow} flags both work.
+	 *
+	 * @param values raw option values
+	 * @return non-blank trimmed tokens
+	 */
+	private static List<String> splitTokens(List<String> values) {
+		List<String> out = new java.util.ArrayList<>();
+		for (String value : values) {
+			if (value == null) {
+				continue;
+			}
+			for (String token : value.split("[,\\s]+")) {
+				if (!token.isBlank()) {
+					out.add(token.trim());
+				}
+			}
+		}
+		return out;
 	}
 
 	/**
@@ -919,7 +948,7 @@ public final class PositionViewCommand {
 	 * @param image input image
 	 * @return image with drop shadow applied
 	 */
-	private static BufferedImage applyDropShadow(BufferedImage image) {
+	static BufferedImage applyDropShadow(BufferedImage image) {
 		int width = image.getWidth();
 		int blur = (int) (width * 0.05);
 		int offset = (int) (width * 0.05);

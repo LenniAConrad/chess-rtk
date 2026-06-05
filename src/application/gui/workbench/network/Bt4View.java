@@ -281,18 +281,11 @@ public final class Bt4View extends NetworkView {
     }
 
     /**
-     * Paints the empty placeholder.
-     *
-     * @param g graphics context
-     * @param bounds placeholder bounds
+     * {@inheritDoc}
      */
     @Override
-    protected void paintEmpty(Graphics2D g, Rectangle bounds) {
-        g.setColor(Theme.BG);
-        g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
-        g.setColor(Theme.MUTED);
-        g.setFont(Theme.font(13, Font.PLAIN));
-        g.drawString("Loading BT4 snapshot...", PAD, 32);
+    protected String emptyStateTitle() {
+        return "Loading BT4 snapshot\u2026";
     }
 
     /**

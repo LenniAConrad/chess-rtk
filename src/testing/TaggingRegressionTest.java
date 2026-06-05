@@ -31,6 +31,7 @@ public final class TaggingRegressionTest {
      * @param args args
      */
      public static void main(String[] args) {
+        System.setProperty(Evaluator.LC0_DISABLED_PROPERTY, "true");
         testStartPosition();
         testOpeningEcoTagsAndInheritance();
         testBackRankMate();

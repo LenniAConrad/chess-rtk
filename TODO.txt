@@ -384,3 +384,277 @@ publish.
   - Keep command reference pages scannable with stable anchors and concise
     examples.
   - Keep source-of-truth content in `wiki/` where possible.
+
+### Workbench UX Redesign
+
+Goal: collapse the 13-tab strip into 6 full surfaces built on ONE shared board
+and a registry-driven view/inspector system, so every panel reuses the existing
+design system, no surface is half-empty, and adding a feature is one
+registration instead of a new hand-wired tab.
+
+Status (shipped, regression-green): the 13 -> 6 tab consolidation is DONE.
+Phase 0 — `BoardStage` extracted. Phase 1 — `WorkbenchView` + `ViewRegistry` +
+`EditorSplitArea.addView` (registry-driven strip). Phases 2-3 — Board merge
+(Analyze/Play/Solve/Relations modes of ONE Board tab). Phase 4 — Engine merge
+(Network/Search modes of ONE Engine tab). Phase 5 — Run merge
+(Build/Batch/Console/Logs modes of ONE Run tab). Final strip: Dashboard, Board,
+Run, Datasets, Publish, Engine. The switcher mechanism is the reusable
+`application.gui.workbench.ui.SwitchedWorkspace` (Board and Engine/Run all build
+on it). The Board surface now TRULY SHARES one board: the single `board` is
+re-parented into the active mode's slot and reconfigured by
+`WindowBoardLayer.configureBoardForMode` (driven by `SwitchedWorkspace`'s mode
+listener) — Analyze/Play/Relations all drive the one board (verified: moves made
+in Analyze carry straight into Play; Relations overlays draw on the same board
+and clear on exit). The former `playBoard`/`relationsBoard` widgets are gone.
+Solve (puzzles) deliberately keeps its own board — a puzzle steps its own
+positions and must not clobber the analysis line. Remaining (deferred, not
+blocking): filling the MCTS "No search yet" void with a live root-move grid +
+sparkline; routing Publish status through a shared run-output bus; and making the
+Dashboard cards live/clickable.
+
+Coherence pass (shipped, regression-green): every top-level surface now leads
+with the same hairline `PANEL_SOLID` band. Mode surfaces (Board/Engine/Run) lead
+with their `SegmentedSwitcher`; the overview/operations surfaces that have no
+modes (Dashboard, Datasets, Publish) now lead with `Ui.surfaceHeader(title,
+purpose, actions)` — a title + one-line "what this shows" purpose, with any quick
+actions pushed to the right. This directly answers "it's unclear what the app
+wants to show": each surface states its job in one line. Settings complement:
+the piece-artwork preference (Slate/Outline/Staunton) is now also in
+Settings > Display > Appearance, kept in sync with the board-toolbar switcher via
+the shared `WindowBoardLayer.applyPieceSet` so the two never drift.
+
+Simplification pass (shipped, build+regression-green; from a 7-analyst audit with
+adversarial verification of every cut): Dashboard — collapsed the ~14-row backend
+matrix by default (kept expanded on the full Network tab), deleted ~430 lines of
+dead position-infographic code (MaterialStrip/MetricMeter/HealthRings/PositionStats
++ batchValue, none ever shown), and removed the duplicate "Run all checks" from the
+Health card (kept once in the toolbar). Board/Analyze — removed the rail Pieces
+switcher (now only in Settings) and the FEN Load button (Enter loads), and opened
+the detail tabs on "Data" instead of the 34-row legal-moves dump. Solve — dropped
+the "chess-rtk" scope prefix and collapsed the PGN box. Run/Build — replaced the
+14-button command-template strip with a single "Command" dropdown
+(`commandCombo`). Engine/Search — replaced the full-pane "No search yet" void with
+the always-visible root-move table (headers) + a slim hint. Publish — collapsed the
+Files and Details sections by default. NOTE: `WorkbenchUiRegression
+.testCommandPaletteGroupsActionsByCategory` was a source-grep test pinning the old
+`toolbarSeparator()` picker; it now asserts `commandCombo` instead.
+
+Second simplification batch (shipped after explicit user sign-off): Datasets —
+removed the toolbar Browse (the empty-state hero keeps the primary Browse…) and
+the prose insight strip, moving each insight onto its KPI tile as a hover tooltip
+(the `qualityInsight`/`coverageInsight` labels stay populated so
+`WorkbenchDatasetRegression` stays green; `MetricTile.setTooltip` registers the
+tip on the tile + its child labels). Publish — folded Layout/Options/Command into
+one collapsed "Advanced" section, so the form is Task / Files / Details / Advanced.
+Relations — wrapped the All/None selectors + ~12 channel toggles in a collapsible
+"Channels" disclosure (expanded by default). Play — promoted the in-game button
+row and Status row to fields and hide them until `applyGameState(gameActive=true)`,
+mirroring the existing `resultRow` idiom. Remaining needs-signoff items (e.g.
+consolidating Run's shared Depth/MultiPV/Threads spinners, the EditorSplitArea
+reopen-button weight) are still open.
+
+Deduplication pass (shipped, build+regression-green; CPD-style audit, 81 findings,
+10 applied, 59 dropped as coincidental/over-abstraction, 12 larger dedups deferred
+to needs-signoff). Applied, all behavior-preserving: WindowBoardLayer — SIDE_RAIL_SIZE
++ SETTINGS_ROW_INSETS constants and a shared createLabelDetailRow(title, detail,
+control) for the Theme/Pieces settings rows. BoardStyle.BOARD_ARROW_OPACITY now the
+single source for the suggested-arrow alpha (was duplicated in BoardArrowPainter +
+BoardExporter). BoardExporter — dropped the squareBounds/center pass-through wrappers,
+calling BoardGeometry directly. PromotionOverlay — CARD_INSET/CARD_RADIUS + a
+drawOptionCard helper. PgnExplorerDialog — SEARCH_FIELD_PADDING constant + a
+searchBarBorder() method (kept as a method, not a constant, because it embeds the
+theme-dependent Theme.LINE and is rebuilt on theme toggle). EcoExplorerPanel —
+requireSelectedRow() folds the triplicated "Select an ECO line first" guard.
+NnueAtlasView — drawSelectableSurface() shared by the slot gallery and plane
+selector. The 12 deferred dedups are larger cross-file consolidations.
+
+#### Target information architecture (13 -> 6 surfaces)
+
+- KEEP `Dashboard` -- the only "state of everything" surface; becomes the
+  home/launcher whose cards deep-link into the new tabs.
+- MERGE `Analyze + Play + Puzzles` into ONE `Board` surface (single shared
+  board, right-rail inspector switched by a SegmentedSwitcher).
+  - They are the same physical act -- a human at one board -- differing only in
+    who moves next and what the rail shows. They already each `new BoardPanel()`
+    (PuzzlePanel.java:95, WindowBase.java:168/177) + repeat the same
+    `materialBoardStage(...)` + `styledHorizontalSplit(board, rail, 0.68)` build.
+    Merging lets a player analyze a position, play it out, then drill its tactics
+    without re-pasting a FEN across three boards. Decisive answer to the user's
+    question: MERGE, do not keep split.
+- MERGE `Relations` into the `Board` surface as a fourth inspector mode (not a
+  tab) -- it is the same "board + rail" pattern and already takes an injectable
+  board: `RelationsPanel(BoardPanel, Supplier<Position>)`. It draws typed arrows
+  onto the shared board via the existing `board.addArrow(from,to,color,width)`.
+- MERGE `Network + MCTS` into ONE `Engine` surface (shared board + inspector
+  switcher: NN Overview / NN Trace / NN Atlas / PUCT Search) -- both inspect a
+  search/eval over the current position, and the Network tab ALREADY embeds a
+  second PUCT/MCTS toolbar, proving they belong together. The shared board makes
+  the engine's reasoning overlay the position you are already looking at.
+- MERGE `Commands + Batch + Console` into ONE `Run` surface (SegmentedSwitcher:
+  Build / Batch / REPL over a shared output area) -- all three build and execute
+  crtk subcommands and show output; Batch is just Build over a FEN list, and all
+  three are half-empty alone.
+- MERGE `Logs` into `Run` (an Output/Logs view in the shared bottom area) and a
+  Dashboard "Recent runs" card -- a near-empty file-list + viewer does not earn a
+  top-level slot.
+- KEEP `Datasets` -- the analytics north star (KPI tiles + DonutChart/DatasetChart
+  masonry + Samples/Issues); the visual model the other surfaces should match.
+- KEEP `Publish` -- a genuinely distinct form + live PDF preview artifact job.
+  Drop its private bottom command terminal; route its generated command + status
+  through the shared `Run` output bus so commands appear in one place.
+- Net: `Dashboard, Board, Engine, Run, Datasets, Publish`. Every surface is full.
+  Removed as top-level: Analyze/Play/Puzzles/Relations (-> Board inspectors),
+  MCTS (-> Engine inspector), Commands/Batch (-> Run views), Logs (-> Run + a
+  Dashboard card).
+
+#### What each surface should show
+
+- `Board`: one BoardStage (eval bar + board + MaterialStrips) on the left;
+  right-rail InspectorDock with a SegmentedSwitcher header
+  [Analyze | Play | Solve | Relations]. Switching swaps only the rail body via
+  CardLayout -- the board is never rebuilt and the position is preserved.
+  - Analyze rail: today's FEN/Load + transport + Search/Best/Analyze (depth,
+    multipv) + Moves/Lines/Tags/ECO/Data/Editor sub-tabs (kept verbatim).
+  - Play rail: today's PlayPanel (Elo presets 800-2800, side, New Game, in-game
+    Takeback/Hint/Draw/Resign, move list); the existing drag filter gates input
+    to the human's turn.
+  - Solve rail: today's PuzzlePanel (Load/File/Sample, Prev/Next/Random,
+    Retry/Hint/Reveal/Skip, PGN, Solution) plus a streak / "N/M solved" counter.
+    The current "Default puzzle library not found" void becomes a real first-run
+    `Ui.emptyState` with a primary action wired to the existing Sample button.
+  - Relations rail: ~12 tactical-channel toggles + opacity slider; board goes
+    read-only and renders typed arrows via `board.addArrow`.
+- `Engine`: shared board (left) + KPI strip on top (eval, WDL, nodes, nps) +
+  inspector switcher.
+  - NN inspectors: arch combo (NNUE/CNN/BT4/OTIS) + Overview/Trace/Atlas +
+    feature-driver charts (today's Network minus its duplicate board -- it reuses
+    the shared board).
+  - PUCT Search inspector (fixes MCTS's giant "No search yet" void): a live
+    root-move table (move, N, Q, P, PUCT) streaming during search, an
+    eval-vs-visits sparkline (reuse DatasetChart), Start/Pause/Resume/Stop, and
+    Cpuct/Visits/Millis controls. The best line draws on the shared board via
+    `board.setSuggestedMove` / `addArrow`; delete `MctsPanel.BoardPreview`.
+- `Run` (fixes Commands' empty middle band and Batch's empty halves): top
+  SegmentedSwitcher [Build | Batch | REPL]; a single shared output area below
+  populated by a `CommandResultBus` rendering one `Ui.card` per executed command
+  (command text, exit code, timing, output preview) into a `Ui.contentGrid(360)`
+  masonry. Build = today's command chips + position source + flags; Batch = the
+  FEN-list runner whose per-row results reuse the same result cards (so a batch
+  run is itself profilable); REPL = today's Console. Logs appear as an Output
+  filter here. All three views append to the one bus -- never empty after a run.
+- `Dashboard`: keep the cards but make them live and clickable. Position card ->
+  opens Board/Analyze with that FEN. Network Runtime row -> opens Engine with
+  that backend selected. Recent Jobs card is fed by the shared `CommandResultBus`
+  so "No runs yet" disappears the moment anything runs; add a compact Logs/output
+  card so the Logs tab can retire.
+- `Datasets` / `Publish`: scope unchanged (already full and well-developed).
+
+#### Hyper-dynamic reusable-component architecture
+
+The codebase already owns ~80% of a dynamic system; the gap is that it is not
+named or unified, and board surfaces are NOT composed from the primitives -- each
+tab hand-rolls `new BoardPanel()` + GridBag + `styledHorizontalSplit(...,0.68)`.
+Add three small, concrete types, all built on what exists.
+
+- `WorkbenchView` (new interface): `String title(); JComponent component();
+  default Supplier<JComponent> duplicateFactory(){return null;} default void
+  onShown(){} default void onHidden(){}`. This is just a name for what
+  `EditorSplitArea.addPanel(name, panel, factory)` already consumes. Add
+  `EditorSplitArea.addView(WorkbenchView)` and route its selection listener to
+  onShown/onHidden.
+- `ViewRegistry` (new): an ordered `List<WorkbenchView>` that
+  `WindowLifecycle.buildUi` (the hand-listed `tabs.addPanel(...)` wall at
+  ~line 929) iterates instead of 13 literal calls. Adding/reordering a top-level
+  surface becomes data; the "+" new-tab button offers the registry list. Wrap
+  lazy views in the existing `LazyPanel` exactly as today.
+- `BoardController` (new interface, extracted from WindowBase): the single source
+  of truth for the current Position + move funnel (`playMove`) + per-mode
+  position mementos. Today `gameModel`/`currentPosition` already live on
+  WindowBase; wrap them so the ONE board and EVERY rail/inspector (and the
+  Dashboard Position card) observe the same model. Kills the "every board tab has
+  its own FEN" problem the merge depends on.
+- `BoardStage` (new final class): promote the private
+  `WindowBoardLayer.materialBoardStage(BoardPanel)` (line 102) to a public
+  reusable component -- `BoardStage(BoardController)` builds board + top/bottom
+  MaterialStrip + EvalBar exactly as today. The five real `new BoardPanel()`
+  sites (PuzzlePanel.java:95, AnalysisWorkspacePanel.java:80,
+  WindowBase.java:168/177/183) collapse into BoardStage's single BoardPanel.
+- `Inspector` (new interface) + `InspectorDock` (new final class):
+  `Inspector { String title(); JComponent rail(); void attach(BoardController);
+  default void onActivated(){} default void onDeactivated(){} }`. InspectorDock =
+  a SegmentedSwitcher header + a CardLayout body of inspector rails sharing the
+  injected BoardController. Implement AnalyzeInspector / PlayInspector /
+  SolveInspector / RelationsInspector / EngineNetworkInspector /
+  EngineSearchInspector -- mostly the existing rail bodies with their board
+  reference swapped to the shared controller (RelationsPanel, PlayPanel,
+  PuzzlePanel, MctsPanel are already constructor-injected). Per-rail policy lives
+  in onActivated/onDeactivated: claim/release the move handler and drag filter
+  (`board.setMoveHandler`, `board.setDragStartFilter`), and snapshot/restore
+  board markup + position so a Play game in progress survives a switch to Analyze
+  and back.
+- Reuse the design system, do not invent a parallel one: a `BoardWorkspace` is
+  `new SurfacePanel(BorderLayout)` + `SplitPaneStyler.styledHorizontalSplit(
+  boardStage, inspectorDock, 0.68)` -- the exact helper today's createBoardTab
+  uses. Empty voids fill with `Ui.card` + `Ui.contentGrid` -> CardGrid masonry
+  (Run result cards, Engine KPI strip, MCTS root-move grid). `CommandResultBus`
+  + a `CommandResultCard` are one shared component fed by Build/Batch/REPL and
+  the Dashboard. Charts reuse DatasetChart/DonutChart. Split/detach/dock stays
+  free because workspaces remain EditorSplitArea views; everything stays lazy via
+  LazyPanel. The payoff: a new rail/overlay = one Inspector impl + one registry
+  entry, with palette/split/dock lighting up for free.
+
+#### Phased migration (every phase compiles, ships, and stays regression-green)
+
+- Phase 0 (no behavior change, pure extraction): promote `materialBoardStage`
+  to public `BoardStage`; introduce `BoardController` as a thin wrapper over the
+  current gameModel/board. Verify clean `javac --release 17` and a green
+  WorkbenchRegressionTest. App ships identically.
+- Phase 1 (mechanical, no merges): define `WorkbenchView` +
+  `EditorSplitArea.addView` + `ViewRegistry`; rewrite the 13 `addPanel` calls as
+  one-for-one registry registrations. Fully shippable, identical 13 tabs.
+- Phase 2 (Board shell, Analyze inside it): build `Inspector` + `InspectorDock`
+  + `BoardWorkspace` hosting the shared BoardStage with only AnalyzeInspector.
+  Replace the Analyze tab. Analyze looks the same but is inspector-driven.
+- Phase 3 (fold Play + Solve + Relations into Board): port PlayInspector,
+  SolveInspector, RelationsInspector onto the same InspectorDock; delete the
+  standalone Play/Puzzles/Relations tabs and the playBoard/relationsBoard/
+  PuzzlePanel.board instances. 13 -> 10 tabs, one board.
+- Phase 4 (Engine): build the Engine BoardWorkspace with NN + PUCT inspectors;
+  fill the MCTS void with the root-move CardGrid + sparkline; delete
+  MctsPanel.BoardPreview and the standalone Network/MCTS tabs. 10 -> 8.
+- Phase 5 (Run + Dashboard fill): build `CommandResultBus` + `CommandResultCard`
+  CardGrid and the Run workspace (Build/Batch/REPL); retire Commands/Batch/
+  Console, route Logs + Publish status through the bus, add the Dashboard Recent
+  runs card, delete the Logs tab. 8 -> 6 (final).
+
+#### Non-goals and risks
+
+- NON-GOAL: a plugin framework or a parallel docking system. EditorSplitArea
+  already does split/detach/dock; we name and feed it, not replace it. Keep the
+  new interfaces tiny (3-4 methods) so they document intent without becoming a
+  framework for a single-maintainer codebase.
+- NON-GOAL: removing any capability. Every current panel survives as an
+  Inspector/View; this is fewer shells and one board, not fewer features.
+- RISK (top): one shared BoardController couples state that is isolated today --
+  Play was deliberately single-instance because PlaySession owns one board and
+  listener (WindowLifecycle.java:948). Mitigate: BoardController is the sole owner
+  and keeps a per-inspector position memento; onActivated/onDeactivated claim and
+  release the move handler + drag filter so a stray click during Play cannot
+  corrupt an Analyze line. Re-run the data-race-sensitive paths (cf. commit
+  e879ecf) after Phase 3/4.
+- RISK: detach/duplicate semantics change. A single shared board cannot live in
+  two windows. Decision: detaching a Board/Engine view spawns an INDEPENDENT
+  BoardWorkspace with its OWN BoardPanel -- exactly what AnalysisWorkspacePanel
+  already does (line 80) -- which is the correct mental model for a second board.
+- RISK: discoverability -- collapsing 13 labels to 6 hides Play/Puzzles/etc.
+  behind a switcher. Mitigate with Command Palette entries ("Open Puzzles",
+  "Open Play") that select the surface and set the inspector mode, plus Dashboard
+  deep-links, so muscle memory survives.
+- RISK: theme/scroll invariants. The rail swap MUST use CardLayout (never
+  rebuild) or the WCAG-AA white-on-ACCENT and box-in-a-card regressions return;
+  keep rails opaque SurfacePanels, use `Ui.scroll(view, ()->Theme.CARD)` inside
+  cards, and keep `Theme.refreshComponent` skipping JScrollPane children. The new
+  MCTS root-move grid and Engine KPI strip are the highest-risk new cards.
+- RISK: a partially-done refactor is briefly a confusing hybrid. The phasing
+  keeps each step independently shippable and revertable to contain that; delete
+  a tab only after its content is live in the new home.

@@ -7,6 +7,7 @@ import static testing.WorkbenchTestSupport.assertFalse;
 import static testing.WorkbenchTestSupport.assertPaintsOpaqueCorner;
 import static testing.WorkbenchTestSupport.assertTrue;
 import static testing.WorkbenchTestSupport.field;
+import static testing.WorkbenchTestSupport.maxAlpha;
 import static testing.WorkbenchTestSupport.paint;
 
 import application.gui.workbench.dataset.DatasetAnalyzer;
@@ -128,10 +129,29 @@ final class WorkbenchDatasetRegression {
                 "dataset coverage insight reports tag ratio");
         paintPanel(panel, 980, 680, "dataset panel paints surface");
 
+        // The chart is transparent by design; the shared elevated card paints
+        // the opaque surface, matching how DatasetPanel composes them.
         DatasetChart chart = new DatasetChart();
         chart.setBars(List.of(new DatasetChart.Bar("valid", 3L, DatasetChart.Role.SUCCESS),
                 new DatasetChart.Bar("invalid", 1L, DatasetChart.Role.ERROR)));
-        paintPanel(chart, 340, 160, "dataset chart paints surface");
+        javax.swing.JComponent chartCard = application.gui.workbench.ui.Ui.card("Chart", chart);
+        chartCard.setSize(340, 160);
+        chartCard.doLayout();
+        assertEquals(Integer.valueOf(255), Integer.valueOf(maxAlpha(paint(chartCard, 340, 160))),
+                "dataset chart card paints surface");
+
+        // The donut chart is likewise transparent and composes the same way; it
+        // must paint visible ring ink (a non-trivial colour, not just the card).
+        application.gui.workbench.dataset.DonutChart donut = new application.gui.workbench.dataset.DonutChart();
+        donut.setSegments(List.of(
+                new application.gui.workbench.dataset.DonutChart.Segment("white", 3L, DatasetChart.Role.ACCENT),
+                new application.gui.workbench.dataset.DonutChart.Segment("black", 1L, DatasetChart.Role.NEUTRAL)),
+                "positions");
+        javax.swing.JComponent donutCard = application.gui.workbench.ui.Ui.card("Donut", donut);
+        donutCard.setSize(340, 180);
+        donutCard.doLayout();
+        assertEquals(Integer.valueOf(255), Integer.valueOf(maxAlpha(paint(donutCard, 340, 180))),
+                "dataset donut card paints surface");
     }
 
     /**

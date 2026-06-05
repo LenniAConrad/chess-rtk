@@ -170,6 +170,9 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
         for (application.gui.workbench.mcts.MctsPanel panel : mctsPanels) {
             panel.setBoardFen(currentPosition.toString());
         }
+        for (application.gui.workbench.mcts.TreePanel panel : treePanels) {
+            panel.setBoardFen(currentPosition.toString());
+        }
         if (positionDescriptionPanel != null) {
             positionDescriptionPanel.setFen(currentPosition.toString());
         }

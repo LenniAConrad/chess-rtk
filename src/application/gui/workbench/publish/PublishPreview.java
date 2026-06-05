@@ -1,6 +1,7 @@
 package application.gui.workbench.publish;
 
 import application.gui.workbench.board.BoardStyle;
+import application.gui.workbench.publish.PublishSampleData.SampleItem;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import chess.core.Piece;
@@ -15,6 +16,7 @@ import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Stroke;
+import java.util.List;
 import java.util.Locale;
 import javax.swing.JComponent;
 
@@ -260,13 +262,17 @@ public final class PublishPreview extends JComponent {
                 Math.max(42, (availableH - gap * (rows - 1)) / rows - captionHeight));
         int totalW = columns * board + (columns - 1) * gap;
         int startX = body.x + Math.max(0, (body.width - totalW) / 2);
-        int firstIndex = (page - 1) * columns * rows;
-        for (int i = 0; i < columns * rows; i++) {
+        int perPage = columns * rows;
+        int firstIndex = (page - 1) * perPage;
+        List<SampleItem> items = preview.itemsOrEmpty();
+        int available = items.isEmpty() ? perPage : Math.max(0, items.size() - firstIndex);
+        int cards = items.isEmpty() ? perPage : Math.min(perPage, available);
+        for (int i = 0; i < cards; i++) {
             int row = i / columns;
             int col = i % columns;
             int x = startX + col * (board + gap);
             int boardY = y + row * (board + captionHeight + gap);
-            paintDiagramCard(g, x, boardY, board, firstIndex + i + 1);
+            paintDiagramCard(g, x, boardY, board, firstIndex + i, items);
         }
     }
 
@@ -277,13 +283,16 @@ public final class PublishPreview extends JComponent {
      * @param x x
      * @param y y
      * @param size board size
-     * @param index one-based diagram index
+     * @param index zero-based diagram index
+     * @param items available sample items, possibly empty
      */
-    private void paintDiagramCard(Graphics2D g, int x, int y, int size, int index) {
-        paintMiniBoard(g, x, y, size, true);
+    private void paintDiagramCard(Graphics2D g, int x, int y, int size, int index, List<SampleItem> items) {
+        SampleItem item = items.isEmpty() ? null : items.get(index % items.size());
+        paintMiniBoard(g, x, y, size, item != null ? placementOf(item.fen()) : previewFenPlacement());
         if (!preview.noFen()) {
-            drawElided(g, "diagram " + index + "  " + compactBoardCaption(),
-                    Theme.mono(Math.max(7, size / 18)), PAPER_MUTED,
+            String caption = item != null ? (index + 1) + ".  " + item.label()
+                    : "diagram " + (index + 1) + "  " + compactBoardCaption();
+            drawElided(g, caption, Theme.mono(Math.max(7, size / 18)), PAPER_MUTED,
                     x, y + size + Math.max(10, size / 10), size);
         }
     }
@@ -297,14 +306,24 @@ public final class PublishPreview extends JComponent {
     private void paintRenderManifest(Graphics2D g, Rectangle body) {
         int y = paintDocumentHeader(g, body, "rendered manifest", preview.source());
         int board = Math.min(Math.max(54, body.width / 3), Math.max(54, body.height / 4));
-        paintMiniBoard(g, body.x, y, board, false);
-        paintTextBlock(g, body.x + board + 12, y + 3,
-                Math.max(20, body.width - board - 12), board - 6, 5);
+        List<SampleItem> items = preview.itemsOrEmpty();
+        paintMiniBoard(g, body.x, y, board, items.isEmpty() ? null : placementOf(items.get(0).fen()));
+        int textX = body.x + board + 12;
+        int textW = Math.max(20, body.width - board - 12);
+        if (items.isEmpty()) {
+            paintTextBlock(g, textX, y + 3, textW, board - 6, 5);
+        } else {
+            drawElided(g, items.get(0).label(), Theme.font(10, Font.BOLD), PAPER_INK, textX, y + 14, textW);
+            drawElided(g, items.get(0).detail(), Theme.mono(8), PAPER_MUTED, textX, y + 28, textW);
+            drawElided(g, items.size() + " entries in manifest", Theme.font(8, Font.PLAIN), PAPER_MUTED,
+                    textX, y + 44, textW);
+        }
 
         int cardY = y + board + Math.max(16, body.height / 28);
         int cardH = Math.max(24, body.height / 12);
         for (int i = 0; i < 4 && cardY + cardH < body.y + body.height - 8; i++) {
-            paintPuzzleRow(g, body.x, cardY + i * (cardH + 7), body.width, cardH, i + 1);
+            SampleItem item = items.isEmpty() ? null : items.get((i + 1) % items.size());
+            paintPuzzleRow(g, body.x, cardY + i * (cardH + 7), body.width, cardH, i + 1, item);
         }
     }
 
@@ -326,15 +345,46 @@ public final class PublishPreview extends JComponent {
         drawElided(g, "puzzle index", Theme.font(10, Font.BOLD), PAPER_INK, body.x, gridY, body.width);
         int tableY = gridY + 12;
         int rows = Math.max(4, Math.min(7, (body.y + body.height - tableY - 16) / 18));
+        List<SampleItem> items = preview.itemsOrEmpty();
         for (int i = 0; i < rows; i++) {
             int rowY = tableY + i * 18;
             g.setColor(i % 2 == 0 ? PAPER_BLOCK : PAPER);
             g.fillRect(body.x, rowY - 9, body.width, 15);
             paintTinyStatus(g, body.x + 3, rowY - 4, PAPER_ACCENT);
-            paintTextLine(g, body.x + 15, rowY, body.width / 3, 2);
-            paintTextLine(g, body.x + body.width / 2, rowY, body.width / 4, 2);
-            paintTextLine(g, body.x + body.width * 3 / 4, rowY, body.width / 5, 2);
+            SampleItem item = items.isEmpty() ? null : items.get(i % items.size());
+            if (item != null) {
+                drawElided(g, (i + 1) + ".  " + item.label(), Theme.font(9, Font.PLAIN), PAPER_INK,
+                        body.x + 15, rowY + 2, body.width * 3 / 5 - 15);
+                drawRightText(g, item.detail(), Theme.mono(8), PAPER_MUTED,
+                        body.x + body.width, rowY + 2, body.width / 3);
+            } else {
+                paintTextLine(g, body.x + 15, rowY, body.width / 3, 2);
+                paintTextLine(g, body.x + body.width / 2, rowY, body.width / 4, 2);
+                paintTextLine(g, body.x + body.width * 3 / 4, rowY, body.width / 5, 2);
+            }
         }
+    }
+
+    /**
+     * Draws right-aligned, elided text ending at {@code rightX}.
+     *
+     * @param g graphics
+     * @param text text
+     * @param font font
+     * @param color color
+     * @param rightX right edge x
+     * @param y baseline y
+     * @param maxW maximum width
+     */
+    private static void drawRightText(Graphics2D g, String text, Font font, Color color, int rightX, int y, int maxW) {
+        if (text == null || text.isBlank() || maxW <= 0) {
+            return;
+        }
+        g.setFont(font);
+        g.setColor(color);
+        FontMetrics metrics = g.getFontMetrics();
+        String shown = Ui.elide(text, metrics, maxW);
+        g.drawString(shown, rightX - metrics.stringWidth(shown), y);
     }
 
     /**
@@ -347,17 +397,22 @@ public final class PublishPreview extends JComponent {
         int y = paintDocumentHeader(g, body, "study book", preview.subtitle());
         int gap = Math.max(10, body.width / 35);
         int board = Math.min(Math.max(58, body.width / 2 - gap), Math.max(58, body.height / 3));
-        paintMiniBoard(g, body.x, y, board, true);
+        List<SampleItem> items = preview.itemsOrEmpty();
+        SampleItem lead = items.isEmpty() ? null : items.get(0);
+        paintMiniBoard(g, body.x, y, board, lead != null ? placementOf(lead.fen()) : previewFenPlacement());
         int textX = body.x + board + gap;
         int textW = Math.max(24, body.width - board - gap);
-        paintMoveLine(g, textX, y + 8, textW);
-        paintTextBlock(g, textX, y + 32, textW, Math.max(28, board - 34), 6);
+        drawElided(g, lead != null ? lead.label() : preview.title(), Theme.font(10, Font.BOLD), PAPER_INK,
+                textX, y + 11, textW);
+        paintMoveLine(g, textX, y + 18, textW, lead != null ? lead.detail() : "17. Nf3  Nc6  18. Bb5");
+        paintTextBlock(g, textX, y + 42, textW, Math.max(20, board - 44), 5);
 
         int variationY = y + board + Math.max(16, body.height / 30);
         paintVariationBlock(g, body.x, variationY, body.width,
-                Math.max(34, Math.min(body.height / 5, body.y + body.height - variationY - 48)));
+                Math.max(34, Math.min(body.height / 5, body.y + body.height - variationY - 48)), items);
         paintExerciseBlock(g, body.x, variationY + Math.max(54, body.height / 5), body.width,
-                Math.max(34, body.y + body.height - variationY - Math.max(64, body.height / 5)));
+                Math.max(34, body.y + body.height - variationY - Math.max(64, body.height / 5)),
+                items.size() > 1 ? items.get(1) : null);
     }
 
     /**
@@ -404,8 +459,10 @@ public final class PublishPreview extends JComponent {
                         bounds.width - pad * 2);
             }
             int board = Math.min(bounds.width - pad * 2, bounds.height / 3);
+            List<SampleItem> items = preview.itemsOrEmpty();
             paintMiniBoard(g, bounds.x + (bounds.width - board) / 2,
-                    bounds.y + bounds.height - board - pad, board, false);
+                    bounds.y + bounds.height - board - pad, board,
+                    items.isEmpty() ? FALLBACK_FEN_PLACEMENT : placementOf(items.get(0).fen()));
         } else {
             paintTextBlock(g, bounds.x + pad, bounds.y + pad, bounds.width - pad * 2,
                     Math.max(32, bounds.height / 3), 7);
@@ -495,21 +552,21 @@ public final class PublishPreview extends JComponent {
     }
 
     /**
-     * Paints a tiny chessboard diagram.
+     * Paints a tiny chessboard diagram from an explicit board placement.
      *
      * @param g graphics
      * @param x x
      * @param y y
      * @param size square board size
-     * @param withPieces true to paint pieces from the preview FEN when possible
+     * @param placement FEN board placement, or {@code null} for an empty board
      */
-    private void paintMiniBoard(Graphics2D g, int x, int y, int size, boolean withPieces) {
+    private void paintMiniBoard(Graphics2D g, int x, int y, int size, String placement) {
         int board = Math.max(8, size - size % 8);
         int square = Math.max(1, board / 8);
         Rectangle bounds = new Rectangle(x, y, board, board);
         BoardStyle.drawBoardSurface(g, bounds, true);
-        if (withPieces) {
-            paintFenPieces(g, bounds, previewFenPlacement());
+        if (placement != null) {
+            paintFenPieces(g, bounds, placement);
         }
         if (board >= 64) {
             BoardStyle.drawInsideCoordinates(g, bounds, !preview.flip(), Math.max(7, board / 17));
@@ -599,17 +656,33 @@ public final class PublishPreview extends JComponent {
      * @return FEN placement
      */
     private String previewFenPlacement() {
+        List<SampleItem> items = preview.itemsOrEmpty();
+        if (!items.isEmpty()) {
+            return placementOf(items.get(0).fen());
+        }
         String source = preview.source();
         int open = source.indexOf('(');
         int close = open < 0 ? -1 : source.indexOf(')', open + 1);
         if (open >= 0 && close > open) {
             String candidate = source.substring(open + 1, close).trim();
-            String placement = candidate.split("\\s+")[0];
-            if (placement.chars().filter(ch -> ch == '/').count() == 7) {
-                return placement;
-            }
+            return placementOf(candidate);
         }
         return FALLBACK_FEN_PLACEMENT;
+    }
+
+    /**
+     * Extracts the board-placement field from a FEN, falling back to a quiet
+     * default when the text is not a recognizable position.
+     *
+     * @param fen FEN or board placement
+     * @return board placement field
+     */
+    private static String placementOf(String fen) {
+        if (fen == null || fen.isBlank()) {
+            return FALLBACK_FEN_PLACEMENT;
+        }
+        String placement = fen.trim().split("\\s+")[0];
+        return placement.chars().filter(ch -> ch == '/').count() == 7 ? placement : FALLBACK_FEN_PLACEMENT;
     }
 
     /**
@@ -637,14 +710,19 @@ public final class PublishPreview extends JComponent {
      * @param h height
      * @param index row index
      */
-    private void paintPuzzleRow(Graphics2D g, int x, int y, int w, int h, int index) {
+    private void paintPuzzleRow(Graphics2D g, int x, int y, int w, int h, int index, SampleItem item) {
         g.setColor(index % 2 == 0 ? PAPER_BLOCK : PAPER);
         g.fillRoundRect(x, y, w, h, 4, 4);
         g.setColor(PAPER_LINE);
         g.drawRoundRect(x, y, w - 1, h - 1, 4, 4);
         paintTinyStatus(g, x + 6, y + h / 2 - 3, index % 2 == 0 ? PAPER_PURPLE : PAPER_ACCENT);
-        paintTextLine(g, x + 18, y + h / 2 + 2, w / 3, 2);
-        paintTextLine(g, x + w / 2, y + h / 2 + 2, w / 3, 2);
+        if (item != null) {
+            drawElided(g, item.label(), Theme.font(9, Font.PLAIN), PAPER_INK, x + 18, y + h / 2 + 3, w * 3 / 5);
+            drawRightText(g, item.detail(), Theme.mono(8), PAPER_MUTED, x + w - 8, y + h / 2 + 3, w / 3);
+        } else {
+            paintTextLine(g, x + 18, y + h / 2 + 2, w / 3, 2);
+            paintTextLine(g, x + w / 2, y + h / 2 + 2, w / 3, 2);
+        }
     }
 
     /**
@@ -675,11 +753,11 @@ public final class PublishPreview extends JComponent {
      * @param y y
      * @param w width
      */
-    private static void paintMoveLine(Graphics2D g, int x, int y, int w) {
+    private static void paintMoveLine(Graphics2D g, int x, int y, int w, String moves) {
         g.setColor(new Color(0xE9F2FB));
         g.fillRoundRect(x, y, w, 18, 5, 5);
-        drawElided(g, "17. Nf3  Nc6  18. Bb5", Theme.font(9, Font.BOLD), PAPER_ACCENT,
-                x + 6, y + 12, w - 12);
+        drawElided(g, moves == null || moves.isBlank() ? "17. Nf3  Nc6  18. Bb5" : moves,
+                Theme.font(9, Font.BOLD), PAPER_ACCENT, x + 6, y + 12, w - 12);
     }
 
     /**
@@ -691,13 +769,22 @@ public final class PublishPreview extends JComponent {
      * @param w width
      * @param h height
      */
-    private static void paintVariationBlock(Graphics2D g, int x, int y, int w, int h) {
+    private static void paintVariationBlock(Graphics2D g, int x, int y, int w, int h, List<SampleItem> items) {
         g.setColor(PAPER_BLOCK);
         g.fillRoundRect(x, y, w, h, 5, 5);
         g.setColor(PAPER_PURPLE);
         g.fillRect(x, y, Math.max(3, w / 70), h);
         drawElided(g, "candidate variations", Theme.font(9, Font.BOLD), PAPER_INK, x + 10, y + 14, w - 20);
-        paintTextBlock(g, x + 10, y + 24, w - 20, h - 28, 4);
+        int lines = Math.max(0, (h - 26) / 13);
+        if (items.isEmpty() || lines == 0) {
+            paintTextBlock(g, x + 10, y + 24, w - 20, h - 28, 4);
+            return;
+        }
+        for (int i = 0; i < lines && i < items.size(); i++) {
+            SampleItem item = items.get(i);
+            drawElided(g, "→ " + item.label() + " — " + item.detail(), Theme.mono(8), PAPER_MUTED,
+                    x + 12, y + 26 + i * 13, w - 22);
+        }
     }
 
     /**
@@ -709,14 +796,19 @@ public final class PublishPreview extends JComponent {
      * @param w width
      * @param h height
      */
-    private static void paintExerciseBlock(Graphics2D g, int x, int y, int w, int h) {
+    private static void paintExerciseBlock(Graphics2D g, int x, int y, int w, int h, SampleItem item) {
         int safeH = Math.max(24, h);
         g.setColor(PAPER);
         g.fillRoundRect(x, y, w, safeH, 5, 5);
         g.setColor(PAPER_LINE);
         g.drawRoundRect(x, y, w - 1, safeH - 1, 5, 5);
         drawElided(g, "quick check", Theme.font(9, Font.BOLD), PAPER_INK, x + 8, y + 15, w - 16);
-        paintTextBlock(g, x + 8, y + 25, w - 16, safeH - 30, 3);
+        if (item != null) {
+            drawElided(g, item.label() + " — your move?", Theme.font(8, Font.PLAIN), PAPER_MUTED,
+                    x + 8, y + 28, w - 16);
+        } else {
+            paintTextBlock(g, x + 8, y + 25, w - 16, safeH - 30, 3);
+        }
     }
 
     /**
@@ -857,7 +949,8 @@ public final class PublishPreview extends JComponent {
             boolean cover,
             boolean diagramLayout,
             boolean flip,
-            boolean noFen) {
+            boolean noFen,
+            List<SampleItem> items) {
 
         /**
          * Empty preview.
@@ -866,7 +959,7 @@ public final class PublishPreview extends JComponent {
          */
         static Preview empty() {
             return new Preview("Publishing", "ChessRTK Workbench", "", "", "", false, "", 1,
-                    false, true, false, false);
+                    false, true, false, false, List.of());
         }
 
         /**
@@ -879,7 +972,16 @@ public final class PublishPreview extends JComponent {
             String normalizedTitle = title == null || title.isBlank() ? "ChessRTK Workbench" : title;
             String normalizedWorkflow = workflow == null || workflow.isBlank() ? "Publishing" : workflow;
             return new Preview(normalizedWorkflow, normalizedTitle, safe(subtitle), safe(source), safe(output),
-                    ready, safe(issue), pages, cover, diagramLayout, flip, noFen);
+                    ready, safe(issue), pages, cover, diagramLayout, flip, noFen, itemsOrEmpty());
+        }
+
+        /**
+         * Returns the sample items, never null.
+         *
+         * @return sample items
+         */
+        List<SampleItem> itemsOrEmpty() {
+            return items == null ? List.of() : items;
         }
 
         /**

@@ -51,7 +51,7 @@ public final class BoardExporter {
     /**
      * Suggested-move export arrow opacity.
      */
-    private static final int SUGGESTED_ARROW_ALPHA = 204;
+    private static final int SUGGESTED_ARROW_ALPHA = BoardStyle.BOARD_ARROW_OPACITY;
 
     /**
      * Prevents instantiation.
@@ -165,30 +165,30 @@ public final class BoardExporter {
      */
     private static void paintRasterHighlights(BoardExportSnapshot snapshot, Graphics2D g, Rectangle board) {
         snapshot.squareHighlights().forEach((square, color) ->
-                BoardStyle.drawFilledSquareHighlight(g, squareBounds(board, square.byteValue(), snapshot.whiteDown()),
+                BoardStyle.drawFilledSquareHighlight(g, BoardGeometry.squareBounds(board, square.byteValue(), snapshot.whiteDown()),
                         color));
         if (snapshot.showLastMoveHighlight() && snapshot.lastMove() != Move.NO_MOVE) {
             BoardStyle.drawFilledSquareHighlight(g,
-                    squareBounds(board, Move.getFromIndex(snapshot.lastMove()), snapshot.whiteDown()),
+                    BoardGeometry.squareBounds(board, Move.getFromIndex(snapshot.lastMove()), snapshot.whiteDown()),
                     Theme.LAST_MOVE_EDGE);
             BoardStyle.drawFilledSquareHighlight(g,
-                    squareBounds(board, Move.getToIndex(snapshot.lastMove()), snapshot.whiteDown()),
+                    BoardGeometry.squareBounds(board, Move.getToIndex(snapshot.lastMove()), snapshot.whiteDown()),
                     Theme.LAST_MOVE_EDGE);
         }
         if (snapshot.selectedSquare() != Field.NO_SQUARE) {
             BoardStyle.drawFilledSquareHighlight(g,
-                    squareBounds(board, snapshot.selectedSquare(), snapshot.whiteDown()), Theme.SELECTED_EDGE);
+                    BoardGeometry.squareBounds(board, snapshot.selectedSquare(), snapshot.whiteDown()), Theme.SELECTED_EDGE);
         }
         if (snapshot.showLegalMovePreview()) {
             for (byte target : snapshot.legalTargets()) {
                 if (target != snapshot.selectedSquare()) {
-                    BoardStyle.drawLegalTarget(g, squareBounds(board, target, snapshot.whiteDown()),
+                    BoardStyle.drawLegalTarget(g, BoardGeometry.squareBounds(board, target, snapshot.whiteDown()),
                             contains(snapshot.captureTargets(), target));
                 }
             }
         }
         if (snapshot.checkedKingSquare() != Field.NO_SQUARE) {
-            Rectangle checked = squareBounds(board, snapshot.checkedKingSquare(), snapshot.whiteDown());
+            Rectangle checked = BoardGeometry.squareBounds(board, snapshot.checkedKingSquare(), snapshot.whiteDown());
             g.setColor(Theme.CHECK_FILL);
             g.fillRect(checked.x, checked.y, checked.width, checked.height);
             g.setColor(Theme.CHECK_EDGE);
@@ -209,7 +209,7 @@ public final class BoardExporter {
         for (byte square = 0; square < Math.min(64, pieces.length); square++) {
             byte piece = pieces[square];
             if (piece != Piece.EMPTY) {
-                Rectangle bounds = squareBounds(board, square, snapshot.whiteDown());
+                Rectangle bounds = BoardGeometry.squareBounds(board, square, snapshot.whiteDown());
                 Shapes.drawPiece(piece, g, bounds.x, bounds.y, cell, cell);
             }
         }
@@ -227,21 +227,21 @@ public final class BoardExporter {
         if (snapshot.showSuggestedMoveArrow() && snapshot.suggestedMove() != Move.NO_MOVE) {
             g.setColor(Theme.withAlpha(Theme.BOARD_ARROW, SUGGESTED_ARROW_ALPHA));
             arrows.draw(g,
-                    center(board, Move.getFromIndex(snapshot.suggestedMove()), snapshot.whiteDown()),
-                    center(board, Move.getToIndex(snapshot.suggestedMove()), snapshot.whiteDown()),
+                    BoardGeometry.center(board, Move.getFromIndex(snapshot.suggestedMove()), snapshot.whiteDown()),
+                    BoardGeometry.center(board, Move.getToIndex(snapshot.suggestedMove()), snapshot.whiteDown()),
                     Math.max(8f, board.width / 80f),
-                    Math.max(15.0, board.width / 64.0));
+                    board.width / 8.0 * BoardStyle.ARROW_PIECE_GAP_FRACTION);
         }
         for (BoardMarkup markup : snapshot.boardMarkups()) {
             g.setColor(markup.brush().themedColor());
             if (markup.isCircle()) {
-                paintRasterCircle(g, squareBounds(board, markup.from(), snapshot.whiteDown()), markup.brush());
+                paintRasterCircle(g, BoardGeometry.squareBounds(board, markup.from(), snapshot.whiteDown()), markup.brush());
             } else {
                 arrows.draw(g,
-                        center(board, markup.from(), snapshot.whiteDown()),
-                        center(board, markup.to(), snapshot.whiteDown()),
+                        BoardGeometry.center(board, markup.from(), snapshot.whiteDown()),
+                        BoardGeometry.center(board, markup.to(), snapshot.whiteDown()),
                         Math.max(5f, board.width / 8f * markup.brush().lineWidth() / 64f),
-                        Math.max(15.0, board.width / 64.0));
+                        board.width / 8.0 * BoardStyle.ARROW_PIECE_GAP_FRACTION);
             }
         }
     }
@@ -312,7 +312,7 @@ public final class BoardExporter {
      */
     private static void appendSvgHighlights(BoardExportSnapshot snapshot, StringBuilder svg, Rectangle board) {
         snapshot.squareHighlights().forEach((square, color) -> {
-            Rectangle bounds = squareBounds(board, square.byteValue(), snapshot.whiteDown());
+            Rectangle bounds = BoardGeometry.squareBounds(board, square.byteValue(), snapshot.whiteDown());
             appendRect(svg, bounds.x, bounds.y, bounds.width, bounds.height, color);
         });
         if (snapshot.showLastMoveHighlight() && snapshot.lastMove() != Move.NO_MOVE) {
@@ -327,13 +327,13 @@ public final class BoardExporter {
         if (snapshot.showLegalMovePreview()) {
             for (byte target : snapshot.legalTargets()) {
                 if (target != snapshot.selectedSquare()) {
-                    appendLegalTarget(svg, squareBounds(board, target, snapshot.whiteDown()),
+                    appendLegalTarget(svg, BoardGeometry.squareBounds(board, target, snapshot.whiteDown()),
                             contains(snapshot.captureTargets(), target));
                 }
             }
         }
         if (snapshot.checkedKingSquare() != Field.NO_SQUARE) {
-            Rectangle checked = squareBounds(board, snapshot.checkedKingSquare(), snapshot.whiteDown());
+            Rectangle checked = BoardGeometry.squareBounds(board, snapshot.checkedKingSquare(), snapshot.whiteDown());
             appendRect(svg, checked.x, checked.y, checked.width, checked.height, Theme.CHECK_FILL);
             appendRectStroke(svg, checked.x, checked.y, checked.width, checked.height, Theme.CHECK_EDGE, 1.0);
         }
@@ -350,7 +350,7 @@ public final class BoardExporter {
      */
     private static void appendMoveSquare(StringBuilder svg, Rectangle board, byte square,
             boolean whiteDown, Color color) {
-        Rectangle bounds = squareBounds(board, square, whiteDown);
+        Rectangle bounds = BoardGeometry.squareBounds(board, square, whiteDown);
         appendRect(svg, bounds.x, bounds.y, bounds.width, bounds.height, color);
     }
 
@@ -399,7 +399,7 @@ public final class BoardExporter {
             if (piece == Piece.EMPTY) {
                 continue;
             }
-            Rectangle bounds = squareBounds(board, square, snapshot.whiteDown());
+            Rectangle bounds = BoardGeometry.squareBounds(board, square, snapshot.whiteDown());
             String source = pieceSvg(piece);
             if (source.isBlank()) {
                 continue;
@@ -426,22 +426,22 @@ public final class BoardExporter {
     private static void appendSvgAnnotations(BoardExportSnapshot snapshot, StringBuilder svg, Rectangle board) {
         if (snapshot.showSuggestedMoveArrow() && snapshot.suggestedMove() != Move.NO_MOVE) {
             appendArrow(svg,
-                    center(board, Move.getFromIndex(snapshot.suggestedMove()), snapshot.whiteDown()),
-                    center(board, Move.getToIndex(snapshot.suggestedMove()), snapshot.whiteDown()),
+                    BoardGeometry.center(board, Move.getFromIndex(snapshot.suggestedMove()), snapshot.whiteDown()),
+                    BoardGeometry.center(board, Move.getToIndex(snapshot.suggestedMove()), snapshot.whiteDown()),
                     Math.max(8.0, board.width / 80.0),
-                    Math.max(15.0, board.width / 64.0),
+                    board.width / 8.0 * BoardStyle.ARROW_PIECE_GAP_FRACTION,
                     Theme.withAlpha(Theme.BOARD_ARROW, SUGGESTED_ARROW_ALPHA));
         }
         for (BoardMarkup markup : snapshot.boardMarkups()) {
             Color color = markup.brush().themedColor();
             if (markup.isCircle()) {
-                appendCircleMarkup(svg, squareBounds(board, markup.from(), snapshot.whiteDown()), markup.brush(), color);
+                appendCircleMarkup(svg, BoardGeometry.squareBounds(board, markup.from(), snapshot.whiteDown()), markup.brush(), color);
             } else {
                 appendArrow(svg,
-                        center(board, markup.from(), snapshot.whiteDown()),
-                        center(board, markup.to(), snapshot.whiteDown()),
+                        BoardGeometry.center(board, markup.from(), snapshot.whiteDown()),
+                        BoardGeometry.center(board, markup.to(), snapshot.whiteDown()),
                         Math.max(5.0, board.width / 8.0 * markup.brush().lineWidth() / 64.0),
-                        Math.max(15.0, board.width / 64.0),
+                        board.width / 8.0 * BoardStyle.ARROW_PIECE_GAP_FRACTION,
                         color);
             }
         }
@@ -454,27 +454,36 @@ public final class BoardExporter {
      * @param from origin point
      * @param to target point
      * @param lineWidth line width
-     * @param shorten target shortening
+     * @param gap distance to pull BOTH endpoints inward by (a quarter square), so
+     *     the arrow keeps a clear gap from the start and target piece centres
      * @param color fill color
      */
     private static void appendArrow(StringBuilder svg, Point from, Point to,
-            double lineWidth, double shorten, Color color) {
+            double lineWidth, double gap, Color color) {
         double distance = from.distance(to);
         if (distance < 2.0) {
             return;
         }
         double angle = Math.atan2((double) to.y - from.y, (double) to.x - from.x);
-        double targetShorten = Math.min(shorten, distance * 0.35);
-        double headRadius = Math.min(Math.max(15.0, lineWidth * 2.6), Math.max(5.0, distance * 0.25));
         double cos = Math.cos(angle);
         double sin = Math.sin(angle);
+        // Mirror BoardArrowPainter.draw: pull both ends inward by `gap` and put
+        // the arrowhead tip at the gapped target end, with a constant head size.
+        double pull = Math.min(gap, distance * 0.40);
+        double startX = from.x + cos * pull;
+        double startY = from.y + sin * pull;
+        double tipX = to.x - cos * pull;
+        double tipY = to.y - sin * pull;
+        double span = distance - 2.0 * pull;
+        // Arrowhead width is exactly 3x the stalk width (sqrt(3) * headRadius),
+        // matching BoardArrowPainter.draw and palgor/PuzzleProjekt.
+        double headRadius = lineWidth * Math.sqrt(3.0);
+        headRadius = Math.min(headRadius, span * 0.8);
         double px = -sin;
         double py = cos;
         double halfWidth = lineWidth / 2.0;
-        double headX = to.x - cos * targetShorten;
-        double headY = to.y - sin * targetShorten;
-        double tipX = headX + cos * headRadius;
-        double tipY = headY + sin * headRadius;
+        double headX = tipX - cos * headRadius;
+        double headY = tipY - sin * headRadius;
         double leftAngle = angle + 2.0 * Math.PI / 3.0;
         double rightAngle = angle - 2.0 * Math.PI / 3.0;
         double wingLeftX = headX + Math.cos(leftAngle) * headRadius;
@@ -483,8 +492,8 @@ public final class BoardExporter {
         double wingRightY = headY + Math.sin(rightAngle) * headRadius;
         double baseX = headX - 0.5 * headRadius * cos;
         double baseY = headY - 0.5 * headRadius * sin;
-        svg.append("  <path d=\"M ").append(format(from.x + px * halfWidth)).append(' ')
-                .append(format(from.y + py * halfWidth))
+        svg.append("  <path d=\"M ").append(format(startX + px * halfWidth)).append(' ')
+                .append(format(startY + py * halfWidth))
                 .append(" L ").append(format(baseX + px * halfWidth)).append(' ')
                 .append(format(baseY + py * halfWidth))
                 .append(" L ").append(format(wingLeftX)).append(' ').append(format(wingLeftY))
@@ -492,8 +501,8 @@ public final class BoardExporter {
                 .append(" L ").append(format(wingRightX)).append(' ').append(format(wingRightY))
                 .append(" L ").append(format(baseX - px * halfWidth)).append(' ')
                 .append(format(baseY - py * halfWidth))
-                .append(" L ").append(format(from.x - px * halfWidth)).append(' ')
-                .append(format(from.y - py * halfWidth))
+                .append(" L ").append(format(startX - px * halfWidth)).append(' ')
+                .append(format(startY - py * halfWidth))
                 .append(" Z\" fill=\"").append(colorCss(color)).append("\"");
         appendOpacity(svg, color);
         svg.append("/>\n");
@@ -640,30 +649,6 @@ public final class BoardExporter {
         g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
         g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
         g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
-    }
-
-    /**
-     * Returns square bounds.
-     *
-     * @param board board rectangle
-     * @param square square index
-     * @param whiteDown orientation
-     * @return square bounds
-     */
-    private static Rectangle squareBounds(Rectangle board, byte square, boolean whiteDown) {
-        return BoardGeometry.squareBounds(board, square, whiteDown);
-    }
-
-    /**
-     * Returns square center.
-     *
-     * @param board board rectangle
-     * @param square square index
-     * @param whiteDown orientation
-     * @return square center
-     */
-    private static Point center(Rectangle board, byte square, boolean whiteDown) {
-        return BoardGeometry.center(board, square, whiteDown);
     }
 
     /**

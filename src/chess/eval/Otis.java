@@ -115,12 +115,12 @@ public final class Otis implements CentipawnEvaluator {
      * Adds policy-derived ordering bonuses to legal moves.
      *
      * @param position source position
-     * @param moves legal moves
+     * @param moves legal moves aligned with the prefix of {@code scores}
      * @param scores mutable score array
      */
     @Override
     public void scoreMoves(Position position, short[] moves, int[] scores) {
-        if (position == null || moves == null || scores == null || moves.length != scores.length) {
+        if (position == null || moves == null || scores == null || scores.length < moves.length) {
             return;
         }
         float[] policy = policy(position.signature());

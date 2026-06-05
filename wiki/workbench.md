@@ -54,6 +54,7 @@ The Workbench is a set of dockable tabs, each carved out around one job rather t
 | Console | Command output with terminal-style progress handling |
 | Logs | Persisted job logs and artifacts |
 | Network | NNUE, LC0 CNN, BT4, and OTIS model diagnostics and visualizers |
+| Relations | OTIS tactical-incidence relation channels drawn as typed arrows on a board |
 | Puzzles | Interactive puzzle practice |
 
 ## Analysis and PGN board
@@ -74,7 +75,7 @@ Play runs a full human-versus-engine game from the start position, the current b
 Both opponents run in-process. Play never spawns an external process.
 
 - `Alpha-Beta` is iterative deepening with a transposition table, null-move pruning, and quiescence, scoring leaves with the chosen evaluator.
-- `MCTS` is the in-process Monte Carlo Tree Search over the chosen policy/value backend — the same search family as the CLI's `engine builtin` and `engine java`, which are also MCTS and also keep to the JVM rather than reaching for a UCI engine.
+- `MCTS` is the in-process Monte Carlo Tree Search over the chosen policy/value backend. The CLI's `engine builtin --search mcts` path uses the same family, while the default classical/NNUE CLI path uses alpha-beta; both stay inside the JVM rather than reaching for a UCI engine.
 
 The Network selector decides which local model loads:
 
@@ -116,6 +117,10 @@ The Puzzles tab is where you actually solve the things you mined. Load the `*.pu
 ## Network visualizer
 
 The Network tab opens up the neural networks the toolkit has loaded — NNUE, the LC0 CNN, BT4, OTIS — and shows what they're doing: loaded-model state, inference state, feature boards, activation summaries, atlases, trace views, runtime information, and exportable visualizations. As close as you can get to watching an evaluator look at a position.
+
+## Relations
+
+The Relations tab draws the OTIS *tactical incidence* graph — the twelve typed relation channels `A(x)` the oriented-tactical-sheaf network ingests — as colour-coded arrows over a board: us/them attacks and defenses, king-zone pressure, occlusion-aware bishop/rook/queen rays, knight and pawn attacks, and absolute-pin candidates. Toggle channels on and off, set the arrow opacity, and point it at the current analysis position (Sync to board) or a pasted FEN. The edges are computed deterministically from the position alone — no model file needed — and are the exact same `A(x)` the CLI `fen relations` command renders and the network reads.
 
 ![Workbench network visualizer](../assets/screenshots/workbench-network.png)
 

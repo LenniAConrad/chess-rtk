@@ -334,12 +334,16 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         int glyphSize = Math.max(7, Math.min(rowH - 2, 26));
         Rectangle glyph = new Rectangle(body.x + 4, y + (rowH - glyphSize) / 2,
                 glyphSize, glyphSize);
-        HalfKpFeature feature = decodeHalfKpFeature(featureIdx, whitePerspective);
-        TensorViz.drawHalfKpGlyph(g, glyph,
-                feature.kingSquare, feature.pieceCode, feature.pieceSquare);
+        boolean halfKp = halfKpFeaturesDecodable();
+        if (halfKp) {
+            HalfKpFeature feature = decodeHalfKpFeature(featureIdx, whitePerspective);
+            TensorViz.drawHalfKpGlyph(g, glyph,
+                    feature.kingSquare, feature.pieceCode, feature.pieceSquare);
+        }
+        String decoded = halfKp ? decodeHalfKP(featureIdx, whitePerspective) : "HalfKAv2 #" + featureIdx;
         g.setColor(Theme.TEXT);
         g.setFont(Theme.font(10, Font.PLAIN));
-        String label = "#" + featureIdx + "  " + decodeHalfKP(featureIdx, whitePerspective);
+        String label = "#" + featureIdx + "  " + decoded;
         NotationPainter.draw(g, label, glyph.x + glyphSize + 6, y + rowH / 2 + 4,
                 Math.max(20, gridLeft - glyph.x - glyphSize - 68), Theme.TEXT);
         g.setColor(v >= 0 ? TensorViz.POSITIVE : TensorViz.NEGATIVE);
@@ -355,7 +359,7 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         Rectangle cell = new Rectangle(gridLeft, y + 1, gridW, Math.max(1, rowH - 2));
         TensorViz.drawHeatmap(g, cell, row, hidden, 1, scale, true);
         hitRegions.addInspectable(cell,
-                "Feature #" + featureIdx + " · " + decodeHalfKP(featureIdx, whitePerspective),
+                "Feature #" + featureIdx + " · " + decoded,
                 sideLabel + " row of the sparse feature → accumulator matrix",
                 String.format("impact %+.2f cp · weights range ±%.3f", v, scale),
                 dataKey, rowStart, hidden, 0,
@@ -537,24 +541,30 @@ public abstract class NnueOverviewView extends NnueAtlasView {
                 : strongestDriverByAbs();
         Color accent = !driver.valid() ? TensorViz.FOCUS
                 : driver.impact() >= 0.0f ? TensorViz.POSITIVE : TensorViz.NEGATIVE;
+        boolean halfKp = halfKpFeaturesDecodable();
         TensorViz.drawCard(g, r,
                 driver.valid() ? "selected feature" : "feature inspector",
-                driver.valid() ? "Half-KP active feature" : "no active feature",
+                driver.valid() ? (halfKp ? "Half-KP active feature" : "HalfKAv2 active feature")
+                        : "no active feature",
                 accent);
         Rectangle content = new Rectangle(r.x + 12, r.y + 42,
                 Math.max(1, r.width - 24), Math.max(1, r.height - 54));
         if (!driver.valid()) {
             g.setColor(Theme.MUTED);
             g.setFont(Theme.font(11, Font.PLAIN));
-            g.drawString("No active Half-KP feature in this snapshot.", content.x, content.y + 16);
+            g.drawString("No active feature in this snapshot.", content.x, content.y + 16);
             return;
         }
 
-        HalfKpFeature feature = decodeHalfKpFeature(driver.featureIndex(), sideToMoveWhite());
         int glyph = Math.min(86, Math.max(48, Math.min(content.width / 3, content.height - 18)));
         Rectangle glyphRect = new Rectangle(content.x, content.y, glyph, glyph);
-        TensorViz.drawHalfKpGlyph(g, glyphRect,
-                feature.kingSquare, feature.pieceCode, feature.pieceSquare);
+        // HalfKAv2 (upstream) feature indices are not HalfKP, so the king/piece
+        // glyph would be meaningless — only draw it for HalfKP nets.
+        if (halfKp) {
+            HalfKpFeature feature = decodeHalfKpFeature(driver.featureIndex(), sideToMoveWhite());
+            TensorViz.drawHalfKpGlyph(g, glyphRect,
+                    feature.kingSquare, feature.pieceCode, feature.pieceSquare);
+        }
         int textX = glyphRect.x + glyphRect.width + 12;
         int textW = Math.max(1, content.x + content.width - textX);
         g.setColor(Theme.TEXT);
@@ -592,7 +602,7 @@ public abstract class NnueOverviewView extends NnueAtlasView {
                         Math.max(1e-4f, maxAbs(row)), true);
                 hitRegions.addInline(heat,
                         "Feature #" + driver.featureIndex() + "  " + driverLabel(driver),
-                        "Half-KP feature weight row.",
+                        "Feature weight row.",
                         String.format("impact %+.2f cp", driver.impact()),
                         row, "1x" + row.length);
             }
@@ -701,7 +711,7 @@ public abstract class NnueOverviewView extends NnueAtlasView {
      * @return display label
      */
     protected String driverLabel(FeatureDriver driver) {
-        return driver.valid() ? decodeUsHalfKP(driver.featureIndex()) : "-";
+        return driver.valid() ? featureLabel(driver.featureIndex()) : "-";
     }
 
     /**
@@ -751,7 +761,7 @@ public abstract class NnueOverviewView extends NnueAtlasView {
      * @param whiteDown whether White is rendered at the bottom
      */
     protected void paintSelectedFeatureOverlay(Graphics2D g, Rectangle board, boolean whiteDown) {
-        if (selectedFeature < 0) {
+        if (selectedFeature < 0 || !halfKpFeaturesDecodable()) {
             return;
         }
         HalfKpFeature feature = decodeHalfKpFeature(selectedFeature, sideToMoveWhite());
@@ -827,6 +837,9 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         if (!driver.valid()) {
             return;
         }
+        if (!halfKpFeaturesDecodable()) {
+            return;
+        }
         HalfKpFeature feature = decodeHalfKpFeature(driver.featureIndex(), sideToMoveWhite());
         if (!feature.valid) {
             return;
@@ -864,7 +877,7 @@ public abstract class NnueOverviewView extends NnueAtlasView {
                 TensorViz.drawInfoChip(g,
                         new Rectangle(r.x + r.width - 270, r.y + 6, 260, 24),
                         "strongest",
-                        decodeUsHalfKP(featureIdx) + "  " + String.format("%+.1f cp", impact[strongest]),
+                        featureLabel(featureIdx) + "  " + String.format("%+.1f cp", impact[strongest]),
                         accent);
             }
         }
@@ -997,10 +1010,12 @@ public abstract class NnueOverviewView extends NnueAtlasView {
             int glyphSize = Math.min(CONTRIBUTOR_GLYPH_MAX, Math.max(28, row.height - 8));
             Rectangle glyph = new Rectangle(row.x + 5, row.y + (row.height - glyphSize) / 2,
                     glyphSize, glyphSize);
-            HalfKpFeature feature = decodeHalfKpFeature(featureIdx, sideToMoveWhite());
-            TensorViz.drawHalfKpGlyph(g, glyph,
-                    feature.kingSquare, feature.pieceCode, feature.pieceSquare);
-            String decoded = decodeUsHalfKP(featureIdx);
+            if (halfKpFeaturesDecodable()) {
+                HalfKpFeature feature = decodeHalfKpFeature(featureIdx, sideToMoveWhite());
+                TensorViz.drawHalfKpGlyph(g, glyph,
+                        feature.kingSquare, feature.pieceCode, feature.pieceSquare);
+            }
+            String decoded = featureLabel(featureIdx);
             String label = compact ? decoded : ("#" + featureIdx + "  " + decoded);
             g.setColor(Theme.TEXT);
             int textX = glyph.x + glyph.width + 10;
@@ -1022,7 +1037,7 @@ public abstract class NnueOverviewView extends NnueAtlasView {
             if (hiddenStride > 0) {
                 hitRegions.addInspectable(row,
                         "Feature #" + featureIdx + "  " + decoded,
-                        "Half-KP active feature · row of feature->L1 weight matrix",
+                        "Active feature · row of feature->L1 weight matrix",
                         String.format("impact %+.2f cp", v),
                         "nnue.features.us.weights",
                         idx * hiddenStride, hiddenStride, 0,
@@ -1030,7 +1045,7 @@ public abstract class NnueOverviewView extends NnueAtlasView {
             } else {
                 hitRegions.add(row,
                         "Feature #" + featureIdx + "  " + decoded,
-                        "Half-KP active feature",
+                        "Active feature",
                         String.format("impact %+.2f cp", v));
             }
         }

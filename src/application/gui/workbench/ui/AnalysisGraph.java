@@ -380,12 +380,8 @@ public final class AnalysisGraph extends JComponent {
         int w = Math.max(0, width - PAD * 2);
         int h = Math.max(0, height - y - PAD);
         paintGrid(g, x, y, w, h, 3);
-        g.setFont(Theme.font(12, Font.PLAIN));
-        g.setColor(Theme.MUTED);
-        String text = "No analysis data";
-        FontMetrics metrics = g.getFontMetrics();
-        g.drawString(text, x + Math.max(0, (w - metrics.stringWidth(text)) / 2),
-                y + Math.max(metrics.getAscent(), (h + metrics.getAscent()) / 2));
+        Ui.paintEmptyState(g, new java.awt.Rectangle(x, y, w, h),
+                "No analysis yet", "Run an analysis to chart evaluation over time.");
     }
 
     /**

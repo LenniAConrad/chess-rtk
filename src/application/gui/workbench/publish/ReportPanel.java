@@ -209,7 +209,7 @@ public final class ReportPanel {
     private JComponent createComponent() {
         JPanel panel = new SurfacePanel(new BorderLayout(8, 8));
         JPanel header = transparentPanel(new BorderLayout(0, 2));
-        header.add(Theme.section("Report"), BorderLayout.NORTH);
+        header.add(Theme.sectionTitle("Report"), BorderLayout.NORTH);
         header.add(Ui.caption(
                 "A plain-text analysis of the current position and game line — generate, then copy or save it."),
                 BorderLayout.SOUTH);

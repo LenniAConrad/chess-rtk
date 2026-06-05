@@ -15,6 +15,7 @@ import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Graphics;
 import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.LayoutManager;
 import java.awt.Rectangle;
@@ -162,7 +163,7 @@ public final class Ui {
         button.getAccessibleContext().setAccessibleName(label);
         button.setMargin(new Insets(6, 8, 6, 8));
         button.setBorder(Theme.pad(5, 7, 5, 7));
-        Dimension size = new Dimension(34, 32);
+        Dimension size = new Dimension(34, Theme.CONTROL_HEIGHT);
         button.setPreferredSize(size);
         button.setMinimumSize(size);
         return button;
@@ -202,6 +203,22 @@ public final class Ui {
         JPanel panel = flow(align);
         for (JButton oneButton : buttons) {
             panel.add(oneButton);
+        }
+        return panel;
+    }
+
+    /**
+     * Creates a styled row of arbitrary controls — used when a row mixes plain
+     * buttons with custom controls such as a {@link HoldButton}.
+     *
+     * @param align flow alignment
+     * @param controls controls to add
+     * @return control row
+     */
+    public static JPanel controlRow(int align, JComponent... controls) {
+        JPanel panel = flow(align);
+        for (JComponent control : controls) {
+            panel.add(control);
         }
         return panel;
     }
@@ -273,18 +290,6 @@ public final class Ui {
     }
 
     /**
-     * Creates a muted, bold caption label for a toolbar control — the small
-     * "Architecture" / "View" / "Sort" tags that sit to the left of a combo
-     * or switcher. Centralised so every control row uses the same treatment.
-     *
-     * @param text caption text
-     * @return styled caption label
-     */
-    public static JLabel controlLabel(String text) {
-        return label(text);
-    }
-
-    /**
      * Pairs a caption with a control in a tight, baseline-aligned row — the
      * standard "label + combo / switcher" toolbar unit. The returned panel is
      * transparent so it drops straight into any toolbar.
@@ -298,7 +303,7 @@ public final class Ui {
         int gap = hasCaption ? Theme.SPACE_SM : 0;
         JPanel row = transparentPanel(new WrappingFlowLayout(FlowLayout.LEFT, gap, 0));
         if (hasCaption) {
-            row.add(controlLabel(caption));
+            row.add(label(caption));
         }
         row.add(control);
         return row;
@@ -317,6 +322,56 @@ public final class Ui {
         panel.add(label(text), BorderLayout.WEST);
         panel.add(control, BorderLayout.CENTER);
         return panel;
+    }
+
+    /**
+     * Styles a panel as a workbench toolbar band: an opaque {@link Theme#PANEL_SOLID}
+     * strip closed by a bottom hairline, with the given inner padding. Shared by
+     * the tab toolbars and mode switchers (Dashboard, Network, and the
+     * SwitchedWorkspace header) so every band reads identically.
+     *
+     * @param bar band panel
+     * @param padding inner padding inside the hairline border
+     */
+    public static void styleToolbarBand(JComponent bar, javax.swing.border.Border padding) {
+        bar.setOpaque(true);
+        bar.setBackground(Theme.PANEL_SOLID);
+        bar.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE), padding));
+    }
+
+    /**
+     * Builds a surface lead band: a hairline-closed {@link Theme#PANEL_SOLID}
+     * strip carrying the surface's title and a one-line purpose on the left, with
+     * an optional action component on the right. This gives every top-level
+     * workbench surface the same "what am I looking at" identity, the way the
+     * consolidated tabs lead with their mode {@link SegmentedSwitcher}. Surfaces
+     * that already lead with a switcher do not need this — the switcher is their
+     * identity; this is for the overview/operations surfaces (Dashboard,
+     * Datasets, Publish) that would otherwise open straight into content.
+     *
+     * @param title surface title (sentence case, e.g. "Datasets")
+     * @param purpose one-line description of what the surface shows, or
+     *     {@code null}/blank for none
+     * @param actions optional right-aligned action component (button row), or
+     *     {@code null}
+     * @return lead band component
+     */
+    public static JComponent surfaceHeader(String title, String purpose, JComponent actions) {
+        JPanel bar = transparentPanel(new BorderLayout(Theme.SPACE_MD, 0));
+        styleToolbarBand(bar,
+                Theme.pad(Theme.SPACE_SM, Theme.SPACE_MD, Theme.SPACE_SM, Theme.SPACE_MD));
+        JPanel identity = transparentPanel(new BorderLayout(0, 1));
+        identity.add(Theme.sectionTitle(title), BorderLayout.NORTH);
+        if (purpose != null && !purpose.isBlank()) {
+            identity.add(caption(purpose), BorderLayout.CENTER);
+        }
+        bar.add(identity, BorderLayout.WEST);
+        if (actions != null) {
+            actions.setOpaque(false);
+            bar.add(actions, BorderLayout.EAST);
+        }
+        return bar;
     }
 
     /**
@@ -353,6 +408,13 @@ public final class Ui {
     }
 
     /**
+     * Client-property key holding a {@code Supplier<Color>} for the surface a
+     * scroll pane is embedded on, so its viewport fills with that surface
+     * instead of the default {@link Theme#PANEL_SOLID}.
+     */
+    private static final String VIEWPORT_SURFACE_KEY = "crtk.viewportSurface";
+
+    /**
      * Creates a styled scroll pane.
      *
      * @param view scrollable view
@@ -360,6 +422,27 @@ public final class Ui {
      */
     public static JScrollPane scroll(JComponent view) {
         JScrollPane pane = new JScrollPane(view);
+        styleScrollPane(pane);
+        return pane;
+    }
+
+    /**
+     * Creates a styled scroll pane whose viewport adopts a declared embedding
+     * surface instead of the default panel fill. Use this when the scroll sits
+     * inside a card or elevated row, so the scrolled region matches that surface
+     * rather than stamping a darker {@code PANEL_SOLID} box inside it. The
+     * supplier is re-evaluated on every theme refresh so the colour tracks the
+     * active light/dark palette.
+     *
+     * @param view scrollable view
+     * @param viewportSurface supplier of the surface colour the viewport sits on
+     * @return scroll pane
+     */
+    public static JScrollPane scroll(JComponent view, java.util.function.Supplier<Color> viewportSurface) {
+        JScrollPane pane = new JScrollPane(view);
+        if (viewportSurface != null) {
+            pane.putClientProperty(VIEWPORT_SURFACE_KEY, viewportSurface);
+        }
         styleScrollPane(pane);
         return pane;
     }
@@ -382,7 +465,8 @@ public final class Ui {
      */
     public static void refreshScrollPaneTheme(JScrollPane pane) {
         Component view = pane.getViewport() == null ? null : pane.getViewport().getView();
-        Color viewportBackground = scrollBackground(view);
+        Color declared = declaredViewportSurface(pane);
+        Color viewportBackground = declared != null ? declared : scrollBackground(view);
         pane.setOpaque(false);
         pane.setViewportBorder(BorderFactory.createEmptyBorder());
         pane.getViewport().setOpaque(true);
@@ -406,6 +490,147 @@ public final class Ui {
         panel.add(Theme.section(title), BorderLayout.NORTH);
         panel.add(child, BorderLayout.CENTER);
         return panel;
+    }
+
+    /**
+     * Creates a responsive masonry grid that flows its cards into as many
+     * equal-width columns as the window allows (each at least
+     * {@code minColumnWidth} wide) and packs them shortest-column-first. This
+     * is the shared primitive for surfaces that should use the full desktop
+     * canvas instead of a narrow centred column.
+     *
+     * @param minColumnWidth minimum column width before the grid reflows
+     * @return an empty card grid; add cards with {@link JComponent#add}
+     */
+    public static CardGrid contentGrid(int minColumnWidth) {
+        return new CardGrid(minColumnWidth, Theme.SPACE_MD);
+    }
+
+    /**
+     * Sets a table column's preferred width when the column exists, ignoring
+     * out-of-range indices. Shared so every panel pins column widths the same
+     * way instead of carrying its own copy of this guard.
+     *
+     * @param columns column model
+     * @param index column index
+     * @param width preferred width
+     */
+    public static void setColumnWidth(javax.swing.table.TableColumnModel columns, int index, int width) {
+        if (columns != null && index >= 0 && index < columns.getColumnCount()) {
+            columns.getColumn(index).setPreferredWidth(width);
+        }
+    }
+
+    /**
+     * Wraps body content in a raised elevated card with a header eyebrow. The
+     * card paints via {@link Theme#paintElevatedCard} so its surface, border,
+     * and shadow stay consistent with the dashboard cards in both themes. Use
+     * for static grouped content (chart panels, setup forms) that wants the
+     * same surface treatment without the dashboard's hover-lift behaviour.
+     *
+     * @param title header text, or {@code null} for a headerless card
+     * @param body card body component
+     * @return elevated card component
+     */
+    public static JComponent card(String title, JComponent body) {
+        return new Card(title, null, body);
+    }
+
+    /**
+     * Wraps body content in a raised elevated card with a header eyebrow and an
+     * optional trailing affordance (count, status dot, action).
+     *
+     * @param title header text, or {@code null} for a headerless card
+     * @param trailing optional right-aligned header component, or {@code null}
+     * @param body card body component
+     * @return elevated card component
+     */
+    public static JComponent card(String title, JComponent trailing, JComponent body) {
+        return new Card(title, trailing, body);
+    }
+
+    /**
+     * Builds a centred empty-state block: a quiet title, a one-line hint, and an
+     * optional row of actions. Centralised so every "nothing here yet" surface
+     * (empty datasets, blank batch input, idle play tab) reads the same instead
+     * of each panel inventing its own placeholder text.
+     *
+     * @param title short title, e.g. "No dataset loaded"
+     * @param hint one-line explanation of how to proceed
+     * @param actions optional action buttons shown beneath the hint
+     * @return centred empty-state component
+     */
+    public static JComponent emptyState(String title, String hint, JButton... actions) {
+        JPanel stack = transparentPanel(null);
+        stack.setLayout(new javax.swing.BoxLayout(stack, javax.swing.BoxLayout.Y_AXIS));
+        JLabel titleLabel = new JLabel(title == null ? "" : title);
+        Theme.foreground(titleLabel, Theme.ForegroundRole.TEXT);
+        titleLabel.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
+        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        stack.add(titleLabel);
+        if (hint != null && !hint.isBlank()) {
+            stack.add(javax.swing.Box.createVerticalStrut(Theme.SPACE_XS));
+            JLabel hintLabel = new JLabel(hint);
+            Theme.foreground(hintLabel, Theme.ForegroundRole.MUTED);
+            hintLabel.setFont(Theme.font(Theme.FONT_CAPTION, Font.PLAIN));
+            hintLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            stack.add(hintLabel);
+        }
+        if (actions != null && actions.length > 0) {
+            stack.add(javax.swing.Box.createVerticalStrut(Theme.SPACE_MD));
+            JPanel row = transparentPanel(new FlowLayout(FlowLayout.CENTER, Theme.SPACE_SM, 0));
+            for (JButton action : actions) {
+                if (action != null) {
+                    row.add(action);
+                }
+            }
+            row.setAlignmentX(Component.CENTER_ALIGNMENT);
+            stack.add(row);
+        }
+        JPanel center = transparentPanel(new GridBagLayout());
+        center.add(stack, new GridBagConstraints());
+        return center;
+    }
+
+    /**
+     * Paints a centred empty-state directly onto a graphics context, for
+     * custom-painted surfaces (charts, graphs) that cannot host a child
+     * component. Draws a quiet bold title with a muted hint beneath it.
+     *
+     * @param g graphics context (a scratch copy is used internally)
+     * @param bounds area to centre within
+     * @param title short title
+     * @param hint one-line hint, or {@code null}
+     */
+    public static void paintEmptyState(Graphics2D g, Rectangle bounds, String title, String hint) {
+        if (bounds == null || bounds.width <= 0 || bounds.height <= 0) {
+            return;
+        }
+        Graphics2D scratch = (Graphics2D) g.create();
+        try {
+            scratch.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+                    RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            String titleText = title == null ? "" : title;
+            Font titleFont = Theme.font(Theme.FONT_BODY, Font.BOLD);
+            Font hintFont = Theme.font(Theme.FONT_CAPTION, Font.PLAIN);
+            FontMetrics titleMetrics = scratch.getFontMetrics(titleFont);
+            FontMetrics hintMetrics = scratch.getFontMetrics(hintFont);
+            boolean hasHint = hint != null && !hint.isBlank();
+            int blockHeight = titleMetrics.getHeight() + (hasHint ? hintMetrics.getHeight() + Theme.SPACE_XS : 0);
+            int top = bounds.y + (bounds.height - blockHeight) / 2 + titleMetrics.getAscent();
+            scratch.setFont(titleFont);
+            scratch.setColor(Theme.TEXT);
+            int titleX = bounds.x + (bounds.width - titleMetrics.stringWidth(titleText)) / 2;
+            scratch.drawString(titleText, titleX, top);
+            if (hasHint) {
+                scratch.setFont(hintFont);
+                scratch.setColor(Theme.MUTED);
+                int hintX = bounds.x + (bounds.width - hintMetrics.stringWidth(hint)) / 2;
+                scratch.drawString(hint, hintX, top + Theme.SPACE_XS + hintMetrics.getHeight());
+            }
+        } finally {
+            scratch.dispose();
+        }
     }
 
     /**
@@ -685,6 +910,19 @@ public final class Ui {
         if (field.getFormatter() instanceof NumberFormatter formatter) {
             formatter.setCommitsOnValidEdit(true);
         }
+        // Select the whole value on focus so you can click a spinner and type a
+        // new number directly instead of editing digit by digit.
+        field.addFocusListener(new java.awt.event.FocusAdapter() {
+            /**
+             * Selects the spinner value after focus enters.
+             *
+             * @param event focus event
+             */
+            @Override
+            public void focusGained(java.awt.event.FocusEvent event) {
+                SwingUtilities.invokeLater(field::selectAll);
+            }
+        });
     }
 
     /**
@@ -792,7 +1030,7 @@ public final class Ui {
         FileChooserIcons.installDefaults();
         chooser.setBackground(Theme.BG);
         chooser.setForeground(Theme.TEXT);
-        chooser.setBorder(Theme.pad(10, 10, 10, 10));
+        chooser.setBorder(Theme.pad(Theme.SPACE_MD));
         chooser.setPreferredSize(new Dimension(FILE_CHOOSER_PREFERRED_SIZE));
         chooser.setMinimumSize(new Dimension(FILE_CHOOSER_MINIMUM_SIZE));
         installFileChooserSizing(chooser);
@@ -848,10 +1086,10 @@ public final class Ui {
     private static void polishFileChooserFonts(Component component) {
         if (component instanceof JList<?> list) {
             list.setFont(Theme.font(13, Font.PLAIN));
-            list.setFixedCellHeight(Math.max(27, list.getFixedCellHeight()));
+            list.setFixedCellHeight(Math.max(Theme.TABLE_ROW_HEIGHT, list.getFixedCellHeight()));
         } else if (component instanceof JTable table) {
             table.setFont(Theme.font(12, Font.PLAIN));
-            table.setRowHeight(Math.max(27, table.getRowHeight()));
+            table.setRowHeight(Math.max(Theme.TABLE_ROW_HEIGHT, table.getRowHeight()));
             if (table.getTableHeader() != null) {
                 table.getTableHeader().setFont(Theme.font(11, Font.BOLD));
             }
@@ -980,6 +1218,28 @@ public final class Ui {
         bar.setPreferredSize(new Dimension(SCROLLBAR_THICKNESS, SCROLLBAR_THICKNESS));
         bar.setUnitIncrement(18);
         bar.setUI(new StyledScrollBarUI());
+    }
+
+    /**
+     * Returns a solid viewport background for one scrollable view.
+     *
+     * @param view scrollable view
+     * @return viewport background
+     */
+    /**
+     * Returns the caller-declared embedding surface for a scroll pane, or
+     * {@code null} when none was declared via {@link #scroll(JComponent, java.util.function.Supplier)}.
+     *
+     * @param pane scroll pane
+     * @return declared viewport surface colour, or {@code null}
+     */
+    private static Color declaredViewportSurface(JScrollPane pane) {
+        Object surface = pane.getClientProperty(VIEWPORT_SURFACE_KEY);
+        if (surface instanceof java.util.function.Supplier<?> supplier
+                && supplier.get() instanceof Color resolved) {
+            return resolved;
+        }
+        return null;
     }
 
     /**
@@ -1391,6 +1651,21 @@ public final class Ui {
         }
 
         /**
+         * Floors the button height at the shared control height so every text
+         * button lands on the same 32px baseline as the combos, spinners, and
+         * fields beside it. Only grows short buttons; an explicit preferred size
+         * (e.g. the full-width hero CTA) passes through unchanged.
+         *
+         * @return the preferred size with a control-height floor
+         */
+        @Override
+        public Dimension getPreferredSize() {
+            Dimension preferred = super.getPreferredSize();
+            return new Dimension(preferred.width,
+                    Math.max(preferred.height, Theme.CONTROL_HEIGHT));
+        }
+
+        /**
          * Creates and returns the shared 60 fps animation timer.
          *
          * @return shared coalescing timer
@@ -1788,8 +2063,15 @@ public final class Ui {
             Graphics2D g = (Graphics2D) graphics.create();
             try {
                 g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g.setColor(isEnabled() ? Theme.INPUT : Theme.INPUT_DISABLED);
-                g.fillRect(0, 0, getWidth(), getHeight());
+                int h = getHeight();
+                // No opaque fill: the spinner/combo already painted the input
+                // well, and its rounded border masked the corners. Filling here
+                // would re-square the rounded right corners, so the arrows would
+                // not "belong" to the bordered control. Instead, just draw a
+                // hairline divider separating the arrows from the editor.
+                g.setColor(Theme.withAlpha(Theme.LINE, 150));
+                g.drawLine(0, direction == SwingConstants.NORTH ? 3 : 0,
+                        0, direction == SwingConstants.NORTH ? h : h - 3);
                 g.setColor(isEnabled() ? Theme.MUTED : Theme.BUTTON_DISABLED_TEXT);
                 Path2D path = new Path2D.Double();
                 double centerX = getWidth() / 2.0;
@@ -1872,7 +2154,7 @@ public final class Ui {
         /**
          * Thumb corner radius.
          */
-        private static final int THUMB_RADIUS = 8;
+        private static final int THUMB_RADIUS = Theme.RADIUS;
 
         /**
          * Creates an invisible scrollbar button.

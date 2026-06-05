@@ -120,9 +120,22 @@ public final class DatasetChart extends JComponent {
     private List<Bar> bars = List.of();
 
     /**
+     * Fixed full-scale value the bars are measured against, or {@code 0} to scale
+     * each bar relative to the largest bar. A fixed scale lets bars read as a true
+     * fraction of a known whole (e.g. tag / score coverage out of valid rows), so
+     * the faint track behind each bar represents 100%.
+     */
+    private long scaleMax;
+
+    /**
      * Placeholder text shown when the chart has no values.
      */
     private String emptyText = "no data";
+
+    /**
+     * Optional one-line hint shown beneath the empty-state title.
+     */
+    private String emptyHint = "";
 
     /**
      * Current reveal progress applied to every filled bar.
@@ -159,14 +172,40 @@ public final class DatasetChart extends JComponent {
     }
 
     /**
-     * Sets chart bars.
+     * Sets a richer two-line empty state: a title and a one-line hint on how to
+     * populate the chart.
+     *
+     * @param title empty-state title
+     * @param hint one-line hint
+     */
+    public void setEmpty(String title, String hint) {
+        emptyText = title == null ? "" : title;
+        emptyHint = hint == null ? "" : hint;
+        repaint();
+    }
+
+    /**
+     * Sets chart bars scaled relative to the largest bar.
      *
      * @param values chart bars
      */
     public void setBars(List<Bar> values) {
+        setBars(values, 0L);
+    }
+
+    /**
+     * Sets chart bars measured against a fixed full-scale value.
+     *
+     * @param values chart bars
+     * @param fullScale value mapped to a full-width bar, or {@code 0} to scale
+     *     each bar relative to the largest bar
+     */
+    public void setBars(List<Bar> values, long fullScale) {
         List<Bar> next = values == null ? List.of() : List.copyOf(values);
-        boolean changed = !bars.equals(next);
+        long nextScale = Math.max(0L, fullScale);
+        boolean changed = !bars.equals(next) || scaleMax != nextScale;
         bars = next;
+        scaleMax = nextScale;
         if (changed) {
             startBarReveal();
         }
@@ -232,7 +271,9 @@ public final class DatasetChart extends JComponent {
         Graphics2D g = (Graphics2D) graphics.create();
         try {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            paintShell(g);
+            // The chart is transparent: it sits inside the shared elevated card
+            // (Ui.card) which paints the surface + border, so every card-grid in
+            // the app (dashboard, datasets) reads identically.
             List<Bar> visible = visibleBars();
             if (visible.isEmpty()) {
                 paintEmpty(g);
@@ -244,18 +285,6 @@ public final class DatasetChart extends JComponent {
         }
     }
 
-    /**
-     * Paints the chart background and border.
-     *
-     * @param g graphics context
-     */
-    private void paintShell(Graphics2D g) {
-        g.setColor(Theme.ELEVATED_SOLID);
-        g.fillRect(0, 0, getWidth(), getHeight());
-        g.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, Theme.RADIUS, Theme.RADIUS);
-        g.setColor(Theme.LINE);
-        g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, Theme.RADIUS, Theme.RADIUS);
-    }
 
     /**
      * Paints placeholder text.
@@ -263,12 +292,8 @@ public final class DatasetChart extends JComponent {
      * @param g graphics context
      */
     private void paintEmpty(Graphics2D g) {
-        g.setFont(Theme.font(11, java.awt.Font.PLAIN));
-        g.setColor(Theme.MUTED);
-        FontMetrics metrics = g.getFontMetrics();
-        int x = Math.max(Theme.SPACE_MD, (getWidth() - metrics.stringWidth(emptyText)) / 2);
-        int y = (getHeight() + metrics.getAscent()) / 2;
-        g.drawString(emptyText, x, y);
+        application.gui.workbench.ui.Ui.paintEmptyState(g,
+                new java.awt.Rectangle(0, 0, getWidth(), getHeight()), emptyText, emptyHint);
     }
 
     /**
@@ -278,7 +303,7 @@ public final class DatasetChart extends JComponent {
      * @param visible visible bars
      */
     private void paintBars(Graphics2D g, List<Bar> visible) {
-        long max = visible.stream().mapToLong(Bar::value).max().orElse(1L);
+        long max = scaleMax > 0L ? scaleMax : visible.stream().mapToLong(Bar::value).max().orElse(1L);
         int x = Theme.SPACE_MD;
         int y = Theme.SPACE_SM;
         int availableHeight = Math.max(1, getHeight() - 2 * Theme.SPACE_SM);
@@ -334,7 +359,7 @@ public final class DatasetChart extends JComponent {
             int labelWidth, int barX, int barW, FontMetrics metrics) {
         int textY = y + (rowHeight + metrics.getAscent()) / 2 - 2;
         g.setColor(Theme.MUTED);
-        g.drawString(elide(metrics, bar.label(), labelWidth - Theme.SPACE_SM), x, textY);
+        g.drawString(Ui.elide(bar.label(), metrics, labelWidth - Theme.SPACE_SM), x, textY);
 
         int barY = y + Math.max(0, (rowHeight - BAR_HEIGHT) / 2);
         g.setColor(Theme.NN_NEUTRAL);
@@ -342,7 +367,7 @@ public final class DatasetChart extends JComponent {
         int filled = (int) Math.round((double) bar.value() * (double) barW
                 / (double) Math.max(1L, max) * Ui.easeOutCubic(barRevealProgress));
         g.setColor(color(bar.role()));
-        g.fillRoundRect(barX, barY, Math.max(1, filled), BAR_HEIGHT, Theme.RADIUS, Theme.RADIUS);
+        g.fillRoundRect(barX, barY, Math.max(1, Math.min(barW, filled)), BAR_HEIGHT, Theme.RADIUS, Theme.RADIUS);
 
         String value = format(bar.value());
         g.setColor(Theme.TEXT);
@@ -411,23 +436,4 @@ public final class DatasetChart extends JComponent {
         return Long.toString(value);
     }
 
-    /**
-     * Elides text to fit a width.
-     *
-     * @param metrics font metrics
-     * @param text source text
-     * @param width target width
-     * @return elided text
-     */
-    private static String elide(FontMetrics metrics, String text, int width) {
-        if (metrics.stringWidth(text) <= width) {
-            return text;
-        }
-        String suffix = "...";
-        int end = text.length();
-        while (end > 0 && metrics.stringWidth(text.substring(0, end) + suffix) > width) {
-            end--;
-        }
-        return end <= 0 ? suffix : text.substring(0, end) + suffix;
-    }
 }

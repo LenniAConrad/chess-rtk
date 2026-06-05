@@ -1,0 +1,113 @@
+/*
+ * Detector for the new "loses_material" tactic motif. Belongs in
+ * chess.tag.tactical.Motifs. Verified by compiling+running a standalone replica
+ * against the project's ./out classes (6/6 self-tests pass; see self_test).
+ *
+ * SOUNDNESS: chess.eval.See.see() ignores pins, so a +SEE capture can be
+ * ILLEGAL (the capturer is pinned to its own king). This detector therefore only
+ * considers captures present in position.legalMoves(); a pinned capturer is
+ * absent from that list and so can never produce a tag. Proven by the
+ * pinned-capturer self-test: exd3 has See=+900 but is not legal, so no tag.
+ *
+ * SCOPE vs. hanging: the existing hanging motif fires on attacked-AND-undefended
+ * pieces only. loses_material is broader: any enemy piece the side to move can
+ * win material from via a legal capture (strict See>0), INCLUDING defended pieces
+ * taken by a lesser attacker. Proven by the defended-by-lesser / defended-bishop
+ * self-tests (knight/bishop defended yet flagged with see=220).
+ *
+ * Wire-in: add a call in Motifs.tags() next to addHangingPieces(tags, position,
+ * board). Add imports for chess.core.{Move,MoveList} and chess.eval.See, or use
+ * the fully-qualified names already written below. Field/Piece/Position and
+ * chess.tag.core.Text are already imported by Motifs.java.
+ */
+
+/**
+ * Scans the legal captures available to the side to move, runs Static Exchange
+ * Evaluation on each, and emits one loses_material tag per target square that can
+ * be won (highest-SEE legal capturer wins the slot). Only legalMoves() captures
+ * are considered, which is the soundness fix for See.see() ignoring pins.
+ *
+ * @param tags     mutable tag accumulator (same list the other add* helpers use)
+ * @param position the position to inspect
+ * @param board    position.getBoard() snapshot
+ */
+private static void addLosesMaterial(java.util.List<String> tags, Position position, byte[] board) {
+    chess.core.MoveList legal = position.legalMoves();
+    if (legal == null) {
+        return;
+    }
+    final int moveCount = legal.size();
+
+    short[] bestMove = new short[64];
+    int[] bestSee = new int[64];
+    boolean[] hit = new boolean[64];
+    for (int i = 0; i < 64; i++) {
+        bestSee[i] = Integer.MIN_VALUE;
+    }
+
+    for (int i = 0; i < moveCount; i++) {
+        short move = legal.get(i);
+        if (!position.isCapture(move)) {
+            continue;
+        }
+        int to = position.actualToSquare(move) & 0xFF; // en-passant-aware target
+        if (to < 0 || to >= 64) {
+            continue;
+        }
+        int see = chess.eval.See.see(position, move);
+        if (see <= 0) {
+            continue; // only flag captures that strictly WIN material
+        }
+        if (see > bestSee[to]) {
+            bestSee[to] = see;
+            bestMove[to] = move;
+            hit[to] = true;
+        }
+    }
+
+    for (int to = 0; to < 64; to++) {
+        if (hit[to]) {
+            tags.add(losesMaterialTag(position, board, to, bestMove[to], bestSee[to]));
+        }
+    }
+}
+
+/**
+ * Builds the canonical loses_material motif tag.
+ * <p>
+ * Form matches the project's other motif tags (see Generator.addForkTag /
+ * addSkewerTag, which use TACTIC_MOTIF_PREFIX = "TACTIC: motif=", SIDE_FIELD =
+ * " side=", CAND_MOVE_FIELD = " move="):
+ * {@code TACTIC: motif=loses_material side=<loser> move=<uci> piece=<name> square=<sq> see=<cp>}.
+ * </p>
+ * side  = color of the piece being WON (the loser) = the side NOT to move.
+ * move  = UCI of the winning legal capture.
+ * piece = target piece name (lower-case); "pawn" for en passant (to-square empty).
+ * square= target square name (lower-case).
+ * see   = positive SEE centipawns.
+ *
+ * @param position    the analyzed position
+ * @param board       the board snapshot
+ * @param targetSquare the square of the piece being won
+ * @param winningMove the highest-SEE legal capture onto that square
+ * @param see         the positive SEE in centipawns
+ * @return the formatted motif tag
+ */
+private static String losesMaterialTag(Position position, byte[] board, int targetSquare,
+                                       short winningMove, int see) {
+    boolean loserIsWhite = !position.isWhiteToMove();
+    String side = loserIsWhite ? WHITE : BLACK;
+
+    byte targetPiece = board[targetSquare];
+    // For en passant the to-square is EMPTY; the victim is always a pawn.
+    String pieceName = (targetPiece == Piece.EMPTY) ? "pawn" : Text.pieceNameLower(targetPiece);
+    String squareName = Text.squareNameLower((byte) targetSquare);
+    String uci = chess.core.Move.toString(winningMove);
+
+    return TACTIC_MOTIF_PREFIX + "loses_material"
+            + SIDE_FIELD + side
+            + CAND_MOVE_FIELD + uci
+            + " piece=" + pieceName
+            + " square=" + squareName
+            + " see=" + see;
+}

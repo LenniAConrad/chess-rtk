@@ -62,7 +62,7 @@ In CI or scripts, `crtk doctor --strict` turns warnings into failures — it exi
 crtk engine uci-smoke -P config/default.engine.toml --max-nodes 1
 ```
 
-- To take the external engine out of the picture, use commands that never spawn a UCI process: `engine static` and `engine eval` (local evaluators), `engine builtin` / `engine java` (built-in MCTS searcher), `engine mate` (forced-mate prover), `move list`, `engine perft`, and `engine perft-suite`. If those run and `engine analyze` does not, the fault is in the external-engine configuration, not the chess core. See [Configuration](configuration.md) and [LC0](lc0.md) for protocol setup.
+- To take the external engine out of the picture, use commands that never spawn a UCI process: `engine static` and `engine eval` (local evaluators), `engine builtin` / `engine java` (built-in searcher), `engine mate` (forced-mate prover), `move list`, `engine perft`, and `engine perft-suite`. If those run and `engine analyze` does not, the fault is in the external-engine configuration, not the chess core. See [Configuration](configuration.md) and [LC0](lc0.md) for protocol setup.
 
 ## Perft mismatches
 

@@ -4,7 +4,7 @@ Five very different jobs run on one set of rules here. Analyzing a position, min
 
 ![ChessRTK pipeline overview](../assets/diagrams/crtk-pipeline-overview.png)
 
-Every command reads as `crtk <area> <action> [options]`, noun then verb, and leans on explicit flags (`--fen`, `--input`, `--output`, `--format`) rather than positional guesswork — which is what keeps a script stable when you come back to it months later. The `fen`, `move`, and `position` primitives run in-process and ask for no engine at all. The `engine` area is where Stockfish or LC0 plug in, alongside a built-in MCTS searcher and a forced-mate prover.
+Every command reads as `crtk <area> <action> [options]`, noun then verb, and leans on explicit flags (`--fen`, `--input`, `--output`, `--format`) rather than positional guesswork — which is what keeps a script stable when you come back to it months later. The `fen`, `move`, and `position` primitives run in-process and ask for no engine at all. The `engine` area is where Stockfish or LC0 plug in, alongside a built-in searcher and a forced-mate prover.
 
 ## Personas At A Glance
 
@@ -18,7 +18,7 @@ Every command reads as `crtk <area> <action> [options]`, noun then verb, and lea
 
 ## Chess Researchers
 
-Start with the primitives — they tell you what's legal, what a move does, what the position is — and reach for search only when you actually need it. The `fen`, `move`, and `position` commands run entirely in-process and need no configured engine, so they answer instantly and identically every time. When you want depth, the `engine` area adds UCI analysis, the built-in MCTS searcher, and a choice of evaluators: classical/static, NNUE, LC0 CNN, OTIS.
+Start with the primitives — they tell you what's legal, what a move does, what the position is — and reach for search only when you actually need it. The `fen`, `move`, and `position` commands run entirely in-process and need no configured engine, so they answer instantly and identically every time. When you want depth, the `engine` area adds UCI analysis, the built-in searcher, and a choice of evaluators: classical/static, NNUE, LC0 CNN, OTIS.
 
 ```bash
 crtk fen print --fen "<FEN>"

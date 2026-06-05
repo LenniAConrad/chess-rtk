@@ -245,6 +245,11 @@ public final class Render {
 	private boolean showBorder = true;
 
 	/**
+	 * Whether the pieces should be drawn. Disabled for a graph-only relation view.
+	 */
+	private boolean showPieces = true;
+
+	/**
 	 * Whether to draw coordinate labels inside the board.
 	 */
 	private boolean showCoordinates = false;
@@ -368,6 +373,17 @@ public final class Render {
 	 */
 	public Render setShowBorder(boolean value) {
 		this.showBorder = value;
+		return this;
+	}
+
+	/**
+	 * Toggles drawing of the pieces. Disable for a graph-only relation overlay.
+	 *
+	 * @param value true to draw the pieces
+	 * @return this renderer for chaining
+	 */
+	public Render setShowPieces(boolean value) {
+		this.showPieces = value;
 		return this;
 	}
 
@@ -805,7 +821,9 @@ public final class Render {
 		Shapes.drawBoard(g, geometry.boardX, geometry.boardY, boardWidth, boardHeight, boardAccentHex);
 		drawSquareTexts(g, geometry.boardX, geometry.boardY, true);
 		drawCoordinates(g, geometry.boardX, geometry.boardY);
-		drawPieces(g, geometry.boardX, geometry.boardY);
+		if (showPieces) {
+			drawPieces(g, geometry.boardX, geometry.boardY);
+		}
 		drawCircles(g, geometry.boardX, geometry.boardY);
 		drawSpecialMoveHints(g, geometry.boardX, geometry.boardY);
 		drawArrows(g, geometry.boardX, geometry.boardY);
@@ -852,7 +870,9 @@ public final class Render {
 		appendBoardSvg(svg, geometry.boardX, geometry.boardY, boardAccentHex);
 		appendSquareTextsSvg(svg, geometry.boardX, geometry.boardY, true);
 		appendCoordinatesSvg(svg, geometry.boardX, geometry.boardY);
-		appendPiecesSvg(svg, geometry.boardX, geometry.boardY);
+		if (showPieces) {
+			appendPiecesSvg(svg, geometry.boardX, geometry.boardY);
+		}
 		appendCirclesSvg(svg, geometry.boardX, geometry.boardY);
 		appendSpecialMoveHintsSvg(svg, geometry.boardX, geometry.boardY);
 		appendArrowsSvg(svg, geometry.boardX, geometry.boardY);

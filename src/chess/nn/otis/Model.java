@@ -1708,6 +1708,45 @@ public final class Model implements AutoCloseable {
     }
 
     /**
+     * One typed directed relation edge between two squares, i.e. a single entry of
+     * the tactical-incidence tensor A(x). The {@code channel} indexes
+     * {@link #RELATION_NAMES}.
+     *
+     * @param channel relation channel index (0..{@link #RELATION_COUNT}-1)
+     * @param from source square index (0..63)
+     * @param to target square index (0..63)
+     */
+    public record IncidenceEdge(int channel, int from, int to) {
+    }
+
+    /**
+     * Computes the typed tactical-incidence edges of a position: every set entry
+     * of the {@link #RELATION_COUNT}-channel A(x) tensor the OTIS network ingests.
+     * Deterministic and weightless (no model file or evaluation needed) — it reuses
+     * the exact {@link #relationMasks} builder, so a rendering of these edges
+     * matches the network's input. Channels follow {@link #RELATION_NAMES}.
+     *
+     * @param position source position
+     * @return all set relation edges, grouped implicitly by ascending channel
+     */
+    public static java.util.List<IncidenceEdge> incidenceEdges(Position position) {
+        float[] masks = relationMasks(position);
+        java.util.List<IncidenceEdge> edges = new java.util.ArrayList<>();
+        for (int channel = 0; channel < RELATION_COUNT; channel++) {
+            int channelBase = channel * SQUARES * SQUARES;
+            for (int from = 0; from < SQUARES; from++) {
+                int fromBase = channelBase + from * SQUARES;
+                for (int to = 0; to < SQUARES; to++) {
+                    if (masks[fromBase + to] != 0.0f) {
+                        edges.add(new IncidenceEdge(channel, from, to));
+                    }
+                }
+            }
+        }
+        return edges;
+    }
+
+    /**
      * Adds attack/defense and piece-specific relation edges for one piece.
      */
     private static void addPieceRelations(float[] masks, byte[] board, boolean whiteToMove,
@@ -1742,7 +1781,12 @@ public final class Model implements AutoCloseable {
      */
     private static void addPawnRelations(float[] masks, byte[] board, boolean whiteToMove,
             boolean[] nearOwnKing, boolean[] nearThemKing, int from, byte piece, boolean own) {
-        int direction = Piece.isWhitePiece(piece) ? 1 : -1;
+        // Board indices run rank 0 = the 8th rank (a8) down to rank 7 = the 1st
+        // rank (a1), so a pawn advancing forward DECREASES the internal rank for
+        // White and increases it for Black. This must stay identical to the native
+        // host-side encoder in native/common/otis_gpu_impl.inl (add_pawn_relations)
+        // for CPU/GPU parity.
+        int direction = Piece.isWhitePiece(piece) ? -1 : 1;
         int rank = from >>> 3;
         int file = from & 7;
         for (int df : new int[] { -1, 1 }) {

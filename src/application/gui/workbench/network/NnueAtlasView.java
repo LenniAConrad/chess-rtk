@@ -402,12 +402,7 @@ public abstract class NnueAtlasView extends NnueViewBase {
             Rectangle card = new Rectangle(inner.x + col * (cardW + gap),
                     inner.y + row * (cardH + gap), cardW, cardH);
             boolean selected = slot == selectedSlot;
-            g.setColor(selected ? Theme.SELECTION_SOLID : Theme.ELEVATED_SOLID);
-            g.fillRoundRect(card.x, card.y, card.width, card.height,
-                    Theme.RADIUS, Theme.RADIUS);
-            g.setColor(selected ? TensorViz.FOCUS : Theme.LINE);
-            g.drawRoundRect(card.x, card.y, card.width - 1, card.height - 1,
-                    Theme.RADIUS, Theme.RADIUS);
+            drawSelectableSurface(g, card, selected);
             if (atlasOverlay && overlayMag != null && slot < overlayMag.length && overlayMax > 0.0f) {
                 float t = Math.min(1.0f, Math.abs(overlayMag[slot]) / overlayMax);
                 g.setColor(Theme.withAlpha(
@@ -450,6 +445,23 @@ public abstract class NnueAtlasView extends NnueViewBase {
     }
 
     /**
+     * Fills and outlines a rounded selectable surface (atlas slot card or plane
+     * chip): accent fill + focus edge when selected, elevated fill + hairline
+     * otherwise. Shared by the gallery and the plane selector.
+     *
+     * @param g graphics context
+     * @param bounds surface bounds
+     * @param selected whether the surface is selected
+     */
+    private static void drawSelectableSurface(Graphics2D g, Rectangle bounds, boolean selected) {
+        g.setColor(selected ? Theme.SELECTION_SOLID : Theme.ELEVATED_SOLID);
+        g.fillRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, Theme.RADIUS, Theme.RADIUS);
+        g.setColor(selected ? TensorViz.FOCUS : Theme.LINE);
+        g.drawRoundRect(bounds.x, bounds.y, bounds.width - 1, bounds.height - 1,
+                Theme.RADIUS, Theme.RADIUS);
+    }
+
+    /**
      * Paints the focused slot board and plane selector.
      *
      * @param g graphics context
@@ -474,11 +486,7 @@ public abstract class NnueAtlasView extends NnueViewBase {
         for (int p = 0; p < planes; p++) {
             Rectangle chip = new Rectangle(inner.x + p * (chipW + chipGap), inner.y, chipW, chipH);
             boolean selected = p == atlasSelectedPlane;
-            g.setColor(selected ? Theme.SELECTION_SOLID : Theme.ELEVATED_SOLID);
-            g.fillRoundRect(chip.x, chip.y, chip.width, chip.height, Theme.RADIUS, Theme.RADIUS);
-            g.setColor(selected ? TensorViz.FOCUS : Theme.LINE);
-            g.drawRoundRect(chip.x, chip.y, chip.width - 1, chip.height - 1,
-                    Theme.RADIUS, Theme.RADIUS);
+            drawSelectableSurface(g, chip, selected);
             g.setColor(Theme.TEXT);
             g.setFont(Theme.font(11, Font.BOLD));
             FontMetrics fm = g.getFontMetrics();
@@ -615,13 +623,17 @@ public abstract class NnueAtlasView extends NnueViewBase {
             g.setColor(i % 2 == 0 ? Theme.PANEL_SOLID : Theme.ELEVATED_SOLID);
             g.fillRect(line.x, line.y, line.width, line.height);
             int glyph = Math.min(22, line.height - 2);
-            HalfKpFeature feature = decodeHalfKpFeature(featureIdx, sideToMoveWhite());
-            TensorViz.drawHalfKpGlyph(g,
-    new Rectangle(line.x + 2, line.y + (line.height - glyph) / 2, glyph, glyph),
-                    feature.kingSquare, feature.pieceCode, feature.pieceSquare);
+            // Only the HalfKP nets have a meaningful king/piece glyph; upstream
+            // HalfKAv2 indices would decode to a bogus king square.
+            if (halfKpFeaturesDecodable()) {
+                HalfKpFeature feature = decodeHalfKpFeature(featureIdx, sideToMoveWhite());
+                TensorViz.drawHalfKpGlyph(g,
+                        new Rectangle(line.x + 2, line.y + (line.height - glyph) / 2, glyph, glyph),
+                        feature.kingSquare, feature.pieceCode, feature.pieceSquare);
+            }
             g.setColor(Theme.TEXT);
             g.setFont(Theme.font(10, Font.PLAIN));
-            String label = decodeUsHalfKP(featureIdx);
+            String label = featureLabel(featureIdx);
             int valueW = 86;
             NotationPainter.draw(g, label, line.x + glyph + 8, line.y + 16,
                     Math.max(20, line.width - valueW - glyph - 12), Theme.TEXT);

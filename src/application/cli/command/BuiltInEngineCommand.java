@@ -12,6 +12,7 @@ import static application.cli.Constants.OPT_MAX_DURATION;
 import static application.cli.Constants.OPT_MAX_NODES;
 import static application.cli.Constants.OPT_NODES;
 import static application.cli.Constants.OPT_OTIS;
+import static application.cli.Constants.OPT_THREADS;
 import static application.cli.Constants.OPT_VERBOSE;
 import static application.cli.Constants.OPT_VERBOSE_SHORT;
 import static application.cli.Constants.OPT_WEIGHTS;
@@ -43,7 +44,7 @@ import chess.eval.Kind;
 import utility.Argv;
 
 /**
- * Implements the built-in MCTS engine CLI command.
+ * Implements the built-in engine CLI command.
  *
  * @since 2026
  * @author Lennart A. Conrad
@@ -72,6 +73,31 @@ public final class BuiltInEngineCommand {
 	private static final String OPT_SEARCH = "--search";
 
 	/**
+	 * {@code --max-strength} option selecting stronger time-bound defaults.
+	 */
+	private static final String OPT_MAX_STRENGTH = "--max-strength";
+
+	/**
+	 * Default alpha-beta depth when the caller leaves all search budgets implicit.
+	 * The normal node/time defaults still bound the run; this higher target lets
+	 * iterative deepening use the available budget instead of stopping at depth 3.
+	 */
+	private static final int DEFAULT_ALPHA_BETA_DEPTH = 8;
+
+	/**
+	 * Alpha-beta depth ceiling used by {@code --max-strength}. This matches the
+	 * Workbench Max setting: high enough for time-bounded iterative deepening while
+	 * still keeping the fixed per-ply scratch arrays comfortably bounded.
+	 */
+	private static final int MAX_STRENGTH_ALPHA_BETA_DEPTH = 18;
+
+	/**
+	 * Maximum automatic Lazy SMP helper count for {@code --max-strength}. The cap
+	 * keeps one core free and follows the measured Workbench Max configuration.
+	 */
+	private static final int MAX_STRENGTH_THREADS = 8;
+
+	/**
 	 * Utility class; prevent instantiation.
 	 */
 	private BuiltInEngineCommand() {
@@ -79,11 +105,10 @@ public final class BuiltInEngineCommand {
 	}
 
 	/**
-	 * Search algorithm for the built-in engine. {@link #MCTS} is the historical
-	 * default (PUCT policy/value tree search); {@link #ALPHA_BETA} runs the
-	 * iterative-deepening alpha-beta searcher, which is materially stronger with
-	 * the classical and NNUE evaluators (NNUE's incremental accumulator is only
-	 * exploited by alpha-beta).
+	 * Search algorithm for the built-in engine. {@link #ALPHA_BETA} is the normal
+	 * default for classical/NNUE because it is materially stronger at fixed budget;
+	 * {@link #MCTS} remains the policy/value search used by LC0/OTIS and by the
+	 * minimal UCI loop.
 	 */
 	private enum SearchKind {
 		/**
@@ -139,37 +164,46 @@ public final class BuiltInEngineCommand {
 	 *
 	 * @param mcts wrapped MCTS searcher
 	 */
-		private record MctsSearcher(Mcts mcts) implements Searcher {
-			/**
-			 * Searches a position with the configured MCTS limits.
-			 */
-			@Override
-			public Result search(Position position, Limits limits) {
-				return mcts.search(position, limits);
-			}
+	private record MctsSearcher(Mcts mcts) implements Searcher {
+		/**
+		 * Searches a position with the configured MCTS limits.
+		 */
+		@Override
+		public Result search(Position position, Limits limits) {
+			return mcts.search(position, limits);
+		}
 
-			/**
-			 * Searches a position and emits UCI search information.
-			 */
-			@Override
-			public Result searchInfo(Position position, Limits limits) {
-				return mcts.search(position, limits, BuiltInEngineCommand::printUciInfo);
-			}
+		/**
+		 * Searches a position and emits UCI search information.
+		 */
+		@Override
+		public Result searchInfo(Position position, Limits limits) {
+			return mcts.search(position, limits, BuiltInEngineCommand::printUciInfo);
+		}
 
-			/**
-			 * Returns the evaluator name used by the wrapped searcher.
-			 */
-			@Override
-			public String evaluatorName() {
-				return mcts.evaluatorName();
-			}
+		/**
+		 * Returns the evaluator name used by the wrapped searcher.
+		 */
+		@Override
+		public String evaluatorName() {
+			return mcts.evaluatorName();
+		}
 
-			/**
-			 * Releases wrapped MCTS resources.
-			 */
-			@Override
-			public void close() {
-				mcts.close();
+		/**
+		 * Updates the MCTS worker thread count.
+		 *
+		 * @param threads requested thread count
+		 */
+		private void setThreads(int threads) {
+			mcts.setThreads(threads);
+		}
+
+		/**
+		 * Releases wrapped MCTS resources.
+		 */
+		@Override
+		public void close() {
+			mcts.close();
 		}
 	}
 
@@ -178,37 +212,46 @@ public final class BuiltInEngineCommand {
 	 *
 	 * @param engine wrapped alpha-beta searcher
 	 */
-		private record AlphaBetaSearcher(AlphaBeta engine) implements Searcher {
-			/**
-			 * Searches a position with the configured alpha-beta limits.
-			 */
-			@Override
-			public Result search(Position position, Limits limits) {
-				return engine.search(position, limits);
-			}
+	private record AlphaBetaSearcher(AlphaBeta engine) implements Searcher {
+		/**
+		 * Searches a position with the configured alpha-beta limits.
+		 */
+		@Override
+		public Result search(Position position, Limits limits) {
+			return engine.search(position, limits);
+		}
 
-			/**
-			 * Searches a position and emits UCI search information.
-			 */
-			@Override
-			public Result searchInfo(Position position, Limits limits) {
-				return engine.search(position, limits, BuiltInEngineCommand::printUciInfo);
-			}
+		/**
+		 * Searches a position and emits UCI search information.
+		 */
+		@Override
+		public Result searchInfo(Position position, Limits limits) {
+			return engine.search(position, limits, BuiltInEngineCommand::printUciInfo);
+		}
 
-			/**
-			 * Returns the evaluator name used by the wrapped searcher.
-			 */
-			@Override
-			public String evaluatorName() {
-				return engine.evaluatorName();
-			}
+		/**
+		 * Returns the evaluator name used by the wrapped searcher.
+		 */
+		@Override
+		public String evaluatorName() {
+			return engine.evaluatorName();
+		}
 
-			/**
-			 * Releases wrapped alpha-beta resources.
-			 */
-			@Override
-			public void close() {
-				engine.close();
+		/**
+		 * Updates the alpha-beta Lazy SMP helper count.
+		 *
+		 * @param threads requested thread count
+		 */
+		private void setThreads(int threads) {
+			engine.setSearchThreads(threads);
+		}
+
+		/**
+		 * Releases wrapped alpha-beta resources.
+		 */
+		@Override
+		public void close() {
+			engine.close();
 		}
 	}
 
@@ -285,7 +328,11 @@ public final class BuiltInEngineCommand {
 		/**
 		 * Stores the search algorithm.
 		 */
-		SearchKind search
+		SearchKind search,
+		/**
+		 * Stores the worker thread count.
+		 */
+		int threads
 	) {
 	}
 
@@ -361,13 +408,18 @@ public final class BuiltInEngineCommand {
 		boolean lc0 = a.flag(OPT_LC0);
 		boolean otis = a.flag(OPT_OTIS);
 		boolean uciLoop = a.flag(OPT_UCI);
-		SearchKind search = parseSearch(a.string(OPT_SEARCH));
+		boolean maxStrength = a.flag(OPT_MAX_STRENGTH);
 		Path weights = a.path(OPT_WEIGHTS);
+		Kind evaluator = resolveEvaluator(evaluatorValue, classical, nnue, lc0, otis);
+		SearchKind search = resolveSearch(a.string(OPT_SEARCH), evaluator, uciLoop);
+		Integer threadsOpt = a.integer(OPT_THREADS);
+		int threads = threadsOpt == null ? defaultThreads(maxStrength) : threadsOpt;
 		Integer depthOpt = a.integer(OPT_DEPTH, OPT_DEPTH_SHORT);
-		int depth = depthOpt == null ? Limits.DEFAULT_DEPTH : depthOpt;
+		int defaultDepth = defaultDepth(search, maxStrength);
+		int depth = depthOpt == null ? defaultDepth : depthOpt;
 		Long nodesOpt = a.lng(OPT_MAX_NODES, OPT_NODES);
 		Duration durationOpt = a.duration(OPT_MAX_DURATION);
-		long defaultNodes = depthOpt == null ? Limits.DEFAULT_MAX_NODES : 0L;
+		long defaultNodes = defaultNodeBudget(depthOpt, maxStrength);
 		// Only impose the default time cap when the caller gave neither a depth nor
 		// an explicit node budget; otherwise an explicit --max-nodes would be
 		// silently truncated by the 5s default.
@@ -393,6 +445,7 @@ public final class BuiltInEngineCommand {
 		}
 
 		Validation.requireBetweenInclusive(CMD_BUILTIN, OPT_DEPTH, depth, 1, AlphaBeta.MAX_DEPTH);
+		Validation.requirePositive(CMD_BUILTIN, OPT_THREADS, threads);
 		if (maxNodes < 0L) {
 			throw new CommandFailure(CMD_BUILTIN + ": " + OPT_MAX_NODES + " must be non-negative", 2);
 		}
@@ -401,23 +454,70 @@ public final class BuiltInEngineCommand {
 		}
 
 		Limits limits = new Limits(depth, maxNodes, maxDuration);
-		Kind evaluator = resolveEvaluator(evaluatorValue, classical, nnue, lc0, otis);
 		if (weights != null && evaluator == Kind.CLASSICAL) {
 			throw new CommandFailure(CMD_BUILTIN + ": " + OPT_WEIGHTS + " requires "
 					+ OPT_EVALUATOR + " nnue, lc0, or otis", 2);
 		}
-		return new Options(verbose, input, fen, limits, parseFormat(format), evaluator, weights, uciLoop, search);
+		return new Options(verbose, input, fen, limits, parseFormat(format), evaluator, weights, uciLoop, search,
+				threads);
 	}
 
 	/**
-	 * Resolves the search algorithm from {@code --search}, defaulting to MCTS.
+	 * Resolves the implicit search depth.
+	 *
+	 * @param search selected search algorithm
+	 * @param maxStrength whether max-strength defaults are enabled
+	 * @return default depth
+	 */
+	private static int defaultDepth(SearchKind search, boolean maxStrength) {
+		if (search == SearchKind.ALPHA_BETA) {
+			return maxStrength ? MAX_STRENGTH_ALPHA_BETA_DEPTH : DEFAULT_ALPHA_BETA_DEPTH;
+		}
+		return Limits.DEFAULT_DEPTH;
+	}
+
+	/**
+	 * Resolves the implicit node budget. Max-strength searches are time-bound by
+	 * default, because Lazy SMP gains strength by searching more nodes per second.
+	 *
+	 * @param depthOpt explicit depth, or null
+	 * @param maxStrength whether max-strength defaults are enabled
+	 * @return default node cap
+	 */
+	private static long defaultNodeBudget(Integer depthOpt, boolean maxStrength) {
+		if (depthOpt != null || maxStrength) {
+			return 0L;
+		}
+		return Limits.DEFAULT_MAX_NODES;
+	}
+
+	/**
+	 * Resolves the implicit worker count.
+	 *
+	 * @param maxStrength whether max-strength defaults are enabled
+	 * @return default worker count
+	 */
+	private static int defaultThreads(boolean maxStrength) {
+		if (!maxStrength) {
+			return 1;
+		}
+		return Math.max(1, Math.min(MAX_STRENGTH_THREADS, Runtime.getRuntime().availableProcessors() - 1));
+	}
+
+	/**
+	 * Resolves the search algorithm from {@code --search}.
 	 *
 	 * @param value optional {@code --search} value
+	 * @param evaluator selected evaluator kind
+	 * @param uciLoop whether the command starts the UCI loop
 	 * @return selected search kind
 	 */
-	private static SearchKind parseSearch(String value) {
+	private static SearchKind resolveSearch(String value, Kind evaluator, boolean uciLoop) {
 		if (value == null) {
-			return SearchKind.MCTS;
+			if (uciLoop || evaluator == Kind.LC0 || evaluator == Kind.OTIS) {
+				return SearchKind.MCTS;
+			}
+			return SearchKind.ALPHA_BETA;
 		}
 		return switch (value.trim().toLowerCase(Locale.ROOT)) {
 			case "mcts" -> SearchKind.MCTS;
@@ -478,17 +578,25 @@ public final class BuiltInEngineCommand {
 			// LC0/OTIS run per-leaf with no batching, so they are slow here). A
 			// per-invocation table — the CLI searches one position per run, so a
 			// persistent TT would only add memory with no cross-search reuse.
-			return new AlphaBetaSearcher(new AlphaBeta(createEvaluator(opts), false));
+			AlphaBetaSearcher searcher = new AlphaBetaSearcher(new AlphaBeta(createEvaluator(opts), false));
+			searcher.setThreads(opts.threads());
+			return searcher;
 		}
 		if (opts.evaluator() == Kind.LC0) {
 			Path weights = opts.weights() == null ? Path.of(Config.getLc0ModelPath()) : opts.weights();
-			return new MctsSearcher(Mcts.lc0(weights));
+			MctsSearcher searcher = new MctsSearcher(Mcts.lc0(weights));
+			searcher.setThreads(opts.threads());
+			return searcher;
 		}
 		if (opts.evaluator() == Kind.OTIS) {
 			Path weights = opts.weights() == null ? chess.nn.otis.Model.DEFAULT_WEIGHTS : opts.weights();
-			return new MctsSearcher(Mcts.otis(weights));
+			MctsSearcher searcher = new MctsSearcher(Mcts.otis(weights));
+			searcher.setThreads(opts.threads());
+			return searcher;
 		}
-		return new MctsSearcher(new Mcts(createEvaluator(opts)));
+		MctsSearcher searcher = new MctsSearcher(new Mcts(createEvaluator(opts)));
+		searcher.setThreads(opts.threads());
+		return searcher;
 	}
 
 	/**

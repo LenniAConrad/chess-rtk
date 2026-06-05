@@ -260,7 +260,7 @@ public final class PuzzlePanel extends JPanel {
         setOpaque(true);
         setBackground(Theme.PANEL_SOLID);
         setForeground(Theme.TEXT);
-        setBorder(Theme.pad(10, 10, 10, 10));
+        setBorder(Theme.pad(Theme.SPACE_MD));
         board.setShowNotation(true);
         board.setShowLegalMovePreview(true);
         board.setShowLastMoveHighlight(true);
@@ -303,18 +303,17 @@ public final class PuzzlePanel extends JPanel {
      */
     private JComponent createHeader() {
         JPanel header = transparentPanel(new GridBagLayout());
-        header.setOpaque(true);
-        header.setBackground(Theme.INPUT);
+        // Flat surface defined by a single bottom hairline, not a filled lighter
+        // box -- matches the other tabs instead of a stacked INPUT-coloured band.
         header.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Theme.LINE),
-                Theme.pad(4, 8, 4, 8)));
+                BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE),
+                Theme.pad(4, 8, 8, 8)));
 
-        JLabel scope = new JLabel("chess-rtk");
-        Theme.foreground(scope, Theme.ForegroundRole.MUTED);
-        scope.setFont(Theme.font(12, Font.PLAIN));
-
+        // Panel title uses the shared Tier-1 size (FONT_TITLE) like Play/Publish.
+        // No "chess-rtk" scope prefix — the other board modes (Play vs Engine,
+        // Tactical Incidence) lead with the title alone, so this matches them.
         Theme.foreground(titleLabel, Theme.ForegroundRole.TEXT);
-        titleLabel.setFont(Theme.font(13, Font.BOLD));
+        titleLabel.setFont(Theme.font(Theme.FONT_TITLE, Font.BOLD));
 
         progressLabel.setFont(Theme.font(12, Font.BOLD));
         Theme.foreground(progressLabel, Theme.ForegroundRole.TEXT);
@@ -324,14 +323,9 @@ public final class PuzzlePanel extends JPanel {
         GridBagConstraints c = constraints();
         c.gridy = 0;
         c.insets = new Insets(0, 0, 3, Theme.SPACE_MD);
-        c.weightx = 0;
-        c.fill = GridBagConstraints.NONE;
-        grid(header, scope, c, 0, 0, 1, 1);
-
-        c.insets = new Insets(0, 0, 3, Theme.SPACE_MD);
         c.weightx = 1;
         c.fill = GridBagConstraints.HORIZONTAL;
-        grid(header, titleLabel, c, 1, 0, 1, 1);
+        grid(header, titleLabel, c, 0, 0, 1, 1);
 
         c.insets = new Insets(0, 0, 3, 0);
         c.weightx = 0;
@@ -372,14 +366,7 @@ public final class PuzzlePanel extends JPanel {
         side.add(createActions(), BorderLayout.NORTH);
         side.add(createPuzzleTools(), BorderLayout.CENTER);
 
-        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, boardStage, side);
-        split.setBorder(BorderFactory.createEmptyBorder());
-        split.setOpaque(false);
-        split.setContinuousLayout(true);
-        split.setResizeWeight(0.68);
-        split.setDividerSize(8);
-        split.setDividerLocation(0.68);
-        SplitPaneStyler.style(split);
+        JSplitPane split = SplitPaneStyler.styledHorizontalSplit(boardStage, side, 0.68);
         return split;
     }
 
@@ -450,7 +437,7 @@ public final class PuzzlePanel extends JPanel {
         c.weightx = 1;
         c.fill = GridBagConstraints.HORIZONTAL;
         c.insets = new Insets(0, 0, 8, 0);
-        stack.add(collapsible("PGN", scroll(pgnInput), true), c);
+        stack.add(collapsible("PGN", scroll(pgnInput), false), c);
         c.gridy = 1;
         stack.add(collapsible("Solution", scroll(solutionArea), false), c);
         c.gridy = 2;

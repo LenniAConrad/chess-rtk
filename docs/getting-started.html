@@ -112,10 +112,10 @@
 <li>Print any position from a FEN, in the terminal or as an image.</li>
 <li>List, convert, and apply moves in UCI or SAN, including full move lines.</li>
 <li>Count positions exactly with <code>engine perft</code> and validate the move generator with <code>engine perft-suite</code>.</li>
-<li>Search positions with the built-in MCTS engine, with no external process.</li>
+<li>Search positions with the built-in engine, with no external process.</li>
 <li>Drive everything visually from the native Swing Workbench.</li>
 </ul>
-<p>Most of this runs against nothing but the core: positions, moves, perft, forced-mate search, and the built-in MCTS engine all work on a bare checkout. You only need Stockfish or LC0 for the UCI-backed commands — <code>engine analyze</code>, <code>engine bestmove</code>, <code>engine compare</code>, and puzzle mining. The neural evaluators (NNUE, LC0 CNN, OTIS) and T5 text summaries are optional too; they read local files under <code>models/</code>.</p>
+<p>Most of this runs against nothing but the core: positions, moves, perft, forced-mate search, and the built-in engine all work on a bare checkout. You only need Stockfish or LC0 for the UCI-backed commands — <code>engine analyze</code>, <code>engine bestmove</code>, <code>engine compare</code>, and puzzle mining. The neural evaluators (NNUE, LC0 CNN, OTIS) and T5 text summaries are optional too; they read local files under <code>models/</code>.</p>
 <h2 id="requirements">Requirements</h2>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -200,8 +200,8 @@ crtk engine perft --startpos --depth 4 --divide</code></pre>
 <pre><code class="language-bash">crtk engine perft-suite --depth 5</code></pre>
 <p>Both take <code>--gpu</code>, which uses a native GPU backend when one is installed and falls back to the CPU when it isn&#x27;t.</p>
 <h3 id="4-search-with-the-built-in-engine">4. Search with the built-in engine</h3>
-<p><code>engine builtin</code> runs the MCTS engine in-process — no subprocess, no socket, and the same budget always yields the same result. <code>--format summary</code> gives you something readable; bound the search with <code>--depth</code>, <code>--max-nodes</code>, or <code>--max-duration</code>.</p>
-<pre><code class="language-bash">crtk engine builtin --startpos --depth 3 --format summary --max-duration 2s</code></pre>
+<p><code>engine builtin</code> runs in-process — no subprocess, no socket, and the same single-thread budget always yields the same result. <code>--format summary</code> gives you something readable; bound the search with <code>--depth</code>, <code>--max-nodes</code>, or <code>--max-duration</code>.</p>
+<pre><code class="language-bash">crtk engine builtin --startpos --depth 6 --format summary --max-duration 2s</code></pre>
 <p>Out comes the chosen move, its score, the node count, and the principal variation in both UCI and SAN. When you want a proven forced mate rather than an evaluation — no neural net involved — reach for <code>engine mate</code>:</p>
 <pre><code class="language-bash">crtk engine mate --fen &quot;&lt;FEN&gt;&quot; --mate 3 --format san</code></pre>
 <p>For real playing strength, point <code>crtk</code> at Stockfish or LC0 and use <code>engine bestmove</code> or <code>engine analyze</code> (see <a href="configuration.html">Configuration</a>):</p>

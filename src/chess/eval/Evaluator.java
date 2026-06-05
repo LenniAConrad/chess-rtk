@@ -55,6 +55,11 @@ public final class Evaluator implements AutoCloseable {
     private static final String PROP_LC0_WEIGHTS = "crtk.lc0.weights.path";
 
     /**
+     * JVM property that disables the optional LC0 evaluator path.
+     */
+    public static final String LC0_DISABLED_PROPERTY = "crtk.lc0.disabled";
+
+    /**
      * Lock guarding model creation, use, and shutdown.
      */
     private final StampedLock modelLock = new StampedLock();
@@ -144,6 +149,10 @@ public final class Evaluator implements AutoCloseable {
         }
         this.weights = weights;
         this.terminalAwareClassical = terminalAwareClassical;
+        if (Boolean.getBoolean(LC0_DISABLED_PROPERTY)) {
+            lc0Disabled = true;
+            lc0Failure.set(new IllegalStateException("LC0 disabled by " + LC0_DISABLED_PROPERTY));
+        }
     }
 
      /**

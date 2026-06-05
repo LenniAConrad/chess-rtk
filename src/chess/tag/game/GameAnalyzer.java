@@ -76,6 +76,16 @@ public final class GameAnalyzer {
         return analysis;
     }
 
+    /**
+     * Runs the per-ply / line / summary analysis over an explicit move list from
+     * a starting position. Stops at the first illegal move so a partially valid
+     * line still yields the analysis of its legal prefix.
+     *
+     * @param start starting position
+     * @param moves moves to play from {@code start}
+     * @return the structured analysis (never {@code null}; empty when {@code start}
+     *     or {@code moves} is {@code null} or empty)
+     */
     public static Analysis analyze(Position start, short[] moves) {
         Analysis analysis = new Analysis();
         if (start == null || moves == null || moves.length == 0) {

@@ -62,6 +62,15 @@ public final class Model implements AutoCloseable {
     }
 
     /**
+     * Returns the active inference backend.
+     *
+     * @return backend identifier
+     */
+    public String backend() {
+        return network.backend();
+    }
+
+    /**
      * Encodes and evaluates a position.
      *
      * @param position source position

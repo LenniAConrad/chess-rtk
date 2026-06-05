@@ -7,6 +7,7 @@ import application.gui.workbench.game.Positions;
 import application.gui.workbench.mcts.MctsSearch;
 import application.gui.workbench.mcts.MctsWeightsPanel;
 import application.gui.workbench.ui.InspectorPanel;
+import application.gui.workbench.ui.WrappingFlowLayout;
 import application.gui.workbench.ui.RenderAcceleration;
 import application.gui.workbench.ui.SegmentedSwitcher;
 import application.gui.workbench.ui.StatusBadge;
@@ -33,7 +34,6 @@ import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import javax.imageio.ImageIO;
-import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
@@ -82,6 +82,10 @@ public final class NetworkPanel extends JPanel {
 
     private static final String ARCH_OTIS_LABEL = RealActivations.LABEL_OTIS;
 
+    private static final String ARCH_CLASSICAL = "Classical";
+
+    private static final String ARCH_CLASSICAL_LABEL = "Classical (handcrafted)";
+
     private static final String CARD_LOADING = "loading";
 
     private static final int DEBOUNCE_MS = 220;
@@ -105,6 +109,11 @@ public final class NetworkPanel extends JPanel {
      * OTIS policy/WDL visualizer.
      */
     private final OtisView otisView = new OtisView();
+
+    /**
+     * Classical handcrafted-evaluator visualizer.
+     */
+    private final ClassicalView classicalView = new ClassicalView();
 
     private static final int SNAPSHOT_CACHE_LIMIT = 64;
 
@@ -257,7 +266,7 @@ public final class NetworkPanel extends JPanel {
     /**
      * MCTS start button.
      */
-    private final JButton mctsStartButton = Ui.button("Start MCTS", true,
+    private final JButton mctsStartButton = Ui.button("Start PUCT", true,
             event -> startNetworkMcts());
 
     /**
@@ -318,10 +327,13 @@ public final class NetworkPanel extends JPanel {
     private final MctsWeightsPanel mctsWeightsPanel = new MctsWeightsPanel();
 
     /**
-     * Collapsible section containing MCTS edge weights.
+     * Collapsible section containing MCTS edge weights. The weights panel is
+     * scrollable so every root edge is reachable while the section stays a
+     * compact, fixed-height band in the layout.
      */
     private final JComponent mctsWeightsSection =
-            Ui.collapsible("Edge weights", mctsWeightsPanel, false);
+            Ui.collapsible("Edge weights",
+                    Ui.scroll(mctsWeightsPanel, () -> Theme.CARD), false);
 
     /**
      * Card layout for loading and architecture views.
@@ -493,6 +505,7 @@ public final class NetworkPanel extends JPanel {
         cardPanel.add(wrapInScroll(cnnView), ARCH_CNN);
         cardPanel.add(wrapInScroll(bt4View), ARCH_BT4);
         cardPanel.add(wrapInScroll(otisView), ARCH_OTIS);
+        cardPanel.add(wrapInScroll(classicalView), ARCH_CLASSICAL);
         cardPanel.add(loadingPanel, CARD_LOADING);
         nnueView.setInspector(inspectorPanel);
         cnnView.setInspector(inspectorPanel);
@@ -644,6 +657,9 @@ public final class NetworkPanel extends JPanel {
         if (ARCH_OTIS.equals(comboKey) || ARCH_OTIS_LABEL.equals(comboKey)) {
             return ARCH_OTIS;
         }
+        if (ARCH_CLASSICAL.equals(comboKey) || ARCH_CLASSICAL_LABEL.equals(comboKey)) {
+            return ARCH_CLASSICAL;
+        }
         return ARCH_NNUE;
     }
 
@@ -659,6 +675,16 @@ public final class NetworkPanel extends JPanel {
         String cardKey = activeCardKey();
         String fen = effectiveFen();
         if (!active || fen == null || fen.isBlank()) {
+            return;
+        }
+        if (ARCH_CLASSICAL.equals(cardKey)) {
+            // The classical evaluator is cheap and model-free, so it skips the
+            // debounced background-inference pipeline entirely and renders the
+            // term breakdown for the current FEN synchronously.
+            classicalView.setFen(fen);
+            displayedKey = cacheKey(cardKey, fen);
+            cards.show(cardPanel, cardKey);
+            statusBadge.success(ARCH_CLASSICAL_LABEL + ": handcrafted, no model needed");
             return;
         }
         String key = cacheKey(cardKey, fen);
@@ -704,13 +730,13 @@ public final class NetworkPanel extends JPanel {
         styleToolbarShell(bar, Theme.pad(Theme.SPACE_SM));
 
         styleToolbarCombo(archCombo, 188,
-                "Pick the network family to visualise.");
+                "Pick the evaluator to visualise (neural families or the classical hand-crafted evaluator).");
         styleToolbarCombo(positionCombo, 244,
                 "Pin a canned position to explore, or follow the main board.");
-        exportPngButton.setToolTipText("Render the full current network view to a high-resolution PNG file.");
+        exportPngButton.setToolTipText("Render the full current evaluator view to a high-resolution PNG file.");
 
         JPanel controls = Ui.transparentPanel(
-    new FlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
+    new WrappingFlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
         controls.add(archCombo);
         controls.add(positionCombo);
         controls.add(viewMode);
@@ -720,7 +746,7 @@ public final class NetworkPanel extends JPanel {
         actions.add(exportPngButton);
         actions.add(statusBadge);
 
-        bar.add(controls, BorderLayout.WEST);
+        bar.add(controls, BorderLayout.CENTER);
         bar.add(actions, BorderLayout.EAST);
         JPanel outer = Ui.transparentPanel(new BorderLayout(0, Theme.SPACE_XS));
         outer.add(bar, BorderLayout.NORTH);
@@ -739,17 +765,17 @@ public final class NetworkPanel extends JPanel {
         mctsVisitsSpinner.setPreferredSize(new Dimension(86, Theme.CONTROL_HEIGHT));
         mctsMillisSpinner.setPreferredSize(new Dimension(86, Theme.CONTROL_HEIGHT));
         mctsCpuctSpinner.setPreferredSize(new Dimension(72, Theme.CONTROL_HEIGHT));
-        mctsStartButton.setToolTipText("Run PUCT from the current board/canned position and stream each leaf into the network view.");
+        mctsStartButton.setToolTipText("Run PUCT from the current board/canned position and stream each leaf into the evaluator view.");
         mctsPauseButton.setToolTipText("Pause or resume the PUCT worker while keeping the current leaf on screen.");
         mctsStopButton.setToolTipText("Stop PUCT and return the network view to the board/canned position.");
-        mctsFollowLeafToggle.setToolTipText("When on, the network view shows the leaf currently being evaluated.");
+        mctsFollowLeafToggle.setToolTipText("When on, the evaluator view shows the leaf currently being evaluated.");
         mctsFollowLeafToggle.setSelected(Defaults.NETWORK_MCTS_FOLLOW_LEAF);
         mctsStatusBadge.setFixedTextWidth(NETWORK_MCTS_STATUS_TEXT_WIDTH);
         mctsStatusBadge.idle("MCTS idle");
 
         JPanel controls = Ui.transparentPanel(
-    new FlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
-        controls.add(Ui.label("MCTS"));
+    new WrappingFlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
+        controls.add(Ui.label("PUCT"));
         controls.add(mctsStartButton);
         controls.add(mctsPauseButton);
         controls.add(mctsStopButton);
@@ -765,7 +791,7 @@ public final class NetworkPanel extends JPanel {
     new FlowLayout(FlowLayout.RIGHT, Theme.SPACE_SM, 0));
         status.add(mctsStatusBadge);
 
-        bar.add(controls, BorderLayout.WEST);
+        bar.add(controls, BorderLayout.CENTER);
         bar.add(status, BorderLayout.EAST);
         return bar;
     }
@@ -781,11 +807,7 @@ public final class NetworkPanel extends JPanel {
     }
 
     private static void styleToolbarShell(JPanel bar, Border padding) {
-        bar.setOpaque(true);
-        bar.setBackground(Theme.PANEL_SOLID);
-        bar.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE),
-                padding));
+        Ui.styleToolbarBand(bar, padding);
     }
 
     private static void styleToolbarCombo(JComboBox<?> combo, int width, String tooltip) {
@@ -833,6 +855,7 @@ public final class NetworkPanel extends JPanel {
             case ARCH_CNN -> cnnView;
             case ARCH_BT4 -> bt4View;
             case ARCH_OTIS -> otisView;
+            case ARCH_CLASSICAL -> classicalView;
             default -> nnueView;
         };
     }
@@ -957,6 +980,10 @@ public final class NetworkPanel extends JPanel {
             statusBadge.idle("");
             return;
         }
+        if (ARCH_CLASSICAL.equals(cardKey)) {
+            statusBadge.success(ARCH_CLASSICAL_LABEL + ": handcrafted, no model needed");
+            return;
+        }
         String statusKey;
         if (ARCH_CNN.equals(cardKey)) {
             statusKey = "cnn";
@@ -979,7 +1006,8 @@ public final class NetworkPanel extends JPanel {
     }
 
     private static String[] buildArchOptions() {
-        return new String[] { ARCH_NNUE_LABEL, ARCH_CNN_LABEL, ARCH_BT4_LABEL, ARCH_OTIS_LABEL };
+        return new String[] {
+                ARCH_NNUE_LABEL, ARCH_CNN_LABEL, ARCH_BT4_LABEL, ARCH_OTIS_LABEL, ARCH_CLASSICAL_LABEL };
     }
 
     private void propagateViewMode() {
@@ -988,6 +1016,7 @@ public final class NetworkPanel extends JPanel {
         cnnView.setViewMode(mode);
         bt4View.setViewMode(mode);
         otisView.setViewMode(mode);
+        classicalView.setViewMode(mode);
         // The Atlas sub-controls only do anything in Atlas mode — grey them
         // out elsewhere so the toolbar shows what is actually live.
         updateAtlasAvailability();
@@ -1191,6 +1220,7 @@ public final class NetworkPanel extends JPanel {
             case ARCH_CNN -> MctsSearch.cnn(root, cpuct, RealActivations.cnnPath());
             case ARCH_BT4 -> MctsSearch.bt4(root, cpuct, RealActivations.bt4Path());
             case ARCH_OTIS -> MctsSearch.otis(root, cpuct, RealActivations.otisPath());
+            case ARCH_CLASSICAL -> new MctsSearch(root, cpuct);
             default -> MctsSearch.nnue(root, cpuct, provider.nnuePath());
         };
     }
@@ -1276,10 +1306,14 @@ public final class NetworkPanel extends JPanel {
     }
 
     private NetworkMctsFrame buildNetworkMctsLeafActivationFrame(NetworkMctsFrame frame) {
+        // Classical needs no neural inference; like the hidden / follow-leaf-off
+        // cases it returns the frame unchanged and the view follows the leaf FEN
+        // directly from the published frame.
         if (frame == null
                 || frame.leafCardKey() == null
                 || frame.leafFen() == null
                 || frame.leafFen().isBlank()
+                || ARCH_CLASSICAL.equals(frame.leafCardKey())
                 || !mctsFollowLeafEnabled
                 || !active) {
             return frame;
@@ -1342,6 +1376,14 @@ public final class NetworkPanel extends JPanel {
 
     private void applyNetworkMctsLeafSnapshot(String cardKey, String fen, ActivationSnapshot leafSnapshot) {
         if (!active || cardKey == null || fen == null || fen.isBlank()) {
+            return;
+        }
+        if (ARCH_CLASSICAL.equals(cardKey)) {
+            classicalView.setFen(fen);
+            if (cardKey.equals(activeCardKey())) {
+                displayedKey = cacheKey(cardKey, fen);
+                cards.show(cardPanel, cardKey);
+            }
             return;
         }
         String key = cacheKey(cardKey, fen);
@@ -1672,6 +1714,7 @@ public final class NetworkPanel extends JPanel {
             case ARCH_CNN -> ARCH_CNN_LABEL;
             case ARCH_BT4 -> ARCH_BT4_LABEL;
             case ARCH_OTIS -> ARCH_OTIS_LABEL;
+            case ARCH_CLASSICAL -> ARCH_CLASSICAL_LABEL;
             default -> ARCH_NNUE_LABEL;
         };
     }

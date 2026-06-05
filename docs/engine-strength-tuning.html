@@ -110,7 +110,7 @@
 <p>The one rule that produced everything below: <strong>measure with self-play, never assert.</strong> Several textbook techniques that &quot;should&quot; help measured neutral or negative here; several that looked neutral at first were just under-sampled. Ship a change only when a gauntlet says it&#x27;s non-negative.</p>
 <h2 id="how-to-measure-the-harnesses">How to measure (the harnesses)</h2>
 <ul>
-<li><strong><code>src/testing/SelfPlayGauntlet.java</code></strong> — in-process A/B. Plays candidate vs baseline from a set of openings, <strong>each opening from both colors</strong> (so identical engines score exactly 50.0% — verified), at an <strong>equal fixed budget</strong> (<code>--nodes N</code> or <code>--movetime MS</code>). Prints W-D-L + a point Elo. Flags: <code>--a/--b CSV|all|none</code> (feature sets), <code>--threadsA/--threadsB</code>, <code>--eval classical|nnue</code>, <code>--openings N</code> (seeded reproducible generation), <code>--seed S</code>.</li>
+<li><strong><code>src/testing/SelfPlayGauntlet.java</code></strong> — in-process A/B. Plays candidate vs baseline from a set of openings, <strong>each opening from both colors</strong> (so identical engines score exactly 50.0% — verified), at an <strong>equal fixed budget</strong> (<code>--nodes N</code> or <code>--movetime MS</code>). Prints W-D-L + a point Elo. Flags: <code>--a/--b CSV|all|none</code> (feature sets), <code>--threadsA/--threadsB</code>, <code>--workers N</code> (parallel opening-pair workers), <code>--eval classical|nnue</code>, <code>--openings N</code> (seeded reproducible generation), <code>--seed S</code>.</li>
 <li><strong><code>src/testing/NnueBench.java</code></strong> — NNUE correctness + speed. Prints a <strong>golden</strong> centipawn vector (must be byte-identical across builds → no eval change), a <strong>parity</strong> walk (incremental search-state eval == full eval at every make/undo node), a <strong>concurrent parity</strong> (8 threads, proves thread-safety), and an <strong>nps</strong> benchmark.</li>
 <li><strong><code>AlphaBeta.Feature</code></strong> enum + the 3-arg constructor let each technique be toggled independently, so the gauntlet can A/B one change in isolation, in one process.</li>
 </ul>
@@ -118,7 +118,7 @@
 <pre><code class="language-bash">OUT=/tmp/crtk-ab &amp;&amp; rm -rf &quot;$OUT&quot; &amp;&amp; mkdir -p &quot;$OUT&quot;
 javac --release 17 -d &quot;$OUT&quot; $(find src -name &#x27;*.java&#x27;)
 java -cp &quot;$OUT&quot; testing.SelfPlayGauntlet --a SEE_PRUNING,SEARCH_REPETITION --b none \
-  --eval classical --nodes 5000 --openings 150</code></pre>
+  --eval classical --nodes 5000 --openings 150 --workers 8</code></pre>
 <h2 id="what-worked-shipped">What worked (shipped)</h2>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -152,12 +152,27 @@ java -cp &quot;$OUT&quot; testing.SelfPlayGauntlet --a SEE_PRUNING,SEARCH_REPETI
 <td>Log-log LMR reductions + one-ply check extensions. <em>Neutral/negative when search is shallow</em> (see below) — enabled <strong>only at the Max setting</strong>, where NNUE + SMP make the search deep.</td>
 </tr>
 <tr>
-<td><strong>Tear-tolerant transposition table</strong></td>
-<td>correctness (clean SMP)</td>
-<td>Pack each entry&#x27;s depth/score/flag/move into one <code>long</code>; store the signature XOR-ed with it; validate via <code>(key ^ data) == signature</code>. A reader catching a concurrent (SMP) store mid-write fails the check and misses instead of returning a corrupt score.</td>
+<td><strong>Internal iterative reduction (IIR)</strong></td>
+<td><strong>+14 Elo</strong> (300 games, classical, 20k fixed nodes)</td>
+<td>When a deep node has no transposition move to order first, search it one ply shallower to seed the TT cheaply instead of spending full depth with poor ordering. A shallow 5k-node screen was flat, so this is a depth-scaling gain.</td>
+</tr>
+<tr>
+<td><strong>Root, fallback, and horizon mate proof shortcuts</strong></td>
+<td>tactical correctness</td>
+<td>Alpha-beta now checks root mate-in-one directly, runs the bounded mate prover on forcing roots before spending heuristic search nodes, detects mate-in-one at the low-budget root fallback, detects mate-in-one at the quiescence horizon, and searches first-ply quiet checks in quiescence. Short proven mates return exact <code>#N</code> scores instead of static centipawns.</td>
+</tr>
+<tr>
+<td><strong>Mate-score TT normalization + mate-distance pruning</strong></td>
+<td>tactical correctness / pruning</td>
+<td>Mate scores are stored in the transposition table relative to the stored position and converted back at probe ply, so reused entries preserve the correct mate distance. With that normalization in place, internal mate scores can also be stored and reused safely instead of being dropped. Main and quiescence search clamp impossible mate-distance windows before searching. Stockfish-style idea, implemented in the local alpha-beta frame.</td>
+</tr>
+<tr>
+<td><strong>Tear-tolerant, depth-preserving transposition table</strong></td>
+<td>correctness / TT quality</td>
+<td>Pack each entry&#x27;s depth/score/flag/move into one <code>long</code>; store the signature XOR-ed with it; validate via <code>(key ^ data) == signature</code>. A reader catching a concurrent (SMP) store mid-write fails the check and misses instead of returning a corrupt score. Same-generation replacement now also preserves deeper entries from shallower overwrites, including same-position rewrites.</td>
 </tr>
 </tbody></table></div>
-<p>The shipped default feature set is <code>{SEE_PRUNING, SEARCH_REPETITION}</code> (on at every strength — calibration-safe). The Max opponent additionally enables <code>{LMR_TABLE, CHECK_EXTENSION}</code> + 8-thread SMP; lower tiers stay single-threaded so their Elo calibration and reproducibility are intact.</p>
+<p>The shipped alpha-beta default feature set is <code>{SEE_PRUNING, SEARCH_REPETITION, LMR_TABLE, IMPROVING, CONT_HISTORY, CHECK_EXTENSION, IIR}</code>. CLI searches stay single-threaded by default for reproducibility, but <code>engine builtin --threads N</code> opts into Lazy SMP; Workbench Max also enables Lazy SMP. Features that measured neutral or negative remain off by default behind <code>AlphaBeta.Feature</code>.</p>
 <h2 id="what-did-not-work-rejected-kept-as-off-by-default-toggles">What did NOT work (rejected — kept as off-by-default toggles)</h2>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -182,13 +197,48 @@ java -cp &quot;$OUT&quot; testing.SelfPlayGauntlet --a SEE_PRUNING,SEARCH_REPETI
 </tr>
 <tr>
 <td><strong>History malus / gravity</strong></td>
-<td>+6 over 600 games (neutral)</td>
-<td>Bonus-to-cutoff + malus-to-tried-quiets with decay. No measurable effect at this engine&#x27;s depths.</td>
+<td>+6 over 600 games (neutral); rechecked at +3 over 300 games; current default stack recheck <strong>−24</strong> over 100 games</td>
+<td>Bonus-to-cutoff + malus-to-tried-quiets with decay. No measurable effect at this engine&#x27;s depths, and the current default stack did not benefit.</td>
 </tr>
 <tr>
 <td><strong>SEE-based bad-capture LMR</strong></td>
 <td>+7 (neutral)</td>
 <td>Reducing SEE-losing captures (instead of searching them full-depth). Within noise.</td>
+</tr>
+<tr>
+<td><strong>Capture history</strong></td>
+<td>+47 over 60 games, then −2 on a 200-game confirmation and −3 on a 100-game tie-breaker; positive-only variant −23 over 60 games; 50k-node recheck <strong>−3</strong> over 120 games</td>
+<td>Stockfish-inspired capture ordering table keyed by moving piece, target square, and captured piece type. Kept behind <code>AlphaBeta.Feature.CAPTURE_HISTORY</code>; independent confirmations did not support enabling it by default.</td>
+</tr>
+<tr>
+<td><strong>Main-search quiet-check ordering</strong></td>
+<td>−13 at 220 games (stopped early)</td>
+<td>A bonus for quiet checking moves looked plausible after quiet-check quiescence, but the longer run turned negative before the full sample. Kept off.</td>
+</tr>
+<tr>
+<td><strong>ProbCut tactical pre-search</strong></td>
+<td>+6 over 60 games, +2 over 200 games, then −10 on an independent 100-game seed; combined 300 games ≈ −2; 50k-node recheck <strong>−12</strong> over 120 games</td>
+<td>Stockfish-inspired beta-plus-margin tactical pre-search, independently implemented behind <code>AlphaBeta.Feature.PROBCUT</code>. The safe constants were neutral; a more aggressive depth-4/margin-180 variant measured <strong>−47</strong> over 60 games. Keep off until deeper/faster settings justify remeasurement.</td>
+</tr>
+<tr>
+<td><strong>Root score ordering</strong></td>
+<td>+20 over 120 games, then <strong>−41</strong> on an independent 120-game confirmation</td>
+<td>Previous-depth root scores can order non-PV root moves on the next depth (<code>AlphaBeta.Feature.ROOT_SCORE_ORDERING</code>), but the confirmation seed rejected enabling it by default.</td>
+</tr>
+<tr>
+<td><strong>Correction history recheck</strong></td>
+<td><strong>−53</strong> over 60 games</td>
+<td>Static-eval correction history is still available as <code>CORRECTION_HISTORY</code>, but the classical fixed-node recheck with the current default stack was clearly negative.</td>
+</tr>
+<tr>
+<td><strong>Singular extensions recheck</strong></td>
+<td>−6 over 60 games</td>
+<td>The TT-move singular-extension verifier was neutral-negative and slower at this budget, so it remains off.</td>
+</tr>
+<tr>
+<td><strong>Razoring recheck</strong></td>
+<td><strong>−29</strong> over 60 games</td>
+<td>Shallow fail-low razoring did not pair well with the current default stack at 20k fixed nodes.</td>
 </tr>
 </tbody></table></div>
 <p>These remain in the code behind <code>AlphaBeta.Feature</code> so they can be re-measured (e.g. after a future depth increase) without reimplementing them.</p>
@@ -211,8 +261,10 @@ java -cp &quot;$OUT&quot; testing.SelfPlayGauntlet --a SEE_PRUNING,SEARCH_REPETI
 <h2 id="environment-tooling-gotchas">Environment / tooling gotchas</h2>
 <ul>
 <li><strong>The IDE clobbers <code>out/</code>.</strong> The VS Code <code>redhat.java</code> (Eclipse JDT) language server auto-builds the project on every file edit and intermittently rewrites/empties <code>out/</code>, causing flaky <code>ClassNotFoundException</code> mid-run. <strong>Compile and run from a private dir</strong> (<code>/tmp/crtk-…</code>) the IDE doesn&#x27;t manage. (The running workbench GUI from <code>crtk.jar</code> can also hold the tree.)</li>
-<li><strong>Don&#x27;t run two fixed-time gauntlets at once.</strong> Their threads contend for cores and skew each other&#x27;s wall-clock — fine for fixed-<em>nodes</em> (deterministic), wrong for fixed-<em>time</em>.</li>
+<li><strong>Use game-level workers for fixed-node gauntlets.</strong> <code>SelfPlayGauntlet --workers N</code> runs independent opening pairs concurrently and collects them in opening order, so fixed-node results stay deterministic while using more cores. Keep <code>--threadsA 1 --threadsB 1</code> for these screens unless you are explicitly measuring Lazy SMP.</li>
+<li><strong>Don&#x27;t parallelize fixed-time gauntlets casually.</strong> Multiple workers contend for cores and skew wall-clock budgets. For Lazy SMP strength tests, prefer <code>--movetime</code> with <code>--threadsA/--threadsB</code> and <code>--workers 1</code>.</li>
 <li><strong>Build with <code>javac --release 17</code>.</strong> Bare JDK-21 emits false errors; the project targets 17. The Java Vector API (<code>jdk.incubator.vector</code>) is <strong>not</strong> available under the stock <code>--release 17</code> launch, so SIMD NNUE is out without a build/launch change.</li>
+<li><strong>Allocation cleanups are not Elo claims.</strong> Reusing a scratch <code>Position.State</code> for checking-move probes and per-ply move-order score rows removes hot-path allocation, but fixed-node tests cannot show speed gains directly. Verify output stability (for example same-engine fixed-node self-play at 50.0%) and use longer fixed-time gauntlets before calling it Elo.</li>
 <li><strong>Determinism is a feature here.</strong> Anything non-deterministic (Lazy SMP, sampling) is gated so the CLI, tests, and lower Play strengths stay reproducible.</li>
 </ul>
 <h2 id="open-levers-not-yet-attempted-risk-noted">Open levers (not yet attempted — risk noted)</h2>

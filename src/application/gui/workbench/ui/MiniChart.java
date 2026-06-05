@@ -88,6 +88,11 @@ public final class MiniChart extends JComponent {
     private String emptyText = "no data yet";
 
     /**
+     * Optional one-line hint shown beneath the empty-state title.
+     */
+    private String emptyHint = "";
+
+    /**
      * Current reveal progress for newly supplied chart data.
      */
     private double revealProgress = 1.0d;
@@ -117,6 +122,19 @@ public final class MiniChart extends JComponent {
      */
     public void setEmptyText(String text) {
         this.emptyText = text == null ? "" : text;
+        repaint();
+    }
+
+    /**
+     * Sets a two-line empty state: a title and a one-line hint, matching the
+     * shared empty-state treatment used across the app.
+     *
+     * @param title empty-state title
+     * @param hint one-line hint
+     */
+    public void setEmpty(String title, String hint) {
+        this.emptyText = title == null ? "" : title;
+        this.emptyHint = hint == null ? "" : hint;
         repaint();
     }
 
@@ -243,12 +261,7 @@ public final class MiniChart extends JComponent {
         if (emptyText.isEmpty()) {
             return;
         }
-        g.setColor(Theme.MUTED);
-        g.setFont(Theme.font(10, java.awt.Font.PLAIN));
-        java.awt.FontMetrics fm = g.getFontMetrics();
-        int textWidth = fm.stringWidth(emptyText);
-        g.drawString(emptyText, Math.max(INSET, (w - textWidth) / 2),
-                (h - fm.getHeight()) / 2 + fm.getAscent());
+        Ui.paintEmptyState(g, new java.awt.Rectangle(0, 0, w, h), emptyText, emptyHint);
     }
 
     /**

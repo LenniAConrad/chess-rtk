@@ -8,6 +8,7 @@ import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Insets;
+import java.awt.LayoutManager;
 import java.awt.RenderingHints;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Path2D;
@@ -121,9 +122,14 @@ final class CollapsibleSection extends JPanel {
         toggle = new DisclosureButton();
         toggle.addActionListener(event -> setExpanded(!this.expanded));
         expansionTimer.setCoalesce(true);
-        contentHolder = Ui.transparentPanel(new BorderLayout());
+        // The holder always lays its content out at the content's FULL height
+        // and simply clips it to the animated holder height (see ClipLayout).
+        // A plain BorderLayout would instead squish the content to the partial
+        // height each frame, so the text only reflowed to its real layout once
+        // the section reached full size — the visible glitch this avoids.
+        contentHolder = Ui.transparentPanel(new ClipLayout());
         contentHolder.setBorder(Theme.pad(Theme.SPACE_SM, 0, Theme.SPACE_SM, 0));
-        contentHolder.add(content, BorderLayout.CENTER);
+        contentHolder.add(content);
         setOpaque(false);
         setBackground(Theme.BG);
         setAlignmentX(LEFT_ALIGNMENT);
@@ -357,6 +363,89 @@ final class CollapsibleSection extends JPanel {
             int verticalPolicy,
             int horizontalPolicy) {
         // data carrier
+    }
+
+    /**
+     * Lays the single child out at its full preferred height, top-anchored,
+     * regardless of the (animating) holder height — so the holder clips the
+     * content rather than squishing it. The content keeps one stable layout for
+     * the whole transition, so its text never reflows mid-animation.
+     */
+    private static final class ClipLayout implements LayoutManager {
+
+        /**
+         * Accepts a child without named constraints.
+         *
+         * @param name ignored constraint
+         * @param component child
+         */
+        @Override
+        public void addLayoutComponent(String name, Component component) {
+            // no named constraints
+        }
+
+        /**
+         * Removes a child.
+         *
+         * @param component child
+         */
+        @Override
+        public void removeLayoutComponent(Component component) {
+            // no cached state
+        }
+
+        /**
+         * Returns the full content size plus holder insets.
+         *
+         * @param parent holder container
+         * @return preferred size
+         */
+        @Override
+        public Dimension preferredLayoutSize(Container parent) {
+            Insets insets = parent.getInsets();
+            Component child = child(parent);
+            Dimension size = child == null ? new Dimension() : child.getPreferredSize();
+            return new Dimension(size.width + insets.left + insets.right,
+                    size.height + insets.top + insets.bottom);
+        }
+
+        /**
+         * Returns only the holder insets so the holder may clip to any height.
+         *
+         * @param parent holder container
+         * @return minimum size
+         */
+        @Override
+        public Dimension minimumLayoutSize(Container parent) {
+            Insets insets = parent.getInsets();
+            return new Dimension(insets.left + insets.right, insets.top + insets.bottom);
+        }
+
+        /**
+         * Lays the child out at full preferred height, top-anchored.
+         *
+         * @param parent holder container
+         */
+        @Override
+        public void layoutContainer(Container parent) {
+            Component child = child(parent);
+            if (child == null) {
+                return;
+            }
+            Insets insets = parent.getInsets();
+            int width = Math.max(0, parent.getWidth() - insets.left - insets.right);
+            child.setBounds(insets.left, insets.top, width, child.getPreferredSize().height);
+        }
+
+        /**
+         * Returns the holder's single content child.
+         *
+         * @param parent holder container
+         * @return content child, or null when empty
+         */
+        private static Component child(Container parent) {
+            return parent.getComponentCount() > 0 ? parent.getComponent(0) : null;
+        }
     }
 
     /**

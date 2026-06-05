@@ -1,10 +1,14 @@
 package testing;
 
+import chess.classical.Wdl;
+import chess.core.Field;
 import chess.core.Move;
 import chess.core.MoveList;
+import chess.core.Piece;
 import chess.core.Position;
 import chess.engine.AlphaBeta;
 import chess.engine.Limits;
+import chess.engine.Mcts;
 import chess.engine.Result;
 import chess.eval.CentipawnEvaluator;
 import chess.eval.Classical;
@@ -16,9 +20,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /**
- * Self-play A/B harness for the built-in {@link AlphaBeta} engine.
+ * Self-play A/B harness for the built-in searchers.
  *
  * <p>
  * Pits a candidate feature configuration against a baseline at an equal,
@@ -37,8 +45,24 @@ import java.util.Set;
  * <li>{@code --b CSV} baseline features (default {@code none})</li>
  * <li>{@code --nodes N} fixed node budget per move (default 5000)</li>
  * <li>{@code --movetime MS} fixed time budget per move (overrides --nodes)</li>
- * <li>{@code --eval classical|nnue} evaluator (default classical)</li>
+ * <li>{@code --eval classical|nnue} evaluator for both engines (default classical)</li>
+ * <li>{@code --evalA NAME} candidate evaluator override</li>
+ * <li>{@code --evalB NAME} baseline evaluator override</li>
+ * <li>{@code --search alpha-beta|mcts} search for both engines (default alpha-beta)</li>
+ * <li>{@code --searchA alpha-beta|mcts} candidate search override</li>
+ * <li>{@code --searchB alpha-beta|mcts} baseline search override</li>
+ * <li>{@code --cpuctA N} candidate MCTS cpuct (default 2.8)</li>
+ * <li>{@code --cpuctB N} baseline MCTS cpuct (default 2.8)</li>
+ * <li>{@code --fpuA N} candidate MCTS FPU reduction (default 0.05)</li>
+ * <li>{@code --fpuB N} baseline MCTS FPU reduction (default 0.05)</li>
+ * <li>{@code --checkPriorA N} candidate MCTS check-prior bonus (default 4000)</li>
+ * <li>{@code --checkPriorB N} baseline MCTS check-prior bonus (default 4000)</li>
+ * <li>{@code --capturePenaltyA N} candidate MCTS SEE-losing-capture prior penalty (default 8000)</li>
+ * <li>{@code --capturePenaltyB N} baseline MCTS SEE-losing-capture prior penalty (default 8000)</li>
+ * <li>{@code --captureWinScaleA N} candidate MCTS positive-SEE capture prior scale (default 8)</li>
+ * <li>{@code --captureWinScaleB N} baseline MCTS positive-SEE capture prior scale (default 8)</li>
  * <li>{@code --maxplies N} adjudicate a draw past this many plies (default 240)</li>
+ * <li>{@code --workers N} opening pairs to play concurrently (default 1)</li>
  * </ul>
  * <p>
  * A CSV is a comma-separated list of {@link AlphaBeta.Feature} names, or the
@@ -65,6 +89,61 @@ public final class SelfPlayGauntlet {
          * Candidate lost.
          */
         LOSS
+    }
+
+    /**
+     * Two games from one opening: candidate as White, then candidate as Black.
+     *
+     * @param first candidate-as-White result
+     * @param second candidate-as-Black result
+     */
+    private record OpeningResult(Outcome first, Outcome second) {
+    }
+
+    /**
+     * Aggregate match score from the candidate's perspective.
+     *
+     * @param win candidate wins
+     * @param draw draws
+     * @param loss candidate losses
+     */
+    private record Score(int win, int draw, int loss) {
+    }
+
+    /**
+     * Search algorithm used by one side in a gauntlet game.
+     */
+    private enum SearchKind {
+        /**
+         * Iterative-deepening alpha-beta.
+         */
+        ALPHA_BETA,
+
+        /**
+         * PUCT Monte-Carlo tree search.
+         */
+        MCTS
+    }
+
+    /**
+     * Per-side searcher abstraction for self-play.
+     */
+    private interface GameSearcher extends AutoCloseable {
+        /**
+         * Searches a position.
+         *
+         * @param position root position
+         * @param limits search limits
+         * @param history pre-root core-position history
+         * @return search result
+         */
+        Result search(Position position, Limits limits, long[] history);
+
+        /**
+         * Releases resources.
+         */
+        @Override
+        void close();
     }
 
     /**
@@ -104,6 +183,11 @@ public final class SelfPlayGauntlet {
     private static final String NNUE_PATH = "models/crtk-halfkp.nnue";
 
     /**
+     * Starting non-king material for both sides.
+     */
+    private static final int STARTING_MATERIAL = 7_800;
+
+    /**
      * Prevents instantiation.
      */
     private SelfPlayGauntlet() {
@@ -121,11 +205,30 @@ public final class SelfPlayGauntlet {
         long nodes = Long.parseLong(opts.getOrDefault("nodes", "5000"));
         long movetime = Long.parseLong(opts.getOrDefault("movetime", "0"));
         String eval = opts.getOrDefault("eval", "classical");
+        String evalA = opts.getOrDefault("evalA", eval);
+        String evalB = opts.getOrDefault("evalB", eval);
+        SearchKind search = parseSearch(opts.getOrDefault("search", "alpha-beta"));
+        SearchKind searchA = parseSearch(opts.getOrDefault("searchA", searchName(search)));
+        SearchKind searchB = parseSearch(opts.getOrDefault("searchB", searchName(search)));
+        double cpuctA = Double.parseDouble(opts.getOrDefault("cpuctA", "2.8"));
+        double cpuctB = Double.parseDouble(opts.getOrDefault("cpuctB", "2.8"));
+        double fpuA = Double.parseDouble(opts.getOrDefault("fpuA", "0.05"));
+        double fpuB = Double.parseDouble(opts.getOrDefault("fpuB", "0.05"));
+        int checkPriorA = Integer.parseInt(opts.getOrDefault("checkPriorA", "4000"));
+        int checkPriorB = Integer.parseInt(opts.getOrDefault("checkPriorB", "4000"));
+        int capturePenaltyA = Integer.parseInt(opts.getOrDefault("capturePenaltyA", "8000"));
+        int capturePenaltyB = Integer.parseInt(opts.getOrDefault("capturePenaltyB", "8000"));
+        int captureWinScaleA = Integer.parseInt(opts.getOrDefault("captureWinScaleA", "8"));
+        int captureWinScaleB = Integer.parseInt(opts.getOrDefault("captureWinScaleB", "8"));
         int maxPlies = Integer.parseInt(opts.getOrDefault("maxplies", "240"));
         int openingCount = Integer.parseInt(opts.getOrDefault("openings", "0"));
         long seed = Long.parseLong(opts.getOrDefault("seed", "20260531"));
         int threadsA = Integer.parseInt(opts.getOrDefault("threadsA", "1"));
         int threadsB = Integer.parseInt(opts.getOrDefault("threadsB", "1"));
+        int workers = Integer.parseInt(opts.getOrDefault("workers", "1"));
+        if (workers < 1) {
+            throw new IllegalArgumentException("--workers must be positive");
+        }
 
         // Either the curated set, or a larger seeded-random set for a tighter
         // (reproducible) Elo estimate.
@@ -140,33 +243,277 @@ public final class SelfPlayGauntlet {
         System.out.println("SelfPlayGauntlet");
         System.out.println("  candidate (A) features: " + featuresA);
         System.out.println("  baseline  (B) features: " + featuresB);
-        System.out.println("  eval=" + eval
+        System.out.println("  searchA=" + searchName(searchA) + " searchB=" + searchName(searchB)
+                + "  evalA=" + evalA + " evalB=" + evalB
+                + "  cpuctA=" + cpuctA + " cpuctB=" + cpuctB
+                + "  fpuA=" + fpuA + " fpuB=" + fpuB
+                + "  checkPriorA=" + checkPriorA + " checkPriorB=" + checkPriorB
+                + "  capturePenaltyA=" + capturePenaltyA + " capturePenaltyB=" + capturePenaltyB
+                + "  captureWinScaleA=" + captureWinScaleA + " captureWinScaleB=" + captureWinScaleB
                 + "  budget=" + (movetime > 0 ? movetime + "ms/move" : nodes + " nodes/move")
                 + "  threadsA=" + threadsA + " threadsB=" + threadsB
+                + "  workers=" + workers
                 + "  openings=" + openings.length + "  games=" + (openings.length * 2));
 
-        int win = 0;
-        int draw = 0;
-        int loss = 0;
+        Score score = workers == 1
+                ? runSequential(openings, featuresA, featuresB, searchA, searchB, evalA, evalB, cpuctA, cpuctB,
+                        fpuA, fpuB, checkPriorA, checkPriorB, capturePenaltyA, capturePenaltyB, captureWinScaleA,
+                        captureWinScaleB, limits, maxPlies, threadsA, threadsB)
+                : runParallel(openings, featuresA, featuresB, searchA, searchB, evalA, evalB, cpuctA, cpuctB,
+                        fpuA, fpuB, checkPriorA, checkPriorB, capturePenaltyA, capturePenaltyB, captureWinScaleA,
+                        captureWinScaleB, limits, maxPlies, threadsA, threadsB, workers);
+        report(score.win(), score.draw(), score.loss());
+    }
+
+    /**
+     * Runs opening pairs one at a time.
+     *
+     * @param openings opening FENs
+     * @param featuresA candidate features
+     * @param featuresB baseline features
+     * @param searchA candidate search
+     * @param searchB baseline search
+     * @param evalA candidate evaluator name
+     * @param evalB baseline evaluator name
+     * @param cpuctA candidate MCTS cpuct
+     * @param cpuctB baseline MCTS cpuct
+     * @param fpuA candidate MCTS FPU reduction
+     * @param fpuB baseline MCTS FPU reduction
+     * @param checkPriorA candidate MCTS check-prior bonus
+     * @param checkPriorB baseline MCTS check-prior bonus
+     * @param capturePenaltyA candidate MCTS SEE-losing-capture prior penalty
+     * @param capturePenaltyB baseline MCTS SEE-losing-capture prior penalty
+     * @param captureWinScaleA candidate MCTS positive-SEE capture prior scale
+     * @param captureWinScaleB baseline MCTS positive-SEE capture prior scale
+     * @param limits per-move search limits
+     * @param maxPlies draw-adjudication ply cap
+     * @param threadsA candidate search threads
+     * @param threadsB baseline search threads
+     * @return aggregate score
+     */
+    private static Score runSequential(
+            String[] openings,
+            Set<AlphaBeta.Feature> featuresA,
+            Set<AlphaBeta.Feature> featuresB,
+            SearchKind searchA,
+            SearchKind searchB,
+            String evalA,
+            String evalB,
+            double cpuctA,
+            double cpuctB,
+            double fpuA,
+            double fpuB,
+            int checkPriorA,
+            int checkPriorB,
+            int capturePenaltyA,
+            int capturePenaltyB,
+            int captureWinScaleA,
+            int captureWinScaleB,
+            Limits limits,
+            int maxPlies,
+            int threadsA,
+            int threadsB) {
+        int[] score = { 0, 0, 0 };
         for (int i = 0; i < openings.length; i++) {
-            // Play each opening from both colors so a result is not just one
-            // deterministic game counted twice.
-            Outcome first = playGame(openings[i], true, featuresA, featuresB, eval, limits, maxPlies, threadsA, threadsB);
-            Outcome second = playGame(openings[i], false, featuresA, featuresB, eval, limits, maxPlies, threadsA, threadsB);
-            for (Outcome o : new Outcome[] { first, second }) {
-                switch (o) {
-                    case WIN -> win++;
-                    case DRAW -> draw++;
-                    case LOSS -> loss++;
-                    default -> { }
-                }
-            }
-            if ((i + 1) % 10 == 0 || i + 1 == openings.length) {
-                System.out.printf("  [%3d/%3d]  running W-D-L = %d-%d-%d%n",
-                        i + 1, openings.length, win, draw, loss);
-            }
+            add(score, playOpeningPair(openings[i], featuresA, featuresB, searchA, searchB, evalA, evalB, cpuctA,
+                    cpuctB, fpuA, fpuB, checkPriorA, checkPriorB, capturePenaltyA, capturePenaltyB,
+                    captureWinScaleA, captureWinScaleB, limits, maxPlies, threadsA, threadsB));
+            printProgress(i + 1, openings.length, score);
         }
-        report(win, draw, loss);
+        return new Score(score[0], score[1], score[2]);
+    }
+
+    /**
+     * Runs opening pairs concurrently, collecting futures in opening order so the
+     * progress stream remains deterministic.
+     *
+     * @param openings opening FENs
+     * @param featuresA candidate features
+     * @param featuresB baseline features
+     * @param searchA candidate search
+     * @param searchB baseline search
+     * @param evalA candidate evaluator name
+     * @param evalB baseline evaluator name
+     * @param cpuctA candidate MCTS cpuct
+     * @param cpuctB baseline MCTS cpuct
+     * @param fpuA candidate MCTS FPU reduction
+     * @param fpuB baseline MCTS FPU reduction
+     * @param checkPriorA candidate MCTS check-prior bonus
+     * @param checkPriorB baseline MCTS check-prior bonus
+     * @param capturePenaltyA candidate MCTS SEE-losing-capture prior penalty
+     * @param capturePenaltyB baseline MCTS SEE-losing-capture prior penalty
+     * @param captureWinScaleA candidate MCTS positive-SEE capture prior scale
+     * @param captureWinScaleB baseline MCTS positive-SEE capture prior scale
+     * @param limits per-move search limits
+     * @param maxPlies draw-adjudication ply cap
+     * @param threadsA candidate search threads
+     * @param threadsB baseline search threads
+     * @param workers number of concurrent opening-pair workers
+     * @return aggregate score
+     */
+    private static Score runParallel(
+            String[] openings,
+            Set<AlphaBeta.Feature> featuresA,
+            Set<AlphaBeta.Feature> featuresB,
+            SearchKind searchA,
+            SearchKind searchB,
+            String evalA,
+            String evalB,
+            double cpuctA,
+            double cpuctB,
+            double fpuA,
+            double fpuB,
+            int checkPriorA,
+            int checkPriorB,
+            int capturePenaltyA,
+            int capturePenaltyB,
+            int captureWinScaleA,
+            int captureWinScaleB,
+            Limits limits,
+            int maxPlies,
+            int threadsA,
+            int threadsB,
+            int workers) {
+        ExecutorService pool = Executors.newFixedThreadPool(Math.min(workers, openings.length));
+        try {
+            List<Future<OpeningResult>> futures = new ArrayList<>(openings.length);
+            for (String opening : openings) {
+                futures.add(pool.submit(() -> playOpeningPair(
+                        opening,
+                        featuresA,
+                        featuresB,
+                        searchA,
+                        searchB,
+                        evalA,
+                        evalB,
+                        cpuctA,
+                        cpuctB,
+                        fpuA,
+                        fpuB,
+                        checkPriorA,
+                        checkPriorB,
+                        capturePenaltyA,
+                        capturePenaltyB,
+                        captureWinScaleA,
+                        captureWinScaleB,
+                        limits,
+                        maxPlies,
+                        threadsA,
+                        threadsB)));
+            }
+            int[] score = { 0, 0, 0 };
+            for (int i = 0; i < futures.size(); i++) {
+                add(score, futures.get(i).get());
+                printProgress(i + 1, openings.length, score);
+            }
+            return new Score(score[0], score[1], score[2]);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("self-play interrupted", ex);
+        } catch (ExecutionException ex) {
+            throw new IllegalStateException("self-play worker failed", ex.getCause());
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    /**
+     * Plays both color assignments for one opening.
+     *
+     * @param opening opening FEN
+     * @param featuresA candidate features
+     * @param featuresB baseline features
+     * @param searchA candidate search
+     * @param searchB baseline search
+     * @param evalA candidate evaluator name
+     * @param evalB baseline evaluator name
+     * @param cpuctA candidate MCTS cpuct
+     * @param cpuctB baseline MCTS cpuct
+     * @param fpuA candidate MCTS FPU reduction
+     * @param fpuB baseline MCTS FPU reduction
+     * @param checkPriorA candidate MCTS check-prior bonus
+     * @param checkPriorB baseline MCTS check-prior bonus
+     * @param capturePenaltyA candidate MCTS SEE-losing-capture prior penalty
+     * @param capturePenaltyB baseline MCTS SEE-losing-capture prior penalty
+     * @param captureWinScaleA candidate MCTS positive-SEE capture prior scale
+     * @param captureWinScaleB baseline MCTS positive-SEE capture prior scale
+     * @param limits per-move search limits
+     * @param maxPlies draw-adjudication ply cap
+     * @param threadsA candidate search threads
+     * @param threadsB baseline search threads
+     * @return two-game result for the opening
+     */
+    private static OpeningResult playOpeningPair(
+            String opening,
+            Set<AlphaBeta.Feature> featuresA,
+            Set<AlphaBeta.Feature> featuresB,
+            SearchKind searchA,
+            SearchKind searchB,
+            String evalA,
+            String evalB,
+            double cpuctA,
+            double cpuctB,
+            double fpuA,
+            double fpuB,
+            int checkPriorA,
+            int checkPriorB,
+            int capturePenaltyA,
+            int capturePenaltyB,
+            int captureWinScaleA,
+            int captureWinScaleB,
+            Limits limits,
+            int maxPlies,
+            int threadsA,
+            int threadsB) {
+        // Play each opening from both colors so a result is not just one
+        // deterministic game counted twice.
+        Outcome first = playGame(opening, true, featuresA, featuresB, searchA, searchB, evalA, evalB, cpuctA, cpuctB,
+                fpuA, fpuB, checkPriorA, checkPriorB, capturePenaltyA, capturePenaltyB, captureWinScaleA,
+                captureWinScaleB, limits, maxPlies, threadsA, threadsB);
+        Outcome second = playGame(opening, false, featuresA, featuresB, searchA, searchB, evalA, evalB, cpuctA,
+                cpuctB, fpuA, fpuB, checkPriorA, checkPriorB, capturePenaltyA, capturePenaltyB, captureWinScaleA,
+                captureWinScaleB, limits, maxPlies, threadsA, threadsB);
+        return new OpeningResult(first, second);
+    }
+
+    /**
+     * Adds one opening-pair result to an aggregate score.
+     *
+     * @param score mutable {wins, draws, losses} score
+     * @param result opening-pair result
+     */
+    private static void add(int[] score, OpeningResult result) {
+        add(score, result.first());
+        add(score, result.second());
+    }
+
+    /**
+     * Adds one game outcome to an aggregate score.
+     *
+     * @param score mutable {wins, draws, losses} score
+     * @param outcome game outcome
+     */
+    private static void add(int[] score, Outcome outcome) {
+        switch (outcome) {
+            case WIN -> score[0]++;
+            case DRAW -> score[1]++;
+            case LOSS -> score[2]++;
+            default -> { }
+        }
+    }
+
+    /**
+     * Prints periodic progress.
+     *
+     * @param completed completed opening pairs
+     * @param total total opening pairs
+     * @param score mutable {wins, draws, losses} score
+     */
+    private static void printProgress(int completed, int total, int[] score) {
+        if (completed % 10 == 0 || completed == total) {
+            System.out.printf("  [%3d/%3d]  running W-D-L = %d-%d-%d%n",
+                    completed, total, score[0], score[1], score[2]);
+        }
     }
 
     /**
@@ -213,7 +560,20 @@ public final class SelfPlayGauntlet {
      * @param candidateIsWhite whether the candidate plays white this game
      * @param featuresA candidate features
      * @param featuresB baseline features
-     * @param eval evaluator name
+     * @param searchA candidate search
+     * @param searchB baseline search
+     * @param evalA candidate evaluator name
+     * @param evalB baseline evaluator name
+     * @param cpuctA candidate MCTS cpuct
+     * @param cpuctB baseline MCTS cpuct
+     * @param fpuA candidate MCTS FPU reduction
+     * @param fpuB baseline MCTS FPU reduction
+     * @param checkPriorA candidate MCTS check-prior bonus
+     * @param checkPriorB baseline MCTS check-prior bonus
+     * @param capturePenaltyA candidate MCTS SEE-losing-capture prior penalty
+     * @param capturePenaltyB baseline MCTS SEE-losing-capture prior penalty
+     * @param captureWinScaleA candidate MCTS positive-SEE capture prior scale
+     * @param captureWinScaleB baseline MCTS positive-SEE capture prior scale
      * @param limits per-move search limits
      * @param maxPlies draw-adjudication ply cap
      * @return game outcome from the candidate's perspective
@@ -223,15 +583,31 @@ public final class SelfPlayGauntlet {
             boolean candidateIsWhite,
             Set<AlphaBeta.Feature> featuresA,
             Set<AlphaBeta.Feature> featuresB,
-            String eval,
+            SearchKind searchA,
+            SearchKind searchB,
+            String evalA,
+            String evalB,
+            double cpuctA,
+            double cpuctB,
+            double fpuA,
+            double fpuB,
+            int checkPriorA,
+            int checkPriorB,
+            int capturePenaltyA,
+            int capturePenaltyB,
+            int captureWinScaleA,
+            int captureWinScaleB,
             Limits limits,
             int maxPlies,
             int threadsA,
             int threadsB) {
         Position position = new Position(fen);
-        AlphaBeta candidate = new AlphaBeta(evaluator(eval), true, featuresA).setSearchThreads(threadsA);
-        AlphaBeta baseline = new AlphaBeta(evaluator(eval), true, featuresB).setSearchThreads(threadsB);
+        GameSearcher candidate = searcher(searchA, evaluator(evalA), featuresA, threadsA, cpuctA, fpuA,
+                checkPriorA, capturePenaltyA, captureWinScaleA);
+        GameSearcher baseline = searcher(searchB, evaluator(evalB), featuresB, threadsB, cpuctB, fpuB,
+                checkPriorB, capturePenaltyB, captureWinScaleB);
         Map<Long, Integer> seen = new HashMap<>();
+        List<Long> history = new ArrayList<>();
         try {
             countPosition(seen, position);
             for (int ply = 0; ply < maxPlies; ply++) {
@@ -250,13 +626,14 @@ public final class SelfPlayGauntlet {
                     return Outcome.DRAW;
                 }
                 boolean candidateToMove = position.isWhiteToMove() == candidateIsWhite;
-                AlphaBeta engine = candidateToMove ? candidate : baseline;
-                Result result = engine.search(position, limits);
+                GameSearcher engine = candidateToMove ? candidate : baseline;
+                Result result = engine.search(position, limits, historyArray(history));
                 short move = result.bestMove();
                 if (move == Move.NO_MOVE || !isLegal(legal, move)) {
                     // Defensive: a stuck engine forfeits.
                     return candidateToMove ? Outcome.LOSS : Outcome.WIN;
                 }
+                history.add(position.signatureCore());
                 position.play(move);
                 countPosition(seen, position);
             }
@@ -265,6 +642,86 @@ public final class SelfPlayGauntlet {
             candidate.close();
             baseline.close();
         }
+    }
+
+    /**
+     * Builds a per-side searcher.
+     *
+     * @param kind search kind
+     * @param evaluator evaluator instance
+     * @param features alpha-beta features
+     * @param threads worker threads
+     * @param cpuct MCTS exploration constant
+     * @param fpuReduction MCTS first-play urgency reduction
+     * @param checkPriorBonus MCTS check-prior bonus
+     * @param losingCapturePriorPenalty MCTS SEE-losing-capture prior penalty
+     * @param winningCapturePriorScale MCTS positive-SEE capture prior scale
+     * @return searcher wrapper
+     */
+    private static GameSearcher searcher(
+            SearchKind kind,
+            CentipawnEvaluator evaluator,
+            Set<AlphaBeta.Feature> features,
+            int threads,
+            double cpuct,
+            double fpuReduction,
+            int checkPriorBonus,
+            int losingCapturePriorPenalty,
+            int winningCapturePriorScale) {
+        if (kind == SearchKind.MCTS) {
+            Mcts mcts = new Mcts(evaluator, cpuct, fpuReduction, checkPriorBonus, losingCapturePriorPenalty,
+                    winningCapturePriorScale);
+            mcts.setThreads(threads);
+            return new GameSearcher() {
+                /**
+                 * Searches with the reusable MCTS tree and supplied repetition history.
+                 */
+                @Override
+                public Result search(Position position, Limits limits, long[] history) {
+                    return mcts.searchReusable(position, limits, null, history);
+                }
+
+                /**
+                 * Releases the wrapped MCTS searcher.
+                 */
+                @Override
+                public void close() {
+                    mcts.close();
+                }
+            };
+        }
+        AlphaBeta alphaBeta = new AlphaBeta(evaluator, true, features).setSearchThreads(threads);
+        return new GameSearcher() {
+            /**
+             * Searches with the alpha-beta engine.
+             */
+            @Override
+            public Result search(Position position, Limits limits, long[] history) {
+                return alphaBeta.search(position, limits);
+            }
+
+            /**
+             * Releases the wrapped alpha-beta engine.
+             */
+            @Override
+            public void close() {
+                alphaBeta.close();
+            }
+        };
+    }
+
+    /**
+     * Copies history keys to a primitive array.
+     *
+     * @param history pre-root history keys
+     * @return primitive history
+     */
+    private static long[] historyArray(List<Long> history) {
+        long[] out = new long[history.size()];
+        for (int i = 0; i < out.length; i++) {
+            out[i] = history.get(i).longValue();
+        }
+        return out;
     }
 
     /**
@@ -305,10 +762,237 @@ public final class SelfPlayGauntlet {
             try {
                 return new Nnue(Path.of(NNUE_PATH));
             } catch (RuntimeException | java.io.IOException ex) {
-                System.out.println("  (nnue unavailable: " + ex.getMessage() + " — using classical)");
+                System.out.println("  (nnue unavailable: " + ex.getMessage() + " - using classical)");
             }
         }
-        return new Classical();
+        String normalized = eval.toLowerCase(java.util.Locale.ROOT);
+        if (normalized.startsWith("scale") && normalized.length() > "scale".length()) {
+            int scale = Integer.parseInt(normalized.substring("scale".length()));
+            return new ExperimentalClassical(eval, 0, scale, false, false, false);
+        }
+        return switch (normalized) {
+            case "rawclassical" -> new ExperimentalClassical(eval, 0, 100, false, false, false);
+            case "tempo16" -> new ExperimentalClassical(eval, 8, 100, false, false, false);
+            case "development" -> new ExperimentalClassical(eval, 0, 100, true, false, false);
+            case "tropism" -> new ExperimentalClassical(eval, 0, 100, false, true, false);
+            case "devtropism" -> new ExperimentalClassical(eval, 0, 100, true, true, false);
+            case "drawish" -> new ExperimentalClassical(eval, 0, 100, false, false, true);
+            default -> new Classical();
+        };
+    }
+
+    /**
+     * Experimental wrapper around the production classical evaluator.
+     *
+     * @param label evaluator label
+     * @param extraTempoCp additional side-to-move tempo
+     * @param scalePercent scalar applied to the base classical score
+     * @param development whether to add opening-development pressure
+     * @param tropism whether to add piece/king tropism
+     * @param drawish whether to damp low-material pawnless endings
+     */
+    private record ExperimentalClassical(
+            String label,
+            int extraTempoCp,
+            int scalePercent,
+            boolean development,
+            boolean tropism,
+            boolean drawish) implements CentipawnEvaluator {
+
+        /**
+         * Production evaluator used for the base score and move priors.
+         */
+        private static final Classical BASE = new Classical();
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public int evaluate(Position position) {
+            int score = Wdl.evaluateStmCentipawns(position) * scalePercent / 100;
+            if (extraTempoCp != 0) {
+                score += extraTempoCp;
+            }
+            int whiteExtra = 0;
+            if (development) {
+                whiteExtra += developmentWhite(position);
+            }
+            if (tropism) {
+                whiteExtra += tropismWhite(position);
+            }
+            if (whiteExtra != 0) {
+                score += position.isWhiteToMove() ? whiteExtra : -whiteExtra;
+            }
+            if (drawish) {
+                score = dampDrawishEndgame(position, score);
+            }
+            return score;
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public void prepareMoveOrdering(Position position) {
+            BASE.prepareMoveOrdering(position);
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public void scoreMoves(Position position, short[] moves, int[] scores) {
+            BASE.scoreMoves(position, moves, scores);
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public String name() {
+            return label;
+        }
+    }
+
+    /**
+     * Scores undeveloped back-rank pieces from White's perspective.
+     *
+     * @param position current position
+     * @return centipawn term from White's perspective
+     */
+    private static int developmentWhite(Position position) {
+        int material = nonKingMaterial(position);
+        if (material < STARTING_MATERIAL / 2) {
+            return 0;
+        }
+        int score = 0;
+        score -= undeveloped(position, Field.B1, Piece.WHITE_KNIGHT, 10);
+        score -= undeveloped(position, Field.G1, Piece.WHITE_KNIGHT, 10);
+        score -= undeveloped(position, Field.C1, Piece.WHITE_BISHOP, 8);
+        score -= undeveloped(position, Field.F1, Piece.WHITE_BISHOP, 8);
+        score += undeveloped(position, Field.B8, Piece.BLACK_KNIGHT, 10);
+        score += undeveloped(position, Field.G8, Piece.BLACK_KNIGHT, 10);
+        score += undeveloped(position, Field.C8, Piece.BLACK_BISHOP, 8);
+        score += undeveloped(position, Field.F8, Piece.BLACK_BISHOP, 8);
+        return score * Math.min(material, STARTING_MATERIAL) / STARTING_MATERIAL;
+    }
+
+    /**
+     * Returns a penalty when a home-square piece is still undeveloped.
+     *
+     * @param position current position
+     * @param square home square
+     * @param piece expected undeveloped piece
+     * @param penalty penalty value
+     * @return penalty when the piece is on the home square
+     */
+    private static int undeveloped(Position position, int square, byte piece, int penalty) {
+        return position.pieceAt(square) == piece ? penalty : 0;
+    }
+
+    /**
+     * Scores attacking-piece distance to the enemy king from White's perspective.
+     *
+     * @param position current position
+     * @return centipawn term from White's perspective
+     */
+    private static int tropismWhite(Position position) {
+        int material = nonKingMaterial(position);
+        int phase = Math.min(material, STARTING_MATERIAL);
+        int whiteKing = position.kingSquare(true);
+        int blackKing = position.kingSquare(false);
+        if (whiteKing < 0 || blackKing < 0) {
+            return 0;
+        }
+        int white = sideTropism(position, true, blackKing);
+        int black = sideTropism(position, false, whiteKing);
+        return (white - black) * phase / STARTING_MATERIAL;
+    }
+
+    /**
+     * Scores one side's attacking pieces by Chebyshev distance to the enemy king.
+     *
+     * @param position current position
+     * @param white side to score
+     * @param enemyKing enemy king square
+     * @return side tropism score
+     */
+    private static int sideTropism(Position position, boolean white, int enemyKing) {
+        int side = 0;
+        side += tropismPieces(position.pieces(white ? Position.WHITE_QUEEN : Position.BLACK_QUEEN), enemyKing, 4);
+        side += tropismPieces(position.pieces(white ? Position.WHITE_ROOK : Position.BLACK_ROOK), enemyKing, 2);
+        side += tropismPieces(position.pieces(white ? Position.WHITE_BISHOP : Position.BLACK_BISHOP), enemyKing, 2);
+        side += tropismPieces(position.pieces(white ? Position.WHITE_KNIGHT : Position.BLACK_KNIGHT), enemyKing, 3);
+        return side;
+    }
+
+    /**
+     * Scores a bitboard of pieces by proximity to the enemy king.
+     *
+     * @param pieces piece bitboard
+     * @param enemyKing enemy king square
+     * @param weight per-distance weight
+     * @return tropism score
+     */
+    private static int tropismPieces(long pieces, int enemyKing, int weight) {
+        int score = 0;
+        long remaining = pieces;
+        while (remaining != 0L) {
+            int square = Long.numberOfTrailingZeros(remaining);
+            remaining &= remaining - 1L;
+            score += Math.max(0, 7 - kingDistance(square, enemyKing)) * weight;
+        }
+        return score;
+    }
+
+    /**
+     * Damps optimistic scores in pawnless low-material endings.
+     *
+     * @param position current position
+     * @param score side-to-move score
+     * @return possibly damped score
+     */
+    private static int dampDrawishEndgame(Position position, int score) {
+        if ((position.pieces(Position.WHITE_PAWN) | position.pieces(Position.BLACK_PAWN)) != 0L) {
+            return score;
+        }
+        int material = nonKingMaterial(position);
+        if (material <= Piece.VALUE_ROOK + Piece.VALUE_BISHOP) {
+            return score * 65 / 100;
+        }
+        if (material <= 2 * Piece.VALUE_ROOK + 2 * Piece.VALUE_BISHOP) {
+            return score * 80 / 100;
+        }
+        return score;
+    }
+
+    /**
+     * Returns total non-king material for both sides.
+     *
+     * @param position current position
+     * @return material in centipawns
+     */
+    private static int nonKingMaterial(Position position) {
+        int total = 0;
+        byte[] board = position.getBoard();
+        for (byte piece : board) {
+            int type = Math.abs(piece);
+            if (type != Piece.KING) {
+                total += Piece.getValue(piece);
+            }
+        }
+        return total;
+    }
+
+    /**
+     * Chebyshev king distance between two squares.
+     *
+     * @param a first square
+     * @param b second square
+     * @return king distance
+     */
+    private static int kingDistance(int a, int b) {
+        return Math.max(Math.abs((a & 7) - (b & 7)), Math.abs((a >>> 3) - (b >>> 3)));
     }
 
     /**
@@ -348,6 +1032,34 @@ public final class SelfPlayGauntlet {
             }
         }
         return opts;
+    }
+
+    /**
+     * Parses a search kind name.
+     *
+     * @param name search name
+     * @return parsed search kind
+     */
+    private static SearchKind parseSearch(String name) {
+        String normalized = name.trim().toLowerCase(java.util.Locale.ROOT);
+        return switch (normalized) {
+            case "ab", "alpha", "alphabeta", "alpha-beta" -> SearchKind.ALPHA_BETA;
+            case "mcts", "puct" -> SearchKind.MCTS;
+            default -> throw new IllegalArgumentException("unknown search kind: " + name);
+        };
+    }
+
+    /**
+     * Returns the command-line name for a search kind.
+     *
+     * @param search search kind
+     * @return stable command-line name
+     */
+    private static String searchName(SearchKind search) {
+        return switch (search) {
+            case ALPHA_BETA -> "alpha-beta";
+            case MCTS -> "mcts";
+        };
     }
 
     /**

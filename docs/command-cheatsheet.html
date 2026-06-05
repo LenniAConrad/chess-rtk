@@ -113,7 +113,7 @@
 crtk version --json                                 # build metadata
 crtk fen print --startpos                           # render the start position as text
 crtk move list --startpos --format both             # legal moves in UCI + SAN
-crtk engine builtin --startpos --depth 3 --format summary   # in-process MCTS search
+crtk engine builtin --startpos --depth 6 --format summary   # in-process search
 crtk engine perft-suite --depth 5                   # movegen correctness regression</code></pre>
 <h2 id="setup-and-diagnostics">Setup And Diagnostics</h2>
 <div class="table-wrap"><table>
@@ -221,6 +221,10 @@ crtk engine perft-suite --depth 5                   # movegen correctness regres
 <td><code>crtk fen render --fen &quot;&lt;FEN&gt;&quot; -o board.svg --arrows e2e4,d2d4 --dark</code></td>
 </tr>
 <tr>
+<td>Tactical-incidence relation graph</td>
+<td><code>crtk fen relations --fen &quot;&lt;FEN&gt;&quot; --montage -o relations.png</code></td>
+</tr>
+<tr>
 <td>Open a board window</td>
 <td><code>crtk fen display --fen &quot;&lt;FEN&gt;&quot;</code></td>
 </tr>
@@ -303,7 +307,7 @@ crtk engine perft-suite --depth 5                   # movegen correctness regres
 </tbody></table></div>
 <blockquote><p><code>crtk fen after</code> and <code>crtk fen line</code> are aliases for <code>move after</code> and <code>move play</code> — same behavior, whichever noun you reach for.</p></blockquote>
 <h2 id="engine-analysis-and-search">Engine Analysis And Search</h2>
-<p>Three kinds of engine live here, and the verb tells you which. <code>engine analyze</code>/<code>bestmove</code>/<code>threats</code>/<code>compare</code> talk to an external UCI engine — Stockfish, LC0. <code>engine builtin</code>/<code>java</code> run the in-process MCTS engine, no external process required. <code>engine mate</code> proves forced mates by brute force, and <code>engine static</code>/<code>eval</code> just score a position.</p>
+<p>Three kinds of engine live here, and the verb tells you which. <code>engine analyze</code>/<code>bestmove</code>/<code>threats</code>/<code>compare</code> talk to an external UCI engine — Stockfish, LC0. <code>engine builtin</code>/<code>java</code> run the in-process built-in engine, no external process required. <code>engine mate</code> proves forced mates by brute force, and <code>engine static</code>/<code>eval</code> just score a position.</p>
 <div class="table-wrap"><table>
 <thead><tr>
 <th>Task</th>
@@ -338,8 +342,8 @@ crtk engine perft-suite --depth 5                   # movegen correctness regres
 <td><code>crtk engine compare --input positions.txt --left-protocol a.toml --right-protocol b.toml --jsonl</code></td>
 </tr>
 <tr>
-<td>In-process MCTS search</td>
-<td><code>crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 4 --format summary</code></td>
+<td>In-process built-in search</td>
+<td><code>crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 6 --format summary</code></td>
 </tr>
 <tr>
 <td>MCTS with LC0 evaluator</td>
@@ -641,7 +645,7 @@ crtk engine perft-suite --depth 5                   # movegen correctness regres
 </tr>
 <tr>
 <td>Offline in-process fallback</td>
-<td><code>crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 3 --format summary</code></td>
+<td><code>crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 6 --format summary</code></td>
 </tr>
 </tbody></table></div>
 <h2 id="see-also">See Also</h2>

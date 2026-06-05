@@ -202,7 +202,7 @@ crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code></pre>
 <tr>
 <td>In-process search</td>
 <td><code>engine builtin --format summary</code></td>
-<td>bounded built-in MCTS output; no external process</td>
+<td>bounded built-in search output; no external process</td>
 </tr>
 <tr>
 <td>Prove a forced mate</td>
@@ -250,7 +250,7 @@ crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code></pre>
 <p>Cap every automated analysis. The budget flags are consistent across commands, so one agent-side policy covers all of them.</p>
 <ul>
 <li><strong>External UCI engine</strong> (<code>engine analyze</code>, <code>bestmove</code>, <code>bestmove-batch</code>, <code>analyze-batch</code>, <code>compare</code>, <code>threats</code>): bound it with <code>--max-nodes</code> and <code>--max-duration</code> (<code>5s</code>, <code>500ms</code>), and pin <code>--multipv</code>, <code>--threads</code>, and <code>--hash</code> to keep the engine reproducible. Point at a protocol with <code>--protocol-path</code> (or <code>--left-protocol</code>/<code>--right-protocol</code> for <code>compare</code>).</li>
-<li><strong>Built-in MCTS</strong> (<code>engine builtin</code>, alias <code>engine java</code>): use <code>--depth</code>, <code>--max-nodes</code> (alias <code>--nodes</code>; <code>0</code> lifts the cap), and <code>--max-duration</code> (<code>0</code> means no time cap). It runs in-process, so <code>--threads</code>/<code>--hash</code> do not apply. Choose an evaluator with <code>--evaluator classical|nnue|lc0|otis</code>.</li>
+<li><strong>Built-in search</strong> (<code>engine builtin</code>, alias <code>engine java</code>): use <code>--depth</code>, <code>--max-nodes</code> (alias <code>--nodes</code>; <code>0</code> lifts the cap), and <code>--max-duration</code> (<code>0</code> means no time cap). It runs in-process; <code>--threads</code> is available for alpha-beta Lazy SMP or MCTS workers, while <code>--hash</code> is only for external UCI engines. Choose an evaluator with <code>--evaluator classical|nnue|lc0|otis</code>.</li>
 <li><strong>Forced-mate prover</strong> (<code>engine mate</code>): bound it with <code>--max-mate</code> (default <code>4</code>) and <code>--max-nodes</code>. This is brute force, no neural-network evaluation — depth, not heuristics, is what costs you.</li>
 <li><strong>Mining / dataset / book</strong> commands: cap volume with <code>--max-total</code>, <code>--max-waves</code>, <code>--max-frontier</code> (<code>puzzle mine</code>), <code>--max-records</code> (record exports), or <code>--limit</code> (<code>book collection</code>, <code>book render</code>).</li>
 </ul>

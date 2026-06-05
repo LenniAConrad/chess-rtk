@@ -419,7 +419,10 @@ public final class TensorViz {
             int dw = Math.round(bar.width * d);
             int lw = Math.max(0, bar.width - ww - dw);
             Color winFill = outcomeSegmentFill(POSITIVE);
-            Color drawFill = Theme.isDark() ? Theme.ELEVATED_SOLID : Theme.LINE;
+            // Tint the draw segment from MUTED the same way win/loss tint their
+            // accents, so it reads as a visible neutral band instead of blending
+            // into the dark surface (ELEVATED_SOLID was nearly invisible there).
+            Color drawFill = outcomeSegmentFill(Theme.MUTED);
             Color lossFill = outcomeSegmentFill(NEGATIVE);
             g.setColor(winFill);
             g.fillRect(bar.x, bar.y, ww, bar.height);
@@ -1076,30 +1079,6 @@ public final class TensorViz {
     }
 
     /**
-     * Draws a wired connection between two node points (used by NNUE diagram).
-     *
-     * @param g graphics
-     * @param x1 source x
-     * @param y1 source y
-     * @param x2 destination x
-     * @param y2 destination y
-     * @param strength signed magnitude in [-1, 1]
-     * @param emphasised true to thicken the line
-     */
-    public static void drawWeightedEdge(Graphics2D g, int x1, int y1, int x2, int y2, float strength,
-            boolean emphasised) {
-        float s = clamp(strength, -1.0f, 1.0f);
-        Color base = s >= 0.0f ? POSITIVE : NEGATIVE;
-        int alpha = Math.min(255, Math.round(60 + 195 * Math.abs(s)));
-        Color c = new Color(base.getRed(), base.getGreen(), base.getBlue(), alpha);
-        float width = (emphasised ? 1.8f : 1.0f) + 1.6f * Math.abs(s);
-        g.setStroke(new BasicStroke(width, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.setColor(c);
-        g.drawLine(x1, y1, x2, y2);
-        g.setStroke(new BasicStroke(1.0f));
-    }
-
-    /**
      * Draws a single node circle for use in the NNUE wired diagram.
      *
      * @param g graphics
@@ -1223,27 +1202,6 @@ public final class TensorViz {
                 min,
                 max,
         };
-    }
-
-    /**
-     * Returns the index of the maximum absolute value in a slice.
-     *
-     * @param values source
-     * @param from inclusive start
-     * @param to exclusive end
-     * @return index in [from, to) or from when slice is empty
-     */
-    public static int argMaxAbs(float[] values, int from, int to) {
-        int best = from;
-        float bestAbs = -1.0f;
-        for (int i = from; i < to; ++i) {
-            float a = Math.abs(values[i]);
-            if (a > bestAbs) {
-                bestAbs = a;
-                best = i;
-            }
-        }
-        return best;
     }
 
     /**

@@ -314,7 +314,7 @@ public final class SettingsMenu {
                 item("Batch", "Ctrl+4", controller::openBatch),
                 item("Datasets", "Ctrl+5", controller::openDatasets),
                 item("Publish", "Ctrl+6", controller::openPublish),
-                item("Network", "Ctrl+7", controller::openNetwork),
+                item("Evaluator", "Ctrl+7", controller::openNetwork),
                 item("MCTS", "Ctrl+8", controller::openMcts),
                 item("Puzzles", "Ctrl+9", controller::openPuzzles),
                 separator(),
@@ -418,7 +418,9 @@ public final class SettingsMenu {
         } else if (component instanceof JPopupMenu popup) {
             stylePopup(popup);
         } else if (component instanceof JSeparator separator) {
-            separator.setBackground(Theme.BG);
+            // Match the popup surface (PANEL_SOLID), not the window BG — otherwise
+            // the separator band is a lighter stripe against the darker menu.
+            separator.setBackground(Theme.PANEL_SOLID);
             separator.setForeground(Theme.LINE);
         } else if (component instanceof JPanel panel && "settingsPanel".equals(panel.getName())) {
             panel.setOpaque(true);

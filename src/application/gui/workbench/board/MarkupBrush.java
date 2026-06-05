@@ -1,6 +1,5 @@
 package application.gui.workbench.board;
 
-import application.gui.workbench.ui.Theme;
 import java.awt.Color;
 
 /**
@@ -13,6 +12,31 @@ import java.awt.Color;
 public record MarkupBrush(String name, Color color, int lineWidth) {
 
     /**
+     * Dedicated annotation colours — saturated, semi-transparent overlays
+     * (chessground-style) that read cleanly as bold arrows/circles over the wood
+     * board. These replace the pale {@code STATUS_*_TEXT} tokens previously
+     * reused here, which were tuned for legible text rather than board markup and
+     * washed out as arrows. Fixed (not theme-resolved) so an arrow's colour stays
+     * the same in light and dark, matching every other chess UI.
+     */
+    private static final Color GREEN = new Color(0x21, 0x9E, 0x3C, 212);
+
+    /**
+     * Annotation red.
+     */
+    private static final Color RED = new Color(0xCB, 0x37, 0x37, 212);
+
+    /**
+     * Annotation blue.
+     */
+    private static final Color BLUE = new Color(0x30, 0x72, 0xE0, 212);
+
+    /**
+     * Annotation yellow.
+     */
+    private static final Color YELLOW = new Color(0xE8, 0x9B, 0x16, 212);
+
+    /**
      * Creates a Chessground-style gesture brush from the two annotation
      * modifier bits.
      *
@@ -21,10 +45,10 @@ public record MarkupBrush(String name, Color color, int lineWidth) {
      */
     public static MarkupBrush forGesture(int index) {
         return switch (index) {
-            case 1 -> new MarkupBrush("red", Theme.STATUS_ERROR_TEXT, 10);
-            case 2 -> new MarkupBrush("blue", Theme.ACCENT, 10);
-            case 3 -> new MarkupBrush("yellow", Theme.STATUS_WARNING_TEXT, 10);
-            default -> new MarkupBrush("green", Theme.STATUS_SUCCESS_TEXT, 10);
+            case 1 -> new MarkupBrush("red", RED, 10);
+            case 2 -> new MarkupBrush("blue", BLUE, 10);
+            case 3 -> new MarkupBrush("yellow", YELLOW, 10);
+            default -> new MarkupBrush("green", GREEN, 10);
         };
     }
 
@@ -36,16 +60,16 @@ public record MarkupBrush(String name, Color color, int lineWidth) {
      * @return annotation brush
      */
     public static MarkupBrush forThemeColor(Color color) {
-        if (sameColor(color, Theme.STATUS_SUCCESS_TEXT)) {
+        if (sameColor(color, GREEN)) {
             return new MarkupBrush("green", color, 10);
         }
-        if (sameColor(color, Theme.STATUS_ERROR_TEXT)) {
+        if (sameColor(color, RED)) {
             return new MarkupBrush("red", color, 10);
         }
-        if (sameColor(color, Theme.ACCENT)) {
+        if (sameColor(color, BLUE)) {
             return new MarkupBrush("blue", color, 10);
         }
-        if (sameColor(color, Theme.STATUS_WARNING_TEXT)) {
+        if (sameColor(color, YELLOW)) {
             return new MarkupBrush("yellow", color, 10);
         }
         return new MarkupBrush("custom", color, 10);
@@ -58,7 +82,7 @@ public record MarkupBrush(String name, Color color, int lineWidth) {
      * @return true for named workbench annotation brushes
      */
     public boolean isThemed() {
-        return switch (String.valueOf(name)) {
+        return switch (name) {
             case "green", "red", "blue", "yellow" -> true;
             default -> false;
         };
@@ -70,11 +94,11 @@ public record MarkupBrush(String name, Color color, int lineWidth) {
      * @return active brush color
      */
     public Color themedColor() {
-        return switch (String.valueOf(name)) {
-            case "green" -> Theme.STATUS_SUCCESS_TEXT;
-            case "red" -> Theme.STATUS_ERROR_TEXT;
-            case "blue" -> Theme.ACCENT;
-            case "yellow" -> Theme.STATUS_WARNING_TEXT;
+        return switch (name) {
+            case "green" -> GREEN;
+            case "red" -> RED;
+            case "blue" -> BLUE;
+            case "yellow" -> YELLOW;
             default -> color;
         };
     }

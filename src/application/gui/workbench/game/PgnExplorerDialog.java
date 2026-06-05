@@ -68,6 +68,25 @@ public final class PgnExplorerDialog extends JDialog {
     private static final int BAR_HEIGHT = 34;
 
     /**
+     * Horizontal padding inside the search field (no theme colour, so it is a
+     * shared constant).
+     */
+    private static final javax.swing.border.Border SEARCH_FIELD_PADDING =
+            BorderFactory.createEmptyBorder(0, 4, 0, 4);
+
+    /**
+     * Builds the quick-open bar border. Rebuilt on demand (not cached) because it
+     * embeds {@link Theme#LINE}, which changes when the theme is toggled.
+     *
+     * @return search-bar compound border
+     */
+    private static javax.swing.border.Border searchBarBorder() {
+        return BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Theme.LINE),
+                Theme.pad(0, 8, 0, 8));
+    }
+
+    /**
      * Loader called with the chosen PGN/FEN/SAN text.
      */
     private final transient Consumer<String> textLoader;
@@ -168,12 +187,10 @@ public final class PgnExplorerDialog extends JDialog {
         Theme.refreshComponentTree(this);
         if (quickOpenBar != null) {
             quickOpenBar.setBackground(Theme.INPUT);
-            quickOpenBar.setBorder(BorderFactory.createCompoundBorder(
-                    BorderFactory.createLineBorder(Theme.LINE),
-                    Theme.pad(0, 8, 0, 8)));
+            quickOpenBar.setBorder(searchBarBorder());
         }
         searchField.setBackground(Theme.INPUT);
-        searchField.setBorder(BorderFactory.createEmptyBorder(0, 4, 0, 4));
+        searchField.setBorder(SEARCH_FIELD_PADDING);
         statusLabel.setForeground(Theme.MUTED);
         countLabel.setForeground(Theme.MUTED);
         repaint();
@@ -186,7 +203,7 @@ public final class PgnExplorerDialog extends JDialog {
      */
     private JComponent createContent() {
         JPanel content = new SurfacePanel(new BorderLayout(8, 8));
-        content.setBorder(Theme.pad(10, 10, 10, 10));
+        content.setBorder(Theme.pad(Theme.SPACE_MD));
         content.add(createQuickOpenBar(), BorderLayout.NORTH);
         configureResults();
         content.add(scroll(resultList), BorderLayout.CENTER);
@@ -211,9 +228,7 @@ public final class PgnExplorerDialog extends JDialog {
         quickOpenBar = bar;
         bar.setOpaque(true);
         bar.setBackground(Theme.INPUT);
-        bar.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Theme.LINE),
-                Theme.pad(0, 8, 0, 8)));
+        bar.setBorder(searchBarBorder());
         bar.setPreferredSize(new Dimension(WIDTH - 20, BAR_HEIGHT));
 
         JLabel title = new JLabel("chess-rtk");
@@ -223,7 +238,7 @@ public final class PgnExplorerDialog extends JDialog {
         bar.add(title, BorderLayout.WEST);
 
         styleFields(searchField);
-        searchField.setBorder(BorderFactory.createEmptyBorder(0, 4, 0, 4));
+        searchField.setBorder(SEARCH_FIELD_PADDING);
         searchField.setBackground(Theme.INPUT);
         searchField.setToolTipText("Search loaded PGN games");
         searchField.getAccessibleContext().setAccessibleName("Search PGN games");

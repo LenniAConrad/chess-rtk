@@ -18,7 +18,7 @@ The backends move arithmetic, not logic. Results are identical either way: perft
 - **LC0 BT4 inference** — compact BT4 `.bin` (magic `BT4J`) policy + value inference on the GPU. The BT4 path is simplified and experimental; treat it as a usable evaluator, not a bit-exact LC0 reimplementation.
 - **T5 text generation** — the `fen text` / `puzzle text` summary pipeline can offload matrix multiplies (CUDA/ROCm run greedy decoding end-to-end on the device; oneAPI offloads GEMMs).
 
-**Always on the CPU (no GPU path):** legal move generation, make/undo, FEN/SAN/UCI parsing, the built-in MCTS engine (`engine builtin` / `engine java`), the forced-mate prover (`engine mate`), and the classical/NNUE evaluators. External UCI engines such as Stockfish or LC0 manage their own hardware independently of crtk's native backends.
+**Always on the CPU (no GPU path):** legal move generation, make/undo, FEN/SAN/UCI parsing, the built-in alpha-beta/MCTS search (`engine builtin` / `engine java`), the forced-mate prover (`engine mate`), and the classical/NNUE evaluators. External UCI engines such as Stockfish or LC0 manage their own hardware independently of crtk's native backends.
 
 This is what makes the GPU safe to leave on in a test harness. A GPU run of `engine perft` returns the same totals as the CPU run, and `engine perft-suite` checks against the same expected counts whichever path it took. See [Quality and Testing](quality-and-testing.md) for how the perft suite serves as a regression gate.
 

@@ -193,6 +193,10 @@ crtk workbench --flip</code></pre>
 <td>NNUE, LC0 CNN, BT4, and OTIS model diagnostics and visualizers</td>
 </tr>
 <tr>
+<td>Relations</td>
+<td>OTIS tactical-incidence relation channels drawn as typed arrows on a board</td>
+</tr>
+<tr>
 <td>Puzzles</td>
 <td>Interactive puzzle practice</td>
 </tr>
@@ -210,7 +214,7 @@ crtk workbench --flip</code></pre>
 <p>Both opponents run in-process. Play never spawns an external process.</p>
 <ul>
 <li><code>Alpha-Beta</code> is iterative deepening with a transposition table, null-move pruning, and quiescence, scoring leaves with the chosen evaluator.</li>
-<li><code>MCTS</code> is the in-process Monte Carlo Tree Search over the chosen policy/value backend — the same search family as the CLI&#x27;s <code>engine builtin</code> and <code>engine java</code>, which are also MCTS and also keep to the JVM rather than reaching for a UCI engine.</li>
+<li><code>MCTS</code> is the in-process Monte Carlo Tree Search over the chosen policy/value backend. The CLI&#x27;s <code>engine builtin --search mcts</code> path uses the same family, while the default classical/NNUE CLI path uses alpha-beta; both stay inside the JVM rather than reaching for a UCI engine.</li>
 </ul>
 <p>The Network selector decides which local model loads:</p>
 <div class="table-wrap"><table>
@@ -251,6 +255,8 @@ crtk workbench --flip</code></pre>
 <p>The Puzzles tab is where you actually solve the things you mined. Load the <code>*.puzzles.json</code> output of <code>puzzle mine</code>, work a position on the board, then reveal the principal variation and the move-by-move tags — the same deterministic tagging behind <code>puzzle tags</code>. See <a href="mining.html">Puzzle mining</a> for how the sets are produced and gated by the Filter DSL.</p>
 <h2 id="network-visualizer">Network visualizer</h2>
 <p>The Network tab opens up the neural networks the toolkit has loaded — NNUE, the LC0 CNN, BT4, OTIS — and shows what they&#x27;re doing: loaded-model state, inference state, feature boards, activation summaries, atlases, trace views, runtime information, and exportable visualizations. As close as you can get to watching an evaluator look at a position.</p>
+<h2 id="relations">Relations</h2>
+<p>The Relations tab draws the OTIS <em>tactical incidence</em> graph — the twelve typed relation channels <code>A(x)</code> the oriented-tactical-sheaf network ingests — as colour-coded arrows over a board: us/them attacks and defenses, king-zone pressure, occlusion-aware bishop/rook/queen rays, knight and pawn attacks, and absolute-pin candidates. Toggle channels on and off, set the arrow opacity, and point it at the current analysis position (Sync to board) or a pasted FEN. The edges are computed deterministically from the position alone — no model file needed — and are the exact same <code>A(x)</code> the CLI <code>fen relations</code> command renders and the network reads.</p>
 <p><img src="assets/screenshots/workbench-network.png" alt="Workbench network visualizer" loading="lazy"></p>
 <p>Read this as a research and debugging aid, not ground truth about a reference engine. The networks are usable evaluators, but the LC0 CNN and BT4 paths are simplified and not bit-exact equivalents of upstream inference — so the activations are faithful to ChessRTK&#x27;s implementation, which is not quite the same thing as faithful to LC0 or BT4.</p>
 <h2 id="console-and-logs">Console and logs</h2>
@@ -283,6 +289,7 @@ crtk workbench --flip</code></pre>
 <a class="toc-h2" href="#publishing-previews">Publishing previews</a>
 <a class="toc-h2" href="#puzzles">Puzzles</a>
 <a class="toc-h2" href="#network-visualizer">Network visualizer</a>
+<a class="toc-h2" href="#relations">Relations</a>
 <a class="toc-h2" href="#console-and-logs">Console and logs</a>
 <a class="toc-h2" href="#keyboard-and-layout">Keyboard and layout</a>
 <a class="toc-h2" href="#related-pages">Related pages</a></aside>

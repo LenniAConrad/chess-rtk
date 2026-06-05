@@ -57,7 +57,9 @@ public final class WindowPublishingHost extends WindowHost implements Publishing
      */
     @Override
     public String batchInputText() {
-        return window.batchPanel.inputText();
+        // Batch positions now live in the merged Build command form; this returns
+        // its position list when a batch-style command is selected, else "".
+        return window.commandForm.positionsText();
     }
 
     /**

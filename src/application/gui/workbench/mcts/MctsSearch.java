@@ -6,6 +6,7 @@ import chess.core.Piece;
 import chess.core.Position;
 import chess.core.SAN;
 import chess.engine.MateProver;
+import chess.eval.See;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -38,7 +39,22 @@ public final class MctsSearch implements AutoCloseable {
     /**
      * First-play urgency reduction for unvisited children.
      */
-    private static final double FPU_REDUCTION = 0.25;
+    private static final double FPU_REDUCTION = 0.05;
+
+    /**
+     * Handcrafted prior bonus for moves that give check.
+     */
+    private static final int CHECK_PRIOR_BONUS = 4_000;
+
+    /**
+     * Handcrafted prior penalty for captures that lose material by SEE.
+     */
+    private static final int LOSING_CAPTURE_PRIOR_PENALTY = 8_000;
+
+    /**
+     * Scale applied to positive SEE values for winning-capture priors.
+     */
+    private static final int WINNING_CAPTURE_PRIOR_SCALE = 8;
 
     /**
      * Maximum forcing plies searched when valuing tactically unstable leaves.
@@ -405,7 +421,9 @@ public final class MctsSearch implements AutoCloseable {
         RootDecision decision = immediateRootDecision;
         List<Node> children = orderedRootChildren(decision);
         List<Row> rows = new ArrayList<>();
-        for (int i = 0; i < Math.min(18, children.size()); i++) {
+        // Stream every expanded root edge so the search table and the
+        // Evaluator weights view show all moves, not a truncated head.
+        for (int i = 0; i < children.size(); i++) {
             Node child = children.get(i);
             double u = exploration(root, child);
             double q = rootRowQ(decision, child);
@@ -475,7 +493,28 @@ public final class MctsSearch implements AutoCloseable {
     }
 
     /**
+     * Per-ply bonus applied to a node's visit count when ordering the snapshot
+     * frontier, so deep heavily-searched lines surface before shallow ones.
+     */
+    private static final double TREE_DEPTH_BIAS = 0.6;
+
+    /**
+     * Returns the depth-biased emission score for tree-snapshot ordering.
+     *
+     * @param node node
+     * @return visits scaled by a per-ply depth bonus
+     */
+    private static double emitScore(Node node) {
+        return node.visits() * (1.0 + TREE_DEPTH_BIAS * node.depth);
+    }
+
+    /**
      * Builds a bounded tree-inspection snapshot for Swing.
+     *
+     * @param paused true when the owning search is paused
+     * @param options snapshot size and display options
+     * @param selectedNodeId node selected by the tree inspector
+     * @return tree snapshot with emitted nodes, omitted count, and selection data
      */
     public TreeSnapshot treeSnapshot(boolean paused, TreeOptions options, String selectedNodeId) {
         TreeOptions safeOptions = options == null ? TreeOptions.defaults() : options.normalized();
@@ -483,10 +522,18 @@ public final class MctsSearch implements AutoCloseable {
         List<NodeInfo> nodes = new ArrayList<>();
         int[] omitted = { 0 };
         NodeInfo selected = null;
-        List<Node> frontier = new ArrayList<>();
+        // Best-first by a depth-biased visit score: with a node cap, expand the
+        // most-explored lines first, but give deeper nodes a bonus so a heavily
+        // searched deep line is emitted before shallow low-relevance alternatives
+        // (otherwise shallow nodes, which always have more visits, consume the
+        // whole budget and the deep relevant routes never show). A child is only
+        // enqueued after its parent is emitted, so the emitted set stays a
+        // connected subtree.
+        java.util.PriorityQueue<Node> frontier =
+                new java.util.PriorityQueue<>((a, b) -> Double.compare(emitScore(b), emitScore(a)));
         frontier.add(root);
         while (!frontier.isEmpty()) {
-            Node node = frontier.remove(0);
+            Node node = frontier.poll();
             if (node.depth > safeOptions.maxDepth()) {
                 omitted[0]++;
                 continue;
@@ -497,22 +544,41 @@ public final class MctsSearch implements AutoCloseable {
             }
             NodeInfo info = nodeInfo(node);
             nodes.add(info);
-            if (info.id().equals(selectedNodeId)) {
+            boolean isSelectedNode = info.id().equals(selectedNodeId);
+            if (isSelectedNode) {
                 selected = info;
             }
             if (node.depth >= safeOptions.maxDepth()) {
                 omitted[0] += visibleChildCount(node, safeOptions);
                 continue;
             }
-            List<Node> children = safeOptions.pvOnly()
-                    ? pvChildren(node)
-                    : orderedChildren(node);
+            // The frontier is a visit-ordered priority queue, so children can be
+            // enqueued in their natural order without a per-node sort (a sort
+            // that, at 250k nodes, would dominate the snapshot build).
+            List<Node> children = safeOptions.pvOnly() ? pvChildren(node) : node.children;
+            List<Node> eligible = new ArrayList<>();
             for (Node child : children) {
                 if (child.visits() < safeOptions.minVisits()) {
                     omitted[0] += countVisibleDescendants(child, safeOptions);
                 } else {
-                    frontier.add(child);
+                    eligible.add(child);
                 }
+            }
+            // Branching cap: enqueue only the top-K most-visited children so the
+            // node budget flows into depth instead of a wide shallow frontier.
+            // The principal child always has the most visits, so the PV is never
+            // pruned; the selected node is left fully expanded so the inspector's
+            // child list stays complete.
+            int cap = safeOptions.maxBranching();
+            if (cap > 0 && !isSelectedNode && eligible.size() > cap) {
+                eligible.sort((a, b) -> Integer.compare(b.visits(), a.visits()));
+                for (int i = cap; i < eligible.size(); i++) {
+                    omitted[0] += countVisibleDescendants(eligible.get(i), safeOptions);
+                }
+                eligible = eligible.subList(0, cap);
+            }
+            for (Node child : eligible) {
+                frontier.add(child);
             }
         }
         if (selected == null) {
@@ -606,33 +672,6 @@ public final class MctsSearch implements AutoCloseable {
     }
 
     /**
-     * Returns children in deterministic inspection order.
-     */
-    private List<Node> orderedChildren(Node parent) {
-        if (parent == root) {
-            return orderedRootChildren(immediateRootDecision);
-        }
-        List<Node> children = new ArrayList<>(parent.children);
-        children.sort((left, right) -> {
-            int leftRank = proofRankForParent(left);
-            int rightRank = proofRankForParent(right);
-            if (leftRank != rightRank) {
-                return Integer.compare(rightRank, leftRank);
-            }
-            int visits = Integer.compare(right.visits(), left.visits());
-            if (visits != 0) {
-                return visits;
-            }
-            int prior = Double.compare(right.prior, left.prior);
-            if (prior != 0) {
-                return prior;
-            }
-            return Move.toString(left.move).compareTo(Move.toString(right.move));
-        });
-        return children;
-    }
-
-    /**
      * Returns the single principal-variation child for PV-spine traversal.
      */
     private List<Node> pvChildren(Node parent) {
@@ -659,7 +698,7 @@ public final class MctsSearch implements AutoCloseable {
             if (node.depth >= options.maxDepth()) {
                 continue;
             }
-            for (Node child : options.pvOnly() ? pvChildren(node) : orderedChildren(node)) {
+            for (Node child : options.pvOnly() ? pvChildren(node) : node.children) {
                 if (child.visits() >= options.minVisits()) {
                     queue.add(child);
                 }
@@ -673,7 +712,7 @@ public final class MctsSearch implements AutoCloseable {
      */
     private int visibleChildCount(Node node, TreeOptions options) {
         int count = 0;
-        for (Node child : options.pvOnly() ? pvChildren(node) : orderedChildren(node)) {
+        for (Node child : options.pvOnly() ? pvChildren(node) : node.children) {
             if (child.visits() >= options.minVisits()) {
                 count++;
             }
@@ -718,7 +757,8 @@ public final class MctsSearch implements AutoCloseable {
                 terminalState(node),
                 node.children.size(),
                 node.position.toString(),
-                pvText(rootPosition, pv));
+                pvText(rootPosition, pv),
+                node.key);
     }
 
     /**
@@ -881,10 +921,13 @@ public final class MctsSearch implements AutoCloseable {
         for (int i = 0; i < moves.length; i++) {
             moves[i] = legal.raw(i);
         }
-        double[] priors = priors(node.position, moves);
+        Position[] childPositions = new Position[moves.length];
         for (int i = 0; i < moves.length; i++) {
-            Position childPosition = node.position.copy().play(moves[i]);
-            node.children.add(newNode(node, moves[i], childPosition, priors[i], node.depth + 1));
+            childPositions[i] = node.position.copy().play(moves[i]);
+        }
+        double[] priors = priors(node.position, moves, childPositions);
+        for (int i = 0; i < moves.length; i++) {
+            node.children.add(newNode(node, moves[i], childPositions[i], priors[i], node.depth + 1));
         }
         node.expanded = true;
         refreshProof(node);
@@ -1380,16 +1423,17 @@ public final class MctsSearch implements AutoCloseable {
      *
      * @param position position to evaluate
      * @param moves legal moves
+     * @param childPositions child positions reached by {@code moves}
      * @return normalized priors
      */
-    private double[] priors(Position position, short[] moves) {
+    private double[] priors(Position position, short[] moves, Position[] childPositions) {
         int[] scores = new int[moves.length];
         backend.prepareMoveOrdering(position);
         backend.scoreMoves(position, moves, scores);
         double max = -Double.MAX_VALUE;
         double[] fallback = new double[moves.length];
         for (int i = 0; i < moves.length; i++) {
-            fallback[i] = (scores[i] + tacticalPrior(position, moves[i])) / 18_000.0;
+            fallback[i] = (scores[i] + tacticalPrior(position, moves[i], childPositions[i])) / 18_000.0;
             if (fallback[i] > max) {
                 max = fallback[i];
             }
@@ -1417,21 +1461,31 @@ public final class MctsSearch implements AutoCloseable {
      *
      * @param position position to inspect
      * @param move move to score
+     * @param childPosition child reached by {@code move}
      * @return handcrafted prior score
      */
-    private static int tacticalPrior(Position position, short move) {
+    private static int tacticalPrior(Position position, short move, Position childPosition) {
         int bonus = 0;
         byte fromPiece = position.pieceAt(Move.getFromIndex(move));
         byte captured = position.pieceAt(Move.getToIndex(move));
         if (captured != Piece.EMPTY) {
             bonus += Piece.getValue(captured) * 40;
             bonus -= Piece.getValue(fromPiece) * 6;
+            int see = See.see(position, move);
+            if (see < 0) {
+                bonus -= LOSING_CAPTURE_PRIOR_PENALTY;
+            } else if (see > 0) {
+                bonus += Math.min(900, see) * WINNING_CAPTURE_PRIOR_SCALE;
+            }
         }
         if (position.isPromotion(move)) {
             bonus += promotionValue(Move.getPromotion(move)) * 35;
         }
         if (position.isCastle(move)) {
             bonus += 12_000;
+        }
+        if (childPosition.inCheck()) {
+            bonus += CHECK_PRIOR_BONUS;
         }
         return bonus;
     }
@@ -1912,22 +1966,23 @@ public final class MctsSearch implements AutoCloseable {
     /**
      * Bounded tree traversal controls.
      */
-    public record TreeOptions(int maxDepth, int maxNodes, int minVisits, boolean pvOnly) {
+    public record TreeOptions(int maxDepth, int maxNodes, int minVisits, int maxBranching, boolean pvOnly) {
         /**
          * Default compact tree controls for interactive Swing rendering.
          */
         public static TreeOptions defaults() {
-            return new TreeOptions(3, 256, 0, false);
+            return new TreeOptions(3, 256, 0, 0, false);
         }
 
         /**
          * Returns clamped traversal controls.
          */
         public TreeOptions normalized() {
-            int depth = Math.max(0, Math.min(16, maxDepth));
-            int nodes = Math.max(1, Math.min(2_000, maxNodes));
+            int depth = Math.max(0, Math.min(256, maxDepth));
+            int nodes = Math.max(1, Math.min(250_000, maxNodes));
             int visits = Math.max(0, minVisits);
-            return new TreeOptions(depth, nodes, visits, pvOnly);
+            int branching = Math.max(0, Math.min(64, maxBranching));
+            return new TreeOptions(depth, nodes, visits, branching, pvOnly);
         }
     }
 
@@ -1957,7 +2012,8 @@ public final class MctsSearch implements AutoCloseable {
             String terminalState,
             int childCount,
             String fen,
-            String pvText) {
+            String pvText,
+            long signature) {
     }
 
     /**

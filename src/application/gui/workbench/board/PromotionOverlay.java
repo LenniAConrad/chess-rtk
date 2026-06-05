@@ -14,6 +14,16 @@ import java.util.function.BooleanSupplier;
  */
 final class PromotionOverlay {
     /**
+     * Inset of an option card inside its cell, in pixels.
+     */
+    private static final int CARD_INSET = 2;
+
+    /**
+     * Corner radius of an option card, in pixels.
+     */
+    private static final int CARD_RADIUS = 8;
+
+    /**
      * Target square on the promotion rank.
      */
     private final byte target;
@@ -108,10 +118,7 @@ final class PromotionOverlay {
             Color savedColor = g.getColor();
             java.awt.Composite savedComposite = g.getComposite();
             try {
-                g.setColor(Theme.PANEL_SOLID);
-                g.fillRoundRect(bounds.x + 2, bounds.y + 2, bounds.width - 4, bounds.height - 4, 8, 8);
-                g.setColor(Theme.LINE);
-                g.drawRoundRect(bounds.x + 2, bounds.y + 2, bounds.width - 4, bounds.height - 4, 8, 8);
+                drawOptionCard(g, bounds);
                 short move = sorted[i];
                 byte piece = pieceForPromotion(Move.getPromotion(move));
                 painter.paint(g, bounds.width, bounds.x, bounds.y, piece);
@@ -120,6 +127,23 @@ final class PromotionOverlay {
                 g.setComposite(savedComposite);
             }
         }
+    }
+
+    /**
+     * Fills and outlines one promotion-option card inside its cell bounds.
+     *
+     * @param g graphics context
+     * @param bounds option cell bounds
+     */
+    private static void drawOptionCard(Graphics2D g, Rectangle bounds) {
+        int x = bounds.x + CARD_INSET;
+        int y = bounds.y + CARD_INSET;
+        int w = bounds.width - 2 * CARD_INSET;
+        int h = bounds.height - 2 * CARD_INSET;
+        g.setColor(Theme.PANEL_SOLID);
+        g.fillRoundRect(x, y, w, h, CARD_RADIUS, CARD_RADIUS);
+        g.setColor(Theme.LINE);
+        g.drawRoundRect(x, y, w, h, CARD_RADIUS, CARD_RADIUS);
     }
 
     /**

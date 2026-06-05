@@ -7,10 +7,10 @@ One chess core backs everything in `crtk`: move generation, make/undo, attack de
 - Print any position from a FEN, in the terminal or as an image.
 - List, convert, and apply moves in UCI or SAN, including full move lines.
 - Count positions exactly with `engine perft` and validate the move generator with `engine perft-suite`.
-- Search positions with the built-in MCTS engine, with no external process.
+- Search positions with the built-in engine, with no external process.
 - Drive everything visually from the native Swing Workbench.
 
-Most of this runs against nothing but the core: positions, moves, perft, forced-mate search, and the built-in MCTS engine all work on a bare checkout. You only need Stockfish or LC0 for the UCI-backed commands — `engine analyze`, `engine bestmove`, `engine compare`, and puzzle mining. The neural evaluators (NNUE, LC0 CNN, OTIS) and T5 text summaries are optional too; they read local files under `models/`.
+Most of this runs against nothing but the core: positions, moves, perft, forced-mate search, and the built-in engine all work on a bare checkout. You only need Stockfish or LC0 for the UCI-backed commands — `engine analyze`, `engine bestmove`, `engine compare`, and puzzle mining. The neural evaluators (NNUE, LC0 CNN, OTIS) and T5 text summaries are optional too; they read local files under `models/`.
 
 ## Requirements
 
@@ -147,10 +147,10 @@ Both take `--gpu`, which uses a native GPU backend when one is installed and fal
 
 ### 4. Search with the built-in engine
 
-`engine builtin` runs the MCTS engine in-process — no subprocess, no socket, and the same budget always yields the same result. `--format summary` gives you something readable; bound the search with `--depth`, `--max-nodes`, or `--max-duration`.
+`engine builtin` runs in-process — no subprocess, no socket, and the same single-thread budget always yields the same result. `--format summary` gives you something readable; bound the search with `--depth`, `--max-nodes`, or `--max-duration`.
 
 ```bash
-crtk engine builtin --startpos --depth 3 --format summary --max-duration 2s
+crtk engine builtin --startpos --depth 6 --format summary --max-duration 2s
 ```
 
 Out comes the chosen move, its score, the node count, and the principal variation in both UCI and SAN. When you want a proven forced mate rather than an evaluation — no neural net involved — reach for `engine mate`:

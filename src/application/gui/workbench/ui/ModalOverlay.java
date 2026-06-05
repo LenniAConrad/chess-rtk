@@ -236,6 +236,26 @@ public final class ModalOverlay {
     }
 
     /**
+     * Returns the host root-pane width, so callers can size sheet content
+     * responsively (a large editor-style sheet on a big window, a sensible
+     * floor on a small one) instead of pinning a fixed pixel size.
+     *
+     * @return host root-pane width in pixels, or {@code 0} before the frame is realised
+     */
+    public int hostWidth() {
+        return host.getRootPane().getWidth();
+    }
+
+    /**
+     * Returns the host root-pane height for responsive sheet sizing.
+     *
+     * @return host root-pane height in pixels, or {@code 0} before the frame is realised
+     */
+    public int hostHeight() {
+        return host.getRootPane().getHeight();
+    }
+
+    /**
      * Updates the backdrop bounds to follow the host frame size. Wired by
      * the host on component-resized events when the overlay is visible.
      */

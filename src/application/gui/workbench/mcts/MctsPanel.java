@@ -1,13 +1,16 @@
 package application.gui.workbench.mcts;
 
+import static application.gui.workbench.ui.Ui.setColumnWidth;
 import application.gui.workbench.Defaults;
 import application.gui.workbench.board.BoardStyle;
+import application.gui.workbench.game.SanRenderer;
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.Ui;
+import application.gui.workbench.ui.WrappingFlowLayout;
 import chess.core.Move;
 import chess.struct.Game;
 import java.awt.BorderLayout;
@@ -25,6 +28,7 @@ import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
@@ -149,6 +153,20 @@ public final class MctsPanel extends JPanel implements MctsSession.Listener {
     private final JTable rootTable = new JTable(rootModel);
 
     /**
+     * Container for the root-move table. The table (with its column headers) is
+     * always shown so the pane reads as "results land here", rather than a large
+     * blank void behind a centered placeholder; a slim hint sits above it until a
+     * search streams moves.
+     */
+    private final JPanel rootTableArea = new JPanel(new BorderLayout(0, Theme.SPACE_SM));
+
+    /**
+     * One-line hint shown above the empty root table until a search runs.
+     */
+    private final JLabel rootEmptyHint =
+            Ui.caption("No search yet — press Start to stream root moves and PUCT scores.");
+
+    /**
      * Selected-node detail area.
      */
     private final JTextArea detailArea = new JTextArea();
@@ -240,7 +258,10 @@ public final class MctsPanel extends JPanel implements MctsSession.Listener {
 
         Theme.table(rootTable, TABLE_ROW_HEIGHT);
         rootTable.setAutoCreateRowSorter(true);
-        rootTable.setAutoResizeMode(JTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS);
+        // The principal-variation column (last) absorbs any spare width so the
+        // long PV text stays as readable as the viewport allows; the styled
+        // renderer adds a hover tooltip when it still has to clip.
+        rootTable.setAutoResizeMode(JTable.AUTO_RESIZE_LAST_COLUMN);
         rootTable.setFillsViewportHeight(true);
         rootTable.getSelectionModel().addListSelectionListener(this::rootSelectionChanged);
         TableColumnModel columns = rootTable.getColumnModel();
@@ -252,6 +273,10 @@ public final class MctsPanel extends JPanel implements MctsSession.Listener {
         setColumnWidth(columns, 5, 70);
         setColumnWidth(columns, 6, 74);
         setColumnWidth(columns, 7, 320);
+        // Render the SAN move and the SAN principal variation with inline
+        // figurine piece artwork instead of plain piece letters.
+        columns.getColumn(0).setCellRenderer(new SanRenderer());
+        columns.getColumn(7).setCellRenderer(new SanRenderer());
 
         detailArea.setEditable(false);
         detailArea.setOpaque(true);
@@ -278,7 +303,7 @@ public final class MctsPanel extends JPanel implements MctsSession.Listener {
                 BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE),
                 Theme.pad(Theme.SPACE_SM)));
 
-        JPanel controls = Ui.transparentPanel(new FlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
+        JPanel controls = Ui.transparentPanel(new WrappingFlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
         controls.add(Ui.labeledControl("Backend", backendCombo));
         controls.add(Ui.labeledControl("Visits", visitsSpinner));
         controls.add(Ui.labeledControl("Millis", millisSpinner));
@@ -305,7 +330,15 @@ public final class MctsPanel extends JPanel implements MctsSession.Listener {
      */
     private JComponent buildBody() {
         JScrollPane tableScroll = Ui.scroll(rootTable);
-        tableScroll.setPreferredSize(new Dimension(740, 260));
+        // Always show the table (its headers + empty body fill the pane via
+        // setFillsViewportHeight); a slim hint above it covers discoverability
+        // until a search streams root moves, instead of a full-pane placeholder.
+        rootTableArea.setOpaque(false);
+        rootEmptyHint.setBorder(Theme.pad(0, Theme.SPACE_XS, 0, 0));
+        rootTableArea.add(rootEmptyHint, BorderLayout.NORTH);
+        rootTableArea.add(tableScroll, BorderLayout.CENTER);
+        rootTableArea.setPreferredSize(new Dimension(740, 260));
+        updateRootEmptyState();
 
         JPanel inspector = new JPanel(new BorderLayout(0, Theme.SPACE_SM));
         inspector.setOpaque(true);
@@ -315,12 +348,19 @@ public final class MctsPanel extends JPanel implements MctsSession.Listener {
         inspector.add(Ui.scroll(detailArea), BorderLayout.CENTER);
         inspector.setPreferredSize(new Dimension(340, 0));
 
-        JSplitPane horizontal = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, tableScroll, inspector);
+        JSplitPane horizontal = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, rootTableArea, inspector);
         horizontal.setResizeWeight(0.72);
         horizontal.setBorder(BorderFactory.createEmptyBorder());
         horizontal.setOpaque(false);
         SplitPaneStyler.style(horizontal);
         return horizontal;
+    }
+
+    /**
+     * Shows the root table when it has rows, otherwise the empty-state.
+     */
+    private void updateRootEmptyState() {
+        rootEmptyHint.setVisible(rootModel.getRowCount() == 0);
     }
 
     /**
@@ -365,6 +405,7 @@ public final class MctsPanel extends JPanel implements MctsSession.Listener {
         rootModel.setRows(rows);
         restoreSelection(selectedBefore);
         applyingSelection = false;
+        updateRootEmptyState();
         MctsSearch.NodeInfo selected = tree == null ? null : tree.selectedNode();
         if (selected == null && !rows.isEmpty()) {
             selected = rowAsNode(rows.get(0), snapshot.rootFen());
@@ -492,7 +533,8 @@ public final class MctsPanel extends JPanel implements MctsSession.Listener {
                 "non-terminal",
                 0,
                 rootFen,
-                row.pvText());
+                row.pvText(),
+                0L);
     }
 
     /**
@@ -572,19 +614,6 @@ public final class MctsPanel extends JPanel implements MctsSession.Listener {
         return String.format("%.1f%%", value * 100.0);
     }
 
-    /**
-     * Sets a preferred table-column width when the column exists.
-     *
-     * @param columns column model
-     * @param index column index
-     * @param width preferred width
-     */
-    private static void setColumnWidth(TableColumnModel columns, int index, int width) {
-        if (index >= columns.getColumnCount()) {
-            return;
-        }
-        columns.getColumn(index).setPreferredWidth(width);
-    }
 
     /**
      * Table model for root move rows.

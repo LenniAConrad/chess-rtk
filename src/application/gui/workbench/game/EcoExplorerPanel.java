@@ -67,9 +67,9 @@ public final class EcoExplorerPanel extends JPanel {
     private static final int DISPLAY_LIMIT = 800;
 
     /**
-     * Minimum row height for dense ECO entries.
+     * Shared data-table row height so the ECO grid matches every other table.
      */
-    private static final int ROW_HEIGHT = 24;
+    private static final int ROW_HEIGHT = Theme.TABLE_ROW_HEIGHT;
 
     /**
      * Supplies the current game root position.
@@ -239,14 +239,28 @@ public final class EcoExplorerPanel extends JPanel {
     }
 
     /**
+     * Returns the selected ECO row, or {@code null} after setting a "select a
+     * line first" warning. Shared by the load/copy actions so the guard and its
+     * message live in one place.
+     *
+     * @return selected row, or null when nothing is selected
+     */
+    private EcoRow requireSelectedRow() {
+        EcoRow row = selectedRow();
+        if (row == null) {
+            setStatus("Select an ECO line first", Theme.ForegroundRole.WARNING);
+        }
+        return row;
+    }
+
+    /**
      * Loads the selected ECO line into the workbench.
      *
      * @return true when a row was selected and loaded
      */
     public boolean loadSelectedLine() {
-        EcoRow row = selectedRow();
+        EcoRow row = requireSelectedRow();
         if (row == null) {
-            setStatus("Select an ECO line first", Theme.ForegroundRole.WARNING);
             return false;
         }
         loadLineConsumer.accept(row.entry().entry().getMovetext());
@@ -260,9 +274,8 @@ public final class EcoExplorerPanel extends JPanel {
      * @return true when copied
      */
     public boolean copySelectedLine() {
-        EcoRow row = selectedRow();
+        EcoRow row = requireSelectedRow();
         if (row == null) {
-            setStatus("Select an ECO line first", Theme.ForegroundRole.WARNING);
             return false;
         }
         copyTextConsumer.accept(row.entry().entry().getMovetext());
@@ -276,9 +289,8 @@ public final class EcoExplorerPanel extends JPanel {
      * @return true when copied
      */
     public boolean copySelectedFen() {
-        EcoRow row = selectedRow();
+        EcoRow row = requireSelectedRow();
         if (row == null) {
-            setStatus("Select an ECO line first", Theme.ForegroundRole.WARNING);
             return false;
         }
         Position position = row.entry().entry().getPosition();
@@ -295,7 +307,7 @@ public final class EcoExplorerPanel extends JPanel {
         setOpaque(true);
         setBackground(Theme.PANEL_SOLID);
         setForeground(Theme.TEXT);
-        setBorder(Theme.pad(10, 10, 10, 10));
+        setBorder(Theme.pad(Theme.SPACE_MD));
         add(collapsible("Search", createHeader(), true), BorderLayout.NORTH);
         add(createTablePanel(), BorderLayout.CENTER);
         add(createActions(), BorderLayout.SOUTH);

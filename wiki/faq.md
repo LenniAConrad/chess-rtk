@@ -8,7 +8,7 @@ ChessRTK ("crtk") is a command-line workbench for chess research, automation, an
 
 ## Is ChessRTK a chess engine?
 
-It contains one, but that is the smaller half of the story. `engine builtin` (alias `engine java`) is an in-process MCTS searcher, and `engine mate` is a brute-force forced-mate prover that needs no neural network at all. When you want genuinely strong analysis you hand the position to an external UCI engine through `engine analyze`, `engine bestmove`, and friends. crtk is the research platform around those engines, not a replacement for them.
+It contains one, but that is the smaller half of the story. `engine builtin` (alias `engine java`) is an in-process searcher, and `engine mate` is a brute-force forced-mate prover that needs no neural network at all. When you want genuinely strong analysis you hand the position to an external UCI engine through `engine analyze`, `engine bestmove`, and friends. crtk is the research platform around those engines, not a replacement for them.
 
 ```bash
 crtk engine builtin --startpos --max-nodes 20000 --format both
@@ -17,7 +17,7 @@ crtk engine mate --fen "6k1/5ppp/8/8/8/8/5PPP/4R1K1 w - - 0 1" --mate 3
 
 ## Do I need Stockfish or LC0?
 
-Not for the core. FEN, move, perft, tagging, the built-in MCTS, and the forced-mate prover all run in-process with nothing else installed. An external UCI engine — Stockfish, LC0, whatever you trust — only enters the picture for the UCI-backed commands: `engine analyze`, `engine bestmove`, `engine threats`, `engine compare`, `engine uci-smoke`, the `*-batch` variants, and `puzzle mine`. Describe your engine once in a protocol TOML, then pass it with `--protocol-path` or let it default from `crtk config show`.
+Not for the core. FEN, move, perft, tagging, the built-in engine, and the forced-mate prover all run in-process with nothing else installed. An external UCI engine — Stockfish, LC0, whatever you trust — only enters the picture for the UCI-backed commands: `engine analyze`, `engine bestmove`, `engine threats`, `engine compare`, `engine uci-smoke`, the `*-batch` variants, and `puzzle mine`. Describe your engine once in a protocol TOML, then pass it with `--protocol-path` or let it default from `crtk config show`.
 
 ```bash
 crtk move list --startpos                 # in-process, no engine needed
@@ -37,7 +37,7 @@ crtk puzzle mine --chess960 --random-count 100
 
 ## Is the output deterministic and reproducible?
 
-This is a design goal, not a happy accident. The shared core, perft, tagging, the built-in MCTS, and the dataset and export pipelines return the same output for the same input, which is what makes results worth diffing, caching, and regression-testing. `engine perft-suite` checks move generation against stored reference node counts. The one place determinism stops is the external UCI engine: its output depends on its own threads, hash, and node or time budgets, so pin those budgets when you need byte-stable engine results.
+This is a design goal, not a happy accident. The shared core, perft, tagging, the single-thread built-in search, and the dataset and export pipelines return the same output for the same input, which is what makes results worth diffing, caching, and regression-testing. `engine perft-suite` checks move generation against stored reference node counts. The one place determinism stops is the external UCI engine: its output depends on its own threads, hash, and node or time budgets, so pin those budgets when you need byte-stable engine results.
 
 ```bash
 crtk engine perft-suite --depth 6 --threads 4

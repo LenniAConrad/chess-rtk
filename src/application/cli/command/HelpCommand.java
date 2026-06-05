@@ -891,8 +891,8 @@ public final class HelpCommand {
 			  mate                       Brute-force prove a forced mate without NN evaluation
 			  compare                    Compare best moves from two UCI protocols
 			  benchmark                  Benchmark the core Java move generator
-			  builtin                    Search with the built-in MCTS engine
-			  java                       Run the built-in MCTS engine
+			  builtin                    Search with the built-in engine
+			  java                       Run the built-in engine
 			  threats                    Analyze opponent threats
 			  eval                       Evaluate a position with LC0, OTIS, or classical
 			  static                     Evaluate a position with the classical backend
@@ -1117,8 +1117,8 @@ public final class HelpCommand {
 			  --special-arrows           Draw special arrow overlays
 			  --circle|--circles SQUARES Draw circle overlays
 			  --legal SQUARE             Overlay legal move dots from a square
-			  --details-inside           Show eval details inside board
-			  --details-outside          Show eval details outside board
+			  --coordinates              Draw file/rank labels (alias --details-inside)
+			  --coordinates-outside      Draw file/rank labels in an outer margin (alias --details-outside)
 			  --ablation                 Overlay evaluator ablation heatmap
 			  --verbose|-v               Print stack trace on failure
 
@@ -1144,8 +1144,8 @@ public final class HelpCommand {
 			  --special-arrows           Draw special arrow overlays
 			  --circle|--circles SQUARES Draw circle overlays
 			  --legal SQUARE             Overlay legal move dots from a square
-			  --details-inside           Show eval details inside board
-			  --details-outside          Show eval details outside board
+			  --coordinates              Draw file/rank labels (alias --details-inside)
+			  --coordinates-outside      Draw file/rank labels in an outer margin (alias --details-outside)
 			  --ablation                 Overlay evaluator ablation heatmap
 			  --verbose|-v               Print stack trace on failure
 
@@ -1609,14 +1609,16 @@ public final class HelpCommand {
 			  --randompos                Use a reachable random legal standard position
 			  --input|-i PATH            Input FEN file
 			  --uci                      Run the minimal built-in UCI loop (mcts only)
-			  --search alpha-beta|mcts   Search algorithm (default: mcts; alpha-beta is stronger)
+			  --search alpha-beta|mcts   Search algorithm (default: alpha-beta for classical/NNUE; mcts for LC0/OTIS)
 			  --evaluator KIND           classical, nnue, lc0, or otis (default: classical)
 			  --classical|--nnue|--lc0|--otis
 			                              Shortcut evaluator selectors
 			  --weights PATH             NNUE, LC0, or OTIS weights path
-			  --depth|-d N               Search depth: plies (alpha-beta) or playout hint (mcts); default 3
+			  --depth|-d N               Search depth: default 8 for alpha-beta, 3 for mcts
 			  --max-nodes|--nodes N      Search node/playout budget; 0 disables the node cap
 			  --max-duration D           Time budget, e.g. 5s; 0 means no time cap
+			  --threads N                Worker threads for alpha-beta Lazy SMP or MCTS (default: 1)
+			  --max-strength             Use time-bound max-strength defaults and auto worker threads
 			  --format FORMAT            uci-info, uci, san, both, or summary (default: uci-info)
 			  --verbose|-v               Print stack trace on failure
 
@@ -1691,6 +1693,8 @@ public final class HelpCommand {
 			  --stdin                    Read FEN rows from standard input
 			  --engine MODE              classical or t5 (default: classical)
 			  --detail LEVEL             brief, normal, or full (default: normal)
+			  --eval SOURCE              static or engine (default: static; engine = real search)
+			  --eval-depth N             Engine-eval search depth in plies (implies --eval engine)
 			  --format FMT               text, json, jsonl, or training-jsonl (default: text)
 			  --json                     Alias for --format json
 			  --jsonl                    Alias for --format jsonl

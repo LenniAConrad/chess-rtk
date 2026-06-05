@@ -7,7 +7,8 @@ import chess.core.Move;
  *
  * <p>
  * The table is intentionally simple: one entry per bucket, power-of-two
- * indexing, and a depth-aware replacement rule for same-generation entries.
+ * indexing, and a depth-aware replacement rule that protects deeper
+ * same-generation entries from shallower overwrites.
  * </p>
  */
 final class TranspositionTable {
@@ -80,9 +81,7 @@ final class TranspositionTable {
             entry = new Transposition();
             entries[index] = entry;
         } else {
-            long storedKey = entry.key ^ entry.data;
-            if (storedKey != key && Transposition.depthOf(entry.data) > depth
-                    && entry.generation == generation) {
+            if (Transposition.depthOf(entry.data) > depth && entry.generation == generation) {
                 return;
             }
         }

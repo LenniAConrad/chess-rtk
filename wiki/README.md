@@ -1,6 +1,6 @@
 # ChessRTK Wiki
 
-Everything in ChessRTK ("crtk") runs through one chess core. A single legal move generator, one make/undo, one attack detector, one FEN/SAN/UCI/Chess960 codepath — and every command above it inherits the same answers. That is what makes the noun-verb CLI (`move list`, `engine bestmove`, `puzzle mine`) agree with the search, the tagger, the datasets, and the GUI down to the last bit. On top of the core sit external UCI analysis (Stockfish, LC0), a built-in MCTS search with a forced-mate prover, classical/NNUE/LC0/OTIS evaluators, position and tactic tagging, optional T5 summaries, puzzle mining driven by a Filter DSL, ML dataset export, native PDF publishing with no LaTeX, optional GPU backends for perft and OTIS, and a Swing desktop Workbench. This page is the index. Pick a section and follow the one-line descriptions to the page that goes deeper.
+Everything in ChessRTK ("crtk") runs through one chess core. A single legal move generator, one make/undo, one attack detector, one FEN/SAN/UCI/Chess960 codepath — and every command above it inherits the same answers. That is what makes the noun-verb CLI (`move list`, `engine bestmove`, `puzzle mine`) agree with the search, the tagger, the datasets, and the GUI down to the last bit. On top of the core sit external UCI analysis (Stockfish, LC0), built-in alpha-beta/MCTS search with a forced-mate prover, classical/NNUE/LC0/OTIS evaluators, position and tactic tagging, optional T5 summaries, puzzle mining driven by a Filter DSL, ML dataset export, native PDF publishing with no LaTeX, optional GPU backends for perft and OTIS, and a Swing desktop Workbench. This page is the index. Pick a section and follow the one-line descriptions to the page that goes deeper.
 
 Pages document what the code actually does. Licensed GPL-3.0-only.
 
@@ -37,7 +37,7 @@ The same content reaches you three ways, depending on whether you want to browse
 
 ## Engines & Models
 
-- [Running engines](in-house-engine.md) - the built-in MCTS engine (`engine builtin` / `engine java`) and the forced-mate prover (`engine mate`).
+- [Running engines](in-house-engine.md) - the built-in engine (`engine builtin` / `engine java`) and the forced-mate prover (`engine mate`).
 - [LC0 and the Java evaluator](lc0.md) - the LC0 UCI engine path plus the in-process LC0 CNN evaluator. Networks are usable evaluators, not bit-exact LC0/BT4 reproductions.
 - [GPU backends](gpu.md) - native CUDA, ROCm, and oneAPI backends for perft and OTIS, with automatic CPU fallback (`engine gpu`, `engine perft --gpu`).
 
@@ -102,6 +102,6 @@ See [Quality and testing](quality-and-testing.md) for the full suite.
 ## Project Policy Notes
 
 - Source and shell scripts are tracked; everything generated is not. Analysis dumps, model weights, PDFs, and build output are local artifacts and stay out of git.
-- UCI engines and model weights are optional. FEN, move, perft, Workbench Play, and the classical built-in MCTS all run in-process, so a fresh checkout does useful work before you download a single weight.
+- UCI engines and model weights are optional. FEN, move, perft, Workbench Play, and the classical built-in search all run in-process, so a fresh checkout does useful work before you download a single weight.
 - The neural-network paths are honest evaluators, not impersonations: no claim of bit-exact LC0 or BT4 parity, and the BT4 path remains simplified and experimental.
 - Determinism and the single shared core are design goals, not accidents. One legality-and-notation implementation answers for the CLI, search, tagging, datasets, rendering, and GUI alike, which is why a result reproduces wherever you ask for it.

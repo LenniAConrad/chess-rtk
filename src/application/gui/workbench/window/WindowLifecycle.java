@@ -8,6 +8,8 @@ import application.gui.workbench.command.CommandPalette;
 import application.gui.workbench.game.PgnExplorerDialog;
 import application.gui.workbench.layout.EditorSplitArea;
 import application.gui.workbench.layout.LazyPanel;
+import application.gui.workbench.layout.ViewRegistry;
+import application.gui.workbench.layout.RegisteredView;
 import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.session.LogPanel;
 import application.gui.workbench.ui.BackdropPanel;
@@ -315,6 +317,9 @@ public abstract class WindowLifecycle extends WindowBase {
             settingsMenu.syncMode();
             settingsMenu.refreshTheme();
         }
+        if (settingsDialog != null) {
+            settingsDialog.refreshTheme();
+        }
         if (layoutMenu != null) {
             layoutMenu.refreshTheme();
         }
@@ -414,13 +419,6 @@ public abstract class WindowLifecycle extends WindowBase {
         board.setShowSuggestedMoveArrow(showBestMoveArrows);
         board.setShowNotation(showBoardCoordinates);
         board.setAnimationsEnabled(boardAnimationsEnabled);
-        // Keep the Play tab's dedicated board visually identical to the main one.
-        playBoard.setPieceSet(pieceSet);
-        playBoard.setShowLegalMovePreview(showLegalMovePreview);
-        playBoard.setShowLastMoveHighlight(showLastMoveHighlight);
-        playBoard.setShowSuggestedMoveArrow(showBestMoveArrows);
-        playBoard.setShowNotation(showBoardCoordinates);
-        playBoard.setAnimationsEnabled(boardAnimationsEnabled);
         liveEngineToggle.setSelected(liveExternalEngineEnabled);
         if (liveExternalEngineEnabled) {
             evalDebounceTimer.stop();
@@ -477,6 +475,10 @@ public abstract class WindowLifecycle extends WindowBase {
             panel.dispose();
         }
         mctsPanels.clear();
+        for (application.gui.workbench.mcts.TreePanel panel : new java.util.ArrayList<>(treePanels)) {
+            panel.dispose();
+        }
+        treePanels.clear();
         mctsSession.close();
         if (playSession != null) {
             playSession.dispose();
@@ -616,7 +618,7 @@ public abstract class WindowLifecycle extends WindowBase {
              */
             @Override
             public void openAnalyze() {
-                selectTab(TAB_ANALYZE);
+                openBoard(BOARD_ANALYZE);
             }
 
             /**
@@ -624,7 +626,7 @@ public abstract class WindowLifecycle extends WindowBase {
              */
             @Override
             public void openCommands() {
-                selectTab(TAB_COMMANDS);
+                openRun(RUN_BUILD);
             }
 
             /**
@@ -632,7 +634,7 @@ public abstract class WindowLifecycle extends WindowBase {
              */
             @Override
             public void openBatch() {
-                selectTab(TAB_BATCH);
+                openRun(RUN_BUILD);
             }
 
             /**
@@ -656,7 +658,7 @@ public abstract class WindowLifecycle extends WindowBase {
              */
             @Override
             public void openNetwork() {
-                selectTab(TAB_NETWORK);
+                openEngine(ENGINE_NETWORK);
             }
 
             /**
@@ -664,7 +666,7 @@ public abstract class WindowLifecycle extends WindowBase {
              */
             @Override
             public void openMcts() {
-                selectTab(TAB_MCTS);
+                openEngine(ENGINE_SEARCH);
             }
 
             /**
@@ -672,7 +674,7 @@ public abstract class WindowLifecycle extends WindowBase {
              */
             @Override
             public void openPuzzles() {
-                selectTab(TAB_PUZZLES);
+                openBoard(BOARD_SOLVE);
             }
 
             /**
@@ -768,7 +770,7 @@ public abstract class WindowLifecycle extends WindowBase {
              */
             @Override
             public void runBatch() {
-                batchPanel.runBatch();
+                runSelectedTemplate();
             }
 
             /**
@@ -926,31 +928,43 @@ public abstract class WindowLifecycle extends WindowBase {
         root.setBorder(Theme.pad(0, 0, 0, 0));
 
         tabs = new EditorSplitArea();
-        tabs.addPanel("Dashboard", dashboardPanel);
-        tabs.addPanel("Analyze", createBoardTab(), this::createDetachedAnalysisTab);
-        tabs.addPanel("Commands", createCommandTab());
-        tabs.addPanel("Batch", createBatchTab());
-        tabs.addPanel("Datasets", new LazyPanel("Datasets", this::createDatasetTab),
-                () -> new LazyPanel("Datasets", this::createDetachedDatasetTab));
-        tabs.addPanel("Publish", new LazyPanel("Publish", this::createPublishTab),
-                () -> new LazyPanel("Publish", this::createDetachedPublishTab));
-        // Position-description UI is not part of this Workbench polish pass.
-        // Leave the unfinished tab unregistered so the shell still compiles.
-        tabs.addPanel("Console", createConsolePanel());
-        tabs.addPanel("Logs", new LazyPanel("Logs", this::createLogTab),
-                () -> new LazyPanel("Logs", this::createDetachedLogTab));
-        tabs.addPanel("Network", new LazyPanel("Network", this::createNetworkTab),
-                () -> new LazyPanel("Network", this::createDetachedNetworkTab));
-        tabs.addPanel("MCTS", new LazyPanel("MCTS", this::createMctsTab),
-                () -> new LazyPanel("MCTS", this::createDetachedMctsTab));
-        tabs.addPanel("Puzzles", new LazyPanel("Puzzles", this::createPuzzleTab),
-                () -> new LazyPanel("Puzzles", this::createDetachedPuzzleTab));
-        // Play is single-instance: a PlaySession owns one game, one board, and a
-        // single listener, so a duplicate Play tab cannot coexist (it would fight
-        // over the session and drive the main board). Register without a duplicate
-        // factory, like Commands/Batch. Per-tab Play (own session+host) is future
-        // work; see createDetachedPlayTab.
-        tabs.addPanel("Play", new LazyPanel("Play", this::createPlayTab));
+        // The top-level tab set is registry data, not a hand-wired sequence: the
+        // shell registers every surface as a RegisteredView and the split area
+        // adds them in order. This keeps the tab strip enumerable (for the "+"
+        // menu / command palette) and is the registration backbone the workbench
+        // UX redesign builds the view/inspector system on.
+        ViewRegistry registry = new ViewRegistry()
+                .add(new RegisteredView("Dashboard", dashboardPanel))
+                // Board is the unified board surface: Analyze, Play, Solve, and
+                // Relations are modes of one workspace (a switcher over a shared
+                // board area), not four separate tabs. Built eagerly because its
+                // Analyze mode wires the main board at startup. Duplicating the
+                // Board tab spawns an independent analysis workspace.
+                .add(new RegisteredView("Board", createBoardWorkspaceTab(), this::createDetachedAnalysisTab))
+                // Run is the unified run/ops surface: the command builder (Build),
+                // Batch workflows, the interactive Console, and the Logs browser
+                // are modes of one workspace, not four scattered tabs. Built
+                // eagerly because Build wires the command form at startup.
+                // (Position-description UI stays unregistered until it is ready.)
+                .add(new RegisteredView("Run", createRunWorkspaceTab()))
+                .add(new RegisteredView("Datasets", new LazyPanel("Datasets", this::createDatasetTab),
+                        () -> new LazyPanel("Datasets", this::createDetachedDatasetTab)))
+                .add(new RegisteredView("Publish", new LazyPanel("Publish", this::createPublishTab),
+                        () -> new LazyPanel("Publish", this::createDetachedPublishTab)))
+                // Engine is the unified engine surface: the neural-network
+                // visualizer (Network) and the PUCT/MCTS search (Search) are
+                // modes of one workspace, not two tabs. Built lazily; duplicating
+                // spawns an independent network visualizer.
+                .add(new RegisteredView("Engine", new LazyPanel("Engine", this::createEngineWorkspaceTab),
+                        () -> new LazyPanel("Engine", this::createDetachedNetworkTab)))
+                // Console and Logs are now first-class surfaces (not Run modes),
+                // so they can be split, docked side-by-side, resized, and
+                // duplicated like the other top-level views. Console is eager so
+                // command output has a live target before the first run.
+                .add(new RegisteredView("Console", createConsolePanel(), this::createDetachedConsolePanel))
+                .add(new RegisteredView("Logs", new LazyPanel("Logs", this::createLogTab),
+                        () -> new LazyPanel("Logs", this::createDetachedLogTab)));
+        tabs.addViews(registry);
         tabs.install();
         tabs.setSelectionListener(index -> onWorkbenchTabVisibilityChanged());
         tabs.select(TAB_DASHBOARD);
@@ -979,14 +993,14 @@ public abstract class WindowLifecycle extends WindowBase {
     }
 
     /**
-     * Opens the Console tab.
+     * Focuses the Console surface.
      */
     protected void showConsoleDock() {
         selectTab(TAB_CONSOLE);
     }
 
     /**
-     * Opens the Logs tab.
+     * Focuses the Logs surface, refreshing it when it already exists.
      */
     protected void showLogsDock() {
         boolean created = logPanel == null;
@@ -1477,13 +1491,10 @@ public abstract class WindowLifecycle extends WindowBase {
     }
 
     private void toggleStatusBarPlyJump() {
-        if (tabs != null && tabs.selectedIndex() == TAB_PUZZLES) {
+        if (isBoardMode(BOARD_SOLVE)) {
             if (puzzlePanel != null) {
                 puzzlePanel.toggleReviewStartEnd();
             }
-            return;
-        }
-        if (gameModel == null) {
             return;
         }
         if (gameModel.currentPly() > 0) {
@@ -1707,7 +1718,7 @@ public abstract class WindowLifecycle extends WindowBase {
      * @param delta ply delta
      */
     protected void navigateActivePosition(int delta) {
-        if (tabs != null && tabs.selectedIndex() == TAB_PUZZLES) {
+        if (isBoardMode(BOARD_SOLVE)) {
             if (puzzlePanel != null) {
                 puzzlePanel.navigateReview(delta);
             }
@@ -1720,7 +1731,7 @@ public abstract class WindowLifecycle extends WindowBase {
      * Jumps the active position surface to its start.
      */
     protected void jumpActivePositionToStart() {
-        if (tabs != null && tabs.selectedIndex() == TAB_PUZZLES) {
+        if (isBoardMode(BOARD_SOLVE)) {
             if (puzzlePanel != null) {
                 puzzlePanel.jumpReviewToStart();
             }
@@ -1733,7 +1744,7 @@ public abstract class WindowLifecycle extends WindowBase {
      * Jumps the active position surface to its end.
      */
     protected void jumpActivePositionToEnd() {
-        if (tabs != null && tabs.selectedIndex() == TAB_PUZZLES) {
+        if (isBoardMode(BOARD_SOLVE)) {
             if (puzzlePanel != null) {
                 puzzlePanel.jumpReviewToEnd();
             }
@@ -1832,6 +1843,62 @@ public abstract class WindowLifecycle extends WindowBase {
     }
 
     /**
+     * Opens the unified Board surface and selects one of its modes.
+     *
+     * @param mode board mode (see {@code BOARD_*} constants)
+     */
+    protected void openBoard(int mode) {
+        selectTab(TAB_BOARD);
+        if (boardWorkspace != null) {
+            boardWorkspace.setMode(mode);
+        }
+    }
+
+    /**
+     * Returns whether the unified Board surface is the active tab.
+     *
+     * @return true when the Board tab is selected
+     */
+    protected boolean isBoardTab() {
+        return tabs != null && tabs.selectedIndex() == TAB_BOARD;
+    }
+
+    /**
+     * Returns whether the Board surface is active and showing a given mode.
+     *
+     * @param mode board mode (see {@code BOARD_*} constants)
+     * @return true when the Board tab is selected and showing {@code mode}
+     */
+    protected boolean isBoardMode(int mode) {
+        return isBoardTab() && boardWorkspace != null && boardWorkspace.mode() == mode;
+    }
+
+    /**
+     * Opens the unified Engine surface and selects one of its modes.
+     *
+     * @param mode engine mode ({@link #ENGINE_NETWORK} or {@link #ENGINE_SEARCH})
+     */
+    protected void openEngine(int mode) {
+        selectTab(TAB_ENGINE);
+        if (engineWorkspace != null) {
+            engineWorkspace.setMode(mode);
+        }
+    }
+
+    /**
+     * Opens the unified Run surface and selects one of its modes.
+     *
+     * @param mode run mode (see {@code RUN_*} constants)
+     */
+    @Override
+    protected void openRun(int mode) {
+        selectTab(TAB_RUN);
+        if (runWorkspace != null) {
+            runWorkspace.setMode(mode);
+        }
+    }
+
+    /**
      * Returns whether position-navigation shortcuts should be handled.
      *
      * @return true when shortcuts should navigate the active position
@@ -1840,8 +1907,10 @@ public abstract class WindowLifecycle extends WindowBase {
         if (tabs == null) {
             return false;
         }
-        int selectedTab = tabs.selectedIndex();
-        if (selectedTab != TAB_ANALYZE && selectedTab != TAB_PUZZLES) {
+        // Position navigation routes only for the analysis-style board modes
+        // (Analyze drives the game line, Solve drives the puzzle review); Play
+        // and Relations do not consume the navigation shortcuts.
+        if (!isBoardMode(BOARD_ANALYZE) && !isBoardMode(BOARD_SOLVE)) {
             return false;
         }
         Component focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusOwner();
@@ -1944,7 +2013,6 @@ public abstract class WindowLifecycle extends WindowBase {
                         this::resetSelectedTemplate),
     new PaletteAction("View", "Filter command flags", "Focus the command-builder option filter",
                         this::focusOptionFilter),
-    new PaletteAction("Run", "Run batch", "Execute the selected batch workflow", batchPanel::runBatch),
     new PaletteAction("Run", "Run publishing", "Execute the selected publishing workflow", this::runPublishingCommand),
     new PaletteAction("Run", "Generate report", "Refresh the report maker output", this::generateReport),
     new PaletteAction("Copy", "Copy report", "Copy the current report output", this::copyReport),
@@ -1960,26 +2028,34 @@ public abstract class WindowLifecycle extends WindowBase {
     new PaletteAction("Debug", "Validate config", "Run config validation", this::runConfigValidate),
     new PaletteAction("View", "Focus FEN", "Move focus to the position field", this::focusFenField),
     new PaletteAction("Run", "Stop command", "Cancel the running child process", this::stopCommand),
-    new PaletteAction("View", "Open analyze tab", "Show board analysis tools", () -> selectTab(TAB_ANALYZE)),
+    new PaletteAction("View", "Open analyze tab", "Show board analysis tools",
+                        () -> openBoard(BOARD_ANALYZE)),
+    new PaletteAction("View", "Open play", "Play a game versus the engine on the board",
+                        () -> openBoard(BOARD_PLAY)),
+    new PaletteAction("View", "Open relations", "Overlay OTIS tactical-incidence channels on the board",
+                        () -> openBoard(BOARD_RELATIONS)),
     new PaletteAction("View", "New analyze tab", "Open another independent analysis workspace",
                         this::openNewAnalyzeTab),
     new PaletteAction("View", "Focus game line", "Show the merged game tools", this::focusGameInput),
     new PaletteAction("File", "PGN explorer", "Search the current PGN or open a PGN file", this::showPgnExplorer),
-    new PaletteAction("View", "Open commands tab", "Show command controller", () -> selectTab(TAB_COMMANDS)),
-    new PaletteAction("View", "Open batch tab", "Show batch workflows", () -> selectTab(TAB_BATCH)),
+    new PaletteAction("View", "Open commands tab", "Show the command builder",
+                        () -> openRun(RUN_BUILD)),
     new PaletteAction("View", "Open datasets tab", "Inspect and analyze training datasets",
                         () -> selectTab(TAB_DATASETS)),
     new PaletteAction("Dataset", "Analyze dataset", "Scan the selected dataset source",
                         () -> datasetPanel().analyzeCurrentSource()),
     new PaletteAction("View", "Open publish tab", "Show report and publishing tools", () -> selectTab(TAB_PUBLISH)),
     new PaletteAction("View", "Open describe tab", "Show deterministic position text", () -> selectTab(TAB_DESCRIBE)),
-    new PaletteAction("View", "Open MCTS tab", "Inspect the shared MCTS search tree", () -> selectTab(TAB_MCTS)),
+    new PaletteAction("View", "Open evaluator", "Inspect the evaluator (neural or classical) over the current position",
+                        () -> openEngine(ENGINE_NETWORK)),
+    new PaletteAction("View", "Open MCTS search", "Inspect the shared PUCT/MCTS search tree",
+                        () -> openEngine(ENGINE_SEARCH)),
     new PaletteAction("View", "Show Console", "Open the command-output tab",
                         this::showConsoleDock),
     new PaletteAction("View", "Show Logs", "Open and refresh the log browser tab",
                         this::showLogsDock),
     new PaletteAction("View", "Open puzzles tab", "Train PGN tactics with variation branches",
-                        () -> selectTab(TAB_PUZZLES)),
+                        () -> openBoard(BOARD_SOLVE)),
     new PaletteAction("Workbench", "Split tab right", "Move the active workbench tab into a right editor group",
                         tabs::splitSelectedTabRight),
     new PaletteAction("Workbench", "Split tab down", "Move the active workbench tab into a lower editor group",
@@ -2058,7 +2134,7 @@ public abstract class WindowLifecycle extends WindowBase {
      * Opens the analysis data view.
      */
     protected void showAnalysisData() {
-        selectTab(TAB_ANALYZE);
+        openBoard(BOARD_ANALYZE);
         if (analysisTabs != null) {
             analysisTabs.setSelectedIndex(0);
         }
@@ -2167,7 +2243,7 @@ public abstract class WindowLifecycle extends WindowBase {
      * Focuses the main FEN input field.
      */
     protected void focusFenField() {
-        selectTab(TAB_ANALYZE);
+        openBoard(BOARD_ANALYZE);
         SwingUtilities.invokeLater(fenField::requestFocusInWindow);
     }
 
@@ -2175,7 +2251,7 @@ public abstract class WindowLifecycle extends WindowBase {
      * Focuses the command option filter.
      */
     protected void focusOptionFilter() {
-        selectTab(TAB_COMMANDS);
+        openRun(RUN_BUILD);
         SwingUtilities.invokeLater(() -> {
             commandForm.expandOptionalFlags();
             commandForm.filterField().requestFocusInWindow();
@@ -2186,7 +2262,7 @@ public abstract class WindowLifecycle extends WindowBase {
      * Focuses the game text input.
      */
     protected void focusGameInput() {
-        selectTab(TAB_ANALYZE);
+        openBoard(BOARD_ANALYZE);
         if (analysisTabs != null) {
             analysisTabs.setSelectedIndex(1);
         }
@@ -2198,7 +2274,7 @@ public abstract class WindowLifecycle extends WindowBase {
      */
     protected void openNewAnalyzeTab() {
         if (tabs != null) {
-            tabs.duplicate(TAB_ANALYZE);
+            tabs.duplicate(TAB_BOARD);
         }
     }
 
@@ -2243,7 +2319,7 @@ public abstract class WindowLifecycle extends WindowBase {
      * @return true when Analyze is visible
      */
     protected boolean isAnalyzePaneVisible() {
-        return tabs != null && tabs.isVisibleInPane(TAB_ANALYZE);
+        return tabs != null && tabs.isVisibleInPane(TAB_BOARD);
     }
 
 }

@@ -63,7 +63,7 @@ public final class WindowDashboardActions extends WindowHost implements Dashboar
      */
     @Override
     public void runBatch() {
-        window.batchPanel.runBatch();
+        window.runSelectedTemplate();
     }
 
     /**
@@ -107,23 +107,23 @@ public final class WindowDashboardActions extends WindowHost implements Dashboar
     }
 
     /**
-     * Opens the Analyze tab.
+     * Opens the unified Board surface (which opens in its Analyze mode).
      */
     @Override
     public void openAnalyzeTab() {
-        window.selectTab(WindowBase.TAB_ANALYZE);
+        window.selectTab(WindowBase.TAB_BOARD);
     }
 
     /**
-     * Opens the Batch tab.
+     * Opens the command builder (batch commands now live here).
      */
     @Override
     public void openBatchTab() {
-        window.selectTab(WindowBase.TAB_BATCH);
+        window.openRun(WindowBase.RUN_BUILD);
     }
 
     /**
-     * Opens the Console tab.
+     * Opens the Console surface.
      */
     @Override
     public void openConsoleTab() {

@@ -44,12 +44,22 @@ final class LoadingPanel extends JPanel {
     /**
      * Primary loading message.
      */
-    private String title = "Loading network view";
+    private String title = "Loading evaluator view";
 
     /**
      * Secondary loading detail.
      */
     private String detail = "Preparing activations";
+
+    /**
+     * Model-file or fallback detail, shown as a muted caption when present.
+     */
+    private String modelDetail = "";
+
+    /**
+     * Current-position detail, shown as a muted caption when present.
+     */
+    private String positionDetail = "";
 
     /**
      * Whether the loading state is active.
@@ -71,7 +81,7 @@ final class LoadingPanel extends JPanel {
      * @param detail secondary loading detail
      */
     void start(String title, String detail) {
-        start(title, detail, "Model status pending", "No position loaded");
+        start(title, detail, "", "");
     }
 
     /**
@@ -83,8 +93,10 @@ final class LoadingPanel extends JPanel {
      * @param positionDetail current position detail
      */
     void start(String title, String detail, String modelDetail, String positionDetail) {
-        this.title = title == null || title.isBlank() ? "Loading network view" : title;
+        this.title = title == null || title.isBlank() ? "Loading evaluator view" : title;
         this.detail = detail == null || detail.isBlank() ? "Preparing activations" : detail;
+        this.modelDetail = modelDetail == null ? "" : modelDetail.trim();
+        this.positionDetail = positionDetail == null ? "" : positionDetail.trim();
         active = true;
         repaint();
     }
@@ -139,24 +151,46 @@ final class LoadingPanel extends JPanel {
         FontMetrics titleMetrics = g.getFontMetrics();
         g.setFont(Theme.font(12, Font.PLAIN));
         FontMetrics detailMetrics = g.getFontMetrics();
+        g.setFont(Theme.font(11, Font.PLAIN));
+        FontMetrics captionMetrics = g.getFontMetrics();
+        boolean hasModel = !modelDetail.isBlank();
+        boolean hasPosition = !positionDetail.isBlank();
+        int extraLines = (hasModel ? 1 : 0) + (hasPosition ? 1 : 0);
         int textW = Math.max(96, Math.min(TEXT_WIDTH, bounds.width - 2 * Theme.SPACE_XL));
-        int blockH = GLYPH_HEIGHT + GLYPH_GAP + titleMetrics.getHeight() + TEXT_GAP + detailMetrics.getHeight();
+        int blockH = GLYPH_HEIGHT + GLYPH_GAP + titleMetrics.getHeight() + TEXT_GAP + detailMetrics.getHeight()
+                + extraLines * (Theme.SPACE_XS + captionMetrics.getHeight());
         int x = bounds.x + (bounds.width - textW) / 2;
         int top = bounds.y + Math.max(Theme.SPACE_XL, (bounds.height - blockH) / 2);
 
         paintNetworkGlyph(g, bounds.x + bounds.width / 2, top, GLYPH_HEIGHT);
-        int y = top + GLYPH_HEIGHT + GLYPH_GAP;
+        int baseline = top + GLYPH_HEIGHT + GLYPH_GAP;
 
         g.setFont(Theme.font(15, Font.BOLD));
         String titleText = elide(g, title, textW);
         g.setColor(Theme.TEXT);
-        g.drawString(titleText, centeredX(g, titleText, x, textW), y + titleMetrics.getAscent());
+        baseline += titleMetrics.getAscent();
+        g.drawString(titleText, centeredX(g, titleText, x, textW), baseline);
 
         g.setFont(Theme.font(12, Font.PLAIN));
         String detailText = elide(g, detail, textW);
         g.setColor(Theme.MUTED);
-        g.drawString(detailText, centeredX(g, detailText, x, textW),
-                y + titleMetrics.getHeight() + TEXT_GAP + detailMetrics.getAscent());
+        baseline += titleMetrics.getDescent() + TEXT_GAP + detailMetrics.getAscent();
+        g.drawString(detailText, centeredX(g, detailText, x, textW), baseline);
+
+        // The richer model / position captions the caller computes (e.g.
+        // "lc0-model.pb.gz - loaded", "rnbq... - white to move").
+        g.setFont(Theme.font(11, Font.PLAIN));
+        if (hasModel) {
+            String t = elide(g, modelDetail, textW);
+            baseline += detailMetrics.getDescent() + Theme.SPACE_XS + captionMetrics.getAscent();
+            g.drawString(t, centeredX(g, t, x, textW), baseline);
+        }
+        if (hasPosition) {
+            String t = elide(g, positionDetail, textW);
+            baseline += (hasModel ? captionMetrics.getDescent() : detailMetrics.getDescent())
+                    + Theme.SPACE_XS + captionMetrics.getAscent();
+            g.drawString(t, centeredX(g, t, x, textW), baseline);
+        }
     }
 
     /**

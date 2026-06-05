@@ -30,9 +30,10 @@ import javax.swing.table.TableCellRenderer;
 final class DataTableStyler {
 
     /**
-     * Header height in pixels.
+     * Header height in pixels, kept a touch shorter than the data rows so the
+     * header reads as a proportional cap rather than another row.
      */
-    private static final int HEADER_HEIGHT = 23;
+    private static final int HEADER_HEIGHT = Theme.TABLE_ROW_HEIGHT - 4;
 
     /**
      * Checkbox glyph size in pixels.
@@ -297,7 +298,30 @@ final class DataTableStyler {
                     : hovered ? Theme.SECONDARY_BUTTON_HOVER : table.getBackground());
             setHorizontalAlignment(value instanceof Number ? SwingConstants.RIGHT : SwingConstants.LEFT);
             setBorder(Theme.pad(0, 8, 0, 8));
+            setToolTipText(clippedTooltip(table, column));
             return this;
+        }
+
+        /**
+         * Returns the full cell text as a tooltip when it is too wide to fit
+         * the column, or {@code null} when it renders without truncation. This
+         * keeps long values (principal variations, FENs, file paths) reachable
+         * on hover in every styled data table without per-panel wiring.
+         *
+         * @param table source table
+         * @param column view column index
+         * @return full text when clipped, otherwise {@code null}
+         */
+        private String clippedTooltip(JTable table, int column) {
+            String text = getText();
+            if (text == null || text.isEmpty() || column < 0) {
+                return null;
+            }
+            int columnWidth = table.getColumnModel().getColumn(column).getWidth();
+            java.awt.Insets insets = getInsets();
+            int available = columnWidth - insets.left - insets.right;
+            int textWidth = getFontMetrics(getFont()).stringWidth(text);
+            return textWidth > available ? text : null;
         }
     }
 

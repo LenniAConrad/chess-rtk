@@ -631,6 +631,10 @@
 <td>Save a position image to disk</td>
 </tr>
 <tr>
+<td><code>fen relations</code></td>
+<td>Render the OTIS tactical-incidence relation channels as typed arrows</td>
+</tr>
+<tr>
 <td><code>fen tags</code></td>
 <td>Generate tags for FENs, PGNs, or variations</td>
 </tr>
@@ -887,8 +891,8 @@ crtk fen chess960 --random --count 5 --format both</code></pre>
 <td>Overlay legal move dots from a square</td>
 </tr>
 <tr>
-<td><code>--details-inside</code> / <code>--details-outside</code></td>
-<td>Show eval details inside / outside the board</td>
+<td><code>--coordinates</code> / <code>--coordinates-outside</code></td>
+<td>Draw file/rank labels inside the border / in an outer margin (aliases: <code>--details-inside</code> / <code>--details-outside</code>)</td>
 </tr>
 <tr>
 <td><code>--ablation</code></td>
@@ -972,8 +976,8 @@ crtk fen chess960 --random --count 5 --format both</code></pre>
 <td>Overlay legal move dots from a square</td>
 </tr>
 <tr>
-<td><code>--details-inside</code> / <code>--details-outside</code></td>
-<td>Show eval details inside / outside the board</td>
+<td><code>--coordinates</code> / <code>--coordinates-outside</code></td>
+<td>Draw file/rank labels inside the border / in an outer margin (aliases: <code>--details-inside</code> / <code>--details-outside</code>)</td>
 </tr>
 <tr>
 <td><code>--ablation</code></td>
@@ -981,6 +985,191 @@ crtk fen chess960 --random --count 5 --format both</code></pre>
 </tr>
 </tbody></table></div>
 <pre><code class="language-bash">crtk fen render --fen &quot;&lt;FEN&gt;&quot; --output board.svg --size 800 --accent &quot;#4ab66f&quot;</code></pre>
+<h3 id="fen-relations">fen relations</h3>
+<p>Render the position as a <em>tactical-incidence graph</em>: typed, colour-coded arrows for each of the twelve relation channels the OTIS (oriented tactical-sheaf) network ingests. The edges come straight from the network&#x27;s incidence builder, so the picture matches the model&#x27;s input — and they are computed deterministically from the position alone, with no engine evaluation or model file.</p>
+<p><img src="assets/boards/crtk-relations.svg" alt="ChessRTK tactical-incidence relations: knight attacks, queen rays, and a pin, rendered by crtk" loading="lazy"></p>
+<p><em>Knight attacks (yellow), occlusion-aware queen rays (blue), and the absolute pin <code>Bc4 → f7</code> against the castled king (coral), drawn with <code>fen relations</code>.</em></p>
+<p>The twelve channels (<code>--channel</code>/<code>--channels</code> accept the name, an index <code>0..11</code>, or <code>all</code>):</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>#</th>
+<th>Channel</th>
+<th>Edges</th>
+</tr></thead><tbody>
+<tr>
+<td class="numeric">0</td>
+<td><code>us_attacks_them_piece</code></td>
+<td>side-to-move pieces attacking enemy pieces</td>
+</tr>
+<tr>
+<td class="numeric">1</td>
+<td><code>them_attacks_us_piece</code></td>
+<td>enemy pieces attacking ours</td>
+</tr>
+<tr>
+<td class="numeric">2</td>
+<td><code>us_defends_us_piece</code></td>
+<td>our pieces defending ours</td>
+</tr>
+<tr>
+<td class="numeric">3</td>
+<td><code>them_defends_them_piece</code></td>
+<td>enemy pieces defending theirs</td>
+</tr>
+<tr>
+<td class="numeric">4</td>
+<td><code>us_attacks_empty_near_king</code></td>
+<td>our pressure on empty squares in the enemy king zone</td>
+</tr>
+<tr>
+<td class="numeric">5</td>
+<td><code>them_attacks_empty_near_king</code></td>
+<td>enemy pressure on our king zone</td>
+</tr>
+<tr>
+<td class="numeric">6</td>
+<td><code>bishop_ray_visible</code></td>
+<td>visible bishop rays (stop at the first blocker)</td>
+</tr>
+<tr>
+<td class="numeric">7</td>
+<td><code>rook_ray_visible</code></td>
+<td>visible rook rays</td>
+</tr>
+<tr>
+<td class="numeric">8</td>
+<td><code>queen_ray_visible</code></td>
+<td>visible queen rays</td>
+</tr>
+<tr>
+<td class="numeric">9</td>
+<td><code>knight_attack</code></td>
+<td>knight attacks</td>
+</tr>
+<tr>
+<td class="numeric">10</td>
+<td><code>pawn_attack_forward_oriented</code></td>
+<td>pawn attacks (side-to-move oriented)</td>
+</tr>
+<tr>
+<td class="numeric">11</td>
+<td><code>king_ray_pin_candidate</code></td>
+<td>absolute-pin lines (pinner → pinned)</td>
+</tr>
+</tbody></table></div>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Option</th>
+<th>Description</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--fen FEN</code></td>
+<td>FEN to render (or pass positionally)</td>
+</tr>
+<tr>
+<td><code>--startpos</code> / <code>--randompos</code></td>
+<td>Use the standard start / a random legal position</td>
+</tr>
+<tr>
+<td><code>--output</code>/<code>-o PATH</code></td>
+<td>Output image/SVG path (required)</td>
+</tr>
+<tr>
+<td><code>--format FORMAT</code></td>
+<td><code>png</code>, <code>jpg</code>, <code>bmp</code>, or <code>svg</code> (default: from extension, else <code>png</code>)</td>
+</tr>
+<tr>
+<td><code>--channel NAME</code> / <code>--channels LIST</code></td>
+<td>One channel, a comma/space list, or <code>all</code> (default: all)</td>
+</tr>
+<tr>
+<td><code>--montage</code></td>
+<td>One small labelled board per channel in a grid (raster only)</td>
+</tr>
+<tr>
+<td><code>--legend</code></td>
+<td>Draw a per-channel colour legend (raster only)</td>
+</tr>
+<tr>
+<td><code>--no-pieces</code></td>
+<td>Graph-only view, without the pieces</td>
+</tr>
+<tr>
+<td><code>--scramble</code> / <code>--seed N</code></td>
+<td>Degree-preserving edge randomization (the falsifier visual)</td>
+</tr>
+<tr>
+<td><code>--accent HEX</code></td>
+<td>Tint the board squares/grid/frame (e.g. <code>#4ab66f</code>), as in <code>fen render</code></td>
+</tr>
+<tr>
+<td><code>--coordinates</code></td>
+<td>Draw file/rank coordinate labels (a–h, 1–8)</td>
+</tr>
+<tr>
+<td><code>--color CH=#HEX</code></td>
+<td>Override a channel&#x27;s arrow colour (repeatable; <code>;</code>-separated also works)</td>
+</tr>
+<tr>
+<td><code>--opacity F</code></td>
+<td>Arrow fill opacity <code>0..1</code> (default <code>0.42</code>; the border is drawn more opaque)</td>
+</tr>
+<tr>
+<td><code>--stroke W</code></td>
+<td>Arrow line width (default <code>3</code>)</td>
+</tr>
+<tr>
+<td><code>--coordinates</code> / <code>--coordinates-outside</code></td>
+<td>Coordinate labels inside the board / in an outer margin</td>
+</tr>
+<tr>
+<td><code>--no-border</code></td>
+<td>Hide the outer frame</td>
+</tr>
+<tr>
+<td><code>--drop-shadow</code> / <code>--shadow</code></td>
+<td>Add a drop shadow (raster only)</td>
+</tr>
+<tr>
+<td><code>--arrow</code>/<code>--arrows MOVES</code></td>
+<td>Extra manual arrows (e.g. <code>e2e4,d2d4</code>) over the graph</td>
+</tr>
+<tr>
+<td><code>--circle</code>/<code>--circles SQUARES</code></td>
+<td>Circle overlays (e.g. <code>e4,d5</code>)</td>
+</tr>
+<tr>
+<td><code>--legal SQUARE</code></td>
+<td>Overlay legal-move dots from a square</td>
+</tr>
+<tr>
+<td><code>--special-arrows</code></td>
+<td>Draw castling / en-passant hint arrows</td>
+</tr>
+<tr>
+<td><code>--flip</code> / <code>--black-down</code></td>
+<td>Render from Black&#x27;s perspective / Black at the bottom</td>
+</tr>
+<tr>
+<td><code>--size N</code> / <code>--width N</code> / <code>--height N</code></td>
+<td>Board size / image width / height (pixels)</td>
+</tr>
+</tbody></table></div>
+<p>It shares the board theming and overlay options with <code>fen render</code> (accent, border, coordinates, shadow, arrows, circles, legal dots).</p>
+<blockquote><p>Every channel is exactly the network&#x27;s input — the figure is built from the same <code>relationMasks</code> the OTIS network ingests, with no display-only adjustments. (The <code>pawn_attack_forward_oriented</code> channel points forward, as the name says; this is enforced identically in the Java and native GPU encoders.)</p></blockquote>
+<pre><code class="language-bash"># All twelve channels as a labelled small-multiples montage.
+crtk fen relations --startpos --montage --output relations.png
+
+# A single channel as a clean vector figure.
+crtk fen relations --fen &quot;&lt;FEN&gt;&quot; --channel knight_attack --no-pieces --output knights.svg
+
+# A couple of channels with a legend.
+crtk fen relations --fen &quot;&lt;FEN&gt;&quot; --channels &quot;0,1&quot; --legend --output attacks.png
+
+# Recolour a channel, tint the board, show coordinates, thinner arrows.
+crtk fen relations --fen &quot;&lt;FEN&gt;&quot; --channel knight_attack \
+  --color &quot;knight_attack=#ff2ec4&quot; --accent &quot;#4ab66f&quot; --coordinates \
+  --opacity 0.55 --stroke 2 --output knights.png</code></pre>
 <h3 id="fen-tags">fen tags</h3>
 <p>Generate tags for a FEN, FEN list, or PGN. With <code>config/book.eco.toml</code> in place, the output picks up <code>eco:</code>/<code>opening:</code> tags wherever a position matches the ECO book. Tagging is static by default; <code>--analyze</code> adds engine PV, mate, and enables data and pulls in the shared engine option block.</p>
 <div class="table-wrap"><table>
@@ -1371,11 +1560,11 @@ crtk move both --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 </tr>
 <tr>
 <td><code>engine builtin</code></td>
-<td>Search with the built-in MCTS engine</td>
+<td>Search with the built-in engine</td>
 </tr>
 <tr>
 <td><code>engine java</code></td>
-<td>Run the same built-in MCTS engine</td>
+<td>Run the same built-in engine</td>
 </tr>
 <tr>
 <td><code>engine mate</code></td>
@@ -1694,7 +1883,7 @@ crtk engine bestmove-both --input positions.txt</code></pre>
 </tbody></table></div>
 <pre><code class="language-bash">crtk engine threats --fen &quot;&lt;FEN&gt;&quot; --max-duration 3s</code></pre>
 <h3 id="engine-builtin">engine builtin</h3>
-<p>Search a position with ChessRTK&#x27;s in-house MCTS engine (<code>engine java</code> is the same code under a friendlier name). It runs in-process, which makes it the right choice for deterministic local search, smoke tests, and any automation that shouldn&#x27;t fork a UCI engine. Search is single-threaded behind an internal transposition table and static-eval cache; <code>--threads</code> and <code>--hash</code> are UCI options and have no effect here.</p>
+<p>Search a position with ChessRTK&#x27;s in-house engine (<code>engine java</code> is the same code under a friendlier name). It runs in-process, which makes it the right choice for deterministic local search, smoke tests, and any automation that shouldn&#x27;t fork a UCI engine. Classical and NNUE default to iterative alpha-beta search; LC0 and OTIS default to MCTS so their policy priors are used. Search is single-threaded by default for reproducibility; pass <code>--threads N</code> when you want alpha-beta Lazy SMP or MCTS workers.</p>
 <div class="table-wrap"><table>
 <thead><tr>
 <th>Option</th>
@@ -1717,6 +1906,10 @@ crtk engine bestmove-both --input positions.txt</code></pre>
 <td>Run the minimal built-in UCI loop instead of searching one FEN</td>
 </tr>
 <tr>
+<td><code>--search MODE</code></td>
+<td>Search algorithm (<code>alpha-beta</code> or <code>mcts</code>); default is alpha-beta for classical/NNUE and MCTS for LC0/OTIS</td>
+</tr>
+<tr>
 <td><code>--evaluator KIND</code></td>
 <td><code>classical</code> (default), <code>nnue</code>, <code>lc0</code>, or <code>otis</code></td>
 </tr>
@@ -1730,26 +1923,31 @@ crtk engine bestmove-both --input positions.txt</code></pre>
 </tr>
 <tr>
 <td><code>--depth</code>/<code>-d N</code></td>
-<td>Search depth hint (default <code>3</code>)</td>
+<td>Search target; default <code>8</code> for alpha-beta and <code>3</code> for MCTS</td>
 </tr>
 <tr>
 <td><code>--max-nodes</code>/<code>--nodes N</code></td>
-<td>MCTS playout budget; <code>0</code> disables the node cap</td>
+<td>Search node/playout budget; <code>0</code> disables the node cap</td>
 </tr>
 <tr>
 <td><code>--max-duration D</code></td>
 <td>Time budget (e.g. <code>5s</code>); <code>0</code> means no time cap</td>
 </tr>
 <tr>
+<td><code>--threads N</code></td>
+<td>Worker threads for alpha-beta Lazy SMP or MCTS (default <code>1</code>)</td>
+</tr>
+<tr>
 <td><code>--format FORMAT</code></td>
 <td><code>uci-info</code> (default), <code>uci</code>, <code>san</code>, <code>both</code>, or <code>summary</code></td>
 </tr>
 </tbody></table></div>
-<p>Budget defaults: with no <code>--depth</code>, the playout budget defaults to roughly <code>250000</code> nodes and <code>5s</code>. With explicit <code>--depth</code> and no time budget, the effective budget is <code>depth * 1024</code> (minimum <code>256</code>) and time is unlimited. Evaluators: <code>classical</code> is handcrafted (no model); <code>nnue</code> uses <code>models/crtk-halfkp.nnue</code> by default; <code>lc0</code> uses the configured LC0 CNN model; <code>otis</code> uses <code>models/otis_policy_wdl_random.bin</code> by default.</p>
+<p>Budget defaults: with no explicit budget, alpha-beta targets depth <code>8</code> and MCTS targets depth <code>3</code>, both under the default <code>250000</code> node/playout and <code>5s</code> caps. With explicit alpha-beta <code>--depth</code> and no node/time budget, the search runs until that depth completes. With explicit MCTS <code>--depth</code> and no node/time budget, the effective playout budget is <code>depth * 1024</code> (minimum <code>256</code>). Evaluators: <code>classical</code> is handcrafted (no model); <code>nnue</code> uses <code>models/crtk-halfkp.nnue</code> by default; <code>lc0</code> uses the configured LC0 CNN model; <code>otis</code> uses <code>models/otis_policy_wdl_random.bin</code> by default.</p>
+<p>Alpha-beta also checks exact root tactics before ordinary heuristic search: mate-in-one is tested directly, and forcing roots (check evasions or roots with checking moves) get the bounded default mate-in-four proof search. Proven lines return mate scores and <code>nodes: 0</code> because no alpha-beta nodes were spent. Its quiescence horizon also checks mate-in-one before standing pat or searching captures, so one-ply mate threats just past the requested depth remain exact. The deterministic root fallback uses the same guard when a tiny budget stops before depth one completes. The first quiescence ply also includes quiet checking moves; deeper quiescence remains capture/promotion-only unless the side to move is already in check.</p>
 <pre><code class="language-bash">crtk engine builtin --fen &quot;&lt;FEN&gt;&quot; --depth 8 --max-duration 2s --format summary
 crtk engine builtin --lc0 --weights models/leela.bin --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 <h3 id="engine-java">engine java</h3>
-<p>The same built-in MCTS engine as <code>engine builtin</code>, same options. It exists because &quot;java&quot; is the name people reach for when they want the in-house engine.</p>
+<p>The same built-in engine as <code>engine builtin</code>, same options. It exists because &quot;java&quot; is the name people reach for when they want the in-house engine.</p>
 <pre><code class="language-bash">crtk engine java --startpos --format summary</code></pre>
 <h3 id="engine-mate">engine mate</h3>
 <p>Prove a forced mate with an in-process AND/OR search. No neural evaluator, no external engine — when it reports a mate, it has searched the proof tree, not guessed from a score.</p>

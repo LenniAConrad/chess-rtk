@@ -558,6 +558,133 @@ public record Wdl(
     }
 
     /**
+     * Per-term decomposition of the White-perspective centipawn score.
+     *
+     * <p>Every field is a centipawn contribution from White's perspective
+     * (positive favours White). {@link #whiteTotal()} sums to exactly the value
+     * returned by {@link #evaluateWhiteCentipawns(Position)} for the same
+     * position, so the breakdown is a faithful decomposition rather than a
+     * re-estimate. This type is for inspection/visualization only; the search
+     * hot path uses the allocation-free scalar evaluators.</p>
+     *
+     * @param whiteToMove true when White is to move in the source position
+     * @param phase game-phase factor in [0, 1] (1 = opening, 0 = endgame)
+     * @param material material balance (White minus Black)
+     * @param pieceSquare summed piece-square-table contribution
+     * @param bishopPair bishop-pair bonus
+     * @param pawnStructure doubled/isolated/passed pawn terms
+     * @param rookFile open / semi-open rook file term
+     * @param kingSafety king piece-square plus shelter/attack pressure
+     * @param activity mobility / piece activity term
+     * @param threats threat pressure term
+     * @param space space-control term
+     * @param tempo side-to-move tempo term
+     * @param checkPenalty in-check penalty term
+     */
+    public record Breakdown(
+            boolean whiteToMove,
+            double phase,
+            int material,
+            int pieceSquare,
+            int bishopPair,
+            int pawnStructure,
+            int rookFile,
+            int kingSafety,
+            int activity,
+            int threats,
+            int space,
+            int tempo,
+            int checkPenalty) {
+
+        /**
+         * Returns the White-perspective total (sum of all terms).
+         *
+         * @return centipawns from White's perspective
+         */
+        public int whiteTotal() {
+            return material + pieceSquare + bishopPair + pawnStructure + rookFile
+                    + kingSafety + activity + threats + space + tempo + checkPenalty;
+        }
+
+        /**
+         * Returns the side-to-move total.
+         *
+         * @return centipawns from the side-to-move perspective
+         */
+        public int stmTotal() {
+            return whiteToMove ? whiteTotal() : -whiteTotal();
+        }
+    }
+
+    /**
+     * Computes the per-term White-perspective breakdown of the classical
+     * evaluation.
+     *
+     * <p>This mirrors {@link #evaluateWhiteCentipawns(Position, byte[],
+     * EvalBuffers)} term for term; {@link Breakdown#whiteTotal()} is guaranteed
+     * to equal {@link #evaluateWhiteCentipawns(Position)} (verified by the
+     * regression suite). It allocates and is intended only for the workbench
+     * Evaluator view, never the search loop.</p>
+     *
+     * @param pos position to evaluate (non-null)
+     * @return per-term breakdown from White's perspective
+     * @throws IllegalArgumentException if {@code pos} is {@code null}
+     */
+    public static Breakdown evaluateWhiteBreakdown(Position pos) {
+        if (pos == null) {
+            throw new IllegalArgumentException("pos == null");
+        }
+        byte[] board = pos.getBoard();
+        EvalBuffers buffers = BUFFERS.get();
+        buffers.reset();
+        EvalScan scan = scanMaterialAndPst(board, buffers);
+        double phase = updatePhase(scan, buffers);
+        AttackInfo attacks = buffers.attacks;
+        attacks.build(pos);
+
+        int material = scan.whiteMaterial - scan.blackMaterial;
+        int pieceSquare = scan.score;
+        int bishopPair = bishopPairCp(scan.whiteBishops, scan.blackBishops);
+        int pawnStructure = pawnStructureCp(pos, buffers.whitePawnsPerFile, buffers.blackPawnsPerFile,
+                buffers.minBlackPawnRank, buffers.maxWhitePawnRank, attacks, phase);
+        int rookFile = rookFileCp(buffers.whiteRooksFileCount, buffers.blackRooksFileCount,
+                buffers.whitePawnsPerFile, buffers.blackPawnsPerFile);
+        int kingSafety = kingSafetyCp(pos, buffers, attacks, phase);
+        int activity = activityCp(attacks, phase);
+        int threats = threatsCp(pos, attacks, phase);
+        int space = spaceCp(pos, attacks, scan, phase);
+        int tempo = tempoCp(pos);
+        int checkPenalty = checkPenaltyCp(pos);
+
+        return new Breakdown(pos.isWhiteToMove(), phase, material, pieceSquare, bishopPair,
+                pawnStructure, rookFile, kingSafety, activity, threats, space, tempo, checkPenalty);
+    }
+
+    /**
+     * Returns a copy of a piece-square table from White's perspective.
+     *
+     * <p>Index 0 is a8 and index 63 is h1, matching the internal board layout
+     * (Black pieces read the table through a vertical flip). The king table is
+     * the opening variant; it is phase-blended with an endgame variant during
+     * evaluation.</p>
+     *
+     * @param pieceType absolute piece code (1=pawn, 2=knight, 3=bishop,
+     *     4=rook, 5=queen, 6=king)
+     * @return a 64-entry copy, or a zeroed array for unknown types
+     */
+    public static int[] pieceSquareTable(int pieceType) {
+        return switch (pieceType) {
+            case 1 -> PAWN_PST.clone();
+            case 2 -> KNIGHT_PST.clone();
+            case 3 -> BISHOP_PST.clone();
+            case 4 -> ROOK_PST.clone();
+            case 5 -> QUEEN_PST.clone();
+            case 6 -> KING_PST_OPENING.clone();
+            default -> new int[64];
+        };
+    }
+
+    /**
      * Scans the board to collect material, PST, and structural signals.
      *
      * <p>Results are written into {@link EvalScan} and the {@link EvalBuffers} arrays.</p>

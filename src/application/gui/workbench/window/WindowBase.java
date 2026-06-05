@@ -3,7 +3,6 @@ package application.gui.workbench.window;
 import application.Config;
 import application.gui.workbench.Defaults;
 import application.gui.workbench.board.BoardPanel;
-import application.gui.workbench.command.BatchPanel;
 import application.gui.workbench.command.CommandForm;
 import application.gui.workbench.command.CommandPalette;
 import application.gui.workbench.command.CommandRunner;
@@ -87,29 +86,44 @@ public abstract class WindowBase extends JFrame {
     protected static final int TAB_DASHBOARD = 0;
 
     /**
-     * Analysis tab index.
+     * Board tab index — the unified board surface hosting the Analyze, Play,
+     * Solve, and Relations modes behind a switcher.
      */
-    protected static final int TAB_ANALYZE = 1;
+    protected static final int TAB_BOARD = 1;
 
     /**
-     * Commands tab index.
+     * Run tab index — the unified run surface hosting the Build (command
+     * builder), Batch, Console, and Logs modes.
      */
-    protected static final int TAB_COMMANDS = 2;
-
-    /**
-     * Batch tab index.
-     */
-    protected static final int TAB_BATCH = 3;
+    protected static final int TAB_RUN = 2;
 
     /**
      * Datasets tab index.
      */
-    protected static final int TAB_DATASETS = 4;
+    protected static final int TAB_DATASETS = 3;
 
     /**
      * Publishing tab index.
      */
-    protected static final int TAB_PUBLISH = 5;
+    protected static final int TAB_PUBLISH = 4;
+
+    /**
+     * Engine tab index — the unified engine surface hosting the neural-network
+     * visualizer (Network) and the PUCT/MCTS search (Search) modes.
+     */
+    protected static final int TAB_ENGINE = 5;
+
+    /**
+     * Console tab index — the command console, a first-class split/dockable
+     * surface (appended after the original surfaces so earlier indices hold).
+     */
+    protected static final int TAB_CONSOLE = 6;
+
+    /**
+     * Logs tab index — the persisted-log browser, a first-class split/dockable
+     * surface.
+     */
+    protected static final int TAB_LOGS = 7;
 
     /**
      * Position description tab sentinel. The panel exists, but the Workbench
@@ -118,47 +132,70 @@ public abstract class WindowBase extends JFrame {
     protected static final int TAB_DESCRIBE = -1;
 
     /**
-     * Console tab index.
-     */
-    protected static final int TAB_CONSOLE = 6;
-
-    /**
-     * Logs tab index.
-     */
-    protected static final int TAB_LOGS = 7;
-
-    /**
-     * Legacy title for the command console surface.
+     * Legacy title for the command console surface (a Run mode title).
      */
     protected static final String DOCK_CONSOLE = "Console";
 
     /**
-     * Legacy title for the persisted logs surface.
+     * Legacy title for the persisted logs surface (a Run mode title).
      */
     protected static final String DOCK_LOGS = "Logs";
 
     /**
-     * Network visualizer tab index.
+     * Run surface mode: the CLI command builder (the only Run mode now that
+     * batch is merged into Build and Console/Logs are top-level surfaces).
      */
-    protected static final int TAB_NETWORK = 8;
+    protected static final int RUN_BUILD = 0;
 
     /**
-     * MCTS tree-inspection tab index.
+     * Board surface mode: position analysis.
      */
-    protected static final int TAB_MCTS = 9;
+    protected static final int BOARD_ANALYZE = 0;
 
     /**
-     * Puzzle trainer tab index.
+     * Board surface mode: play versus the engine.
      */
-    protected static final int TAB_PUZZLES = 10;
+    protected static final int BOARD_PLAY = 1;
 
     /**
-     * Play-vs-engine tab index.
+     * Board surface mode: puzzle solving.
      */
-    protected static final int TAB_PLAY = 11;
+    protected static final int BOARD_SOLVE = 2;
 
     /**
-     * Board view.
+     * Board surface mode: tactical-incidence relations overlay.
+     */
+    protected static final int BOARD_RELATIONS = 3;
+
+    /**
+     * Engine surface mode: the neural-network visualizer.
+     */
+    protected static final int ENGINE_NETWORK = 0;
+
+    /**
+     * Engine surface mode: the PUCT/MCTS search inspector.
+     */
+    protected static final int ENGINE_SEARCH = 1;
+
+    /**
+     * Engine surface mode: the live search-tree graph.
+     */
+    protected static final int ENGINE_TREE = 2;
+
+    // Analyze, Play, Solve (puzzles), and Relations are no longer separate
+    // top-level tabs: they are modes of the unified Board surface (TAB_BOARD,
+    // BOARD_* constants). Network and MCTS are likewise modes of the unified
+    // Engine surface (TAB_ENGINE, ENGINE_* constants), and the former CLI tabs
+    // are modes of the Run surface (TAB_RUN, RUN_* constants). All three are
+    // application.gui.workbench.ui.SwitchedWorkspace instances.
+
+    /**
+     * The single shared board view. The Board surface's Analyze, Play, and
+     * Relations modes all reuse this one board (it is re-parented into the
+     * active mode and reconfigured for it), so a position carries across modes
+     * with no duplicate widgets. The Solve (puzzle) mode keeps its own board
+     * because puzzles step through their own positions independent of the
+     * analysis line.
      */
     protected final BoardPanel board = new BoardPanel();
 
@@ -196,6 +233,16 @@ public abstract class WindowBase extends JFrame {
      * All materialized MCTS inspection panels, including duplicates.
      */
     protected final List<MctsPanel> mctsPanels = new ArrayList<>();
+
+    /**
+     * Canonical search-tree graph panel.
+     */
+    protected application.gui.workbench.mcts.TreePanel treePanel;
+
+    /**
+     * All materialized search-tree graph panels, including duplicates.
+     */
+    protected final List<application.gui.workbench.mcts.TreePanel> treePanels = new ArrayList<>();
 
     /**
      * Human-versus-engine game controller, created with the concrete window.
@@ -297,9 +344,17 @@ public abstract class WindowBase extends JFrame {
     new ReportPanel(new WindowReportHost(this));
 
     /**
-     * Console output with carriage-return handling and line highlighting.
+     * Console output with carriage-return handling and line highlighting. This
+     * is the primary console; {@link #consoles} also holds any duplicates so
+     * command output fans out to every open console view.
      */
     protected final Console console = new Console();
+
+    /**
+     * Every materialized console, including the primary and any duplicates, so
+     * {@code appendConsole} can fan out to all of them.
+     */
+    protected final List<Console> consoles = new ArrayList<>(List.of(console));
 
     /**
      * Persisted application and command log browser, created lazily.
@@ -324,7 +379,7 @@ public abstract class WindowBase extends JFrame {
     protected final javax.swing.JTextArea commandField = new javax.swing.JTextArea();
 
     /**
-     * Wrapping bar of command-selector toggle buttons.
+     * Host bar for the command-template selector.
      */
     protected final JPanel commandPicker = transparentPanel(
     new FlowLayout(FlowLayout.LEFT, 6, 6));
@@ -335,9 +390,16 @@ public abstract class WindowBase extends JFrame {
     protected JButton runCommandButton;
 
     /**
-     * Command-selector toggle buttons, one per template.
+     * Command-template selector — a single dropdown over every template, in
+     * place of a wrapping row of one toggle button per template.
      */
-    protected final transient List<javax.swing.JToggleButton> commandButtons = new ArrayList<>();
+    protected transient javax.swing.JComboBox<String> commandCombo;
+
+    /**
+     * Guards against the combo's selection listener re-entering
+     * {@code selectCommandTemplate} while it is syncing the combo.
+     */
+    protected transient boolean syncingCommandCombo;
 
     /**
      * Index of the selected command template.
@@ -482,15 +544,6 @@ public abstract class WindowBase extends JFrame {
     protected final List<PublishingPanel> publishingPanels = new ArrayList<>();
 
     /**
-     * Batch workflow panel.
-     */
-    protected final BatchPanel batchPanel = new BatchPanel(
-    new WindowBatchHost(this),
-            depthModel,
-            multipvModel,
-            threadsModel);
-
-    /**
      * Publishing workflow panel.
      */
     protected PublishingPanel publishingPanel;
@@ -549,15 +602,6 @@ public abstract class WindowBase extends JFrame {
             mctsPanel = createMctsPanelInstance(true);
         }
         return mctsPanel;
-    }
-
-    /**
-     * Creates an additional MCTS inspector observing the shared session.
-     *
-     * @return new MCTS inspector
-     */
-    protected MctsPanel createDetachedMctsPanel() {
-        return createMctsPanelInstance(false);
     }
 
     /**
@@ -622,6 +666,51 @@ public abstract class WindowBase extends JFrame {
     }
 
     /**
+     * Returns the search-tree graph, creating it only when the Tree mode is
+     * first opened.
+     *
+     * @return search-tree graph panel
+     */
+    protected application.gui.workbench.mcts.TreePanel treePanel() {
+        if (treePanel == null) {
+            treePanel = createTreePanelInstance(true);
+        }
+        return treePanel;
+    }
+
+    /**
+     * Creates an additional independent search-tree graph.
+     *
+     * @return new search-tree graph panel
+     */
+    protected application.gui.workbench.mcts.TreePanel createDetachedTreePanel() {
+        return createTreePanelInstance(false);
+    }
+
+    /**
+     * Creates and registers a search-tree graph instance.
+     *
+     * @param primary true when this is the canonical Tree mode
+     * @return search-tree graph panel
+     */
+    private application.gui.workbench.mcts.TreePanel createTreePanelInstance(boolean primary) {
+        if (primary && treePanel != null) {
+            return treePanel;
+        }
+        application.gui.workbench.mcts.TreePanel panel =
+                new application.gui.workbench.mcts.TreePanel(mctsSession, this::currentFen);
+        panel.setOpenInNewBoard(this::openFenInNewBoard);
+        if (currentPosition != null) {
+            panel.setBoardFen(currentPosition.toString());
+        }
+        treePanels.add(panel);
+        if (primary) {
+            treePanel = panel;
+        }
+        return panel;
+    }
+
+    /**
      * Returns the dataset panel, creating it only when a dataset workflow is
      * requested.
      *
@@ -653,7 +742,7 @@ public abstract class WindowBase extends JFrame {
         if (primary && datasetPanel != null) {
             return datasetPanel;
         }
-        DatasetPanel panel = new DatasetPanel();
+        DatasetPanel panel = new DatasetPanel(this::openFenInBoard, this::openFenInNewBoard);
         if (primary) {
             datasetPanel = panel;
         }
@@ -670,15 +759,6 @@ public abstract class WindowBase extends JFrame {
             puzzlePanel = new PuzzlePanel();
         }
         return puzzlePanel;
-    }
-
-    /**
-     * Creates an additional independent puzzle trainer.
-     *
-     * @return new puzzle panel
-     */
-    protected PuzzlePanel createDetachedPuzzlePanel() {
-        return new PuzzlePanel();
     }
 
     /**
@@ -839,6 +919,25 @@ public abstract class WindowBase extends JFrame {
     protected JTabbedPane analysisTabs;
 
     /**
+     * The unified Board surface hosting the Analyze/Play/Solve/Relations modes.
+     * Assigned when the Board tab is built; used to route navigation and input
+     * gating to the active board mode.
+     */
+    protected application.gui.workbench.ui.SwitchedWorkspace boardWorkspace;
+
+    /**
+     * The unified Engine surface hosting the Network and Search modes. Assigned
+     * when the Engine tab is built; used to route navigation to the active mode.
+     */
+    protected application.gui.workbench.ui.SwitchedWorkspace engineWorkspace;
+
+    /**
+     * The unified Run surface hosting the Build/Batch/Console/Logs modes.
+     * Assigned when the Run tab is built; used to route navigation to a mode.
+     */
+    protected application.gui.workbench.ui.SwitchedWorkspace runWorkspace;
+
+    /**
      * Board detail tabs on the Analyze/Board side panel.
      */
     protected JTabbedPane boardDetailTabs;
@@ -971,10 +1070,19 @@ public abstract class WindowBase extends JFrame {
     protected abstract void updateCommandPreviews();
 
     /**
-     * Returns the selected template arguments.
+     * Returns the selected template's preview arguments.
      * @return selected command-template arguments
      */
     protected abstract List<String> selectedTemplateArgs();
+
+    /**
+     * Returns the selected template's runnable arguments, materializing any
+     * multi-line input list to a temporary file.
+     *
+     * @return runnable command-template arguments
+     * @throws java.io.IOException when an input file cannot be written
+     */
+    protected abstract List<String> selectedTemplateRunArgs() throws java.io.IOException;
 
     /**
      * Installs command templates.
@@ -1046,12 +1154,6 @@ public abstract class WindowBase extends JFrame {
     protected abstract void updatePublishCommand();
 
     /**
-     * Synchronizes batch duration into analysis controls.
-     * @param value new value
-     */
-    protected abstract void syncDurationFromBatch(String value);
-
-    /**
      * Starts the debounced eval command.
      */
     protected abstract void startEvalCommand();
@@ -1100,6 +1202,37 @@ public abstract class WindowBase extends JFrame {
     protected abstract JComponent createBoardTab();
 
     /**
+     * Creates the unified Board surface (Analyze/Play/Solve/Relations modes
+     * behind a switcher), assigning {@link #boardWorkspace}.
+     *
+     * @return board workspace component
+     */
+    protected abstract JComponent createBoardWorkspaceTab();
+
+    /**
+     * Creates the unified Engine surface (Network/Search modes behind a
+     * switcher), assigning {@link #engineWorkspace}.
+     *
+     * @return engine workspace component
+     */
+    protected abstract JComponent createEngineWorkspaceTab();
+
+    /**
+     * Creates the unified Run surface (Build/Batch/Console/Logs modes behind a
+     * switcher), assigning {@link #runWorkspace}.
+     *
+     * @return run workspace component
+     */
+    protected abstract JComponent createRunWorkspaceTab();
+
+    /**
+     * Opens the Run surface (the command builder).
+     *
+     * @param mode run mode (currently only {@link #RUN_BUILD})
+     */
+    protected abstract void openRun(int mode);
+
+    /**
      * Creates a detached analysis tab instance.
      *
      * @return detached analysis tab
@@ -1128,12 +1261,6 @@ public abstract class WindowBase extends JFrame {
      * @return engine-settings panel
      */
     protected abstract JComponent createEngineSettingsPanel();
-
-    /**
-     * Creates the Batch tab.
-     * @return computed value
-     */
-    protected abstract JComponent createBatchTab();
 
     /**
      * Creates the Datasets tab.
@@ -1190,13 +1317,6 @@ public abstract class WindowBase extends JFrame {
     protected abstract JComponent createMctsTab();
 
     /**
-     * Creates a detached MCTS tab instance.
-     *
-     * @return detached MCTS tab
-     */
-    protected abstract JComponent createDetachedMctsTab();
-
-    /**
      * Creates the Play-vs-engine tab.
      *
      * @return play tab
@@ -1204,11 +1324,11 @@ public abstract class WindowBase extends JFrame {
     protected abstract JComponent createPlayTab();
 
     /**
-     * Creates a detached Play-vs-engine tab instance.
+     * Creates the tactical-incidence Relations tab.
      *
-     * @return detached play tab
+     * @return relations tab
      */
-    protected abstract JComponent createDetachedPlayTab();
+    protected abstract JComponent createRelationsTab();
 
     /**
      * Locks or unlocks position-entry controls while a Play game is active.
@@ -1225,24 +1345,32 @@ public abstract class WindowBase extends JFrame {
     protected abstract JComponent createPuzzleTab();
 
     /**
-     * Creates a detached Puzzles tab instance.
-     *
-     * @return detached puzzles tab
-     */
-    protected abstract JComponent createDetachedPuzzleTab();
-
-    /**
-     * Creates the Console tab.
+     * Creates the primary Console surface.
      * @return computed value
      */
     protected abstract JComponent createConsolePanel();
 
     /**
-     * Creates the Logs tab.
+     * Creates an independent duplicate Console surface (its own console
+     * instance, wired into the output fan-out).
+     *
+     * @return duplicate console surface
+     */
+    protected abstract JComponent createDetachedConsolePanel();
+
+    /**
+     * Creates the primary Logs surface.
      *
      * @return computed value
      */
     protected abstract JComponent createLogTab();
+
+    /**
+     * Creates an independent duplicate Logs surface.
+     *
+     * @return duplicate logs surface
+     */
+    protected abstract JComponent createDetachedLogTab();
 
     /**
      * Returns the primary persisted-log browser.
@@ -1250,13 +1378,6 @@ public abstract class WindowBase extends JFrame {
      * @return log browser
      */
     protected abstract LogPanel primaryLogPanel();
-
-    /**
-     * Creates a detached Logs tab instance.
-     *
-     * @return detached logs tab
-     */
-    protected abstract JComponent createDetachedLogTab();
 
     /**
      * Navigates the loaded game by a relative ply delta.
@@ -1341,6 +1462,19 @@ public abstract class WindowBase extends JFrame {
      * @param fen FEN string
      */
     protected abstract void startNewGame(String fen);
+
+    /**
+     * Opens a position in the Board tab's analysis surface.
+     * @param fen FEN string
+     */
+    protected abstract void openFenInBoard(String fen);
+
+    /**
+     * Opens a position in a new detached Board tab (its own board), leaving the
+     * shared analysis board untouched.
+     * @param fen FEN string
+     */
+    protected abstract void openFenInNewBoard(String fen);
 
     /**
      * Shows a game ply.

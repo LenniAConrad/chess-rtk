@@ -50,6 +50,16 @@ public final class DatasetTableModel extends AbstractTableModel {
     }
 
     /**
+     * Returns the backing sample for a model row index.
+     *
+     * @param rowIndex model row index
+     * @return sample row, or {@code null} when the index is out of range
+     */
+    public DatasetSummary.SampleRow rowAt(int rowIndex) {
+        return rowIndex >= 0 && rowIndex < rows.size() ? rows.get(rowIndex) : null;
+    }
+
+    /**
      * Returns row count.
      *
      * @return row count

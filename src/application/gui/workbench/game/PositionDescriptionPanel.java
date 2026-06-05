@@ -5,8 +5,10 @@ import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.Ui;
+import application.gui.workbench.ui.WrappingFlowLayout;
 import chess.core.Position;
 import chess.describe.ClassicalPositionDescriptionGenerator;
+import chess.describe.EngineEvaluator;
 import chess.describe.PositionDescriptionDetail;
 import chess.describe.PositionDescriptionInput;
 import chess.describe.T5PositionDescriptionGenerator;
@@ -62,6 +64,12 @@ public final class PositionDescriptionPanel extends JPanel {
             "Keep the current described position");
 
     /**
+     * Toggle that evaluates with a real engine search instead of the static glance.
+     */
+    private final JCheckBox engineEvalBox = Ui.withTooltip(new ToggleBox("Engine eval", false),
+            "Judge the position with a real engine search, not the static evaluation");
+
+    /**
      * Generated description output.
      */
     private final JTextArea outputArea = new JTextArea();
@@ -92,7 +100,9 @@ public final class PositionDescriptionPanel extends JPanel {
     public PositionDescriptionPanel() {
         super(new BorderLayout(Theme.SPACE_MD, Theme.SPACE_MD));
         setOpaque(true);
-        setBackground(Theme.BG);
+        // Match every other tab root (PANEL_SOLID); BG is the lighter backdrop
+        // token and made this one tab read as a different shade than its siblings.
+        setBackground(Theme.PANEL_SOLID);
         setBorder(Theme.pad(12, 12, 12, 12));
         buildUi();
     }
@@ -139,11 +149,13 @@ public final class PositionDescriptionPanel extends JPanel {
         JButton export = Ui.button("Export", false, event -> exportOutput());
         engineBox.addActionListener(event -> regenerate());
         detailBox.addActionListener(event -> regenerate());
+        engineEvalBox.addActionListener(event -> regenerate());
         freezeBox.addActionListener(event -> statusLabel.setText(freezeBox.isSelected() ? "Frozen" : "Following"));
 
-        JPanel toolbar = Ui.transparentPanel(new FlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
+        JPanel toolbar = Ui.transparentPanel(new WrappingFlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
         toolbar.add(Ui.labeledControl("Engine", engineBox));
         toolbar.add(Ui.labeledControl("Detail", detailBox));
+        toolbar.add(engineEvalBox);
         toolbar.add(freezeBox);
         toolbar.add(regenerate);
         toolbar.add(copy);
@@ -189,7 +201,9 @@ public final class PositionDescriptionPanel extends JPanel {
             worker.cancel(true);
         }
         long id = ++requestId;
-        statusLabel.setText("Generating");
+        boolean engineEval = engineEvalBox.isSelected();
+        PositionDescriptionDetail detail = PositionDescriptionDetail.parse(String.valueOf(detailBox.getSelectedItem()));
+        statusLabel.setText(engineEval ? "Searching" : "Generating");
         worker = new SwingWorker<>() {
             /**
              * Generates description text away from the event-dispatch thread.
@@ -200,7 +214,9 @@ public final class PositionDescriptionPanel extends JPanel {
             protected Result doInBackground() {
                 Position position = new Position(fen);
                 PositionDescriptionInput input = PositionDescriptionInput.from(position);
-                PositionDescriptionDetail detail = PositionDescriptionDetail.parse(String.valueOf(detailBox.getSelectedItem()));
+                if (engineEval) {
+                    input = input.withEvaluation(EngineEvaluator.evaluate(position));
+                }
                 String text = new ClassicalPositionDescriptionGenerator().generate(input, detail);
                 return new Result(input, text);
             }
@@ -217,7 +233,7 @@ public final class PositionDescriptionPanel extends JPanel {
                     Result result = get();
                     outputArea.setText(result.text());
                     signalsArea.setText(signalText(result.input()));
-                    statusLabel.setText("Classical");
+                    statusLabel.setText(engineEval ? "Engine eval" : "Classical");
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
                     statusLabel.setText("Interrupted");
@@ -245,7 +261,9 @@ public final class PositionDescriptionPanel extends JPanel {
                 + "legal_moves=" + input.moves().legal() + "\n"
                 + "forcing_moves=" + input.moves().forcing() + "\n"
                 + "material_balance_cp=" + input.material().balanceCp() + "\n"
+                + "eval_source=" + input.evaluation().source() + "\n"
                 + "eval_cp_white=" + input.evaluation().cpWhite() + "\n"
+                + "eval_mate_in=" + input.evaluation().mateIn() + "\n"
                 + "tags=" + input.tags().size() + "\n"
                 + "candidates=" + input.candidates().size();
     }

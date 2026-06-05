@@ -3,6 +3,11 @@ package application.gui.workbench.command;
 import application.gui.workbench.ui.Theme;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.util.Locale;
 import javax.swing.JTextPane;
 import javax.swing.text.BadLocationException;
@@ -45,6 +50,11 @@ public final class Console extends JTextPane implements Theme.ConsoleLike {
     private int lineStart;
 
     /**
+     * Centered guidance drawn while the console has no output yet.
+     */
+    private String placeholder = "";
+
+    /**
      * Creates an empty console view.
      */
     public Console() {
@@ -63,7 +73,8 @@ public final class Console extends JTextPane implements Theme.ConsoleLike {
         setCaretColor(Theme.TERMINAL_TEXT);
         setSelectionColor(Theme.TEXT_SELECTION);
         setSelectedTextColor(Theme.TERMINAL_TEXT);
-        setFont(Theme.mono(13));
+        // Console-specific mono guarantees CLI progress-bar glyphs render.
+        setFont(Theme.consoleMono(13));
         setBorder(Theme.pad(7, 9, 7, 9));
         repaint();
     }
@@ -238,6 +249,54 @@ public final class Console extends JTextPane implements Theme.ConsoleLike {
         StyleConstants.setForeground(attributes, color);
         StyleConstants.setBold(attributes, bold);
         return attributes;
+    }
+
+    /**
+     * Sets centered guidance shown while the console has no output, so an idle
+     * console reads as a deliberate empty state instead of a black void.
+     *
+     * @param text placeholder text, or empty to show nothing
+     */
+    public void setPlaceholder(String text) {
+        this.placeholder = text == null ? "" : text;
+        repaint();
+    }
+
+    /**
+     * Fills the viewport while empty so the placeholder centers in the visible
+     * area rather than floating near the top of a short text pane.
+     *
+     * @return true when there is no output yet
+     */
+    @Override
+    public boolean getScrollableTracksViewportHeight() {
+        return getDocument().getLength() == 0 || super.getScrollableTracksViewportHeight();
+    }
+
+    /**
+     * Paints the console, drawing the centered placeholder while it is empty.
+     *
+     * @param graphics graphics context
+     */
+    @Override
+    protected void paintComponent(Graphics graphics) {
+        super.paintComponent(graphics);
+        if (placeholder.isEmpty() || getDocument().getLength() > 0) {
+            return;
+        }
+        Graphics2D g = (Graphics2D) graphics.create();
+        try {
+            g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+                    RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            g.setFont(Theme.font(Theme.FONT_BODY, Font.PLAIN));
+            g.setColor(Theme.MUTED);
+            FontMetrics fm = g.getFontMetrics();
+            int x = Math.max(getInsets().left, (getWidth() - fm.stringWidth(placeholder)) / 2);
+            int y = getHeight() / 2 + fm.getAscent() / 2 - 2;
+            g.drawString(placeholder, x, y);
+        } finally {
+            g.dispose();
+        }
     }
 
     /**

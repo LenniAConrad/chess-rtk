@@ -684,6 +684,80 @@ public final class GameModel extends AbstractTableModel {
     }
 
     /**
+     * Selection of which mainline positions a PGN import should yield.
+     */
+    public enum FenMode {
+        /**
+         * Every position, one FEN per ply (including the start).
+         */
+        ALL,
+
+        /**
+         * Only the final position of the game.
+         */
+        FINAL,
+
+        /**
+         * The start position and every Nth ply thereafter.
+         */
+        EVERY_NTH
+    }
+
+    /**
+     * Walks a parsed game's mainline and returns the selected positions as FEN
+     * strings. Mirrors {@link #loadMainlineMoves} so imported FENs match the
+     * navigator exactly; an unparseable move stops the walk at that point.
+     *
+     * @param game parsed game
+     * @param mode which positions to keep
+     * @param everyNth ply stride for {@link FenMode#EVERY_NTH}
+     * @return selected FEN strings in mainline order
+     */
+    public static List<String> mainlineFens(Game game, FenMode mode, int everyNth) {
+        if (game == null) {
+            return List.of();
+        }
+        Position cursor = game.getStartPosition() == null
+                ? new Position(Setup.getStandardStartFEN())
+                : game.getStartPosition().copy();
+        List<String> all = new ArrayList<>();
+        all.add(cursor.toString());
+        Game.Node node = game.getMainline();
+        while (node != null) {
+            try {
+                short move = SAN.fromAlgebraic(cursor, node.getSan());
+                Position next = cursor.copy();
+                next.play(move);
+                all.add(next.toString());
+                cursor = next;
+            } catch (RuntimeException ex) {
+                break;
+            }
+            node = node.getNext();
+        }
+        return switch (mode) {
+            case FINAL -> all.isEmpty() ? List.of() : List.of(all.get(all.size() - 1));
+            case EVERY_NTH -> everyNthFen(all, Math.max(1, everyNth));
+            case ALL -> List.copyOf(all);
+        };
+    }
+
+    /**
+     * Keeps the first FEN and every {@code stride}-th FEN thereafter.
+     *
+     * @param all every mainline FEN
+     * @param stride ply stride
+     * @return sampled FENs
+     */
+    private static List<String> everyNthFen(List<String> all, int stride) {
+        List<String> sampled = new ArrayList<>();
+        for (int i = 0; i < all.size(); i += stride) {
+            sampled.add(all.get(i));
+        }
+        return List.copyOf(sampled);
+    }
+
+    /**
      * Loads the PGN mainline into the navigation arrays.
      *
      * @param start root position

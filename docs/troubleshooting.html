@@ -152,7 +152,7 @@ Warnings:
 </ul>
 <pre><code class="language-bash">crtk engine uci-smoke -P config/default.engine.toml --max-nodes 1</code></pre>
 <ul>
-<li>To take the external engine out of the picture, use commands that never spawn a UCI process: <code>engine static</code> and <code>engine eval</code> (local evaluators), <code>engine builtin</code> / <code>engine java</code> (built-in MCTS searcher), <code>engine mate</code> (forced-mate prover), <code>move list</code>, <code>engine perft</code>, and <code>engine perft-suite</code>. If those run and <code>engine analyze</code> does not, the fault is in the external-engine configuration, not the chess core. See <a href="configuration.html">Configuration</a> and <a href="lc0.html">LC0</a> for protocol setup.</li>
+<li>To take the external engine out of the picture, use commands that never spawn a UCI process: <code>engine static</code> and <code>engine eval</code> (local evaluators), <code>engine builtin</code> / <code>engine java</code> (built-in searcher), <code>engine mate</code> (forced-mate prover), <code>move list</code>, <code>engine perft</code>, and <code>engine perft-suite</code>. If those run and <code>engine analyze</code> does not, the fault is in the external-engine configuration, not the chess core. See <a href="configuration.html">Configuration</a> and <a href="lc0.html">LC0</a> for protocol setup.</li>
 </ul>
 <h2 id="perft-mismatches">Perft mismatches</h2>
 <p><strong>Symptom:</strong> <code>engine perft-suite</code> reports a failing row, or <code>engine perft</code> returns a node count that disagrees with a known reference.</p>

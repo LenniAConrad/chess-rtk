@@ -119,22 +119,22 @@ public final class Defaults {
     /**
      * Default PUCT exploration constant.
      */
-    public static final int MCTS_CPUCT = 1;
+    public static final double MCTS_CPUCT = 2.8;
 
     /**
      * Minimum PUCT exploration constant.
      */
-    public static final int MCTS_CPUCT_MIN = 1;
+    public static final double MCTS_CPUCT_MIN = 0.05;
 
     /**
      * Maximum PUCT exploration constant.
      */
-    public static final int MCTS_CPUCT_MAX = 5;
+    public static final double MCTS_CPUCT_MAX = 8.0;
 
     /**
      * Step size for PUCT exploration controls.
      */
-    public static final int MCTS_CPUCT_STEP = 1;
+    public static final double MCTS_CPUCT_STEP = 0.25;
 
     /**
      * Default state for the Network tab's leaf-following inference toggle.

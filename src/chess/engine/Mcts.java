@@ -15,6 +15,7 @@ import chess.core.Piece;
 import chess.core.Position;
 import chess.eval.CentipawnEvaluator;
 import chess.eval.Classical;
+import chess.eval.See;
 
 /**
  * Built-in PUCT Monte Carlo tree searcher.
@@ -38,13 +39,25 @@ public final class Mcts implements AutoCloseable {
 
     /**
      * Default PUCT exploration constant.
+     *
+     * <p>
+     * Classical MCTS self-play still favors more root exploration than the older
+     * 1.4 value, but a 2026-06 fixed-node sweep found that 2.8 was stronger than
+     * 3.2: at 800 nodes per move it scored +92 =25 -75 over 192 games.
+     * </p>
      */
-    private static final double DEFAULT_CPUCT = 1.4;
+    private static final double DEFAULT_CPUCT = 2.8;
 
     /**
-     * First-play urgency reduction for unvisited children.
+     * Default first-play urgency reduction for unvisited children.
+     *
+     * <p>
+     * After increasing {@code cpuct}, a lighter reduction preserved useful
+     * exploration: at 800 nodes per move, 0.05 scored +61 =9 -26 over 96 games
+     * against the older 0.25 value.
+     * </p>
      */
-    private static final double FPU_REDUCTION = 0.25;
+    private static final double DEFAULT_FPU_REDUCTION = 0.05;
 
     /**
      * Upper bound for one tree line.
@@ -77,6 +90,43 @@ public final class Mcts implements AutoCloseable {
     private static final int DEFAULT_BATCH_SIZE = 1;
 
     /**
+     * Handcrafted prior bonus for moves that give check. This is intentionally
+     * below the castling bonus and far below major captures/promotions: it should
+     * surface forcing quiet moves without letting speculative checks dominate the
+     * policy. At 800 nodes per move, 4k scored +31 =6 -27 over a 64-game screen
+     * and +48 =12 -36 over a 96-game confirmation against no check bonus.
+     */
+    private static final int DEFAULT_CHECK_PRIOR_BONUS = 4_000;
+
+    /**
+     * Default handcrafted prior penalty for captures that lose material by SEE.
+     * At 800 nodes per move, 8k scored +35 =3 -26 over a 64-game screen against
+     * no SEE-losing-capture penalty.
+     */
+    private static final int DEFAULT_LOSING_CAPTURE_PRIOR_PENALTY = 8_000;
+
+    /**
+     * Default scale applied to positive SEE values for winning-capture priors.
+     * At 800 nodes per move, scale 8 scored +35 =5 -24 over a 64-game screen
+     * and +48 =7 -41 over a 96-game confirmation against no positive-SEE capture
+     * bonus.
+     */
+    private static final int DEFAULT_WINNING_CAPTURE_PRIOR_SCALE = 8;
+
+    /**
+     * Per-thread quiescence undo-state scratch. MCTS can run worker threads over
+     * one searcher, so this cannot be a simple instance array.
+     */
+    private static final ThreadLocal<Position.State[]> QUIESCENCE_STATES =
+            ThreadLocal.withInitial(Mcts::newQuiescenceStates);
+
+    /**
+     * Per-thread root-to-leaf path scratch for the common one-playout path.
+     */
+    private static final ThreadLocal<ArrayList<Node>> PATH_SCRATCH =
+            ThreadLocal.withInitial(() -> new ArrayList<>(MAX_SEARCH_PLY));
+
+    /**
      * Policy/value backend.
      */
     private final SearchBackend backend;
@@ -95,6 +145,26 @@ public final class Mcts implements AutoCloseable {
      * PUCT exploration constant.
      */
     private double cpuct;
+
+    /**
+     * First-play urgency reduction applied to unvisited children.
+     */
+    private final double fpuReduction;
+
+    /**
+     * Handcrafted policy bonus for moves that give check.
+     */
+    private final int checkPriorBonus;
+
+    /**
+     * Handcrafted policy penalty for SEE-losing captures.
+     */
+    private final int losingCapturePriorPenalty;
+
+    /**
+     * Handcrafted policy scale for SEE-winning captures.
+     */
+    private final int winningCapturePriorScale;
 
     /**
      * Worker thread count for MCTS search.
@@ -164,7 +234,61 @@ public final class Mcts implements AutoCloseable {
      * @param cpuct PUCT exploration constant
      */
     public Mcts(CentipawnEvaluator evaluator, double cpuct) {
-        this(new EvaluatorBackend(requireEvaluator(evaluator)), cpuct);
+        this(evaluator, cpuct, DEFAULT_FPU_REDUCTION);
+    }
+
+    /**
+     * Creates an evaluator-backed MCTS searcher.
+     *
+     * @param evaluator centipawn evaluator used for values and move priors
+     * @param cpuct PUCT exploration constant
+     * @param fpuReduction first-play urgency reduction for unvisited children
+     */
+    public Mcts(CentipawnEvaluator evaluator, double cpuct, double fpuReduction) {
+        this(evaluator, cpuct, fpuReduction, DEFAULT_CHECK_PRIOR_BONUS);
+    }
+
+    /**
+     * Creates an evaluator-backed MCTS searcher.
+     *
+     * @param evaluator centipawn evaluator used for values and move priors
+     * @param cpuct PUCT exploration constant
+     * @param fpuReduction first-play urgency reduction for unvisited children
+     * @param checkPriorBonus handcrafted prior bonus for moves that give check
+     */
+    public Mcts(CentipawnEvaluator evaluator, double cpuct, double fpuReduction, int checkPriorBonus) {
+        this(evaluator, cpuct, fpuReduction, checkPriorBonus, DEFAULT_LOSING_CAPTURE_PRIOR_PENALTY);
+    }
+
+    /**
+     * Creates an evaluator-backed MCTS searcher.
+     *
+     * @param evaluator centipawn evaluator used for values and move priors
+     * @param cpuct PUCT exploration constant
+     * @param fpuReduction first-play urgency reduction for unvisited children
+     * @param checkPriorBonus handcrafted prior bonus for moves that give check
+     * @param losingCapturePriorPenalty handcrafted prior penalty for SEE-losing captures
+     */
+    public Mcts(CentipawnEvaluator evaluator, double cpuct, double fpuReduction, int checkPriorBonus,
+            int losingCapturePriorPenalty) {
+        this(evaluator, cpuct, fpuReduction, checkPriorBonus, losingCapturePriorPenalty,
+                DEFAULT_WINNING_CAPTURE_PRIOR_SCALE);
+    }
+
+    /**
+     * Creates an evaluator-backed MCTS searcher.
+     *
+     * @param evaluator centipawn evaluator used for values and move priors
+     * @param cpuct PUCT exploration constant
+     * @param fpuReduction first-play urgency reduction for unvisited children
+     * @param checkPriorBonus handcrafted prior bonus for moves that give check
+     * @param losingCapturePriorPenalty handcrafted prior penalty for SEE-losing captures
+     * @param winningCapturePriorScale scale applied to positive SEE values
+     */
+    public Mcts(CentipawnEvaluator evaluator, double cpuct, double fpuReduction, int checkPriorBonus,
+            int losingCapturePriorPenalty, int winningCapturePriorScale) {
+        this(new EvaluatorBackend(requireEvaluator(evaluator)), cpuct, fpuReduction, checkPriorBonus,
+                losingCapturePriorPenalty, winningCapturePriorScale);
     }
 
     /**
@@ -211,11 +335,41 @@ public final class Mcts implements AutoCloseable {
      * @param cpuct cpuct value
      */
     private Mcts(SearchBackend backend, double cpuct) {
+        this(backend, cpuct, DEFAULT_FPU_REDUCTION, DEFAULT_CHECK_PRIOR_BONUS,
+                DEFAULT_LOSING_CAPTURE_PRIOR_PENALTY, DEFAULT_WINNING_CAPTURE_PRIOR_SCALE);
+    }
+
+    /**
+     * Creates a searcher around a policy/value backend.
+     * @param backend backend value
+     * @param cpuct cpuct value
+     * @param fpuReduction first-play urgency reduction value
+     */
+    private Mcts(SearchBackend backend, double cpuct, double fpuReduction) {
+        this(backend, cpuct, fpuReduction, DEFAULT_CHECK_PRIOR_BONUS, DEFAULT_LOSING_CAPTURE_PRIOR_PENALTY,
+                DEFAULT_WINNING_CAPTURE_PRIOR_SCALE);
+    }
+
+    /**
+     * Creates a searcher around a policy/value backend.
+     * @param backend backend value
+     * @param cpuct cpuct value
+     * @param fpuReduction first-play urgency reduction value
+     * @param checkPriorBonus handcrafted prior bonus for moves that give check
+     * @param losingCapturePriorPenalty handcrafted prior penalty for SEE-losing captures
+     * @param winningCapturePriorScale scale applied to positive SEE values
+     */
+    private Mcts(SearchBackend backend, double cpuct, double fpuReduction, int checkPriorBonus,
+            int losingCapturePriorPenalty, int winningCapturePriorScale) {
         if (backend == null) {
             throw new IllegalArgumentException("backend == null");
         }
         this.backend = backend;
         this.cpuct = Math.max(0.05, cpuct);
+        this.fpuReduction = Math.max(0.0, fpuReduction);
+        this.checkPriorBonus = Math.max(0, checkPriorBonus);
+        this.losingCapturePriorPenalty = Math.max(0, losingCapturePriorPenalty);
+        this.winningCapturePriorScale = Math.max(0, winningCapturePriorScale);
         this.transpositions = newTranspositionTable(DEFAULT_TRANSPOSITION_LIMIT);
         this.rootHistory = Map.of();
     }
@@ -253,18 +407,6 @@ public final class Mcts implements AutoCloseable {
      */
     public Result search(Position position, Limits limits, SearchListener listener) {
         return search(position, limits, listener, false);
-    }
-
-    /**
-     * Searches a position while attempting to reuse an existing child subtree.
-     *
-     * @param position root position
-     * @param limits resource limits
-     * @param listener optional search-info listener
-     * @return search result
-     */
-    public Result searchReusable(Position position, Limits limits, SearchListener listener) {
-        return search(position, limits, listener, true, null);
     }
 
     /**
@@ -328,30 +470,12 @@ public final class Mcts implements AutoCloseable {
     }
 
     /**
-     * Updates the PUCT exploration constant.
-     *
-     * @param value new exploration constant
-     */
-    public void setCpuct(double value) {
-        cpuct = Math.max(0.05, value);
-    }
-
-    /**
      * Updates the MCTS worker thread count.
      *
      * @param value requested worker count
      */
     public void setThreads(int value) {
         threads = Math.max(1, value);
-    }
-
-    /**
-     * Returns the configured worker thread count.
-     *
-     * @return worker threads
-     */
-    public int threads() {
-        return threads;
     }
 
     /**
@@ -596,7 +720,7 @@ public final class Mcts implements AutoCloseable {
                 if (!shouldContinue(started, maxNodes, maxMillis)) {
                     return;
                 }
-                task = selectLeaf();
+                task = selectLeafReusable();
                 addVirtualLoss(task.path());
             }
             Evaluation value;
@@ -793,7 +917,7 @@ public final class Mcts implements AutoCloseable {
      * Runs one PUCT playout.
      */
     private void iterate() {
-        LeafTask task = selectLeaf();
+        LeafTask task = selectLeafReusable();
         addVirtualLoss(task.path());
         try {
             completeTask(task, evaluateTask(task));
@@ -833,7 +957,25 @@ public final class Mcts implements AutoCloseable {
      * @return select leaf result
      */
     private LeafTask selectLeaf() {
-        List<Node> path = new ArrayList<>();
+        return selectLeaf(new ArrayList<>());
+    }
+
+    /**
+     * Selects a leaf task using per-thread path scratch.
+     * @return selected leaf task
+     */
+    private LeafTask selectLeafReusable() {
+        ArrayList<Node> path = PATH_SCRATCH.get();
+        path.clear();
+        return selectLeaf(path);
+    }
+
+    /**
+     * Selects a leaf task into the provided path buffer.
+     * @param path mutable path buffer
+     * @return selected leaf task
+     */
+    private LeafTask selectLeaf(List<Node> path) {
         Node node = root;
         path.add(node);
         while (node.proof == ProofState.UNKNOWN
@@ -855,7 +997,7 @@ public final class Mcts implements AutoCloseable {
         removeVirtualLoss(task.path());
         Node node = task.node();
         maxDepthReached = Math.max(maxDepthReached, node.depth);
-        if (!node.expanded && !isTerminal(node, task.path()) && node.depth < MAX_SEARCH_PLY) {
+        if (!node.expanded && node.depth < MAX_SEARCH_PLY) {
             expand(node, task.path());
         }
         backup(task.path(), value);
@@ -891,12 +1033,12 @@ public final class Mcts implements AutoCloseable {
      * @param child child node
      * @return root perspective result
      */
-    private static double rootPerspective(Node parent, Node child) {
+    private double rootPerspective(Node parent, Node child) {
         if (child.proof != ProofState.UNKNOWN) {
             return proofValueForParent(child);
         }
         if (child.totalVisits() == 0) {
-            return parent.visits() == 0 ? 0.0 : parent.q() - FPU_REDUCTION;
+            return parent.visits() == 0 ? 0.0 : parent.q() - fpuReduction;
         }
         return -child.q();
     }
@@ -957,10 +1099,13 @@ public final class Mcts implements AutoCloseable {
         for (int i = 0; i < moves.length; i++) {
             moves[i] = legal.raw(i);
         }
-        double[] priors = priors(node.position, moves);
+        Position[] childPositions = new Position[moves.length];
         for (int i = 0; i < moves.length; i++) {
-            Position childPosition = node.position.copy().play(moves[i]);
-            node.children.add(newNode(node, moves[i], childPosition, priors[i], node.depth + 1));
+            childPositions[i] = node.position.copy().play(moves[i]);
+        }
+        double[] priors = priors(node.position, moves, childPositions);
+        for (int i = 0; i < moves.length; i++) {
+            node.children.add(newNode(node, moves[i], childPositions[i], priors[i], node.depth + 1));
         }
         node.expanded = true;
         refreshProof(node);
@@ -1133,8 +1278,8 @@ public final class Mcts implements AutoCloseable {
             return best;
         }
         short[] moves = quiescenceMoves(position, legal, inCheck);
+        Position.State state = quiescenceState(qply);
         for (short move : moves) {
-            Position.State state = new Position.State();
             position.play(move, state);
             try {
                 Evaluation value = quiescence(position, qply + 1, -beta, -currentAlpha).flipped();
@@ -1191,9 +1336,9 @@ public final class Mcts implements AutoCloseable {
      * @return find mate in one result
      */
     private static short findMateInOne(Position position, MoveList legal) {
+        Position.State state = new Position.State();
         for (int i = 0; i < legal.size(); i++) {
             short move = legal.raw(i);
-            Position.State state = new Position.State();
             position.play(move, state);
             try {
                 if (position.inCheck() && position.legalMoves().isEmpty()) {
@@ -1204,6 +1349,29 @@ public final class Mcts implements AutoCloseable {
             }
         }
         return Move.NO_MOVE;
+    }
+
+    /**
+     * Creates per-thread quiescence undo-state scratch.
+     *
+     * @return initialized undo-state array
+     */
+    private static Position.State[] newQuiescenceStates() {
+        Position.State[] states = new Position.State[QUIESCENCE_MAX_PLY];
+        for (int i = 0; i < states.length; i++) {
+            states[i] = new Position.State();
+        }
+        return states;
+    }
+
+    /**
+     * Returns a reusable quiescence undo state for the current thread and qply.
+     *
+     * @param qply quiescence ply
+     * @return reusable undo state
+     */
+    private static Position.State quiescenceState(int qply) {
+        return QUIESCENCE_STATES.get()[Math.min(qply, QUIESCENCE_MAX_PLY - 1)];
     }
 
     /**
@@ -1479,9 +1647,6 @@ public final class Mcts implements AutoCloseable {
             Node node = path.get(i);
             node.stats.visits++;
             node.stats.valueSum += value.value();
-            node.stats.winSum += value.pWin();
-            node.stats.drawSum += value.pDraw();
-            node.stats.lossSum += value.pLoss();
             value = value.flipped();
         }
     }
@@ -1514,15 +1679,16 @@ public final class Mcts implements AutoCloseable {
      * Builds normalized move priors.
      * @param position chess position
      * @param moves candidate moves
+     * @param childPositions child positions reached by {@code moves}
      * @return priors result
      */
-    private double[] priors(Position position, short[] moves) {
+    private double[] priors(Position position, short[] moves, Position[] childPositions) {
         int[] scores = new int[moves.length];
         scoreBackendMoves(position, moves, scores);
         double max = -Double.MAX_VALUE;
         double[] priors = new double[moves.length];
         for (int i = 0; i < moves.length; i++) {
-            priors[i] = (scores[i] + tacticalPrior(position, moves[i])) / 18_000.0;
+            priors[i] = (scores[i] + tacticalPrior(position, moves[i], childPositions[i])) / 18_000.0;
             if (priors[i] > max) {
                 max = priors[i];
             }
@@ -1583,21 +1749,33 @@ public final class Mcts implements AutoCloseable {
      * Adds cheap tactical priors so the tree opens on plausible moves.
      * @param position chess position
      * @param move move encoded in CRTK move format
+     * @param childPosition child reached by {@code move}
      * @return tactical prior result
      */
-    private static int tacticalPrior(Position position, short move) {
+    private int tacticalPrior(Position position, short move, Position childPosition) {
         int bonus = 0;
         byte fromPiece = position.pieceAt(Move.getFromIndex(move));
         byte captured = position.pieceAt(Move.getToIndex(move));
         if (captured != Piece.EMPTY) {
             bonus += Piece.getValue(captured) * 40;
             bonus -= Piece.getValue(fromPiece) * 6;
+            if (losingCapturePriorPenalty > 0 || winningCapturePriorScale > 0) {
+                int see = See.see(position, move);
+                if (see < 0) {
+                    bonus -= losingCapturePriorPenalty;
+                } else if (winningCapturePriorScale > 0 && see > 0) {
+                    bonus += Math.min(900, see) * winningCapturePriorScale;
+                }
+            }
         }
         if (position.isPromotion(move)) {
             bonus += promotionValue(Move.getPromotion(move)) * 35;
         }
         if (position.isCastle(move)) {
             bonus += 12_000;
+        }
+        if (childPosition.inCheck()) {
+            bonus += checkPriorBonus;
         }
         return bonus;
     }

@@ -130,18 +130,11 @@ public final class CnnView extends NetworkView {
     }
 
     /**
-     * Paints the empty placeholder.
-     *
-     * @param g graphics
-     * @param bounds bounds
+     * {@inheritDoc}
      */
     @Override
-    protected void paintEmpty(Graphics2D g, Rectangle bounds) {
-        g.setColor(Theme.BG);
-        g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
-        g.setColor(Theme.MUTED);
-        g.setFont(Theme.font(13, Font.PLAIN));
-        g.drawString("Loading CNN snapshot...", PAD, 32);
+    protected String emptyStateTitle() {
+        return "Loading CNN snapshot\u2026";
     }
 
     /**

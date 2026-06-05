@@ -41,6 +41,8 @@ public final class Positions {
                 "8/8/4k3/8/4K3/4P3/8/8 w - - 0 1");
         map.put("Mate in one",
                 "r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4");
+        map.put("Lennart's puzzle",
+                "8/p1p3Q1/1p4r1/5qk1/5pp1/P7/1P5R/K7 w - - 0 1");
         namedPositions = Collections.unmodifiableMap(map);
     }
 

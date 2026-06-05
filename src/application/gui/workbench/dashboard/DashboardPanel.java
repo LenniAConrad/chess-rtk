@@ -8,32 +8,19 @@ import application.gui.workbench.session.SessionListener;
 import application.gui.workbench.network.NetworkDiagnosticsPanel;
 import application.gui.workbench.network.NetworkPanel;
 import application.gui.workbench.network.RealActivations;
-import application.gui.workbench.ui.MiniChart;
-import application.gui.workbench.ui.TagCloud;
+import application.gui.workbench.ui.CardGrid;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
-import chess.core.Position;
-import java.awt.BasicStroke;
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.FontMetrics;
-import java.awt.Graphics2D;
-import java.awt.Graphics;
 import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.awt.Container;
-import java.awt.Point;
-import java.awt.RenderingHints;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Locale;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
@@ -45,13 +32,11 @@ import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
-import javax.swing.Timer;
 
 /**
  * The workbench Dashboard tab — a single operational overview of the current
- * position, engine status, batch readiness, recent command jobs, generated
- * artifacts, and environment health, with quick actions that route into the
- * deeper workbench tabs.
+ * position, engine status, recent command jobs, and environment health, with
+ * quick actions that route into the deeper workbench tabs.
  *
  * <p>The panel renders entirely from the shared {@link Session} model
  * (plus its {@link JobManager} and {@link ArtifactIndex}); it
@@ -64,12 +49,6 @@ public final class DashboardPanel extends JPanel implements SessionListener {
      * Serialization identifier for Swing panel compatibility.
      */
     private static final long serialVersionUID = 1L;
-
-    /**
-     * Maximum width of the dashboard content column. Wide workbench windows
-     * should still feel like an operational surface, not a narrow report page.
-     */
-    private static final int CONTENT_MAX_WIDTH = 1440;
 
     /**
      * Shared session model the dashboard renders from.
@@ -117,11 +96,6 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     private final JLabel engineSummaryValue = value();
 
     /**
-     * Batch card: FEN-input summary.
-     */
-    private final JLabel batchValue = value();
-
-    /**
      * Health card: config-validation state.
      */
     private final JLabel healthConfigValue = value();
@@ -157,6 +131,11 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     private JScrollPane jobScrollPane;
 
     /**
+     * Card container swapping the jobs list with a centered empty-state.
+     */
+    private final JPanel jobsBody = new JPanel(new java.awt.CardLayout());
+
+    /**
      * Recent-job action row, hidden while there are no jobs.
      */
     private JComponent jobActionRow;
@@ -165,46 +144,6 @@ public final class DashboardPanel extends JPanel implements SessionListener {
      * Recent-job actions that require a selected job row.
      */
     private List<JButton> jobActionButtons = List.of();
-
-    /**
-     * Eval-over-plies sparkline for the Current Position card.
-     */
-    private final MiniChart evalChart = new MiniChart();
-
-    /**
-     * Compact material-balance infographic.
-     */
-    private final MaterialStrip materialStrip = new MaterialStrip();
-
-    /**
-     * Game-phase meter.
-     */
-    private final MetricMeter phaseMeter = new MetricMeter("Phase");
-
-    /**
-     * Legal-move mobility meter.
-     */
-    private final MetricMeter mobilityMeter = new MetricMeter("Mobility");
-
-    /**
-     * Side-to-move king safety meter.
-     */
-    private final MetricMeter kingSafetyMeter = new MetricMeter("King safety");
-
-    /**
-     * Pawn-structure meter.
-     */
-    private final MetricMeter pawnStructureMeter = new MetricMeter("Pawn structure");
-
-    /**
-     * Tag cloud for static position tags.
-     */
-    private final TagCloud tagCloud = new TagCloud(TagCloud.Mode.COMPACT);
-
-    /**
-     * Health-check ring infographic.
-     */
-    private final HealthRings healthRings = new HealthRings();
 
     /**
      * Lightweight provider used only for runtime diagnostic previews.
@@ -238,30 +177,19 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         setOpaque(true);
         setBackground(Theme.BG);
 
-        // Top section is two independent masonry columns so a tall card on one
-        // side does not leave a gap beside a short card on the other.
-        JPanel leftColumn = stackColumn();
-        leftColumn.add(buildPositionCard());
-        leftColumn.add(Box.createVerticalStrut(Theme.SPACE_SM));
-        leftColumn.add(buildBatchCard());
-        leftColumn.add(Box.createVerticalGlue());
-
-        JPanel rightColumn = stackColumn();
-        rightColumn.add(buildEngineCard());
-        rightColumn.add(Box.createVerticalStrut(Theme.SPACE_SM));
-        rightColumn.add(buildHealthCard());
-        rightColumn.add(Box.createVerticalGlue());
-
-        JPanel topColumns = Ui.transparentPanel(
-    new GridLayout(1, 2, Theme.SPACE_SM, 0));
-        topColumns.add(leftColumn);
-        topColumns.add(rightColumn);
+        // The compact status cards flow through a responsive masonry so the
+        // dashboard uses the full desktop canvas instead of a narrow centred
+        // ribbon: it packs into as many columns as the window allows, drops
+        // each card into the shortest column, and reflows on resize. The wide
+        // data panels (network runtime, recent jobs) fill the room below it.
+        CardGrid statusGrid = Ui.contentGrid(340);
+        statusGrid.add(buildPositionCard());
+        statusGrid.add(buildEngineCard());
+        statusGrid.add(buildHealthCard());
 
         JPanel grid = Ui.transparentPanel(new GridBagLayout());
         grid.setBorder(Theme.pad(Theme.SPACE_MD));
         GridBagConstraints c = new GridBagConstraints();
-        // One full-width column of sections; a trailing filler row soaks up the
-        // spare vertical space so sections stay packed at the top.
         c.gridx = 0;
         c.weightx = 1.0;
         c.fill = GridBagConstraints.HORIZONTAL;
@@ -269,28 +197,29 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         c.insets = new Insets(Theme.SPACE_XS, Theme.SPACE_XS,
                 Theme.SPACE_XS, Theme.SPACE_XS);
 
-        // Compact quick actions sit above the status cards without turning
-        // the dashboard into a landing page.
+        // Status cards pack across the top at their natural height.
         c.gridy = 0;
-        grid.add(buildQuickActionsCard(), c);
-        c.gridy = 1;
-        grid.add(topColumns, c);
-        c.gridy = 2;
-        grid.add(buildNetworkRuntimeCard(), c);
-        c.gridy = 3;
-        grid.add(buildJobsCard(), c);
-        c.gridy = 4;
-        grid.add(buildOutputsCard(), c);
+        grid.add(statusGrid, c);
 
-        c.gridy = 5;
+        // The two wide data panels stretch to fill the remaining canvas so the
+        // dashboard never bottoms out into a dead void — the same full-height
+        // body the Network and Datasets tabs use. GridLayout forces both cards
+        // to the cell height; their scroll / empty-state bodies grow gracefully.
+        JPanel dataRow = Ui.transparentPanel(new GridLayout(1, 2, Theme.SPACE_MD, 0));
+        dataRow.add(buildNetworkRuntimeCard());
+        dataRow.add(buildJobsCard());
+        c.gridy = 1;
         c.weighty = 1.0;
         c.fill = GridBagConstraints.BOTH;
-        grid.add(Ui.transparentPanel(null), c);
+        grid.add(dataRow, c);
 
-        // Cap the content column and centre it: on a wide monitor the cards
-        // would otherwise stretch edge-to-edge and look sparse.
-        grid.setMaximumSize(new Dimension(CONTENT_MAX_WIDTH, Integer.MAX_VALUE));
-        add(Ui.scroll(Ui.centeredViewport(grid, CONTENT_MAX_WIDTH)), BorderLayout.CENTER);
+        // A top toolbar band leads with the primary action and a hairline
+        // divider, the same chrome the Network and Datasets tabs open with so
+        // the operational tabs read as one design system.
+        add(buildToolbarBand(), BorderLayout.NORTH);
+        // Declare the backdrop so cards float on BG, not the darker PANEL_SOLID
+        // the viewport would otherwise stamp behind a transparent grid.
+        add(Ui.scroll(Ui.fillViewport(grid), () -> Theme.BG), BorderLayout.CENTER);
 
         session.addListener(this);
         session.artifacts().addListener(() -> SwingUtilities.invokeLater(this::refreshArtifacts));
@@ -303,18 +232,25 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     // ------------------------------------------------------------------
 
     /**
-     * Builds the quick-action strip at the top of the Dashboard.
+     * Builds the top toolbar band: a {@code PANEL_SOLID} strip closed by a
+     * hairline divider, carrying the dashboard's quick actions. This mirrors the
+     * toolbar the Network and Datasets tabs lead with so the operational tabs
+     * share one chrome instead of the dashboard alone opening with a card.
      *
-     * @return quick-action card component
+     * @return toolbar band component
      */
-    private JComponent buildQuickActionsCard() {
-        JPanel body = cardBody();
-        body.add(actionRow(
-                quickButton("Analyze position", actions::openAnalyzeTab),
-                quickButton("Open Batch", actions::openBatchTab),
-                quickButton("Open Console", actions::openConsoleTab),
-                quickButton("Run all checks", actions::runAllHealthChecks)));
-        return card("Quick Actions", body);
+    private JComponent buildToolbarBand() {
+        // A titled lead band states what the surface is up front, then carries
+        // its quick actions on the right — the same identity band the other
+        // overview surfaces (Datasets, Publish) lead with so they read as a set.
+        // The primary "Analyze position" CTA stays blue; the rest are quiet.
+        return Ui.surfaceHeader("Dashboard",
+                "Snapshot of the loaded position, engine status, and recent activity",
+                actionRow(
+                        Ui.button("Analyze position", true, event -> actions.openAnalyzeTab()),
+                        quickButton("Open Batch", actions::openBatchTab),
+                        quickButton("Open Console", actions::openConsoleTab),
+                        quickButton("Run all checks", actions::runAllHealthChecks)));
     }
 
     /**
@@ -324,29 +260,14 @@ public final class DashboardPanel extends JPanel implements SessionListener {
      */
     private JComponent buildPositionCard() {
         JPanel body = cardBody();
+        // Just the facts that matter at a glance: the current position and its
+        // legal-move count, with the actions that act on it. Material, phase,
+        // king-safety and the full tag cloud are position-analysis detail that
+        // belongs in the Analyze tab, not decorating the operations dashboard.
         body.add(infoRow("FEN", fenValue));
         body.add(infoRow("Side to move", sideValue));
         body.add(infoRow("Ply", plyValue));
         body.add(infoRow("Legal moves", legalValue));
-        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
-        JPanel metrics = cardBody();
-        materialStrip.setAlignmentX(Component.LEFT_ALIGNMENT);
-        metrics.add(materialStrip);
-        metrics.add(Box.createVerticalStrut(Theme.SPACE_SM));
-        metrics.add(metricGrid(phaseMeter, mobilityMeter, kingSafetyMeter, pawnStructureMeter));
-        body.add(Ui.collapsible("Metrics", metrics, true));
-        JPanel context = cardBody();
-        context.add(caption("Position tags"));
-        context.add(Box.createVerticalStrut(Theme.SPACE_XS));
-        tagCloud.setAlignmentX(Component.LEFT_ALIGNMENT);
-        context.add(tagCloud);
-        context.add(Box.createVerticalStrut(Theme.SPACE_SM));
-        evalChart.setEmptyText("Analyze a position to chart its evaluation");
-        evalChart.setAlignmentX(Component.LEFT_ALIGNMENT);
-        context.add(caption("Eval · White"));
-        context.add(Box.createVerticalStrut(Theme.SPACE_XS));
-        context.add(evalChart);
-        body.add(Ui.collapsible("Tags", context, true));
         body.add(Box.createVerticalStrut(Theme.SPACE_SM));
         body.add(actionRow(
                 quickButton("Copy FEN", actions::copyCurrentFen),
@@ -372,39 +293,17 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     }
 
     /**
-     * Builds the Batch card.
-     *
-     * @return card component
-     */
-    private JComponent buildBatchCard() {
-        JPanel body = cardBody();
-        body.add(infoRow("Input", batchValue));
-        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
-        body.add(actionRow(
-                quickButton("Run batch", actions::runBatch),
-                quickButton("Open Batch", actions::openBatchTab)));
-        return card("Batch", body);
-    }
-
-    /**
-     * Builds the Health card.
+     * Builds the Health card. Three compact status rows; the "Run all checks"
+     * action lives once in the dashboard toolbar rather than being repeated here.
      *
      * @return card component
      */
     private JComponent buildHealthCard() {
-        // The previous Health card spent ~200px on three big circular rings
-        // that repeated the same data the rows below already showed. Three
-        // compact rows + a "Run all checks" button communicate the state in
-        // a sixth of the space and match the modern editor-style density of
-        // the rest of the Dashboard.
         JPanel body = cardBody();
         body.add(infoRow("Config validate", healthConfigValue));
         body.add(infoRow("Doctor", healthDoctorValue));
         body.add(infoRow("Engine smoke", healthSmokeValue));
-        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
-        body.add(actionRow(
-                quickButton("Run all checks", actions::runAllHealthChecks)));
-    return card("Health", body);
+        return card("Health", body);
     }
 
     /**
@@ -413,9 +312,18 @@ public final class DashboardPanel extends JPanel implements SessionListener {
      * @return card component
      */
     private JComponent buildNetworkRuntimeCard() {
-        JPanel body = cardBody();
-        networkDiagnosticsPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        body.add(networkDiagnosticsPanel);
+        // Scroll the runtime panel inside its card so a long models/backends list
+        // is never clipped when the card is short — it scrolls instead. A modest
+        // preferred height keeps the card from demanding the whole window; the
+        // data row stretches it taller and the scroll reveals any overflow.
+        networkDiagnosticsPanel.setOpaque(false);
+        // The scroll sits inside this card, so its viewport must read as CARD,
+        // not the default darker PANEL_SOLID, or the models/backends/cache area
+        // shows as a darker box inside the lighter card.
+        JScrollPane scroll = Ui.scroll(networkDiagnosticsPanel, () -> Theme.CARD);
+        scroll.setPreferredSize(new Dimension(0, 240));
+        JPanel body = Ui.transparentPanel(new BorderLayout());
+        body.add(scroll, BorderLayout.CENTER);
         return card("Network Runtime", body);
     }
 
@@ -443,43 +351,38 @@ public final class DashboardPanel extends JPanel implements SessionListener {
                 .setPreferredWidth(300);
 
         jobScrollPane = Ui.scroll(jobTable);
-        jobScrollPane.setPreferredSize(new Dimension(640, 150));
+        // Pin only the height; width tracks the full-width card cell so the
+        // command/result columns get the room instead of a fixed 640px box.
+        jobScrollPane.setPreferredSize(new Dimension(0, 168));
 
-        JPanel body = cardBody();
-        body.add(jobsCaption);
-        body.add(Box.createVerticalStrut(Theme.SPACE_XS));
-        body.add(jobScrollPane);
-        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
         JButton retryButton = quickButton("Retry", () -> withSelectedJob(actions::retryJob));
         JButton copyButton = quickButton("Copy command", () -> withSelectedJob(actions::copyJobCommand));
         JButton logButton = quickButton("Open log", () -> withSelectedJob(actions::openJobLog));
         JButton manifestButton = quickButton("Open manifest", () -> withSelectedJob(actions::openJobManifest));
         jobActionButtons = List.of(retryButton, copyButton, logButton, manifestButton);
+        jobActionRow = actionRow(retryButton, copyButton, logButton, manifestButton);
         jobTable.getSelectionModel().addListSelectionListener(event -> {
             if (!event.getValueIsAdjusting()) {
                 updateJobActionState();
             }
         });
         jobModel.addTableModelListener(event -> updateJobActionState());
-        updateJobActionState();
-        jobActionRow = actionRow(retryButton, copyButton, logButton, manifestButton);
-        body.add(jobActionRow);
-        updateJobActionState();
-    return card("Recent Jobs", body);
-    }
 
-    /**
-     * Builds the Outputs card.
-     *
-     * @return card component
-     */
-    private JComponent buildOutputsCard() {
-        artifactList.setLayout(new BoxLayout(artifactList, BoxLayout.Y_AXIS));
-        artifactList.setOpaque(true);
-        artifactList.setBackground(Theme.PANEL_SOLID);
-        JPanel body = cardBody();
-        body.add(artifactList);
-    return card("Outputs", body);
+        JPanel list = cardBody();
+        list.add(jobsCaption);
+        list.add(Box.createVerticalStrut(Theme.SPACE_XS));
+        list.add(jobScrollPane);
+        list.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        list.add(jobActionRow);
+
+        // Swap to a centered empty-state when there are no runs, so the
+        // full-height jobs card never shows a lonely caption in a tall void.
+        jobsBody.setOpaque(false);
+        jobsBody.add(list, "list");
+        jobsBody.add(Ui.emptyState("No runs yet",
+                "Run a command from the Commands or Batch tab to populate this list."), "empty");
+        updateJobActionState();
+        return card("Recent Jobs", jobsBody);
     }
 
     // ------------------------------------------------------------------
@@ -501,9 +404,6 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         sideValue.setText(session.whiteToMove() ? "White" : "Black");
         plyValue.setText(session.ply() + " / " + session.lastPly());
         legalValue.setText(Integer.toString(session.legalMoveCount()));
-        List<String> tags = session.tags();
-        tagCloud.setTags(tags);
-        applyPositionInfographics(PositionStats.from(fen, session.legalMoveCount()));
 
         String protocol = session.engineProtocolPath();
         enginePathValue.setText(protocol.isEmpty() ? "(CLI default)" : protocol);
@@ -514,41 +414,12 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         engineSummaryValue.setText(pausedLiveEngine || engineSummary.isEmpty() ? "—" : engineSummary);
         engineSummaryValue.setToolTipText(pausedLiveEngine || engineSummary.isEmpty() ? null : engineSummary);
 
-        String batch = session.batchSummary();
-        batchValue.setText(batch.isEmpty() ? "no FEN rows" : batch);
-        batchValue.setToolTipText(batch.isEmpty() ? null : batch);
-
         HealthSnapshot health = session.health();
-        healthConfigValue.setText(health.config().label());
-        healthDoctorValue.setText(health.doctor().label());
-        healthSmokeValue.setText(health.engineSmoke().label());
-        healthRings.setChecks(health.config(), health.doctor(), health.engineSmoke());
+        applyHealthValue(healthConfigValue, health.config());
+        applyHealthValue(healthDoctorValue, health.doctor());
+        applyHealthValue(healthSmokeValue, health.engineSmoke());
         networkDiagnosticsPanel.refresh(networkDiagnosticsProvider, "Dashboard",
                 NetworkPanel.runtimeCacheSummary());
-
-        int[] evalCentipawns = session.evalHistoryCentipawns();
-        float[] evalPawns = new float[evalCentipawns.length];
-        for (int i = 0; i < evalCentipawns.length; i++) {
-            evalPawns[i] = evalCentipawns[i] / 100f;
-        }
-        evalChart.setLine(evalPawns);
-    }
-
-    /**
-     * Applies computed position stats to the infographic components.
-     *
-     * @param stats stats snapshot
-     */
-    private void applyPositionInfographics(PositionStats stats) {
-        materialStrip.setStats(stats);
-        phaseMeter.setValue(stats.phaseValue(), stats.phaseLabel(),
-                colorForPhase(stats.phaseValue()));
-        mobilityMeter.setValue(stats.mobilityValue(), stats.mobilityLabel(),
-                colorForMobility(stats.mobilityValue()));
-        kingSafetyMeter.setValue(stats.kingSafetyValue(), stats.kingSafetyLabel(),
-                colorForSafety(stats.kingSafetyValue()));
-        pawnStructureMeter.setValue(stats.pawnStructureValue(), stats.pawnStructureLabel(),
-                colorForSafety(stats.pawnStructureValue()));
     }
 
     /**
@@ -608,12 +479,7 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     private void updateJobActionState() {
         boolean hasRows = jobModel.getRowCount() > 0;
         boolean hasSelection = jobModel.jobAt(jobTable.getSelectedRow()) != null;
-        jobsCaption.setText(hasRows
-                ? "Newest first · select a row for actions"
-                : "No runs yet. Run a command from the Commands or Batch tab to populate this list.");
-        if (jobScrollPane != null) {
-            jobScrollPane.setVisible(hasRows);
-        }
+        ((java.awt.CardLayout) jobsBody.getLayout()).show(jobsBody, hasRows ? "list" : "empty");
         if (jobActionRow != null) {
             jobActionRow.setVisible(hasRows);
         }
@@ -632,6 +498,24 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         label.setFont(Theme.font(12, Font.PLAIN));
         label.setForeground(Theme.TEXT);
         return label;
+    }
+
+    /**
+     * Sets a health-check value label's text and colours it by state — green for
+     * a pass, red for a failure, muted for not-run/running — so a failed check
+     * is visually distinct instead of reading as neutral ink. Uses
+     * {@link Theme#foreground} so the colour round-trips on a theme toggle.
+     *
+     * @param label health value label
+     * @param check check state
+     */
+    private static void applyHealthValue(JLabel label, HealthSnapshot.Check check) {
+        label.setText(check.label());
+        Theme.foreground(label, switch (check) {
+            case OK -> Theme.ForegroundRole.SUCCESS;
+            case FAILED -> Theme.ForegroundRole.ERROR;
+            case RUNNING, UNKNOWN -> Theme.ForegroundRole.MUTED;
+        });
     }
 
     /**
@@ -665,6 +549,10 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         captionLabel.setPreferredSize(new Dimension(112, Theme.CONTROL_HEIGHT - 8));
         captionLabel.setVerticalAlignment(SwingConstants.TOP);
         row.add(captionLabel, BorderLayout.WEST);
+        // Right-align the value so every row reads as a clean spec sheet — the
+        // values line up on the card's right edge instead of floating mid-row
+        // with a ragged gap after short labels.
+        value.setHorizontalAlignment(SwingConstants.RIGHT);
         row.add(value, BorderLayout.CENTER);
         row.setBorder(Theme.pad(Theme.SPACE_XS / 2, 0));
         return row;
@@ -687,26 +575,6 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     }
 
     /**
-     * Builds a two-column metric grid.
-     *
-     * @param meters meters to add
-     * @return grid component
-     */
-    private static JComponent metricGrid(MetricMeter... meters) {
-        JPanel panel = Ui.transparentPanel(new GridLayout(2, 2,
-                Theme.SPACE_SM, Theme.SPACE_SM));
-        panel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        Dimension size = new Dimension(260, 2 * 54 + Theme.SPACE_SM);
-        panel.setPreferredSize(size);
-        panel.setMinimumSize(size);
-        panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, size.height));
-        for (MetricMeter meter : meters) {
-            panel.add(meter);
-        }
-        return panel;
-    }
-
-    /**
      * Creates a compact secondary quick-action button.
      *
      * @param text button text
@@ -718,239 +586,18 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     }
 
     /**
-     * Picks a phase colour.
-     *
-     * @param value phase value
-     * @return colour
-     */
-    private static Color colorForPhase(float value) {
-        if (value < 0.25f) {
-            return Theme.STATUS_INFO_BORDER;
-        }
-        if (value < 0.68f) {
-            return Theme.ACCENT;
-        }
-        return Theme.STATUS_WARNING_BORDER;
-    }
-
-    /**
-     * Picks a mobility colour.
-     *
-     * @param value normalized mobility
-     * @return colour
-     */
-    private static Color colorForMobility(float value) {
-        if (value < 0.25f) {
-            return Theme.STATUS_WARNING_BORDER;
-        }
-        if (value > 0.75f) {
-            return Theme.STATUS_SUCCESS_BORDER;
-        }
-        return Theme.ACCENT;
-    }
-
-    /**
-     * Picks a quality/safety colour.
-     *
-     * @param value normalized quality
-     * @return colour
-     */
-    private static Color colorForSafety(float value) {
-        if (value < 0.36f) {
-            return Theme.STATUS_ERROR_BORDER;
-        }
-        if (value < 0.66f) {
-            return Theme.STATUS_WARNING_BORDER;
-        }
-        return Theme.STATUS_SUCCESS_BORDER;
-    }
-
-    /**
-     * Clamps a value into {@code 0..1}.
-     *
-     * @param value raw value
-     * @return clamped value
-     */
-    private static float clamp01(float value) {
-        return Math.max(0f, Math.min(1f, value));
-    }
-
-    /**
-     * Wraps dashboard content as a softly elevated macOS-style grouped card:
-     * a rounded panel surface with a low-contrast border and a faint top
-     * highlight, so related facts read as a distinct group without heavy
-     * landing-page chrome. The card paints its own rounded surface, so it is
-     * non-opaque and lets the page wash show through its rounded corners.
+     * Wraps dashboard content in the shared elevated card used across the
+     * workbench (Datasets/Network analytics cards): a rounded surface with a
+     * low-contrast hairline and a quiet uppercase section eyebrow. Using the
+     * one shared primitive — instead of a bespoke hover-lift card — keeps the
+     * dashboard, dataset, and network grids reading as a single design system.
      *
      * @param title section title
      * @param body section body
      * @return card component
      */
     private static JComponent card(String title, JComponent body) {
-        CardPanel cardPanel = new CardPanel();
-        cardPanel.setBorder(Theme.pad(Theme.SPACE_MD, Theme.SPACE_MD,
-                Theme.SPACE_MD, Theme.SPACE_MD));
-        // Use the shared editor-style section label so Dashboard cards and
-        // Analyze/Commands panels read as one design system; the previous
-        // 13px bold title made Dashboard look like a separate older surface.
-        JLabel header = Theme.section(title);
-        cardPanel.add(header, BorderLayout.NORTH);
-        cardPanel.add(body, BorderLayout.CENTER);
-        // Cap the height so a card keeps its natural size inside a vertical
-        // BoxLayout column instead of stretching to share spare space.
-        cardPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        cardPanel.installHoverTracking();
-        return cardPanel;
-    }
-
-    /**
-     * Softly elevated macOS-style grouped card with a frosted surface and a
-     * subtle hover-lift animation: hovering anywhere over the card warms its
-     * border toward the accent and deepens its drop shadow, eased over a short
-     * transition. The resting state (hover 0) is the default, so the card
-     * reads as a quiet grouped surface until the pointer enters it.
-     */
-    private static final class CardPanel extends JPanel {
-
-        private static final long serialVersionUID = 1L;
-
-        /**
-         * Corner radius for the card surface.
-         */
-        private static final int ARC = Theme.RADIUS + 3;
-
-        /**
-         * Hover transition duration in milliseconds.
-         */
-        private static final int HOVER_MS = 140;
-
-        /**
-         * Current eased hover amount, 0 (resting) to 1 (hovered).
-         */
-        private float hover;
-
-        /**
-         * Hover amount at the start of the active transition.
-         */
-        private float hoverStart;
-
-        /**
-         * Target hover amount for the active transition.
-         */
-        private float hoverTarget;
-
-        /**
-         * Wall-clock start of the active hover transition.
-         */
-        private long animationStartedAt;
-
-        /**
-         * Timer driving the hover-lift transition.
-         */
-        private final Timer hoverTimer;
-
-        /**
-         * Shared listener that tracks pointer enter/exit across the whole card.
-         */
-        private final transient MouseAdapter hoverListener = new MouseAdapter() {
-            /**
-             * {@inheritDoc}
-             */
-            @Override
-            public void mouseEntered(MouseEvent event) {
-                animateTo(1f);
-            }
-
-            /**
-             * {@inheritDoc}
-             */
-            @Override
-            public void mouseExited(MouseEvent event) {
-                Point point = SwingUtilities.convertPoint(event.getComponent(),
-                        event.getPoint(), CardPanel.this);
-                if (!contains(point)) {
-                    animateTo(0f);
-                }
-            }
-        };
-
-        CardPanel() {
-            super(new BorderLayout(0, Theme.SPACE_SM));
-            setOpaque(false);
-            setBackground(Theme.PANEL_SOLID);
-            hoverTimer = new Timer(16, event -> tick());
-            hoverTimer.setCoalesce(true);
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public Dimension getMaximumSize() {
-            return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
-        }
-
-        /**
-         * Installs hover tracking on the card and every current descendant so
-         * the lift animation responds to the pointer anywhere over the card.
-         */
-        void installHoverTracking() {
-            installHover(this);
-        }
-
-        private void installHover(Component component) {
-            component.addMouseListener(hoverListener);
-            if (component instanceof Container container) {
-                for (Component child : container.getComponents()) {
-                    installHover(child);
-                }
-            }
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public void removeNotify() {
-            hoverTimer.stop();
-            super.removeNotify();
-        }
-
-        private void animateTo(float target) {
-            if (Math.abs(hoverTarget - target) < 0.001f && hoverTimer.isRunning()) {
-                return;
-            }
-            hoverStart = hover;
-            hoverTarget = target;
-            animationStartedAt = System.currentTimeMillis();
-            if (!hoverTimer.isRunning()) {
-                hoverTimer.start();
-            }
-        }
-
-        private void tick() {
-            float progress = Math.min(1f,
-                    (System.currentTimeMillis() - animationStartedAt) / (float) HOVER_MS);
-            hover = hoverStart + (hoverTarget - hoverStart) * (float) Ui.easeOutCubic(progress);
-            if (progress >= 1f) {
-                hover = hoverTarget;
-                hoverTimer.stop();
-            }
-            repaint();
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        protected void paintComponent(Graphics graphics) {
-            Graphics2D g = (Graphics2D) graphics.create();
-            try {
-                Theme.paintElevatedCard(g, getWidth(), getHeight(), ARC, hover);
-            } finally {
-                g.dispose();
-            }
-        }
+        return Ui.card(title, body);
     }
 
     /**
@@ -962,601 +609,5 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         JPanel body = Ui.transparentPanel(null);
         body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
         return body;
-    }
-
-    /**
-     * Creates a vertical stacking column for the masonry-style top section —
-     * a transparent {@code BoxLayout} panel that packs its cards from the top.
-     *
-     * @return empty stacking column
-     */
-    private static JPanel stackColumn() {
-        JPanel column = Ui.transparentPanel(null);
-        column.setLayout(new BoxLayout(column, BoxLayout.Y_AXIS));
-        column.setAlignmentY(Component.TOP_ALIGNMENT);
-        return column;
-    }
-
-    /**
-     * Computed position stats for dashboard infographics.
-     *
-     * @param valid true when a FEN could be parsed
-     * @param whiteMaterial white material in centipawns
-     * @param blackMaterial black material in centipawns
-     * @param whitePieces white piece count
-     * @param blackPieces black piece count
-     * @param phaseValue normalized game phase
-     * @param phaseLabel phase label
-     * @param mobilityValue normalized legal-move mobility
-     * @param mobilityLabel mobility label
-     * @param kingSafetyValue normalized side-to-move king safety
-     * @param kingSafetyLabel king-safety label
-     * @param pawnStructureValue normalized pawn-structure score
-     * @param pawnStructureLabel pawn-structure label
-     */
-    private record PositionStats(
-            boolean valid,
-            int whiteMaterial,
-            int blackMaterial,
-            int whitePieces,
-            int blackPieces,
-            float phaseValue,
-            String phaseLabel,
-            float mobilityValue,
-            String mobilityLabel,
-            float kingSafetyValue,
-            String kingSafetyLabel,
-            float pawnStructureValue,
-            String pawnStructureLabel) {
-
-        /**
-         * Starting non-king material for both sides, in centipawns.
-         */
-        private static final int START_TOTAL_MATERIAL = 7800;
-
-        /**
-         * Creates stats from a FEN and legal-move count.
-         *
-         * @param fen FEN
-         * @param legalMoveCount legal move count
-         * @return stats
-         */
-        private static PositionStats from(String fen, int legalMoveCount) {
-            if (fen == null || fen.isBlank()) {
-    return empty();
-            }
-            try {
-                Position position = new Position(fen);
-                int whiteMaterial = position.countWhiteMaterial();
-                int blackMaterial = position.countBlackMaterial();
-                int totalMaterial = Math.max(0, whiteMaterial + blackMaterial);
-                float phase = clamp01(1f - totalMaterial / (float) START_TOTAL_MATERIAL);
-                int passed = Long.bitCount(position.passedPawns(true))
-                        + Long.bitCount(position.passedPawns(false));
-                int weak = Long.bitCount(position.doubledPawns(true))
-                        + Long.bitCount(position.doubledPawns(false))
-                        + Long.bitCount(position.isolatedPawns(true))
-                        + Long.bitCount(position.isolatedPawns(false));
-                float pawnStructure = clamp01(0.55f + passed * 0.08f - weak * 0.045f);
-                boolean side = position.isWhiteToMove();
-                float kingSafety = kingSafety(position, side);
-    return new PositionStats(
-                        true,
-                        whiteMaterial,
-                        blackMaterial,
-                        position.countWhitePieces(),
-                        position.countBlackPieces(),
-                        phase,
-                        phaseLabel(phase),
-                        clamp01(legalMoveCount / 60f),
-                        mobilityLabel(legalMoveCount),
-                        kingSafety,
-                        (side ? "White " : "Black ") + kingSafetyLabel(kingSafety, position.inCheck(side)),
-                        pawnStructure,
-                        passed + " passed / " + weak + " weak");
-            } catch (IllegalArgumentException ex) {
-    return empty();
-            }
-        }
-
-        /**
-         * Empty stats fallback.
-         *
-         * @return empty stats
-         */
-        private static PositionStats empty() {
-    return new PositionStats(false, 0, 0, 0, 0,
-                    0f, "n/a", 0f, "n/a", 0f, "n/a", 0f, "n/a");
-        }
-
-        /**
-         * Computes side-to-move king safety from attacks around the king.
-         *
-         * @param position position
-         * @param white side to inspect
-         * @return normalized safety
-         */
-        private static float kingSafety(Position position, boolean white) {
-            int king = position.kingSquare(white);
-            if (king < 0) {
-                return 0.5f;
-            }
-            int attackers = position.countAttackers(!white, king);
-            int attackedRing = 0;
-            int ring = 0;
-            int file = king & 7;
-            int rank = king >>> 3;
-            for (int dr = -1; dr <= 1; dr++) {
-                for (int df = -1; df <= 1; df++) {
-                    if (df == 0 && dr == 0) {
-                        continue;
-                    }
-                    int f = file + df;
-                    int r = rank + dr;
-                    if (f < 0 || f > 7 || r < 0 || r > 7) {
-                        continue;
-                    }
-                    ring++;
-                    if (position.isSquareAttacked((r << 3) | f, !white)) {
-                        attackedRing++;
-                    }
-                }
-            }
-            float ringDanger = attackedRing / (float) Math.max(1, ring);
-            float danger = attackers * 0.28f + ringDanger * 0.58f
-                    + (position.inCheck(white) ? 0.35f : 0f);
-    return clamp01(1f - danger);
-        }
-
-        /**
-         * Labels game phase.
-         *
-         * @param phase normalized phase
-         * @return label
-         */
-        private static String phaseLabel(float phase) {
-            if (phase < 0.25f) {
-                return "Opening";
-            }
-            if (phase < 0.68f) {
-                return "Middlegame";
-            }
-            return "Endgame";
-        }
-
-        /**
-         * Labels mobility.
-         *
-         * @param legal legal move count
-         * @return label
-         */
-        private static String mobilityLabel(int legal) {
-            if (legal < 12) {
-                return legal + " tight";
-            }
-            if (legal < 32) {
-                return legal + " balanced";
-            }
-            return legal + " mobile";
-        }
-
-        /**
-         * Labels king safety.
-         *
-         * @param safety normalized safety
-         * @param inCheck true when checked
-         * @return label
-         */
-        private static String kingSafetyLabel(float safety, boolean inCheck) {
-            if (inCheck) {
-                return "in check";
-            }
-            if (safety < 0.36f) {
-                return "exposed";
-            }
-            if (safety < 0.66f) {
-                return "watched";
-            }
-            return "steady";
-        }
-    }
-
-    /**
-     * Material-balance strip.
-     */
-    private static final class MaterialStrip extends JComponent {
-
-        /**
-         * Serialization identifier for Swing component compatibility.
-         */
-        private static final long serialVersionUID = 1L;
-
-        /**
-         * Position statistics currently displayed by the strip.
-         */
-        private PositionStats stats = PositionStats.empty();
-
-        /**
-         * Sets stats.
-         *
-         * @param value stats
-         */
-        void setStats(PositionStats value) {
-            stats = value == null ? PositionStats.empty() : value;
-            repaint();
-        }
-
-        /**
-         * Returns the preferred material-strip size.
-         *
-         * @return preferred size
-         */
-        @Override
-        public Dimension getPreferredSize() {
-            return new Dimension(260, 58);
-        }
-
-        /**
-         * Returns the minimum material-strip size.
-         *
-         * @return minimum size
-         */
-        @Override
-        public Dimension getMinimumSize() {
-            return getPreferredSize();
-        }
-
-        /**
-         * Returns the maximum material-strip size.
-         *
-         * @return maximum size
-         */
-        @Override
-        public Dimension getMaximumSize() {
-            return new Dimension(Integer.MAX_VALUE, 58);
-        }
-
-        /**
-         * Paints the material-balance strip.
-         *
-         * @param graphics graphics context
-         */
-        @Override
-        protected void paintComponent(Graphics graphics) {
-            Graphics2D g = (Graphics2D) graphics.create();
-            try {
-                installQuality(g);
-                int w = getWidth();
-                int h = getHeight();
-                paintPanel(g, 0, 0, w, h);
-                int balance = stats.whiteMaterial() - stats.blackMaterial();
-                String title = stats.valid()
-                        ? "Material " + signedPawns(balance)
-                        : "Material n/a";
-                g.setFont(Theme.font(11, Font.BOLD));
-                g.setColor(Theme.TEXT);
-                g.drawString(title, 10, 18);
-                g.setFont(Theme.font(10, Font.PLAIN));
-                g.setColor(Theme.MUTED);
-                String detail = "White " + stats.whitePieces() + " pcs / Black "
-                        + stats.blackPieces() + " pcs";
-                FontMetrics detailMetrics = g.getFontMetrics();
-                g.drawString(Ui.elide(detail, detailMetrics, Math.max(0, w - 20)),
-                        10, h - 10);
-
-                int x = 10;
-                int y = 28;
-                int barW = Math.max(1, w - 20);
-                int barH = 10;
-                int total = Math.max(1, stats.whiteMaterial() + stats.blackMaterial());
-                int whiteW = Math.round(barW * stats.whiteMaterial() / (float) total);
-                g.setColor(Theme.withAlpha(Theme.ACCENT, 190));
-                g.fillRoundRect(x, y, whiteW, barH, 5, 5);
-                g.setColor(Theme.withAlpha(Theme.STATUS_WARNING_BORDER, 190));
-                g.fillRoundRect(x + whiteW, y, Math.max(0, barW - whiteW), barH, 5, 5);
-                g.setColor(Theme.LINE);
-                g.drawRoundRect(x, y, barW, barH, 5, 5);
-            } finally {
-                g.dispose();
-            }
-        }
-    }
-
-    /**
-     * Compact labelled meter.
-     */
-    private static final class MetricMeter extends JComponent {
-
-        /**
-         * Serialization identifier for Swing component compatibility.
-         */
-        private static final long serialVersionUID = 1L;
-
-        /**
-         * Meter title.
-         */
-        private final String title;
-
-        /**
-         * Normalized meter value.
-         */
-        private float value;
-
-        /**
-         * Current value label.
-         */
-        private String label = "n/a";
-
-        /**
-         * Accent color used for the meter fill.
-         */
-        private Color accent = Theme.ACCENT;
-
-        /**
-         * Creates a metric meter.
-         *
-         * @param title meter title
-         */
-        MetricMeter(String title) {
-            this.title = title;
-            setOpaque(false);
-        }
-
-        /**
-         * Updates meter state.
-         *
-         * @param newValue normalized value
-         * @param newLabel label
-         * @param color accent color
-         */
-        void setValue(float newValue, String newLabel, Color color) {
-            value = clamp01(newValue);
-            label = newLabel == null ? "" : newLabel;
-            accent = color == null ? Theme.ACCENT : color;
-            repaint();
-        }
-
-        /**
-         * Returns the preferred meter size.
-         *
-         * @return preferred size
-         */
-        @Override
-        public Dimension getPreferredSize() {
-            return new Dimension(150, 54);
-        }
-
-        /**
-         * Returns the minimum meter size.
-         *
-         * @return minimum size
-         */
-        @Override
-        public Dimension getMinimumSize() {
-            return getPreferredSize();
-        }
-
-        /**
-         * Paints the labelled metric meter.
-         *
-         * @param graphics graphics context
-         */
-        @Override
-        protected void paintComponent(Graphics graphics) {
-            Graphics2D g = (Graphics2D) graphics.create();
-            try {
-                installQuality(g);
-                int w = getWidth();
-                int h = getHeight();
-                paintPanel(g, 0, 0, w, h);
-                g.setFont(Theme.font(10, Font.BOLD));
-                g.setColor(Theme.MUTED);
-                g.drawString(title, 10, 17);
-                g.setFont(Theme.font(11, Font.PLAIN));
-                g.setColor(Theme.TEXT);
-                FontMetrics fm = g.getFontMetrics();
-                String visible = Ui.elide(label, fm, Math.max(0, w - 20));
-                g.drawString(visible, 10, 32);
-                int x = 10;
-                int y = h - 14;
-                int barW = Math.max(1, w - 20);
-                int fillW = Math.round(barW * value);
-                g.setColor(Theme.ELEVATED_SOLID);
-                g.fillRoundRect(x, y, barW, 6, 4, 4);
-                g.setColor(Theme.withAlpha(accent, 210));
-                g.fillRoundRect(x, y, fillW, 6, 4, 4);
-            } finally {
-                g.dispose();
-            }
-        }
-    }
-
-    /**
-     * Three-ring health infographic.
-     */
-    private static final class HealthRings extends JComponent {
-
-        /**
-         * Serialization identifier for Swing component compatibility.
-         */
-        private static final long serialVersionUID = 1L;
-
-        /**
-         * Configuration validation state.
-         */
-        private HealthSnapshot.Check config = HealthSnapshot.Check.UNKNOWN;
-
-        /**
-         * Doctor command state.
-         */
-        private HealthSnapshot.Check doctor = HealthSnapshot.Check.UNKNOWN;
-
-        /**
-         * Engine smoke-test state.
-         */
-        private HealthSnapshot.Check smoke = HealthSnapshot.Check.UNKNOWN;
-
-        /**
-         * Sets health checks.
-         *
-         * @param configCheck config check
-         * @param doctorCheck doctor check
-         * @param smokeCheck engine smoke check
-         */
-        void setChecks(HealthSnapshot.Check configCheck,
-                HealthSnapshot.Check doctorCheck,
-                HealthSnapshot.Check smokeCheck) {
-            config = configCheck == null ? HealthSnapshot.Check.UNKNOWN : configCheck;
-            doctor = doctorCheck == null ? HealthSnapshot.Check.UNKNOWN : doctorCheck;
-            smoke = smokeCheck == null ? HealthSnapshot.Check.UNKNOWN : smokeCheck;
-            repaint();
-        }
-
-        /**
-         * Returns the preferred health-ring size.
-         *
-         * @return preferred size
-         */
-        @Override
-        public Dimension getPreferredSize() {
-            return new Dimension(260, 74);
-        }
-
-        /**
-         * Returns the maximum health-ring size.
-         *
-         * @return maximum size
-         */
-        @Override
-        public Dimension getMaximumSize() {
-            return new Dimension(Integer.MAX_VALUE, 74);
-        }
-
-        /**
-         * Paints the three health rings.
-         *
-         * @param graphics graphics context
-         */
-        @Override
-        protected void paintComponent(Graphics graphics) {
-            Graphics2D g = (Graphics2D) graphics.create();
-            try {
-                installQuality(g);
-                paintPanel(g, 0, 0, getWidth(), getHeight());
-                int gap = Math.max(12, (getWidth() - 3 * 54) / 4);
-                int x = gap;
-                paintRing(g, x, 10, "Config", config);
-                paintRing(g, x + 54 + gap, 10, "Doctor", doctor);
-                paintRing(g, x + 2 * (54 + gap), 10, "Engine", smoke);
-            } finally {
-                g.dispose();
-            }
-        }
-
-        /**
-         * Paints one check ring.
-         *
-         * @param g graphics
-         * @param x x
-         * @param y y
-         * @param label label
-         * @param check check state
-         */
-        private static void paintRing(Graphics2D g, int x, int y, String label,
-                HealthSnapshot.Check check) {
-            int d = 34;
-            g.setStroke(new BasicStroke(4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-            g.setColor(Theme.LINE);
-            g.drawOval(x + 10, y, d, d);
-            g.setColor(checkColor(check));
-            int arc = switch (check) {
-                case OK, FAILED -> 360;
-                case RUNNING -> 260;
-                case UNKNOWN -> 90;
-            };
-            g.drawArc(x + 10, y, d, d, 90, -arc);
-            g.setStroke(new BasicStroke(1f));
-            g.setFont(Theme.font(9, Font.BOLD));
-            g.setColor(Theme.TEXT);
-            FontMetrics fm = g.getFontMetrics();
-            g.drawString(checkGlyph(check), x + 10 + (d - fm.stringWidth(checkGlyph(check))) / 2,
-                    y + 22);
-            g.setFont(Theme.font(10, Font.PLAIN));
-            g.setColor(Theme.MUTED);
-            fm = g.getFontMetrics();
-            g.drawString(label, x + (54 - fm.stringWidth(label)) / 2, y + 52);
-        }
-
-        /**
-         * Returns the check ring colour.
-         *
-         * @param check check
-         * @return colour
-         */
-        private static Color checkColor(HealthSnapshot.Check check) {
-    return switch (check) {
-                case OK -> Theme.STATUS_SUCCESS_BORDER;
-                case FAILED -> Theme.STATUS_ERROR_BORDER;
-                case RUNNING -> Theme.STATUS_WARNING_BORDER;
-                case UNKNOWN -> Theme.STATUS_INFO_BORDER;
-            };
-        }
-
-        /**
-         * Returns the center glyph.
-         *
-         * @param check check
-         * @return glyph
-         */
-        private static String checkGlyph(HealthSnapshot.Check check) {
-    return switch (check) {
-                case OK -> "OK";
-                case FAILED -> "!";
-                case RUNNING -> "...";
-                case UNKNOWN -> "?";
-            };
-        }
-    }
-
-    /**
-     * Installs antialiasing.
-     *
-     * @param g graphics
-     */
-    private static void installQuality(Graphics2D g) {
-        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
-                RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-    }
-
-    /**
-     * Paints the shared infographic panel background.
-     *
-     * @param g graphics
-     * @param x x
-     * @param y y
-     * @param w width
-     * @param h height
-     */
-    private static void paintPanel(Graphics2D g, int x, int y, int w, int h) {
-        g.setColor(Theme.ELEVATED_SOLID);
-        g.fillRoundRect(x, y, Math.max(0, w - 1), Math.max(0, h - 1),
-                Theme.RADIUS, Theme.RADIUS);
-        g.setColor(Theme.LINE);
-        g.drawRoundRect(x, y, Math.max(0, w - 1), Math.max(0, h - 1),
-                Theme.RADIUS, Theme.RADIUS);
-    }
-
-    /**
-     * Formats a centipawn balance as pawns.
-     *
-     * @param centipawns centipawn balance
-     * @return signed pawn value
-     */
-    private static String signedPawns(int centipawns) {
-        if (centipawns == 0) {
-            return "0.0";
-        }
-        return String.format(Locale.ROOT, "%+.1f", centipawns / 100.0);
     }
 }

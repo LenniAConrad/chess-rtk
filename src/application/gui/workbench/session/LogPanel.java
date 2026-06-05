@@ -2,9 +2,12 @@ package application.gui.workbench.session;
 
 import application.gui.workbench.command.Console;
 import application.gui.workbench.layout.SplitPaneStyler;
+import application.gui.workbench.ui.HoldButton;
+import application.gui.workbench.ui.LoadingOverlay;
 import application.gui.workbench.ui.Theme;
 import chess.debug.SessionCache;
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Component;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -41,8 +44,8 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingWorker;
 
 import static application.gui.workbench.ui.Ui.button;
-import static application.gui.workbench.ui.Ui.buttonRow;
 import static application.gui.workbench.ui.Ui.caption;
+import static application.gui.workbench.ui.Ui.controlRow;
 import static application.gui.workbench.ui.Ui.scroll;
 import static application.gui.workbench.ui.Ui.transparentPanel;
 
@@ -106,6 +109,21 @@ public final class LogPanel extends JPanel {
      * Terminal-style log text renderer.
      */
     private final Console logView = new Console();
+
+    /**
+     * Card layout swapping the viewer between its content and a loading overlay.
+     */
+    private final CardLayout viewerCards = new CardLayout();
+
+    /**
+     * Viewer body hosting the log content and the loading overlay.
+     */
+    private final JPanel viewerBody = new JPanel(viewerCards);
+
+    /**
+     * Loading indicator shown while the (potentially large) selection loads.
+     */
+    private final LoadingOverlay loadingOverlay = new LoadingOverlay();
 
     /**
      * Footer status label for scan, load, and file-operation feedback.
@@ -190,6 +208,73 @@ public final class LogPanel extends JPanel {
     }
 
     /**
+     * Deletes the persisted log files this panel shows, then rescans. Wired to
+     * a hold-to-confirm button so the destructive action needs a deliberate
+     * gesture rather than a single click.
+     */
+    private void cleanLogs() {
+        showStatus("Cleaning logs…", Theme.ForegroundRole.MUTED);
+        new SwingWorker<Integer, Void>() {
+
+            /**
+             * Deletes the log files off the event-dispatch thread.
+             *
+             * @return number of files removed
+             * @throws IOException when the session directory cannot be walked
+             */
+            @Override
+            protected Integer doInBackground() throws IOException {
+                return deleteSessionLogs();
+            }
+
+            /**
+             * Reports the result and rescans on the event-dispatch thread.
+             */
+            @Override
+            protected void done() {
+                int removed;
+                try {
+                    removed = get();
+                } catch (Exception ex) {
+                    showStatus("Log clean failed: " + ex.getMessage(), Theme.ForegroundRole.ERROR);
+                    return;
+                }
+                refreshLogs();
+                showStatus("Removed " + removed + " log file" + (removed == 1 ? "" : "s")
+                        + " from " + rootLabel() + ".", Theme.ForegroundRole.MUTED);
+            }
+        }.execute();
+    }
+
+    /**
+     * Deletes every {@code .log} file under the session directory.
+     *
+     * @return number of files removed
+     * @throws IOException when the session directory cannot be walked
+     */
+    private static int deleteSessionLogs() throws IOException {
+        Path root = sessionRoot();
+        if (!Files.isDirectory(root)) {
+            return 0;
+        }
+        List<Path> logs;
+        try (Stream<Path> walk = Files.walk(root)) {
+            logs = walk.filter(LogPanel::isLogFile).toList();
+        }
+        int removed = 0;
+        for (Path log : logs) {
+            try {
+                if (Files.deleteIfExists(log)) {
+                    removed++;
+                }
+            } catch (IOException ignored) {
+                // Skip files held open by another process; report the rest.
+            }
+        }
+        return removed;
+    }
+
+    /**
      * Applies the static Swing layout and component styling.
      */
     private void configure() {
@@ -197,7 +282,7 @@ public final class LogPanel extends JPanel {
         setOpaque(true);
         setBackground(Theme.PANEL_SOLID);
         setForeground(Theme.TEXT);
-        setBorder(Theme.pad(10, 10, 10, 10));
+        setBorder(Theme.pad(Theme.SPACE_MD));
 
         add(header(), BorderLayout.NORTH);
         add(splitPane(), BorderLayout.CENTER);
@@ -212,8 +297,8 @@ public final class LogPanel extends JPanel {
      */
     private JComponent header() {
         JPanel header = transparentPanel(new BorderLayout(Theme.SPACE_MD, 0));
-        JPanel title = transparentPanel(new BorderLayout(0, 2));
-        title.add(Theme.section("Logs"), BorderLayout.NORTH);
+        JPanel title = transparentPanel(new BorderLayout(0, Theme.SPACE_XS));
+        title.add(Theme.sectionTitle("Logs"), BorderLayout.NORTH);
         title.add(caption("Persisted application and command logs"), BorderLayout.CENTER);
         header.add(title, BorderLayout.WEST);
 
@@ -221,7 +306,9 @@ public final class LogPanel extends JPanel {
         JButton openFolder = button("Open Folder", false, event -> openSessionFolder());
         JButton openSelected = button("Open Selected", false, event -> openSelected());
         JButton copyPath = button("Copy Path", false, event -> copySelectedPath());
-        header.add(buttonRow(FlowLayout.RIGHT, openFolder, openSelected, copyPath, refresh), BorderLayout.EAST);
+        HoldButton clean = new HoldButton("Clean logs", this::cleanLogs, true);
+        header.add(controlRow(FlowLayout.RIGHT, openFolder, openSelected, copyPath, clean, refresh),
+                BorderLayout.EAST);
         return header;
     }
 
@@ -244,7 +331,17 @@ public final class LogPanel extends JPanel {
         filePanel.add(Theme.section("Files"), BorderLayout.NORTH);
         filePanel.add(scroll(logList), BorderLayout.CENTER);
 
-        JSplitPane pane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, filePanel, scroll(logView));
+        // Viewer pane mirrors the file pane: a section eyebrow plus a centered
+        // empty state so the large console reads as deliberate, not a black void.
+        logView.setPlaceholder("Select a log file to view its contents.");
+        viewerBody.setOpaque(false);
+        viewerBody.add(scroll(logView), "view");
+        viewerBody.add(loadingOverlay, "loading");
+        JPanel viewerPanel = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
+        viewerPanel.add(Theme.section("Log"), BorderLayout.NORTH);
+        viewerPanel.add(viewerBody, BorderLayout.CENTER);
+
+        JSplitPane pane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, filePanel, viewerPanel);
         SplitPaneStyler.style(pane);
         pane.setResizeWeight(0.24);
         pane.setDividerLocation(280);
@@ -284,6 +381,10 @@ public final class LogPanel extends JPanel {
         }
         int generation = ++loadGeneration;
         showStatus("Loading " + selected.label() + "...", Theme.ForegroundRole.MUTED);
+        // The aggregate "All logs" read can take a moment; show a clear loading
+        // indicator over the viewer until the text arrives.
+        loadingOverlay.start("Loading " + selected.label() + "…");
+        viewerCards.show(viewerBody, "loading");
         new SwingWorker<String, Void>() {
 
             /**
@@ -307,6 +408,8 @@ public final class LogPanel extends JPanel {
                 if (generation != loadGeneration) {
                     return;
                 }
+                loadingOverlay.stop();
+                viewerCards.show(viewerBody, "view");
                 try {
                     showText(get());
                     showStatus(statusForSelection(selected), Theme.ForegroundRole.MUTED);
@@ -497,9 +600,9 @@ public final class LogPanel extends JPanel {
         }
         double kib = bytes / 1024.0;
         if (kib < 1024.0) {
-            return String.format(Locale.ROOT, "%.1f KiB", Double.valueOf(kib));
+            return String.format(Locale.ROOT, "%.1f KiB", kib);
         }
-        return String.format(Locale.ROOT, "%.1f MiB", Double.valueOf(kib / 1024.0));
+        return String.format(Locale.ROOT, "%.1f MiB", kib / 1024.0);
     }
 
     /**

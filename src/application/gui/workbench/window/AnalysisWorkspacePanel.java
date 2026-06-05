@@ -25,7 +25,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import javax.swing.AbstractAction;
-import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
@@ -219,14 +218,7 @@ final class AnalysisWorkspacePanel extends JPanel {
         side.add(titled("Legal Moves", scroll(movesTable)), BorderLayout.CENTER);
         configureMovesTable();
 
-        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, boardStage, side);
-        split.setBorder(BorderFactory.createEmptyBorder());
-        split.setOpaque(false);
-        split.setContinuousLayout(true);
-        split.setResizeWeight(0.68);
-        split.setDividerSize(8);
-        split.setDividerLocation(0.68);
-        SplitPaneStyler.style(split);
+        JSplitPane split = SplitPaneStyler.styledHorizontalSplit(boardStage, side, 0.68);
         return split;
     }
 
@@ -277,9 +269,19 @@ final class AnalysisWorkspacePanel extends JPanel {
      */
     private void configureMovesTable() {
         movesTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        Theme.table(movesTable, 27);
+        Theme.table(movesTable, Theme.TABLE_ROW_HEIGHT);
+        movesTable.setAutoResizeMode(javax.swing.JTable.AUTO_RESIZE_LAST_COLUMN);
         movesTable.setAutoCreateColumnsFromModel(false);
         movesTable.getColumnModel().getColumn(1).setCellRenderer(new SanRenderer());
+        // Pin the narrow index/SAN/UCI columns so the trailing flags column
+        // (usually empty for legal moves) stops floating as a wide dead zone.
+        javax.swing.table.TableColumnModel moveColumns = movesTable.getColumnModel();
+        moveColumns.getColumn(0).setMaxWidth(46);
+        moveColumns.getColumn(0).setPreferredWidth(46);
+        moveColumns.getColumn(1).setPreferredWidth(96);
+        if (moveColumns.getColumnCount() > 2) {
+            moveColumns.getColumn(2).setPreferredWidth(82);
+        }
         movesTable.addMouseListener(new MouseAdapter() {
             /**
              * {@inheritDoc}

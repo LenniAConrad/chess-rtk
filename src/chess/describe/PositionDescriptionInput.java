@@ -75,6 +75,25 @@ public record PositionDescriptionInput(
     }
 
     /**
+     * Returns a copy of this input with a replaced evaluation.
+     *
+     * <p>
+     * Used to swap the cheap static evaluation for a real engine-search evaluation
+     * without recomputing the rest of the structured signals.
+     * </p>
+     *
+     * @param replacement evaluation to substitute
+     * @return copy with the replacement evaluation
+     */
+    public PositionDescriptionInput withEvaluation(Evaluation replacement) {
+        if (replacement == null) {
+            throw new IllegalArgumentException("replacement == null");
+        }
+        return new PositionDescriptionInput(fen, sideToMove, status, inCheck, phase, material, moves,
+                replacement, tags, threats, candidates);
+    }
+
+    /**
      * Serializes this input to a compact JSON object.
      *
      * @return JSON object
@@ -230,23 +249,37 @@ public record PositionDescriptionInput(
     }
 
     /**
-     * Cheap static evaluation signal.
+     * Position evaluation signal, either cheap static or a real engine search.
      *
-     * @param source evaluation source
+     * @param source evaluation source label (e.g. {@code classical-static} or
+     *        {@code engine-d10})
      * @param cpWhite centipawns from White's perspective
      * @param cpSideToMove centipawns from the side-to-move perspective
-     * @param wdl WDL from side-to-move perspective
+     * @param wdl WDL from side-to-move perspective, or null when not modeled
+     * @param mateIn forced-mate distance in moves from White's perspective: a
+     *        positive value means White mates in that many moves, a negative value
+     *        means Black mates, and zero means no forced mate is known
      */
     public record Evaluation(
             String source,
             int cpWhite,
             int cpSideToMove,
-            Wdl wdl) implements Serializable {
+            Wdl wdl,
+            int mateIn) implements Serializable {
 
         /**
          * Serialization identifier for stable record serialization.
          */
-        private static final long serialVersionUID = 1L;
+        private static final long serialVersionUID = 2L;
+
+        /**
+         * Returns whether this evaluation reports a forced mate.
+         *
+         * @return true when a forced mate is known
+         */
+        public boolean hasMate() {
+            return mateIn != 0;
+        }
 
         /**
          * Serializes this evaluation.
@@ -258,6 +291,7 @@ public record PositionDescriptionInput(
                     .append(",\"cp_white\":").append(cpWhite)
                     .append(",\"cp_side_to_move\":").append(cpSideToMove)
                     .append(",\"wdl\":").append(wdl == null ? "null" : wdlJson(wdl))
+                    .append(",\"mate_in\":").append(mateIn)
                     .append('}')
                     .toString();
         }

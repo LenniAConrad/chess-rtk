@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
+import java.util.Set;
 import java.util.function.Predicate;
 
 import javax.swing.JComboBox;
@@ -46,6 +47,8 @@ import application.gui.workbench.game.Positions;
 import application.gui.workbench.mcts.MctsPanel;
 import application.gui.workbench.mcts.MctsSearch;
 import application.gui.workbench.mcts.MctsSession;
+import application.gui.workbench.mcts.TreeGraphView;
+import application.gui.workbench.mcts.TreeLayout;
 import application.gui.workbench.session.ArtifactIndex;
 import application.gui.workbench.session.LogPanel;
 import application.gui.workbench.network.NnueDrawing;
@@ -125,6 +128,7 @@ final class WorkbenchBackendRegression {
         testMctsTreeSnapshotCapsAndSelection();
         testMctsSessionLifecyclePublishesSnapshots();
         testMctsPanelInspectorUsesSolidSurface();
+        testTreeGraphNodeCaptionClipsOverflowText();
         // Full MCTS tab registration coverage is intentionally not part of
         // this Workbench pass; the Network tab still covers shared MCTS
         // controls.
@@ -620,10 +624,12 @@ final class WorkbenchBackendRegression {
                 "network MCTS uses shared visit default");
         assertFalse(followLeaf.isSelected(), "network leaf following starts off");
         JComboBox<?> archCombo = (JComboBox<?>) field(panel, "archCombo");
-        assertEquals(Integer.valueOf(4), Integer.valueOf(archCombo.getItemCount()),
-                "network selector exposes one entry per network family");
+        assertEquals(Integer.valueOf(5), Integer.valueOf(archCombo.getItemCount()),
+                "evaluator selector exposes one entry per neural family plus the classical evaluator");
         assertEquals(Integer.valueOf(1), Integer.valueOf(countArchItems(archCombo, "NNUE")),
                 "network selector exposes only one NNUE entry");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(countArchItems(archCombo, "Classical")),
+                "evaluator selector exposes the classical evaluator");
         archCombo.setSelectedItem("NNUE - HalfKP");
         JComponent viewMode = (JComponent) field(panel, "viewMode");
         assertTrue(viewMode.getPreferredSize().width < 340,
@@ -2025,7 +2031,7 @@ final class WorkbenchBackendRegression {
         }
         MctsSearch.TreeSnapshot compact = search.treeSnapshot(
                 false,
-                new MctsSearch.TreeOptions(8, 4, 0, false),
+                new MctsSearch.TreeOptions(8, 4, 0, 0, false),
                 "root");
         assertTrue(compact.nodes().size() <= 4, "MCTS tree snapshot respects node cap");
         assertTrue(compact.omittedNodes() > 0, "MCTS tree snapshot reports omitted nodes");
@@ -2111,6 +2117,98 @@ final class WorkbenchBackendRegression {
     }
 
     /**
+     * Verifies the tree graph clips SAN/stat text to the node caption instead of
+     * letting large counts spill into neighboring graph space.
+     */
+    private static void testTreeGraphNodeCaptionClipsOverflowText() {
+        Theme.Mode previous = Theme.mode();
+        try {
+            Theme.setMode(Theme.Mode.DARK);
+            TreeGraphView view = new TreeGraphView();
+            int width = 160;
+            int height = 220;
+            view.setSize(width, height);
+            int nodeX = 56;
+            int nodeY = 28;
+            int nodeW = 48;
+            int nodeH = 82;
+            short move = Move.parse("g1f3");
+            MctsSearch.NodeInfo info = new MctsSearch.NodeInfo(
+                    "root",
+                    "",
+                    new short[] { move },
+                    new short[] { move },
+                    move,
+                    "Rgxg8=Q+ ultra-long",
+                    "g1f3",
+                    "g1f3",
+                    "Rgxg8=Q+ ultra-long",
+                    0,
+                    123_456_789,
+                    0.42,
+                    0.04,
+                    0.0,
+                    0.0,
+                    0.55,
+                    0.10,
+                    0.35,
+                    "",
+                    "",
+                    0,
+                    START_FEN,
+                    "Rgxg8=Q+",
+                    1L);
+            TreeLayout.Node node = new TreeLayout.Node("root", info, nodeX, nodeY, nodeW, nodeH,
+                    0, true, true, true, false, List.of());
+            TreeLayout.Model model = new TreeLayout.Model(List.of(node), List.of(), width, 140, "root", 1, 0);
+            view.setModel(model);
+            view.setTargetPath(Set.of("root"), true);
+            view.setSearchPath(Set.of("root"));
+
+            BufferedImage image = paint(view, width, height);
+            int panY = 14;
+            int captionY = panY + nodeY + nodeW;
+            int captionH = nodeH - nodeW;
+            int insidePixels = nonBackgroundPixels(image, Theme.BG,
+                    nodeX + 8, captionY + 4, Math.max(1, nodeW - 16), captionH - 6);
+            int leakedPixels = nonBackgroundPixels(image, Theme.BG,
+                    nodeX + nodeW + 3, captionY + 4, 32, captionH - 6);
+            assertTrue(insidePixels > 0, "tree node caption paints inside node");
+            assertEquals(Integer.valueOf(0), Integer.valueOf(leakedPixels),
+                    "tree node caption clips text to node bounds");
+        } finally {
+            Theme.setMode(previous);
+        }
+    }
+
+    /**
+     * Counts pixels in a region that differ from a background color.
+     *
+     * @param image image
+     * @param background expected background
+     * @param x x coordinate
+     * @param y y coordinate
+     * @param width region width
+     * @param height region height
+     * @return non-background pixel count
+     */
+    private static int nonBackgroundPixels(BufferedImage image, Color background,
+            int x, int y, int width, int height) {
+        int count = 0;
+        int maxX = Math.min(image.getWidth(), x + Math.max(0, width));
+        int maxY = Math.min(image.getHeight(), y + Math.max(0, height));
+        int rgb = background.getRGB();
+        for (int yy = Math.max(0, y); yy < maxY; yy++) {
+            for (int xx = Math.max(0, x); xx < maxX; xx++) {
+                if (image.getRGB(xx, yy) != rgb) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    /**
      * Finds the first split pane in a component tree.
      *
      * @param component root component
@@ -2172,8 +2270,8 @@ final class WorkbenchBackendRegression {
         Class<?> window = type("Window");
         assertEquals(Integer.valueOf(0), staticField(window, "TAB_DASHBOARD"),
                 "Dashboard is the first tab");
-        assertEquals(Integer.valueOf(1), staticField(window, "TAB_ANALYZE"),
-                "Analyze follows the Dashboard tab");
+        assertEquals(Integer.valueOf(1), staticField(window, "TAB_BOARD"),
+                "Board follows the Dashboard tab");
     }
 
     /**

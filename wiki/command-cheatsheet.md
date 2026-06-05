@@ -11,7 +11,7 @@ crtk doctor                                         # check Java, config, engine
 crtk version --json                                 # build metadata
 crtk fen print --startpos                           # render the start position as text
 crtk move list --startpos --format both             # legal moves in UCI + SAN
-crtk engine builtin --startpos --depth 3 --format summary   # in-process MCTS search
+crtk engine builtin --startpos --depth 6 --format summary   # in-process search
 crtk engine perft-suite --depth 5                   # movegen correctness regression
 ```
 
@@ -47,6 +47,7 @@ crtk engine perft-suite --depth 5                   # movegen correctness regres
 | Deterministic prose description | `crtk position describe --fen "<FEN>" --detail full` |
 | Render a board image | `crtk fen render --fen "<FEN>" -o board.svg` |
 | Render with arrows + dark theme | `crtk fen render --fen "<FEN>" -o board.svg --arrows e2e4,d2d4 --dark` |
+| Tactical-incidence relation graph | `crtk fen relations --fen "<FEN>" --montage -o relations.png` |
 | Open a board window | `crtk fen display --fen "<FEN>"` |
 
 ## Tags And Natural Language
@@ -82,7 +83,7 @@ Tags name what a position contains — tactics, themes, structural features — 
 
 ## Engine Analysis And Search
 
-Three kinds of engine live here, and the verb tells you which. `engine analyze`/`bestmove`/`threats`/`compare` talk to an external UCI engine — Stockfish, LC0. `engine builtin`/`java` run the in-process MCTS engine, no external process required. `engine mate` proves forced mates by brute force, and `engine static`/`eval` just score a position.
+Three kinds of engine live here, and the verb tells you which. `engine analyze`/`bestmove`/`threats`/`compare` talk to an external UCI engine — Stockfish, LC0. `engine builtin`/`java` run the in-process built-in engine, no external process required. `engine mate` proves forced mates by brute force, and `engine static`/`eval` just score a position.
 
 | Task | Command |
 | --- | --- |
@@ -93,7 +94,7 @@ Three kinds of engine live here, and the verb tells you which. `engine analyze`/
 | Batch best moves (JSONL) | `crtk engine bestmove-batch --input positions.txt --max-duration 1s` |
 | Batch analysis (JSONL) | `crtk engine analyze-batch --input positions.txt --multipv 3 --jsonl` |
 | Compare two UCI protocols | `crtk engine compare --input positions.txt --left-protocol a.toml --right-protocol b.toml --jsonl` |
-| In-process MCTS search | `crtk engine builtin --fen "<FEN>" --depth 4 --format summary` |
+| In-process built-in search | `crtk engine builtin --fen "<FEN>" --depth 6 --format summary` |
 | MCTS with LC0 evaluator | `crtk engine builtin --fen "<FEN>" --lc0 --weights models/<weights>.bin --max-duration 3s` |
 | Prove a forced mate | `crtk engine mate --fen "<FEN>" --max-mate 4 --format both` |
 | Classical static eval | `crtk engine static --fen "<FEN>"` |
@@ -210,7 +211,7 @@ When something downstream has to parse the output, reach for these: structured, 
 | One best-move row | `crtk engine bestmove --fen "<FEN>" --format both --max-duration 2s` |
 | Best-move batch | `crtk engine bestmove-batch --input positions.txt --max-duration 1s` |
 | Position differences | `crtk position diff --fen "<FEN>" --other "<FEN>" --json` |
-| Offline in-process fallback | `crtk engine builtin --fen "<FEN>" --depth 3 --format summary` |
+| Offline in-process fallback | `crtk engine builtin --fen "<FEN>" --depth 6 --format summary` |
 
 ## See Also
 

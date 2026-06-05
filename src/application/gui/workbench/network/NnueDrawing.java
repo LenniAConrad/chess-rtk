@@ -212,38 +212,6 @@ public final class NnueDrawing {
         g.fillRect(cell.x, cell.y, cell.width, cell.height);
     }
 
-    /**
-     * Labels NNUE mini-board orientation.
-     *
-     * @param g graphics context
-     * @param board board bounds
-     * @param maxY maximum allowed y coordinate
-     */
-    public static void drawWhiteBottomLabel(Graphics2D g, Rectangle board, int maxY) {
-        drawSideToMoveBoardLabel(g, board, maxY, true);
-    }
-
-    /**
-     * Labels the side rendered at the bottom of a mini-board.
-     *
-     * @param g graphics context
-     * @param board board bounds
-     * @param maxY maximum allowed y coordinate
-     * @param whiteDown whether White is rendered at the bottom
-     */
-    public static void drawSideToMoveBoardLabel(Graphics2D g, Rectangle board, int maxY,
-            boolean whiteDown) {
-        int y = board.y + board.height + 12;
-        if (y > maxY - 2) {
-            return;
-        }
-        String label = whiteDown ? "white to move" : "black to move";
-        g.setFont(Theme.font(9, Font.BOLD));
-        FontMetrics fm = g.getFontMetrics();
-        int x = board.x + board.width - fm.stringWidth(label);
-        g.setColor(Theme.MUTED);
-        g.drawString(label, x, y);
-    }
 
     /**
      * Returns {@code a - b}, allowing either side to be absent.

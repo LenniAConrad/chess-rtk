@@ -5,6 +5,7 @@ import application.gui.workbench.Defaults;
 import application.gui.workbench.command.CommandRunner;
 import application.gui.workbench.game.FenInput;
 import application.gui.workbench.game.GameModel;
+import application.gui.workbench.publish.PublishSampleData.SampleItem;
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.SurfacePanel;
@@ -26,6 +27,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
@@ -266,6 +268,11 @@ public final class PublishingPanel {
     private final JLabel publishInputLabel = label("input");
 
     /**
+     * Required marker shown beside the input label when an input is mandatory.
+     */
+    private final JLabel publishInputStar = requiredStar();
+
+    /**
      * Publishing input path field.
      */
     private final JTextField publishInputField = new JTextField();
@@ -274,6 +281,11 @@ public final class PublishingPanel {
      * Publishing primary output row label.
      */
     private final JLabel publishOutputLabel = label("output");
+
+    /**
+     * Required marker shown beside the output label when an output is mandatory.
+     */
+    private final JLabel publishOutputStar = requiredStar();
 
     /**
      * Publishing primary output path field.
@@ -465,11 +477,6 @@ public final class PublishingPanel {
     private final JTextArea publishCommandField = new JTextArea(3, 40);
 
     /**
-     * Human-readable publishing preview.
-     */
-    private final JTextArea publishPreview = new JTextArea();
-
-    /**
      * Visual publishing preview.
      */
     private final PublishPreview publishVisualPreview = new PublishPreview();
@@ -483,6 +490,11 @@ public final class PublishingPanel {
      * Publishing readiness label.
      */
     private final JLabel publishReadinessLabel = new JLabel("Ready");
+
+    /**
+     * Publishing run button, disabled while the command cannot be built.
+     */
+    private JButton publishCreateButton;
 
     /**
      * Publishing input chooser button.
@@ -588,7 +600,10 @@ public final class PublishingPanel {
      * @return publish tab
      */
     private JComponent createPublishTab() {
-        JPanel panel = transparentPanel(new BorderLayout(10, 10));
+        JPanel panel = transparentPanel(new BorderLayout(0, 0));
+        panel.add(Ui.surfaceHeader("Publish",
+                "Render the current position, study, or puzzle collection to a PDF or manifest",
+                null), BorderLayout.NORTH);
         panel.add(createBookPublishingPanel(), BorderLayout.CENTER);
         configurePublishControls();
         updatePublishControlState();
@@ -615,12 +630,7 @@ public final class PublishingPanel {
         JPanel root = transparentPanel(new BorderLayout(0, 0));
         JComponent controls = scroll(fillViewport(createPublishingControlsPanel()));
         JComponent preview = createPublishingPreviewPanel();
-        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, controls, preview);
-        split.setResizeWeight(0.56);
-        split.setDividerLocation(0.56);
-        split.setDividerSize(8);
-        split.setContinuousLayout(true);
-        SplitPaneStyler.style(split);
+        JSplitPane split = SplitPaneStyler.styledHorizontalSplit(controls, preview, 0.56);
         root.add(split, BorderLayout.CENTER);
         return root;
     }
@@ -632,45 +642,13 @@ public final class PublishingPanel {
      */
     private JPanel createPublishingControlsPanel() {
         JPanel panel = transparentPanel(new GridBagLayout());
-        panel.setBorder(Theme.pad(8, 8, 8, 8));
+        panel.setBorder(Theme.pad(Theme.SPACE_MD, Theme.SPACE_MD, Theme.SPACE_MD, Theme.SPACE_MD));
         GridBagConstraints c = constraints();
         int row = 0;
-        JPanel buildHeader = transparentPanel(new BorderLayout(0, 2));
-        buildHeader.add(Theme.section("Publishing"), BorderLayout.NORTH);
-        buildHeader.add(Ui.caption("Fields map to the selected CRTK publishing command."),
-                BorderLayout.SOUTH);
-        grid(panel, buildHeader, c, 0, row++, 4, 1);
 
         styleCombos(publishTaskCombo, publishSourceCombo, publishPageSizeCombo, publishBindingCombo,
                 publishInteriorCombo, publishLanguageCombo);
-        grid(panel, label("task"), c, 0, row, 1, 1);
-        JPanel taskCell = transparentPanel(new BorderLayout(0, 3));
-        taskCell.add(publishTaskCombo, BorderLayout.NORTH);
-        taskCell.add(publishTaskHint, BorderLayout.SOUTH);
-        grid(panel, taskCell, c, 1, row++, 3, 1);
-
-        grid(panel, label("source"), c, 0, row, 1, 1);
-        grid(panel, publishSourceCombo, c, 1, row++, 3, 1);
-
-        publishInputField.setColumns(28);
-        publishOutputField.setColumns(28);
-        publishManifestOutputField.setColumns(28);
-        publishPdfOutputField.setColumns(28);
-        publishCoverOutputField.setColumns(28);
-        publishTitleField.setColumns(28);
-        publishSubtitleField.setColumns(28);
-        publishAuthorField.setColumns(28);
-        publishTimeField.setColumns(12);
-        publishLocationField.setColumns(12);
-        publishLimitField.setColumns(8);
-        publishPagesField.setColumns(8);
-        publishDiagramsPerRowField.setColumns(8);
-        publishBoardPixelsField.setColumns(8);
-        publishMarginField.setColumns(8);
-        publishTableFrequencyField.setColumns(8);
-        publishPuzzleRowsField.setColumns(8);
-        publishPuzzleColumnsField.setColumns(8);
-        publishWatermarkIdField.setColumns(18);
+        applyPublishingFieldColumns();
         styleFields(publishInputField, publishOutputField, publishPdfOutputField, publishCoverOutputField,
                 publishManifestOutputField, publishTitleField, publishSubtitleField, publishAuthorField,
                 publishTimeField, publishLocationField, publishLimitField, publishPagesField,
@@ -688,29 +666,44 @@ public final class PublishingPanel {
         configurePublishingArea(publishLinkArea, true);
         configurePublishingArea(publishAfterwordArea, true);
 
-        JPanel files = transparentPanel(new GridBagLayout());
-        GridBagConstraints filesC = constraints();
-        int sectionRow = 0;
-        publishInputButton = addChooserRow(files, filesC, publishInputLabel, publishInputField, "Choose Input",
-                sectionRow++,
+        // --- Setup box: what gets published, and where it lands. Always visible
+        // and boxed so the required inputs read at a glance, like the command
+        // builder's leading fields.
+        JPanel setup = transparentPanel(new GridBagLayout());
+        GridBagConstraints setupC = constraints();
+        int setupRow = 0;
+        grid(setup, label("task"), setupC, 0, setupRow, 1, 1);
+        JPanel taskCell = transparentPanel(new BorderLayout(0, 3));
+        taskCell.add(publishTaskCombo, BorderLayout.NORTH);
+        taskCell.add(publishTaskHint, BorderLayout.SOUTH);
+        grid(setup, taskCell, setupC, 1, setupRow++, 3, 1);
+        grid(setup, label("source"), setupC, 0, setupRow, 1, 1);
+        grid(setup, publishSourceCombo, setupC, 1, setupRow++, 3, 1);
+        publishInputButton = addChooserRow(setup, setupC, requiredLabelCell(publishInputLabel, publishInputStar),
+                publishInputField, "Choose Input", setupRow++,
                 () -> FileDialogs.choosePath(host.owner(), publishInputField, false, "Choose publishing input"));
-        publishOutputButton = addChooserRow(files, filesC, publishOutputLabel, publishOutputField, "Choose Output",
-                sectionRow++,
+        publishOutputButton = addChooserRow(setup, setupC, requiredLabelCell(publishOutputLabel, publishOutputStar),
+                publishOutputField, "Choose Output", setupRow,
                 () -> FileDialogs.choosePath(host.owner(), publishOutputField, true, "Choose publishing output"));
-        publishManifestOutputButton = addChooserRow(files, filesC, publishManifestOutputLabel,
-                publishManifestOutputField, "Choose Manifest", sectionRow++,
-                () -> FileDialogs.choosePath(host.owner(), publishManifestOutputField, true, "Choose manifest output"));
-        publishPdfOutputButton = addChooserRow(files, filesC, publishPdfOutputLabel, publishPdfOutputField,
-                "Choose PDF", sectionRow++,
-                this::choosePublishPdfPath);
-        publishCoverOutputButton = addChooserRow(files, filesC, publishCoverOutputLabel, publishCoverOutputField,
-                "Choose Cover", sectionRow,
-                () -> FileDialogs.choosePath(host.owner(), publishCoverOutputField, true, "Choose cover output"));
-        grid(panel, collapsible("Files", files, true), c, 0, row++, 4, 1);
+        grid(panel, fieldGroup("Setup", setup), c, 0, row++, 4, 1);
+
+        // --- Options box: the boolean command flags, surfaced (not buried) and
+        // boxed so each switch clearly belongs to the publishing command.
+        JPanel options = transparentPanel(new GridBagLayout());
+        GridBagConstraints optionsC = constraints();
+        int optionsRow = 0;
+        JPanel toggles = flow(FlowLayout.LEFT);
+        toggles.add(publishValidateBox);
+        toggles.add(publishFlipBox);
+        toggles.add(publishNoFenBox);
+        toggles.add(publishWatermarkBox);
+        optionsRow = addPublishingControlRow(options, optionsC, label("flags"), toggles, optionsRow);
+        addPublishingControlRow(options, optionsC, label("watermark id"), publishWatermarkIdField, optionsRow);
+        grid(panel, fieldGroup("Options", options), c, 0, row++, 4, 1);
 
         JPanel details = transparentPanel(new GridBagLayout());
         GridBagConstraints detailsC = constraints();
-        sectionRow = 0;
+        int sectionRow = 0;
         sectionRow = addPublishingControlRow(details, detailsC, label("title"), publishTitleField, sectionRow);
         sectionRow = addPublishingControlRow(details, detailsC, label("subtitle"), publishSubtitleField, sectionRow);
         sectionRow = addPublishingControlRow(details, detailsC, label("author"), publishAuthorField, sectionRow);
@@ -718,7 +711,7 @@ public final class PublishingPanel {
                 compactPublishingRow(label("time"), publishTimeField, label("location"), publishLocationField),
                 sectionRow);
         addPublishingControlRow(details, detailsC, label("language"), publishLanguageCombo, sectionRow);
-        grid(panel, collapsible("Details", details, true), c, 0, row++, 4, 1);
+        grid(panel, collapsible("Details", details, false), c, 0, row++, 4, 1);
 
         JPanel layout = transparentPanel(new GridBagLayout());
         GridBagConstraints layoutC = constraints();
@@ -742,23 +735,21 @@ public final class PublishingPanel {
                 sectionRow);
         grid(panel, collapsible("Layout", layout, false), c, 0, row++, 4, 1);
 
-        JPanel options = transparentPanel(new GridBagLayout());
-        GridBagConstraints optionsC = constraints();
+        JPanel files = transparentPanel(new GridBagLayout());
+        GridBagConstraints filesC = constraints();
         sectionRow = 0;
-        JPanel toggles = flow(FlowLayout.LEFT);
-        toggles.add(publishValidateBox);
-        toggles.add(publishFlipBox);
-        toggles.add(publishNoFenBox);
-        toggles.add(publishWatermarkBox);
-        sectionRow = addPublishingControlRow(options, optionsC, label("options"), toggles, sectionRow);
-        sectionRow = addPublishingControlRow(options, optionsC, label("watermark id"), publishWatermarkIdField,
-                sectionRow);
+        publishManifestOutputButton = addChooserRow(files, filesC, publishManifestOutputLabel,
+                publishManifestOutputField, "Choose Manifest", sectionRow++,
+                () -> FileDialogs.choosePath(host.owner(), publishManifestOutputField, true, "Choose manifest output"));
+        publishPdfOutputButton = addChooserRow(files, filesC, publishPdfOutputLabel, publishPdfOutputField,
+                "Choose PDF", sectionRow++,
+                this::choosePublishPdfPath);
+        publishCoverOutputButton = addChooserRow(files, filesC, publishCoverOutputLabel, publishCoverOutputField,
+                "Choose Cover", sectionRow,
+                () -> FileDialogs.choosePath(host.owner(), publishCoverOutputField, true, "Choose cover output"));
+        grid(panel, collapsible("Extra output files", files, false), c, 0, row++, 4, 1);
 
-        sectionRow = addPublishingControlRow(options, optionsC, label("front matter"),
-                collapsible("Copy", createPublishingFrontMatterPanel(), false), sectionRow);
-        addPublishingControlRow(options, optionsC, label("report"),
-                collapsible("Report", createReportPanel(), false), sectionRow);
-        grid(panel, collapsible("Options", options, false), c, 0, row++, 4, 1);
+        grid(panel, collapsible("Front matter", createPublishingFrontMatterPanel(), false), c, 0, row++, 4, 1);
 
         JPanel command = transparentPanel(new GridBagLayout());
         GridBagConstraints commandC = constraints();
@@ -766,15 +757,91 @@ public final class PublishingPanel {
         publishCommandField.setFocusable(false);
         publishCommandField.setToolTipText("Generated publishing command");
         grid(command, scroll(publishCommandField), commandC, 0, 0, 4, 1);
-        grid(panel, collapsible("Command", command, false), c, 0, row++, 4, 1);
+        grid(panel, collapsible("Command line", command, false), c, 0, row++, 4, 1);
 
+        grid(panel, collapsible("Report", createReportPanel(), false), c, 0, row++, 4, 1);
+
+        publishCreateButton = button("Create PDF", true, event -> runPublishingCommand());
         grid(panel, buttonRow(FlowLayout.LEFT,
-                button("Create PDF", true, event -> runPublishingCommand()),
+                publishCreateButton,
                 button("Copy Command", false, event -> host.copyText(publishCommandField.getText())),
-                button("Copy Preview", false, event -> copyPublishingPreview()),
                 button("Stop", false, event -> host.stopCommand())), c, 1, row++, 3, 1);
         addVerticalFiller(panel, c, row, 4);
         return panel;
+    }
+
+    /**
+     * Sets the preferred column widths for the publishing fields.
+     */
+    private void applyPublishingFieldColumns() {
+        publishInputField.setColumns(28);
+        publishOutputField.setColumns(28);
+        publishManifestOutputField.setColumns(28);
+        publishPdfOutputField.setColumns(28);
+        publishCoverOutputField.setColumns(28);
+        publishTitleField.setColumns(28);
+        publishSubtitleField.setColumns(28);
+        publishAuthorField.setColumns(28);
+        publishTimeField.setColumns(12);
+        publishLocationField.setColumns(12);
+        publishLimitField.setColumns(8);
+        publishPagesField.setColumns(8);
+        publishDiagramsPerRowField.setColumns(8);
+        publishBoardPixelsField.setColumns(8);
+        publishMarginField.setColumns(8);
+        publishTableFrequencyField.setColumns(8);
+        publishPuzzleRowsField.setColumns(8);
+        publishPuzzleColumnsField.setColumns(8);
+        publishWatermarkIdField.setColumns(18);
+    }
+
+    /**
+     * Wraps a form section in a hairline-bordered box with a section header, so
+     * related controls read as one group. The border tracks the active palette
+     * through {@link Theme}'s border refresh.
+     *
+     * @param title section title
+     * @param body section body
+     * @return boxed section
+     */
+    private static JComponent fieldGroup(String title, JComponent body) {
+        JPanel group = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
+        group.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Theme.LINE),
+                Theme.pad(Theme.SPACE_SM, Theme.SPACE_MD, Theme.SPACE_MD, Theme.SPACE_MD)));
+        group.add(Theme.section(title), BorderLayout.NORTH);
+        group.add(body, BorderLayout.CENTER);
+        return group;
+    }
+
+    /**
+     * Creates a hidden required marker. Its colour is bound to the semantic
+     * {@code ERROR} foreground role, so {@link Theme}'s refresh recolours it on a
+     * light/dark switch instead of leaving a stale hex behind.
+     *
+     * @return required-marker label
+     */
+    private static JLabel requiredStar() {
+        JLabel star = new JLabel("*");
+        star.setFont(Theme.font(12, Font.BOLD));
+        Theme.foreground(star, Theme.ForegroundRole.ERROR);
+        star.setToolTipText("Required");
+        star.setVisible(false);
+        return star;
+    }
+
+    /**
+     * Pairs a row label with its trailing required marker in one grid cell.
+     *
+     * @param rowLabel base label
+     * @param star required marker
+     * @return label cell
+     */
+    private static JComponent requiredLabelCell(JLabel rowLabel, JLabel star) {
+        JPanel cell = transparentPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
+        cell.add(rowLabel);
+        cell.add(star);
+        return cell;
     }
 
     /**
@@ -879,20 +946,9 @@ public final class PublishingPanel {
         toolbar.add(pageControls, BorderLayout.EAST);
         panel.add(toolbar, BorderLayout.SOUTH);
 
-        styleAreas(publishPreview);
-        publishPreview.setRows(6);
-        publishPreview.setLineWrap(true);
-        publishPreview.setWrapStyleWord(true);
-        publishPreview.setEditable(false);
-
-        JSplitPane previewSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT, publishVisualPreview,
-                scroll(publishPreview));
-        previewSplit.setResizeWeight(0.78);
-        previewSplit.setDividerLocation(0.78);
-        previewSplit.setDividerSize(8);
-        previewSplit.setContinuousLayout(true);
-        SplitPaneStyler.style(previewSplit);
-        panel.add(previewSplit, BorderLayout.CENTER);
+        // The visual page is the preview — the old text dump beneath it just
+        // repeated the command and readiness already shown elsewhere.
+        panel.add(publishVisualPreview, BorderLayout.CENTER);
         return panel;
     }
 
@@ -908,7 +964,7 @@ public final class PublishingPanel {
      * @param chooserAction chooser action
      * @return chooser button
      */
-    private JButton addChooserRow(JPanel panel, GridBagConstraints c, JLabel rowLabel, JTextField field,
+    private JButton addChooserRow(JPanel panel, GridBagConstraints c, JComponent rowLabel, JTextField field,
             String buttonText, int row, Runnable chooserAction) {
         grid(panel, rowLabel, c, 0, row, 1, 1);
         grid(panel, field, c, 1, row, 2, 1);
@@ -1001,6 +1057,10 @@ public final class PublishingPanel {
             case RENDER, STUDY, COVER -> "manifest";
             case COLLECTION -> "records";
         });
+        // --output is the only strictly-required output flag (book pdf); the rest
+        // default sensibly, so only diagrams marks its output required.
+        publishOutputStar.setVisible(diagrams);
+        publishInputStar.setVisible(!diagrams || existingDiagramInput);
         publishPdfOutputLabel.setText("interior pdf");
         publishCoverOutputLabel.setText("cover pdf");
         publishManifestOutputField.setEnabled(study);
@@ -1119,18 +1179,17 @@ public final class PublishingPanel {
      */
     private void updatePublishCommand() {
         publishCommandUpdateQueued = false;
-        String command = "";
         String issue = publishPreflightIssue();
         try {
-            command = CommandRunner.displayCommand(buildPublishArgs(false));
-            publishCommandField.setText(command);
+            publishCommandField.setText(CommandRunner.displayCommand(buildPublishArgs(false)));
         } catch (IllegalArgumentException | IOException ex) {
             issue = ex.getMessage();
-            command = "incomplete: " + issue;
-            publishCommandField.setText(command);
+            publishCommandField.setText("incomplete: " + issue);
         }
-        publishPreview.setText(buildPublishingPreview(command, issue));
-        publishPreview.setCaretPosition(0);
+        if (publishCreateButton != null) {
+            // Don't offer Create when the command can't even be built.
+            publishCreateButton.setEnabled(issue == null);
+        }
         updatePublishingVisualPreview(issue);
     }
 
@@ -1157,9 +1216,11 @@ public final class PublishingPanel {
      */
     private void updatePublishingVisualPreview(String issue) {
         PublishTask task = selectedPublishTask();
+        String title = trimmed(publishTitleField);
+        List<SampleItem> items = publishPreviewItems(task);
         PublishPreview.Preview preview = new PublishPreview.Preview(
                 task.toString(),
-                trimmed(publishTitleField),
+                title.isEmpty() && usesSampleTitle(task) ? PublishSampleData.SAMPLE_TITLE : title,
                 trimmed(publishSubtitleField),
                 publishSourcePreview(task),
                 publishOutputPreview(task),
@@ -1169,7 +1230,8 @@ public final class PublishingPanel {
                 task == PublishTask.COVER,
                 task == PublishTask.DIAGRAMS,
                 publishFlipBox.isSelected(),
-                publishNoFenBox.isSelected());
+                publishNoFenBox.isSelected(),
+                items);
         publishVisualPreview.setPreview(preview);
         publishReadinessLabel.setText(issue == null ? "Ready to publish" : "Needs attention");
         publishReadinessLabel.setToolTipText(issue == null ? "Publishing command is ready" : issue);
@@ -1179,45 +1241,84 @@ public final class PublishingPanel {
     }
 
     /**
+     * Returns whether a task should fall back to the bundled sample book title
+     * when the user has not typed one, so the preview never reads "Untitled".
+     *
+     * @param task selected task
+     * @return true when the sample title applies
+     */
+    private static boolean usesSampleTitle(PublishTask task) {
+        return task == PublishTask.COLLECTION || task == PublishTask.STUDY
+                || task == PublishTask.RENDER || task == PublishTask.COVER;
+    }
+
+    /**
+     * Builds the preview's sample items from live workbench data when available,
+     * falling back to the bundled real-book sample otherwise.
+     *
+     * @param task selected task
+     * @return preview items, never null
+     */
+    private List<SampleItem> publishPreviewItems(PublishTask task) {
+        if (task == PublishTask.DIAGRAMS) {
+            return diagramPreviewItems();
+        }
+        if (task == PublishTask.COLLECTION) {
+            return PublishSampleData.puzzleItems();
+        }
+        return PublishSampleData.studyItems();
+    }
+
+    /**
+     * Returns diagram preview items, preferring the live source the user picked.
+     *
+     * @return diagram items, never null
+     */
+    private List<SampleItem> diagramPreviewItems() {
+        List<SampleItem> items = switch (selectedPublishSource()) {
+            case CURRENT_FEN -> {
+                String fen = host.currentFen();
+                yield fen == null || fen.isBlank() ? List.of()
+                        : List.of(new SampleItem(fen, "Current position", FenInput.compactPreview(fen)));
+            }
+            case GAME_PGN -> fenListItems(host.gameModel().fenList(), "Move ");
+            case BATCH_FENS -> fenListItems(host.batchInputText(), "Position ");
+            case EXISTING_FILE -> List.of();
+        };
+        return items.isEmpty() ? PublishSampleData.studyItems() : items;
+    }
+
+    /**
+     * Builds preview items from a newline-separated FEN list, capped for the
+     * preview.
+     *
+     * @param text FEN list text
+     * @param captionPrefix per-item caption prefix
+     * @return preview items, never null
+     */
+    private static List<SampleItem> fenListItems(String text, String captionPrefix) {
+        if (text == null || text.isBlank()) {
+            return List.of();
+        }
+        List<SampleItem> items = new ArrayList<>();
+        for (String line : text.strip().split("\\R")) {
+            String fen = line.trim();
+            if (fen.isEmpty() || fen.startsWith("#")) {
+                continue;
+            }
+            items.add(new SampleItem(fen, captionPrefix + (items.size() + 1), FenInput.compactPreview(fen)));
+            if (items.size() >= 12) {
+                break;
+            }
+        }
+        return items;
+    }
+
+    /**
      * Updates visual preview page label.
      */
     private void updatePublishPreviewPageLabel() {
         publishPreviewPageLabel.setText(publishVisualPreview.pageLabel());
-    }
-
-    /**
-     * Copies the publishing preview after flushing pending edits.
-     */
-    private void copyPublishingPreview() {
-        updatePublishCommand();
-        host.copyText(publishPreview.getText());
-    }
-
-    /**
-     * Builds a human-readable publishing preview.
-     *
-     * @param command command text
-     * @param issue readiness issue, or null
-     * @return preview text
-     */
-    private String buildPublishingPreview(String command, String issue) {
-        String newline = System.lineSeparator();
-        StringBuilder sb = new StringBuilder(768);
-        PublishTask task = selectedPublishTask();
-        appendPublishingPreviewLine(sb, "Task", task.toString(), newline);
-        appendPublishingPreviewLine(sb, "Status", issue == null ? "ready" : "needs attention - " + issue, newline);
-        appendPublishingPreviewLine(sb, "Source", publishSourcePreview(task), newline);
-        appendPublishingPreviewLine(sb, "Output", publishOutputPreview(task), newline);
-        appendPublishingTextLine(sb, "Title", trimmed(publishTitleField), newline);
-        if (task != PublishTask.DIAGRAMS) {
-            appendPublishingTextLine(sb, "Subtitle", trimmed(publishSubtitleField), newline);
-        }
-        if (task == PublishTask.COLLECTION || task == PublishTask.STUDY) {
-            appendPublishingTextLine(sb, "Author", trimmed(publishAuthorField), newline);
-        }
-        appendPublishingPreviewLine(sb, "Options", publishOptionsPreview(task), newline);
-        sb.append(newline).append(command);
-        return sb.toString();
     }
 
     /**
@@ -1257,55 +1358,6 @@ public final class PublishingPanel {
             case COVER -> pathOrMissing("cover PDF", publishOutputField)
                     + optionalOutput("interior PDF", publishPdfOutputField, true);
         };
-    }
-
-    /**
-     * Returns relevant publishing option summary.
-     *
-     * @param task selected task
-     * @return option summary
-     */
-    private String publishOptionsPreview(PublishTask task) {
-        List<String> options = new ArrayList<>();
-        addPreviewOption(options, publishValidateBox.isSelected() && task != PublishTask.DIAGRAMS, "validate only");
-        addPreviewOption(options, publishFlipBox.isSelected() && (task == PublishTask.DIAGRAMS
-                || task == PublishTask.STUDY), "black down");
-        addPreviewOption(options, publishNoFenBox.isSelected() && (task == PublishTask.DIAGRAMS
-                || task == PublishTask.STUDY), "hide FEN");
-        addPreviewOption(options, (task == PublishTask.RENDER || task == PublishTask.COLLECTION)
-                && !trimmed(publishLimitField).isEmpty(), "limit " + trimmed(publishLimitField));
-        addPreviewOption(options, (task == PublishTask.COLLECTION || task == PublishTask.STUDY
-                || task == PublishTask.COVER) && !trimmed(publishPagesField).isEmpty(),
-                "pages " + trimmed(publishPagesField));
-        addPreviewOption(options, (task == PublishTask.DIAGRAMS || task == PublishTask.STUDY)
-                && !comboValue(publishPageSizeCombo).isEmpty(), "page " + comboValue(publishPageSizeCombo));
-        addPreviewOption(options, (task == PublishTask.DIAGRAMS || task == PublishTask.STUDY)
-                && !trimmed(publishDiagramsPerRowField).isEmpty(),
-                trimmed(publishDiagramsPerRowField) + " diagrams/row");
-        addPreviewOption(options, (task == PublishTask.DIAGRAMS || task == PublishTask.STUDY)
-                && !trimmed(publishBoardPixelsField).isEmpty(),
-                trimmed(publishBoardPixelsField) + " px boards");
-        addPreviewOption(options, task == PublishTask.STUDY && !trimmed(publishMarginField).isEmpty(),
-                "margin " + trimmed(publishMarginField));
-        addPreviewOption(options, task == PublishTask.COLLECTION && !trimmed(publishTableFrequencyField).isEmpty(),
-                "table every " + trimmed(publishTableFrequencyField));
-        addPreviewOption(options, task == PublishTask.COLLECTION && !trimmed(publishPuzzleRowsField).isEmpty(),
-                trimmed(publishPuzzleRowsField) + " puzzle rows");
-        addPreviewOption(options, task == PublishTask.COLLECTION && !trimmed(publishPuzzleColumnsField).isEmpty(),
-                trimmed(publishPuzzleColumnsField) + " puzzle columns");
-        addPreviewOption(options, (task == PublishTask.COLLECTION || task == PublishTask.STUDY
-                || task == PublishTask.COVER) && !comboValue(publishBindingCombo).isEmpty(),
-                "binding " + comboValue(publishBindingCombo));
-        addPreviewOption(options, (task == PublishTask.COLLECTION || task == PublishTask.STUDY
-                || task == PublishTask.COVER) && !comboValue(publishInteriorCombo).isEmpty(),
-                "interior " + comboValue(publishInteriorCombo));
-        addPreviewOption(options, task == PublishTask.COLLECTION && !comboValue(publishLanguageCombo).isEmpty(),
-                "language " + comboValue(publishLanguageCombo));
-        addPreviewOption(options, (task == PublishTask.RENDER || task == PublishTask.COLLECTION)
-                && publishWatermarkBox.isSelected(), "free watermark");
-        addPreviewOption(options, (task == PublishTask.RENDER || task == PublishTask.COLLECTION)
-                && !trimmed(publishWatermarkIdField).isEmpty(), "watermark ID");
-        return options.isEmpty() ? "default" : String.join(", ", options);
     }
 
     /**
@@ -1435,45 +1487,6 @@ public final class PublishingPanel {
         }
         FenInput.Summary scan = FenInput.validateBatchFenInput(text);
         return scan.hasError() ? "Batch FEN line " + scan.firstErrorLine() + ": " + scan.firstError() : null;
-    }
-
-    /**
-     * Appends a non-empty publishing text line.
-     *
-     * @param sb target builder
-     * @param label line label
-     * @param value line value
-     * @param newline line separator
-     */
-    private static void appendPublishingTextLine(StringBuilder sb, String label, String value, String newline) {
-        if (!value.isEmpty()) {
-            appendPublishingPreviewLine(sb, label, value, newline);
-        }
-    }
-
-    /**
-     * Appends one aligned publishing preview line.
-     *
-     * @param sb target builder
-     * @param label line label
-     * @param value line value
-     * @param newline line separator
-     */
-    private static void appendPublishingPreviewLine(StringBuilder sb, String label, String value, String newline) {
-        sb.append(String.format(Locale.ROOT, "%-8s %s", label, value)).append(newline);
-    }
-
-    /**
-     * Adds one preview option when active.
-     *
-     * @param options target options
-     * @param active whether option applies
-     * @param text option text
-     */
-    private static void addPreviewOption(List<String> options, boolean active, String text) {
-        if (active) {
-            options.add(text);
-        }
     }
 
     /**

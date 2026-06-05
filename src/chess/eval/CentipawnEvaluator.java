@@ -111,8 +111,9 @@ public interface CentipawnEvaluator extends AutoCloseable {
      * </p>
      *
      * @param position position whose legal moves are being ordered
-     * @param moves legal moves aligned with {@code scores}
-     * @param scores mutable ordering scores to adjust in place
+     * @param moves legal moves aligned with the prefix of {@code scores}
+     * @param scores mutable ordering scores to adjust in place; implementations
+     *        should read/write only indices {@code [0, moves.length)}
      */
     default void scoreMoves(Position position, short[] moves, int[] scores) {
         // default evaluator does not contribute move priors

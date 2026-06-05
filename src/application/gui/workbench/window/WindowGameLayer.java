@@ -566,9 +566,11 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
     protected void runSelectedTemplate() {
         try {
             updateCommandPreviews();
-            runCommand(selectedTemplateArgs(), null);
+            runCommand(selectedTemplateRunArgs(), null);
         } catch (IllegalArgumentException ex) {
             showError("Template failed", ex.getMessage());
+        } catch (java.io.IOException ex) {
+            showError("Input file failed", ex.getMessage());
         }
     }
 
@@ -760,6 +762,22 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
     protected void loadEcoLine(String movetext) {
         startNewGame(Setup.getStandardStartFEN());
         loadGameText(movetext);
+    }
+
+    /**
+     * Switches to the Board tab's analysis surface and loads a position from a
+     * FEN — the seam used by the Datasets tab to open a scanned sample on the
+     * board.
+     *
+     * @param fen FEN string
+     */
+    @Override
+    protected void openFenInBoard(String fen) {
+        if (fen == null || fen.isBlank()) {
+            return;
+        }
+        openBoard(BOARD_ANALYZE);
+        startNewGame(fen);
     }
 
     /**

@@ -260,22 +260,22 @@ public final class Theme {
     /**
      * VS Code macOS dark primary foreground.
      */
-    private static final Color DARK_INK = new Color(0xE8E8EA);
+    private static final Color DARK_INK = new Color(0xE8E8E8);
 
     /**
      * VS Code macOS dark secondary foreground.
      */
-    private static final Color DARK_MUTED = new Color(0xA1A1A6);
+    private static final Color DARK_MUTED = new Color(0xA1A1A1);
 
     /**
      * VS Code macOS dark title/sidebar chrome background.
      */
-    private static final Color DARK_CHROME = new Color(0x2C2C2E);
+    private static final Color DARK_CHROME = new Color(0x2C2C2C);
 
     /**
      * VS Code macOS dark widget border.
      */
-    private static final Color DARK_SUBTLE = new Color(0x3A3A3C);
+    private static final Color DARK_SUBTLE = new Color(0x3A3A3A);
 
     /**
      * VS Code Dark (Visual Studio) editor surface.
@@ -285,12 +285,12 @@ public final class Theme {
     /**
      * VS Code macOS dark popup/dropdown surface.
      */
-    private static final Color DARK_ELEVATED = new Color(0x252526);
+    private static final Color DARK_ELEVATED = new Color(0x252525);
 
     /**
      * VS Code macOS dark menu separator and input border.
      */
-    private static final Color DARK_BORDER = new Color(0x48484A);
+    private static final Color DARK_BORDER = new Color(0x484848);
 
     /**
      * macOS-style action blue for dark mode: brighter than the light accent so
@@ -395,6 +395,21 @@ public final class Theme {
      * Solid elevated fallback for data surfaces and scroll viewports.
      */
     public static Color ELEVATED_SOLID = blendOver(ELEVATED, BG);
+
+    /**
+     * Raised-card surface. A card sits one step above the page so it reads as a
+     * distinct surface — essential in dark mode, where the page, document, and
+     * chrome tiers otherwise sit within a few luma points of one another and
+     * cards look painted-on. Light mode keeps the familiar white card.
+     */
+    public static Color CARD = blendOver(PANEL, BG);
+
+    /**
+     * Hairline border drawn around a raised card. Strong enough to define the
+     * card edge on its own: flat, near-black dark UIs lean on a visible border
+     * far more than on a drop shadow.
+     */
+    public static Color CARD_BORDER = PASTEL_BORDER;
 
     /**
      * Line color.
@@ -797,6 +812,13 @@ public final class Theme {
      */
     private static final String CLIENT_COMMAND_TAB = "workbench.commandTab";
 
+    /**
+     * Client-property key marking a text field/area that must stay transparent
+     * (e.g. an inline preview) so a theme refresh only re-colours it instead of
+     * stamping it with the opaque input surface.
+     */
+    public static final String CLIENT_TRANSPARENT_FIELD = "workbench.transparentField";
+
     // ------------------------------------------------------------------
     // Spacing scale
     //
@@ -847,10 +869,46 @@ public final class Theme {
     public static final int CONTROL_HEIGHT = 32;
 
     /**
+     * Taller control height for a single full-width hero call-to-action (the
+     * Play tab's "New Game"), so the intent reads as deliberate rather than a
+     * magic number.
+     */
+    public static final int CONTROL_HEIGHT_TALL = 40;
+
+    /**
      * Shared row height for data tables (datasets, MCTS root moves, dashboard
      * jobs) so every grid reads with the same comfortable, scannable density.
      */
     public static final int TABLE_ROW_HEIGHT = 28;
+
+    /**
+     * Named type scale so headings, body, and captions read as a deliberate
+     * hierarchy instead of ad-hoc point sizes. Snaps to the sizes already
+     * dominant in the app to avoid a disruptive reflow.
+     */
+    public static final int FONT_TITLE = 15;
+
+    /**
+     * Default body / control size.
+     */
+    public static final int FONT_BODY = 13;
+
+    /**
+     * Caption / helper-text size.
+     */
+    public static final int FONT_CAPTION = 11;
+
+    /**
+     * Uppercase eyebrow / micro-label size.
+     */
+    public static final int FONT_MICRO = 10;
+
+    /**
+     * Maximum content width for report-style tabs that read better as a column
+     * than stretched edge-to-edge. Operational surfaces (the dashboard grid,
+     * data tables) deliberately ignore this and use the full canvas.
+     */
+    public static final int CONTENT_MAX_WIDTH = 1440;
 
     // ------------------------------------------------------------------
     // Neural-network visualization palette
@@ -1013,7 +1071,15 @@ public final class Theme {
         } else if (component instanceof ConsoleLike console) {
             console.applyConsoleTheme();
         } else if (component instanceof JTextArea area) {
-            area(area);
+            if (Boolean.TRUE.equals(area.getClientProperty(CLIENT_TRANSPARENT_FIELD))) {
+                // Inline preview: keep it transparent so the host surface shows
+                // through; only re-resolve the palette-sensitive colours.
+                area.setForeground(TEXT);
+                area.setCaretColor(MUTED);
+                area.setSelectionColor(SELECTION_SOLID);
+            } else {
+                area(area);
+            }
         } else if (component instanceof JFormattedTextField field
                 && field.getParent() instanceof JSpinner.DefaultEditor editor) {
             Ui.styleSpinnerEditor(editor);
@@ -1065,7 +1131,12 @@ public final class Theme {
             }
         } else if (component instanceof JLabel label) {
             refreshForeground(label);
-        } else if (component instanceof JComponent jComponent) {
+        } else if (component instanceof JComponent jComponent
+                && !(component.getParent() instanceof JScrollPane)) {
+            // A scroll pane's own viewport and corner fillers are owned by
+            // Ui.refreshScrollPaneTheme (which honours the declared embedding
+            // surface). Reassigning PANEL_SOLID here would clobber that and bring
+            // back the darker box-in-a-card on every theme switch.
             refreshForeground(jComponent);
             if (jComponent.isOpaque()) {
                 jComponent.setBackground(PANEL_SOLID);
@@ -1240,6 +1311,8 @@ public final class Theme {
         BACKDROP_BOTTOM = new Color(0xEFEFF3);
         ELEVATED = PASTEL_CHROME;
         ELEVATED_SOLID = blendOver(ELEVATED, BG);
+        CARD = blendOver(PANEL, BG);
+        CARD_BORDER = PASTEL_BORDER;
         LINE = PASTEL_BORDER;
         TEXT = PASTEL_INK;
         MUTED = PASTEL_MUTED;
@@ -1314,10 +1387,15 @@ public final class Theme {
         PANEL = DARK_DOCUMENT;
         PANEL_SOLID = blendOver(PANEL, BG);
         GLASS_HIGHLIGHT = new Color(255, 255, 255, 24);
-        BACKDROP_TOP = new Color(0x303032);
-        BACKDROP_BOTTOM = new Color(0x242426);
+        BACKDROP_TOP = new Color(0x303030);
+        BACKDROP_BOTTOM = new Color(0x242424);
         ELEVATED = DARK_ELEVATED;
         ELEVATED_SOLID = blendOver(ELEVATED, BG);
+        // One restrained surface level on a deep canvas, defined by a crisp
+        // hairline rather than a big lighter fill — a refined, grown-up
+        // separation instead of a stack of chunky lighter-grey boxes.
+        CARD = new Color(0x232323);
+        CARD_BORDER = new Color(0x3E3E3E);
         LINE = DARK_SUBTLE;
         TEXT = DARK_INK;
         MUTED = DARK_MUTED;
@@ -1326,16 +1404,16 @@ public final class Theme {
         SELECTION_SOLID = blendOver(SELECTION, BG);
         ACCENT_HOVER = DARK_ACCENT_HOVER;
         ACCENT_PRESSED = DARK_ACCENT_PRESSED;
-        SECONDARY_BUTTON = new Color(0x363638);
-        SECONDARY_BUTTON_HOVER = new Color(0x424245);
-        SECONDARY_BUTTON_PRESSED = new Color(0x4B4B4F);
+        SECONDARY_BUTTON = new Color(0x363636);
+        SECONDARY_BUTTON_HOVER = new Color(0x424242);
+        SECONDARY_BUTTON_PRESSED = new Color(0x4B4B4B);
         SECONDARY_BUTTON_TEXT = DARK_INK;
         BUTTON_DISABLED_BG = DARK_DOCUMENT;
         BUTTON_DISABLED_BORDER = DARK_SUBTLE;
         BUTTON_DISABLED_TEXT = new Color(0x868686);
         INPUT_BORDER = DARK_BORDER;
         INPUT_FOCUS = DARK_ACCENT;
-        INPUT_DISABLED = new Color(0x323234);
+        INPUT_DISABLED = new Color(0x323232);
         TOGGLE_BG = DARK_ELEVATED;
         TOGGLE_BORDER = DARK_BORDER;
         TOGGLE_TRACK = DARK_MUTED;
@@ -1350,7 +1428,7 @@ public final class Theme {
         PRIMARY_BUTTON_TEXT = Color.WHITE;
         setFixedBoardAndEvalColors();
         TAB_ACCENT_UNDERLINE = withAlpha(ACCENT, 255);
-        TAB_HOVER = new Color(0x37373A);
+        TAB_HOVER = new Color(0x373737);
         TAB_IDLE = new Color(BG.getRed(), BG.getGreen(), BG.getBlue(), 255);
         SCROLLBAR_TRACK = new Color(DARK_CHROME.getRed(), DARK_CHROME.getGreen(), DARK_CHROME.getBlue(), 0);
         SCROLLBAR_THUMB = new Color(DARK_MUTED.getRed(), DARK_MUTED.getGreen(), DARK_MUTED.getBlue(), 82);
@@ -1485,17 +1563,22 @@ public final class Theme {
         int shadow = 3;
         int w = Math.max(0, width - 1);
         int surfaceHeight = Math.max(0, height - 1 - shadow);
-        int baseShadowAlpha = isDark() ? 78 : 26;
+        // Dark mode leans on the crisp hairline, not a heavy drop shadow, so
+        // cards read as refined panels rather than chunky floating tiles.
+        int baseShadowAlpha = isDark() ? 48 : 26;
         int shadowAlpha = Math.round(baseShadowAlpha * (0.75f + 0.45f * h));
         g.setColor(new Color(0, 0, 0, Math.max(0, Math.min(255, shadowAlpha))));
         g.fillRoundRect(2, shadow, Math.max(0, w - 3), surfaceHeight, arc, arc);
         g.setColor(new Color(0, 0, 0, Math.max(0, Math.min(255, shadowAlpha / 2))));
         g.fillRoundRect(1, Math.max(0, shadow - 1), Math.max(0, w - 1), surfaceHeight, arc, arc);
-        g.setColor(withAlpha(PANEL_SOLID, 244));
+        // Opaque raised surface (CARD) sits a step above the page; in dark mode
+        // that step is what makes the card read, so keep it solid rather than
+        // translucent.
+        g.setColor(CARD);
         g.fillRoundRect(0, 0, w, surfaceHeight, arc, arc);
         g.setColor(GLASS_HIGHLIGHT);
         g.drawLine(arc / 2, 1, Math.max(arc / 2, w - arc / 2), 1);
-        g.setColor(lerp(LINE, ACCENT, h * 0.85f));
+        g.setColor(lerp(CARD_BORDER, ACCENT, h * 0.85f));
         g.drawRoundRect(0, 0, w, surfaceHeight, arc, arc);
     }
 
@@ -1727,6 +1810,49 @@ public final class Theme {
     private static final String MONO_FONT_FAMILY = resolveFontFamily(MONO_FONT_CANDIDATES, Font.MONOSPACED);
 
     /**
+     * Block, shade, and box-drawing glyphs that CLI progress bars rely on. A
+     * console font must render every one of these or progress output shows
+     * missing-glyph boxes (the resolved interface mono, e.g. Ubuntu Sans Mono,
+     * lacks the eighth-blocks and heavy box rules).
+     */
+    private static final String CONSOLE_GLYPH_PROBE =
+            "█▉▊▋▌▍▎▏" // full + left eighth blocks
+            + "▀▄▐░▒▓"          // half blocks + shades
+            + "─│┌┐└┘"          // light box drawing
+            + "━┃";                                  // heavy box drawing
+
+    /**
+     * Resolved console/terminal family: a real monospace that covers every
+     * {@link #CONSOLE_GLYPH_PROBE} glyph, or the logical monospace (a composite
+     * font with full Unicode fallback) when no installed candidate qualifies.
+     */
+    private static final String CONSOLE_FONT_FAMILY = resolveConsoleFontFamily();
+
+    /**
+     * Resolves the first installed monospace candidate that can render all
+     * progress-bar glyphs, falling back to the logical monospace.
+     *
+     * @return console font family
+     */
+    private static String resolveConsoleFontFamily() {
+        try {
+            String[] available = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment()
+                    .getAvailableFontFamilyNames();
+            for (String candidate : MONO_FONT_CANDIDATES) {
+                for (String name : available) {
+                    if (candidate.equalsIgnoreCase(name)
+                            && new Font(name, Font.PLAIN, 13).canDisplayUpTo(CONSOLE_GLYPH_PROBE) == -1) {
+                        return name;
+                    }
+                }
+            }
+        } catch (java.awt.HeadlessException ex) {
+            // fall through to the composite logical monospace
+        }
+        return Font.MONOSPACED;
+    }
+
+    /**
      * Resolves the first installed font family from a candidate stack.
      *
      * @param candidates preferred font families
@@ -1772,6 +1898,17 @@ public final class Theme {
     }
 
     /**
+     * Returns the console/terminal monospaced font — like {@link #mono(float)}
+     * but guaranteed to render block, shade, and box-drawing progress glyphs.
+     *
+     * @param size font size
+     * @return console monospaced font
+     */
+    public static Font consoleMono(float size) {
+        return new Font(CONSOLE_FONT_FAMILY, Font.PLAIN, Math.round(size));
+    }
+
+    /**
      * Creates an empty padding border.
      *
      * @param top top padding
@@ -1793,7 +1930,7 @@ public final class Theme {
         component.setOpaque(false);
         component.setBackground(PANEL);
         component.setForeground(TEXT);
-        component.setBorder(pad(10, 10, 10, 10));
+        component.setBorder(pad(SPACE_MD));
     }
 
     /**
@@ -1980,10 +2117,49 @@ public final class Theme {
         String upper = text == null ? "" : text.toUpperCase(java.util.Locale.ROOT);
         JLabel label = new JLabel(upper);
         foreground(label, ForegroundRole.TEXT);
-        label.setFont(font(10, Font.BOLD).deriveFont(java.util.Map.of(
+        label.setFont(font(FONT_MICRO, Font.BOLD).deriveFont(java.util.Map.of(
                 java.awt.font.TextAttribute.TRACKING, 0.12f)));
         label.setBorder(pad(0, 0, 4, 0));
         return label;
+    }
+
+    /**
+     * Creates a top-level panel/card title in sentence case: larger and quieter
+     * than the uppercase {@link #section} eyebrow. Use for the primary heading
+     * of a card or page; keep {@code section} for grouped sub-blocks so the two
+     * read as distinct tiers instead of a wall of identical micro-labels.
+     *
+     * @param text title text
+     * @return styled title label
+     */
+    public static JLabel sectionTitle(String text) {
+        JLabel label = new JLabel(text == null ? "" : text);
+        foreground(label, ForegroundRole.TEXT);
+        label.setFont(font(FONT_TITLE, Font.BOLD));
+        return label;
+    }
+
+    /**
+     * Builds a card header row: a {@link #section} eyebrow on the left and an
+     * optional trailing affordance (count badge, status dot, backend name) on
+     * the right. Centralises the header rhythm so every card reads the same.
+     *
+     * @param title header text
+     * @param trailing optional right-aligned component, or {@code null}
+     * @return header row component
+     */
+    public static JComponent cardHeader(String title, JComponent trailing) {
+        javax.swing.JPanel row = new javax.swing.JPanel(new java.awt.BorderLayout(SPACE_SM, 0));
+        row.setOpaque(false);
+        row.add(section(title), java.awt.BorderLayout.WEST);
+        if (trailing != null) {
+            trailing.setOpaque(false);
+            row.add(trailing, java.awt.BorderLayout.EAST);
+        }
+        row.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        row.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE,
+                row.getPreferredSize().height));
+        return row;
     }
 
     /**
