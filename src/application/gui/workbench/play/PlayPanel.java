@@ -2,11 +2,15 @@ package application.gui.workbench.play;
 
 import application.gui.workbench.Defaults;
 import application.gui.workbench.ui.ChipGroup;
+import application.gui.workbench.ui.HoldButton;
+import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.Theme;
+import application.gui.workbench.ui.Toast;
 import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.Ui;
 import chess.core.Setup;
 import java.awt.BasicStroke;
+import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -19,10 +23,12 @@ import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.util.ArrayList;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.function.Supplier;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JComponent;
@@ -32,6 +38,7 @@ import javax.swing.JPanel;
 import javax.swing.JSlider;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
+import javax.swing.SwingConstants;
 
 /**
  * Setup and control panel for human-versus-engine play.
@@ -67,6 +74,16 @@ public final class PlayPanel extends JPanel {
      * Supplier of the current board FEN, for the "Current board" start option.
      */
     private final transient Supplier<String> currentFen;
+
+    /**
+     * Existing Board / Analyze command, exposed as an in-game action.
+     */
+    private final transient Runnable analyzeCurrentPosition;
+
+    /**
+     * Notifies the workbench shell that the Play header context changed.
+     */
+    private final transient Runnable summaryChanged;
 
     /**
      * Search-algorithm selector; chip order mirrors {@link Opponent.Search}.
@@ -108,7 +125,7 @@ public final class PlayPanel extends JPanel {
     /**
      * Starts (or restarts) a game with the current settings.
      */
-    private final JButton newGameButton = Ui.button("New Game", true, event -> startGame());
+    private final JButton newGameButton = Ui.button("Start Game", true, event -> startGame());
 
     /**
      * Takes back the last move pair.
@@ -128,10 +145,15 @@ public final class PlayPanel extends JPanel {
     /**
      * Resigns the current game.
      */
-    private final JButton resignButton = Ui.button("Resign", false, null);
+    private final HoldButton resignButton;
 
     /**
-     * Expert toggle: when on, the engine always plays its arg-max move.
+     * Opens analysis for the current position without altering Play-session state.
+     */
+    private final JButton analyzeButton = Ui.button("Analyze current", false, null);
+
+    /**
+     * Deterministic toggle: when on, the engine always plays its arg-max move.
      */
     private final ToggleBox deterministicToggle =
             new ToggleBox("Deterministic (no randomness)", false);
@@ -147,6 +169,11 @@ public final class PlayPanel extends JPanel {
      * Live status line: whose turn it is, engine-thinking, or the game result.
      */
     private final JLabel statusLabel = new JLabel("No game");
+
+    /**
+     * Compact state badge for the Current game state card.
+     */
+    private final StatusBadge gameStatusBadge = new StatusBadge();
 
     /**
      * Persistent result banner shown when a game finishes (the toast is
@@ -167,9 +194,14 @@ public final class PlayPanel extends JPanel {
     private JComponent inGameRow;
 
     /**
-     * Row wrapping the status caption + label, shown only while a game is active.
+     * Row wrapping the status badge and label.
      */
     private JComponent statusRow;
+
+    /**
+     * Advanced preset note shown while a named one-tap opponent is selected.
+     */
+    private JComponent presetAdvancedNote;
 
     /**
      * Selectable preset-bot toggles (one per {@link #BOTS} entry), plus a
@@ -189,9 +221,8 @@ public final class PlayPanel extends JPanel {
     private JToggleButton customBotButton;
 
     /**
-     * The "Custom setup" card holding the manual search / network / strength
-     * controls; shown only while the Custom opponent is selected, so presets stay
-     * a one-tap choice and the advanced knobs appear as a distinct panel.
+     * Manual search / network / strength controls shown only while the Custom
+     * opponent is selected.
      */
     private JComponent customCard;
 
@@ -220,6 +251,46 @@ public final class PlayPanel extends JPanel {
      * Bot material line.
      */
     private final JLabel opponentMaterialLabel = new JLabel();
+
+    /**
+     * Selected-opponent strength summary.
+     */
+    private final JLabel opponentStrengthValue = metricValue();
+
+    /**
+     * Selected-opponent search summary.
+     */
+    private final JLabel opponentSearchValue = metricValue();
+
+    /**
+     * Selected-opponent evaluation/network summary.
+     */
+    private final JLabel opponentEvalValue = metricValue();
+
+    /**
+     * Selected-opponent deterministic/opening behavior summary.
+     */
+    private final JLabel opponentModeValue = metricValue();
+
+    /**
+     * One-line description for the selected opponent.
+     */
+    private final JLabel opponentDescriptionLabel = new JLabel();
+
+    /**
+     * Current turn value in the state card.
+     */
+    private final JLabel stateTurnValue = metricValue();
+
+    /**
+     * Current material value in the state card.
+     */
+    private final JLabel stateMaterialValue = metricValue();
+
+    /**
+     * Current start-position source value in the state card.
+     */
+    private final JLabel stateStartValue = metricValue();
 
     /**
      * Human portrait in the matchup card.
@@ -256,6 +327,26 @@ public final class PlayPanel extends JPanel {
      * so applying a preset does not bounce the selection back to Custom.
      */
     private boolean applyingBot;
+
+    /**
+     * Last engine-thinking flag reported by the session listener.
+     */
+    private boolean engineThinking;
+
+    /**
+     * Last session status line; retained for header and state-card refreshes.
+     */
+    private String lastStatus = "No game";
+
+    /**
+     * Last terminal-result message, if any.
+     */
+    private String lastResultMessage = "";
+
+    /**
+     * Last terminal-result kind, if any.
+     */
+    private Toast.Kind lastResultKind;
 
     /**
      * A prebuilt opponent: a fixed Elo shown as a one-tap bot. Presets all use
@@ -301,9 +392,29 @@ public final class PlayPanel extends JPanel {
      * @param currentFen supplier of the current board FEN
      */
     public PlayPanel(PlaySession session, Supplier<String> currentFen) {
+        this(session, currentFen, null, null);
+    }
+
+    /**
+     * Creates the play panel.
+     *
+     * @param session game session to drive
+     * @param currentFen supplier of the current board FEN
+     * @param analyzeCurrentPosition existing Analyze command callback
+     * @param summaryChanged callback fired when shell header text should refresh
+     */
+    public PlayPanel(PlaySession session, Supplier<String> currentFen,
+            Runnable analyzeCurrentPosition, Runnable summaryChanged) {
         super(new GridBagLayout());
         this.session = session;
         this.currentFen = currentFen;
+        this.analyzeCurrentPosition = analyzeCurrentPosition == null ? () -> {
+            // optional callback
+        } : analyzeCurrentPosition;
+        this.summaryChanged = summaryChanged == null ? () -> {
+            // optional callback
+        } : summaryChanged;
+        this.resignButton = new HoldButton("Resign", () -> session.resign(), true);
         setOpaque(true);
         setBackground(Theme.BG);
         setBorder(BorderFactory.createEmptyBorder(14, 14, 14, 14));
@@ -318,8 +429,7 @@ public final class PlayPanel extends JPanel {
         wireControls();
         updateEloLabel();
         // The FEN field only matters for the "From FEN" start option; keep it
-        // hidden otherwise so the setup form stays clean instead of showing an
-        // empty disabled box (chess.com/lichess reveal extra inputs on demand).
+        // hidden otherwise so the setup form stays focused on the selected source.
         fenField.setEnabled(false);
         fenField.setVisible(false);
         session.setListener(new PlaySession.Listener() {
@@ -351,9 +461,12 @@ public final class PlayPanel extends JPanel {
      * @param engineThinking whether the engine is searching
      */
     private void onSessionStatus(String status, boolean gameActive, boolean engineThinking) {
+        this.engineThinking = engineThinking;
+        this.lastStatus = status == null || status.isBlank() ? "No game" : status;
         statusLabel.setText(status);
-        refreshMatchupCard();
+        refreshPlayUi();
         applyGameState(gameActive, engineThinking);
+        summaryChanged.run();
     }
 
     /**
@@ -365,19 +478,25 @@ public final class PlayPanel extends JPanel {
      */
     private void onSessionResult(String message, application.gui.workbench.ui.Toast.Kind kind) {
         if (message == null || message.isBlank()) {
+            lastResultMessage = "";
+            lastResultKind = null;
             resultBanner.setText("");
             if (resultRow != null) {
                 resultRow.setVisible(false);
             }
-            refreshMatchupCard();
+            refreshPlayUi();
+            summaryChanged.run();
             return;
         }
+        lastResultMessage = message;
+        lastResultKind = kind;
         resultBanner.setText(message);
         resultBanner.setForeground(resultColor(kind));
         if (resultRow != null) {
             resultRow.setVisible(true);
         }
-        refreshMatchupCard();
+        refreshPlayUi();
+        summaryChanged.run();
     }
 
     /**
@@ -408,122 +527,245 @@ public final class PlayPanel extends JPanel {
         drawButton.setEnabled(gameActive);
         takebackButton.setEnabled(gameActive && !engineThinking);
         hintButton.setEnabled(gameActive && !engineThinking);
+        analyzeButton.setEnabled(currentFen.get() != null && !currentFen.get().isBlank());
+        newGameButton.setText(gameActive ? "Start New Game" : "Start Game");
+        newGameButton.setToolTipText(gameActive
+                ? "Start over with the selected setup"
+                : "Start a game with the selected setup");
         if (inGameRow != null) {
             inGameRow.setVisible(gameActive);
         }
-        if (statusRow != null) {
-            statusRow.setVisible(gameActive);
-        }
+        updateGameStatusBadge(gameActive, engineThinking);
     }
 
     /**
      * Lays out the form rows.
      */
     private void buildUi() {
-        GridBagConstraints c = new GridBagConstraints();
-        c.gridx = 0;
-        c.gridy = 0;
-        c.anchor = GridBagConstraints.WEST;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        c.weightx = 1.0;
-        c.insets = new Insets(4, 0, 4, 0);
-        c.gridwidth = 2;
+        setLayout(new BorderLayout());
+        removeAll();
 
-        add(title("Play vs Engine"), c);
+        JPanel stack = new JPanel();
+        stack.setOpaque(false);
+        stack.setLayout(new BoxLayout(stack, BoxLayout.Y_AXIS));
+        addStackSection(stack, buildOpponentSection());
+        addStackSection(stack, buildGameSetupSection());
+        addStackSection(stack, buildGameStateSection());
+        addStackSection(stack, buildAdvancedEngineSection());
+        stack.add(Box.createVerticalGlue());
+        add(stack, BorderLayout.CENTER);
 
-        // Prebuilt opponents: pick one to set its strength, search, and network
-        // in a single tap (chess.com-style). The Advanced section below exposes
-        // the same knobs for anyone who wants to build a custom opponent.
-        c.gridy++;
-        JLabel opponentCaption = new JLabel("Opponent");
-        opponentCaption.setForeground(Theme.MUTED);
-        opponentCaption.setFont(Theme.font(12, Font.PLAIN));
-        add(opponentCaption, c);
-        c.gridy++;
-        add(buildBotPicker(), c);
+        selectInitialBot();
+        refreshPlayUi();
+    }
 
-        // The manual search/network/strength knobs live in a distinct elevated
-        // card directly under the picker, revealed only when "Custom" is chosen,
-        // so presets stay one-tap and building your own is a clear, separate mode.
-        c.gridy++;
-        networkNote.setFont(Theme.font(12, Font.PLAIN));
-        networkNote.setForeground(Theme.STATUS_WARNING_BORDER);
+    /**
+     * Builds the Opponent inspector section.
+     *
+     * @return opponent section
+     */
+    private JComponent buildOpponentSection() {
+        JPanel body = verticalPanel();
+        body.add(buildBotPicker());
+        body.add(Box.createVerticalStrut(Theme.SPACE_MD));
+        body.add(buildOpponentSummary());
+        return Ui.card("Opponent", body);
+    }
+
+    /**
+     * Builds the selected-opponent summary below the preset selector.
+     *
+     * @return summary component
+     */
+    private JComponent buildOpponentSummary() {
+        opponentDescriptionLabel.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
+        opponentDescriptionLabel.setForeground(Theme.MUTED);
+        opponentDescriptionLabel.setBorder(Theme.pad(Theme.SPACE_SM, 0, 0, 0));
+
+        networkNote.setFont(Theme.font(Theme.FONT_METADATA, Font.BOLD));
+        networkNote.setForeground(Theme.STATUS_WARNING_TEXT);
         networkNote.setVisible(false);
-        add(networkNote, c);
 
-        c.gridy++;
-        customCard = Ui.card("Custom setup", buildCustomControls());
-        customCard.setVisible(false);
-        add(customCard, c);
+        JPanel metrics = metricGrid(2);
+        metrics.add(metricTile("Strength", opponentStrengthValue));
+        metrics.add(metricTile("Search", opponentSearchValue));
+        metrics.add(metricTile("Eval / Network", opponentEvalValue));
+        metrics.add(metricTile("Mode", opponentModeValue));
 
-        c.gridy++;
-        add(Ui.labelControlRow("You play", sideChips, LABEL_WIDTH), c);
+        JPanel summary = verticalPanel();
+        summary.add(metrics);
+        summary.add(opponentDescriptionLabel);
+        summary.add(networkNote);
+        return summary;
+    }
 
-        c.gridy++;
-        add(Ui.labelControlRow("Start from", startChips, LABEL_WIDTH), c);
-
-        c.gridy++;
+    /**
+     * Builds the Game setup section.
+     *
+     * @return game setup section
+     */
+    private JComponent buildGameSetupSection() {
         Ui.styleFields(fenField);
-        fenField.setToolTipText("Paste a FEN to start from (used when 'From FEN' is selected)");
-        add(fenField, c);
-
-        // Prominent primary call-to-action — like chess.com's "Play" or
-        // lichess's "Play against computer": full-width, taller, the obvious
-        // next step once the setup above is chosen.
-        c.gridy++;
-        c.insets = new Insets(Theme.SPACE_MD, 0, Theme.SPACE_XS, 0);
+        fenField.setToolTipText("Paste a FEN to start from; used only when From FEN is selected");
         newGameButton.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
         newGameButton.setPreferredSize(new Dimension(0, Theme.CONTROL_HEIGHT_TALL));
-        add(newGameButton, c);
-        c.insets = new Insets(4, 0, 4, 0);
 
-        // In-game actions and the status line appear only during a game, so the
-        // idle form is just the setup rows + New Game (mirrors the resultRow
-        // idiom). applyGameState toggles their visibility.
-        c.gridy++;
-        JPanel inGame = new JPanel(new GridLayout(2, 2, Theme.SPACE_SM, Theme.SPACE_SM));
+        JPanel body = verticalPanel();
+        body.add(Ui.labelControlRow("You play", sideChips, LABEL_WIDTH));
+        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        body.add(Ui.labelControlRow("Start from", startChips, LABEL_WIDTH));
+        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        body.add(fenField);
+        body.add(Box.createVerticalStrut(Theme.SPACE_MD));
+        body.add(newGameButton);
+        return Ui.card("Game Setup", body);
+    }
+
+    /**
+     * Builds the Current game state section.
+     *
+     * @return game-state section
+     */
+    private JComponent buildGameStateSection() {
+        statusLabel.setForeground(Theme.TEXT);
+        statusLabel.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
+        gameStatusBadge.setFixedTextWidth(86);
+
+        JPanel statusLine = new JPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        statusLine.setOpaque(false);
+        statusLine.add(gameStatusBadge, BorderLayout.WEST);
+        statusLine.add(statusLabel, BorderLayout.CENTER);
+        statusRow = statusLine;
+
+        resultBanner.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
+        resultBanner.setForeground(Theme.TEXT);
+
+        JPanel metrics = metricGrid(2);
+        metrics.add(metricTile("Turn", stateTurnValue));
+        metrics.add(metricTile("Material", stateMaterialValue));
+        metrics.add(metricTile("Start", stateStartValue));
+        resultRow = metricTile("Result", resultBanner);
+        resultRow.setVisible(false);
+        metrics.add(resultRow);
+
+        JPanel inGame = new JPanel(new GridLayout(0, 2, Theme.SPACE_SM, Theme.SPACE_SM));
         inGame.setOpaque(false);
-        for (JButton button : List.of(takebackButton, hintButton, drawButton, resignButton)) {
+        for (JComponent button : List.of(takebackButton, hintButton, analyzeButton, drawButton, resignButton)) {
             button.setPreferredSize(new Dimension(0, Theme.CONTROL_HEIGHT_TALL));
-            button.setFont(Theme.font(12, Font.BOLD));
+            button.setFont(Theme.font(Theme.FONT_METADATA, Font.BOLD));
             inGame.add(button);
         }
         inGameRow = inGame;
         inGameRow.setVisible(false);
-        add(inGame, c);
 
-        c.gridy++;
-        statusLabel.setForeground(Theme.TEXT);
-        statusLabel.setFont(Theme.font(12, Font.BOLD));
-        statusRow = Ui.labelControlRow("Status", statusLabel, LABEL_WIDTH);
-        statusRow.setVisible(false);
-        add(statusRow, c);
+        JPanel body = verticalPanel();
+        body.add(statusLine);
+        body.add(Box.createVerticalStrut(Theme.SPACE_MD));
+        body.add(metrics);
+        body.add(Box.createVerticalStrut(Theme.SPACE_MD));
+        body.add(inGame);
+        return Ui.card("Current Game State", body);
+    }
 
-        c.gridy++;
-        resultBanner.setFont(Theme.font(13, Font.BOLD));
-        resultRow = Ui.labelControlRow("Result", resultBanner, LABEL_WIDTH);
-        resultRow.setVisible(false);
-        add(resultRow, c);
+    /**
+     * Builds the Advanced engine settings section.
+     *
+     * @return advanced engine settings section
+     */
+    private JComponent buildAdvancedEngineSection() {
+        presetAdvancedNote = advancedPresetNote();
+        customCard = buildCustomControls();
+        customCard.setVisible(false);
 
-        c.gridy++;
-        JPanel expert = new JPanel();
-        expert.setOpaque(false);
-        expert.setLayout(new javax.swing.BoxLayout(expert, javax.swing.BoxLayout.Y_AXIS));
-        deterministicToggle.setAlignmentX(Component.LEFT_ALIGNMENT);
-        openingBookToggle.setAlignmentX(Component.LEFT_ALIGNMENT);
-        expert.add(deterministicToggle);
-        expert.add(Box.createVerticalStrut(Theme.SPACE_SM));
-        expert.add(openingBookToggle);
-        add(Ui.collapsible("Expert", expert, false), c);
+        JPanel body = verticalPanel();
+        body.add(presetAdvancedNote);
+        body.add(customCard);
+        return Ui.card("Advanced Engine Settings", body);
+    }
 
-        // Push everything to the top.
-        c.gridy++;
-        c.weighty = 1.0;
-        c.fill = GridBagConstraints.BOTH;
-        add(Box.createGlue(), c);
+    /**
+     * Builds the compact note shown for named presets instead of dumping all
+     * custom engine controls into the default path.
+     *
+     * @return preset note
+     */
+    private JComponent advancedPresetNote() {
+        JLabel text = new JLabel("<html>Preset opponents use the stable local Alpha-Beta / Classical path. "
+                + "Select Custom to edit search, eval/network, strength, deterministic play, and opening behavior.</html>");
+        text.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
+        text.setForeground(Theme.MUTED);
+        text.setBorder(Theme.pad(Theme.SPACE_XS, 0, Theme.SPACE_XS, 0));
+        return text;
+    }
 
-        selectInitialBot();
-        refreshMatchupCard();
+    /**
+     * Adds a section to the vertical inspector stack.
+     *
+     * @param stack inspector stack
+     * @param section section component
+     */
+    private static void addStackSection(JPanel stack, JComponent section) {
+        section.setAlignmentX(Component.LEFT_ALIGNMENT);
+        stack.add(section);
+        stack.add(Box.createVerticalStrut(Theme.SPACE_MD));
+    }
+
+    /**
+     * Creates a transparent vertical panel.
+     *
+     * @return vertical panel
+     */
+    private static JPanel verticalPanel() {
+        JPanel panel = new JPanel();
+        panel.setOpaque(false);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        return panel;
+    }
+
+    /**
+     * Creates a compact metric grid for inspector cards.
+     *
+     * @param columns column count
+     * @return metric grid
+     */
+    private static JPanel metricGrid(int columns) {
+        JPanel panel = new JPanel(new GridLayout(0, columns, Theme.SPACE_SM, Theme.SPACE_SM));
+        panel.setOpaque(false);
+        return panel;
+    }
+
+    /**
+     * Creates one label/value metric tile.
+     *
+     * @param title metric title
+     * @param value value label
+     * @return metric tile
+     */
+    private static JComponent metricTile(String title, JLabel value) {
+        JLabel label = new JLabel(title);
+        label.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
+        label.setForeground(Theme.MUTED);
+        JPanel tile = new JPanel(new BorderLayout(0, 2));
+        tile.setOpaque(true);
+        tile.setBackground(Theme.PANEL_SOLID);
+        tile.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Theme.LINE),
+                Theme.pad(Theme.SPACE_SM, Theme.SPACE_SM, Theme.SPACE_SM, Theme.SPACE_SM)));
+        tile.add(label, BorderLayout.NORTH);
+        tile.add(value, BorderLayout.CENTER);
+        return tile;
+    }
+
+    /**
+     * Creates a value label used inside compact metric tiles.
+     *
+     * @return value label
+     */
+    private static JLabel metricValue() {
+        JLabel label = new JLabel();
+        label.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
+        label.setForeground(Theme.TEXT);
+        return label;
     }
 
     /**
@@ -608,8 +850,7 @@ public final class PlayPanel extends JPanel {
         JPanel grid = new JPanel(new GridLayout(0, 2, Theme.SPACE_SM, Theme.SPACE_SM));
         grid.setOpaque(false);
         for (Bot bot : BOTS) {
-            JToggleButton button = new JToggleButton(bot.name() + "  ·  " + bot.elo());
-            Theme.commandTab(button);
+            JToggleButton button = new BotCardButton(bot);
             button.setToolTipText(bot.name() + " · " + bot.elo() + " Elo · "
                     + bot.search().label() + " / " + bot.network().label());
             button.addActionListener(event -> {
@@ -621,14 +862,14 @@ public final class PlayPanel extends JPanel {
             botButtons.add(button);
             grid.add(button);
         }
-        // "Custom" gets its own full-width row beneath the even preset grid (no
-        // orphaned half-cell), and reveals the Custom-setup card when chosen.
         customBotButton = new JToggleButton("Custom");
         Theme.commandTab(customBotButton);
-        customBotButton.setToolTipText("Set the search, network, and strength yourself below");
+        customBotButton.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
+        customBotButton.setToolTipText("Set search, eval/network, strength, deterministic play, and opening behavior");
         customBotButton.addActionListener(event -> {
             if (customBotButton.isSelected()) {
                 setCustomVisible(true);
+                refreshPlayUi();
             }
         });
         botGroup.add(customBotButton);
@@ -662,6 +903,133 @@ public final class PlayPanel extends JPanel {
     }
 
     /**
+     * Refreshes every UI summary that derives from the selected opponent or
+     * current game state.
+     */
+    private void refreshPlayUi() {
+        refreshOpponentSummary();
+        refreshGameStateSummary();
+        refreshMatchupCard();
+        revalidate();
+        repaint();
+    }
+
+    /**
+     * Refreshes the selected-opponent summary values.
+     */
+    private void refreshOpponentSummary() {
+        Bot bot = selectedBot();
+        int elo = eloSlider.getValue();
+        Opponent.Network network = selectedNetwork();
+        opponentStrengthValue.setText(elo + " · " + tier(elo));
+        opponentSearchValue.setText(selectedSearch().label());
+        opponentEvalValue.setText(network.label() + (Networks.isAvailable(network) ? "" : " missing"));
+        opponentModeValue.setText((deterministicToggle.isSelected() ? "Deterministic" : "Sampled")
+                + " · " + (openingBookToggle.isSelected() ? "Book on" : "Book off"));
+        opponentDescriptionLabel.setText(opponentDescription(bot));
+    }
+
+    /**
+     * Refreshes the current game-state card.
+     */
+    private void refreshGameStateSummary() {
+        stateTurnValue.setText(sideToMoveLabel() + " to move");
+        SideLabels sides = sideLabels();
+        stateMaterialValue.setText(materialScore().textFor(sides.playerWhite()));
+        stateStartValue.setText(startSourceLabel());
+        if (!session.isActive() && lastResultMessage.isBlank()) {
+            statusLabel.setText("No game active");
+        } else {
+            statusLabel.setText(lastStatus);
+        }
+        updateGameStatusBadge(session.isActive(), engineThinking);
+    }
+
+    /**
+     * Updates the status badge in the Current game state card.
+     *
+     * @param gameActive whether a game is active
+     * @param thinking whether the bot is searching
+     */
+    private void updateGameStatusBadge(boolean gameActive, boolean thinking) {
+        if (gameActive && thinking) {
+            gameStatusBadge.running("bot thinking");
+        } else if (gameActive) {
+            gameStatusBadge.ready("your move");
+        } else if (!lastResultMessage.isBlank()) {
+            if (lastResultKind == Toast.Kind.WARNING) {
+                gameStatusBadge.warning("game over");
+            } else {
+                gameStatusBadge.complete("game over");
+            }
+        } else {
+            gameStatusBadge.notRun("not started");
+        }
+    }
+
+    /**
+     * Returns the context line used by the Board / Play workspace header.
+     *
+     * @return header context
+     */
+    public String workspaceContext() {
+        if (session.isActive() && engineThinking) {
+            return "Bot thinking · " + selectedSearch().label() + " / " + selectedNetwork().label();
+        }
+        if (!lastResultMessage.isBlank() && !session.isActive()) {
+            return "Game over · " + compactResult();
+        }
+        return "You vs " + selectedOpponentTitle() + " · " + sideToMoveLabel() + " to move · "
+                + materialScore().textFor(sideLabels().playerWhite());
+    }
+
+    /**
+     * Returns the selected opponent name plus strength.
+     *
+     * @return opponent title
+     */
+    private String selectedOpponentTitle() {
+        Bot bot = selectedBot();
+        return (bot == null ? "Custom" : bot.name()) + " " + eloSlider.getValue();
+    }
+
+    /**
+     * Returns a compact result for header display.
+     *
+     * @return compact result
+     */
+    private String compactResult() {
+        String lower = lastResultMessage.toLowerCase(java.util.Locale.ROOT);
+        if (lower.contains("draw") || lower.contains("stalemate")) {
+            return "Draw";
+        }
+        boolean playerWhite = sideLabels().playerWhite();
+        if (lower.contains("you win")) {
+            return (playerWhite ? "White" : "Black") + " won";
+        }
+        if (lower.contains("engine wins")) {
+            return (playerWhite ? "Black" : "White") + " won";
+        }
+        return lastResultMessage;
+    }
+
+    /**
+     * Returns a short description for the selected opponent.
+     *
+     * @param bot selected preset, or null for Custom
+     * @return description
+     */
+    private String opponentDescription(Bot bot) {
+        if (bot == null) {
+            return "Custom exposes search, eval/network, strength, deterministic play, and opening behavior.";
+        }
+        if ("Maximum".equals(bot.name())) {
+            return "Maximum uses the strongest stable local preset configuration.";
+        }
+        return bot.name() + " varies strength through the local budget and move-selection model.";
+    }
+
+    /**
      * Returns the currently selected preset bot, or null for Custom.
      *
      * @return selected preset bot
@@ -688,6 +1056,37 @@ public final class PlayPanel extends JPanel {
         boolean playerWhite = session.isActive() ? session.isHumanWhite() : sideChips.getSelectedIndex() != 1;
         return new SideLabels(playerWhite ? "White pieces" : "Black pieces",
                 playerWhite ? "Black pieces" : "White pieces", playerWhite, !playerWhite);
+    }
+
+    /**
+     * Returns the side to move from the current board FEN.
+     *
+     * @return side-to-move label
+     */
+    private String sideToMoveLabel() {
+        try {
+            String fen = currentFen.get();
+            if (fen == null || fen.isBlank()) {
+                return "White";
+            }
+            String[] parts = fen.trim().split("\\s+");
+            return parts.length > 1 && "b".equals(parts[1]) ? "Black" : "White";
+        } catch (RuntimeException ex) {
+            return "White";
+        }
+    }
+
+    /**
+     * Returns the selected start-source label.
+     *
+     * @return start-source label
+     */
+    private String startSourceLabel() {
+        return switch (startChips.getSelectedIndex()) {
+            case 1 -> "Current board";
+            case 2 -> "From FEN";
+            default -> "Standard";
+        };
     }
 
     /**
@@ -758,19 +1157,20 @@ public final class PlayPanel extends JPanel {
     private JComponent buildCustomControls() {
         eloLabel.setForeground(Theme.TEXT);
         eloLabel.setFont(Theme.font(12, Font.BOLD));
-        eloLabel.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
+        eloLabel.setHorizontalAlignment(SwingConstants.RIGHT);
         setFixedControlWidth(eloLabel, 96);
         Ui.styleSlider(eloSlider);
         eloSlider.setOpaque(false);
         eloSlider.setBackground(Theme.BG);
         eloSlider.setMajorTickSpacing(400);
         eloSlider.setMinorTickSpacing(Defaults.PLAY_ELO_STEP);
+        eloSlider.setPaintTicks(true);
+        eloSlider.setPaintLabels(true);
+        eloSlider.setLabelTable(eloStopLabels());
 
-        // Strength row: caption, the slider (grows to fill), and the live
-        // Elo/tier readout — its left edge aligned with the Search/Network chips.
         JPanel strengthRow = new JPanel();
         strengthRow.setOpaque(false);
-        strengthRow.setLayout(new javax.swing.BoxLayout(strengthRow, javax.swing.BoxLayout.X_AXIS));
+        strengthRow.setLayout(new BoxLayout(strengthRow, BoxLayout.X_AXIS));
         JLabel strengthTitle = new JLabel("Strength");
         strengthTitle.setForeground(Theme.MUTED);
         strengthTitle.setFont(Theme.font(12, Font.PLAIN));
@@ -794,10 +1194,30 @@ public final class PlayPanel extends JPanel {
         a.insets = new Insets(Theme.SPACE_XS, 0, Theme.SPACE_XS, 0);
         controls.add(Ui.labelControlRow("Search", searchChips, LABEL_WIDTH), a);
         a.gridy++;
-        controls.add(Ui.labelControlRow("Network", networkChips, LABEL_WIDTH), a);
+        controls.add(Ui.labelControlRow("Eval", networkChips, LABEL_WIDTH), a);
         a.gridy++;
         controls.add(strengthRow, a);
+        a.gridy++;
+        controls.add(deterministicToggle, a);
+        a.gridy++;
+        controls.add(openingBookToggle, a);
         return controls;
+    }
+
+    /**
+     * Builds labeled strength stops for the custom Elo slider.
+     *
+     * @return slider label table
+     */
+    private static Hashtable<Integer, JLabel> eloStopLabels() {
+        Hashtable<Integer, JLabel> labels = new Hashtable<>();
+        for (int elo : new int[] { 800, 1200, 1600, 2000, 2400, 2800 }) {
+            JLabel label = new JLabel(Integer.toString(elo));
+            label.setFont(Theme.font(10, Font.PLAIN));
+            label.setForeground(Theme.MUTED);
+            labels.put(Integer.valueOf(elo), label);
+        }
+        return labels;
     }
 
     /**
@@ -822,9 +1242,12 @@ public final class PlayPanel extends JPanel {
     private void setCustomVisible(boolean visible) {
         if (customCard != null && customCard.isVisible() != visible) {
             customCard.setVisible(visible);
-            revalidate();
-            repaint();
         }
+        if (presetAdvancedNote != null) {
+            presetAdvancedNote.setVisible(!visible);
+        }
+        revalidate();
+        repaint();
     }
 
     /**
@@ -866,7 +1289,8 @@ public final class PlayPanel extends JPanel {
         PlayPrefs.setElo(bot.elo());
         PlayPrefs.setSearch(bot.search());
         PlayPrefs.setNetwork(bot.network());
-        refreshMatchupCard();
+        refreshPlayUi();
+        summaryChanged.run();
     }
 
     /**
@@ -942,14 +1366,16 @@ public final class PlayPanel extends JPanel {
             if (!applyingBot) {
                 selectCustomBot();
             }
-            refreshMatchupCard();
+            refreshPlayUi();
+            summaryChanged.run();
         });
         searchChips.setOnSelect(index -> {
             PlayPrefs.setSearch(selectedSearch());
             if (!applyingBot) {
                 selectCustomBot();
             }
-            refreshMatchupCard();
+            refreshPlayUi();
+            summaryChanged.run();
         });
         networkChips.setOnSelect(index -> {
             PlayPrefs.setNetwork(selectedNetwork());
@@ -957,29 +1383,36 @@ public final class PlayPanel extends JPanel {
             if (!applyingBot) {
                 selectCustomBot();
             }
-            refreshMatchupCard();
+            refreshPlayUi();
+            summaryChanged.run();
         });
         sideChips.setOnSelect(index -> {
             PlayPrefs.setSideIndex(index);
-            refreshMatchupCard();
+            refreshPlayUi();
+            summaryChanged.run();
         });
         startChips.setOnSelect(index -> {
             boolean fromFen = index == 2;
             fenField.setEnabled(fromFen);
             fenField.setVisible(fromFen);
-            revalidate();
-            repaint();
+            refreshPlayUi();
+            summaryChanged.run();
         });
-        deterministicToggle.addActionListener(event ->
-                PlayPrefs.setDeterministic(deterministicToggle.isSelected()));
+        deterministicToggle.addActionListener(event -> {
+            PlayPrefs.setDeterministic(deterministicToggle.isSelected());
+            refreshPlayUi();
+            summaryChanged.run();
+        });
         openingBookToggle.addActionListener(event -> {
             PlayPrefs.setOpeningBook(openingBookToggle.isSelected());
             session.setBookEnabled(openingBookToggle.isSelected());
+            refreshPlayUi();
+            summaryChanged.run();
         });
+        analyzeButton.addActionListener(event -> analyzeCurrentPosition.run());
         takebackButton.addActionListener(event -> session.takeback());
         hintButton.addActionListener(event -> session.requestHint());
         drawButton.addActionListener(event -> session.offerDraw());
-        resignButton.addActionListener(event -> session.resign());
     }
 
     /**
@@ -1003,7 +1436,8 @@ public final class PlayPanel extends JPanel {
         session.start(resolveStartFen(), side,
                 StrengthProfile.ofElo(eloSlider.getValue(), deterministicToggle.isSelected()),
                 new PlaySession.Config(searchAlgorithm, network));
-        refreshMatchupCard();
+        refreshPlayUi();
+        summaryChanged.run();
     }
 
     /**
@@ -1133,6 +1567,88 @@ public final class PlayPanel extends JPanel {
                 return "Material even";
             }
             return "Material " + (delta > 0 ? "+" : "") + delta;
+        }
+    }
+
+    /**
+     * Selectable two-line card for a named opponent preset.
+     */
+    private static final class BotCardButton extends JToggleButton {
+
+        /**
+         * Serialization identifier for Swing component compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Preset represented by this card.
+         */
+        private final Bot bot;
+
+        /**
+         * Creates a preset card.
+         *
+         * @param bot preset opponent
+         */
+        private BotCardButton(Bot bot) {
+            this.bot = bot;
+            setText(bot.name() + " " + bot.elo());
+            setOpaque(false);
+            setContentAreaFilled(false);
+            setBorderPainted(false);
+            setFocusPainted(false);
+            setFocusable(true);
+            setBorder(BorderFactory.createEmptyBorder());
+            setPreferredSize(new Dimension(160, 70));
+            setMinimumSize(new Dimension(136, 70));
+            getAccessibleContext().setAccessibleName(bot.name() + " " + bot.elo());
+        }
+
+        /**
+         * Paints the card.
+         *
+         * @param graphics graphics context
+         */
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            Graphics2D g = (Graphics2D) graphics.create();
+            try {
+                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                int w = getWidth();
+                int h = getHeight();
+                boolean selected = isSelected();
+                boolean hovered = getModel().isRollover();
+                Color fill = selected ? Theme.withAlpha(Theme.ACCENT, 34)
+                        : hovered ? Theme.ELEVATED_SOLID : Theme.PANEL_SOLID;
+                g.setColor(fill);
+                g.fillRoundRect(0, 0, Math.max(0, w - 1), Math.max(0, h - 1), Theme.RADIUS + 3, Theme.RADIUS + 3);
+                g.setColor(selected ? Theme.ACCENT : Theme.LINE);
+                g.drawRoundRect(0, 0, Math.max(0, w - 1), Math.max(0, h - 1), Theme.RADIUS + 3, Theme.RADIUS + 3);
+                if (selected) {
+                    g.setColor(Theme.ACCENT);
+                    g.fillRoundRect(1, 1, 4, Math.max(0, h - 2), Theme.RADIUS, Theme.RADIUS);
+                }
+                if (isFocusOwner()) {
+                    g.setColor(Theme.FOCUS_RING);
+                    g.drawRoundRect(3, 3, Math.max(0, w - 7), Math.max(0, h - 7),
+                            Theme.RADIUS + 1, Theme.RADIUS + 1);
+                }
+
+                int x = Theme.SPACE_MD;
+                int textWidth = Math.max(0, w - x - Theme.SPACE_SM);
+                g.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
+                g.setColor(Theme.TEXT);
+                g.drawString(Ui.elide(bot.name(), g.getFontMetrics(), textWidth), x, 22);
+                g.setFont(Theme.font(Theme.FONT_METADATA, Font.BOLD));
+                g.setColor(Theme.ACCENT);
+                g.drawString(bot.elo() + " Elo", x, 40);
+                g.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
+                g.setColor(Theme.MUTED);
+                String backend = bot.search().label() + " / " + bot.network().label();
+                g.drawString(Ui.elide(backend, g.getFontMetrics(), textWidth), x, 58);
+            } finally {
+                g.dispose();
+            }
         }
     }
 

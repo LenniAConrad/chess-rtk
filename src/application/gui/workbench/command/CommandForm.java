@@ -1310,35 +1310,7 @@ public final class CommandForm extends JPanel {
      * @return display label
      */
     private static String displayFlag(CommandOption option) {
-        String defaultValue = option.defaultValue() == null ? "" : option.defaultValue();
-        if (option.fixedChoice()) {
-    return choiceLabel(defaultValue);
-        }
-        if (option.flag().isBlank() && !option.takesValue() && !defaultValue.isBlank()) {
-            return defaultValue;
-        }
-        if (option.flag().isBlank() && option.splitValue()) {
-            return option.choices().isEmpty() ? "arguments" : "command";
-        }
-        return option.flag().isBlank() ? "argument" : option.flag();
-    }
-
-    /**
-     * Formats a fixed selector value as a compact UI label.
-     *
-     * @param value CLI value
-     * @return display label
-     */
-    private static String choiceLabel(String value) {
-    return switch (value == null ? "" : value) {
-            case "uci" -> "UCI";
-            case "san" -> "SAN";
-            case "both" -> "Both";
-            case "uci-info" -> "UCI info";
-            default -> value == null || value.isBlank()
-                    ? "default"
-                    : Character.toUpperCase(value.charAt(0)) + value.substring(1);
-        };
+        return CommandLabels.displayFlag(option);
     }
 
     /**

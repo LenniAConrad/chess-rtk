@@ -1,21 +1,29 @@
 package application.gui.workbench.relations;
 
 import application.gui.workbench.board.BoardPanel;
+import application.gui.workbench.ui.HoldButton;
+import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.Ui;
+import chess.core.Field;
 import chess.core.Move;
+import chess.core.Piece;
 import chess.core.Position;
 import chess.images.render.RelationPalette;
 import chess.nn.otis.Model;
+import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Supplier;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -25,322 +33,908 @@ import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSlider;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 
 /**
- * Control rail for the workbench "Relations" tab: drives a {@link BoardPanel}
- * with the OTIS tactical-incidence relation channels (typed colour-coded arrows),
- * the same {@code A(x)} the network ingests and the CLI {@code fen relations}
- * draws. Channels are selected with per-colour toggles; the board is fed the
- * current analysis position (or a pasted FEN), and the edges come straight from
- * {@link Model#incidenceEdges(Position)} (deterministic, no model file needed).
+ * Control rail for the Board / Relations mode. It visualizes deterministic OTIS
+ * tactical-incidence channels on the shared board while keeping dense overlays
+ * filterable and explainable.
  */
 public final class RelationsPanel extends JPanel {
 
-	/**
-	 * Serialization identifier for Swing component compatibility.
-	 */
-	private static final long serialVersionUID = 1L;
+    /**
+     * Serialization identifier for Swing component compatibility.
+     */
+    private static final long serialVersionUID = 1L;
 
-	/**
-	 * Arrow line width for the relation overlay (thinner than the default markup
-	 * so a dense graph stays legible).
-	 */
-	private static final int ARROW_WIDTH = 6;
+    /**
+     * Arrow line width for the relation overlay.
+     */
+    private static final int ARROW_WIDTH = 6;
 
-	/**
-	 * Channels selected on first open: the most tactically telling and least
-	 * cluttered (us/them attacks, knight attacks, pin candidates).
-	 */
-	private static final int[] DEFAULT_CHANNELS = { 0, 1, 9, 11 };
+    /**
+     * Edge count where the inspector starts warning about readability.
+     */
+    private static final int DENSE_WARNING_THRESHOLD = 80;
 
-	/**
-	 * Fixed width for compact Relations rail control labels.
-	 */
-	private static final int LABEL_WIDTH = 78;
+    /**
+     * Default maximum relation arrows drawn before filters are adjusted.
+     */
+    private static final int DEFAULT_MAX_ARROWS = 96;
 
-	/**
-	 * Board this panel overlays.
-	 */
-	private final transient BoardPanel board;
+    /**
+     * Compact label width for display controls.
+     */
+    private static final int LABEL_WIDTH = 92;
 
-	/**
-	 * Supplier of the current analysis position, for "Sync to board".
-	 */
-	private final transient Supplier<Position> currentPosition;
+    /**
+     * Channels selected on first open.
+     */
+    private static final int[] DEFAULT_CHANNELS = {0, 1, 9, 11};
 
-	/**
-	 * Per-channel selection toggles.
-	 */
-	private final ToggleBox[] channelToggles = new ToggleBox[Model.RELATION_COUNT];
+    /**
+     * User-facing channel labels, index-aligned with {@link Model#RELATION_NAMES}.
+     */
+    private static final String[] CHANNEL_LABELS = {
+            "Our attacks",
+            "Opponent attacks",
+            "Our defenses",
+            "Opponent defenses",
+            "Our king-zone pressure",
+            "Opponent king-zone pressure",
+            "Bishop rays",
+            "Rook rays",
+            "Queen rays",
+            "Knight attacks",
+            "Pawn pressure",
+            "King ray / pin candidates"
+    };
 
-	/**
-	 * FEN entry for visualizing an arbitrary position.
-	 */
-	private final JTextField fenField = new JTextField();
+    /**
+     * Short channel explanations, index-aligned with {@link Model#RELATION_NAMES}.
+     */
+    private static final String[] CHANNEL_NOTES = {
+            "Friendly pieces attacking opponent pieces.",
+            "Opponent pieces attacking friendly pieces.",
+            "Friendly pieces defending friendly pieces.",
+            "Opponent pieces defending opponent pieces.",
+            "Friendly attacks into squares near the opponent king.",
+            "Opponent attacks into squares near our king.",
+            "Visible bishop-line tactical rays.",
+            "Visible rook-line tactical rays.",
+            "Visible queen-line tactical rays.",
+            "Knight attack incidence.",
+            "Forward-oriented pawn attack incidence.",
+            "King-aligned ray and pin candidates."
+    };
 
-	/**
-	 * Arrow opacity slider (percent).
-	 */
-	private final JSlider opacitySlider = new JSlider(10, 100, 75);
+    /**
+     * Shared board used for the visual overlay.
+     */
+    private final transient BoardPanel board;
 
-	/**
-	 * Edge-count / status readout.
-	 */
-	private final JLabel statusLabel = new JLabel();
+    /**
+     * Supplier of the current analysis position.
+     */
+    private final transient Supplier<Position> currentPosition;
 
-	/**
-	 * Position currently visualized.
-	 */
-	private transient Position position;
+    /**
+     * Callback used to refresh the workspace header after relation state changes.
+     */
+    private final transient Runnable summaryChanged;
 
-	/**
-	 * Creates the relations panel.
-	 *
-	 * @param board board to overlay
-	 * @param currentPosition supplier of the current analysis position
-	 */
-	public RelationsPanel(BoardPanel board, Supplier<Position> currentPosition) {
-		super(new GridBagLayout());
-		this.board = board;
-		this.currentPosition = currentPosition;
-		setOpaque(true);
-		setBackground(Theme.BG);
-		setBorder(BorderFactory.createEmptyBorder(14, 14, 14, 14));
-		buildUi();
-		syncToBoard();
-	}
+    /**
+     * Per-channel visibility toggles.
+     */
+    private final ToggleBox[] channelToggles = new ToggleBox[Model.RELATION_COUNT];
 
-	/**
-	 * Lays out the control rail.
-	 */
-	private void buildUi() {
-		GridBagConstraints c = new GridBagConstraints();
-		c.gridx = 0;
-		c.gridy = 0;
-		c.anchor = GridBagConstraints.WEST;
-		c.fill = GridBagConstraints.HORIZONTAL;
-		c.weightx = 1.0;
-		c.insets = new Insets(4, 0, 4, 0);
+    /**
+     * FEN source field.
+     */
+    private final JTextField fenField = new JTextField();
 
-		JLabel title = Theme.sectionTitle("Tactical Incidence");
-		title.setBorder(BorderFactory.createEmptyBorder(0, 0, Theme.SPACE_XS, 0));
-		add(title, c);
+    /**
+     * Overlay opacity control.
+     */
+    private final JSlider opacitySlider = new JSlider(10, 100, 72);
 
-		c.gridy++;
-		JLabel caption = new JLabel("The OTIS relation channels A(x): typed edges the network reads.");
-		caption.setForeground(Theme.MUTED);
-		caption.setFont(Theme.font(12, Font.PLAIN));
-		add(caption, c);
+    /**
+     * Maximum arrows displayed.
+     */
+    private final JSlider maxArrowsSlider = new JSlider(12, 180, DEFAULT_MAX_ARROWS);
 
-		c.gridy++;
-		add(positionRow(), c);
+    /**
+     * Quick filter: restrict visible edges to the selected square.
+     */
+    private final ToggleBox selectedOnlyToggle = new ToggleBox("", true);
 
-		c.gridy++;
-		Ui.styleFields(fenField);
-		fenField.setToolTipText("Paste a FEN to visualize, then press Load");
-		add(fenField, c);
+    /**
+     * Quick filter: reduce pawn-only channel noise.
+     */
+    private final ToggleBox hidePawnNoiseToggle = new ToggleBox("", true);
 
-		c.gridy++;
-		// Fold the All/None selectors and the ~12 channel toggles into one
-		// collapsible "Channels" section so the idle rail can be tucked away.
-		JPanel channels = Ui.transparentPanel(new java.awt.BorderLayout(0, Theme.SPACE_SM));
-		channels.add(channelHeader(), java.awt.BorderLayout.NORTH);
-		channels.add(channelList(), java.awt.BorderLayout.CENTER);
-		add(Ui.collapsible("Channels", channels, true), c);
+    /**
+     * Quick filter: show king danger channels.
+     */
+    private final ToggleBox kingDangerOnlyToggle = new ToggleBox("", true);
 
-		c.gridy++;
-		add(opacityRow(), c);
+    /**
+     * Status badge for density / readiness.
+     */
+    private final StatusBadge densityBadge = new StatusBadge();
 
-		c.gridy++;
-		Theme.foreground(statusLabel, Theme.ForegroundRole.MUTED);
-		statusLabel.setFont(Theme.font(12, Font.PLAIN));
-		add(statusLabel, c);
+    /**
+     * Edge-count summary.
+     */
+    private final JLabel countLabel = Ui.caption("No relation overlay yet.");
 
-		// Push everything to the top.
-		c.gridy++;
-		c.weighty = 1.0;
-		c.fill = GridBagConstraints.BOTH;
-		add(Box.createGlue(), c);
-	}
+    /**
+     * Selected square details.
+     */
+    private final JTextArea selectionDetails = new JTextArea();
 
-	/**
-	 * Builds the position-source row.
-	 *
-	 * @return position row
-	 */
-	private JComponent positionRow() {
-		JPanel row = Ui.transparentPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, Theme.SPACE_SM, 0));
-		row.add(Ui.button("Sync to board", true, event -> syncToBoard()));
-		row.add(Ui.button("Load FEN", false, event -> loadFen(fenField.getText())));
-		return row;
-	}
+    /**
+     * Current position visualized.
+     */
+    private transient Position position;
 
-	/**
-	 * Builds the channel-section header with All/None quick selectors.
-	 *
-	 * @return channel header
-	 */
-	private JComponent channelHeader() {
-		JPanel row = Ui.transparentPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, Theme.SPACE_SM, 0));
-		row.add(Ui.button("All", false, event -> selectAll(true)));
-		row.add(Ui.button("None", false, event -> selectAll(false)));
-		return row;
-	}
+    /**
+     * Last full relation edge list.
+     */
+    private transient List<Model.IncidenceEdge> lastEdges = List.of();
 
-	/**
-	 * Builds the per-channel toggle list (colour swatch + name).
-	 *
-	 * @return channel list
-	 */
-	private JComponent channelList() {
-		JPanel list = Ui.transparentPanel(null);
-		list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
-		boolean[] defaultOn = new boolean[Model.RELATION_COUNT];
-		for (int channel : DEFAULT_CHANNELS) {
-			defaultOn[channel] = true;
-		}
-		for (int channel = 0; channel < Model.RELATION_COUNT; channel++) {
-			list.add(channelRow(channel, defaultOn[channel]));
-			list.add(Box.createVerticalStrut(2));
-		}
-		return list;
-	}
+    /**
+     * Selected board square, or {@link Field#NO_SQUARE}.
+     */
+    private int selectedSquare = Field.NO_SQUARE;
 
-	/**
-	 * Builds one channel row: a colour swatch and a labelled toggle.
-	 *
-	 * @param channel relation channel
-	 * @param selected initial selection
-	 * @return channel row
-	 */
-	private JComponent channelRow(int channel, boolean selected) {
-		JPanel row = Ui.transparentPanel(null);
-		row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
-		row.setAlignmentX(Component.LEFT_ALIGNMENT);
+    /**
+     * Last visible edge count.
+     */
+    private int visibleEdges;
 
-		JPanel swatch = new JPanel();
-		swatch.setBackground(RelationPalette.color(channel));
-		swatch.setBorder(BorderFactory.createLineBorder(Theme.LINE));
-		Dimension dot = new Dimension(14, 14);
-		swatch.setPreferredSize(dot);
-		swatch.setMinimumSize(dot);
-		swatch.setMaximumSize(dot);
-		swatch.setAlignmentY(Component.CENTER_ALIGNMENT);
+    /**
+     * Last active channel count.
+     */
+    private int activeChannels;
 
-		ToggleBox toggle = new ToggleBox(Model.RELATION_NAMES[channel]);
-		toggle.setSelected(selected);
-		toggle.setAlignmentY(Component.CENTER_ALIGNMENT);
-		toggle.addActionListener(event -> refresh());
-		channelToggles[channel] = toggle;
+    /**
+     * Whether the latest overlay exceeded the readability threshold.
+     */
+    private boolean denseWarning;
 
-		row.add(swatch);
-		row.add(Box.createHorizontalStrut(Theme.SPACE_SM));
-		row.add(toggle);
-		row.add(Box.createHorizontalGlue());
-		return row;
-	}
+    /**
+     * Creates the relations panel.
+     *
+     * @param board board to overlay
+     * @param currentPosition supplier of the current analysis position
+     */
+    public RelationsPanel(BoardPanel board, Supplier<Position> currentPosition) {
+        this(board, currentPosition, null);
+    }
 
-	/**
-	 * Builds the opacity slider row.
-	 *
-	 * @return opacity row
-	 */
-	private JComponent opacityRow() {
-		Ui.styleSlider(opacitySlider);
-		opacitySlider.setOpaque(false);
-		opacitySlider.addChangeListener(event -> refresh());
-		return Ui.labelControlRow("Opacity", opacitySlider, LABEL_WIDTH);
-	}
+    /**
+     * Creates the relations panel.
+     *
+     * @param board board to overlay
+     * @param currentPosition supplier of the current analysis position
+     * @param summaryChanged callback for workspace header refreshes
+     */
+    public RelationsPanel(BoardPanel board, Supplier<Position> currentPosition, Runnable summaryChanged) {
+        super(new BorderLayout());
+        this.board = board;
+        this.currentPosition = currentPosition;
+        this.summaryChanged = summaryChanged == null ? () -> {
+            // optional callback
+        } : summaryChanged;
+        setOpaque(true);
+        setBackground(Theme.PANEL_SOLID);
+        setBorder(Theme.pad(Theme.SPACE_MD));
+        buildUi();
+        syncToBoard();
+    }
 
-	/**
-	 * Loads the current analysis position onto the board.
-	 */
-	public void syncToBoard() {
-		Position current = currentPosition == null ? null : currentPosition.get();
-		if (current == null) {
-			statusLabel.setText("No current position");
-			return;
-		}
-		show(current.copy());
-	}
+    /**
+     * Installs the board click handler used by Relations mode.
+     */
+    public void activateBoardInteractions() {
+        board.setClickSquareObserver(this::selectSquare);
+    }
 
-	/**
-	 * Loads a pasted FEN onto the board.
-	 *
-	 * @param fen FEN text
-	 */
-	private void loadFen(String fen) {
-		if (fen == null || fen.isBlank()) {
-			return;
-		}
-		try {
-			show(new Position(fen.trim()));
-		} catch (RuntimeException ex) {
-			Theme.foreground(statusLabel, Theme.ForegroundRole.WARNING);
-			statusLabel.setText("Invalid FEN");
-		}
-	}
+    /**
+     * Clears the board click handler used by Relations mode.
+     */
+    public void deactivateBoardInteractions() {
+        board.setClickSquareObserver(null);
+    }
 
-	/**
-	 * Shows a position and redraws the selected channels.
-	 *
-	 * @param value position to visualize
-	 */
-	private void show(Position value) {
-		this.position = value;
-		board.setPositionInstant(value, Move.NO_MOVE);
-		refresh();
-	}
+    /**
+     * Returns the Board / Relations workspace context string.
+     *
+     * @return context summary
+     */
+    public String workspaceContext() {
+        if (position == null) {
+            return "No position loaded";
+        }
+        String summary = visibleEdges + " edges visible · " + activeChannels + " channels";
+        return denseWarning ? summary + " · readability warning" : "Tactical incidence · " + summary;
+    }
 
-	/**
-	 * Selects or clears every channel.
-	 *
-	 * @param on whether to select all
-	 */
-	private void selectAll(boolean on) {
-		for (ToggleBox toggle : channelToggles) {
-			if (toggle != null) {
-				toggle.setSelected(on);
-			}
-		}
-		refresh();
-	}
+    /**
+     * Loads the current analysis position onto the board.
+     */
+    public void syncToBoard() {
+        Position current = currentPosition == null ? null : currentPosition.get();
+        if (current == null) {
+            setStatus("No position loaded", StatusBadge.Variant.NOT_RUN);
+            return;
+        }
+        show(current.copy());
+    }
 
-	/**
-	 * Redraws the relation arrows for the selected channels onto the board.
-	 */
-	private void refresh() {
-		board.clearMarkup();
-		if (position == null) {
-			statusLabel.setText("");
-			return;
-		}
-		int alpha = Math.max(0, Math.min(255, opacitySlider.getValue() * 255 / 100));
-		Color[] colors = new Color[Model.RELATION_COUNT];
-		for (int channel = 0; channel < colors.length; channel++) {
-			Color base = RelationPalette.color(channel);
-			colors[channel] = new Color(base.getRed(), base.getGreen(), base.getBlue(), alpha);
-		}
-		List<Model.IncidenceEdge> edges = Model.incidenceEdges(position);
-		int drawn = 0;
-		int activeChannels = 0;
-		for (ToggleBox toggle : channelToggles) {
-			if (toggle != null && toggle.isSelected()) {
-				activeChannels++;
-			}
-		}
-		for (Model.IncidenceEdge edge : edges) {
-			if (edge.from() == edge.to()) {
-				continue;
-			}
-			ToggleBox toggle = channelToggles[edge.channel()];
-			if (toggle != null && toggle.isSelected()) {
-				board.addArrow((byte) edge.from(), (byte) edge.to(), colors[edge.channel()], ARROW_WIDTH);
-				drawn++;
-			}
-		}
-		Theme.foreground(statusLabel, Theme.ForegroundRole.MUTED);
-		statusLabel.setText(drawn + " edges across " + activeChannels + " channels");
-	}
+    /**
+     * Lays out the inspector.
+     */
+    private void buildUi() {
+        JPanel stack = Ui.transparentPanel(null);
+        stack.setLayout(new BoxLayout(stack, BoxLayout.Y_AXIS));
+        addSection(stack, Ui.card("Source", sourceSection()));
+        addSection(stack, Ui.card("Presets", presetsSection()));
+        addSection(stack, Ui.card("Channels", channelsSection()));
+        addSection(stack, Ui.card("Display", displaySection()));
+        addSection(stack, Ui.card("Legend", legendSection()));
+        addSection(stack, Ui.card("Selection Details", selectionSection()));
+        addSection(stack, Ui.card("Advanced / Raw Names", advancedSection()));
+        stack.add(Box.createVerticalGlue());
+        add(stack, BorderLayout.NORTH);
+    }
+
+    /**
+     * Adds one inspector section to the stack.
+     *
+     * @param stack target stack
+     * @param section section component
+     */
+    private static void addSection(JPanel stack, JComponent section) {
+        section.setAlignmentX(Component.LEFT_ALIGNMENT);
+        stack.add(section);
+        stack.add(Box.createVerticalStrut(Theme.SPACE_MD));
+    }
+
+    /**
+     * Builds the position source controls.
+     *
+     * @return source section
+     */
+    private JComponent sourceSection() {
+        JPanel panel = verticalPanel();
+        JLabel caption = Ui.caption("Use the current board position or inspect a pasted FEN.");
+        panel.add(caption);
+        panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
+
+        JPanel actions = Ui.buttonRow(FlowLayout.LEFT,
+                Ui.button("Sync to board", true, event -> syncToBoard()),
+                Ui.button("Load FEN", false, event -> loadFen(fenField.getText())));
+        panel.add(actions);
+        panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
+
+        Ui.styleFields(fenField);
+        fenField.setToolTipText("Paste a FEN to visualize, then press Load FEN.");
+        panel.add(fenField);
+        return panel;
+    }
+
+    /**
+     * Builds relation presets.
+     *
+     * @return preset section
+     */
+    private JComponent presetsSection() {
+        JPanel panel = verticalPanel();
+        panel.add(wrappingButtons(
+                presetButton("Attacks", "Attacking channels", new int[] {0, 1, 9, 10}),
+                presetButton("Defenses", "Defensive channels", new int[] {2, 3}),
+                presetButton("King safety", "King-zone pressure and pins", new int[] {4, 5, 11}),
+                presetButton("Pins/rays", "Sliding rays and pin candidates", new int[] {6, 7, 8, 11}),
+                Ui.button("Selected piece only", false, event -> applySelectedOnlyPreset()),
+                presetButton("All", "Show every relation channel", allChannels()),
+                new HoldButton("Clear", () -> selectChannels(new int[0]), true)));
+        return panel;
+    }
+
+    /**
+     * Builds one preset button.
+     *
+     * @param label label
+     * @param tooltip tooltip
+     * @param channels channels to enable
+     * @return preset button
+     */
+    private JButton presetButton(String label, String tooltip, int[] channels) {
+        JButton button = Ui.button(label, false, event -> selectChannels(channels));
+        button.setToolTipText(tooltip);
+        return button;
+    }
+
+    /**
+     * Builds the channel toggle list.
+     *
+     * @return channels section
+     */
+    private JComponent channelsSection() {
+        JPanel list = verticalPanel();
+        boolean[] defaultOn = new boolean[Model.RELATION_COUNT];
+        for (int channel : DEFAULT_CHANNELS) {
+            defaultOn[channel] = true;
+        }
+        for (int channel = 0; channel < Model.RELATION_COUNT; channel++) {
+            list.add(channelRow(channel, defaultOn[channel]));
+            if (channel + 1 < Model.RELATION_COUNT) {
+                list.add(Box.createVerticalStrut(Theme.SPACE_XS));
+            }
+        }
+        return list;
+    }
+
+    /**
+     * Builds one channel row.
+     *
+     * @param channel channel index
+     * @param selected initial selected state
+     * @return channel row
+     */
+    private JComponent channelRow(int channel, boolean selected) {
+        JPanel row = Ui.transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        row.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Theme.LINE),
+                BorderFactory.createEmptyBorder(Theme.SPACE_XS, Theme.SPACE_SM, Theme.SPACE_XS, Theme.SPACE_SM)));
+        row.add(new ColorChip(RelationPalette.color(channel), 14), BorderLayout.WEST);
+
+        JPanel text = verticalPanel();
+        JLabel label = new JLabel(CHANNEL_LABELS[channel]);
+        label.setForeground(Theme.TEXT);
+        label.setFont(Theme.font(Theme.FONT_CONTROL, Font.PLAIN));
+        JLabel raw = Ui.caption(Model.RELATION_NAMES[channel]);
+        raw.setToolTipText(CHANNEL_NOTES[channel]);
+        text.add(label);
+        text.add(raw);
+        row.add(text, BorderLayout.CENTER);
+
+        ToggleBox toggle = new ToggleBox("Visible", true);
+        toggle.setSelected(selected);
+        toggle.setToolTipText(Model.RELATION_NAMES[channel] + " - " + CHANNEL_NOTES[channel]);
+        toggle.addActionListener(event -> refresh());
+        channelToggles[channel] = toggle;
+        row.add(toggle, BorderLayout.EAST);
+        return row;
+    }
+
+    /**
+     * Builds display and dense-overlay filters.
+     *
+     * @return display section
+     */
+    private JComponent displaySection() {
+        JPanel panel = verticalPanel();
+        configureSlider(opacitySlider, "Arrow opacity");
+        configureSlider(maxArrowsSlider, "Maximum arrows drawn");
+        opacitySlider.addChangeListener(event -> refresh());
+        maxArrowsSlider.addChangeListener(event -> refresh());
+
+        selectedOnlyToggle.setSelected(false);
+        selectedOnlyToggle.setToolTipText("Show only edges touching the selected board square.");
+        selectedOnlyToggle.addActionListener(event -> refresh());
+        hidePawnNoiseToggle.setSelected(false);
+        hidePawnNoiseToggle.setToolTipText("Hide the pawn-specific pressure channel to reduce dense overlays.");
+        hidePawnNoiseToggle.addActionListener(event -> refresh());
+        kingDangerOnlyToggle.setSelected(false);
+        kingDangerOnlyToggle.setToolTipText("Show only king-zone and pin-candidate channels.");
+        kingDangerOnlyToggle.addActionListener(event -> refresh());
+
+        panel.add(Ui.labelControlRow("Opacity", opacitySlider, LABEL_WIDTH));
+        panel.add(Ui.labelControlRow("Max arrows", maxArrowsSlider, LABEL_WIDTH));
+        panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        panel.add(filterToggleRow("Selected piece only", selectedOnlyToggle));
+        panel.add(filterToggleRow("Hide pawn noise", hidePawnNoiseToggle));
+        panel.add(filterToggleRow("King danger only", kingDangerOnlyToggle));
+        panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        panel.add(densityBadge);
+        panel.add(countLabel);
+        return panel;
+    }
+
+    /**
+     * Builds the legend section.
+     *
+     * @return legend section
+     */
+    private JComponent legendSection() {
+        JPanel panel = verticalPanel();
+        panel.add(legendRow(RelationPalette.color(0), "Channel color", "Each color maps to one OTIS relation channel."));
+        panel.add(legendRow(Theme.withAlpha(RelationPalette.color(0), 96), "Opacity", "Lower opacity means less visual dominance, not weaker relation data."));
+        panel.add(legendRow(Theme.ACCENT, "Selected square", "Clicking a board piece focuses filters and selection details."));
+        panel.add(Ui.caption("Arrow direction is source square to target square. Overlap means multiple relation channels share geometry."));
+        return panel;
+    }
+
+    /**
+     * Builds one legend row.
+     *
+     * @param color color sample
+     * @param title title
+     * @param detail detail text
+     * @return legend row
+     */
+    private static JComponent legendRow(Color color, String title, String detail) {
+        JPanel row = Ui.transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        row.add(new ColorChip(color, 13), BorderLayout.WEST);
+        JPanel text = verticalPanel();
+        JLabel label = new JLabel(title);
+        label.setForeground(Theme.TEXT);
+        label.setFont(Theme.font(Theme.FONT_METADATA, Font.BOLD));
+        text.add(label);
+        text.add(Ui.caption(detail));
+        row.add(text, BorderLayout.CENTER);
+        return row;
+    }
+
+    /**
+     * Builds selected-square details.
+     *
+     * @return selection section
+     */
+    private JComponent selectionSection() {
+        selectionDetails.setEditable(false);
+        selectionDetails.setOpaque(false);
+        selectionDetails.setLineWrap(true);
+        selectionDetails.setWrapStyleWord(true);
+        selectionDetails.setForeground(Theme.TEXT);
+        selectionDetails.setFont(Theme.mono(Theme.FONT_MONO));
+        selectionDetails.setText("Click a board piece to inspect its incident relations.");
+        return selectionDetails;
+    }
+
+    /**
+     * Builds raw channel-name access.
+     *
+     * @return advanced section
+     */
+    private JComponent advancedSection() {
+        return Ui.commandBlock(rawNamesText());
+    }
+
+    /**
+     * Loads a pasted FEN onto the board.
+     *
+     * @param fen FEN text
+     */
+    private void loadFen(String fen) {
+        if (fen == null || fen.isBlank()) {
+            return;
+        }
+        try {
+            show(new Position(fen.trim()));
+        } catch (RuntimeException ex) {
+            setStatus("Invalid FEN", StatusBadge.Variant.ERROR);
+        }
+    }
+
+    /**
+     * Shows a position and redraws the selected channels.
+     *
+     * @param value position to visualize
+     */
+    private void show(Position value) {
+        position = value;
+        selectedSquare = Field.NO_SQUARE;
+        board.setPositionInstant(value, Move.NO_MOVE);
+        refresh();
+    }
+
+    /**
+     * Selects a square from the board.
+     *
+     * @param square selected square
+     */
+    private void selectSquare(int square) {
+        if (square < Field.A8 || square > Field.H1) {
+            selectedSquare = Field.NO_SQUARE;
+        } else {
+            selectedSquare = square;
+            selectedOnlyToggle.setSelected(true);
+        }
+        refresh();
+    }
+
+    /**
+     * Selects a selected-piece-only preset.
+     */
+    private void applySelectedOnlyPreset() {
+        selectChannels(DEFAULT_CHANNELS);
+        selectedOnlyToggle.setSelected(true);
+        refresh();
+    }
+
+    /**
+     * Selects the requested channels.
+     *
+     * @param channels channels to enable
+     */
+    private void selectChannels(int[] channels) {
+        boolean[] selected = new boolean[Model.RELATION_COUNT];
+        for (int channel : channels) {
+            if (channel >= 0 && channel < selected.length) {
+                selected[channel] = true;
+            }
+        }
+        for (int channel = 0; channel < channelToggles.length; channel++) {
+            if (channelToggles[channel] != null) {
+                channelToggles[channel].setSelected(selected[channel]);
+            }
+        }
+        refresh();
+    }
+
+    /**
+     * Redraws the relation arrows for the selected channels.
+     */
+    private void refresh() {
+        board.clearMarkup();
+        if (position == null) {
+            visibleEdges = 0;
+            activeChannels = 0;
+            denseWarning = false;
+            updateSelectionDetails();
+            countLabel.setText("No position loaded.");
+            setStatus("No position loaded", StatusBadge.Variant.NOT_RUN);
+            return;
+        }
+        lastEdges = Model.incidenceEdges(position);
+        activeChannels = activeChannelCount();
+        List<Model.IncidenceEdge> filtered = filteredEdges(lastEdges);
+        int limit = maxArrowsSlider.getValue();
+        visibleEdges = Math.min(filtered.size(), limit);
+        denseWarning = filtered.size() > DENSE_WARNING_THRESHOLD || filtered.size() > limit;
+
+        Color[] colors = channelColors();
+        for (int index = 0; index < visibleEdges; index++) {
+            Model.IncidenceEdge edge = filtered.get(index);
+            board.addArrow((byte) edge.from(), (byte) edge.to(), colors[edge.channel()], ARROW_WIDTH);
+        }
+        String count = visibleEdges + " of " + filtered.size() + " filtered edges · " + activeChannels
+                + " visible channels";
+        countLabel.setText(count);
+        if (activeChannels == 0) {
+            setStatus("No channels visible", StatusBadge.Variant.NOT_RUN);
+        } else if (denseWarning) {
+            setStatus(visibleEdges + " edges visible. Use filters for readability.", StatusBadge.Variant.WARNING);
+        } else {
+            setStatus("Overlay readable", StatusBadge.Variant.READY);
+        }
+        updateSelectionDetails();
+        summaryChanged.run();
+    }
+
+    /**
+     * Builds alpha-adjusted channel colors.
+     *
+     * @return colors
+     */
+    private Color[] channelColors() {
+        int alpha = Math.max(0, Math.min(255, opacitySlider.getValue() * 255 / 100));
+        Color[] colors = new Color[Model.RELATION_COUNT];
+        for (int channel = 0; channel < colors.length; channel++) {
+            Color base = RelationPalette.color(channel);
+            colors[channel] = new Color(base.getRed(), base.getGreen(), base.getBlue(), alpha);
+        }
+        return colors;
+    }
+
+    /**
+     * Returns filtered relation edges.
+     *
+     * @param edges source edges
+     * @return filtered edges
+     */
+    private List<Model.IncidenceEdge> filteredEdges(List<Model.IncidenceEdge> edges) {
+        List<Model.IncidenceEdge> result = new ArrayList<>();
+        for (Model.IncidenceEdge edge : edges) {
+            if (edge.from() == edge.to() || !channelVisible(edge.channel()) || !passesQuickFilters(edge)) {
+                continue;
+            }
+            result.add(edge);
+        }
+        return result;
+    }
+
+    /**
+     * Returns whether one edge passes quick filters.
+     *
+     * @param edge relation edge
+     * @return true when visible
+     */
+    private boolean passesQuickFilters(Model.IncidenceEdge edge) {
+        if (kingDangerOnlyToggle.isSelected() && !kingDangerChannel(edge.channel())) {
+            return false;
+        }
+        if (hidePawnNoiseToggle.isSelected() && pawnNoise(edge)) {
+            return false;
+        }
+        return !selectedOnlyToggle.isSelected()
+                || selectedSquare == Field.NO_SQUARE
+                || edge.from() == selectedSquare
+                || edge.to() == selectedSquare;
+    }
+
+    /**
+     * Returns whether a channel is visible.
+     *
+     * @param channel channel index
+     * @return true when visible
+     */
+    private boolean channelVisible(int channel) {
+        return channel >= 0 && channel < channelToggles.length
+                && channelToggles[channel] != null
+                && channelToggles[channel].isSelected();
+    }
+
+    /**
+     * Returns the active channel count.
+     *
+     * @return active channels
+     */
+    private int activeChannelCount() {
+        int count = 0;
+        for (int channel = 0; channel < channelToggles.length; channel++) {
+            if (channelVisible(channel)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Returns whether an edge is pawn-channel noise.
+     *
+     * @param edge relation edge
+     * @return true when the edge should be hidden by the pawn-noise filter
+     */
+    private boolean pawnNoise(Model.IncidenceEdge edge) {
+        if (edge.channel() == 10) {
+            return true;
+        }
+        if (position == null) {
+            return false;
+        }
+        byte[] boardState = position.getBoard();
+        return isPawn(boardState[edge.from()]) || isPawn(boardState[edge.to()]);
+    }
+
+    /**
+     * Returns whether a piece is a pawn.
+     *
+     * @param piece piece code
+     * @return true for pawns
+     */
+    private static boolean isPawn(byte piece) {
+        return Math.abs(piece) == Piece.PAWN;
+    }
+
+    /**
+     * Returns whether a channel belongs to the king-danger preset.
+     *
+     * @param channel channel index
+     * @return true for king danger channels
+     */
+    private static boolean kingDangerChannel(int channel) {
+        return channel == 4 || channel == 5 || channel == 11;
+    }
+
+    /**
+     * Updates selected-square details.
+     */
+    private void updateSelectionDetails() {
+        if (position == null) {
+            selectionDetails.setText("No position loaded.");
+            return;
+        }
+        if (selectedSquare == Field.NO_SQUARE) {
+            selectionDetails.setText("Click a board piece to focus its incident relations.");
+            return;
+        }
+        byte[] boardState = position.getBoard();
+        byte piece = boardState[selectedSquare];
+        int incident = 0;
+        int outgoing = 0;
+        int incoming = 0;
+        for (Model.IncidenceEdge edge : lastEdges) {
+            if (edge.from() == selectedSquare) {
+                incident++;
+                outgoing++;
+            } else if (edge.to() == selectedSquare) {
+                incident++;
+                incoming++;
+            }
+        }
+        selectionDetails.setText(Field.toString((byte) selectedSquare)
+                + " · " + pieceName(piece).toLowerCase(Locale.ROOT)
+                + "\n" + incident + " incident edges"
+                + "\n" + outgoing + " outgoing · " + incoming + " incoming"
+                + "\nSelected-piece filter " + (selectedOnlyToggle.isSelected() ? "on" : "off") + ".");
+    }
+
+    /**
+     * Sets the density status.
+     *
+     * @param text text
+     * @param variant variant
+     */
+    private void setStatus(String text, StatusBadge.Variant variant) {
+        densityBadge.set(text, variant);
+        summaryChanged.run();
+    }
+
+    /**
+     * Configures a shared slider.
+     *
+     * @param slider slider
+     * @param tooltip tooltip
+     */
+    private static void configureSlider(JSlider slider, String tooltip) {
+        Ui.styleSlider(slider);
+        slider.setOpaque(false);
+        slider.setToolTipText(tooltip);
+    }
+
+    /**
+     * Creates a transparent vertical panel.
+     *
+     * @return panel
+     */
+    private static JPanel verticalPanel() {
+        JPanel panel = Ui.transparentPanel(null);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        return panel;
+    }
+
+    /**
+     * Creates a wrapping button panel.
+     *
+     * @param buttons buttons
+     * @return row
+     */
+    private static JComponent wrappingButtons(JComponent... buttons) {
+        JPanel row = Ui.transparentPanel(new FlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, Theme.SPACE_XS));
+        for (JComponent button : buttons) {
+            row.add(button);
+        }
+        return row;
+    }
+
+    /**
+     * Creates a full-width label/switch row for dense-overlay quick filters.
+     *
+     * @param label row label
+     * @param toggle switch control
+     * @return filter row
+     */
+    private static JComponent filterToggleRow(String label, ToggleBox toggle) {
+        JPanel row = Ui.transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        row.setBorder(Theme.pad(Theme.SPACE_XS, 0, Theme.SPACE_XS, 0));
+        JLabel text = Ui.label(label);
+        text.setToolTipText(toggle.getToolTipText());
+        toggle.getAccessibleContext().setAccessibleName(label);
+        row.add(text, BorderLayout.CENTER);
+        row.add(toggle, BorderLayout.EAST);
+        return row;
+    }
+
+    /**
+     * Returns all channel indexes.
+     *
+     * @return all channels
+     */
+    private static int[] allChannels() {
+        int[] channels = new int[Model.RELATION_COUNT];
+        for (int channel = 0; channel < channels.length; channel++) {
+            channels[channel] = channel;
+        }
+        return channels;
+    }
+
+    /**
+     * Returns raw channel names as a code block.
+     *
+     * @return raw names
+     */
+    private static String rawNamesText() {
+        StringBuilder builder = new StringBuilder();
+        for (int channel = 0; channel < Model.RELATION_NAMES.length; channel++) {
+            builder.append(channel)
+                    .append(": ")
+                    .append(Model.RELATION_NAMES[channel])
+                    .append('\n');
+        }
+        return builder.toString().trim();
+    }
+
+    /**
+     * Returns a readable piece label.
+     *
+     * @param piece piece code
+     * @return piece label
+     */
+    private static String pieceName(byte piece) {
+        if (piece == Piece.EMPTY) {
+            return "Empty square";
+        }
+        String side = Piece.isWhite(piece) ? "White " : "Black ";
+        return side + switch (Math.abs(piece)) {
+            case Piece.PAWN -> "pawn";
+            case Piece.KNIGHT -> "knight";
+            case Piece.BISHOP -> "bishop";
+            case Piece.ROOK -> "rook";
+            case Piece.QUEEN -> "queen";
+            case Piece.KING -> "king";
+            default -> "piece";
+        };
+    }
+
+    /**
+     * Small color chip component.
+     */
+    private static final class ColorChip extends JComponent {
+
+        /**
+         * Serialization identifier for Swing component compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Chip color.
+         */
+        private final Color color;
+
+        /**
+         * Chip size.
+         */
+        private final int size;
+
+        /**
+         * Creates a color chip.
+         *
+         * @param color chip color
+         * @param size chip size
+         */
+        ColorChip(Color color, int size) {
+            this.color = color;
+            this.size = size;
+            Dimension dimension = new Dimension(size, size);
+            setPreferredSize(dimension);
+            setMinimumSize(dimension);
+            setMaximumSize(dimension);
+            setAlignmentY(Component.CENTER_ALIGNMENT);
+        }
+
+        /**
+         * Paints the chip.
+         *
+         * @param graphics graphics context
+         */
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            Graphics2D g = (Graphics2D) graphics.create();
+            try {
+                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g.setColor(color == null ? Theme.LINE : color);
+                g.fillRoundRect(1, 1, size - 2, size - 2, Theme.RADIUS, Theme.RADIUS);
+                g.setColor(Theme.LINE);
+                g.drawRoundRect(0, 0, size - 1, size - 1, Theme.RADIUS, Theme.RADIUS);
+            } finally {
+                g.dispose();
+            }
+        }
+    }
 }

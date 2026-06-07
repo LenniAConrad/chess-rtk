@@ -26,7 +26,10 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -117,6 +120,11 @@ public final class BoardPanel extends JPanel {
      * Opacity for a pending erase markup.
      */
     private static final double MARKUP_PENDING_ERASE_OPACITY = 0.6;
+
+    /**
+     * Maximum number of annotation history entries retained for undo/redo.
+     */
+    private static final int MARKUP_HISTORY_LIMIT = 64;
 
     /**
      * Current position rendered on the board.
@@ -210,6 +218,21 @@ public final class BoardPanel extends JPanel {
     private final BoardMarkupInput markupInput = new BoardMarkupInput();
 
     /**
+     * Undo history for user-created board annotations.
+     */
+    private final Deque<List<BoardMarkup>> markupUndoStack = new ArrayDeque<>();
+
+    /**
+     * Redo history for user-created board annotations.
+     */
+    private final Deque<List<BoardMarkup>> markupRedoStack = new ArrayDeque<>();
+
+    /**
+     * Observer notified when persistent annotations change.
+     */
+    private Runnable markupChangeObserver;
+
+    /**
      * Optional drag-start filter.
      */
     private Predicate<DragContext> dragStartFilter;
@@ -253,6 +276,11 @@ public final class BoardPanel extends JPanel {
      * Mouseover-square observer.
      */
     private IntConsumer mouseoverSquareObserver;
+
+    /**
+     * Optional square-click observer for read-only board tools.
+     */
+    private IntConsumer clickSquareObserver;
 
     /**
      * Last square reported to the mouseover observer.
@@ -724,6 +752,7 @@ public final class BoardPanel extends JPanel {
         }
         squareHighlights.clear();
         markupInput.clear();
+        notifyMarkupChanged();
         repaint();
     }
 
@@ -802,6 +831,93 @@ public final class BoardPanel extends JPanel {
      */
     public int markupCount() {
         return markupInput.markupCount();
+    }
+
+    /**
+     * Returns a detached copy of persistent board annotations.
+     *
+     * @return copied annotation list
+     */
+    public List<BoardMarkup> boardMarkups() {
+        return markupInput.copyMarkups();
+    }
+
+    /**
+     * Clears user annotations while preserving non-annotation square highlights.
+     */
+    public void clearUserMarkup() {
+        if (markupInput.markupCount() == 0 && !markupInput.hasGesture()) {
+            return;
+        }
+        List<BoardMarkup> before = markupInput.copyMarkups();
+        markupInput.clearMarkups();
+        recordMarkupEdit(before);
+        notifyMarkupChanged();
+        repaint();
+    }
+
+    /**
+     * Removes one persistent board annotation by list index.
+     *
+     * @param index annotation index
+     */
+    public void removeMarkup(int index) {
+        List<BoardMarkup> before = markupInput.copyMarkups();
+        if (!markupInput.removeAt(index)) {
+            return;
+        }
+        recordMarkupEdit(before);
+        notifyMarkupChanged();
+        repaint();
+    }
+
+    /**
+     * Returns whether an annotation edit can be undone.
+     *
+     * @return true when undo history is available
+     */
+    public boolean canUndoMarkupEdit() {
+        return !markupUndoStack.isEmpty();
+    }
+
+    /**
+     * Returns whether an undone annotation edit can be restored.
+     *
+     * @return true when redo history is available
+     */
+    public boolean canRedoMarkupEdit() {
+        return !markupRedoStack.isEmpty();
+    }
+
+    /**
+     * Restores the previous user-annotation snapshot when available.
+     */
+    public void undoMarkupEdit() {
+        if (markupUndoStack.isEmpty()) {
+            return;
+        }
+        markupRedoStack.push(markupInput.copyMarkups());
+        restoreMarkupSnapshot(markupUndoStack.pop());
+    }
+
+    /**
+     * Reapplies the next user-annotation snapshot when available.
+     */
+    public void redoMarkupEdit() {
+        if (markupRedoStack.isEmpty()) {
+            return;
+        }
+        markupUndoStack.push(markupInput.copyMarkups());
+        restoreMarkupSnapshot(markupRedoStack.pop());
+    }
+
+    /**
+     * Sets an observer notified after persistent annotation changes.
+     *
+     * @param observer callback observer, or null to clear
+     */
+    public void setMarkupChangeObserver(Runnable observer) {
+        markupChangeObserver = observer;
     }
 
     /**
@@ -973,6 +1089,15 @@ public final class BoardPanel extends JPanel {
      */
     public void setMouseoverSquareObserver(IntConsumer observer) {
         mouseoverSquareObserver = observer;
+    }
+
+    /**
+     * Sets a callback fired when the user left-clicks a board square.
+     *
+     * @param observer callback observer, or null to clear
+     */
+    public void setClickSquareObserver(IntConsumer observer) {
+        clickSquareObserver = observer;
     }
 
     /**
@@ -1637,6 +1762,15 @@ public final class BoardPanel extends JPanel {
             handleMarkupPress(event);
             return;
         }
+        byte clickedSquare = squareAt(event.getX(), event.getY());
+        if (clickSquareObserver != null && SwingUtilities.isLeftMouseButton(event)
+                && clickedSquare != Field.NO_SQUARE) {
+            clickSquareObserver.accept(clickedSquare);
+            if (moveHandler == null && !markupInput.directAnnotationMode()) {
+                event.consume();
+                return;
+            }
+        }
         if (position == null || (moveHandler == null && premoveHandler == null)) {
             return;
         }
@@ -1653,7 +1787,7 @@ public final class BoardPanel extends JPanel {
         }
         suggestedMove = Move.NO_MOVE;
         clearDragState();
-        byte square = squareAt(event.getX(), event.getY());
+        byte square = clickedSquare;
         if (square == Field.NO_SQUARE) {
             return;
         }
@@ -1770,8 +1904,69 @@ public final class BoardPanel extends JPanel {
      */
     private void handleMarkupRelease(MouseEvent event) {
         event.consume();
+        List<BoardMarkup> before = markupInput.copyMarkups();
         markupInput.complete(squareAt(event.getX(), event.getY()));
+        recordMarkupEdit(before);
+        notifyMarkupChanged();
         repaint();
+    }
+
+    /**
+     * Records an undo snapshot when a user annotation edit changed the markups.
+     *
+     * @param before annotation list before the edit
+     */
+    private void recordMarkupEdit(List<BoardMarkup> before) {
+        List<BoardMarkup> after = markupInput.copyMarkups();
+        if (sameMarkupList(before, after)) {
+            return;
+        }
+        markupUndoStack.push(detachedMarkupList(before));
+        while (markupUndoStack.size() > MARKUP_HISTORY_LIMIT) {
+            markupUndoStack.removeLast();
+        }
+        markupRedoStack.clear();
+    }
+
+    /**
+     * Restores a persistent annotation snapshot.
+     *
+     * @param snapshot snapshot to restore
+     */
+    private void restoreMarkupSnapshot(List<BoardMarkup> snapshot) {
+        markupInput.replaceMarkups(detachedMarkupList(snapshot));
+        notifyMarkupChanged();
+        repaint();
+    }
+
+    /**
+     * Returns a detached copy of a markup list.
+     *
+     * @param markups source markups
+     * @return detached list
+     */
+    private static List<BoardMarkup> detachedMarkupList(List<BoardMarkup> markups) {
+        return markups == null ? List.of() : new ArrayList<>(markups);
+    }
+
+    /**
+     * Returns whether two markup lists contain the same annotations in order.
+     *
+     * @param first first list
+     * @param second second list
+     * @return true when lists match
+     */
+    private static boolean sameMarkupList(List<BoardMarkup> first, List<BoardMarkup> second) {
+        return detachedMarkupList(first).equals(detachedMarkupList(second));
+    }
+
+    /**
+     * Notifies the annotation observer if one is installed.
+     */
+    private void notifyMarkupChanged() {
+        if (markupChangeObserver != null) {
+            markupChangeObserver.run();
+        }
     }
 
     private void playOrPromote(short[] candidates, int popupX, int popupY) {

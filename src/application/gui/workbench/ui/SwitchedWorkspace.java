@@ -34,6 +34,16 @@ public class SwitchedWorkspace extends JPanel {
     private final SegmentedSwitcher switcher;
 
     /**
+     * Optional shell title shown in the workspace header.
+     */
+    private final String workspaceTitle;
+
+    /**
+     * Shared workspace header for the active mode.
+     */
+    private final WorkspaceHeader workspaceHeader;
+
+    /**
      * Card layout swapping the active mode body.
      */
     private final CardLayout cards = new CardLayout();
@@ -68,7 +78,19 @@ public class SwitchedWorkspace extends JPanel {
      * @param eagerMode mode to build and show immediately
      */
     public SwitchedWorkspace(String[] labels, List<Supplier<JComponent>> builders, int eagerMode) {
-        this(toModes(labels, builders), eagerMode);
+        this("", toModes(labels, builders), eagerMode);
+    }
+
+    /**
+     * Creates a titled switched workspace from legacy label/builder lists.
+     *
+     * @param title surface title
+     * @param labels segment labels in mode order
+     * @param builders lazy body builders in mode order (same length as labels)
+     * @param eagerMode mode to build and show immediately
+     */
+    public SwitchedWorkspace(String title, String[] labels, List<Supplier<JComponent>> builders, int eagerMode) {
+        this(title, toModes(labels, builders), eagerMode);
     }
 
     /**
@@ -78,14 +100,28 @@ public class SwitchedWorkspace extends JPanel {
      * @param eagerMode mode to build and show immediately
      */
     public SwitchedWorkspace(List<WorkspaceMode> modes, int eagerMode) {
+        this("", modes, eagerMode);
+    }
+
+    /**
+     * Creates a titled switched workspace from mode descriptors.
+     *
+     * @param title surface title
+     * @param modes mode descriptors in switcher order
+     * @param eagerMode mode to build and show immediately
+     */
+    public SwitchedWorkspace(String title, List<WorkspaceMode> modes, int eagerMode) {
         super(new BorderLayout(0, Theme.SPACE_SM));
         requireUsableModes(modes);
         requireValidEagerMode(eagerMode, modes.size());
         setOpaque(true);
         setBackground(Theme.BG);
+        this.workspaceTitle = title == null ? "" : title.trim();
         this.modes = List.copyOf(modes);
         this.built = new boolean[this.modes.size()];
         switcher = new SegmentedSwitcher(labels(this.modes));
+        workspaceHeader = new WorkspaceHeader("", "", null);
+        workspaceHeader.setVisible(!workspaceTitle.isBlank());
 
         // The switcher sits in a quiet toolbar band closed by a hairline, the
         // same chrome the Network and Datasets tabs lead with, so a consolidated
@@ -95,10 +131,16 @@ public class SwitchedWorkspace extends JPanel {
                 Theme.pad(Theme.SPACE_SM, Theme.SPACE_MD, Theme.SPACE_SM, Theme.SPACE_MD));
         header.add(switcher);
 
-        body.setOpaque(false);
+        JPanel top = new JPanel(new BorderLayout(0, 0));
+        top.setOpaque(false);
+        top.add(workspaceHeader, BorderLayout.NORTH);
+        top.add(header, BorderLayout.SOUTH);
+
+        body.setOpaque(true);
+        body.setBackground(Theme.BG);
         body.setBorder(Theme.pad(Theme.SPACE_SM, Theme.SPACE_SM, 0, Theme.SPACE_SM));
 
-        add(header, BorderLayout.NORTH);
+        add(top, BorderLayout.NORTH);
         add(body, BorderLayout.CENTER);
 
         switcher.addActionListener(event -> showMode(switcher.getSelectedIndex()));
@@ -159,6 +201,13 @@ public class SwitchedWorkspace extends JPanel {
      */
     public boolean isBuilt(int mode) {
         return mode >= 0 && mode < built.length && built[mode];
+    }
+
+    /**
+     * Refreshes the active mode header from its metadata suppliers.
+     */
+    public void refreshHeader() {
+        refreshHeader(mode());
     }
 
     /**
@@ -253,6 +302,38 @@ public class SwitchedWorkspace extends JPanel {
         if (modeListener != null) {
             modeListener.accept(mode);
         }
+        refreshHeader(mode);
+        body.revalidate();
+        body.repaint();
+        repaint();
+    }
+
+    /**
+     * Refreshes the workspace header for one mode.
+     *
+     * @param mode mode index
+     */
+    private void refreshHeader(int mode) {
+        if (mode < 0 || mode >= modes.size()) {
+            return;
+        }
+        WorkspaceMode descriptor = modes.get(mode);
+        workspaceHeader.setTitle(headerTitle(descriptor));
+        workspaceHeader.setContext(descriptor.context());
+        workspaceHeader.setActions(descriptor.actions());
+    }
+
+    /**
+     * Returns the header title for a mode.
+     *
+     * @param mode mode descriptor
+     * @return title
+     */
+    private String headerTitle(WorkspaceMode mode) {
+        if (workspaceTitle.isBlank()) {
+            return mode.label();
+        }
+        return workspaceTitle + " / " + mode.label();
     }
 
     /**

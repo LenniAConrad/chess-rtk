@@ -33,31 +33,6 @@ final class UiSurfaces {
     }
 
     /**
-     * Builds a standard lead band for top-level Workbench surfaces.
-     *
-     * @param title surface title
-     * @param purpose one-line description, or {@code null}/blank for none
-     * @param actions optional right-aligned action component, or {@code null}
-     * @return lead band component
-     */
-    static JComponent surfaceHeader(String title, String purpose, JComponent actions) {
-        JPanel bar = UiLayout.transparentPanel(new BorderLayout(Theme.SPACE_MD, 0));
-        styleToolbarBand(bar,
-                Theme.pad(Theme.SPACE_SM, Theme.SPACE_MD, Theme.SPACE_SM, Theme.SPACE_MD));
-        JPanel identity = UiLayout.transparentPanel(new BorderLayout(0, 1));
-        identity.add(Theme.sectionTitle(title), BorderLayout.NORTH);
-        if (purpose != null && !purpose.isBlank()) {
-            identity.add(UiFormControls.caption(purpose), BorderLayout.CENTER);
-        }
-        bar.add(identity, BorderLayout.WEST);
-        if (actions != null) {
-            actions.setOpaque(false);
-            bar.add(actions, BorderLayout.EAST);
-        }
-        return bar;
-    }
-
-    /**
      * Creates a flat titled section without adding another card layer.
      *
      * @param title title

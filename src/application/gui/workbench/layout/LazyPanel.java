@@ -5,7 +5,6 @@ import application.gui.workbench.ui.Ui;
 import java.awt.BorderLayout;
 import java.util.function.Supplier;
 import javax.swing.JComponent;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
@@ -79,11 +78,7 @@ public final class LazyPanel extends JPanel {
      */
     private void addPlaceholder() {
         removeAll();
-        JLabel label = Ui.label("Loading " + name + "...");
-        Theme.foreground(label, Theme.ForegroundRole.MUTED);
-        JPanel center = Ui.transparentPanel(new java.awt.GridBagLayout());
-        center.add(label);
-        add(center, BorderLayout.CENTER);
+        add(Ui.emptyState("Loading " + name, "Preparing this workspace surface."), BorderLayout.CENTER);
     }
 
     /**
@@ -107,11 +102,8 @@ public final class LazyPanel extends JPanel {
         JComponent panel = factory == null ? null : factory.get();
         removeAll();
         if (panel == null) {
-            JLabel error = Ui.label(name + " unavailable");
-            Theme.foreground(error, Theme.ForegroundRole.WARNING);
-            JPanel center = Ui.transparentPanel(new java.awt.GridBagLayout());
-            center.add(error);
-            add(center, BorderLayout.CENTER);
+            add(Ui.emptyState(name + " unavailable", "This workspace surface could not be created."),
+                    BorderLayout.CENTER);
         } else {
             Theme.refreshComponentTree(panel);
             add(panel, BorderLayout.CENTER);

@@ -117,6 +117,7 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
                 positionLoadSoundArmed = true;
             }
         } catch (IllegalArgumentException ex) {
+            markAnalyzePositionInvalid(ex.getMessage());
             showError("Invalid FEN", ex.getMessage());
         }
     }

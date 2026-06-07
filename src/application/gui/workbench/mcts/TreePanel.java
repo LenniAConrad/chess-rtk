@@ -8,12 +8,14 @@ import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.network.Prefs;
 import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.GroupBox;
+import application.gui.workbench.ui.HoldButton;
 import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Toast;
 import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.Ui;
 import application.gui.workbench.ui.WrappingFlowLayout;
+import application.gui.workbench.ui.WorkspaceHeader;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -81,9 +83,45 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
     private static final long serialVersionUID = 1L;
 
     /**
+     * Minimum vertical subtree-guide layer. Zero means no vertical partitions.
+     */
+    private static final int GUIDE_LEVEL_MIN = 0;
+
+    /**
+     * Maximum vertical subtree-guide layer exposed by the stepper.
+     */
+    private static final int GUIDE_LEVEL_MAX = 64;
+
+    /**
+     * Node keys plus exact directed segments for a highlighted tree line.
+     *
+     * @param keys keys participating in the line
+     * @param segments directed parent-child key pairs on the line
+     */
+    private record PathOverlay(Set<String> keys, Set<TreeGraphView.PathSegment> segments) {
+
+        /**
+         * Empty overlay.
+         *
+         * @return empty path overlay
+         */
+        private static PathOverlay empty() {
+            return new PathOverlay(Set.of(), Set.of());
+        }
+    }
+
+    /**
      * Caption strip height beneath each node board.
      */
     private static final int CAPTION_HEIGHT = 34;
+
+    /**
+     * Default board thumbnail size for tree nodes. The old 64px control existed
+     * for pre-SVG pixelated boards; vector piece rendering is clear enough to
+     * use larger thumbnails by default without exposing a manual resolution
+     * knob.
+     */
+    private static final int NODE_BOARD_SIZE = 96;
 
     /**
      * Horizontal gap between sibling columns.
@@ -119,6 +157,11 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
      * Tree canvas.
      */
     private final TreeGraphView view = new TreeGraphView();
+
+    /**
+     * Workspace header for the search-tree workbench.
+     */
+    private final WorkspaceHeader workspaceHeader = new WorkspaceHeader("Search Tree", "", null);
 
     /**
      * Backend selector.
@@ -174,9 +217,24 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
     private final JSpinner branchesSpinner = new JSpinner(new SpinnerNumberModel(4, 0, 64, 1));
 
     /**
-     * Board-thumbnail size control.
+     * Tree layer used to partition vertical guide lines; zero hides them.
      */
-    private final JSpinner boardSizeSpinner = new JSpinner(new SpinnerNumberModel(64, 40, 128, 8));
+    private int guideLevel = 1;
+
+    /**
+     * Decrease vertical guide layer.
+     */
+    private final JButton guideLevelDownButton = Ui.button("-", false, event -> adjustGuideLevel(-1));
+
+    /**
+     * Increase vertical guide layer.
+     */
+    private final JButton guideLevelUpButton = Ui.button("+", false, event -> adjustGuideLevel(1));
+
+    /**
+     * Readout for the current vertical guide layer.
+     */
+    private final JLabel guideLevelLabel = new JLabel("1");
 
     /**
      * Start button.
@@ -196,12 +254,17 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
     /**
      * Stop button.
      */
-    private final JButton stopButton = Ui.button("Stop", false, null);
+    private final HoldButton stopButton;
 
     /**
      * Fit-to-view button.
      */
     private final JButton fitButton = Ui.button("Fit", false, event -> view.fit());
+
+    /**
+     * Reset zoom/pan button.
+     */
+    private final JButton resetViewButton = Ui.button("Reset View", false, event -> view.resetView());
 
     /**
      * SVG export button.
@@ -227,7 +290,7 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
      */
     private final ToggleBox layersToggle = Ui.withTooltip(
             new ToggleBox("Layers", true),
-            "Show horizontal ply separators, vertical column dividers, and labels for the tree grid");
+            "Show horizontal ply separators and labels for the tree grid");
 
     /**
      * Auto-fit-while-running toggle.
@@ -448,10 +511,14 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
         super(new BorderLayout(0, 0));
         this.session = session;
         this.currentFen = currentFen;
+        this.stopButton = new HoldButton("Stop", () -> session.stop(), true);
         setOpaque(true);
         setBackground(Theme.BG);
         configureControls();
-        add(buildToolbar(), BorderLayout.NORTH);
+        JPanel north = Ui.transparentPanel(new BorderLayout(0, 0));
+        north.add(workspaceHeader, BorderLayout.NORTH);
+        north.add(buildToolbar(), BorderLayout.SOUTH);
+        add(north, BorderLayout.NORTH);
         add(buildBody(), BorderLayout.CENTER);
         add(buildScrubBar(), BorderLayout.SOUTH);
         view.setSelectionListener(this::onNodeSelected);
@@ -581,24 +648,22 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
         Ui.styleIntegerSpinner(minVisitsSpinner);
         Ui.styleIntegerSpinner(branchesSpinner);
         branchesSpinner.setToolTipText("Max children shown per node (0 = all). Lower = a deeper, focused tree.");
-        Ui.styleIntegerSpinner(boardSizeSpinner);
+        configureGuideLevelControl();
         visitsSpinner.setPreferredSize(new Dimension(92, Theme.CONTROL_HEIGHT));
         cpuctSpinner.setPreferredSize(new Dimension(72, Theme.CONTROL_HEIGHT));
+        cpuctSpinner.setToolTipText("Cpuct: PUCT exploration constant. Higher values explore prior-favored moves more aggressively.");
         depthSpinner.setPreferredSize(new Dimension(66, Theme.CONTROL_HEIGHT));
         maxNodesSpinner.setPreferredSize(new Dimension(96, Theme.CONTROL_HEIGHT));
         minVisitsSpinner.setPreferredSize(new Dimension(78, Theme.CONTROL_HEIGHT));
         branchesSpinner.setPreferredSize(new Dimension(62, Theme.CONTROL_HEIGHT));
-        boardSizeSpinner.setPreferredSize(new Dimension(64, Theme.CONTROL_HEIGHT));
         statusBadge.setFixedTextWidth(300);
         statusBadge.idle("MCTS idle");
         pauseButton.addActionListener(event -> session.pause());
         resumeButton.addActionListener(event -> session.resume());
-        stopButton.addActionListener(event -> session.stop());
         depthSpinner.addChangeListener(event -> applyTreeOptions());
         maxNodesSpinner.addChangeListener(event -> applyTreeOptions());
         minVisitsSpinner.addChangeListener(event -> applyTreeOptions());
         branchesSpinner.addChangeListener(event -> applyTreeOptions());
-        boardSizeSpinner.addChangeListener(event -> rebuildAndReset());
         mergeToggle.addActionListener(event -> rebuildAndReset());
         batchLeavesToggle.addActionListener(event -> rebuildAndReset());
         detailsToggle.addActionListener(event -> setInspectorVisible(detailsToggle.isSelected()));
@@ -611,6 +676,7 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
         detailsToggle.setSelected(true);
         layersToggle.setSelected(true);
         view.setShowLayers(true);
+        syncGuideLevelControl();
 
         depthLabel.setFont(Theme.font(11, Font.BOLD));
         depthLabel.setForeground(Theme.MUTED);
@@ -639,6 +705,8 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
         targetField.addActionListener(event -> onTargetChanged());
         targetLabel.setFont(Theme.mono(11));
         targetLabel.setForeground(Theme.MUTED);
+        fitButton.setToolTipText("Fit the full search tree into the canvas");
+        resetViewButton.setToolTipText("Reset tree zoom and pan to the default view");
         openBoardButton.setToolTipText("Open the inspected node's position in a new board");
 
         inspectorSummary.setEditable(false);
@@ -678,6 +746,66 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
     }
 
     /**
+     * Styles the custom vertical-guide level stepper.
+     */
+    private void configureGuideLevelControl() {
+        Dimension buttonSize = new Dimension(32, Theme.CONTROL_HEIGHT);
+        guideLevelDownButton.setPreferredSize(buttonSize);
+        guideLevelDownButton.setMinimumSize(buttonSize);
+        guideLevelDownButton.setToolTipText("Move guide level down. Level 0 hides vertical subtree dividers.");
+        guideLevelDownButton.getAccessibleContext().setAccessibleName("Decrease guide level");
+        guideLevelUpButton.setPreferredSize(buttonSize);
+        guideLevelUpButton.setMinimumSize(buttonSize);
+        guideLevelUpButton.setToolTipText("Move guide level up to partition by a deeper tree layer.");
+        guideLevelUpButton.getAccessibleContext().setAccessibleName("Increase guide level");
+
+        guideLevelLabel.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        guideLevelLabel.setOpaque(true);
+        guideLevelLabel.setBackground(Theme.INPUT);
+        guideLevelLabel.setForeground(Theme.TEXT);
+        guideLevelLabel.setFont(Theme.font(Theme.FONT_CONTROL, Font.BOLD));
+        guideLevelLabel.setBorder(BorderFactory.createLineBorder(Theme.INPUT_BORDER));
+        guideLevelLabel.setPreferredSize(new Dimension(48, Theme.CONTROL_HEIGHT));
+        guideLevelLabel.setMinimumSize(new Dimension(48, Theme.CONTROL_HEIGHT));
+        guideLevelLabel.setToolTipText("Vertical guide level. Off means no vertical subtree dividers.");
+        guideLevelLabel.getAccessibleContext().setAccessibleName("Guide level");
+    }
+
+    /**
+     * Builds the vertical-guide level stepper control.
+     *
+     * @return labelled guide level control
+     */
+    private JComponent guideLevelControl() {
+        JPanel stepper = Ui.transparentPanel(new FlowLayout(FlowLayout.LEFT, Theme.SPACE_XS, 0));
+        stepper.add(guideLevelDownButton);
+        stepper.add(guideLevelLabel);
+        stepper.add(guideLevelUpButton);
+        return Ui.labeledControl("Guide", stepper);
+    }
+
+    /**
+     * Adjusts the vertical-guide layer.
+     *
+     * @param delta level delta
+     */
+    private void adjustGuideLevel(int delta) {
+        guideLevel = Math.max(GUIDE_LEVEL_MIN, Math.min(GUIDE_LEVEL_MAX, guideLevel + delta));
+        syncGuideLevelControl();
+    }
+
+    /**
+     * Pushes the guide level into the graph view and refreshes the stepper state.
+     */
+    private void syncGuideLevelControl() {
+        guideLevel = Math.max(GUIDE_LEVEL_MIN, Math.min(GUIDE_LEVEL_MAX, guideLevel));
+        guideLevelLabel.setText(guideLevel == GUIDE_LEVEL_MIN ? "Off" : Integer.toString(guideLevel));
+        guideLevelDownButton.setEnabled(guideLevel > GUIDE_LEVEL_MIN);
+        guideLevelUpButton.setEnabled(guideLevel < GUIDE_LEVEL_MAX);
+        view.setGuidePartitionLayer(guideLevel);
+    }
+
+    /**
      * Builds the boxed control toolbar. Groups wrap responsively so nothing is
      * clipped when the window narrows.
      *
@@ -706,9 +834,9 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
                 Ui.labeledControl("Min visits", minVisitsSpinner),
                 Ui.labeledControl("Branches", branchesSpinner)));
         bar.add(GroupBox.of("View", mergeToggle, batchLeavesToggle, layersToggle,
-                Ui.labeledControl("Board", boardSizeSpinner)));
+                guideLevelControl()));
         bar.add(GroupBox.of("Display", autoFitToggle, detailsToggle,
-                fitButton, openBoardButton, exportSvgButton,
+                fitButton, resetViewButton, openBoardButton, exportSvgButton,
                 Ui.button("Copy command", false, event -> copyCliCommand())));
         bar.add(statusBadge);
         return bar;
@@ -746,11 +874,11 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
         north.add(summaryScroll, BorderLayout.CENTER);
         inspector.add(north, BorderLayout.NORTH);
         inspector.add(Ui.scroll(childTable, () -> Theme.PANEL_SOLID), BorderLayout.CENTER);
+        inspector.add(Ui.collapsible("Legend", createTreeLegend(), false), BorderLayout.SOUTH);
 
         split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, view, inspector);
         split.setResizeWeight(INSPECTOR_SPLIT);
         split.setBorder(BorderFactory.createEmptyBorder());
-        split.setOpaque(false);
         SplitPaneStyler.style(split);
         defaultDividerSize = Math.max(1, split.getDividerSize());
         return split;
@@ -867,6 +995,7 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
     private void applySnapshot(MctsSession.Snapshot snapshot) {
         updateButtons(snapshot);
         updateStatus(snapshot);
+        updateWorkspaceHeader(snapshot);
         updateScrubControls();
         updateTargetStatus(snapshot);
         if (!scrubbing) {
@@ -918,25 +1047,27 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
             wdlBar.clear();
             clearNav();
             view.clear();
-            view.setSearchPath(Set.of());
-            view.setTargetPath(Set.of(), false);
-            view.setSelectedPath(Set.of());
+            view.setSearchPath(Set.of(), Set.of());
+            view.setTargetPath(Set.of(), Set.of(), false);
+            view.setSelectedPath(Set.of(), Set.of());
             return;
         }
         currentInfos = tree.nodes();
         String selectedId = tree.selectedNode() == null ? null : tree.selectedNode().id();
         String activeSelectedId = inspectorNodeId != null ? inspectorNodeId : selectedId;
-        int boardSize = ((Number) boardSizeSpinner.getValue()).intValue();
         TreeLayout.Model model = TreeLayout.layout(currentInfos, mergeToggle.isSelected(),
-                batchLeavesToggle.isSelected(), activeSelectedId, boardSize, boardSize + CAPTION_HEIGHT,
+                batchLeavesToggle.isSelected(), activeSelectedId, NODE_BOARD_SIZE, NODE_BOARD_SIZE + CAPTION_HEIGHT,
                 H_GAP, V_GAP);
         view.setModel(model);
         // Compute the search-path and target overlays after currentInfos is
         // updated, so they map the live exploring line / target line against the
         // frame just rendered.
-        view.setSearchPath(searchPathFor(pathSnapshot));
-        view.setTargetPath(targetPathKeys(), targetMoves.length > 0);
-        view.setSelectedPath(selectedPathKeys(activeSelectedId));
+        PathOverlay searchPath = searchPathFor(pathSnapshot);
+        PathOverlay targetPath = targetPathOverlay();
+        PathOverlay selectedPath = selectedPathOverlay(activeSelectedId);
+        view.setSearchPath(searchPath.keys(), searchPath.segments());
+        view.setTargetPath(targetPath.keys(), targetPath.segments(), targetMoves.length > 0);
+        view.setSelectedPath(selectedPath.keys(), selectedPath.segments());
         if (inspectorKey == null) {
             // Default the inspector to the root so children are immediately
             // listed. This only populates the inspector; it must not push the
@@ -1259,29 +1390,48 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
     }
 
     /**
-     * Returns the keys of the contiguous target-line prefix that currently
-     * exists in the tree, for the teal overlay.
+     * Returns the contiguous target-line prefix that currently exists in the
+     * tree, for the teal overlay.
      *
-     * @return target node keys present in the current frame
+     * @return target path present in the current frame
      */
-    private Set<String> targetPathKeys() {
+    private PathOverlay targetPathOverlay() {
         if (targetMoves.length == 0 || currentInfos.isEmpty()) {
-            return Set.of();
+            return PathOverlay.empty();
+        }
+        return pathOverlayForMoveLine(targetMoves);
+    }
+
+    /**
+     * Builds a path overlay from a root-relative move line.
+     *
+     * @param moves encoded move line
+     * @return visible path prefix and exact directed edge segments
+     */
+    private PathOverlay pathOverlayForMoveLine(short[] moves) {
+        if (currentInfos.isEmpty()) {
+            return PathOverlay.empty();
         }
         boolean merge = mergeToggle.isSelected();
         java.util.Map<String, MctsSearch.NodeInfo> idToNode = new java.util.HashMap<>();
         for (MctsSearch.NodeInfo n : currentInfos) {
             idToNode.put(n.id(), n);
         }
-        Set<String> keys = new java.util.HashSet<>();
-        for (MctsSearch.NodeInfo n : currentInfos) {
-            if (n.parentId() == null || n.parentId().isEmpty()) {
-                keys.add(merge ? Long.toString(n.signature()) : n.id());
-                break;
-            }
+        MctsSearch.NodeInfo previous = rootInfo();
+        if (previous == null) {
+            return PathOverlay.empty();
+        }
+        Set<String> keys = new java.util.LinkedHashSet<>();
+        Set<TreeGraphView.PathSegment> segments = new java.util.LinkedHashSet<>();
+        keys.add(nodeKey(previous, merge));
+        if (moves == null) {
+            return new PathOverlay(keys, segments);
         }
         StringBuilder id = new StringBuilder();
-        for (short move : targetMoves) {
+        for (short move : moves) {
+            if (move == Move.NO_MOVE) {
+                continue;
+            }
             if (id.length() > 0) {
                 id.append(' ');
             }
@@ -1290,9 +1440,40 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
             if (node == null) {
                 break;
             }
-            keys.add(merge ? Long.toString(node.signature()) : node.id());
+            String fromKey = nodeKey(previous, merge);
+            String toKey = nodeKey(node, merge);
+            keys.add(toKey);
+            if (!fromKey.equals(toKey)) {
+                segments.add(new TreeGraphView.PathSegment(fromKey, toKey));
+            }
+            previous = node;
         }
-        return keys;
+        return new PathOverlay(keys, segments);
+    }
+
+    /**
+     * Returns the current snapshot root row.
+     *
+     * @return root node info, or null
+     */
+    private MctsSearch.NodeInfo rootInfo() {
+        for (MctsSearch.NodeInfo n : currentInfos) {
+            if (n.parentId() == null || n.parentId().isEmpty()) {
+                return n;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns the visible layout key for a node in the current merge mode.
+     *
+     * @param info node info
+     * @param merge whether transposition merging is enabled
+     * @return node layout key
+     */
+    private static String nodeKey(MctsSearch.NodeInfo info, boolean merge) {
+        return merge ? Long.toString(info.signature()) : info.id();
     }
 
     /**
@@ -1622,40 +1803,12 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
      * @param snapshot session snapshot
      * @return node keys on the current search path
      */
-    private java.util.Set<String> searchPathFor(MctsSession.Snapshot snapshot) {
+    private PathOverlay searchPathFor(MctsSession.Snapshot snapshot) {
         if (snapshot == null || !snapshot.running() || snapshot.root() == null) {
-            return java.util.Set.of();
-        }
-        boolean merge = mergeToggle.isSelected();
-        java.util.Map<String, MctsSearch.NodeInfo> idToNode = new java.util.HashMap<>();
-        for (MctsSearch.NodeInfo n : currentInfos) {
-            idToNode.put(n.id(), n);
-        }
-        java.util.Set<String> keys = new java.util.HashSet<>();
-        for (MctsSearch.NodeInfo n : currentInfos) {
-            if (n.parentId() == null || n.parentId().isEmpty()) {
-                keys.add(merge ? Long.toString(n.signature()) : n.id());
-                break;
-            }
+            return PathOverlay.empty();
         }
         short[] line = snapshot.root().exploringLine();
-        if (line != null) {
-            StringBuilder id = new StringBuilder();
-            for (short move : line) {
-                if (move == chess.core.Move.NO_MOVE) {
-                    continue;
-                }
-                if (id.length() > 0) {
-                    id.append(' ');
-                }
-                id.append(chess.core.Move.toString(move));
-                MctsSearch.NodeInfo node = idToNode.get(id.toString());
-                if (node != null) {
-                    keys.add(merge ? Long.toString(node.signature()) : node.id());
-                }
-            }
-        }
-        return keys;
+        return pathOverlayForMoveLine(line);
     }
 
     /**
@@ -1665,9 +1818,9 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
      * @param selectedId selected node id
      * @return node keys from selected node back through its ancestors
      */
-    private java.util.Set<String> selectedPathKeys(String selectedId) {
+    private PathOverlay selectedPathOverlay(String selectedId) {
         if (selectedId == null || selectedId.isBlank() || currentInfos.isEmpty()) {
-            return java.util.Set.of();
+            return PathOverlay.empty();
         }
         boolean merge = mergeToggle.isSelected();
         java.util.Map<String, MctsSearch.NodeInfo> idToNode = new java.util.HashMap<>();
@@ -1676,16 +1829,31 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
         }
         MctsSearch.NodeInfo cursor = idToNode.get(selectedId);
         if (cursor == null) {
-            return java.util.Set.of();
+            return PathOverlay.empty();
         }
-        java.util.Set<String> keys = new java.util.LinkedHashSet<>();
+        java.util.List<MctsSearch.NodeInfo> reversed = new ArrayList<>();
         int guard = 0;
         while (cursor != null && guard++ < 600) {
-            keys.add(merge ? Long.toString(cursor.signature()) : cursor.id());
+            reversed.add(cursor);
             String parentId = cursor.parentId();
             cursor = parentId == null || parentId.isEmpty() ? null : idToNode.get(parentId);
         }
-        return keys;
+        Set<String> keys = new java.util.LinkedHashSet<>();
+        Set<TreeGraphView.PathSegment> segments = new java.util.LinkedHashSet<>();
+        MctsSearch.NodeInfo previous = null;
+        for (int i = reversed.size() - 1; i >= 0; i--) {
+            MctsSearch.NodeInfo node = reversed.get(i);
+            String key = nodeKey(node, merge);
+            keys.add(key);
+            if (previous != null) {
+                String fromKey = nodeKey(previous, merge);
+                if (!fromKey.equals(key)) {
+                    segments.add(new TreeGraphView.PathSegment(fromKey, key));
+                }
+            }
+            previous = node;
+        }
+        return new PathOverlay(keys, segments);
     }
 
     /**
@@ -1752,6 +1920,92 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
             case DONE -> statusBadge.success(snapshot.status());
             default -> statusBadge.idle(snapshot.status());
         }
+    }
+
+    /**
+     * Updates the search-tree workspace context.
+     *
+     * @param snapshot session snapshot
+     */
+    private void updateWorkspaceHeader(MctsSession.Snapshot snapshot) {
+        long visits = 0L;
+        if (snapshot.tree() != null) {
+            visits = snapshot.tree().playouts();
+        } else if (snapshot.root() != null) {
+            visits = snapshot.root().playouts();
+        }
+        String cpuct = MctsCliSupport.trimDouble(((Number) cpuctSpinner.getValue()).doubleValue());
+        workspaceHeader.setContext("Root position · Cpuct " + cpuct + " · "
+                + String.format(java.util.Locale.ROOT, "%,d", visits) + " visits · " + snapshot.status());
+    }
+
+    /**
+     * Creates the tree legend.
+     *
+     * @return legend component
+     */
+    private static JComponent createTreeLegend() {
+        JPanel legend = new JPanel(new java.awt.GridLayout(0, 1, 0, Theme.SPACE_XS));
+        legend.setOpaque(false);
+        legend.setBorder(Theme.pad(Theme.SPACE_SM));
+        legend.add(legendRow(Theme.ACCENT, "Selected principal path",
+                "Highlighted route from root to the inspected node."));
+        legend.add(legendRow(TensorViz.POLICY, "Explored branch",
+                "Visible child board with visits, prior, Q, U, and PUCT."));
+        legend.add(legendRow(Theme.MUTED, "Transposition",
+                "Dashed link when merge transpositions is enabled."));
+        legend.add(legendRow(Theme.STATUS_WARNING_BORDER, "Collapsed leaf",
+                "Batched frontier node when leaf batching keeps the tree readable."));
+        legend.add(legendRow(Theme.LINE, "Guide level",
+                "0 hides vertical subtree dividers; higher levels partition that layer and descendants."));
+        return legend;
+    }
+
+    /**
+     * Creates one legend row.
+     *
+     * @param color chip color
+     * @param title title
+     * @param detail detail
+     * @return row component
+     */
+    private static JComponent legendRow(java.awt.Color color, String title, String detail) {
+        JPanel row = new JPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        row.setOpaque(false);
+        JComponent chip = new JComponent() {
+            private static final long serialVersionUID = 1L;
+
+            /**
+             * Returns the fixed legend-chip size.
+             *
+             * @return chip dimensions
+             */
+            @Override
+            public Dimension getPreferredSize() {
+                return new Dimension(12, 12);
+            }
+
+            /**
+             * Paints the legend color chip.
+             *
+             * @param graphics drawing context
+             */
+            @Override
+            protected void paintComponent(Graphics graphics) {
+                graphics.setColor(color);
+                graphics.fillRoundRect(0, 2, 12, 8, 4, 4);
+            }
+        };
+        JPanel text = new JPanel(new java.awt.GridLayout(0, 1));
+        text.setOpaque(false);
+        JLabel titleLabel = new JLabel(title);
+        titleLabel.setFont(Theme.font(12, Font.BOLD));
+        Theme.foreground(titleLabel, Theme.ForegroundRole.TEXT);
+        text.add(titleLabel);
+        text.add(Ui.caption(detail));
+        row.add(chip, BorderLayout.WEST);
+        row.add(text, BorderLayout.CENTER);
+        return row;
     }
 
     /**

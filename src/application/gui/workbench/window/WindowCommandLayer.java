@@ -1,5 +1,6 @@
 package application.gui.workbench.window;
 
+import application.Config;
 import application.gui.workbench.Defaults;
 import application.gui.workbench.command.CommandRunner;
 import application.gui.workbench.command.CommandTemplates.CommandTemplate;
@@ -14,6 +15,8 @@ import chess.core.Setup;
 import java.awt.Dimension;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -58,7 +61,10 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
      */
     protected void setCommandState(String state) {
         commandStateLabel.setText(state);
+        refreshRunStateControls(state);
+        refreshConsoleHeaders(state);
         setStatusBarEngine(state == null || state.isBlank() ? "idle" : state);
+        refreshAnalysisCommandState();
     }
 
     /**
@@ -200,6 +206,259 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
         commandField.revalidate();
         // Keep the command start visible rather than scrolling to the caret.
         commandField.setCaretPosition(0);
+        refreshRunBuilderDetails();
+        refreshRunValidation();
+        refreshRunHeader();
+    }
+
+    /**
+     * Refreshes the Run workspace header after command-template or context
+     * changes.
+     */
+    @Override
+    protected void refreshRunHeader() {
+        if (runHeader == null) {
+            return;
+        }
+        CommandTemplate template = selectedCommandTemplate();
+        runHeader.setTitle("Run" + (template == null ? "" : " / " + template.name()));
+        runHeader.setContext(runContextSummary(template));
+    }
+
+    /**
+     * Returns the Run shell context line.
+     *
+     * @param template selected command template, or null
+     * @return context summary
+     */
+    private String runContextSummary(CommandTemplate template) {
+        String position = currentPosition == null ? "Default FEN" : "Current FEN";
+        String duration = "max duration " + durationValue();
+        String command = template == null ? "No command selected" : template.name();
+        return position + " · " + duration + " · " + command;
+    }
+
+    /**
+     * Refreshes selected-command description labels.
+     */
+    private void refreshRunBuilderDetails() {
+        CommandTemplate template = selectedCommandTemplate();
+        if (template == null) {
+            commandPathLabel.setText("crtk");
+            commandDescriptionLabel.setText("Select a command template to build a reproducible CRTK invocation.");
+            return;
+        }
+        commandPathLabel.setText("crtk " + String.join(" ", template.baseArgs()));
+        commandDescriptionLabel.setText(commandDescription(template));
+    }
+
+    /**
+     * Returns a concise description for the selected command.
+     *
+     * @param template command template
+     * @return description text
+     */
+    private static String commandDescription(CommandTemplate template) {
+        return switch (template.name()) {
+            case "Best move" -> "Finds the best move for the selected position using the configured engine limits.";
+            case "Legal moves" -> "Lists legal moves for the selected position in UCI, SAN, or both formats.";
+            case "Analyze" -> "Runs engine analysis and returns evaluation, search depth, and candidate lines.";
+            case "Built-in search" -> "Runs the deterministic built-in search stack with local evaluator settings.";
+            case "Perft" -> "Counts legal move-tree nodes for deterministic move-generation validation.";
+            case "Tags" -> "Extracts position tags and optional engine-enriched annotations from FEN or PGN input.";
+            case "Mate" -> "Searches for bounded mate proofs from the selected position.";
+            case "Eval" -> "Evaluates the selected position with the chosen local evaluator.";
+            case "Threats" -> "Reports tactical threats in the selected position.";
+            case "Apply move" -> "Applies one move to a position and prints the resulting position data.";
+            case "Position diff" -> "Compares two positions and reports structural differences.";
+            case "Position describe" -> "Generates deterministic text or structured descriptors for positions.";
+            default -> "Builds a reproducible CRTK command from the selected template and options.";
+        };
+    }
+
+    /**
+     * Refreshes command-builder validation badges.
+     */
+    private void refreshRunValidation() {
+        List<String> args;
+        try {
+            args = selectedTemplateArgs();
+        } catch (IllegalArgumentException ex) {
+            runFenBadge.error("invalid");
+            runFenBadge.setToolTipText(ex.getMessage());
+            runProtocolBadge.notRun("not checked");
+            runDurationBadge.notRun("not checked");
+            return;
+        }
+        refreshFenValidation(args);
+        refreshProtocolValidation(args);
+        refreshDurationValidation(args);
+    }
+
+    /**
+     * Refreshes position-source validation.
+     *
+     * @param args preview args
+     */
+    private void refreshFenValidation(List<String> args) {
+        if (args.contains("--startpos")) {
+            runFenBadge.ready("startpos");
+            runFenBadge.setToolTipText("Standard chess start position");
+            return;
+        }
+        if (args.contains("--randompos")) {
+            runFenBadge.stale("randompos");
+            runFenBadge.setToolTipText("The CLI will generate a random legal position when run");
+            return;
+        }
+        String input = valueAfter(args, "--input");
+        if (!input.isBlank()) {
+            runFenBadge.ready("input source");
+            runFenBadge.setToolTipText(input);
+            return;
+        }
+        String fen = valueAfter(args, "--fen");
+        if (fen.isBlank()) {
+            runFenBadge.notRun("not required");
+            runFenBadge.setToolTipText(null);
+            return;
+        }
+        try {
+            new chess.core.Position(fen);
+            runFenBadge.ready("FEN valid");
+            runFenBadge.setToolTipText(fen);
+        } catch (IllegalArgumentException ex) {
+            runFenBadge.error("FEN invalid");
+            runFenBadge.setToolTipText(ex.getMessage());
+        }
+    }
+
+    /**
+     * Refreshes protocol/config path validation.
+     *
+     * @param args preview args
+     */
+    private void refreshProtocolValidation(List<String> args) {
+        CommandTemplate template = selectedCommandTemplate();
+        if (template == null || !usesProtocol(template, args)) {
+            runProtocolBadge.notRun("not used");
+            runProtocolBadge.setToolTipText("Selected command does not use an external engine protocol");
+            return;
+        }
+        String explicit = valueAfter(args, "--protocol-path");
+        String path = explicit.isBlank() ? engineProtocolValue() : explicit;
+        if (path.isBlank()) {
+            path = Config.getProtocolPath();
+        }
+        if (path.isBlank()) {
+            runProtocolBadge.missing("config missing");
+            runProtocolBadge.setToolTipText("No protocol path configured");
+            return;
+        }
+        Path protocol = Path.of(path);
+        runProtocolBadge.setToolTipText(path);
+        if (Files.isRegularFile(protocol)) {
+            runProtocolBadge.ready("config found");
+        } else {
+            runProtocolBadge.warning("config missing");
+        }
+    }
+
+    /**
+     * Refreshes max-duration validation.
+     *
+     * @param args preview args
+     */
+    private void refreshDurationValidation(List<String> args) {
+        String duration = valueAfter(args, "--max-duration");
+        if (duration.isBlank()) {
+            runDurationBadge.notRun("not used");
+            runDurationBadge.setToolTipText("Selected command has no duration limit enabled");
+            return;
+        }
+        if (duration.matches("[0-9]+(ms|s|m|h)?")) {
+            runDurationBadge.ready(duration);
+            runDurationBadge.setToolTipText("Valid duration token");
+        } else {
+            runDurationBadge.error("invalid");
+            runDurationBadge.setToolTipText("Use e.g. 500ms, 60s, 2m, 1h, or plain milliseconds");
+        }
+    }
+
+    /**
+     * Returns whether the command can use an external engine protocol.
+     *
+     * @param template command template
+     * @param args preview args
+     * @return true when protocol validation is relevant
+     */
+    private static boolean usesProtocol(CommandTemplate template, List<String> args) {
+        if (args.contains("--protocol-path")) {
+            return true;
+        }
+        return template.options().stream().anyMatch(option -> "--protocol-path".equals(option.flag()));
+    }
+
+    /**
+     * Returns a flag value from args.
+     *
+     * @param args command args
+     * @param flag flag
+     * @return value after flag, or blank
+     */
+    private static String valueAfter(List<String> args, String flag) {
+        if (args == null || flag == null) {
+            return "";
+        }
+        for (int i = 0; i < args.size() - 1; i++) {
+            if (flag.equals(args.get(i))) {
+                return args.get(i + 1);
+            }
+        }
+        return "";
+    }
+
+    /**
+     * Refreshes Run header buttons and status badge.
+     *
+     * @param state latest command state
+     */
+    private void refreshRunStateControls(String state) {
+        String value = state == null ? "" : state.trim();
+        boolean running = "Running".equalsIgnoreCase(value)
+                || runningCommand != null && runningCommand.isRunning();
+        if (running) {
+            runStateBadge.running("running");
+        } else if (value.startsWith("Exit 0")) {
+            runStateBadge.complete("complete");
+        } else if (value.startsWith("Exit")) {
+            runStateBadge.error(value.toLowerCase(Locale.ROOT));
+        } else if ("Stopped".equalsIgnoreCase(value)) {
+            runStateBadge.paused("stopped");
+        } else {
+            runStateBadge.notRun(value.isBlank() ? "idle" : value.toLowerCase(Locale.ROOT));
+        }
+        if (runStopButton != null) {
+            runStopButton.setVisible(running);
+            runStopButton.setEnabled(running);
+        }
+        if (runCommandButton != null) {
+            runCommandButton.setEnabled(commandFormRunnable && !running);
+            runCommandButton.setToolTipText(commandFormRunnable ? null
+                    : "Fix the highlighted fields before running");
+        }
+    }
+
+    /**
+     * Refreshes materialized console headers from command-run state.
+     *
+     * @param state latest command state
+     */
+    private void refreshConsoleHeaders(String state) {
+        String value = state == null || state.isBlank() ? "Idle" : state;
+        for (application.gui.workbench.ui.WorkspaceHeader header : consoleHeaders) {
+            header.setContext("Command output · " + value);
+        }
     }
 
     /**
@@ -210,7 +469,7 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
      */
     private static int previewRows(String text) {
         if (text == null || text.isBlank()) {
-            return 1;
+            return 6;
         }
         int lines = 1;
         for (int i = 0; i < text.length(); i++) {
@@ -218,7 +477,7 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
                 lines++;
             }
         }
-        return Math.max(1, Math.min(5, lines));
+        return Math.max(6, Math.min(10, lines));
     }
 
     /**

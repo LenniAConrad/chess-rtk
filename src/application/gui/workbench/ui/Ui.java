@@ -1,8 +1,5 @@
 package application.gui.workbench.ui;
 
-import application.gui.workbench.audio.SoundCue;
-import application.gui.workbench.audio.SoundService;
-import application.gui.workbench.layout.FlatTabbedPaneUI;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -66,14 +63,42 @@ public final class Ui {
      * @return button
      */
     public static JButton button(String text, boolean primary, ActionListener listener) {
-        JButton button = new StyledButton(text);
-        Theme.button(button, primary);
-        button.setToolTipText(text);
-        if (listener != null) {
-            button.addActionListener(listener);
-        }
-        button.addActionListener(event -> SoundService.play(SoundCue.UI_CLICK));
-        return button;
+        return AppButton.create(text, primary ? Theme.ButtonVariant.PRIMARY : Theme.ButtonVariant.SECONDARY,
+                listener);
+    }
+
+    /**
+     * Creates a styled button with an explicit hierarchy variant.
+     *
+     * @param text text
+     * @param variant action hierarchy variant
+     * @param listener listener
+     * @return button
+     */
+    public static JButton button(String text, Theme.ButtonVariant variant, ActionListener listener) {
+        return AppButton.create(text, variant, listener);
+    }
+
+    /**
+     * Creates a destructive action button.
+     *
+     * @param text text
+     * @param listener listener
+     * @return button
+     */
+    public static JButton destructiveButton(String text, ActionListener listener) {
+        return AppButton.destructive(text, listener);
+    }
+
+    /**
+     * Creates a ghost action button.
+     *
+     * @param text text
+     * @param listener listener
+     * @return button
+     */
+    public static JButton ghostButton(String text, ActionListener listener) {
+        return AppButton.ghost(text, listener);
     }
 
     /**
@@ -97,16 +122,7 @@ public final class Ui {
      * @return button
      */
     public static JButton iconButton(String label, ActionListener listener) {
-        JButton button = button(label, false, listener);
-        button.setText("");
-        button.setToolTipText(label);
-        button.getAccessibleContext().setAccessibleName(label);
-        button.setMargin(new Insets(6, 8, 6, 8));
-        button.setBorder(Theme.pad(5, 7, 5, 7));
-        Dimension size = new Dimension(34, Theme.CONTROL_HEIGHT);
-        button.setPreferredSize(size);
-        button.setMinimumSize(size);
-        return button;
+        return IconButton.create(label, listener);
     }
 
     /**
@@ -130,6 +146,16 @@ public final class Ui {
     }
 
     /**
+     * Creates an opaque Workbench panel surface.
+     *
+     * @param layout layout manager
+     * @return surface panel
+     */
+    public static SurfacePanel panel(LayoutManager layout) {
+        return new SurfacePanel(layout);
+    }
+
+    /**
      * Creates a styled row of buttons.
      *
      * @param align flow alignment
@@ -138,6 +164,18 @@ public final class Ui {
      */
     public static JPanel buttonRow(int align, JButton... buttons) {
         return UiLayout.buttonRow(align, buttons);
+    }
+
+    /**
+     * Creates a styled row of button-like controls. This overload is used when
+     * a row mixes normal buttons with custom controls such as {@link HoldButton}.
+     *
+     * @param align flow alignment
+     * @param controls controls to add
+     * @return button row
+     */
+    public static JPanel buttonRow(int align, JComponent... controls) {
+        return UiLayout.controlRow(align, controls);
     }
 
     /**
@@ -234,6 +272,18 @@ public final class Ui {
     }
 
     /**
+     * Creates a compact field row.
+     *
+     * @param text label text
+     * @param control control component
+     * @param labelWidth fixed label width
+     * @return field row
+     */
+    public static JComponent fieldRow(String text, JComponent control, int labelWidth) {
+        return new FieldRow(text, control, labelWidth);
+    }
+
+    /**
      * Creates one compact form option group.
      *
      * @param text label text
@@ -258,24 +308,27 @@ public final class Ui {
     }
 
     /**
-     * Builds a surface lead band: a hairline-closed {@link Theme#PANEL_SOLID}
-     * strip carrying the surface's title and a one-line purpose on the left, with
-     * an optional action component on the right. This gives every top-level
-     * workbench surface the same "what am I looking at" identity, the way the
-     * consolidated tabs lead with their mode {@link SegmentedSwitcher}. Surfaces
-     * that already lead with a switcher do not need this — the switcher is their
-     * identity; this is for the overview/operations surfaces (Dashboard,
-     * Datasets, Publish) that would otherwise open straight into content.
+     * Creates a compact section header.
      *
-     * @param title surface title (sentence case, e.g. "Datasets")
-     * @param purpose one-line description of what the surface shows, or
-     *     {@code null}/blank for none
-     * @param actions optional right-aligned action component (button row), or
-     *     {@code null}
-     * @return lead band component
+     * @param title section title
+     * @param detail optional one-line detail
+     * @param trailing optional trailing component
+     * @return section header
      */
-    public static JComponent surfaceHeader(String title, String purpose, JComponent actions) {
-        return UiSurfaces.surfaceHeader(title, purpose, actions);
+    public static JComponent sectionHeader(String title, String detail, JComponent trailing) {
+        return new SectionHeader(title, detail, trailing);
+    }
+
+    /**
+     * Creates a top-level workspace header.
+     *
+     * @param title surface or mode title
+     * @param context current context summary
+     * @param actions optional primary actions
+     * @return workspace header
+     */
+    public static WorkspaceHeader workspaceHeader(String title, String context, JComponent actions) {
+        return new WorkspaceHeader(title, context, actions);
     }
 
     /**
@@ -417,6 +470,16 @@ public final class Ui {
     }
 
     /**
+     * Creates a read-only monospace command/code preview.
+     *
+     * @param text preview text
+     * @return command block
+     */
+    public static CommandBlock commandBlock(String text) {
+        return new CommandBlock(text);
+    }
+
+    /**
      * Paints a centred empty-state directly onto a graphics context, for
      * custom-painted surfaces (charts, graphs) that cannot host a child
      * component. Draws a quiet bold title with a muted hint beneath it.
@@ -505,7 +568,7 @@ public final class Ui {
      */
     public static GridBagConstraints constraints() {
         GridBagConstraints c = new GridBagConstraints();
-        c.insets = new Insets(4, 4, 4, 4);
+        c.insets = new Insets(Theme.SPACE_XS, Theme.SPACE_XS, Theme.SPACE_XS, Theme.SPACE_XS);
         c.anchor = GridBagConstraints.WEST;
         return c;
     }
@@ -516,12 +579,7 @@ public final class Ui {
      * @param tabs tabbed pane
      */
     public static void styleTabs(JTabbedPane tabs) {
-        tabs.setUI(new FlatTabbedPaneUI());
-        tabs.setOpaque(false);
-        tabs.setBackground(Theme.TRANSPARENT);
-        tabs.setForeground(Theme.TEXT);
-        tabs.setFont(Theme.font(12, Font.BOLD));
-        tabs.setFocusable(true);
+        Tabs.style(tabs);
     }
 
     /**
@@ -530,10 +588,17 @@ public final class Ui {
      * @return tabbed pane
      */
     public static JTabbedPane tabbedPane() {
-        JTabbedPane pane = new JTabbedPane();
-        pane.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
-        styleTabs(pane);
-        return pane;
+        return Tabs.create();
+    }
+
+    /**
+     * Creates a segmented control.
+     *
+     * @param labels segment labels
+     * @return segmented control
+     */
+    public static SegmentedControl segmentedControl(String... labels) {
+        return new SegmentedControl(labels == null ? new String[0] : labels);
     }
 
     /**

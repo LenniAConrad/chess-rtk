@@ -4,23 +4,31 @@ import static application.gui.workbench.ui.Ui.setColumnWidth;
 import static application.gui.workbench.ui.Ui.button;
 import static application.gui.workbench.ui.Ui.card;
 import static application.gui.workbench.ui.Ui.caption;
+import static application.gui.workbench.ui.Ui.changeListener;
 import static application.gui.workbench.ui.Ui.fillViewport;
 import static application.gui.workbench.ui.Ui.label;
 import static application.gui.workbench.ui.Ui.placeholder;
 import static application.gui.workbench.ui.Ui.scroll;
 import static application.gui.workbench.ui.Ui.styleFields;
-import static application.gui.workbench.ui.Ui.surfaceHeader;
 import static application.gui.workbench.ui.Ui.transparentPanel;
 
 import application.gui.workbench.layout.SplitPaneStyler;
+import application.gui.workbench.board.BoardPanel;
 import application.gui.workbench.ui.FileDialogs;
+import application.gui.workbench.ui.HoldButton;
 import application.gui.workbench.ui.Spinner;
+import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.WrappingFlowLayout;
 import application.gui.workbench.ui.Theme;
+import application.gui.workbench.ui.Ui;
+import application.gui.workbench.ui.WorkspaceHeader;
+import chess.core.Move;
 import chess.core.Position;
+import chess.core.Setup;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -42,14 +50,19 @@ import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.RowFilter;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.ListSelectionModel;
 import javax.swing.SwingWorker;
 import javax.swing.filechooser.FileNameExtensionFilter;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableColumnModel;
+import javax.swing.table.TableRowSorter;
 
 /**
  * Workbench panel dedicated to dataset inspection and quality analysis.
@@ -113,7 +126,7 @@ public final class DatasetPanel extends JPanel {
     /**
      * Stop action button.
      */
-    private final JButton stopButton = button("Stop", false, event -> cancelAnalysis());
+    private final HoldButton stopButton = new HoldButton("Stop", this::cancelAnalysis, true);
 
     /**
      * Copy report action button.
@@ -124,6 +137,16 @@ public final class DatasetPanel extends JPanel {
      * Status label.
      */
     private final JLabel statusLabel = caption("No dataset loaded");
+
+    /**
+     * Dataset verdict badge shown after analysis.
+     */
+    private final StatusBadge verdictBadge = new StatusBadge();
+
+    /**
+     * Shared workspace header for the Datasets surface.
+     */
+    private final WorkspaceHeader workspaceHeader = new WorkspaceHeader("Datasets", "", null);
 
     /**
      * Circular activity indicator shown while scanning.
@@ -157,6 +180,27 @@ public final class DatasetPanel extends JPanel {
      */
     private final JLabel loadingHint =
             new JLabel("Profiling every position — this can take a moment. No need to browse again.");
+
+    /**
+     * Loading-card scan details.
+     */
+    private final JLabel loadingFileValue = detailValueLabel(),
+            loadingPhaseValue = detailValueLabel(),
+            loadingRowsValue = detailValueLabel(),
+            loadingValidValue = detailValueLabel(),
+            loadingDuplicateValue = detailValueLabel(),
+            loadingElapsedValue = detailValueLabel();
+
+    /**
+     * Timer used only to keep elapsed scan time visible.
+     */
+    private final javax.swing.Timer loadingElapsedTimer =
+            new javax.swing.Timer(250, event -> updateLoadingElapsed());
+
+    /**
+     * Wall-clock time when the current scan started.
+     */
+    private long loadingStartedAt;
 
     /**
      * Whether a scan is currently running.
@@ -274,9 +318,42 @@ public final class DatasetPanel extends JPanel {
     private final JTable sampleTable = new JTable(sampleModel);
 
     /**
+     * Sample table sorter, retained so the filter row can update it.
+     */
+    private TableRowSorter<DatasetTableModel> sampleSorter;
+
+    /**
      * Issue table.
      */
     private final JTable issueTable = new JTable(issueModel);
+
+    /**
+     * Issue table sorter, retained so the filter row can update it.
+     */
+    private TableRowSorter<DatasetTableModel> issueSorter;
+
+    /**
+     * Table filter field.
+     */
+    private final JTextField tableFilterField = new JTextField();
+
+    /**
+     * Inspector board preview for the selected dataset row.
+     */
+    private final BoardPanel inspectorBoard = new BoardPanel();
+
+    /**
+     * Inspector FEN/row text.
+     */
+    private final JTextArea inspectorFenArea = new JTextArea();
+
+    /**
+     * Inspector detail values.
+     */
+    private final JLabel inspectorSideValue = detailValueLabel(),
+            inspectorMaterialValue = detailValueLabel(),
+            inspectorLabelValue = detailValueLabel(),
+            inspectorIssueValue = detailValueLabel();
 
     /**
      * Tabbed container hosting the sample and issue tables.
@@ -348,6 +425,15 @@ public final class DatasetPanel extends JPanel {
      */
     public JComponent component() {
         return this;
+    }
+
+    /**
+     * Stops the elapsed-time timer when the panel leaves the component tree.
+     */
+    @Override
+    public void removeNotify() {
+        loadingElapsedTimer.stop();
+        super.removeNotify();
     }
 
     /**
@@ -454,9 +540,9 @@ public final class DatasetPanel extends JPanel {
      * Builds the visual layout.
      */
     private void buildUi() {
-        add(surfaceHeader("Datasets",
-                "Profile a positions dataset — file counts, validity, and tag / score coverage",
-                null), BorderLayout.NORTH);
+        workspaceHeader.setActions(createHeaderActions());
+        workspaceHeader.setContext(datasetContext());
+        add(workspaceHeader, BorderLayout.NORTH);
         SurfacePanel page = new SurfacePanel(new BorderLayout(0, Theme.SPACE_MD));
         page.add(createToolbar(), BorderLayout.NORTH);
         // The body fills the tab directly (the overview scrolls internally) so the
@@ -488,9 +574,6 @@ public final class DatasetPanel extends JPanel {
         rowLimitField.setPreferredSize(new Dimension(120, Theme.CONTROL_HEIGHT));
         controls.add(label("row limit"));
         controls.add(rowLimitField);
-        controls.add(analyzeButton);
-        controls.add(stopButton);
-        controls.add(copyReportButton);
 
         JPanel wrapper = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
         JPanel toolbar = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
@@ -499,11 +582,25 @@ public final class DatasetPanel extends JPanel {
         wrapper.add(toolbar, BorderLayout.CENTER);
         JPanel status = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
         status.add(statusLabel, BorderLayout.CENTER);
-        JPanel spinnerCell = transparentPanel(new FlowLayout(FlowLayout.RIGHT, 0, Theme.SPACE_XS));
+        JPanel spinnerCell = transparentPanel(new FlowLayout(FlowLayout.RIGHT, Theme.SPACE_SM, Theme.SPACE_XS));
+        spinnerCell.add(verdictBadge);
         spinnerCell.add(spinner);
         status.add(spinnerCell, BorderLayout.EAST);
         wrapper.add(status, BorderLayout.SOUTH);
         return wrapper;
+    }
+
+    /**
+     * Creates the Datasets header action group.
+     *
+     * @return action row
+     */
+    private JComponent createHeaderActions() {
+        return Ui.controlRow(FlowLayout.RIGHT,
+                button("Browse…", false, event -> chooseDatasetPath()),
+                analyzeButton,
+                stopButton,
+                copyReportButton);
     }
 
     /**
@@ -596,10 +693,38 @@ public final class DatasetPanel extends JPanel {
         stack.add(loadingTitle);
         stack.add(javax.swing.Box.createVerticalStrut(Theme.SPACE_XS));
         stack.add(loadingHint);
+        stack.add(javax.swing.Box.createVerticalStrut(Theme.SPACE_MD));
+        stack.add(card("Scan Progress", createLoadingDetails()));
+        stack.add(javax.swing.Box.createVerticalStrut(Theme.SPACE_SM));
+        HoldButton cancel = new HoldButton("Cancel Scan", this::cancelAnalysis, true);
+        cancel.setAlignmentX(CENTER_ALIGNMENT);
+        stack.add(cancel);
 
         JPanel center = transparentPanel(new java.awt.GridBagLayout());
         center.add(stack);
         return center;
+    }
+
+    /**
+     * Creates scan detail rows for the loading state.
+     *
+     * @return detail panel
+     */
+    private JComponent createLoadingDetails() {
+        JPanel details = transparentPanel(new java.awt.GridLayout(0, 2, Theme.SPACE_MD, Theme.SPACE_XS));
+        details.add(detailKeyLabel("File"));
+        details.add(loadingFileValue);
+        details.add(detailKeyLabel("Phase"));
+        details.add(loadingPhaseValue);
+        details.add(detailKeyLabel("Rows"));
+        details.add(loadingRowsValue);
+        details.add(detailKeyLabel("Valid"));
+        details.add(loadingValidValue);
+        details.add(detailKeyLabel("Duplicates"));
+        details.add(loadingDuplicateValue);
+        details.add(detailKeyLabel("Elapsed"));
+        details.add(loadingElapsedValue);
+        return details;
     }
 
     /**
@@ -611,6 +736,23 @@ public final class DatasetPanel extends JPanel {
         String name = source == null ? "dataset"
                 : source.getFileName() == null ? source.toString() : source.getFileName().toString();
         loadingTitle.setText("Scanning " + compactText(name, 40) + "…");
+        loadingFileValue.setText(source == null ? "-" : source.toString());
+        loadingPhaseValue.setText("reading / validating");
+        loadingRowsValue.setText("row limit " + cleanRowLimitText());
+        loadingValidValue.setText("available after scan");
+        loadingDuplicateValue.setText("available after scan");
+        loadingElapsedValue.setText("0.0s");
+    }
+
+    /**
+     * Updates elapsed scan time while the worker is running.
+     */
+    private void updateLoadingElapsed() {
+        if (!busy || loadingStartedAt == 0L) {
+            return;
+        }
+        long elapsedMillis = Math.max(0L, System.currentTimeMillis() - loadingStartedAt);
+        loadingElapsedValue.setText(String.format(Locale.ROOT, "%.1fs", elapsedMillis / 1000.0d));
     }
 
     /**
@@ -659,6 +801,8 @@ public final class DatasetPanel extends JPanel {
         coverageChart.setEmpty("No dataset loaded", "Tag and score coverage appears after a scan");
         tagChart.setEmpty("No dataset loaded", "The most common tags appear after a scan");
         engineChart.setEmpty("No dataset loaded", "Source engines appear after a scan");
+        tagChart.setSelectionHandler(this::applyChartFilter);
+        engineChart.setSelectionHandler(this::applyChartFilter);
         // Responsive grid: the charts reflow and fill the width just like the KPI
         // strip above, with a slightly larger gap for breathing room. A smaller
         // minimum column keeps them in several columns (rather than collapsing to
@@ -706,6 +850,10 @@ public final class DatasetPanel extends JPanel {
     private JComponent createTables() {
         configureTable(sampleTable);
         configureTable(issueTable);
+        sampleSorter = new TableRowSorter<>(sampleModel);
+        issueSorter = new TableRowSorter<>(issueModel);
+        sampleTable.setRowSorter(sampleSorter);
+        issueTable.setRowSorter(issueSorter);
         wireRowActions(sampleTable);
         wireRowActions(issueTable);
         tableTabs = application.gui.workbench.ui.Ui.tabbedPane();
@@ -723,11 +871,58 @@ public final class DatasetPanel extends JPanel {
         if (openFenInBoard != null) {
             actions.add(openInBoardButton);
         }
+        styleFields(tableFilterField);
+        placeholder(tableFilterField, "Filter tags, engine, FEN, file, issue...");
+        tableFilterField.getDocument().addDocumentListener(changeListener(this::applyTableFilter));
+        JButton clearFilter = button("Clear", false, event -> tableFilterField.setText(""));
+        JPanel filters = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        filters.add(tableFilterField, BorderLayout.CENTER);
+        filters.add(clearFilter, BorderLayout.EAST);
+        JPanel top = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        top.add(filters, BorderLayout.CENTER);
+        top.add(actions, BorderLayout.EAST);
+
+        JSplitPane tableSplit = SplitPaneStyler.styledHorizontalSplit(tableTabs, createRowInspector(), 0.72d);
         JPanel wrap = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
-        wrap.add(actions, BorderLayout.NORTH);
-        wrap.add(tableTabs, BorderLayout.CENTER);
+        wrap.add(top, BorderLayout.NORTH);
+        wrap.add(tableSplit, BorderLayout.CENTER);
         updateRowActions();
         return wrap;
+    }
+
+    /**
+     * Creates the row inspector shown beside the sample and issue tables.
+     *
+     * @return inspector component
+     */
+    private JComponent createRowInspector() {
+        inspectorBoard.setPreferredSize(new Dimension(180, 180));
+        inspectorBoard.setMinimumSize(new Dimension(132, 132));
+        inspectorBoard.setPositionInstant(new Position(Setup.getStandardStartFEN()), Move.NO_MOVE);
+        Theme.codeBlock(inspectorFenArea);
+        inspectorFenArea.setEditable(false);
+        inspectorFenArea.setFocusable(true);
+        inspectorFenArea.setLineWrap(true);
+        inspectorFenArea.setWrapStyleWord(true);
+        inspectorFenArea.setRows(4);
+        inspectorFenArea.setText("Select a dataset row.");
+
+        JPanel details = transparentPanel(new java.awt.GridLayout(0, 2, Theme.SPACE_MD, Theme.SPACE_XS));
+        details.add(detailKeyLabel("Side"));
+        details.add(inspectorSideValue);
+        details.add(detailKeyLabel("Material"));
+        details.add(inspectorMaterialValue);
+        details.add(detailKeyLabel("Label"));
+        details.add(inspectorLabelValue);
+        details.add(detailKeyLabel("Issue"));
+        details.add(inspectorIssueValue);
+
+        JPanel body = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
+        body.add(inspectorBoard, BorderLayout.NORTH);
+        body.add(scroll(inspectorFenArea), BorderLayout.CENTER);
+        body.add(details, BorderLayout.SOUTH);
+        updateRowInspector(null);
+        return card("Row Inspector", body);
     }
 
     /**
@@ -790,6 +985,37 @@ public final class DatasetPanel extends JPanel {
         copyFenButton.setEnabled(hasFen);
         openInBoardButton.setEnabled(hasFen && openFenInBoard != null);
         openInNewBoardButton.setEnabled(hasFen && openFenInNewBoard != null);
+        updateRowInspector(row);
+    }
+
+    /**
+     * Updates the row inspector from the selected table row.
+     *
+     * @param row selected row, or null
+     */
+    private void updateRowInspector(DatasetSummary.SampleRow row) {
+        if (row == null) {
+            inspectorFenArea.setText("Select a sample or issue row.");
+            inspectorSideValue.setText("-");
+            inspectorMaterialValue.setText("-");
+            inspectorLabelValue.setText("-");
+            inspectorIssueValue.setText("-");
+            return;
+        }
+        inspectorFenArea.setText(row.fen());
+        inspectorFenArea.setCaretPosition(0);
+        inspectorLabelValue.setText(row.label().isBlank() ? "-" : compactText(row.label(), 52));
+        inspectorIssueValue.setText(row.issue().isBlank() ? "none" : compactText(row.issue(), 52));
+        inspectorSideValue.setText(row.side().isBlank() ? "-" : row.side());
+        inspectorMaterialValue.setText(format(row.material()) + " cp");
+        try {
+            Position position = new Position(row.fen());
+            inspectorBoard.setPositionInstant(position, Move.NO_MOVE);
+            inspectorSideValue.setText(position.isWhiteToMove() ? "White" : "Black");
+            inspectorMaterialValue.setText(format(position.countTotalMaterial()) + " cp");
+        } catch (RuntimeException ex) {
+            inspectorIssueValue.setText(row.issue().isBlank() ? "not a valid FEN" : compactText(row.issue(), 52));
+        }
     }
 
     /**
@@ -889,7 +1115,8 @@ public final class DatasetPanel extends JPanel {
      */
     private static void configureTable(JTable table) {
         Theme.table(table, TABLE_ROW_HEIGHT);
-        table.setAutoCreateRowSorter(true);
+        table.setAutoCreateRowSorter(false);
+        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.setAutoResizeMode(JTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS);
         TableColumnModel columns = table.getColumnModel();
         setColumnWidth(columns, 0, 120);
@@ -899,9 +1126,70 @@ public final class DatasetPanel extends JPanel {
         setColumnWidth(columns, 4, 82);
         setColumnWidth(columns, 5, 150);
         setColumnWidth(columns, 6, 420);
+        columns.getColumn(5).setCellRenderer(new ChipCellRenderer());
+        columns.getColumn(6).setCellRenderer(new FenCellRenderer());
         if (columns.getColumnCount() > 7) {
             setColumnWidth(columns, 7, 170);
+            columns.getColumn(7).setCellRenderer(new FenCellRenderer());
         }
+    }
+
+    /**
+     * Applies the free-text row filter to both tables.
+     */
+    private void applyTableFilter() {
+        RowFilter<DatasetTableModel, Integer> filter = rowFilter(tableFilterField.getText());
+        if (sampleSorter != null) {
+            sampleSorter.setRowFilter(filter);
+        }
+        if (issueSorter != null) {
+            issueSorter.setRowFilter(filter);
+        }
+        updateRowActions();
+    }
+
+    /**
+     * Uses a chart label as a table filter.
+     *
+     * @param label clicked chart label
+     */
+    private void applyChartFilter(String label) {
+        String value = label == null ? "" : label.trim();
+        if (value.isEmpty()) {
+            return;
+        }
+        tableFilterField.setText(value);
+        setStatus("Filtered rows by " + value, Theme.ForegroundRole.INFO);
+    }
+
+    /**
+     * Creates a case-insensitive table filter.
+     *
+     * @param raw raw query
+     * @return row filter, or null for no filter
+     */
+    private static RowFilter<DatasetTableModel, Integer> rowFilter(String raw) {
+        String query = raw == null ? "" : raw.trim().toLowerCase(Locale.ROOT);
+        if (query.isEmpty()) {
+            return null;
+        }
+        return new RowFilter<>() {
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public boolean include(Entry<? extends DatasetTableModel, ? extends Integer> entry) {
+                DatasetTableModel model = entry.getModel();
+                int row = entry.getIdentifier().intValue();
+                for (int column = 0; column < model.getColumnCount(); column++) {
+                    Object value = model.getValueAt(row, column);
+                    if (String.valueOf(value).toLowerCase(Locale.ROOT).contains(query)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        };
     }
 
 
@@ -956,11 +1244,13 @@ public final class DatasetPanel extends JPanel {
      */
     public void applySummary(DatasetSummary next) {
         summary = next == null ? DatasetSummary.empty() : next;
+        updateVerdict();
         updateMetrics();
         updateCharts();
         sampleModel.setRows(summary.samples());
         issueModel.setRows(summary.issues());
         copyReportButton.setEnabled(hasReport());
+        workspaceHeader.setContext(datasetContext());
         updateBodyState();
     }
 
@@ -988,6 +1278,46 @@ public final class DatasetPanel extends JPanel {
         materialMetric.setMetric(summary.validPositions() == 0L ? "-" : Math.round(summary.averageMaterial()) + " cp",
                 materialRangeText());
         updateInsights();
+    }
+
+    /**
+     * Updates the dataset verdict badge.
+     */
+    private void updateVerdict() {
+        if (busy) {
+            verdictBadge.running("scanning");
+            return;
+        }
+        if (summary.rows() == 0L) {
+            verdictBadge.notRun("not run");
+            verdictBadge.setToolTipText("Choose a dataset and run Analyze");
+            return;
+        }
+        String verdict = verdictText();
+        verdictBadge.setToolTipText(summary.note());
+        switch (verdict) {
+            case "Healthy" -> verdictBadge.complete(verdict);
+            case "Warnings" -> verdictBadge.warning(verdict);
+            default -> verdictBadge.error(verdict);
+        }
+    }
+
+    /**
+     * Returns the high-level dataset verdict.
+     *
+     * @return verdict text
+     */
+    private String verdictText() {
+        if (summary.rows() == 0L) {
+            return "Not run";
+        }
+        if (summary.invalidRows() == 0L && summary.duplicatePositions() == 0L && !summary.truncated()) {
+            return "Healthy";
+        }
+        if (summary.validRatio() >= 0.95d && summary.duplicateRatio() <= 0.15d) {
+            return "Warnings";
+        }
+        return "Needs cleanup";
     }
 
     /**
@@ -1105,7 +1435,59 @@ public final class DatasetPanel extends JPanel {
         copyReportButton.setEnabled(!busy && hasReport());
         spinner.setSpinning(busy);
         loadingSpinner.setSpinning(busy);
+        if (busy) {
+            loadingStartedAt = System.currentTimeMillis();
+            updateLoadingElapsed();
+            loadingElapsedTimer.start();
+        } else {
+            loadingElapsedTimer.stop();
+            loadingStartedAt = 0L;
+        }
+        updateVerdict();
+        workspaceHeader.setContext(datasetContext());
         updateBodyState();
+    }
+
+    /**
+     * Returns the Datasets shell context line.
+     *
+     * @return context summary
+     */
+    private String datasetContext() {
+        if (busy) {
+            return sourceTargetName() + " · Scanning · row limit " + cleanRowLimitText();
+        }
+        if (summary.rows() > 0L) {
+            return sourceName() + " · " + format(summary.rows()) + " rows · "
+                    + percent(summary.validRatio()) + " valid · "
+                    + percent(1.0d - summary.duplicateRatio()) + " unique";
+        }
+        return "No dataset loaded · row limit " + cleanRowLimitText();
+    }
+
+    /**
+     * Returns the currently typed source target, compacted for header use.
+     *
+     * @return source target name
+     */
+    private String sourceTargetName() {
+        String text = sourceField.getText() == null ? "" : sourceField.getText().trim();
+        if (text.isEmpty()) {
+            return "dataset";
+        }
+        Path path = Path.of(text);
+        Path name = path.getFileName();
+        return compactText(name == null ? text : name.toString(), 42);
+    }
+
+    /**
+     * Returns the row-limit field text with a fallback.
+     *
+     * @return row-limit text
+     */
+    private String cleanRowLimitText() {
+        String text = rowLimitField.getText() == null ? "" : rowLimitField.getText().trim();
+        return text.isEmpty() ? formatRowLimit(DEFAULT_ROW_LIMIT) : text;
     }
 
     /**
@@ -1154,6 +1536,31 @@ public final class DatasetPanel extends JPanel {
     private static JLabel insightLabel() {
         JLabel label = new JLabel("-");
         Theme.foreground(label, Theme.ForegroundRole.MUTED);
+        label.setFont(Theme.font(12, Font.PLAIN));
+        return label;
+    }
+
+    /**
+     * Creates a muted key label for compact detail grids.
+     *
+     * @param text label text
+     * @return styled label
+     */
+    private static JLabel detailKeyLabel(String text) {
+        JLabel label = new JLabel(text == null ? "" : text);
+        Theme.foreground(label, Theme.ForegroundRole.MUTED);
+        label.setFont(Theme.font(11, Font.BOLD));
+        return label;
+    }
+
+    /**
+     * Creates a value label for compact detail grids.
+     *
+     * @return styled label
+     */
+    private static JLabel detailValueLabel() {
+        JLabel label = new JLabel("-");
+        Theme.foreground(label, Theme.ForegroundRole.TEXT);
         label.setFont(Theme.font(12, Font.PLAIN));
         return label;
     }
@@ -1444,5 +1851,63 @@ public final class DatasetPanel extends JPanel {
             case NEUTRAL -> Theme.MUTED;
             case ACCENT -> Theme.ACCENT;
         };
+    }
+
+    /**
+     * Renderer for compact chip-like table label cells.
+     */
+    private static final class ChipCellRenderer extends DefaultTableCellRenderer {
+
+        /**
+         * Serialization identifier for Swing component compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean selected,
+                boolean focused, int row, int column) {
+            Component component = super.getTableCellRendererComponent(table, value, selected, focused, row, column);
+            String text = value == null ? "" : value.toString();
+            setText(compactText(text, 42));
+            setToolTipText(text.isBlank() ? null : text);
+            setFont(Theme.font(11, Font.BOLD));
+            if (!selected) {
+                setForeground(text.isBlank() ? Theme.MUTED : Theme.TEXT);
+                setBackground(table.getBackground());
+            }
+            return component;
+        }
+    }
+
+    /**
+     * Renderer that keeps long FEN/raw cells readable without blowing out table width.
+     */
+    private static final class FenCellRenderer extends DefaultTableCellRenderer {
+
+        /**
+         * Serialization identifier for Swing component compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean selected,
+                boolean focused, int row, int column) {
+            Component component = super.getTableCellRendererComponent(table, value, selected, focused, row, column);
+            String text = value == null ? "" : value.toString();
+            setText(compactText(text, 96));
+            setToolTipText(text.isBlank() ? null : text);
+            setFont(Theme.mono(12));
+            if (!selected) {
+                setForeground(text.isBlank() ? Theme.MUTED : Theme.TEXT);
+                setBackground(table.getBackground());
+            }
+            return component;
+        }
     }
 }

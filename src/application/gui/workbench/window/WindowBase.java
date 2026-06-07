@@ -33,9 +33,11 @@ import application.gui.workbench.session.RunArtifacts;
 import application.gui.workbench.session.Session;
 import application.gui.workbench.ui.AnalysisGraph;
 import application.gui.workbench.ui.EvalBar;
+import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.TagCloud;
 import application.gui.workbench.ui.Toast;
 import application.gui.workbench.ui.ToggleBox;
+import application.gui.workbench.ui.WorkspaceHeader;
 import chess.core.Position;
 import java.awt.FlowLayout;
 import java.util.ArrayList;
@@ -47,7 +49,9 @@ import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
@@ -389,6 +393,64 @@ public abstract class WindowBase extends JFrame {
     protected final javax.swing.JTextArea commandField = new javax.swing.JTextArea();
 
     /**
+     * Short description for the selected command template.
+     */
+    protected final JTextArea commandDescriptionLabel = new JTextArea();
+
+    /**
+     * Canonical command path for the selected command template.
+     */
+    protected final JLabel commandPathLabel = new JLabel();
+
+    /**
+     * Scroll wrapper for the generated command preview, retained so the wrap
+     * toggle can switch horizontal scrolling on and off.
+     */
+    protected JScrollPane commandPreviewScroll;
+
+    /**
+     * Status badge for the current Run command lifecycle.
+     */
+    protected final StatusBadge runStateBadge = new StatusBadge();
+
+    /**
+     * Command-builder validation badges.
+     */
+    protected final StatusBadge runFenBadge = new StatusBadge(),
+            runProtocolBadge = new StatusBadge(),
+            runDurationBadge = new StatusBadge();
+
+    /**
+     * Parsed result view for the most recent Run command.
+     */
+    protected final JTextArea runParsedOutput = new JTextArea();
+
+    /**
+     * Raw command output mirrored from the foreground process.
+     */
+    protected final Console runRawOutput = new Console();
+
+    /**
+     * Small recent-command list local to the Run builder.
+     */
+    protected final DefaultListModel<String> recentCommandModel = new DefaultListModel<>();
+
+    /**
+     * Recent-command list view.
+     */
+    protected final JList<String> recentCommandList = new JList<>(recentCommandModel);
+
+    /**
+     * Stop button in the Run header, visible only while a command is running.
+     */
+    protected JComponent runStopButton;
+
+    /**
+     * Last known command-form validity.
+     */
+    protected boolean commandFormRunnable = true;
+
+    /**
      * Host bar for the command-template selector.
      */
     protected final JPanel commandPicker = transparentPanel(
@@ -621,9 +683,19 @@ public abstract class WindowBase extends JFrame {
      */
     protected PlayPanel playPanel() {
         if (playPanel == null) {
-            playPanel = new PlayPanel(playSession(), this::currentFen);
+            playPanel = new PlayPanel(playSession(), this::currentFen,
+                    this::runAnalyze, this::refreshWorkspaceHeaders);
         }
         return playPanel;
+    }
+
+    /**
+     * Refreshes workspace headers when lazily owned panels update context.
+     * Subclasses with a shell header override this; the base hook keeps lazy
+     * panel construction decoupled from the concrete window layer.
+     */
+    protected void refreshWorkspaceHeaders() {
+        // no shell header at this base layer
     }
 
     /**
@@ -766,7 +838,7 @@ public abstract class WindowBase extends JFrame {
      */
     protected PuzzlePanel puzzlePanel() {
         if (puzzlePanel == null) {
-            puzzlePanel = new PuzzlePanel();
+            puzzlePanel = new PuzzlePanel(this::refreshWorkspaceHeaders);
         }
         return puzzlePanel;
     }
@@ -946,6 +1018,24 @@ public abstract class WindowBase extends JFrame {
      * Assigned when the Run tab is built; used to route navigation to a mode.
      */
     protected application.gui.workbench.ui.SwitchedWorkspace runWorkspace;
+
+    /**
+     * Header for the Run command-builder surface.
+     */
+    protected WorkspaceHeader runHeader;
+
+    /**
+     * Headers for materialized Console surfaces, including duplicates.
+     */
+    protected final List<WorkspaceHeader> consoleHeaders = new ArrayList<>();
+
+    /**
+     * Refreshes the Run header when command context changes. The command layer
+     * overrides this; earlier window layers call it through this stable hook.
+     */
+    protected void refreshRunHeader() {
+        // no-op until the command layer is initialized
+    }
 
     /**
      * Board detail tabs on the Analyze/Board side panel.

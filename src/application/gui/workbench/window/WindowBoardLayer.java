@@ -19,14 +19,20 @@ import application.gui.workbench.command.Console;
 import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.WrappingFlowLayout;
 import application.gui.workbench.ui.HoldButton;
+import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.SwitchedWorkspace;
 import application.gui.workbench.ui.Theme;
+import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.Toast;
+import application.gui.workbench.ui.Ui;
+import application.gui.workbench.ui.WorkspaceHeader;
 import application.gui.workbench.ui.WorkspaceMode;
 import chess.images.assets.PieceSet;
 import chess.core.Setup;
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -43,6 +49,7 @@ import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
@@ -103,6 +110,66 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * Vertical-only row padding shared by every settings-group row.
      */
     private static final Insets SETTINGS_ROW_INSETS = new Insets(3, 0, 3, 0);
+
+    /**
+     * Board / Analyze position validity badge.
+     */
+    private final StatusBadge analyzePositionBadge = new StatusBadge();
+
+    /**
+     * Board / Analyze position side value.
+     */
+    private final JLabel analyzeSideValue = metricValue();
+
+    /**
+     * Board / Analyze legal-move count value.
+     */
+    private final JLabel analyzeLegalValue = metricValue();
+
+    /**
+     * Board / Analyze material state value.
+     */
+    private final JLabel analyzeMaterialValue = metricValue();
+
+    /**
+     * Analysis result card switcher.
+     */
+    private final JPanel analysisResultCards = new JPanel(new CardLayout());
+
+    /**
+     * Latest analysis evaluation value.
+     */
+    private final JLabel analysisEvalValue = metricValue();
+
+    /**
+     * Latest analysis best-move value.
+     */
+    private final JLabel analysisBestMoveValue = metricValue();
+
+    /**
+     * Latest analysis depth value.
+     */
+    private final JLabel analysisDepthValue = metricValue();
+
+    /**
+     * Latest analysis node-count value.
+     */
+    private final JLabel analysisNodesValue = metricValue();
+
+    /**
+     * Latest analysis NPS value.
+     */
+    private final JLabel analysisNpsValue = metricValue();
+
+    /**
+     * Latest analysis sample-count value.
+     */
+    private final JLabel analysisSamplesValue = metricValue();
+
+    /**
+     * Board / Analyze stop button shown only while a foreground command runs.
+     */
+    private HoldButton analyzeStopButton;
 
     /**
      * ECO explorer panel, created lazily with the board detail tabs.
@@ -168,6 +235,12 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     private transient application.gui.workbench.relations.RelationsPanel relationsControls;
 
     /**
+     * Draw control rail, retained so the workspace header can reflect annotation
+     * counts.
+     */
+    private transient DrawPanel drawControls;
+
+    /**
      * Settings piece-set picker, retained so {@link #applyPieceSet} can keep its
      * selection in step when the set changes.
      */
@@ -192,13 +265,14 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         evalBar.setToolTipText("Engine evaluation");
         board.setEvalBar(evalBar);
         sharedBoardStage = new application.gui.workbench.board.BoardStage(board);
-        boardWorkspace = new SwitchedWorkspace(
+        boardWorkspace = new SwitchedWorkspace("Board",
                 List.of(
-                        new WorkspaceMode("Analyze", this::createBoardTab),
-                        new WorkspaceMode("Play", this::createPlayTab),
-                        new WorkspaceMode("Solve", this::createPuzzleTab),
-                        new WorkspaceMode("Relations", this::createRelationsTab),
-                        new WorkspaceMode("Draw", this::createDrawTab)),
+                        new WorkspaceMode("Analyze", this::createBoardTab, this::boardAnalyzeContext,
+                                this::boardAnalyzeActions),
+                        new WorkspaceMode("Play", this::createPlayTab, this::boardPlayContext),
+                        new WorkspaceMode("Solve", this::createPuzzleTab, this::boardSolveContext),
+                        new WorkspaceMode("Relations", this::createRelationsTab, this::boardRelationsContext),
+                        new WorkspaceMode("Draw", this::createDrawTab, this::boardDrawContext)),
                 BOARD_ANALYZE);
         boardWorkspace.setModeListener(this::configureBoardForMode);
         return boardWorkspace;
@@ -237,14 +311,21 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
             relationMarkupActive = true;
             disableSharedBoardMoveInput();
             if (relationsControls != null) {
+                relationsControls.activateBoardInteractions();
                 relationsControls.syncToBoard();
             }
         } else if (mode == BOARD_DRAW) {
+            if (relationsControls != null) {
+                relationsControls.deactivateBoardInteractions();
+            }
             clearRelationMarkupIfActive();
             board.setDirectAnnotationMode(true);
             disableSharedBoardMoveInput();
             restoreSharedBoardPosition();
         } else {
+            if (relationsControls != null) {
+                relationsControls.deactivateBoardInteractions();
+            }
             // Analyze / Play: interactive. Drop any relation overlay, re-arm
             // the move funnel and turn-gated input, and restore the analysis line.
             clearRelationMarkupIfActive();
@@ -311,12 +392,12 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * @return engine workspace component
      */
     protected JComponent createEngineWorkspaceTab() {
-        engineWorkspace = new SwitchedWorkspace(
+        engineWorkspace = new SwitchedWorkspace("Engine Lab",
                 List.of(
-                        new WorkspaceMode("Evaluator", this::createNetworkTab),
-                        new WorkspaceMode("Search", this::createMctsTab),
-                        new WorkspaceMode("Tree", this::createTreeTab),
-                        new WorkspaceMode("Gauntlet", this::createGauntletTab)),
+                        new WorkspaceMode("Evaluator", this::createNetworkTab, this::engineEvaluatorContext),
+                        new WorkspaceMode("Search", this::createMctsTab, this::engineSearchContext),
+                        new WorkspaceMode("Tree", this::createTreeTab, this::engineTreeContext),
+                        new WorkspaceMode("Gauntlet", this::createGauntletTab, this::engineGauntletContext)),
                 ENGINE_NETWORK);
         return engineWorkspace;
     }
@@ -334,6 +415,168 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
+     * Returns the Board / Analyze context line.
+     *
+     * @return context summary
+     */
+    private String boardAnalyzeContext() {
+        if (currentPosition == null) {
+            return "No position loaded";
+        }
+        return sideToMoveText() + " to move · " + session.legalMoveCount() + " legal moves · "
+                + materialSummary() + " · " + evaluatorContext();
+    }
+
+    /**
+     * Builds Board / Analyze header actions.
+     *
+     * @return action row
+     */
+    private JComponent boardAnalyzeActions() {
+        JPanel row = transparentPanel(new FlowLayout(FlowLayout.RIGHT, Theme.SPACE_SM, 0));
+        JButton analyze = button("Analyze", true, event -> runAnalyze());
+        analyze.setToolTipText("Run external-engine analysis for the current position");
+        JButton search = button("Search", false, event -> runBuiltInSearch());
+        search.setToolTipText("Run the deterministic built-in search on the current FEN");
+        JButton bestMove = button("Best move", false, event -> runBestMove());
+        bestMove.setToolTipText("Ask the configured UCI engine for one best move");
+        row.add(analyze);
+        row.add(search);
+        row.add(bestMove);
+        if (isForegroundCommandRunning()) {
+            HoldButton stop = new HoldButton("Stop", this::stopCommand, true);
+            stop.setToolTipText("Stop the running command");
+            row.add(stop);
+        }
+        return row;
+    }
+
+    /**
+     * Returns the Board / Play context line.
+     *
+     * @return context summary
+     */
+    private String boardPlayContext() {
+        return playPanel == null ? "Play vs local engine · Ready" : playPanel.workspaceContext();
+    }
+
+    /**
+     * Returns the Board / Solve context line.
+     *
+     * @return context summary
+     */
+    private String boardSolveContext() {
+        return puzzlePanel == null ? "No puzzle loaded" : puzzlePanel.workspaceContext();
+    }
+
+    /**
+     * Returns the Board / Relations context line.
+     *
+     * @return context summary
+     */
+    private String boardRelationsContext() {
+        if (relationsControls != null) {
+            return relationsControls.workspaceContext();
+        }
+        if (currentPosition == null) {
+            return "No position loaded";
+        }
+        return "Current position · tactical incidence overlay";
+    }
+
+    /**
+     * Returns the Board / Draw context line.
+     *
+     * @return context summary
+     */
+    private String boardDrawContext() {
+        if (drawControls != null) {
+            return drawControls.workspaceContext();
+        }
+        return currentPosition == null ? "No position loaded" : "Current board · annotation mode";
+    }
+
+    /**
+     * Returns the Engine / Evaluator context line.
+     *
+     * @return context summary
+     */
+    private String engineEvaluatorContext() {
+        return currentPosition == null
+                ? "No position loaded · evaluator visualizers ready"
+                : "Current FEN · NNUE / CNN / BT4 / OTIS evaluators";
+    }
+
+    /**
+     * Returns the Engine / Search context line.
+     *
+     * @return context summary
+     */
+    private String engineSearchContext() {
+        return currentPosition == null ? "No position loaded · PUCT/MCTS inspector"
+                : "Current FEN · PUCT/MCTS inspector";
+    }
+
+    /**
+     * Returns the Engine / Tree context line.
+     *
+     * @return context summary
+     */
+    private String engineTreeContext() {
+        return "Live tree · follows the current search session";
+    }
+
+    /**
+     * Returns the Engine / Gauntlet context line.
+     *
+     * @return context summary
+     */
+    private String engineGauntletContext() {
+        return "Candidate vs baseline · configurable deterministic games";
+    }
+
+    /**
+     * Returns the current side-to-move label.
+     *
+     * @return side label
+     */
+    private String sideToMoveText() {
+        return currentPosition != null && currentPosition.isWhiteToMove() ? "White" : "Black";
+    }
+
+    /**
+     * Returns a compact material summary.
+     *
+     * @return material summary
+     */
+    private String materialSummary() {
+        if (currentPosition == null) {
+            return "Material unknown";
+        }
+        int cp = currentPosition.materialDiscrepancy();
+        if (cp == 0) {
+            return "Material even";
+        }
+        return (cp > 0 ? "White +" + cp : "Black +" + Math.abs(cp)) + " cp";
+    }
+
+    /**
+     * Returns a compact evaluator / live-engine phrase.
+     *
+     * @return evaluator context
+     */
+    private String evaluatorContext() {
+        String summary = session.engineSummary();
+        if (summary != null && summary.toLowerCase(java.util.Locale.ROOT).contains("failed")) {
+            return "Engine error";
+        }
+        if (session.liveEngine() && summary != null && !summary.equalsIgnoreCase("paused")) {
+            return "Engine live";
+        }
+        return "Evaluator ready";
+    }
+
+    /**
      * Creates the board tab.
      *
      * @return tab component
@@ -344,17 +587,39 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         // createBoardWorkspaceTab / configureBoardForMode.
         analyzeBoardSlot = boardSlotPanel();
 
-        JPanel side = transparentPanel(new BorderLayout(8, 8));
+        JComponent side = createAnalyzeInspector();
         side.setPreferredSize(SIDE_RAIL_SIZE);
-        side.add(createBoardSideHeader(), BorderLayout.NORTH);
-        side.add(createMovesAndTags(), BorderLayout.CENTER);
 
-        JSplitPane boardPage = SplitPaneStyler.styledHorizontalSplit(analyzeBoardSlot, side, 0.68);
+        JSplitPane boardPage = SplitPaneStyler.styledHorizontalSplit(analyzeBoardSlot, side, 0.70);
 
         analysisTabs = createSectionTabs();
         analysisTabs.addTab("Board", boardPage);
         analysisTabs.addTab("Game", createGameSection());
         return analysisTabs;
+    }
+
+    /**
+     * Creates the Board / Analyze right inspector.
+     *
+     * @return inspector component
+     */
+    private JComponent createAnalyzeInspector() {
+        JPanel stack = transparentPanel(null);
+        stack.setLayout(new BoxLayout(stack, BoxLayout.Y_AXIS));
+        stack.add(createPositionControls());
+        stack.add(Box.createVerticalStrut(Theme.SPACE_MD));
+        stack.add(createAnalyzeFeatureShortcuts());
+        stack.add(Box.createVerticalStrut(Theme.SPACE_MD));
+        stack.add(createAnalysisControls());
+        stack.add(Box.createVerticalStrut(Theme.SPACE_MD));
+        stack.add(createAnalysisResultCard());
+        stack.add(Box.createVerticalStrut(Theme.SPACE_MD));
+        stack.add(createMovesAndTags());
+        stack.add(Box.createVerticalGlue());
+
+        JScrollPane scrollPane = scroll(fillViewport(stack), () -> Theme.PANEL_SOLID);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        return scrollPane;
     }
 
     /**
@@ -386,43 +651,34 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
-     * Creates the compact board-side header.
-     *
-     * @return side header
-     */
-    protected JComponent createBoardSideHeader() {
-        JPanel header = transparentPanel(new GridBagLayout());
-        GridBagConstraints c = constraints();
-        c.gridx = 0;
-        c.weightx = 1.0;
-        c.fill = GridBagConstraints.HORIZONTAL;
-
-        c.gridy = 0;
-        c.insets = new Insets(0, 0, 8, 0);
-        header.add(createPositionControls(), c);
-
-        c.gridy = 1;
-        c.insets = new Insets(0, 0, 0, 0);
-        header.add(createAnalysisControls(), c);
-        return header;
-    }
-
-    /**
      * Creates position setup and board-navigation controls.
      *
      * @return controls
      */
     protected JComponent createPositionControls() {
-        JPanel panel = new SurfacePanel(new GridBagLayout());
-        GridBagConstraints c = constraints();
-
-        // The "Position" title was previously added here as part of a
-        // hierarchy pass but flagged as redundant by WorkbenchBoardRegression:
-        // the FEN field and transport row already speak for themselves.
+        JPanel body = verticalBody();
         styleFields(fenField);
+        fenField.setFont(Theme.mono(Theme.FONT_MONO));
         fenField.setToolTipText("Paste a FEN and press Enter to load");
         fenField.addActionListener(event -> setPositionFromField());
-        grid(panel, fenField, c, 0, 0, 4, 1);
+        fenField.setColumns(34);
+
+        JPanel fenHeader = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        JLabel fenLabel = new JLabel("FEN");
+        fenLabel.setFont(Theme.font(Theme.FONT_METADATA, Font.BOLD));
+        Theme.foreground(fenLabel, Theme.ForegroundRole.MUTED);
+        fenHeader.add(fenLabel, BorderLayout.WEST);
+        fenHeader.add(analyzePositionBadge, BorderLayout.EAST);
+        body.add(fenHeader);
+        body.add(Box.createVerticalStrut(Theme.SPACE_XS));
+        body.add(fenField);
+        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
+
+        body.add(metricGrid(
+                metric("Side", analyzeSideValue),
+                metric("Legal moves", analyzeLegalValue),
+                metric("Material", analyzeMaterialValue)));
+        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
 
         boardStartButton = iconButton("Start", event -> jumpGameTo(0));
         boardBackButton = iconButton("Back", event -> navigateGame(-1));
@@ -442,21 +698,21 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         // position (see the field tooltip), so the row is just transport + Reset.
         JPanel transportRow = transparentPanel(new WrappingFlowLayout(FlowLayout.LEFT, 8, 0));
         transportRow.add(transportGroup);
-        transportRow.add(iconButton("Reset", event -> startNewGame(Setup.getStandardStartFEN())));
-        grid(panel, transportRow, c, 0, 2, 4, 1);
-        grid(panel, buttonRow(FlowLayout.LEFT,
-                iconButton("Flip", event -> {
+        transportRow.add(button("Edit", false, event -> fenField.requestFocusInWindow()));
+        transportRow.add(button("Reset", false, event -> startNewGame(Setup.getStandardStartFEN())));
+        body.add(transportRow);
+        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
+
+        body.add(buttonRow(FlowLayout.LEFT,
+                button("Copy", false, event -> copyText(fenField.getText())),
+                button("Flip", false, event -> {
                     board.setWhiteDown(!board.isWhiteDown());
                     appendConsole("Board flipped\n");
                 }),
-                iconButton("Copy FEN", event -> copyText(fenField.getText())),
-                createExportBoardButton()), c, 0, 3, 4, 1);
-        // The piece-artwork picker lives once, in Settings > Display > Appearance —
-        // it was duplicated here on the rail. Removing the rail copy trims a row
-        // of chrome from the analyze rail without losing the control.
-        grid(panel, createPgnExplorerLauncher(), c, 0, 4, 4, 1);
-        grid(panel, createAnalyzeFeatureShortcuts(), c, 0, 5, 4, 1);
-        return panel;
+                button("Open PGN", false, event -> showPgnExplorer()),
+                createExportBoardButton()));
+        refreshAnalyzeInspector();
+        return Ui.card("Position", body);
     }
 
     /**
@@ -467,7 +723,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * @return shortcut row
      */
     private JComponent createAnalyzeFeatureShortcuts() {
-        JPanel row = transparentPanel(new WrappingFlowLayout(FlowLayout.LEFT, 6, 0));
+        JPanel row = transparentPanel(new WrappingFlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
         JButton opening = button("Opening Tree", false, event -> showBoardDetail("ECO"));
         opening.setToolTipText("Show ECO opening tree and candidate line explorer");
         JButton review = button("Review", false, event -> showBoardDetail("Review"));
@@ -483,7 +739,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         row.add(endgame);
         row.add(study);
         row.add(gauntlet);
-        return collapsible("Tools", row, true);
+        return Ui.card("Tools", row);
     }
 
     /**
@@ -585,18 +841,70 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
-     * Creates a single PGN explorer launcher button. Replaces the previous
-     * faux-input field + button pair that mimicked a search affordance the
-     * field did not actually have.
+     * Creates a transparent vertical card body.
      *
-     * @return PGN explorer launcher
+     * @return vertical body
      */
-    private JComponent createPgnExplorerLauncher() {
-        JPanel row = transparentPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        JButton open = button("PGN Database...", false, event -> showPgnExplorer());
-        open.setToolTipText("Open PGN explorer (Ctrl+P)");
-        row.add(open);
-        return row;
+    private static JPanel verticalBody() {
+        JPanel body = transparentPanel(null);
+        body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
+        return body;
+    }
+
+    /**
+     * Creates a value label for compact metrics.
+     *
+     * @return metric value label
+     */
+    private static JLabel metricValue() {
+        JLabel label = new JLabel("-");
+        label.setFont(Theme.font(13, Font.BOLD));
+        Theme.foreground(label, Theme.ForegroundRole.TEXT);
+        return label;
+    }
+
+    /**
+     * Builds a responsive metric grid.
+     *
+     * @param metrics metric cells
+     * @return metric grid
+     */
+    private static JComponent metricGrid(JComponent... metrics) {
+        JPanel gridPanel = transparentPanel(new GridBagLayout());
+        gridPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        for (int i = 0; i < metrics.length; i++) {
+            GridBagConstraints c = new GridBagConstraints();
+            c.gridx = i % 3;
+            c.gridy = i / 3;
+            c.weightx = 1.0;
+            c.fill = GridBagConstraints.HORIZONTAL;
+            c.insets = new Insets(0, 0, Theme.SPACE_SM, i % 3 == 2 ? 0 : Theme.SPACE_SM);
+            gridPanel.add(metrics[i], c);
+        }
+        return gridPanel;
+    }
+
+    /**
+     * Builds one metric cell.
+     *
+     * @param label metric label
+     * @param value value label
+     * @return metric component
+     */
+    private static JComponent metric(String label, JLabel value) {
+        JPanel panel = transparentPanel(null);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBorder(Theme.pad(Theme.SPACE_XS));
+        panel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JLabel title = new JLabel(label);
+        title.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
+        Theme.foreground(title, Theme.ForegroundRole.MUTED);
+        title.setAlignmentX(Component.LEFT_ALIGNMENT);
+        value.setAlignmentX(Component.LEFT_ALIGNMENT);
+        panel.add(title);
+        panel.add(Box.createVerticalStrut(2));
+        panel.add(value);
+        return panel;
     }
 
     /**
@@ -605,40 +913,50 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * @return controls
      */
     protected JComponent createAnalysisControls() {
-        JPanel panel = new SurfacePanel(new GridBagLayout());
+        JPanel panel = verticalBody();
         GridBagConstraints c = constraints();
-        // Row 0: section title + the live-engine toggle, side by side. The
-        // toggle was buried at row 4 below the depth/time spinners; that
-        // hid a feature that fundamentally changes app behaviour (constant
-        // background CPU vs on-demand). Promoting it to the section header
-        // makes the on/off state the first thing the eye reads.
-        JPanel sectionHeader = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
-        sectionHeader.add(Theme.section("Analysis"), BorderLayout.WEST);
         liveEngineToggle.setSelected(liveExternalEngineEnabled);
         liveEngineToggle.addActionListener(event -> setLiveExternalEngineEnabled(liveEngineToggle.isSelected()));
         multipvModel.addChangeListener(event -> requestLiveAnalysisUpdate());
         threadsModel.addChangeListener(event -> requestLiveAnalysisUpdate());
-        sectionHeader.add(liveEngineToggle, BorderLayout.EAST);
-        grid(panel, sectionHeader, c, 0, 0, 4, 1);
+
         Theme.foreground(statusLabel, Theme.ForegroundRole.MUTED);
         statusLabel.setFont(Theme.font(12, Font.PLAIN));
-        grid(panel, statusLabel, c, 0, 1, 4, 1);
 
         styleSpinners(analysisDepthSpinner, analysisMultipvSpinner, analysisThreadsSpinner);
         styleFields(analysisDurationField);
-        grid(panel, label("Depth"), c, 0, 2, 1, 1);
-        grid(panel, analysisDepthSpinner, c, 1, 2, 1, 1);
-        grid(panel, label("Time"), c, 2, 2, 1, 1);
         analysisDurationField.getDocument()
                 .addDocumentListener(changeListener(this::syncDurationFromAnalysis));
-        grid(panel, analysisDurationField, c, 3, 2, 1, 1);
+        analysisDepthSpinner.setToolTipText("Maximum search depth for built-in search and command previews");
+        analysisDurationField.setToolTipText("Maximum external-engine time, e.g. 1s or 500ms");
+        analysisMultipvSpinner.setToolTipText("Number of principal variations for external analysis");
+        analysisThreadsSpinner.setToolTipText("Thread count for supported commands");
 
-        grid(panel, buttonRow(FlowLayout.LEFT,
-                button("Search", true, event -> runBuiltInSearch()),
-                button("Best", false, event -> runBestMove()),
-                button("Analyze", false, event -> runAnalyze())), c, 0, 3, 4, 1);
-        grid(panel, collapsible("More", createAdvancedAnalysisControls(), false), c, 0, 4, 4, 1);
-        return panel;
+        JPanel settings = transparentPanel(new GridBagLayout());
+        c.insets = SETTINGS_ROW_INSETS;
+        grid(settings, createLabelDetailRow("Depth", "Built-in search limit", analysisDepthSpinner),
+                c, 0, 0, 1, 1);
+        grid(settings, createLabelDetailRow("Time", "External-engine budget", analysisDurationField),
+                c, 0, 1, 1, 1);
+        grid(settings, createLabelDetailRow("Live", "Continuously analyze visible FEN", liveEngineToggle),
+                c, 0, 2, 1, 1);
+
+        panel.add(settings);
+        panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        panel.add(statusLabel);
+        panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
+
+        analyzeStopButton = new HoldButton("Stop", this::stopCommand, true);
+        analyzeStopButton.setToolTipText("Stop the running command");
+        panel.add(controlRow(FlowLayout.LEFT,
+                button("Analyze", true, event -> runAnalyze()),
+                button("Search", false, event -> runBuiltInSearch()),
+                button("Best move", false, event -> runBestMove()),
+                analyzeStopButton));
+        panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        panel.add(collapsible("Advanced / raw command settings", createAdvancedAnalysisControls(), false));
+        refreshAnalysisCommandState();
+        return Ui.card("Engine / Search Settings", panel);
     }
 
     /**
@@ -654,6 +972,115 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         panel.add(button("Tags", false, event -> runTagsCommand()));
         panel.add(button("Perft", false, event -> runPerft()));
         return panel;
+    }
+
+    /**
+     * Creates the analysis-result card.
+     *
+     * @return result card
+     */
+    private JComponent createAnalysisResultCard() {
+        analysisResultCards.setOpaque(false);
+
+        JComponent empty = Ui.emptyState("No analysis yet",
+                "Run Analyze or Search to see evaluation history, depth, and candidate moves.",
+                button("Analyze", true, event -> runAnalyze()));
+
+        JPanel populated = verticalBody();
+        populated.add(metricGrid(
+                metric("Eval", analysisEvalValue),
+                metric("Best move", analysisBestMoveValue),
+                metric("Depth", analysisDepthValue),
+                metric("Nodes", analysisNodesValue),
+                metric("NPS", analysisNpsValue),
+                metric("Samples", analysisSamplesValue)));
+        populated.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        populated.add(analysisGraph);
+        populated.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        populated.add(controlRow(FlowLayout.LEFT,
+                button("Copy CSV", false, event -> copyAnalysisCsv()),
+                button("Copy Report", false, event -> copyAnalysisReport()),
+                button("Print", false, event -> printAnalysisReport()),
+                new HoldButton("Clear", this::clearAnalysisData, true)));
+
+        analysisResultCards.add(empty, "empty");
+        analysisResultCards.add(populated, "populated");
+        analysisGraph.addPropertyChangeListener("analysisSamples", event -> refreshAnalysisResult());
+        refreshAnalysisResult();
+        return Ui.card("Analysis Result", analysisResultCards);
+    }
+
+    /**
+     * Refreshes Board / Analyze position and analysis summary widgets.
+     */
+    protected void refreshAnalyzeInspector() {
+        if (currentPosition == null) {
+            analyzePositionBadge.notRun("no position");
+            analyzeSideValue.setText("-");
+            analyzeLegalValue.setText("-");
+            analyzeMaterialValue.setText("Unknown");
+        } else {
+            analyzePositionBadge.ready("valid");
+            analyzePositionBadge.setToolTipText(null);
+            analyzeSideValue.setText(sideToMoveText());
+            analyzeLegalValue.setText(Integer.toString(visibleMoves.length));
+            analyzeMaterialValue.setText(materialSummary().replace("Material ", ""));
+        }
+        refreshAnalysisResult();
+    }
+
+    /**
+     * Marks the position summary invalid after a failed FEN edit.
+     *
+     * @param message validation message
+     */
+    protected void markAnalyzePositionInvalid(String message) {
+        analyzePositionBadge.error("invalid");
+        analyzePositionBadge.setToolTipText(message == null || message.isBlank()
+                ? "Invalid FEN" : message);
+    }
+
+    /**
+     * Refreshes command-dependent Analyze controls.
+     */
+    protected void refreshAnalysisCommandState() {
+        boolean running = isForegroundCommandRunning();
+        if (analyzeStopButton != null) {
+            analyzeStopButton.setVisible(running);
+            analyzeStopButton.setEnabled(running);
+        }
+        if (boardWorkspace != null && boardWorkspace.mode() == BOARD_ANALYZE) {
+            boardWorkspace.refreshHeader();
+        }
+    }
+
+    /**
+     * Refreshes the analysis result card from graph data.
+     */
+    private void refreshAnalysisResult() {
+        if (analysisResultCards == null) {
+            return;
+        }
+        boolean hasSamples = analysisGraph.hasSamples();
+        CardLayout layout = (CardLayout) analysisResultCards.getLayout();
+        layout.show(analysisResultCards, hasSamples ? "populated" : "empty");
+        application.gui.workbench.ui.AnalysisGraph.LatestSummary summary =
+                analysisGraph.latestSummaryValues();
+        analysisEvalValue.setText(summary.eval());
+        analysisBestMoveValue.setText(summary.bestMove());
+        analysisDepthValue.setText(summary.depth());
+        analysisNodesValue.setText(summary.nodes());
+        analysisNpsValue.setText(summary.nps());
+        analysisSamplesValue.setText(summary.samples());
+    }
+
+    /**
+     * Returns whether a foreground command is currently running.
+     *
+     * @return true when a command is running
+     */
+    private boolean isForegroundCommandRunning() {
+        return runningCommand != null && runningCommand.isRunning();
     }
 
     /**
@@ -741,29 +1168,22 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
             }
         });
 
-        // Position inspector: read-only views of the current position. Editor
-        // remains here as the one creative "change the position" affordance;
-        // MCTS / Settings / Engine moved to the dedicated Settings dialog so
-        // this strip stops being an eight-tab junk drawer.
         boardDetailTabs = createSectionTabs();
-        boardDetailTabs.addTab("Moves", titled("Legal Moves", scroll(movesTable)));
-        boardDetailTabs.addTab("Tags", titled("Tags", scroll(tagCloud)));
+        boardDetailTabs.addTab("Moves", scroll(movesTable));
+        boardDetailTabs.addTab("Tags", scroll(tagCloud));
         boardDetailTabs.addTab("ECO", createEcoExplorerPanel());
         boardDetailTabs.addTab("Review", createGameReviewPanel());
         boardDetailTabs.addTab("Study", createStudyAuthorPanel());
         boardDetailTabs.addTab("Endgame", createTablebasePanel());
-        boardDetailTabs.addTab("Data", createAnalysisDataPanel());
+        boardDetailTabs.addTab("Raw", createAnalysisDataPanel());
         boardDetailTabs.addTab("Editor", createBoardEditorPanel());
         boardDetailTabs.addChangeListener(event -> syncBoardEditorMode());
-        // Open on the position-summary "Data" view rather than the full legal-move
-        // dump: the move count is already in the analysis status line, so leading
-        // with a 34-row table is noise. The Moves tab stays one click away.
-        int dataTab = boardDetailTabs.indexOfTab("Data");
-        if (dataTab >= 0) {
-            boardDetailTabs.setSelectedIndex(dataTab);
+        int movesTab = boardDetailTabs.indexOfTab("Moves");
+        if (movesTab >= 0) {
+            boardDetailTabs.setSelectedIndex(movesTab);
         }
         syncBoardEditorMode();
-        return boardDetailTabs;
+        return Ui.card("Candidate Moves / Expert Tabs", boardDetailTabs);
     }
 
     /**
@@ -916,15 +1336,14 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * @return data panel
      */
     protected JComponent createAnalysisDataPanel() {
-        JPanel content = transparentPanel(new BorderLayout(6, 6));
-        JComponent actions = buttonRow(FlowLayout.LEFT,
+        JPanel content = verticalBody();
+        JComponent actions = controlRow(FlowLayout.LEFT,
                 button("Copy CSV", false, event -> copyAnalysisCsv()),
                 button("Copy Report", false, event -> copyAnalysisReport()),
                 button("Print", false, event -> printAnalysisReport()),
-                button("Clear", false, event -> clearAnalysisData()));
-        content.add(collapsible("Actions", actions, false), BorderLayout.NORTH);
-        content.add(analysisGraph, BorderLayout.CENTER);
-        return titled("Analysis", content);
+                new HoldButton("Clear", this::clearAnalysisData, true));
+        content.add(actions);
+        return content;
     }
 
     /**
@@ -1247,7 +1666,13 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      */
     protected JComponent createCommandTab() {
         installTemplates();
-    return scroll(fillViewport(createCommandBuilder()));
+        runCommandButton = button("Run", true, event -> runSelectedTemplate());
+        JPanel panel = transparentPanel(new BorderLayout(0, 0));
+        runHeader = new WorkspaceHeader("Run", "", createCommandActions());
+        panel.add(runHeader, BorderLayout.NORTH);
+        panel.add(createCommandBuilder(), BorderLayout.CENTER);
+        refreshRunHeader();
+        return panel;
     }
 
     /**
@@ -1256,8 +1681,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * @return panel
      */
     protected JPanel createCommandBuilder() {
-        JPanel panel = new SurfacePanel(new BorderLayout(0, 8));
-
+        JPanel panel = transparentPanel(new BorderLayout(0, 0));
         commandForm.setChangeListener(this::updateBuiltCommand);
         commandForm.setRunGate(this::updateCommandRunGate);
         commandForm.setPositionContext(new application.gui.workbench.command.PositionListEditor.Context() {
@@ -1299,57 +1723,255 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
 
         commandField.setEditable(false);
         commandField.setToolTipText("Generated command");
-        // A self-hugging band: BoxLayout would otherwise stretch an unbounded
-        // panel to fill the leftover height, leaving a tall empty preview band.
-        PreviewBand previewRow = new PreviewBand();
-        JLabel previewLabel = new JLabel("$");
-        previewLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 12));
-        Theme.foreground(previewLabel, Theme.ForegroundRole.MUTED);
-        previewRow.add(previewLabel, BorderLayout.WEST);
-        // The preview row is ELEVATED_SOLID; declare it so the transparent
-        // command field's viewport matches the row instead of a darker box.
-        JScrollPane commandScroll = scroll(commandField, () -> Theme.ELEVATED_SOLID);
-        commandScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-        // Wrapping is on, so there is never horizontal overflow to scroll.
-        commandScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        previewRow.add(commandScroll, BorderLayout.CENTER);
-        previewRow.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE),
-                Theme.pad(6, 10, 6, 10)));
-        previewRow.setOpaque(true);
-        previewRow.setBackground(Theme.ELEVATED_SOLID);
+        configureRunOutputPanes();
 
-        // Top stack: command picker, the form, and the generated CLI preview
-        // ride together as a single vertical block so the form and its
-        // resulting command line stay visually connected. Previously the
-        // preview sat at the bottom of the pane with a huge empty band
-        // between it and the form, breaking the cause-and-effect line.
-        JPanel topStack = new JPanel();
-        topStack.setOpaque(false);
-        topStack.setLayout(new BoxLayout(topStack, BoxLayout.Y_AXIS));
-        commandPicker.setAlignmentX(LEFT_ALIGNMENT);
-        commandForm.setAlignmentX(LEFT_ALIGNMENT);
-        previewRow.setAlignmentX(LEFT_ALIGNMENT);
-        topStack.add(commandPicker);
-        topStack.add(Box.createVerticalStrut(8));
-        topStack.add(commandForm);
-        topStack.add(Box.createVerticalStrut(6));
-        topStack.add(previewRow);
-        // Absorb leftover vertical space below the (self-hugging) preview band.
-        topStack.add(Box.createVerticalGlue());
-        panel.add(topStack, BorderLayout.CENTER);
-
-        runCommandButton = button("Run", true, event -> runSelectedTemplate());
-        panel.add(controlRow(FlowLayout.LEFT,
-                runCommandButton,
-                button("Copy", false, event -> copyBuiltCommand()),
-                button("Reset", false, event -> resetSelectedTemplate()),
-                button("Clear Flags", false, event -> clearOptionalTemplateOptions()),
-                new HoldButton("Stop", this::stopCommand, true)), BorderLayout.SOUTH);
+        JSplitPane split = SplitPaneStyler.styledHorizontalSplit(
+                createRunSettingsColumn(), createRunOutputColumn(), 0.47);
+        split.setMinimumSize(new Dimension(880, 560));
+        panel.add(split, BorderLayout.CENTER);
 
         updateCommandOptions();
         updateBuiltCommand();
+        setCommandState("Idle");
         return panel;
+    }
+
+    /**
+     * Creates the command-settings column.
+     *
+     * @return scrollable settings column
+     */
+    private JComponent createRunSettingsColumn() {
+        JPanel column = verticalBody();
+        column.setBorder(Theme.pad(Theme.SPACE_MD));
+        column.add(createRunCommandSelectorCard());
+        column.add(Box.createVerticalStrut(Theme.SPACE_MD));
+        commandForm.setAlignmentX(LEFT_ALIGNMENT);
+        column.add(Ui.card("Command Settings", commandForm));
+        column.add(Box.createVerticalGlue());
+        JScrollPane pane = scroll(fillViewport(column));
+        pane.setMinimumSize(new Dimension(380, 520));
+        pane.setPreferredSize(new Dimension(470, 640));
+        return pane;
+    }
+
+    /**
+     * Creates the command selector card.
+     *
+     * @return selector card
+     */
+    private JComponent createRunCommandSelectorCard() {
+        JPanel body = verticalBody();
+        commandPicker.setAlignmentX(LEFT_ALIGNMENT);
+        commandPathLabel.setAlignmentX(LEFT_ALIGNMENT);
+        commandDescriptionLabel.setAlignmentX(LEFT_ALIGNMENT);
+        commandPathLabel.setFont(Theme.mono(Theme.FONT_MONO));
+        commandDescriptionLabel.setFont(Theme.font(Theme.FONT_CONTROL, Font.PLAIN));
+        commandDescriptionLabel.putClientProperty(Theme.CLIENT_TRANSPARENT_FIELD, Boolean.TRUE);
+        commandDescriptionLabel.setOpaque(false);
+        commandDescriptionLabel.setEditable(false);
+        commandDescriptionLabel.setLineWrap(true);
+        commandDescriptionLabel.setWrapStyleWord(true);
+        commandDescriptionLabel.setBorder(BorderFactory.createEmptyBorder());
+        Theme.foreground(commandPathLabel, Theme.ForegroundRole.MUTED);
+        Theme.foreground(commandDescriptionLabel, Theme.ForegroundRole.TEXT);
+        body.add(commandPicker);
+        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        body.add(commandPathLabel);
+        body.add(Box.createVerticalStrut(Theme.SPACE_XS));
+        body.add(commandDescriptionLabel);
+        return Ui.card("Command", body);
+    }
+
+    /**
+     * Creates the preview/output column.
+     *
+     * @return scrollable output column
+     */
+    private JComponent createRunOutputColumn() {
+        JPanel column = verticalBody();
+        column.setBorder(Theme.pad(Theme.SPACE_MD));
+        column.add(createRunPreviewCard());
+        column.add(Box.createVerticalStrut(Theme.SPACE_MD));
+        column.add(createRunValidationCard());
+        column.add(Box.createVerticalStrut(Theme.SPACE_MD));
+        column.add(createRunParsedResultCard());
+        column.add(Box.createVerticalStrut(Theme.SPACE_MD));
+        column.add(createRunRawOutputCard());
+        column.add(Box.createVerticalStrut(Theme.SPACE_MD));
+        column.add(createRecentCommandsCard());
+        column.add(Box.createVerticalGlue());
+        JScrollPane pane = scroll(fillViewport(column));
+        pane.setMinimumSize(new Dimension(420, 520));
+        pane.setPreferredSize(new Dimension(560, 640));
+        return pane;
+    }
+
+    /**
+     * Creates the generated command preview card.
+     *
+     * @return preview card
+     */
+    private JComponent createRunPreviewCard() {
+        JPanel body = verticalBody();
+        commandPreviewScroll = scroll(commandField, () -> Theme.CODE_BLOCK_BG);
+        commandPreviewScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        commandPreviewScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        commandPreviewScroll.setPreferredSize(new Dimension(520, 132));
+        commandPreviewScroll.setMinimumSize(new Dimension(320, 110));
+        body.add(commandPreviewScroll);
+        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
+
+        JCheckBox wrapToggle = new ToggleBox("Wrap", true);
+        wrapToggle.setSelected(true);
+        wrapToggle.setToolTipText("Wrap long generated commands inside the preview");
+        wrapToggle.addActionListener(event -> setCommandPreviewWrap(wrapToggle.isSelected()));
+
+        JPanel actions = transparentPanel(new WrappingFlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
+        actions.add(button("Copy Command", false, event -> copyBuiltCommand()));
+        actions.add(button("Open Console", false, event -> showConsoleDock()));
+        actions.add(wrapToggle);
+        body.add(actions);
+        return Ui.card("Command Preview", body);
+    }
+
+    /**
+     * Creates the validation badge card.
+     *
+     * @return validation card
+     */
+    private JComponent createRunValidationCard() {
+        JPanel body = verticalBody();
+        body.add(validationRow("Position source", runFenBadge));
+        body.add(Box.createVerticalStrut(Theme.SPACE_XS));
+        body.add(validationRow("Engine config", runProtocolBadge));
+        body.add(Box.createVerticalStrut(Theme.SPACE_XS));
+        body.add(validationRow("Search duration", runDurationBadge));
+        return Ui.card("Validation", body);
+    }
+
+    /**
+     * Creates one validation row.
+     *
+     * @param title row title
+     * @param badge status badge
+     * @return row
+     */
+    private static JComponent validationRow(String title, StatusBadge badge) {
+        JPanel row = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        JLabel label = new JLabel(title);
+        label.setFont(Theme.font(Theme.FONT_CONTROL, Font.PLAIN));
+        Theme.foreground(label, Theme.ForegroundRole.TEXT);
+        row.add(label, BorderLayout.WEST);
+        row.add(badge, BorderLayout.EAST);
+        row.setBorder(Theme.pad(Theme.SPACE_XS, 0, Theme.SPACE_XS, 0));
+        row.setAlignmentX(LEFT_ALIGNMENT);
+        return row;
+    }
+
+    /**
+     * Creates the parsed output card.
+     *
+     * @return parsed-result card
+     */
+    private JComponent createRunParsedResultCard() {
+        JScrollPane pane = scroll(runParsedOutput, () -> Theme.TEXT_AREA);
+        pane.setPreferredSize(new Dimension(520, 150));
+        pane.setMinimumSize(new Dimension(320, 120));
+        return Ui.card("Parsed Result", runStateBadge, pane);
+    }
+
+    /**
+     * Creates the raw command-output card.
+     *
+     * @return raw-output card
+     */
+    private JComponent createRunRawOutputCard() {
+        JScrollPane pane = scroll(runRawOutput, () -> Theme.TERMINAL);
+        pane.setPreferredSize(new Dimension(520, 220));
+        pane.setMinimumSize(new Dimension(320, 160));
+        return Ui.card("Raw Output / Log", pane);
+    }
+
+    /**
+     * Creates the recent-command history card.
+     *
+     * @return recent command card
+     */
+    private JComponent createRecentCommandsCard() {
+        JPanel body = verticalBody();
+        Theme.list(recentCommandList);
+        recentCommandList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        recentCommandList.setVisibleRowCount(5);
+        JScrollPane listScroll = scroll(recentCommandList, () -> Theme.ELEVATED_SOLID);
+        listScroll.setPreferredSize(new Dimension(520, 112));
+        body.add(listScroll);
+        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        JButton copySelected = button("Copy Selected", false, event -> copySelectedRecentCommand());
+        body.add(buttonRow(FlowLayout.LEFT, copySelected));
+        return Ui.card("Recent Commands", body);
+    }
+
+    /**
+     * Configures the parsed/raw output panes.
+     */
+    private void configureRunOutputPanes() {
+        styleAreas(runParsedOutput);
+        runParsedOutput.setEditable(false);
+        runParsedOutput.setLineWrap(true);
+        runParsedOutput.setWrapStyleWord(true);
+        runParsedOutput.setRows(7);
+        runParsedOutput.setText("No command run yet.\nRun a command to see parsed fields here.");
+        runParsedOutput.setCaretPosition(0);
+        runRawOutput.setPlaceholder("Raw command output appears here after running.");
+        runStateBadge.notRun("idle");
+    }
+
+    /**
+     * Copies the selected recent command to the clipboard.
+     */
+    private void copySelectedRecentCommand() {
+        String selected = recentCommandList.getSelectedValue();
+        if (selected == null || selected.isBlank()) {
+            showWarning("Recent commands", "Select a command to copy.");
+            return;
+        }
+        copyText(selected);
+    }
+
+    /**
+     * Toggles command preview wrapping.
+     *
+     * @param wrap true to wrap
+     */
+    private void setCommandPreviewWrap(boolean wrap) {
+        commandField.setLineWrap(wrap);
+        commandField.setWrapStyleWord(false);
+        if (commandPreviewScroll != null) {
+            commandPreviewScroll.setHorizontalScrollBarPolicy(wrap
+                    ? JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+                    : JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        }
+        commandField.revalidate();
+    }
+
+    /**
+     * Creates the Run header actions.
+     *
+     * @return action row
+     */
+    private JComponent createCommandActions() {
+        if (runCommandButton == null) {
+            runCommandButton = button("Run", true, event -> runSelectedTemplate());
+        }
+        runStopButton = new HoldButton("Stop", this::stopCommand, true);
+        runStopButton.setVisible(false);
+        return controlRow(FlowLayout.RIGHT,
+                runCommandButton,
+                button("Copy Command", false, event -> copyBuiltCommand()),
+                button("Reset", false, event -> resetSelectedTemplate()),
+                button("Clear Flags", false, event -> clearOptionalTemplateOptions()),
+                runStopButton);
     }
 
     /**
@@ -1360,21 +1982,11 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * @param field generated-command field
      */
     private static void styleCommandPreviewField(javax.swing.JTextArea field) {
-        field.setOpaque(false);
-        // Survive theme toggles as a transparent preview instead of being
-        // restyled into an opaque bordered input by Theme.area().
-        field.putClientProperty(Theme.CLIENT_TRANSPARENT_FIELD, Boolean.TRUE);
-        field.setBorder(BorderFactory.createEmptyBorder());
-        field.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
-        field.setForeground(Theme.TEXT);
-        field.setCaretColor(Theme.MUTED);
-        field.setSelectionColor(Theme.SELECTION_SOLID);
+        Theme.codeBlock(field);
         field.setEditable(false);
-        // Wrap long commands within the preview width instead of scrolling
-        // sideways; the band caps at five rows and scrolls vertically beyond.
         field.setLineWrap(true);
         field.setWrapStyleWord(false);
-        field.setRows(1);
+        field.setRows(6);
         field.setColumns(72);
     }
 
@@ -1384,8 +1996,10 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * @param ready true when the built command is runnable
      */
     protected void updateCommandRunGate(boolean ready) {
+        commandFormRunnable = ready;
+        boolean running = runningCommand != null && runningCommand.isRunning();
         if (runCommandButton != null) {
-            runCommandButton.setEnabled(ready);
+            runCommandButton.setEnabled(ready && !running);
             runCommandButton.setToolTipText(ready ? null
                     : "Fix the highlighted fields before running");
         }
@@ -1527,11 +2141,32 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      */
     private JComponent createPlayMoveHistory() {
         PlayMoveHistoryModel historyModel = new PlayMoveHistoryModel(gameModel);
-        javax.swing.JTable playMoves = new javax.swing.JTable(historyModel);
+        javax.swing.JTable playMoves = new javax.swing.JTable(historyModel) {
+            /**
+             * Serialization identifier for Swing table compatibility.
+             */
+            private static final long serialVersionUID = 1L;
+
+            /**
+             * Paints a shared empty state into the viewport when no moves exist.
+             *
+             * @param graphics graphics context
+             */
+            @Override
+            protected void paintComponent(java.awt.Graphics graphics) {
+                super.paintComponent(graphics);
+                if (getRowCount() == 0 && graphics instanceof java.awt.Graphics2D graphics2D) {
+                    Ui.paintEmptyState(graphics2D, new java.awt.Rectangle(0, 0, getWidth(), getHeight()),
+                            "No moves yet", "Start a game to record moves here.");
+                }
+            }
+        };
         Theme.table(playMoves, Theme.TABLE_ROW_HEIGHT);
         playMoves.setAutoCreateColumnsFromModel(false);
         playMoves.setAutoResizeMode(javax.swing.JTable.AUTO_RESIZE_LAST_COLUMN);
         playMoves.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        playMoves.setFillsViewportHeight(true);
+        playMoves.setPreferredScrollableViewportSize(new Dimension(320, 220));
         javax.swing.table.TableColumnModel columns = playMoves.getColumnModel();
         columns.getColumn(0).setMaxWidth(42);
         columns.getColumn(0).setPreferredWidth(42);
@@ -1539,6 +2174,26 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         columns.getColumn(2).setPreferredWidth(130);
         columns.getColumn(1).setCellRenderer(new SanRenderer());
         columns.getColumn(2).setCellRenderer(new SanRenderer());
+        playMoves.addMouseListener(new MouseAdapter() {
+            /**
+             * Navigates to the clicked move ply when a recorded move cell is selected.
+             *
+             * @param event mouse event
+             */
+            @Override
+            public void mouseClicked(MouseEvent event) {
+                int row = playMoves.rowAtPoint(event.getPoint());
+                int viewColumn = playMoves.columnAtPoint(event.getPoint());
+                if (row < 0 || viewColumn < 0) {
+                    return;
+                }
+                int column = playMoves.convertColumnIndexToModel(viewColumn);
+                int ply = row * 2 + (column == 2 ? 2 : 1);
+                if (ply > 0 && ply <= gameModel.lastPly()) {
+                    jumpGameTo(ply);
+                }
+            }
+        });
         historyModel.addTableModelListener(event -> javax.swing.SwingUtilities.invokeLater(() -> {
             int lastRow = playMoves.getRowCount() - 1;
             if (lastRow >= 0) {
@@ -1546,7 +2201,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                 playMoves.scrollRectToVisible(playMoves.getCellRect(lastRow, 0, true));
             }
         }));
-        JComponent section = titled("Move history", scroll(playMoves));
+        JComponent section = Ui.card("Move History", scroll(playMoves));
         section.setOpaque(true);
         section.setBackground(Theme.BG);
         return section;
@@ -1569,7 +2224,8 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         // away from its tactical view, on the same board.
         relationsBoardSlot = boardSlotPanel();
         relationsControls =
-                new application.gui.workbench.relations.RelationsPanel(board, () -> currentPosition);
+                new application.gui.workbench.relations.RelationsPanel(board, () -> currentPosition,
+                        this::refreshWorkspaceHeaders);
         JComponent rail = scroll(fillViewport(relationsControls));
         rail.setPreferredSize(SIDE_RAIL_SIZE);
         return SplitPaneStyler.styledHorizontalSplit(relationsBoardSlot, rail, 0.68);
@@ -1583,7 +2239,8 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      */
     protected JComponent createDrawTab() {
         drawBoardSlot = boardSlotPanel();
-        JComponent rail = scroll(fillViewport(new DrawPanel(board, this)));
+        drawControls = new DrawPanel(board, this, this::refreshWorkspaceHeaders);
+        JComponent rail = scroll(fillViewport(drawControls));
         rail.setPreferredSize(SIDE_RAIL_SIZE);
         return SplitPaneStyler.styledHorizontalSplit(drawBoardSlot, rail, 0.68);
     }
@@ -1690,20 +2347,16 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         if (!primary) {
             consoles.add(target);
         }
-        JLabel state = primary ? commandStateLabel : new JLabel("Idle");
         JPanel panel = new SurfacePanel(new BorderLayout(6, 6));
-        JPanel top = transparentPanel(new BorderLayout());
-        top.add(Theme.section("Console"), BorderLayout.WEST);
-        Theme.foreground(state, Theme.ForegroundRole.MUTED);
-        state.setFont(Theme.font(12, Font.PLAIN));
-        state.setBorder(Theme.pad(0, Theme.SPACE_SM));
-        top.add(state, BorderLayout.CENTER);
-        top.add(controlRow(FlowLayout.RIGHT,
+        WorkspaceHeader header = new WorkspaceHeader("Console",
+                "Command output · " + commandStateLabel.getText(),
+                controlRow(FlowLayout.RIGHT,
                 button("Open Logs", false, event -> showLogsDock()),
                 button("Save Log", false, event -> saveConsoleLog(target)),
                 new HoldButton("Clear", target::clearOutput, true),
-                new HoldButton("Stop", this::stopCommand, true)), BorderLayout.EAST);
-        panel.add(top, BorderLayout.NORTH);
+                new HoldButton("Stop", this::stopCommand, true)));
+        consoleHeaders.add(header);
+        panel.add(header, BorderLayout.NORTH);
         target.setPlaceholder("Run a command to see its output here.");
         // The shared console is constructed eagerly (a WindowBase field) before
         // the theme is applied; a duplicate is built fresh. Either way, apply the
@@ -1759,36 +2412,6 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
             logPanel = panel;
         }
         return panel;
-    }
-
-    /**
-     * The generated-command preview band. Caps its own height to its content so
-     * the surrounding {@code BoxLayout} cannot stretch it into a tall empty
-     * band; the command field caps at five rows and scrolls vertically beyond.
-     */
-    private static final class PreviewBand extends JPanel {
-
-        /**
-         * Serialization identifier for Swing panel compatibility.
-         */
-        private static final long serialVersionUID = 1L;
-
-        /**
-         * Creates the preview band.
-         */
-        PreviewBand() {
-            super(new BorderLayout(8, 4));
-        }
-
-        /**
-         * Bounds the band's height to its preferred content height.
-         *
-         * @return maximum size hugging the content height
-         */
-        @Override
-        public Dimension getMaximumSize() {
-            return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
-        }
     }
 
 }

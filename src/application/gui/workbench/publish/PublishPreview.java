@@ -41,6 +41,26 @@ public final class PublishPreview extends JComponent {
     private static final int MAX_PAGES = 999;
 
     /**
+     * Baseline preview viewport width.
+     */
+    private static final int BASE_WIDTH = 360;
+
+    /**
+     * Baseline preview viewport height.
+     */
+    private static final int BASE_HEIGHT = 500;
+
+    /**
+     * Minimum preview zoom.
+     */
+    private static final double MIN_ZOOM = 0.65d;
+
+    /**
+     * Maximum preview zoom.
+     */
+    private static final double MAX_ZOOM = 2.25d;
+
+    /**
      * Printed-paper preview fill.
      */
     private static final Color PAPER = new Color(0xFCFCFC);
@@ -101,13 +121,17 @@ public final class PublishPreview extends JComponent {
     private int page = 1;
 
     /**
+     * Preview zoom relative to the baseline component size.
+     */
+    private double zoom = 1.0d;
+
+    /**
      * Creates the preview component.
      */
     public PublishPreview() {
         setOpaque(true);
         setBackground(Theme.ELEVATED_SOLID);
         setForeground(Theme.TEXT);
-        setPreferredSize(new Dimension(320, 420));
         setMinimumSize(new Dimension(260, 320));
         setToolTipText("Publishing PDF preview");
     }
@@ -159,6 +183,45 @@ public final class PublishPreview extends JComponent {
      */
     public int pageNumber() {
         return page;
+    }
+
+    /**
+     * Sets preview zoom.
+     *
+     * @param value requested zoom
+     */
+    public void setZoom(double value) {
+        zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, value));
+        revalidate();
+        repaint();
+    }
+
+    /**
+     * Returns current preview zoom.
+     *
+     * @return zoom multiplier
+     */
+    public double zoom() {
+        return zoom;
+    }
+
+    /**
+     * Resets the preview to the fit-page baseline.
+     */
+    public void fitPage() {
+        setZoom(1.0d);
+    }
+
+    /**
+     * Returns preferred preview size for the current zoom.
+     *
+     * @return preferred size
+     */
+    @Override
+    public Dimension getPreferredSize() {
+        return new Dimension(
+                Math.max(260, (int) Math.round(BASE_WIDTH * zoom)),
+                Math.max(320, (int) Math.round(BASE_HEIGHT * zoom)));
     }
 
     /**

@@ -57,17 +57,32 @@ public final class AnalysisGraph extends JComponent {
     /**
      * Internal padding.
      */
-    private static final int PAD = 14;
+    private static final int PAD = 16;
 
     /**
      * Header height.
      */
-    private static final int HEADER_H = 62;
+    private static final int HEADER_H = 72;
 
     /**
      * Gap between chart bands.
      */
     private static final int BAND_GAP = 8;
+
+    /**
+     * Header lane reserved inside each chart band for labels.
+     */
+    private static final int BAND_LABEL_H = 20;
+
+    /**
+     * Horizontal inset for bounded plot data.
+     */
+    private static final int PLOT_INSET_X = 8;
+
+    /**
+     * Bottom inset for bounded plot data.
+     */
+    private static final int PLOT_BOTTOM_INSET = 5;
 
     /**
      * Printable graph snapshot width.
@@ -121,8 +136,8 @@ public final class AnalysisGraph extends JComponent {
         setOpaque(true);
         setBackground(Theme.ELEVATED_SOLID);
         setForeground(Theme.TEXT);
-        setPreferredSize(new Dimension(420, 360));
-        setMinimumSize(new Dimension(320, 260));
+        setPreferredSize(new Dimension(420, 420));
+        setMinimumSize(new Dimension(320, 300));
         setToolTipText("Live engine analysis data");
     }
 
@@ -135,6 +150,7 @@ public final class AnalysisGraph extends JComponent {
         samples.clear();
         position = fen == null ? "" : fen;
         resetCarriedValues();
+        firePropertyChange("analysisSamples", null, Integer.valueOf(samples.size()));
         repaint();
     }
 
@@ -144,6 +160,7 @@ public final class AnalysisGraph extends JComponent {
     public void clearSamples() {
         samples.clear();
         resetCarriedValues();
+        firePropertyChange("analysisSamples", null, Integer.valueOf(samples.size()));
         repaint();
     }
 
@@ -166,6 +183,7 @@ public final class AnalysisGraph extends JComponent {
         while (samples.size() > MAX_SAMPLES) {
             samples.remove(0);
         }
+        firePropertyChange("analysisSamples", null, Integer.valueOf(samples.size()));
         repaint();
     }
 
@@ -197,6 +215,39 @@ public final class AnalysisGraph extends JComponent {
      */
     public boolean hasSamples() {
         return !samples.isEmpty();
+    }
+
+    /**
+     * Returns a UI-friendly summary of the latest analysis sample.
+     *
+     * @return latest summary with dash placeholders when no samples exist
+     */
+    public LatestSummary latestSummaryValues() {
+        if (samples.isEmpty()) {
+            return new LatestSummary("-", "-", "-", "-", "-", "0");
+        }
+        Sample latest = latest();
+        return new LatestSummary(
+                formatEval(latest),
+                moveLabel(latest.bestMove()).isBlank() ? "-" : moveLabel(latest.bestMove()),
+                Integer.toString(latest.depth()),
+                formatCount(latest.nodes()),
+                formatCount(latest.nps()),
+                Integer.toString(samples.size()));
+    }
+
+    /**
+     * Summary values shown outside the graph in the Board / Analyze inspector.
+     *
+     * @param eval latest white-relative evaluation
+     * @param bestMove latest best move, if available
+     * @param depth latest search depth
+     * @param nodes latest node count
+     * @param nps latest nodes per second
+     * @param samples retained sample count
+     */
+    public record LatestSummary(String eval, String bestMove, String depth, String nodes,
+            String nps, String samples) {
     }
 
     /**
@@ -381,7 +432,7 @@ public final class AnalysisGraph extends JComponent {
         int h = Math.max(0, height - y - PAD);
         paintGrid(g, x, y, w, h, 3);
         Ui.paintEmptyState(g, new java.awt.Rectangle(x, y, w, h),
-                "No analysis yet", "Run an analysis to chart evaluation over time.");
+                "No analysis yet", "Run Analyze or Search to see evaluation history, depth, and candidate moves.");
     }
 
     /**
@@ -427,25 +478,29 @@ public final class AnalysisGraph extends JComponent {
     private void paintEvalBand(Graphics2D g, int x, int y, int w, int h) {
         paintGrid(g, x, y, w, h, 4);
         paintBandLabel(g, "Evaluation", x, y);
+        int plotX = x + PLOT_INSET_X;
+        int plotY = y + BAND_LABEL_H;
+        int plotW = Math.max(1, w - PLOT_INSET_X * 2);
+        int plotH = Math.max(1, h - BAND_LABEL_H - PLOT_BOTTOM_INSET);
         int range = evalRange();
-        int zeroY = evalY(y, h, 0, range);
+        int zeroY = evalY(plotY, plotH, 0, range);
         g.setColor(zeroColor());
-        g.drawLine(x, zeroY, x + w, zeroY);
+        g.drawLine(plotX, zeroY, plotX + plotW, zeroY);
         paintAxisLabel(g, formatEvalCp(range), x + w - 8, y + 14, SwingConstants.RIGHT);
         paintAxisLabel(g, "0.00", x + w - 8, zeroY - 3, SwingConstants.RIGHT);
-        paintAxisLabel(g, formatEvalCp(-range), x + w - 8, y + h - 4, SwingConstants.RIGHT);
+        paintAxisLabel(g, formatEvalCp(-range), x + w - 8, plotY + plotH - 4, SwingConstants.RIGHT);
 
         if (samples.size() < 2) {
-            paintPoint(g, x + w, evalY(y, h, latest().evalCp(), range), evalLineColor());
-            paintValueLabel(g, formatEval(latest()), x + w - 8, y + 28);
+            paintPoint(g, plotX + plotW, evalY(plotY, plotH, latest().evalCp(), range), evalLineColor());
+            paintValueLabel(g, formatEval(latest()), x + w - 8, y + 28, Math.max(40, w - 16));
             return;
         }
         Path2D.Double line = new Path2D.Double();
         Path2D.Double fill = new Path2D.Double();
         for (int i = 0; i < samples.size(); i++) {
             Sample sample = samples.get(i);
-            double px = sampleX(x, w, i);
-            double py = evalY(y, h, sample.evalCp(), range);
+            double px = sampleX(plotX, plotW, i);
+            double py = evalY(plotY, plotH, sample.evalCp(), range);
             if (i == 0) {
                 line.moveTo(px, py);
                 fill.moveTo(px, zeroY);
@@ -455,16 +510,21 @@ public final class AnalysisGraph extends JComponent {
                 fill.lineTo(px, py);
             }
         }
-        fill.lineTo(sampleX(x, w, samples.size() - 1), zeroY);
+        fill.lineTo(sampleX(plotX, plotW, samples.size() - 1), zeroY);
         fill.closePath();
 
-        g.setColor(evalFillColor());
-        g.fill(fill);
-        g.setStroke(new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.setColor(evalLineColor());
-        g.draw(line);
-        paintPoint(g, x + w, evalY(y, h, latest().evalCp(), range), evalLineColor());
-        paintValueLabel(g, formatEval(latest()), x + w - 8, y + 28);
+        Graphics2D plot = clippedPlot(g, plotX, plotY, plotW, plotH);
+        try {
+            plot.setColor(evalFillColor());
+            plot.fill(fill);
+            plot.setStroke(new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            plot.setColor(evalLineColor());
+            plot.draw(line);
+            paintPoint(plot, plotX + plotW, evalY(plotY, plotH, latest().evalCp(), range), evalLineColor());
+        } finally {
+            plot.dispose();
+        }
+        paintValueLabel(g, formatEval(latest()), x + w - 8, y + 28, Math.max(40, w - 16));
     }
 
     /**
@@ -479,17 +539,28 @@ public final class AnalysisGraph extends JComponent {
     private void paintDepthBand(Graphics2D g, int x, int y, int w, int h) {
         paintGrid(g, x, y, w, h, 2);
         paintBandLabel(g, "Depth", x, y);
+        int plotX = x + PLOT_INSET_X;
+        int plotY = y + BAND_LABEL_H;
+        int plotW = Math.max(1, w - PLOT_INSET_X * 2);
+        int plotH = Math.max(1, h - BAND_LABEL_H - PLOT_BOTTOM_INSET);
         int maxDepth = Math.max(1, samples.stream().mapToInt(Sample::depth).max().orElse(1));
-        double barW = Math.max(2.0, w / (double) Math.max(1, samples.size()));
+        double slotW = plotW / (double) Math.max(1, samples.size());
 
-        g.setColor(depthBarColor());
-        for (int i = 0; i < samples.size(); i++) {
-            Sample sample = samples.get(i);
-            int barH = (int) Math.round((sample.depth() / (double) maxDepth) * Math.max(1, h - 8));
-            int bx = (int) Math.round(sampleX(x, w, i) - barW / 2.0);
-            g.fillRoundRect(bx, y + h - barH, Math.max(1, (int) Math.round(barW - 1)), barH, 3, 3);
+        Graphics2D plot = clippedPlot(g, plotX, plotY, plotW, plotH);
+        try {
+            plot.setColor(depthBarColor());
+            for (int i = 0; i < samples.size(); i++) {
+                Sample sample = samples.get(i);
+                int barH = (int) Math.round((sample.depth() / (double) maxDepth) * plotH);
+                int bx = (int) Math.round(plotX + i * slotW);
+                int nextX = (int) Math.round(plotX + (i + 1) * slotW);
+                int bw = Math.max(1, nextX - bx - 1);
+                plot.fillRoundRect(bx, plotY + plotH - barH, bw, barH, 3, 3);
+            }
+        } finally {
+            plot.dispose();
         }
-        paintValueLabel(g, latest().depth() + " / " + maxDepth, x + w - 8, y + 14);
+        paintValueLabel(g, latest().depth() + " / " + maxDepth, x + w - 8, y + 14, Math.max(40, w - 96));
     }
 
     /**
@@ -504,37 +575,66 @@ public final class AnalysisGraph extends JComponent {
     private void paintSpeedBand(Graphics2D g, int x, int y, int w, int h) {
         paintGrid(g, x, y, w, h, 2);
         paintBandLabel(g, "Nodes / NPS", x, y);
+        int plotX = x + PLOT_INSET_X;
+        int plotY = y + BAND_LABEL_H;
+        int plotW = Math.max(1, w - PLOT_INSET_X * 2);
+        int plotH = Math.max(1, h - BAND_LABEL_H - PLOT_BOTTOM_INSET);
         long maxNodes = Math.max(1L, samples.stream().mapToLong(Sample::nodes).max().orElse(1L));
         long maxNps = Math.max(1L, samples.stream().mapToLong(Sample::nps).max().orElse(1L));
-        double barW = Math.max(2.0, w / (double) Math.max(1, samples.size()));
+        double slotW = plotW / (double) Math.max(1, samples.size());
 
-        g.setColor(nodeBarColor());
-        for (int i = 0; i < samples.size(); i++) {
-            Sample sample = samples.get(i);
-            int barH = (int) Math.round((sample.nodes() / (double) maxNodes) * Math.max(1, h - 8));
-            int bx = (int) Math.round(sampleX(x, w, i) - barW / 2.0);
-            g.fillRoundRect(bx, y + h - barH, Math.max(1, (int) Math.round(barW - 1)), barH, 3, 3);
-        }
-
-        if (samples.size() >= 2) {
-            Path2D.Double nps = new Path2D.Double();
+        Graphics2D plot = clippedPlot(g, plotX, plotY, plotW, plotH);
+        try {
+            plot.setColor(nodeBarColor());
             for (int i = 0; i < samples.size(); i++) {
-                double px = sampleX(x, w, i);
-                double py = y + h - (samples.get(i).nps() / (double) maxNps) * Math.max(1, h - 8);
-                if (i == 0) {
-                    nps.moveTo(px, py);
-                } else {
-                    nps.lineTo(px, py);
-                }
+                Sample sample = samples.get(i);
+                int barH = (int) Math.round((sample.nodes() / (double) maxNodes) * plotH);
+                int bx = (int) Math.round(plotX + i * slotW);
+                int nextX = (int) Math.round(plotX + (i + 1) * slotW);
+                int bw = Math.max(1, nextX - bx - 1);
+                plot.fillRoundRect(bx, plotY + plotH - barH, bw, barH, 3, 3);
             }
-            g.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-            g.setColor(npsLineColor());
-            g.draw(nps);
-            int pointY = y + h - (int) Math.round((latest().nps() / (double) maxNps) * Math.max(1, h - 8));
-            paintPoint(g, x + w, Math.max(y + 4, Math.min(y + h - 4, pointY)), npsLineColor());
+
+            if (samples.size() >= 2) {
+                Path2D.Double nps = new Path2D.Double();
+                for (int i = 0; i < samples.size(); i++) {
+                    double px = sampleX(plotX, plotW, i);
+                    double py = plotY + plotH - (samples.get(i).nps() / (double) maxNps) * plotH;
+                    if (i == 0) {
+                        nps.moveTo(px, py);
+                    } else {
+                        nps.lineTo(px, py);
+                    }
+                }
+                plot.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                plot.setColor(npsLineColor());
+                plot.draw(nps);
+                int pointY = plotY + plotH
+                        - (int) Math.round((latest().nps() / (double) maxNps) * plotH);
+                paintPoint(plot, plotX + plotW, Math.max(plotY + 4, Math.min(plotY + plotH - 4, pointY)),
+                        npsLineColor());
+            }
+        } finally {
+            plot.dispose();
         }
         paintValueLabel(g, formatCount(latest().nodes()) + " / " + formatCount(latest().nps()) + " nps",
-                x + w - 8, y + 14);
+                x + w - 8, y + 14, Math.max(44, w - 108));
+    }
+
+    /**
+     * Creates a clipped graphics copy for data inside a chart plot.
+     *
+     * @param g source graphics
+     * @param x plot x
+     * @param y plot y
+     * @param w plot width
+     * @param h plot height
+     * @return clipped graphics
+     */
+    private static Graphics2D clippedPlot(Graphics2D g, int x, int y, int w, int h) {
+        Graphics2D plot = (Graphics2D) g.create();
+        plot.clipRect(x, y, Math.max(1, w), Math.max(1, h));
+        return plot;
     }
 
     /**
@@ -632,21 +732,24 @@ public final class AnalysisGraph extends JComponent {
      * @param y y
      */
     private static void paintBandLabel(Graphics2D g, String label, int x, int y) {
-        g.setFont(Theme.font(10, Font.BOLD));
+        g.setFont(Theme.font(11, Font.BOLD));
         g.setColor(Theme.MUTED);
         g.drawString(label, x + 8, y + 14);
     }
 
     /**
-     * Paints a right-aligned value label.
+     * Paints a right-aligned value label constrained to available width.
      *
      * @param g graphics
      * @param label label
      * @param x right x
      * @param y baseline y
+     * @param maxWidth maximum text width
      */
-    private static void paintValueLabel(Graphics2D g, String label, int x, int y) {
-        paintAxisLabel(g, label, x, y, SwingConstants.RIGHT);
+    private static void paintValueLabel(Graphics2D g, String label, int x, int y, int maxWidth) {
+        g.setFont(Theme.mono(11));
+        String fitted = Ui.elide(label, g.getFontMetrics(), Math.max(12, maxWidth));
+        paintAxisLabel(g, fitted, x, y, SwingConstants.RIGHT);
     }
 
     /**
@@ -659,7 +762,7 @@ public final class AnalysisGraph extends JComponent {
      * @param alignment Swing alignment
      */
     private static void paintAxisLabel(Graphics2D g, String label, int x, int y, int alignment) {
-        g.setFont(Theme.mono(10));
+        g.setFont(Theme.mono(11));
         g.setColor(Theme.MUTED);
         int drawX = alignment == SwingConstants.RIGHT ? x - g.getFontMetrics().stringWidth(label) : x;
         g.drawString(label, drawX, y);

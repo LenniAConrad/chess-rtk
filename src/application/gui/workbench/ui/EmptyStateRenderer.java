@@ -1,20 +1,12 @@
 package application.gui.workbench.ui;
 
-import java.awt.Component;
-import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
 
 /**
  * Builds and paints shared Workbench empty-state treatments.
@@ -37,35 +29,7 @@ final class EmptyStateRenderer {
      * @return centered empty-state component
      */
     static JComponent component(String title, String hint, JButton... actions) {
-        JPanel stack = Ui.transparentPanel(null);
-        stack.setLayout(new BoxLayout(stack, BoxLayout.Y_AXIS));
-        JLabel titleLabel = new JLabel(title == null ? "" : title);
-        Theme.foreground(titleLabel, Theme.ForegroundRole.TEXT);
-        titleLabel.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
-        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        stack.add(titleLabel);
-        if (hint != null && !hint.isBlank()) {
-            stack.add(Box.createVerticalStrut(Theme.SPACE_XS));
-            JLabel hintLabel = new JLabel(hint);
-            Theme.foreground(hintLabel, Theme.ForegroundRole.MUTED);
-            hintLabel.setFont(Theme.font(Theme.FONT_CAPTION, Font.PLAIN));
-            hintLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-            stack.add(hintLabel);
-        }
-        if (actions != null && actions.length > 0) {
-            stack.add(Box.createVerticalStrut(Theme.SPACE_MD));
-            JPanel row = Ui.transparentPanel(new FlowLayout(FlowLayout.CENTER, Theme.SPACE_SM, 0));
-            for (JButton action : actions) {
-                if (action != null) {
-                    row.add(action);
-                }
-            }
-            row.setAlignmentX(Component.CENTER_ALIGNMENT);
-            stack.add(row);
-        }
-        JPanel center = Ui.transparentPanel(new GridBagLayout());
-        center.add(stack, new GridBagConstraints());
-        return center;
+        return new EmptyState(title, hint, actions);
     }
 
     /**
@@ -85,8 +49,8 @@ final class EmptyStateRenderer {
             scratch.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
                     RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             String titleText = title == null ? "" : title;
-            Font titleFont = Theme.font(Theme.FONT_BODY, Font.BOLD);
-            Font hintFont = Theme.font(Theme.FONT_CAPTION, Font.PLAIN);
+            Font titleFont = Theme.font(Theme.FONT_SECTION_TITLE, Font.BOLD);
+            Font hintFont = Theme.font(Theme.FONT_METADATA, Font.PLAIN);
             FontMetrics titleMetrics = scratch.getFontMetrics(titleFont);
             FontMetrics hintMetrics = scratch.getFontMetrics(hintFont);
             boolean hasHint = hint != null && !hint.isBlank();

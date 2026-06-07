@@ -46,7 +46,7 @@ final class ControlStyler {
         combo.setUI(new StyledComboBoxUI());
         combo.setOpaque(false);
         applyComboState(combo);
-        combo.setFont(Theme.font(13, Font.PLAIN));
+        combo.setFont(Theme.font(Theme.FONT_CONTROL, Font.PLAIN));
         combo.setBorder(InputChrome.compactBorder(false, false));
         InputChrome.install(combo, true);
         combo.setMaximumRowCount(12);
@@ -102,7 +102,7 @@ final class ControlStyler {
         spinner.setOpaque(false);
         spinner.setBackground(Theme.INPUT);
         spinner.setForeground(Theme.TEXT);
-        spinner.setFont(Theme.font(13, Font.PLAIN));
+        spinner.setFont(Theme.font(Theme.FONT_CONTROL, Font.PLAIN));
         spinner.setBorder(InputChrome.compactBorder(false, false));
         InputChrome.install(spinner, true);
         if (spinner.getEditor() instanceof JSpinner.DefaultEditor editor) {
@@ -146,7 +146,7 @@ final class ControlStyler {
         field.setSelectionColor(Theme.TEXT_SELECTION);
         field.setSelectedTextColor(Theme.TEXT);
         field.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 6));
-        field.setFont(Theme.font(13, Font.PLAIN));
+        field.setFont(Theme.font(Theme.FONT_CONTROL, Font.PLAIN));
         field.setHorizontalAlignment(SwingConstants.RIGHT);
         field.setMinimumSize(new Dimension(32, Theme.CONTROL_HEIGHT - 2));
         if (field.getFormatter() instanceof NumberFormatter formatter) {
@@ -233,7 +233,7 @@ final class ControlStyler {
         }
         box.setOpaque(false);
         box.setForeground(Theme.TEXT);
-        box.setFont(Theme.font(12, Font.PLAIN));
+        box.setFont(Theme.font(Theme.FONT_DENSE_TABLE, Font.PLAIN));
         box.setFocusPainted(false);
         box.setRolloverEnabled(true);
         box.setIcon(CheckBoxGlyph.INSTANCE);

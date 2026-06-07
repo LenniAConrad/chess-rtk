@@ -15,7 +15,7 @@ import javax.swing.JPanel;
  * suits grouped content that simply wants the shared card surface — chart
  * panels, setup forms, summaries — in either theme.
  */
-final class Card extends JComponent {
+public final class Card extends JComponent {
 
     /**
      * Serialization identifier for Swing component compatibility.
@@ -28,13 +28,23 @@ final class Card extends JComponent {
     private static final int ARC = Theme.RADIUS + 1;
 
     /**
+     * Creates a card without a trailing header component.
+     *
+     * @param title header text, or {@code null} for a headerless card
+     * @param body card body component
+     */
+    public Card(String title, JComponent body) {
+        this(title, null, body);
+    }
+
+    /**
      * Creates a card.
      *
      * @param title header text, or {@code null} for a headerless card
      * @param trailing optional right-aligned header component, or {@code null}
      * @param body card body component
      */
-    Card(String title, JComponent trailing, JComponent body) {
+    public Card(String title, JComponent trailing, JComponent body) {
         setOpaque(false);
         setLayout(new BorderLayout(0, Theme.SPACE_SM));
         setBorder(Theme.pad(Theme.SPACE_MD));

@@ -1,26 +1,31 @@
 package application.gui.workbench.dashboard;
 
+import application.Config;
+import application.gui.workbench.network.NetworkPanel;
+import application.gui.workbench.network.RealActivations;
 import application.gui.workbench.session.HealthSnapshot;
 import application.gui.workbench.session.Job;
 import application.gui.workbench.session.JobTableModel;
 import application.gui.workbench.session.Session;
 import application.gui.workbench.session.SessionListener;
-import application.gui.workbench.network.NetworkDiagnosticsPanel;
-import application.gui.workbench.network.NetworkPanel;
-import application.gui.workbench.network.RealActivations;
 import application.gui.workbench.ui.CardGrid;
+import application.gui.workbench.ui.CommandBlock;
+import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
+import application.gui.workbench.ui.WorkspaceHeader;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
-import java.awt.GridLayout;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
@@ -34,14 +39,9 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
 /**
- * The workbench Dashboard tab — a single operational overview of the current
- * position, engine status, recent command jobs, and environment health, with
- * quick actions that route into the deeper workbench tabs.
- *
- * <p>The panel renders entirely from the shared {@link Session} model
- * (plus its {@link JobManager} and {@link ArtifactIndex}); it
- * never scrapes Swing components or console text. Quick-action buttons delegate
- * to the host window through {@link DashboardActions}.</p>
+ * Dashboard command center for the Workbench. The panel renders from the shared
+ * {@link Session} plus lightweight runtime diagnostics, then routes all actions
+ * back through {@link DashboardActions}.
  */
 public final class DashboardPanel extends JPanel implements SessionListener {
 
@@ -61,24 +61,39 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     private final transient DashboardActions actions;
 
     /**
-     * Current-position card: compact FEN.
+     * Shared workspace header for the dashboard surface.
      */
-    private final JLabel fenValue = value();
+    private final WorkspaceHeader workspaceHeader = new WorkspaceHeader("Dashboard", "", null);
+
+    /**
+     * Current-position card: readable FEN preview.
+     */
+    private final CommandBlock fenValue = Ui.commandBlock("");
 
     /**
      * Current-position card: side to move.
      */
-    private final JLabel sideValue = value();
+    private final JLabel sideValue = metricValue();
 
     /**
      * Current-position card: ply counter.
      */
-    private final JLabel plyValue = value();
+    private final JLabel plyValue = metricValue();
 
     /**
      * Current-position card: legal-move count.
      */
-    private final JLabel legalValue = value();
+    private final JLabel legalValue = metricValue();
+
+    /**
+     * Current-position card: material summary.
+     */
+    private final JLabel materialValue = metricValue();
+
+    /**
+     * Engine card: overall status.
+     */
+    private final StatusBadge engineBadge = new StatusBadge();
 
     /**
      * Engine card: protocol path.
@@ -98,17 +113,32 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     /**
      * Health card: config-validation state.
      */
-    private final JLabel healthConfigValue = value();
+    private final StatusBadge configBadge = new StatusBadge();
 
     /**
      * Health card: doctor state.
      */
-    private final JLabel healthDoctorValue = value();
+    private final StatusBadge doctorBadge = new StatusBadge();
 
     /**
-     * Health card: engine-smoke state.
+     * Health card: engine smoke-test state.
      */
-    private final JLabel healthSmokeValue = value();
+    private final StatusBadge smokeBadge = new StatusBadge();
+
+    /**
+     * Runtime model rows.
+     */
+    private final JPanel modelRows = rowsPanel();
+
+    /**
+     * Activation/cache rows.
+     */
+    private final JPanel cacheRows = rowsPanel();
+
+    /**
+     * Warning/setup issue rows.
+     */
+    private final JPanel warningRows = rowsPanel();
 
     /**
      * Recent-jobs table model.
@@ -123,15 +153,10 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     /**
      * Recent-jobs state hint above the table.
      */
-    private final JLabel jobsCaption = caption("Newest first · select a row for actions");
+    private final JLabel jobsCaption = caption("Newest first - select a row for actions");
 
     /**
-     * Recent-jobs scroll pane, hidden while there are no jobs.
-     */
-    private JScrollPane jobScrollPane;
-
-    /**
-     * Card container swapping the jobs list with a centered empty-state.
+     * Card container swapping the jobs list with an empty state.
      */
     private final JPanel jobsBody = new JPanel(new java.awt.CardLayout());
 
@@ -146,20 +171,9 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     private List<JButton> jobActionButtons = List.of();
 
     /**
-     * Lightweight provider used only for runtime diagnostic previews.
+     * Lightweight provider used only for runtime model-status previews.
      */
-    private final RealActivations networkDiagnosticsProvider = new RealActivations();
-
-    /**
-     * Dashboard-hosted network runtime diagnostics.
-     */
-    private final NetworkDiagnosticsPanel networkDiagnosticsPanel =
-            new NetworkDiagnosticsPanel(false);
-
-    /**
-     * Outputs card body — rebuilt whenever the artifact index changes.
-     */
-    private final JPanel artifactList = new JPanel();
+    private final RealActivations runtimeProvider = new RealActivations();
 
     /**
      * Creates the dashboard panel.
@@ -177,53 +191,39 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         setOpaque(true);
         setBackground(Theme.PANEL_SOLID);
 
-        // The compact status cards flow through a responsive masonry so the
-        // dashboard uses the full desktop canvas instead of a narrow centred
-        // ribbon: it packs into as many columns as the window allows, drops
-        // each card into the shortest column, and reflows on resize. The wide
-        // data panels (network runtime, recent jobs) fill the room below it.
-        CardGrid statusGrid = Ui.contentGrid(340);
-        statusGrid.add(buildPositionCard());
-        statusGrid.add(buildEngineCard());
-        statusGrid.add(buildHealthCard());
+        CardGrid summaryGrid = Ui.contentGrid(300);
+        summaryGrid.add(buildPositionCard());
+        summaryGrid.add(buildEngineCard());
+        summaryGrid.add(buildHealthCard());
 
-        JPanel grid = Ui.transparentPanel(new GridBagLayout());
-        grid.setBorder(Theme.pad(Theme.SPACE_MD));
+        CardGrid lowerGrid = Ui.contentGrid(420);
+        lowerGrid.add(buildQuickActionsCard());
+        lowerGrid.add(buildRuntimeModelsCard());
+        lowerGrid.add(buildCacheActivationCard());
+        lowerGrid.add(buildJobsCard());
+        lowerGrid.add(buildWarningsCard());
+
+        JPanel content = Ui.transparentPanel(new GridBagLayout());
+        content.setBorder(Theme.pad(Theme.SPACE_MD));
         GridBagConstraints c = new GridBagConstraints();
         c.gridx = 0;
         c.weightx = 1.0;
         c.fill = GridBagConstraints.HORIZONTAL;
         c.anchor = GridBagConstraints.NORTH;
         c.insets = new Insets(Theme.SPACE_XS, Theme.SPACE_XS,
-                Theme.SPACE_XS, Theme.SPACE_XS);
+                Theme.SPACE_SM, Theme.SPACE_XS);
 
-        // Status cards pack across the top at their natural height.
         c.gridy = 0;
-        grid.add(statusGrid, c);
+        content.add(summaryGrid, c);
 
-        // The two wide data panels stretch to fill the remaining canvas so the
-        // dashboard never bottoms out into a dead void — the same full-height
-        // body the Network and Datasets tabs use. GridLayout forces both cards
-        // to the cell height; their scroll / empty-state bodies grow gracefully.
-        JPanel dataRow = Ui.transparentPanel(new GridLayout(1, 2, Theme.SPACE_MD, 0));
-        dataRow.add(buildNetworkRuntimeCard());
-        dataRow.add(buildJobsCard());
         c.gridy = 1;
         c.weighty = 1.0;
-        c.fill = GridBagConstraints.BOTH;
-        grid.add(dataRow, c);
+        content.add(lowerGrid, c);
 
-        // A top toolbar band leads with the primary action and a hairline
-        // divider, the same chrome the Network and Datasets tabs open with so
-        // the operational tabs read as one design system.
         add(buildToolbarBand(), BorderLayout.NORTH);
-        // Keep the page body on the editor surface; only the actual cards should
-        // introduce a brighter grouped panel.
-        add(Ui.scroll(Ui.fillViewport(grid), () -> Theme.PANEL_SOLID), BorderLayout.CENTER);
+        add(Ui.scroll(Ui.fillViewport(content), () -> Theme.PANEL_SOLID), BorderLayout.CENTER);
 
         session.addListener(this);
-        session.artifacts().addListener(() -> SwingUtilities.invokeLater(this::refreshArtifacts));
-        refreshArtifacts();
         render();
     }
 
@@ -232,52 +232,45 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     // ------------------------------------------------------------------
 
     /**
-     * Builds the top toolbar band: a {@code PANEL_SOLID} strip closed by a
-     * hairline divider, carrying the dashboard's quick actions. This mirrors the
-     * toolbar the Network and Datasets tabs lead with so the operational tabs
-     * share one chrome instead of the dashboard alone opening with a card.
+     * Builds the workspace-header band.
      *
      * @return toolbar band component
      */
     private JComponent buildToolbarBand() {
-        // A titled lead band states what the surface is up front, then carries
-        // its quick actions on the right — the same identity band the other
-        // overview surfaces (Datasets, Publish) lead with so they read as a set.
-        // The primary "Analyze position" CTA stays blue; the rest are quiet.
-        return Ui.surfaceHeader("Dashboard",
-                "Snapshot of the loaded position, engine status, and recent activity",
-                actionRow(
-                        Ui.button("Analyze position", true, event -> actions.openAnalyzeTab()),
-                        quickButton("Open Batch", actions::openBatchTab),
-                        quickButton("Open Console", actions::openConsoleTab),
-                        quickButton("Run all checks", actions::runAllHealthChecks)));
+        workspaceHeader.setActions(null);
+        return workspaceHeader;
     }
 
     /**
-     * Builds the current-position summary card.
+     * Builds the current-position card.
      *
      * @return position card
      */
     private JComponent buildPositionCard() {
+        fenValue.setRows(3);
+        fenValue.setMinimumSize(new Dimension(0, 70));
+        fenValue.setMaximumSize(new Dimension(Integer.MAX_VALUE, 76));
+        fenValue.setAlignmentX(Component.LEFT_ALIGNMENT);
+
         JPanel body = cardBody();
-        // Just the facts that matter at a glance: the current position and its
-        // legal-move count, with the actions that act on it. Material, phase,
-        // king-safety and the full tag cloud are position-analysis detail that
-        // belongs in the Analyze tab, not decorating the operations dashboard.
-        body.add(infoRow("FEN", fenValue));
-        body.add(infoRow("Side to move", sideValue));
-        body.add(infoRow("Ply", plyValue));
-        body.add(infoRow("Legal moves", legalValue));
+        body.add(fenValue);
+        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        body.add(metricGrid(
+                metric("Side", sideValue),
+                metric("Ply", plyValue),
+                metric("Legal", legalValue),
+                metric("Material", materialValue)));
         body.add(Box.createVerticalStrut(Theme.SPACE_SM));
         body.add(actionRow(
                 quickButton("Copy FEN", actions::copyCurrentFen),
                 quickButton("Analyze", actions::analyze),
-                quickButton("Search", actions::builtInSearch)));
-        return card("Position", body);
+                quickButton("Search", actions::builtInSearch),
+                quickButton("Open Board", actions::openAnalyzeTab)));
+        return card("Current Position", body);
     }
 
     /**
-     * Builds the Engine card.
+     * Builds the Engine Status card.
      *
      * @return card component
      */
@@ -287,48 +280,68 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         body.add(infoRow("Mode", engineModeValue));
         body.add(infoRow("Latest", engineSummaryValue));
         body.add(Box.createVerticalStrut(Theme.SPACE_SM));
-        body.add(actionRow(
-                quickButton("Smoke test", actions::engineSmoke)));
-        return card("Engine", body);
+        body.add(actionRow(quickButton("Smoke test", actions::engineSmoke)));
+        return card("Engine Status", engineBadge, body);
     }
 
     /**
-     * Builds the Health card. Three compact status rows; the "Run all checks"
-     * action lives once in the dashboard toolbar rather than being repeated here.
+     * Builds the Health Checks card.
      *
      * @return card component
      */
     private JComponent buildHealthCard() {
         JPanel body = cardBody();
-        body.add(infoRow("Config validate", healthConfigValue));
-        body.add(infoRow("Doctor", healthDoctorValue));
-        body.add(infoRow("Engine smoke", healthSmokeValue));
-        return card("Health", body);
+        body.add(healthActionRow("Config validate", configBadge,
+                quickButton("Validate", actions::configValidate)));
+        body.add(healthActionRow("Doctor", doctorBadge,
+                quickButton("Run doctor", actions::doctor)));
+        body.add(healthActionRow("Engine smoke", smokeBadge,
+                quickButton("Smoke test", actions::engineSmoke)));
+        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        body.add(actionRow(quickButton("Run all checks", actions::runAllHealthChecks)));
+        return card("Health Checks", body);
     }
 
     /**
-     * Builds the Network Runtime diagnostics card.
+     * Builds the Quick Actions card.
      *
      * @return card component
      */
-    private JComponent buildNetworkRuntimeCard() {
-        // Scroll the runtime panel inside its card so a long models/backends list
-        // is never clipped when the card is short — it scrolls instead. A modest
-        // preferred height keeps the card from demanding the whole window; the
-        // data row stretches it taller and the scroll reveals any overflow.
-        networkDiagnosticsPanel.setOpaque(false);
-        // The scroll sits inside this card, so its viewport must read as CARD,
-        // not the default darker PANEL_SOLID, or the models/backends/cache area
-        // shows as a darker box inside the lighter card.
-        JScrollPane scroll = Ui.scroll(networkDiagnosticsPanel, () -> Theme.CARD);
-        scroll.setPreferredSize(new Dimension(0, 240));
-        JPanel body = Ui.transparentPanel(new BorderLayout());
-        body.add(scroll, BorderLayout.CENTER);
-        return card("Network Runtime", body);
+    private JComponent buildQuickActionsCard() {
+        JPanel body = cardBody();
+        body.add(actionRow(
+                Ui.button("Analyze position", Theme.ButtonVariant.PRIMARY,
+                        event -> actions.openAnalyzeTab()),
+                quickButton("Open Batch", actions::openBatchTab),
+                quickButton("Open Console", actions::openConsoleTab),
+                quickButton("Run all checks", actions::runAllHealthChecks)));
+        return card("Quick Actions", body);
     }
 
     /**
-     * Builds the recent-Jobs card.
+     * Builds the Runtime Models card.
+     *
+     * @return card component
+     */
+    private JComponent buildRuntimeModelsCard() {
+        JPanel body = cardBody();
+        body.add(modelRows);
+        return card("Runtime Models", body);
+    }
+
+    /**
+     * Builds the Cache / Activation card.
+     *
+     * @return card component
+     */
+    private JComponent buildCacheActivationCard() {
+        JPanel body = cardBody();
+        body.add(cacheRows);
+        return card("Cache / Activation", body);
+    }
+
+    /**
+     * Builds the Recent Jobs card.
      *
      * @return card component
      */
@@ -339,8 +352,6 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         jobTable.getTableHeader().setReorderingAllowed(false);
         jobTable.setAutoResizeMode(JTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS);
         Ui.styleComponentTree(jobTable);
-        // Give each column a sensible share so the command and result columns
-        // get the room and status/duration stay compact.
         jobTable.getColumnModel().getColumn(JobTableModel.COL_COMMAND)
                 .setPreferredWidth(320);
         jobTable.getColumnModel().getColumn(JobTableModel.COL_STATUS)
@@ -350,10 +361,8 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         jobTable.getColumnModel().getColumn(JobTableModel.COL_RESULT)
                 .setPreferredWidth(300);
 
-        jobScrollPane = Ui.scroll(jobTable);
-        // Pin only the height; width tracks the full-width card cell so the
-        // command/result columns get the room instead of a fixed 640px box.
-        jobScrollPane.setPreferredSize(new Dimension(0, 168));
+        JScrollPane jobScrollPane = Ui.scroll(jobTable);
+        jobScrollPane.setPreferredSize(new Dimension(0, 156));
 
         JButton retryButton = quickButton("Retry", () -> withSelectedJob(actions::retryJob));
         JButton copyButton = quickButton("Copy command", () -> withSelectedJob(actions::copyJobCommand));
@@ -375,14 +384,25 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         list.add(Box.createVerticalStrut(Theme.SPACE_SM));
         list.add(jobActionRow);
 
-        // Swap to a centered empty-state when there are no runs, so the
-        // full-height jobs card never shows a lonely caption in a tall void.
         jobsBody.setOpaque(false);
         jobsBody.add(list, "list");
-        jobsBody.add(Ui.emptyState("No runs yet",
-                "Run a command from the Commands or Batch tab to populate this list."), "empty");
+        jobsBody.add(Ui.emptyState("No recent jobs",
+                "Analyses, batches, dataset scans, and gauntlets will appear here.",
+                Ui.button("Open Run", Theme.ButtonVariant.PRIMARY, event -> actions.openBatchTab()),
+                quickButton("Run health checks", actions::runAllHealthChecks)), "empty");
         updateJobActionState();
         return card("Recent Jobs", jobsBody);
+    }
+
+    /**
+     * Builds the Warnings / Setup Issues card.
+     *
+     * @return card component
+     */
+    private JComponent buildWarningsCard() {
+        JPanel body = cardBody();
+        body.add(warningRows);
+        return card("Warnings / Setup Issues", body);
     }
 
     // ------------------------------------------------------------------
@@ -399,52 +419,130 @@ public final class DashboardPanel extends JPanel implements SessionListener {
             return;
         }
         String fen = session.fen();
-        fenValue.setText(fen.isEmpty() ? "—" : fen);
+        fenValue.setText(fen.isEmpty() ? "No FEN loaded" : fen);
         fenValue.setToolTipText(fen.isEmpty() ? null : fen);
         sideValue.setText(session.whiteToMove() ? "White" : "Black");
         plyValue.setText(session.ply() + " / " + session.lastPly());
         legalValue.setText(Integer.toString(session.legalMoveCount()));
+        materialValue.setText(materialStatus(session.tags()));
 
         String protocol = session.engineProtocolPath();
-        enginePathValue.setText(protocol.isEmpty() ? "(CLI default)" : protocol);
+        enginePathValue.setText(protocol.isEmpty() ? "(CLI default)" : compactPath(protocol));
         enginePathValue.setToolTipText(protocol.isEmpty() ? null : protocol);
         String engineSummary = session.engineSummary();
         boolean pausedLiveEngine = session.liveEngine() && "paused".equalsIgnoreCase(engineSummary);
         engineModeValue.setText(pausedLiveEngine ? "paused" : session.liveEngine() ? "live" : "offline");
-        engineSummaryValue.setText(pausedLiveEngine || engineSummary.isEmpty() ? "—" : engineSummary);
+        engineSummaryValue.setText(pausedLiveEngine || engineSummary.isEmpty() ? "-" : engineSummary);
         engineSummaryValue.setToolTipText(pausedLiveEngine || engineSummary.isEmpty() ? null : engineSummary);
+        applyEngineBadge(protocol, engineSummary, pausedLiveEngine);
 
         HealthSnapshot health = session.health();
-        applyHealthValue(healthConfigValue, health.config());
-        applyHealthValue(healthDoctorValue, health.doctor());
-        applyHealthValue(healthSmokeValue, health.engineSmoke());
-        networkDiagnosticsPanel.refresh(networkDiagnosticsProvider, "Dashboard",
-                NetworkPanel.runtimeCacheSummary());
+        applyHealthBadge(configBadge, health.config());
+        applyHealthBadge(doctorBadge, health.doctor());
+        applyHealthBadge(smokeBadge, health.engineSmoke());
+        refreshRuntimeSections(health);
+        workspaceHeader.setContext(dashboardContext(health));
     }
 
     /**
-     * Rebuilds the Outputs card body from the artifact index.
+     * Refreshes all runtime-derived card rows.
+     *
+     * @param health latest health snapshot
      */
-    private void refreshArtifacts() {
-        artifactList.removeAll();
-        List<Path> recent = session.artifacts().recent();
-        if (recent.isEmpty()) {
-            JLabel empty = value();
-            empty.setText("No artifacts yet. Run a command and exported files will appear here.");
-            empty.setForeground(Theme.MUTED);
-            empty.setAlignmentX(Component.LEFT_ALIGNMENT);
-            artifactList.add(empty);
+    private void refreshRuntimeSections(HealthSnapshot health) {
+        refreshModelRows();
+        refreshCacheRows();
+        refreshWarningRows(health);
+    }
+
+    /**
+     * Rebuilds runtime model rows from the real activation provider previews.
+     */
+    private void refreshModelRows() {
+        modelRows.removeAll();
+        for (RealActivations.ModelStatus status : runtimeProvider.modelStatuses()) {
+            modelRows.add(modelStatusRow(status));
+        }
+        modelRows.add(Box.createVerticalStrut(Theme.SPACE_XS));
+        modelRows.add(configModelRow("Config LC0", Config.getLc0ModelPath()));
+        modelRows.add(configModelRow("Config T5", Config.getT5ModelPath()));
+        modelRows.revalidate();
+        modelRows.repaint();
+    }
+
+    /**
+     * Rebuilds activation cache rows.
+     */
+    private void refreshCacheRows() {
+        cacheRows.removeAll();
+        String summary = NetworkPanel.runtimeCacheSummary();
+        StatusBadge cacheBadge = new StatusBadge();
+        if (summary.startsWith("0 /")) {
+            cacheBadge.notRun("empty");
         } else {
-            for (Path path : recent) {
-                JLabel row = value();
-                row.setText(path.getFileName().toString());
-                row.setToolTipText(path.toString());
-                row.setAlignmentX(Component.LEFT_ALIGNMENT);
-                artifactList.add(row);
+            cacheBadge.ready("ready");
+        }
+        cacheRows.add(statusDetailRow("Activation snapshots", cacheBadge,
+                "Network tab cache", summary));
+
+        StatusBadge providerBadge = new StatusBadge();
+        providerBadge.paused("lazy");
+        cacheRows.add(statusDetailRow("Inference provider", providerBadge,
+                "Models load on demand", "Dashboard checks status without loading weights."));
+
+        StatusBadge fenBadge = new StatusBadge();
+        if (session.fen().isEmpty()) {
+            fenBadge.notRun("no FEN");
+            cacheRows.add(statusDetailRow("Current position", fenBadge,
+                    "No active FEN", "Open or paste a position before running activation inference."));
+        } else {
+            fenBadge.ready("ready");
+            cacheRows.add(statusDetailRow("Current position", fenBadge,
+                    sideValue.getText() + " to move", "Available for analysis and model previews."));
+        }
+        cacheRows.revalidate();
+        cacheRows.repaint();
+    }
+
+    /**
+     * Rebuilds warning/setup rows.
+     *
+     * @param health latest health snapshot
+     */
+    private void refreshWarningRows(HealthSnapshot health) {
+        warningRows.removeAll();
+        List<JComponent> issues = new ArrayList<>();
+        addHealthIssue(issues, "Config validate", health.config(),
+                "Validate the CLI config before running batch or publish workflows.");
+        addHealthIssue(issues, "Doctor", health.doctor(),
+                "Run doctor when tools, native backends, or environment paths look wrong.");
+        addHealthIssue(issues, "Engine smoke", health.engineSmoke(),
+                "Smoke test the configured UCI protocol before trusting engine output.");
+        for (RealActivations.ModelStatus status : runtimeProvider.modelStatuses()) {
+            if (!status.present() || "fallback".equals(status.state())) {
+                StatusBadge badge = new StatusBadge();
+                if ("fallback".equals(status.state())) {
+                    badge.warning("fallback");
+                } else {
+                    badge.missing("missing");
+                }
+                issues.add(statusDetailRow(status.label(), badge,
+                        modelSource(status), modelNote(status)));
             }
         }
-        artifactList.revalidate();
-        artifactList.repaint();
+        addConfigPathIssue(issues, "Config LC0", Config.getLc0ModelPath());
+        addConfigPathIssue(issues, "Config T5", Config.getT5ModelPath());
+
+        if (issues.isEmpty()) {
+            warningRows.add(Ui.emptyState("No setup issues",
+                    "Health checks and runtime diagnostics are quiet."));
+        } else {
+            for (JComponent issue : issues) {
+                warningRows.add(issue);
+            }
+        }
+        warningRows.revalidate();
+        warningRows.repaint();
     }
 
     /**
@@ -458,7 +556,146 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     }
 
     // ------------------------------------------------------------------
-    // Small UI helpers
+    // Status mapping
+    // ------------------------------------------------------------------
+
+    /**
+     * Applies the engine badge state.
+     *
+     * @param protocol configured protocol path
+     * @param summary latest engine summary
+     * @param pausedLiveEngine true when live mode is explicitly paused
+     */
+    private void applyEngineBadge(String protocol, String summary, boolean pausedLiveEngine) {
+        String normalized = summary == null ? "" : summary.toLowerCase(Locale.ROOT);
+        if (normalized.contains("failed") || normalized.contains("error")) {
+            engineBadge.error("error");
+            return;
+        }
+        if (protocol != null && !protocol.isBlank() && !pathExists(protocol)) {
+            engineBadge.missing("missing");
+            return;
+        }
+        if (session.liveEngine() && !pausedLiveEngine) {
+            engineBadge.ready("ready");
+        } else {
+            engineBadge.paused("paused");
+        }
+    }
+
+    /**
+     * Applies a health-check badge state.
+     *
+     * @param badge target badge
+     * @param check check state
+     */
+    private static void applyHealthBadge(StatusBadge badge, HealthSnapshot.Check check) {
+        switch (check) {
+            case OK -> badge.complete("complete");
+            case FAILED -> badge.error("failed");
+            case RUNNING -> badge.running("running");
+            case UNKNOWN -> badge.notRun("not run");
+        }
+    }
+
+    /**
+     * Adds one setup issue for a health check when it failed.
+     *
+     * @param issues target issue list
+     * @param label row label
+     * @param check check state
+     * @param note explanatory note
+     */
+    private static void addHealthIssue(List<JComponent> issues, String label,
+            HealthSnapshot.Check check, String note) {
+        if (check != HealthSnapshot.Check.FAILED) {
+            return;
+        }
+        StatusBadge badge = new StatusBadge();
+        badge.error("failed");
+        issues.add(statusDetailRow(label, badge, "Health check", note));
+    }
+
+    /**
+     * Adds one setup issue for a missing configured model path.
+     *
+     * @param issues target issue list
+     * @param label row label
+     * @param pathText configured path text
+     */
+    private static void addConfigPathIssue(List<JComponent> issues, String label, String pathText) {
+        if (pathText == null || pathText.isBlank() || pathExists(pathText)) {
+            return;
+        }
+        StatusBadge badge = new StatusBadge();
+        badge.missing("missing");
+        issues.add(statusDetailRow(label, badge, "Configured model path", pathText));
+    }
+
+    /**
+     * Returns the dashboard shell context line.
+     *
+     * @param health latest health snapshot
+     * @return context summary
+     */
+    private String dashboardContext(HealthSnapshot health) {
+        String position = session.fen().isEmpty() ? "No position loaded" : "Loaded position";
+        String engine = engineContext();
+        int issues = setupIssueCount(health);
+        String issueText = issues == 0 ? "No setup issues"
+                : issues + " setup issue" + (issues == 1 ? "" : "s");
+        return position + " - " + engine + " - " + issueText;
+    }
+
+    /**
+     * Returns the dashboard engine context phrase.
+     *
+     * @return engine phrase
+     */
+    private String engineContext() {
+        String summary = session.engineSummary();
+        if (summary != null && summary.toLowerCase(Locale.ROOT).contains("failed")) {
+            return "Engine error";
+        }
+        if (session.liveEngine() && summary != null && !summary.equalsIgnoreCase("paused")) {
+            return "Engine ready";
+        }
+        return "Engine paused";
+    }
+
+    /**
+     * Counts active setup issues for the header context.
+     *
+     * @param health latest health snapshot
+     * @return issue count
+     */
+    private int setupIssueCount(HealthSnapshot health) {
+        int count = 0;
+        for (HealthSnapshot.Check check : new HealthSnapshot.Check[] {
+                health.config(), health.doctor(), health.engineSmoke()
+        }) {
+            if (check == HealthSnapshot.Check.FAILED) {
+                count++;
+            }
+        }
+        for (RealActivations.ModelStatus status : runtimeProvider.modelStatuses()) {
+            if (!status.present() || "fallback".equals(status.state())) {
+                count++;
+            }
+        }
+        if (Config.getLc0ModelPath() != null && !Config.getLc0ModelPath().isBlank()
+                && !pathExists(Config.getLc0ModelPath())) {
+            count++;
+        }
+        if (Config.getT5ModelPath() != null && !Config.getT5ModelPath().isBlank()
+                && !pathExists(Config.getT5ModelPath())) {
+            count++;
+        }
+        return count;
+    }
+
+    // ------------------------------------------------------------------
+    // Recent jobs
     // ------------------------------------------------------------------
 
     /**
@@ -488,49 +725,138 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         }
     }
 
+    // ------------------------------------------------------------------
+    // Row builders
+    // ------------------------------------------------------------------
+
     /**
-     * Creates a value label (the right-hand side of an info row).
+     * Builds one health row with a status badge and action.
      *
-     * @return styled value label
+     * @param label row label
+     * @param badge status badge
+     * @param action action button
+     * @return row component
      */
-    private static JLabel value() {
-        JLabel label = new JLabel("—");
-        label.setFont(Theme.font(12, Font.PLAIN));
-        label.setForeground(Theme.TEXT);
-        return label;
+    private static JComponent healthActionRow(String label, StatusBadge badge, JButton action) {
+        JPanel row = Ui.transparentPanel(new GridBagLayout());
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        row.setBorder(Theme.pad(Theme.SPACE_XS / 2, 0));
+
+        JLabel title = new JLabel(label);
+        title.setFont(Theme.font(Theme.FONT_CONTROL, Font.BOLD));
+        Theme.foreground(title, Theme.ForegroundRole.TEXT);
+        badge.setFixedTextWidth(74);
+
+        GridBagConstraints c = new GridBagConstraints();
+        c.gridx = 0;
+        c.weightx = 1.0;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.anchor = GridBagConstraints.WEST;
+        c.insets = new Insets(0, 0, 0, Theme.SPACE_SM);
+        row.add(title, c);
+
+        c.gridx = 1;
+        c.weightx = 0.0;
+        c.fill = GridBagConstraints.NONE;
+        row.add(badge, c);
+
+        c.gridx = 2;
+        c.insets = new Insets(0, 0, 0, 0);
+        row.add(action, c);
+        return row;
     }
 
     /**
-     * Sets a health-check value label's text and colours it by state — green for
-     * a pass, red for a failure, muted for not-run/running — so a failed check
-     * is visually distinct instead of reading as neutral ink. Uses
-     * {@link Theme#foreground} so the colour round-trips on a theme toggle.
+     * Builds one runtime model status row.
      *
-     * @param label health value label
-     * @param check check state
+     * @param status model status
+     * @return row component
      */
-    private static void applyHealthValue(JLabel label, HealthSnapshot.Check check) {
-        label.setText(check.label());
-        Theme.foreground(label, switch (check) {
-            case OK -> Theme.ForegroundRole.SUCCESS;
-            case FAILED -> Theme.ForegroundRole.ERROR;
-            case RUNNING, UNKNOWN -> Theme.ForegroundRole.MUTED;
-        });
+    private static JComponent modelStatusRow(RealActivations.ModelStatus status) {
+        StatusBadge badge = new StatusBadge();
+        switch (status.state()) {
+            case "loaded" -> badge.complete("loaded");
+            case "available" -> badge.ready("available");
+            case "fallback" -> badge.warning("fallback");
+            case "missing" -> badge.missing("missing");
+            default -> badge.notRun(status.state());
+        }
+        return statusDetailRow(status.label(), badge, modelSource(status), modelNote(status));
     }
 
     /**
-     * Creates a small muted caption label, left-aligned for a {@code BoxLayout}
-     * card body — used to title an inline chart.
+     * Builds one configured-model path row.
      *
-     * @param text caption text
-     * @return styled caption label
+     * @param label row label
+     * @param pathText configured path
+     * @return row component
      */
-    private static JLabel caption(String text) {
-        JLabel label = new JLabel(text);
-        label.setFont(Theme.font(10, Font.PLAIN));
-        Theme.foreground(label, Theme.ForegroundRole.MUTED);
-        label.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return label;
+    private static JComponent configModelRow(String label, String pathText) {
+        StatusBadge badge = new StatusBadge();
+        String state = pathState(pathText);
+        switch (state) {
+            case "present" -> badge.ready("present");
+            case "missing", "invalid" -> badge.missing(state);
+            default -> badge.notRun("empty");
+        }
+        return statusDetailRow(label, badge, "CLI config", pathDetail(pathText));
+    }
+
+    /**
+     * Builds one aligned status/detail row.
+     *
+     * @param label row label
+     * @param badge status badge
+     * @param source source or size
+     * @param note explanatory note
+     * @return row component
+     */
+    private static JComponent statusDetailRow(String label, StatusBadge badge, String source, String note) {
+        JPanel row = Ui.transparentPanel(new GridBagLayout());
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        row.setBorder(Theme.pad(Theme.SPACE_XS / 2, 0));
+
+        JLabel title = new JLabel(label);
+        title.setFont(Theme.font(Theme.FONT_CONTROL, Font.BOLD));
+        Theme.foreground(title, Theme.ForegroundRole.TEXT);
+
+        badge.setFixedTextWidth(82);
+
+        JLabel sourceLabel = new JLabel(source == null || source.isBlank() ? "-" : source);
+        sourceLabel.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
+        Theme.foreground(sourceLabel, Theme.ForegroundRole.INFO);
+        sourceLabel.setToolTipText(sourceLabel.getText());
+
+        JLabel noteLabel = new JLabel(note == null || note.isBlank() ? "-" : note);
+        noteLabel.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
+        Theme.foreground(noteLabel, Theme.ForegroundRole.MUTED);
+        noteLabel.setToolTipText(noteLabel.getText());
+
+        GridBagConstraints c = new GridBagConstraints();
+        c.gridy = 0;
+        c.anchor = GridBagConstraints.WEST;
+        c.insets = new Insets(0, 0, 0, Theme.SPACE_SM);
+
+        c.gridx = 0;
+        c.weightx = 0.35;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        row.add(title, c);
+
+        c.gridx = 1;
+        c.weightx = 0.0;
+        c.fill = GridBagConstraints.NONE;
+        row.add(badge, c);
+
+        c.gridx = 2;
+        c.weightx = 0.25;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        row.add(sourceLabel, c);
+
+        c.gridx = 3;
+        c.weightx = 0.40;
+        c.insets = new Insets(0, 0, 0, 0);
+        row.add(noteLabel, c);
+        return row;
     }
 
     /**
@@ -544,18 +870,59 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         JPanel row = Ui.transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
         row.setAlignmentX(Component.LEFT_ALIGNMENT);
         JLabel captionLabel = new JLabel(caption);
-        captionLabel.setFont(Theme.font(12, Font.BOLD));
+        captionLabel.setFont(Theme.font(Theme.FONT_CONTROL, Font.BOLD));
         Theme.foreground(captionLabel, Theme.ForegroundRole.MUTED);
-        captionLabel.setPreferredSize(new Dimension(112, Theme.CONTROL_HEIGHT - 8));
+        captionLabel.setPreferredSize(new Dimension(92, Theme.CONTROL_HEIGHT - 8));
         captionLabel.setVerticalAlignment(SwingConstants.TOP);
         row.add(captionLabel, BorderLayout.WEST);
-        // Right-align the value so every row reads as a clean spec sheet — the
-        // values line up on the card's right edge instead of floating mid-row
-        // with a ragged gap after short labels.
         value.setHorizontalAlignment(SwingConstants.RIGHT);
         row.add(value, BorderLayout.CENTER);
         row.setBorder(Theme.pad(Theme.SPACE_XS / 2, 0));
         return row;
+    }
+
+    /**
+     * Builds a two-column metric grid.
+     *
+     * @param metrics metric components
+     * @return metric grid
+     */
+    private static JComponent metricGrid(JComponent... metrics) {
+        JPanel grid = Ui.transparentPanel(new GridBagLayout());
+        grid.setAlignmentX(Component.LEFT_ALIGNMENT);
+        for (int i = 0; i < metrics.length; i++) {
+            GridBagConstraints c = new GridBagConstraints();
+            c.gridx = i % 2;
+            c.gridy = i / 2;
+            c.weightx = 1.0;
+            c.fill = GridBagConstraints.HORIZONTAL;
+            c.insets = new Insets(0, 0, Theme.SPACE_SM, i % 2 == 0 ? Theme.SPACE_SM : 0);
+            grid.add(metrics[i], c);
+        }
+        return grid;
+    }
+
+    /**
+     * Builds one small metric block.
+     *
+     * @param label metric label
+     * @param value metric value label
+     * @return metric component
+     */
+    private static JComponent metric(String label, JLabel value) {
+        JPanel panel = Ui.transparentPanel(null);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBorder(Theme.pad(Theme.SPACE_XS));
+        panel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JLabel title = new JLabel(label);
+        title.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
+        Theme.foreground(title, Theme.ForegroundRole.MUTED);
+        title.setAlignmentX(Component.LEFT_ALIGNMENT);
+        value.setAlignmentX(Component.LEFT_ALIGNMENT);
+        panel.add(title);
+        panel.add(Box.createVerticalStrut(2));
+        panel.add(value);
+        return panel;
     }
 
     /**
@@ -574,6 +941,48 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         return row;
     }
 
+    // ------------------------------------------------------------------
+    // Text/data helpers
+    // ------------------------------------------------------------------
+
+    /**
+     * Creates a value label.
+     *
+     * @return styled value label
+     */
+    private static JLabel value() {
+        JLabel label = new JLabel("-");
+        label.setFont(Theme.font(Theme.FONT_CONTROL, Font.PLAIN));
+        Theme.foreground(label, Theme.ForegroundRole.TEXT);
+        return label;
+    }
+
+    /**
+     * Creates a stronger metric value label.
+     *
+     * @return styled metric value
+     */
+    private static JLabel metricValue() {
+        JLabel label = new JLabel("-");
+        label.setFont(Theme.font(13, Font.BOLD));
+        Theme.foreground(label, Theme.ForegroundRole.TEXT);
+        return label;
+    }
+
+    /**
+     * Creates a muted caption label.
+     *
+     * @param text caption text
+     * @return styled caption label
+     */
+    private static JLabel caption(String text) {
+        JLabel label = new JLabel(text);
+        label.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
+        Theme.foreground(label, Theme.ForegroundRole.MUTED);
+        label.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return label;
+    }
+
     /**
      * Creates a compact secondary quick-action button.
      *
@@ -582,15 +991,11 @@ public final class DashboardPanel extends JPanel implements SessionListener {
      * @return styled button
      */
     private static JButton quickButton(String text, Runnable action) {
-        return Ui.button(text, false, event -> action.run());
+        return Ui.button(text, Theme.ButtonVariant.SECONDARY, event -> action.run());
     }
 
     /**
-     * Wraps dashboard content in the shared elevated card used across the
-     * workbench (Datasets/Network analytics cards): a rounded surface with a
-     * low-contrast hairline and a quiet uppercase section eyebrow. Using the
-     * one shared primitive — instead of a bespoke hover-lift card — keeps the
-     * dashboard, dataset, and network grids reading as a single design system.
+     * Wraps dashboard content in the shared elevated card.
      *
      * @param title section title
      * @param body section body
@@ -598,6 +1003,18 @@ public final class DashboardPanel extends JPanel implements SessionListener {
      */
     private static JComponent card(String title, JComponent body) {
         return Ui.card(title, body);
+    }
+
+    /**
+     * Wraps dashboard content in the shared elevated card with trailing chrome.
+     *
+     * @param title section title
+     * @param trailing trailing header component
+     * @param body section body
+     * @return card component
+     */
+    private static JComponent card(String title, JComponent trailing, JComponent body) {
+        return Ui.card(title, trailing, body);
     }
 
     /**
@@ -609,5 +1026,219 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         JPanel body = Ui.transparentPanel(null);
         body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
         return body;
+    }
+
+    /**
+     * Creates an empty vertical rows panel.
+     *
+     * @return rows panel
+     */
+    private static JPanel rowsPanel() {
+        JPanel panel = Ui.transparentPanel(null);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        return panel;
+    }
+
+    /**
+     * Returns a model row source string.
+     *
+     * @param status model status
+     * @return source/size text
+     */
+    private static String modelSource(RealActivations.ModelStatus status) {
+        String size = detailSize(status.detail());
+        String path = status.path() == null ? "" : status.path().getFileName().toString();
+        if (!size.isBlank() && !path.isBlank()) {
+            return size + " - " + path;
+        }
+        if (!path.isBlank()) {
+            return path;
+        }
+        return status.present() ? "local file" : "fallback";
+    }
+
+    /**
+     * Returns a model row note string.
+     *
+     * @param status model status
+     * @return note text
+     */
+    private static String modelNote(RealActivations.ModelStatus status) {
+        String detail = status.detail();
+        int split = detail == null ? -1 : detail.indexOf(" - ");
+        if (split >= 0 && split + 3 < detail.length()) {
+            return detail.substring(split + 3);
+        }
+        return detail == null || detail.isBlank() ? status.state() : detail;
+    }
+
+    /**
+     * Extracts a leading size token from a detail string.
+     *
+     * @param detail detail text
+     * @return size token or blank
+     */
+    private static String detailSize(String detail) {
+        if (detail == null) {
+            return "";
+        }
+        int split = detail.indexOf(" - ");
+        String first = split >= 0 ? detail.substring(0, split) : detail;
+        return first.matches("[0-9.]+ [KMG]?B") ? first : "";
+    }
+
+    /**
+     * Returns a best-effort material summary from current position tags.
+     *
+     * @param tags position tags
+     * @return material summary
+     */
+    private static String materialStatus(List<String> tags) {
+        if (tags == null || tags.isEmpty()) {
+            return "Pending";
+        }
+        for (String tag : tags) {
+            String lower = tag.toLowerCase(Locale.ROOT);
+            if (lower.contains("material_discrepancy_cp=")) {
+                Integer cp = parseTaggedCentipawns(tag, "material_discrepancy_cp=");
+                if (cp != null) {
+                    return materialFromCentipawns(cp.intValue());
+                }
+            }
+        }
+        for (String tag : tags) {
+            String lower = tag.toLowerCase(Locale.ROOT);
+            if (lower.startsWith("material:") || lower.startsWith("material ")) {
+                if (lower.contains("equal") || lower.contains("even")) {
+                    return "Even";
+                }
+                return trimMaterialTag(tag);
+            }
+        }
+        return "Pending";
+    }
+
+    /**
+     * Parses a centipawn value from a tagged key.
+     *
+     * @param tag source tag
+     * @param key key prefix
+     * @return parsed value, or null
+     */
+    private static Integer parseTaggedCentipawns(String tag, String key) {
+        int start = tag.toLowerCase(Locale.ROOT).indexOf(key);
+        if (start < 0) {
+            return null;
+        }
+        int valueStart = start + key.length();
+        int valueEnd = valueStart;
+        while (valueEnd < tag.length()) {
+            char ch = tag.charAt(valueEnd);
+            if ((ch < '0' || ch > '9') && ch != '-' && ch != '+') {
+                break;
+            }
+            valueEnd++;
+        }
+        try {
+            return Integer.valueOf(tag.substring(valueStart, valueEnd));
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    /**
+     * Formats a material centipawn delta.
+     *
+     * @param cp centipawns, white-relative
+     * @return material label
+     */
+    private static String materialFromCentipawns(int cp) {
+        if (Math.abs(cp) < 25) {
+            return "Even";
+        }
+        int abs = Math.abs(cp);
+        return (cp > 0 ? "White" : "Black") + " +" + abs + " cp";
+    }
+
+    /**
+     * Returns a readable material tag body.
+     *
+     * @param tag source tag
+     * @return compact label
+     */
+    private static String trimMaterialTag(String tag) {
+        int split = tag.indexOf(':');
+        String body = split >= 0 ? tag.substring(split + 1).trim() : tag.trim();
+        if (body.length() > 22) {
+            return body.substring(0, 21) + "...";
+        }
+        return body.isBlank() ? "Pending" : body;
+    }
+
+    /**
+     * Returns a compact display path.
+     *
+     * @param text path text
+     * @return compact path
+     */
+    private static String compactPath(String text) {
+        if (text == null || text.isBlank()) {
+            return "";
+        }
+        try {
+            Path path = Path.of(text);
+            Path file = path.getFileName();
+            return file == null ? path.toString() : file.toString();
+        } catch (RuntimeException ex) {
+            return text;
+        }
+    }
+
+    /**
+     * Returns whether a path exists without throwing.
+     *
+     * @param text path text
+     * @return true when the path exists
+     */
+    private static boolean pathExists(String text) {
+        try {
+            return text != null && !text.isBlank() && Files.exists(Path.of(text));
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
+    /**
+     * Returns state text for a configured path.
+     *
+     * @param text path text
+     * @return state text
+     */
+    private static String pathState(String text) {
+        if (text == null || text.isBlank()) {
+            return "empty";
+        }
+        try {
+            return Files.exists(Path.of(text)) ? "present" : "missing";
+        } catch (RuntimeException ex) {
+            return "invalid";
+        }
+    }
+
+    /**
+     * Returns detail text for a configured path.
+     *
+     * @param text path text
+     * @return detail text
+     */
+    private static String pathDetail(String text) {
+        if (text == null || text.isBlank()) {
+            return "no path configured";
+        }
+        try {
+            return Path.of(text).toString();
+        } catch (RuntimeException ex) {
+            return ex.getMessage();
+        }
     }
 }

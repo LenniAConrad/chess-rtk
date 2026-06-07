@@ -353,10 +353,13 @@ final class EditorTab extends JComponent {
             if (!selected) {
                 g.fillRect(0, h - 1, w, 1);
             } else {
-                g.setColor(paneActive ? Theme.withAlpha(Theme.ACCENT, 235) : Theme.LINE);
-                g.fillRect(0, 0, w, 1);
+                g.setColor(paneActive ? Theme.withAlpha(Theme.ACCENT, 245) : Theme.LINE);
+                g.fillRect(0, 0, w, paneActive ? 2 : 1);
+                if (paneActive) {
+                    g.fillRect(0, 0, 2, h);
+                }
             }
-            g.setFont(Theme.font(12, Font.PLAIN));
+            g.setFont(Theme.font(12, selected && paneActive ? Font.BOLD : Font.PLAIN));
             g.setColor(selected && paneActive ? Theme.TEXT : Theme.MUTED);
             FontMetrics fm = g.getFontMetrics();
             g.drawString(name, PAD, (h + fm.getAscent() - fm.getDescent()) / 2);

@@ -71,6 +71,7 @@ public final class SplitPaneStyler {
         pane.setDividerSize(SASH_SIZE);
         pane.setContinuousLayout(true);
         pane.setBorder(BorderFactory.createEmptyBorder());
+        pane.setOpaque(true);
         pane.setBackground(Theme.BG);
     }
 
@@ -88,7 +89,7 @@ public final class SplitPaneStyler {
     public static JSplitPane styledHorizontalSplit(java.awt.Component left, java.awt.Component right,
             double weight) {
         JSplitPane pane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, left, right);
-        pane.setOpaque(false);
+        pane.setOpaque(true);
         pane.setResizeWeight(weight);
         pane.setDividerLocation(weight);
         SplitPaneStyler.style(pane);
@@ -107,7 +108,7 @@ public final class SplitPaneStyler {
     public static JSplitPane styledVerticalSplit(java.awt.Component top, java.awt.Component bottom,
             double weight) {
         JSplitPane pane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, top, bottom);
-        pane.setOpaque(false);
+        pane.setOpaque(true);
         pane.setResizeWeight(weight);
         pane.setDividerLocation(weight);
         SplitPaneStyler.style(pane);
@@ -168,6 +169,7 @@ public final class SplitPaneStyler {
         SashDivider(BasicSplitPaneUI ui) {
             super(ui);
             setBorder(BorderFactory.createEmptyBorder());
+            setBackground(Theme.BG);
             transitionTimer.setCoalesce(true);
             addMouseListener(new MouseAdapter() {
                 /**
@@ -280,6 +282,8 @@ public final class SplitPaneStyler {
             try {
                 g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                         RenderingHints.VALUE_ANTIALIAS_ON);
+                g.setColor(Theme.BG);
+                g.fillRect(0, 0, getWidth(), getHeight());
                 int alpha = interpolate(IDLE_SEPARATOR_ALPHA, HOVER_SEPARATOR_ALPHA, visualProgress);
                 Color base = blend(Theme.LINE, Theme.ACCENT, visualProgress);
                 Color color = Theme.withAlpha(base, alpha);

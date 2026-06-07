@@ -17,18 +17,22 @@ import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
-import java.awt.Shape;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Path2D;
+import java.awt.geom.Point2D;
+import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Consumer;
 import javax.swing.JComponent;
@@ -91,19 +95,14 @@ public final class TreeGraphView extends JComponent {
     private static final int CULL_PAD = 48;
 
     /**
-     * Minimum visible gap before a vertical column divider is drawn.
-     */
-    private static final int MIN_COLUMN_DIVIDER_GAP_PX = 18;
-
-    /**
-     * Minimum screen-space spacing between coalesced vertical dividers.
-     */
-    private static final int MIN_COLUMN_DIVIDER_SPACING_PX = 14;
-
-    /**
      * Horizontal padding inside a node caption.
      */
     private static final int CAPTION_PAD_X = 8;
+
+    /**
+     * World-space padding around subtree guide partitions.
+     */
+    private static final int PARTITION_PAD = 14;
 
     /**
      * Width of the value-color stripe on a node caption.
@@ -127,6 +126,13 @@ public final class TreeGraphView extends JComponent {
      * band is found without scanning the whole tree.
      */
     private transient TreeMap<Integer, TreeLayout.Node[]> rowsByLayer = new TreeMap<>();
+
+    /**
+     * Spanning-tree children keyed by parent node key, excluding transposition
+     * back-links. Rebuilt with the model and used for level-scoped vertical
+     * guide lines.
+     */
+    private transient Map<String, List<TreeLayout.Node>> treeChildrenByKey = Map.of();
 
     /**
      * Reused edge path, to avoid allocating one per edge per frame.
@@ -164,7 +170,9 @@ public final class TreeGraphView extends JComponent {
     private boolean dragging;
 
     /**
-     * LRU board-image cache keyed by FEN (rendered at {@link #BOARD_TILE}).
+     * LRU board-image cache keyed by FEN plus incoming move (rendered at
+     * {@link #BOARD_TILE}). The move is part of the key because the last-move
+     * highlight is baked into the thumbnail before pieces are rendered.
      */
     private final transient Map<String, BufferedImage> boardCache =
             new LinkedHashMap<>(64, 0.75f, true) {
@@ -199,9 +207,23 @@ public final class TreeGraphView extends JComponent {
     private static final Color TARGET_COLOR = new Color(0x2D, 0xD4, 0xBF);
 
     /**
+     * One directed path segment between two visible tree keys.
+     *
+     * @param fromKey parent key
+     * @param toKey child key
+     */
+    public record PathSegment(String fromKey, String toKey) {
+    }
+
+    /**
      * Keys on the path to the leaf the search is currently evaluating.
      */
     private transient java.util.Set<String> searchPath = java.util.Set.of();
+
+    /**
+     * Exact directed edges on the live search path.
+     */
+    private transient java.util.Set<PathSegment> searchSegments = java.util.Set.of();
 
     /**
      * Keys on the user's tracked target line that currently exist in the tree.
@@ -209,9 +231,19 @@ public final class TreeGraphView extends JComponent {
     private transient java.util.Set<String> targetPath = java.util.Set.of();
 
     /**
+     * Exact directed edges on the user's tracked target line.
+     */
+    private transient java.util.Set<PathSegment> targetSegments = java.util.Set.of();
+
+    /**
      * Keys on the path from the root to the selected inspector node.
      */
     private transient java.util.Set<String> selectedPath = java.util.Set.of();
+
+    /**
+     * Exact directed edges on the selected inspector path.
+     */
+    private transient java.util.Set<PathSegment> selectedSegments = java.util.Set.of();
 
     /**
      * True while a target line is being tracked: nodes/edges off the tracked
@@ -225,6 +257,13 @@ public final class TreeGraphView extends JComponent {
      * row is.
      */
     private transient boolean showLayers;
+
+    /**
+     * Layer whose nodes define the vertical guide partitions. Layer 0 disables
+     * vertical subtree dividers; layer 1 means one partition per root move;
+     * layer 2 means one partition per reply, and so on.
+     */
+    private int guidePartitionLayer = 1;
 
     /**
      * Composite that fades off-branch nodes/edges toward the background while a
@@ -308,6 +347,23 @@ public final class TreeGraphView extends JComponent {
         addMouseListener(mouse);
         addMouseMotionListener(mouse);
         addMouseWheelListener(mouse);
+        // The whole canvas is positioned by a single pan/zoom transform, so any
+        // size change (split-divider move when Details is toggled, window resize)
+        // invalidates the entire picture. Swing only repaints the newly exposed
+        // strip on a grow, which on the OpenGL pipeline leaves the previous
+        // contents (or a half-drawn board) lingering in the rest of the canvas.
+        // Force a full repaint on every resize so nothing stale survives.
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            /**
+             * Repaints the full canvas after a viewport size change.
+             *
+             * @param event resize event
+             */
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent event) {
+                repaint();
+            }
+        });
         ToolTipManager.sharedInstance().registerComponent(this);
     }
 
@@ -327,7 +383,18 @@ public final class TreeGraphView extends JComponent {
      * @param keys node keys on the search path
      */
     public void setSearchPath(java.util.Set<String> keys) {
+        setSearchPath(keys, java.util.Set.of());
+    }
+
+    /**
+     * Sets the live search path with exact directed edge segments.
+     *
+     * @param keys node keys on the search path
+     * @param segments directed parent-child key pairs on the search path
+     */
+    public void setSearchPath(java.util.Set<String> keys, java.util.Set<PathSegment> segments) {
         searchPath = keys == null ? java.util.Set.of() : keys;
+        searchSegments = segments == null ? java.util.Set.of() : segments;
         repaint();
     }
 
@@ -339,7 +406,20 @@ public final class TreeGraphView extends JComponent {
      * @param keys node keys on the target line
      */
     public void setTargetPath(java.util.Set<String> keys, boolean focus) {
+        setTargetPath(keys, java.util.Set.of(), focus);
+    }
+
+    /**
+     * Sets the tracked target path with exact directed edge segments.
+     *
+     * @param keys node keys on the target line
+     * @param segments directed parent-child key pairs on the target line
+     * @param focus true to dim off-target edges and nodes
+     */
+    public void setTargetPath(java.util.Set<String> keys,
+            java.util.Set<PathSegment> segments, boolean focus) {
         targetPath = keys == null ? java.util.Set.of() : keys;
+        targetSegments = segments == null ? java.util.Set.of() : segments;
         targetFocus = focus;
         repaint();
     }
@@ -351,7 +431,18 @@ public final class TreeGraphView extends JComponent {
      * @param keys node keys on the selected path
      */
     public void setSelectedPath(java.util.Set<String> keys) {
+        setSelectedPath(keys, java.util.Set.of());
+    }
+
+    /**
+     * Sets the selected-node ancestry path with exact directed edge segments.
+     *
+     * @param keys node keys on the selected path
+     * @param segments directed parent-child key pairs on the selected path
+     */
+    public void setSelectedPath(java.util.Set<String> keys, java.util.Set<PathSegment> segments) {
         selectedPath = keys == null ? java.util.Set.of() : keys;
+        selectedSegments = segments == null ? java.util.Set.of() : segments;
         repaint();
     }
 
@@ -362,6 +453,17 @@ public final class TreeGraphView extends JComponent {
      */
     public void setShowLayers(boolean show) {
         showLayers = show;
+        repaint();
+    }
+
+    /**
+     * Sets which tree layer defines vertical guide partitions.
+     *
+     * @param layer layer index, where 0 hides vertical subtree dividers and 1 is
+     *     the root's children
+     */
+    public void setGuidePartitionLayer(int layer) {
+        guidePartitionLayer = Math.max(0, layer);
         repaint();
     }
 
@@ -422,6 +524,33 @@ public final class TreeGraphView extends JComponent {
         }
         byKey = keys;
         rowsByLayer = rows;
+        treeChildrenByKey = buildTreeChildren(keys);
+    }
+
+    /**
+     * Builds a normal parent-child adjacency map for the laid-out tree.
+     *
+     * @param keys node lookup for the current model
+     * @return child nodes keyed by parent key
+     */
+    private Map<String, List<TreeLayout.Node>> buildTreeChildren(Map<String, TreeLayout.Node> keys) {
+        if (model.edges().isEmpty()) {
+            return Map.of();
+        }
+        Map<String, List<TreeLayout.Node>> children = new HashMap<>();
+        for (TreeLayout.Edge edge : model.edges()) {
+            if (edge.transposition()) {
+                continue;
+            }
+            TreeLayout.Node child = keys.get(edge.toKey());
+            if (child != null && keys.containsKey(edge.fromKey())) {
+                children.computeIfAbsent(edge.fromKey(), ignored -> new ArrayList<>()).add(child);
+            }
+        }
+        for (List<TreeLayout.Node> row : children.values()) {
+            row.sort((a, b) -> Integer.compare(a.x(), b.x()));
+        }
+        return children;
     }
 
     /**
@@ -612,7 +741,7 @@ public final class TreeGraphView extends JComponent {
             g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
             if (showLayers) {
                 drawLayerLines(g);
-                drawLayerColumnLines(g);
+                drawSubtreePartitions(g);
             }
             Graphics2D world = (Graphics2D) g.create();
             try {
@@ -667,7 +796,7 @@ public final class TreeGraphView extends JComponent {
                     continue;
                 }
                 edgeGraphics.setComposite(targetFocus
-                        && !(targetPath.contains(edge.fromKey()) && targetPath.contains(edge.toKey()))
+                        && !edgeOnPath(edge, targetPath, targetSegments, false)
                         ? DIM_COMPOSITE : java.awt.AlphaComposite.SrcOver);
                 int x1 = from.centerX();
                 int y1 = from.y() + from.h();
@@ -723,7 +852,7 @@ public final class TreeGraphView extends JComponent {
      * @param view visible world rectangle
      */
     private void drawSearchOverlay(Graphics2D g, Rectangle view) {
-        drawPathOverlay(g, view, searchPath, SEARCH_COLOR, false);
+        drawPathOverlay(g, view, searchPath, searchSegments, SEARCH_COLOR, false);
     }
 
     /**
@@ -734,7 +863,7 @@ public final class TreeGraphView extends JComponent {
      * @param view visible world rectangle
      */
     private void drawTargetOverlay(Graphics2D g, Rectangle view) {
-        drawPathOverlay(g, view, targetPath, TARGET_COLOR, false);
+        drawPathOverlay(g, view, targetPath, targetSegments, TARGET_COLOR, false);
     }
 
     /**
@@ -745,21 +874,23 @@ public final class TreeGraphView extends JComponent {
      * @param view visible world rectangle
      */
     private void drawSelectedOverlay(Graphics2D g, Rectangle view) {
-        drawPathOverlay(g, view, selectedPath, SELECT_COLOR, true);
+        drawPathOverlay(g, view, selectedPath, selectedSegments, SELECT_COLOR, false);
     }
 
     /**
-     * Draws a colored overlay along the edges whose endpoints are both in a key
-     * set, reusing the shared edge path.
+     * Draws a colored overlay along explicit path segments. If callers do not
+     * provide segments, falls back to edges whose endpoints are both in a key set
+     * for compatibility with older tests and tools.
      *
      * @param g world-space graphics
      * @param view visible world rectangle
      * @param keys node keys defining the path
+     * @param segments exact directed path segments
      * @param color overlay color
      * @param includeTranspositions true to include dashed transposition edges
      */
     private void drawPathOverlay(Graphics2D g, Rectangle view, java.util.Set<String> keys,
-            Color color, boolean includeTranspositions) {
+            java.util.Set<PathSegment> segments, Color color, boolean includeTranspositions) {
         if (keys.isEmpty()) {
             return;
         }
@@ -769,8 +900,7 @@ public final class TreeGraphView extends JComponent {
             overlay.setStroke(new BasicStroke(3.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
             overlay.setColor(Theme.withAlpha(color, 245));
             for (TreeLayout.Edge edge : model.edges()) {
-                if ((!includeTranspositions && edge.transposition())
-                        || !keys.contains(edge.fromKey()) || !keys.contains(edge.toKey())) {
+                if (!edgeOnPath(edge, keys, segments, includeTranspositions)) {
                     continue;
                 }
                 TreeLayout.Node from = byKey.get(edge.fromKey());
@@ -791,6 +921,44 @@ public final class TreeGraphView extends JComponent {
         } finally {
             overlay.dispose();
         }
+    }
+
+    /**
+     * Returns whether an edge is part of a highlighted path.
+     *
+     * @param edge candidate edge
+     * @param keys fallback path node keys
+     * @param segments exact directed path segments, when available
+     * @param includeTranspositions true to include transposition edges
+     * @return true when this edge should be highlighted
+     */
+    private static boolean edgeOnPath(TreeLayout.Edge edge, java.util.Set<String> keys,
+            java.util.Set<PathSegment> segments, boolean includeTranspositions) {
+        if (!includeTranspositions && edge.transposition()) {
+            return false;
+        }
+        if (segments != null && !segments.isEmpty()) {
+            return containsSegment(segments, edge.fromKey(), edge.toKey());
+        }
+        return keys.contains(edge.fromKey()) && keys.contains(edge.toKey());
+    }
+
+    /**
+     * Checks path-segment membership without allocating during paint.
+     *
+     * @param segments path segments
+     * @param fromKey candidate parent key
+     * @param toKey candidate child key
+     * @return true when the segment is present
+     */
+    private static boolean containsSegment(java.util.Set<PathSegment> segments,
+            String fromKey, String toKey) {
+        for (PathSegment segment : segments) {
+            if (segment.fromKey().equals(fromKey) && segment.toKey().equals(toKey)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -879,7 +1047,7 @@ public final class TreeGraphView extends JComponent {
         Rectangle box = new Rectangle(node.x(), node.y(), node.w(), node.h());
         Graphics2D blob = (Graphics2D) g.create();
         try {
-            blob.setClip(box);
+            blob.clipRect(box.x, box.y, box.width, box.height);
             // A short stack of offset cards reads as "many positions".
             int layers = Math.min(3, Math.max(2, node.members().size()));
             for (int i = layers - 1; i >= 0; i--) {
@@ -926,38 +1094,53 @@ public final class TreeGraphView extends JComponent {
         int side = node.w();
         Rectangle full = nodeBounds(node);
         Rectangle board = new Rectangle(node.x(), node.y(), side, side);
-        Graphics2D nodeGraphics = (Graphics2D) g.create();
+        // Snap the board to whole device pixels and blit it in device space. Drawn
+        // in world space, the bilinear thumbnail's bottom edge feathers onto a
+        // fractional device row (panX/panY and zoom are non-integer after Fit or a
+        // zoom step), while the caption strip below rasterizes onto a different
+        // row -- leaving a flickering 1px seam, or a background-colored gap,
+        // between every board and its caption. Sharing one snapped device boundary
+        // (board-bottom == caption-top, derived below from deviceBoard) removes it.
+        Rectangle deviceFull = pixelAlignedRect(g, full);
+        Rectangle deviceBoard = pixelAlignedRect(g, board);
+        short move = node.info().move();
+        Graphics2D boardGraphics = (Graphics2D) g.create();
         try {
-            nodeGraphics.setClip(full);
+            boardGraphics.setTransform(new AffineTransform());
+            // Intersect with (don't replace) the incoming clip: setClip would
+            // discard the dirty-region clip and let the board paint in full even
+            // on a partial repaint, so a board straddling the canvas edge would
+            // render whole instead of just its visible pixels.
+            boardGraphics.clipRect(deviceFull.x, deviceFull.y, deviceFull.width, deviceFull.height);
+            boardGraphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                    RenderingHints.VALUE_INTERPOLATION_BILINEAR);
             if (side * zoom > BOARD_TILE) {
                 // Zoomed in past the cached tile resolution: draw the board straight
-                // into the world graphics so the squares and vector pieces stay
-                // razor-sharp however far in you zoom.
-                BoardStyle.drawBoardSurface(nodeGraphics, board, false);
-                TensorViz.drawPositionPieces(nodeGraphics, board, node.info().fen(), true);
+                // so the squares and vector pieces stay razor-sharp however far in
+                // you zoom (still snapped, so the caption boundary stays seamless).
+                BoardStyle.drawBoardSurface(boardGraphics, deviceBoard, false);
+                TreeBoardImages.drawLastMoveHighlight(boardGraphics, deviceBoard, move);
+                TensorViz.drawPositionPieces(boardGraphics, deviceBoard, node.info().fen(), true);
             } else {
-                BufferedImage image = boardImage(node.info().fen());
+                BufferedImage image = boardImage(node.info().fen(), move);
                 if (image != null) {
-                    // Bilinear downscale of the hi-res tile to the node size keeps the
-                    // thumbnail crisp at any board size / zoom.
-                    nodeGraphics.drawImage(image, board.x, board.y, side, side, null);
+                    // Bilinear downscale of the hi-res tile to the snapped node size
+                    // keeps the thumbnail crisp; the integer rect gives a hard edge.
+                    boardGraphics.drawImage(image, deviceBoard.x, deviceBoard.y,
+                            deviceBoard.width, deviceBoard.height, null);
                 } else {
-                    BoardStyle.drawBoardSurface(nodeGraphics, board, false);
+                    BoardStyle.drawBoardSurface(boardGraphics, deviceBoard, false);
                 }
             }
-            short move = node.info().move();
-            if (move != Move.NO_MOVE) {
-                Shape oldClip = nodeGraphics.getClip();
-                nodeGraphics.setClip(board);
-                BoardStyle.drawInsetSquareHighlight(nodeGraphics,
-                        BoardStyle.fieldSquareBounds(board, Move.getFromIndex(move), true),
-                        Theme.withAlpha(Theme.ACCENT, 150));
-                BoardStyle.drawInsetSquareHighlight(nodeGraphics,
-                        BoardStyle.fieldSquareBounds(board, Move.getToIndex(move), true),
-                        Theme.withAlpha(TensorViz.POSITIVE, 170));
-                nodeGraphics.setClip(oldClip);
-            }
-            drawCaption(nodeGraphics, node, new Rectangle(node.x(), node.y() + side, side, node.h() - side));
+        } finally {
+            boardGraphics.dispose();
+        }
+        Graphics2D nodeGraphics = (Graphics2D) g.create();
+        try {
+            nodeGraphics.clipRect(full.x, full.y, full.width, full.height);
+            drawCaption(nodeGraphics, node,
+                    new Rectangle(node.x(), node.y() + side, side, node.h() - side),
+                    deviceBoard, deviceFull);
         } finally {
             nodeGraphics.dispose();
         }
@@ -976,7 +1159,7 @@ public final class TreeGraphView extends JComponent {
         Rectangle box = new Rectangle(node.x(), node.y(), node.w(), node.h());
         Graphics2D compactGraphics = (Graphics2D) g.create();
         try {
-            compactGraphics.setClip(box);
+            compactGraphics.clipRect(box.x, box.y, box.width, box.height);
             compactGraphics.setColor(Theme.withAlpha(qColor(node.info().q()), 210));
             compactGraphics.fillRoundRect(box.x, box.y, box.width, box.height, 8, 8);
             compactGraphics.setFont(Theme.font(Math.max(9, node.w() / 5), Font.BOLD));
@@ -991,24 +1174,64 @@ public final class TreeGraphView extends JComponent {
     }
 
     /**
+     * Converts a world rectangle to integer device-pixel bounds using the
+     * current graphics transform.
+     *
+     * @param g graphics context
+     * @param bounds world-space bounds
+     * @return pixel-aligned bounds
+     */
+    private static Rectangle pixelAlignedRect(Graphics2D g, Rectangle bounds) {
+        AffineTransform transform = g.getTransform();
+        Point2D p0 = transform.transform(new Point2D.Double(bounds.x, bounds.y), null);
+        Point2D p1 = transform.transform(
+                new Point2D.Double(bounds.x + bounds.width, bounds.y + bounds.height), null);
+        int x0 = (int) Math.round(Math.min(p0.getX(), p1.getX()));
+        int y0 = (int) Math.round(Math.min(p0.getY(), p1.getY()));
+        int x1 = (int) Math.round(Math.max(p0.getX(), p1.getX()));
+        int y1 = (int) Math.round(Math.max(p0.getY(), p1.getY()));
+        return new Rectangle(x0, y0, Math.max(1, x1 - x0), Math.max(1, y1 - y0));
+    }
+
+    /**
      * Draws a clipped two-line node caption.
      *
      * @param g graphics context
      * @param node node being drawn
      * @param caption caption rectangle
      */
-    private void drawCaption(Graphics2D g, TreeLayout.Node node, Rectangle caption) {
+    private void drawCaption(Graphics2D g, TreeLayout.Node node, Rectangle caption,
+            Rectangle deviceBoard, Rectangle deviceFull) {
         if (caption.width <= 0 || caption.height <= 0) {
             return;
         }
-        g.setColor(Theme.withAlpha(Theme.PANEL_SOLID, 235));
-        g.fillRect(caption.x, caption.y, caption.width, caption.height);
-        g.setColor(accentFor(node));
-        g.fillRect(caption.x, caption.y, Math.min(CAPTION_ACCENT_WIDTH, caption.width), caption.height);
+        // Fill the caption background in device space so its top edge lands on the
+        // exact device row where the snapped board ends -- no seam, no gap. The
+        // caption text stays in world space below the boundary, where sub-pixel
+        // placement reads better and never touches the seam.
+        int top = deviceBoard.y + deviceBoard.height;
+        int bottom = deviceFull.y + deviceFull.height;
+        if (bottom > top) {
+            Graphics2D fill = (Graphics2D) g.create();
+            try {
+                fill.setTransform(new AffineTransform());
+                fill.clipRect(deviceFull.x, deviceFull.y, deviceFull.width, deviceFull.height);
+                fill.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                        RenderingHints.VALUE_ANTIALIAS_OFF);
+                fill.setColor(Theme.withAlpha(Theme.PANEL_SOLID, 235));
+                fill.fillRect(deviceFull.x, top, deviceFull.width, bottom - top);
+                int accentWidth = Math.max(1,
+                        (int) Math.round(Math.min(CAPTION_ACCENT_WIDTH, caption.width) * zoom));
+                fill.setColor(accentFor(node));
+                fill.fillRect(deviceFull.x, top, Math.min(accentWidth, deviceFull.width), bottom - top);
+            } finally {
+                fill.dispose();
+            }
+        }
 
         Graphics2D text = (Graphics2D) g.create();
         try {
-            text.setClip(caption);
+            text.clipRect(caption.x, caption.y, caption.width, caption.height);
             int textX = caption.x + CAPTION_PAD_X;
             int textW = Math.max(0, caption.width - CAPTION_PAD_X * 2);
             String label = node.root() ? "root" : node.info().san();
@@ -1046,17 +1269,17 @@ public final class TreeGraphView extends JComponent {
         Rectangle highlight = nodeBounds(node);
         if (targetPath.contains(node.key())) {
             // Teal ring marks the user's tracked target line through this node.
-            drawOuterRing(g, highlight, 5, 2.4f, Theme.withAlpha(TARGET_COLOR, 235), 5);
+            drawOuterRing(g, highlight, 8.0, 2.4f, Theme.withAlpha(TARGET_COLOR, 235), 7.0);
         }
         if (searchPath.contains(node.key())) {
             // Amber ring marks the live search path through this node.
-            drawOuterRing(g, highlight, 3, 2.2f, Theme.withAlpha(SEARCH_COLOR, 245), 4);
+            drawOuterRing(g, highlight, 6.0, 2.2f, Theme.withAlpha(SEARCH_COLOR, 245), 6.0);
         }
         if (node.selected()) {
             // Emerald ring marks the clicked/selected node.
-            drawOuterRing(g, highlight, 1, 2.6f, SELECT_COLOR, 3);
+            drawOuterRing(g, highlight, 5.0, 2.6f, SELECT_COLOR, 5.0);
         } else if (node.onPrincipalVariation()) {
-            drawOuterRing(g, highlight, 1, 1.8f, Theme.withAlpha(Theme.ACCENT, 210), 3);
+            drawOuterRing(g, highlight, 5.0, 1.8f, Theme.withAlpha(Theme.ACCENT, 210), 5.0);
         }
     }
 
@@ -1075,17 +1298,28 @@ public final class TreeGraphView extends JComponent {
      *
      * @param g graphics context
      * @param bounds node bounds
-     * @param gap distance outside the bounds
-     * @param strokeWidth stroke width
+     * @param gapPx screen-pixel distance outside the bounds
+     * @param strokePx screen-pixel stroke width
      * @param color ring color
-     * @param arc corner arc
+     * @param arcPx screen-pixel corner arc
      */
-    private static void drawOuterRing(Graphics2D g, Rectangle bounds, int gap,
-            float strokeWidth, Color color, int arc) {
-        g.setStroke(new BasicStroke(strokeWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+    private void drawOuterRing(Graphics2D g, Rectangle bounds, double gapPx,
+            float strokePx, Color color, double arcPx) {
+        double scale = Math.max(MIN_ZOOM, zoom);
+        double strokeWorld = Math.max(0.05, strokePx / scale);
+        double gapWorld = gapPx / scale;
+        double outer = gapWorld + strokeWorld / 2.0;
+        double arcWorld = Math.max(1.0, arcPx / scale);
+
+        g.setStroke(new BasicStroke((float) strokeWorld, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g.setColor(color);
-        g.drawRoundRect(bounds.x - gap, bounds.y - gap,
-                bounds.width + gap * 2 - 1, bounds.height + gap * 2 - 1, arc, arc);
+        g.draw(new RoundRectangle2D.Double(
+                bounds.x - outer,
+                bounds.y - outer,
+                bounds.width + outer * 2.0,
+                bounds.height + outer * 2.0,
+                arcWorld,
+                arcWorld));
     }
 
     /**
@@ -1174,17 +1408,18 @@ public final class TreeGraphView extends JComponent {
      * @param fen position FEN
      * @return rendered board tile, or null when the FEN is missing
      */
-    private BufferedImage boardImage(String fen) {
+    private BufferedImage boardImage(String fen, short move) {
         if (fen == null || fen.isBlank()) {
             return null;
         }
-        BufferedImage cached = boardCache.get(fen);
+        String key = fen + "\nmove=" + (move == Move.NO_MOVE ? "none" : Move.toString(move));
+        BufferedImage cached = boardCache.get(key);
         if (cached != null) {
             return cached;
         }
-        BufferedImage image = TreeBoardImages.board(fen, BOARD_TILE);
+        BufferedImage image = TreeBoardImages.board(fen, BOARD_TILE, move);
         if (image != null) {
-            boardCache.put(fen, image);
+            boardCache.put(key, image);
         }
         return image;
     }
@@ -1218,45 +1453,195 @@ public final class TreeGraphView extends JComponent {
     }
 
     /**
-     * Draws faint full-height vertical dividers in the open space between
-     * visible node columns. Dense or near-duplicate dividers are skipped so the
-     * guide layer remains readable when the tree is zoomed far out.
+     * Draws level-scoped vertical subtree guide lines. At layer 1, each root move
+     * gets a vertical subdivision containing that move and all descendants;
+     * deeper guide layers partition by the chosen ply in the same way.
      *
      * @param g device-space graphics
      */
-    private void drawLayerColumnLines(Graphics2D g) {
-        if (rowsByLayer.isEmpty()) {
+    private void drawSubtreePartitions(Graphics2D g) {
+        if (guidePartitionLayer <= 0) {
             return;
         }
-        List<Integer> dividers = new ArrayList<>();
-        for (TreeLayout.Node[] row : rowsByLayer.values()) {
-            for (int i = 1; i < row.length; i++) {
-                TreeLayout.Node left = row[i - 1];
-                TreeLayout.Node right = row[i];
-                int leftScreenRight = (int) Math.round((left.x() + left.w()) * zoom + panX);
-                int rightScreenLeft = (int) Math.round(right.x() * zoom + panX);
-                if (rightScreenLeft - leftScreenRight < MIN_COLUMN_DIVIDER_GAP_PX) {
-                    continue;
-                }
-                int x = (leftScreenRight + rightScreenLeft) / 2;
-                if (x >= -2 && x <= getWidth() + 2) {
-                    dividers.add(x);
-                }
-            }
-        }
-        if (dividers.isEmpty()) {
+        List<TreeLayout.Node> anchors = guidePartitionAnchors();
+        if (anchors.isEmpty()) {
             return;
         }
-        dividers.sort(Integer::compare);
-        g.setStroke(new BasicStroke(1f));
-        g.setColor(Theme.withAlpha(Theme.LINE, 160));
-        int lastX = Integer.MIN_VALUE / 2;
-        for (int x : dividers) {
-            if (x - lastX < MIN_COLUMN_DIVIDER_SPACING_PX) {
+        Graphics2D guide = (Graphics2D) g.create();
+        try {
+            guide.setStroke(new BasicStroke(1f));
+            guide.setColor(Theme.withAlpha(Theme.LINE, 175));
+            drawSubtreePartitionBoundaries(guide, subtreePartitions(anchors));
+        } finally {
+            guide.dispose();
+        }
+    }
+
+    /**
+     * Returns the frontier nodes that define vertical guide partitions. A ragged
+     * tree may not have a node at the requested level in every branch; those
+     * shorter branches stay visible by using their terminal node as the anchor.
+     *
+     * @return guide partition anchors in left-to-right order
+     */
+    private List<TreeLayout.Node> guidePartitionAnchors() {
+        if (model.rootKey() == null) {
+            return List.of();
+        }
+        TreeLayout.Node root = byKey.get(model.rootKey());
+        if (root == null) {
+            return List.of();
+        }
+        List<TreeLayout.Node> children = treeChildrenByKey.get(root.key());
+        if (children == null || children.isEmpty()) {
+            return List.of();
+        }
+        ArrayList<TreeLayout.Node> anchors = new ArrayList<>();
+        HashSet<String> seen = new HashSet<>();
+        for (TreeLayout.Node child : children) {
+            collectPartitionFrontier(child, anchors, seen);
+        }
+        anchors.sort((a, b) -> Integer.compare(a.x(), b.x()));
+        return anchors;
+    }
+
+    /**
+     * Collects one partition frontier beneath a root child.
+     *
+     * @param node current node
+     * @param anchors output anchors
+     * @param seen visited node keys
+     */
+    private void collectPartitionFrontier(TreeLayout.Node node,
+            List<TreeLayout.Node> anchors, Set<String> seen) {
+        if (!seen.add(node.key())) {
+            return;
+        }
+        List<TreeLayout.Node> children = treeChildrenByKey.get(node.key());
+        if (node.layer() >= guidePartitionLayer || children == null || children.isEmpty()) {
+            anchors.add(node);
+            return;
+        }
+        for (TreeLayout.Node child : children) {
+            collectPartitionFrontier(child, anchors, seen);
+        }
+    }
+
+    /**
+     * Computes subtree partitions for the selected guide-layer anchors.
+     *
+     * @param anchors frontier nodes for the guide partition layer
+     * @return visible subtree partitions
+     */
+    private List<SubtreePartition> subtreePartitions(List<TreeLayout.Node> anchors) {
+        List<SubtreePartition> partitions = new ArrayList<>(anchors.size());
+        Rectangle view = worldViewport();
+        for (TreeLayout.Node anchor : anchors) {
+            SubtreePartition partition = subtreePartition(anchor);
+            if (partition == null || !partition.horizontallyIntersects(view)) {
                 continue;
             }
-            g.drawLine(x, 0, x, getHeight());
-            lastX = x;
+            partitions.add(partition);
+        }
+        return partitions;
+    }
+
+    /**
+     * Computes one subtree partition from an anchor node down through normal
+     * spanning-tree children.
+     *
+     * @param anchor selected-depth anchor
+     * @return partition span
+     */
+    private SubtreePartition subtreePartition(TreeLayout.Node anchor) {
+        int minX = anchor.x();
+        int maxX = anchor.x() + anchor.w();
+        int topY = anchor.y();
+        int bottomY = anchor.y() + anchor.h();
+        ArrayList<TreeLayout.Node> stack = new ArrayList<>();
+        stack.add(anchor);
+        for (int i = 0; i < stack.size(); i++) {
+            TreeLayout.Node node = stack.get(i);
+            minX = Math.min(minX, node.x());
+            maxX = Math.max(maxX, node.x() + node.w());
+            bottomY = Math.max(bottomY, node.y() + node.h());
+            List<TreeLayout.Node> children = treeChildrenByKey.get(node.key());
+            if (children != null && !children.isEmpty()) {
+                stack.addAll(children);
+            }
+        }
+        return new SubtreePartition(anchor,
+                Math.max(0, minX - PARTITION_PAD),
+                maxX + PARTITION_PAD,
+                Math.max(0, topY - PARTITION_PAD),
+                bottomY + PARTITION_PAD);
+    }
+
+    /**
+     * Draws single shared vertical separators between sorted partitions. Drawing
+     * each partition's left and right edge creates adjacent double lines; the
+     * tree should read as one set of layer-dependent subdivisions.
+     *
+     * @param g device-space graphics
+     * @param partitions subtree partitions
+     */
+    private void drawSubtreePartitionBoundaries(Graphics2D g, List<SubtreePartition> partitions) {
+        if (partitions.isEmpty()) {
+            return;
+        }
+        partitions.sort((a, b) -> Integer.compare(a.minX(), b.minX()));
+        drawSubtreeBoundary(g, partitions.get(0).minX());
+        for (int i = 0; i + 1 < partitions.size(); i++) {
+            SubtreePartition left = partitions.get(i);
+            SubtreePartition right = partitions.get(i + 1);
+            int x = (left.maxX() + right.minX()) / 2;
+            drawSubtreeBoundary(g, x);
+        }
+        SubtreePartition last = partitions.get(partitions.size() - 1);
+        drawSubtreeBoundary(g, last.maxX());
+    }
+
+    /**
+     * Draws one full-height vertical subtree separator in device space. The
+     * selected guide layer decides the x position, but the visual divider spans
+     * the whole visible canvas so subdivisions read consistently while panning.
+     *
+     * @param g device-space graphics
+     * @param worldX world x coordinate
+     */
+    private void drawSubtreeBoundary(Graphics2D g, int worldX) {
+        int x = (int) Math.round(worldX * zoom + panX);
+        if (x < -2 || x > getWidth() + 2) {
+            return;
+        }
+        int clampedX = Math.max(-2, Math.min(getWidth() + 2, x));
+        g.drawLine(clampedX, 0, clampedX, getHeight());
+    }
+
+    /**
+     * One selected-level subtree partition.
+     *
+     * @param anchor partition anchor node
+     * @param minX left world x
+     * @param maxX right world x
+     * @param topY top world y
+     * @param bottomY bottom world y
+     */
+    private record SubtreePartition(TreeLayout.Node anchor, int minX, int maxX, int topY,
+            int bottomY) {
+
+        /**
+         * Returns whether the partition's horizontal span intersects a world
+         * viewport. Vertical guide dividers are full-height, so vertical culling
+         * would incorrectly hide them when the selected anchor layer is panned
+         * above or below the visible area.
+         *
+         * @param view world viewport
+         * @return true when visible
+         */
+        boolean horizontallyIntersects(Rectangle view) {
+            int right = view.x + view.width;
+            return maxX >= view.x && minX <= right;
         }
     }
 

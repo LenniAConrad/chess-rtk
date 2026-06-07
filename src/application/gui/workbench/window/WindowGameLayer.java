@@ -4,6 +4,7 @@ import application.Config;
 import application.cli.PathOps;
 import application.gui.workbench.audio.SoundCue;
 import application.gui.workbench.audio.SoundService;
+import application.gui.workbench.command.CommandResultParser;
 import application.gui.workbench.command.CommandRunner;
 import application.gui.workbench.game.FenInput;
 import application.gui.workbench.game.PositionText;
@@ -133,6 +134,7 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
         statusLabel.setText((currentPosition.isWhiteToMove() ? "White" : "Black")
                 + " to move  |  " + PositionText.status(currentPosition)
                 + "  |  legal moves " + visibleMoves.length);
+        refreshAnalyzeInspector();
     }
 
     /**
@@ -598,6 +600,7 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
             return;
         }
         showConsoleDock();
+        prepareRunCommandOutput(args);
         appendConsole("\n$ " + CommandRunner.displayCommand(args) + "\n");
         setCommandState("Running");
         // Track the run as a dashboard job so the recent-jobs table reflects
@@ -606,9 +609,10 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
         session.jobs().markRunning(job);
         runningJob = job;
         runningJobStartMillis = System.currentTimeMillis();
-        runningCommand = CommandRunner.run(args, stdin, this::appendConsole, result -> {
-            appendConsole("[exit " + result.exitCode() + ", " + result.millis() + " ms]\n");
+        runningCommand = CommandRunner.run(args, stdin, this::appendCommandOutput, result -> {
+            appendCommandOutput("[exit " + result.exitCode() + ", " + result.millis() + " ms]\n");
             setCommandState("Exit " + result.exitCode());
+            finishRunCommandOutput(args, result.exitCode(), result.output(), result.millis());
             session.jobs().markFinished(job, result.exitCode(), result.output(), result.millis());
             updateHealthFromCommand(args, result.exitCode());
             List<Path> artifacts = List.of();
@@ -629,7 +633,9 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
             }
         }, ex -> {
             setCommandState("Stopped");
-            appendConsole("[stopped] " + Objects.toString(ex.getMessage(), ex.getClass().getSimpleName()) + "\n");
+            String message = Objects.toString(ex.getMessage(), ex.getClass().getSimpleName());
+            appendCommandOutput("[stopped] " + message + "\n");
+            markRunCommandStopped(message);
             // stopCommand() may already have marked the job cancelled; only
             // record a failure when the job is still in a non-terminal state.
             if (!job.status().isTerminal()) {
@@ -643,6 +649,75 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
             runningJob = null;
             healthCheckQueue.clear();
         });
+    }
+
+    /**
+     * Clears and seeds the Run tab's command output panes for a new command.
+     *
+     * @param args command arguments
+     */
+    private void prepareRunCommandOutput(List<String> args) {
+        String display = CommandRunner.displayCommand(args);
+        addRecentRunCommand(display);
+        runRawOutput.clearOutput();
+        runRawOutput.appendOutput("$ " + display + "\n");
+        runParsedOutput.setText("Command running...\nRaw output is streaming below.");
+        runParsedOutput.setCaretPosition(0);
+    }
+
+    /**
+     * Appends child-process output to both the global console and the Run raw
+     * output pane.
+     *
+     * @param chunk output chunk
+     */
+    private void appendCommandOutput(String chunk) {
+        appendConsole(chunk);
+        runRawOutput.appendOutput(chunk);
+    }
+
+    /**
+     * Updates the Run tab's parsed output after a command completes.
+     *
+     * @param args command arguments
+     * @param exitCode exit code
+     * @param output combined output
+     * @param millis elapsed milliseconds
+     */
+    private void finishRunCommandOutput(List<String> args, int exitCode, String output, long millis) {
+        runParsedOutput.setText(CommandResultParser.detail(args, exitCode, output, millis));
+        runParsedOutput.setCaretPosition(0);
+    }
+
+    /**
+     * Marks the Run tab's parsed output as stopped.
+     *
+     * @param message stop or failure message
+     */
+    private void markRunCommandStopped(String message) {
+        String detail = message == null || message.isBlank() ? "Command stopped." : message;
+        runParsedOutput.setText("Status: stopped\nMessage: " + detail);
+        runParsedOutput.setCaretPosition(0);
+    }
+
+    /**
+     * Adds a command to the small local recent-command list.
+     *
+     * @param display display command
+     */
+    private void addRecentRunCommand(String display) {
+        if (display == null || display.isBlank()) {
+            return;
+        }
+        for (int i = recentCommandModel.getSize() - 1; i >= 0; i--) {
+            if (display.equals(recentCommandModel.getElementAt(i))) {
+                recentCommandModel.remove(i);
+            }
+        }
+        recentCommandModel.add(0, display);
+        while (recentCommandModel.getSize() > 8) {
+            recentCommandModel.remove(recentCommandModel.getSize() - 1);
+        }
     }
 
     /**

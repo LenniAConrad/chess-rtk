@@ -25,14 +25,50 @@ public final class WorkspaceMode {
     private final transient Supplier<JComponent> builder;
 
     /**
+     * Live one-line context summary for the mode header.
+     */
+    private final transient Supplier<String> contextSupplier;
+
+    /**
+     * Optional right-side action component for the mode header.
+     */
+    private final transient Supplier<JComponent> actionsSupplier;
+
+    /**
      * Creates a workspace mode descriptor.
      *
      * @param label segment label shown to users
      * @param builder lazy body factory
      */
     public WorkspaceMode(String label, Supplier<JComponent> builder) {
+        this(label, builder, () -> "", () -> null);
+    }
+
+    /**
+     * Creates a workspace mode descriptor with a context summary.
+     *
+     * @param label segment label shown to users
+     * @param builder lazy body factory
+     * @param contextSupplier live context summary supplier
+     */
+    public WorkspaceMode(String label, Supplier<JComponent> builder, Supplier<String> contextSupplier) {
+        this(label, builder, contextSupplier, () -> null);
+    }
+
+    /**
+     * Creates a workspace mode descriptor with header metadata.
+     *
+     * @param label segment label shown to users
+     * @param builder lazy body factory
+     * @param contextSupplier live context summary supplier
+     * @param actionsSupplier optional action-component supplier
+     */
+    public WorkspaceMode(String label, Supplier<JComponent> builder, Supplier<String> contextSupplier,
+            Supplier<JComponent> actionsSupplier) {
         this.label = Objects.requireNonNull(label, "label");
         this.builder = Objects.requireNonNull(builder, "builder");
+        this.contextSupplier = contextSupplier == null ? () -> "" : contextSupplier;
+        this.actionsSupplier = actionsSupplier == null ? () -> null : actionsSupplier;
     }
 
     /**
@@ -51,5 +87,24 @@ public final class WorkspaceMode {
      */
     public Supplier<JComponent> builder() {
         return builder;
+    }
+
+    /**
+     * Returns this mode's current one-line context summary.
+     *
+     * @return context summary
+     */
+    public String context() {
+        String value = contextSupplier.get();
+        return value == null ? "" : value;
+    }
+
+    /**
+     * Returns this mode's optional action component.
+     *
+     * @return action component, or null
+     */
+    public JComponent actions() {
+        return actionsSupplier.get();
     }
 }

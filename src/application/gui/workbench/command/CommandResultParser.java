@@ -64,6 +64,67 @@ public final class CommandResultParser {
     }
 
     /**
+     * Builds the richer parsed-result text used by the Run command builder.
+     * The method is intentionally conservative and keeps raw output available
+     * for anything it cannot safely interpret.
+     *
+     * @param args command arguments (without the {@code crtk} prefix)
+     * @param exitCode process exit code
+     * @param output combined stdout/stderr
+     * @param millis elapsed time in milliseconds
+     * @return multi-line parsed result
+     */
+    public static String detail(List<String> args, int exitCode, String output, long millis) {
+        String text = output == null ? "" : output;
+        StringBuilder result = new StringBuilder();
+        appendField(result, "Status", exitCode == 0 ? "complete" : "exit " + exitCode);
+        if (millis >= 0L) {
+            appendField(result, "Elapsed", millis + " ms");
+        }
+        String command = args == null || args.isEmpty() ? "" : String.join(" ", args);
+        String bestMove = tokenAfter(text, "bestmove");
+        if (!bestMove.isEmpty() || isEngineSearchCommand(command)) {
+            appendField(result, "Best move", bestMove.isEmpty() ? "-" : bestMove);
+            appendFieldIfPresent(result, "Score", scoreSummary(text));
+            appendFieldIfPresent(result, "Depth", lastTokenAfter(text, "depth"));
+            appendFieldIfPresent(result, "Nodes", lastTokenAfter(text, "nodes"));
+            appendFieldIfPresent(result, "NPS", lastTokenAfter(text, "nps"));
+            appendFieldIfPresent(result, "Time", timeSummary(text));
+        } else {
+            String perft = perftSummary(text);
+            if (!perft.isEmpty()) {
+                appendField(result, "Result", perft);
+            } else if (command.startsWith("config validate")) {
+                appendField(result, "Result", exitCode == 0 ? "config valid" : "config issue");
+            } else if (command.equals("doctor") || command.startsWith("doctor ")) {
+                appendField(result, "Result", exitCode == 0 ? "doctor checks passed" : "doctor issue");
+            } else {
+                String line = firstNonBlankLine(text);
+                appendField(result, "Result", line.isEmpty() ? (exitCode == 0 ? "ok" : "see raw output") : clip(line));
+            }
+        }
+        if (exitCode != 0) {
+            String line = firstNonBlankLine(text);
+            if (!line.isEmpty()) {
+                appendField(result, "Message", clip(line));
+            }
+        }
+        return result.toString().stripTrailing();
+    }
+
+    /**
+     * Returns whether the command is an engine search-style command.
+     *
+     * @param command command text
+     * @return true when parsed engine fields are useful
+     */
+    private static boolean isEngineSearchCommand(String command) {
+        return command.startsWith("engine bestmove")
+                || command.startsWith("engine analyze")
+                || command.startsWith("engine builtin");
+    }
+
+    /**
      * Returns the whitespace-delimited token that follows the given marker
      * word in the output, or an empty string when the marker is absent.
      *
@@ -79,6 +140,59 @@ public final class CommandResultParser {
                     return parts[i + 1];
                 }
             }
+        }
+        return "";
+    }
+
+    /**
+     * Returns the last token following a marker in the full output.
+     *
+     * @param text output text
+     * @param marker marker word
+     * @return last following token, or empty
+     */
+    private static String lastTokenAfter(String text, String marker) {
+        String result = "";
+        for (String line : text.split("\\R")) {
+            String[] parts = line.trim().split("\\s+");
+            for (int i = 0; i < parts.length - 1; i++) {
+                if (parts[i].equals(marker)) {
+                    result = parts[i + 1];
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Extracts an engine score from UCI-like info output.
+     *
+     * @param text output text
+     * @return score summary, or empty
+     */
+    private static String scoreSummary(String text) {
+        String result = "";
+        for (String line : text.split("\\R")) {
+            String[] parts = line.trim().split("\\s+");
+            for (int i = 0; i < parts.length - 2; i++) {
+                if ("score".equals(parts[i])) {
+                    result = parts[i + 1] + " " + parts[i + 2];
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Extracts the most useful time token from engine output.
+     *
+     * @param text output text
+     * @return time summary, or empty
+     */
+    private static String timeSummary(String text) {
+        String time = lastTokenAfter(text, "time");
+        if (!time.isEmpty()) {
+            return time + " ms";
         }
         return "";
     }
@@ -156,5 +270,32 @@ public final class CommandResultParser {
     private static String clip(String text) {
         int max = 80;
         return text.length() <= max ? text : text.substring(0, max - 1) + "…";
+    }
+
+    /**
+     * Appends a label/value pair.
+     *
+     * @param out destination
+     * @param label label
+     * @param value value
+     */
+    private static void appendField(StringBuilder out, String label, String value) {
+        if (out.length() > 0) {
+            out.append('\n');
+        }
+        out.append(label).append(": ").append(value == null || value.isBlank() ? "-" : value);
+    }
+
+    /**
+     * Appends a label/value pair only when a value is present.
+     *
+     * @param out destination
+     * @param label label
+     * @param value value
+     */
+    private static void appendFieldIfPresent(StringBuilder out, String label, String value) {
+        if (value != null && !value.isBlank()) {
+            appendField(out, label, value);
+        }
     }
 }

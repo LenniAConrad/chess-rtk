@@ -78,7 +78,7 @@ final class DataTableStyler {
         table.setShowGrid(false);
         table.setIntercellSpacing(new Dimension(0, 0));
         table.setBorder(Theme.pad(0, 0, 0, 0));
-        table.setFont(Theme.font(12, java.awt.Font.PLAIN));
+        table.setFont(Theme.font(Theme.FONT_DENSE_TABLE, java.awt.Font.PLAIN));
         table.setRowSelectionAllowed(true);
         table.setColumnSelectionAllowed(false);
         installHoverTracking(table);
@@ -180,7 +180,7 @@ final class DataTableStyler {
         header.setOpaque(true);
         header.setBackground(Theme.PANEL_SOLID);
         header.setForeground(Theme.MUTED);
-        header.setFont(Theme.font(11, java.awt.Font.BOLD));
+        header.setFont(Theme.font(Theme.FONT_METADATA, java.awt.Font.BOLD));
         header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE));
         header.setDefaultRenderer(new HeaderCellRenderer());
         header.setPreferredSize(new Dimension(1, HEADER_HEIGHT));
@@ -250,13 +250,13 @@ final class DataTableStyler {
             super.getTableCellRendererComponent(table, value, selected, focused, row, column);
             setOpaque(true);
             setText(value == null ? "" : value.toString());
-            setFont(Theme.font(11, java.awt.Font.BOLD));
+            setFont(Theme.font(Theme.FONT_METADATA, java.awt.Font.BOLD));
             setForeground(Theme.MUTED);
             setBackground(Theme.PANEL_SOLID);
             setHorizontalAlignment(SwingConstants.LEFT);
             setBorder(BorderFactory.createCompoundBorder(
                     BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE),
-                    Theme.pad(0, 8, 0, 8)));
+                    Theme.pad(0, Theme.SPACE_SM, 0, Theme.SPACE_SM)));
             SortOrder order = sortOrder(table, column);
             setIcon(order == SortOrder.UNSORTED ? null : new SortIcon(order));
             setHorizontalTextPosition(SwingConstants.LEFT);
@@ -297,7 +297,7 @@ final class DataTableStyler {
             setBackground(selected ? table.getSelectionBackground()
                     : hovered ? Theme.SECONDARY_BUTTON_HOVER : table.getBackground());
             setHorizontalAlignment(value instanceof Number ? SwingConstants.RIGHT : SwingConstants.LEFT);
-            setBorder(Theme.pad(0, 8, 0, 8));
+            setBorder(Theme.pad(0, Theme.SPACE_SM, 0, Theme.SPACE_SM));
             setToolTipText(clippedTooltip(table, column));
             return this;
         }

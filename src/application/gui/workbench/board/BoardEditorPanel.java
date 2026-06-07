@@ -1,6 +1,7 @@
 package application.gui.workbench.board;
 
 import application.gui.workbench.ui.RenderAcceleration;
+import application.gui.workbench.ui.HoldButton;
 import application.gui.workbench.ui.Theme;
 import chess.core.Move;
 import chess.core.Piece;
@@ -36,6 +37,7 @@ import javax.swing.SpinnerNumberModel;
 
 import static application.gui.workbench.ui.Ui.button;
 import static application.gui.workbench.ui.Ui.buttonRow;
+import static application.gui.workbench.ui.Ui.controlRow;
 import static application.gui.workbench.ui.Ui.caption;
 import static application.gui.workbench.ui.Ui.changeListener;
 import static application.gui.workbench.ui.Ui.constraints;
@@ -623,10 +625,10 @@ public final class BoardEditorPanel extends JPanel {
      */
     private JComponent createActionRows() {
         JPanel actions = transparentPanel(new BorderLayout(0, 6));
-        actions.add(buttonRow(FlowLayout.LEFT,
+        actions.add(controlRow(FlowLayout.LEFT,
                 button("Current", false, event -> loadFen(currentFenSupplier.get())),
                 button("Start", false, event -> loadFen(Setup.getStandardStartFEN())),
-                button("Clear", false, event -> clearBoard()),
+                new HoldButton("Clear", this::clearBoard, true),
                 button("Flip", false, event -> flipBoard())), BorderLayout.NORTH);
         actions.add(buttonRow(FlowLayout.LEFT,
                 button("Apply", true, event -> applyEditedFen()),

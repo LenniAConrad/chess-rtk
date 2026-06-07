@@ -3,13 +3,17 @@ package application.gui.workbench.dataset;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import java.awt.Color;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import javax.swing.JComponent;
 import javax.swing.Timer;
 
@@ -153,12 +157,44 @@ public final class DatasetChart extends JComponent {
     private final Timer barRevealTimer = new Timer(ANIMATION_DELAY_MS, event -> tickBarReveal());
 
     /**
+     * Optional callback fired when the user clicks a visible bar label/row.
+     */
+    private transient Consumer<String> selectionHandler;
+
+    /**
      * Creates an empty chart.
      */
     public DatasetChart() {
         setOpaque(false);
         setFont(Theme.font(11, java.awt.Font.PLAIN));
         barRevealTimer.setCoalesce(true);
+        addMouseListener(new MouseAdapter() {
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public void mouseClicked(MouseEvent event) {
+                if (selectionHandler == null || !javax.swing.SwingUtilities.isLeftMouseButton(event)) {
+                    return;
+                }
+                Bar bar = barAt(event.getY());
+                if (bar != null) {
+                    selectionHandler.accept(bar.label());
+                }
+            }
+        });
+    }
+
+    /**
+     * Sets an optional visible-bar click callback. Passing {@code null}
+     * disables chart actions.
+     *
+     * @param handler label callback
+     */
+    public void setSelectionHandler(Consumer<String> handler) {
+        selectionHandler = handler;
+        setCursor(handler == null ? Cursor.getDefaultCursor() : Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        setToolTipText(handler == null ? null : "Click a bar to filter matching rows");
     }
 
     /**
@@ -329,6 +365,23 @@ public final class DatasetChart extends JComponent {
         int rowCapacity = Math.max(1,
                 (getHeight() - 2 * Theme.SPACE_SM) / Math.max(1, BAR_HEIGHT + BAR_GAP));
         return visible.size() <= rowCapacity ? visible : visible.subList(0, rowCapacity);
+    }
+
+    /**
+     * Returns the visible bar row at a y coordinate.
+     *
+     * @param y mouse y coordinate
+     * @return bar, or null
+     */
+    private Bar barAt(int y) {
+        List<Bar> visible = visibleBars();
+        if (visible.isEmpty()) {
+            return null;
+        }
+        int availableHeight = Math.max(1, getHeight() - 2 * Theme.SPACE_SM);
+        int rowHeight = Math.max(BAR_HEIGHT + BAR_GAP, availableHeight / Math.max(1, visible.size()));
+        int index = (y - Theme.SPACE_SM) / Math.max(1, rowHeight);
+        return index >= 0 && index < visible.size() ? visible.get(index) : null;
     }
 
     /**

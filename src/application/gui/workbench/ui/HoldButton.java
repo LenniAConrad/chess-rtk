@@ -111,7 +111,7 @@ public final class HoldButton extends JComponent {
         this.onConfirm = onConfirm == null ? () -> {
             // no-op
         } : onConfirm;
-        this.danger = danger;
+        this.danger = danger || Theme.destructiveActionLabel(label);
         setOpaque(false);
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         setToolTipText("Hold to " + label.toLowerCase(java.util.Locale.ROOT));
@@ -164,6 +164,23 @@ public final class HoldButton extends JComponent {
             }
         };
         addMouseListener(mouse);
+    }
+
+    /**
+     * Updates the enabled state, swapping the pointer cursor and cancelling any
+     * in-progress hold so a disabled button neither invites a click nor lets a
+     * hold complete after it was disabled.
+     *
+     * @param enabled true to enable the button
+     */
+    @Override
+    public void setEnabled(boolean enabled) {
+        super.setEnabled(enabled);
+        setCursor(Cursor.getPredefinedCursor(enabled ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR));
+        if (!enabled && timer != null) {
+            cancelHold();
+        }
+        repaint();
     }
 
     /**
@@ -250,23 +267,39 @@ public final class HoldButton extends JComponent {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             int w = getWidth();
             int h = getHeight();
-            Color accent = danger ? Theme.STATUS_ERROR_TEXT : Theme.ACCENT;
-            g.setColor(hovered ? Theme.SECONDARY_BUTTON_HOVER : Theme.SECONDARY_BUTTON);
+            boolean enabled = isEnabled();
+            Theme.ButtonVariant variant = danger ? Theme.ButtonVariant.DESTRUCTIVE : Theme.ButtonVariant.SECONDARY;
+            Color accent = Theme.buttonText(variant);
+            Color fill;
+            Color border;
+            Color ring;
+            if (!enabled) {
+                fill = Theme.BUTTON_DISABLED_BG;
+                border = Theme.BUTTON_DISABLED_BORDER;
+                ring = Theme.BUTTON_DISABLED_BORDER;
+            } else {
+                fill = progress > 0
+                        ? Theme.buttonPressed(variant)
+                        : hovered ? Theme.buttonHover(variant) : Theme.buttonBackground(variant);
+                border = progress > 0 ? accent : Theme.buttonBorder(variant);
+                ring = accent;
+            }
+            g.setColor(fill);
             g.fillRoundRect(0, 0, w - 1, h - 1, Theme.RADIUS, Theme.RADIUS);
-            g.setColor(progress > 0 ? accent : (danger ? Theme.STATUS_ERROR_BORDER : Theme.LINE));
+            g.setColor(border);
             g.drawRoundRect(0, 0, w - 1, h - 1, Theme.RADIUS, Theme.RADIUS);
 
             int ringX = PAD_X;
             int ringY = (h - RING) / 2;
             g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-            g.setColor(Theme.withAlpha(accent, 80));
+            g.setColor(Theme.withAlpha(ring, 80));
             g.drawOval(ringX, ringY, RING, RING);
-            if (progress > 0) {
+            if (enabled && progress > 0) {
                 g.setColor(accent);
                 g.drawArc(ringX, ringY, RING, RING, 90, -(int) Math.round(progress * 360));
             }
 
-            g.setColor(danger ? Theme.STATUS_ERROR_TEXT : Theme.TEXT);
+            g.setColor(enabled ? Theme.buttonText(variant) : Theme.BUTTON_DISABLED_TEXT);
             g.setFont(getFont());
             FontMetrics metrics = g.getFontMetrics();
             int textX = ringX + RING + GAP;

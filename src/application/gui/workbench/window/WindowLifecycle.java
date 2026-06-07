@@ -11,6 +11,8 @@ import application.gui.workbench.layout.LazyPanel;
 import application.gui.workbench.layout.ViewRegistry;
 import application.gui.workbench.layout.RegisteredView;
 import application.gui.workbench.network.TensorViz;
+import application.gui.workbench.session.Job;
+import application.gui.workbench.session.JobStatus;
 import application.gui.workbench.session.LogPanel;
 import application.gui.workbench.ui.BackdropPanel;
 import application.gui.workbench.ui.SettingsChipRow;
@@ -951,12 +953,12 @@ public abstract class WindowLifecycle extends WindowBase {
                         () -> new LazyPanel("Datasets", this::createDetachedDatasetTab)))
                 .add(new RegisteredView("Publish", new LazyPanel("Publish", this::createPublishTab),
                         () -> new LazyPanel("Publish", this::createDetachedPublishTab)))
-                // Engine is the unified engine surface: the neural-network
+                // Engine Lab is the unified engine surface: the neural-network
                 // visualizer (Network) and the PUCT/MCTS search (Search) are
                 // modes of one workspace, not two tabs. Built lazily; duplicating
                 // spawns an independent network visualizer.
-                .add(new RegisteredView("Engine", new LazyPanel("Engine", this::createEngineWorkspaceTab),
-                        () -> new LazyPanel("Engine", this::createDetachedNetworkTab)))
+                .add(new RegisteredView("Engine Lab", new LazyPanel("Engine Lab", this::createEngineWorkspaceTab),
+                        () -> new LazyPanel("Engine Lab", this::createDetachedNetworkTab)))
                 // Console and Logs are now first-class surfaces (not Run modes),
                 // so they can be split, docked side-by-side, resized, and
                 // duplicated like the other top-level views. Console is eager so
@@ -973,6 +975,9 @@ public abstract class WindowLifecycle extends WindowBase {
         statusBar = createStatusBar();
         statusBar.setVisible(statusBarVisible);
         root.add(statusBar, BorderLayout.SOUTH);
+        session.addListener(changed -> SwingUtilities.invokeLater(this::refreshWorkspaceHeaders));
+        session.jobs().addListener(() -> SwingUtilities.invokeLater(this::refreshGlobalJobStatus));
+        refreshGlobalJobStatus();
         setContentPane(root);
         installKeyBindings();
         installFenPgnDropTarget();
@@ -1017,6 +1022,70 @@ public abstract class WindowLifecycle extends WindowBase {
     protected void openLogsDockAndDirectory() {
         showLogsDock();
         runArtifacts.openLogsDirectory();
+    }
+
+    /**
+     * Opens the latest job log when one can exist, otherwise focuses Logs.
+     */
+    private void openLatestJobLogOrLogs() {
+        Job job = session.jobs().latest();
+        if (job != null && job.status().isTerminal()) {
+            runArtifacts.openLog(job);
+            refreshLogBrowsers();
+        }
+        showLogsDock();
+    }
+
+    /**
+     * Refreshes the global job status footer from the latest command run.
+     */
+    protected void refreshGlobalJobStatus() {
+        Job job = session.jobs().latest();
+        if (job == null) {
+            statusBarJob.notRun("idle");
+            setJobDetail("no jobs");
+            return;
+        }
+        JobStatus status = job.status();
+        switch (status) {
+            case QUEUED -> statusBarJob.notRun("queued");
+            case RUNNING -> statusBarJob.running("running");
+            case SUCCEEDED -> statusBarJob.complete("complete");
+            case FAILED -> statusBarJob.error("error");
+            case CANCELLED -> statusBarJob.paused("stopped");
+            default -> statusBarJob.notRun(status.label().toLowerCase(java.util.Locale.ROOT));
+        }
+        setJobDetail(jobDetail(job));
+    }
+
+    /**
+     * Refreshes shell headers that derive context from the shared session.
+     */
+    protected void refreshWorkspaceHeaders() {
+        if (boardWorkspace != null) {
+            boardWorkspace.refreshHeader();
+        }
+        if (engineWorkspace != null) {
+            engineWorkspace.refreshHeader();
+        }
+    }
+
+    /**
+     * Returns the latest-job footer detail.
+     *
+     * @param job latest job
+     * @return detail text
+     */
+    private static String jobDetail(Job job) {
+        if (job == null) {
+            return "no jobs";
+        }
+        String result = job.resultSummary();
+        if (job.status().isTerminal() && result != null && !result.isBlank()) {
+            return result;
+        }
+        String command = job.displayCommand();
+        return command == null || command.isBlank() ? job.status().label() : command;
     }
 
     /**
@@ -1113,6 +1182,17 @@ public abstract class WindowLifecycle extends WindowBase {
      * Status-bar engine-detail cell.
      */
     protected final JLabel statusBarEngineDetail = new JLabel("");
+
+    /**
+     * Status-bar latest-job badge.
+     */
+    protected final application.gui.workbench.ui.StatusBadge statusBarJob =
+            new application.gui.workbench.ui.StatusBadge();
+
+    /**
+     * Status-bar latest-job detail cell.
+     */
+    protected final JLabel statusBarJobDetail = new JLabel("");
 
     /**
      * Builds a compact status bar pinned to the south edge of the workbench.
@@ -1252,22 +1332,37 @@ public abstract class WindowLifecycle extends WindowBase {
         engineCell.add(statusBarEngine, BorderLayout.WEST);
         engineCell.add(statusBarEngineDetail, BorderLayout.CENTER);
         c.gridx = 2;
-        c.weightx = 0.3;
+        c.weightx = 0.22;
         bar.add(statusClickCell(engineCell, "Open engine settings",
                 this::showEngineSettings), c);
 
-        for (JLabel label : new JLabel[] { statusBarPosition, statusBarPly, statusBarEngineDetail }) {
+        JPanel jobCell = Ui.transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        statusBarJob.setFont(Theme.font(11, java.awt.Font.PLAIN));
+        statusBarJob.notRun("idle");
+        statusBarJob.setFixedTextWidth(
+                statusBarJob.getFontMetrics(statusBarJob.getFont()).stringWidth("complete"));
+        jobCell.add(statusBarJob, BorderLayout.WEST);
+        jobCell.add(statusBarJobDetail, BorderLayout.CENTER);
+        c.gridx = 3;
+        c.weightx = 0.28;
+        bar.add(statusClickCell(jobCell, "Open latest run log",
+                this::openLatestJobLogOrLogs), c);
+
+        for (JLabel label : new JLabel[] { statusBarPosition, statusBarPly,
+                statusBarEngineDetail, statusBarJobDetail }) {
             label.setFont(Theme.font(11, java.awt.Font.PLAIN));
             Theme.foreground(label, Theme.ForegroundRole.MUTED);
         }
         statusBarEngineDetail.setFont(new java.awt.Font(java.awt.Font.MONOSPACED, java.awt.Font.PLAIN, 11));
+        statusBarJobDetail.setFont(new java.awt.Font(java.awt.Font.MONOSPACED, java.awt.Font.PLAIN, 11));
         statusBarPosition.setHorizontalAlignment(SwingConstants.LEFT);
         statusBarPly.setHorizontalAlignment(SwingConstants.CENTER);
         statusBarEngineDetail.setHorizontalAlignment(SwingConstants.RIGHT);
+        statusBarJobDetail.setHorizontalAlignment(SwingConstants.RIGHT);
 
         // Bell at the far right opens a popover with the recent toast
         // history so users can recover paths/messages they missed.
-        c.gridx = 3;
+        c.gridx = 4;
         c.weightx = 0.0;
         c.fill = java.awt.GridBagConstraints.NONE;
         bar.add(buildNotificationBell(), c);
@@ -1633,6 +1728,11 @@ public abstract class WindowLifecycle extends WindowBase {
     private static final int ENGINE_DETAIL_MAX_CHARS = 48;
 
     /**
+     * Maximum characters shown in the status-bar latest-job detail cell.
+     */
+    private static final int JOB_DETAIL_MAX_CHARS = 56;
+
+    /**
      * Sets the status-bar engine-detail text, truncating to a width-safe budget
      * (full text remains available on hover) so long engine/error messages do
      * not overflow the status bar.
@@ -1647,6 +1747,23 @@ public abstract class WindowLifecycle extends WindowBase {
         } else {
             statusBarEngineDetail.setText(value);
             statusBarEngineDetail.setToolTipText(value.isBlank() ? null : value);
+        }
+    }
+
+    /**
+     * Sets the status-bar latest-job detail text, truncating to a width-safe
+     * budget while keeping the full detail available on hover.
+     *
+     * @param text latest-job detail
+     */
+    private void setJobDetail(String text) {
+        String value = text == null ? "" : text;
+        if (value.length() > JOB_DETAIL_MAX_CHARS) {
+            statusBarJobDetail.setText(value.substring(0, JOB_DETAIL_MAX_CHARS - 1).trim() + "…");
+            statusBarJobDetail.setToolTipText(value);
+        } else {
+            statusBarJobDetail.setText(value);
+            statusBarJobDetail.setToolTipText(value.isBlank() ? null : value);
         }
     }
 
@@ -2149,7 +2266,7 @@ public abstract class WindowLifecycle extends WindowBase {
      * Opens the analysis data view.
      */
     protected void showAnalysisData() {
-        showBoardDetail("Data");
+        showBoardDetail("Raw");
     }
 
     /**
@@ -2172,8 +2289,9 @@ public abstract class WindowLifecycle extends WindowBase {
         if (boardDetailTabs == null || title == null) {
             return;
         }
+        String target = "Data".equals(title) ? "Raw" : title;
         for (int i = 0; i < boardDetailTabs.getTabCount(); i++) {
-            if (title.equals(boardDetailTabs.getTitleAt(i))) {
+            if (target.equals(boardDetailTabs.getTitleAt(i))) {
                 boardDetailTabs.setSelectedIndex(i);
                 return;
             }

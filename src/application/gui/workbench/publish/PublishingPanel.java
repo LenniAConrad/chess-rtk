@@ -8,13 +8,16 @@ import application.gui.workbench.game.GameModel;
 import application.gui.workbench.publish.PublishSampleData.SampleItem;
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.ui.FileDialogs;
+import application.gui.workbench.ui.HoldButton;
 import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Toast;
 import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.Ui;
+import application.gui.workbench.ui.WorkspaceHeader;
 import java.awt.BorderLayout;
 import java.awt.Component;
+import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -34,6 +37,7 @@ import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
@@ -44,7 +48,7 @@ import static application.gui.workbench.command.CommandArgs.addOptionalPositiveI
 import static application.gui.workbench.command.CommandArgs.addOptionalTextArg;
 import static application.gui.workbench.ui.Ui.addVerticalFiller;
 import static application.gui.workbench.ui.Ui.button;
-import static application.gui.workbench.ui.Ui.buttonRow;
+import static application.gui.workbench.ui.Ui.controlRow;
 import static application.gui.workbench.ui.Ui.changeListener;
 import static application.gui.workbench.ui.Ui.collapsible;
 import static application.gui.workbench.ui.Ui.constraints;
@@ -487,14 +491,34 @@ public final class PublishingPanel {
     private final JLabel publishPreviewPageLabel = new JLabel("page 1 / 1");
 
     /**
+     * Publishing preview zoom label.
+     */
+    private final JLabel publishPreviewZoomLabel = new JLabel("100%");
+
+    /**
      * Publishing readiness label.
      */
     private final JLabel publishReadinessLabel = new JLabel("Ready");
 
     /**
+     * Scroll container for the visual preview.
+     */
+    private JScrollPane publishPreviewScroll;
+
+    /**
      * Publishing run button, disabled while the command cannot be built.
      */
     private JButton publishCreateButton;
+
+    /**
+     * Opens the current output PDF when it already exists.
+     */
+    private JButton publishOpenPdfButton;
+
+    /**
+     * Shared workspace header for the Publish surface.
+     */
+    private final WorkspaceHeader workspaceHeader = new WorkspaceHeader("Publish", "", null);
 
     /**
      * Publishing input chooser button.
@@ -601,10 +625,11 @@ public final class PublishingPanel {
      */
     private JComponent createPublishTab() {
         JPanel panel = transparentPanel(new BorderLayout(0, 0));
-        panel.add(Ui.surfaceHeader("Publish",
-                "Render the current position, study, or puzzle collection to a PDF or manifest",
-                null), BorderLayout.NORTH);
-        panel.add(createBookPublishingPanel(), BorderLayout.CENTER);
+        JComponent body = createBookPublishingPanel();
+        workspaceHeader.setActions(createPublishActions());
+        workspaceHeader.setContext(publishContext(null));
+        panel.add(workspaceHeader, BorderLayout.NORTH);
+        panel.add(body, BorderLayout.CENTER);
         configurePublishControls();
         updatePublishControlState();
         host.generateReport();
@@ -666,52 +691,47 @@ public final class PublishingPanel {
         configurePublishingArea(publishLinkArea, true);
         configurePublishingArea(publishAfterwordArea, true);
 
-        // --- Setup box: what gets published, and where it lands. Always visible
-        // and boxed so the required inputs read at a glance, like the command
-        // builder's leading fields.
-        JPanel setup = transparentPanel(new GridBagLayout());
-        GridBagConstraints setupC = constraints();
-        int setupRow = 0;
-        grid(setup, label("task"), setupC, 0, setupRow, 1, 1);
-        JPanel taskCell = transparentPanel(new BorderLayout(0, 3));
-        taskCell.add(publishTaskCombo, BorderLayout.NORTH);
-        taskCell.add(publishTaskHint, BorderLayout.SOUTH);
-        grid(setup, taskCell, setupC, 1, setupRow++, 3, 1);
-        grid(setup, label("source"), setupC, 0, setupRow, 1, 1);
-        grid(setup, publishSourceCombo, setupC, 1, setupRow++, 3, 1);
-        publishInputButton = addChooserRow(setup, setupC, requiredLabelCell(publishInputLabel, publishInputStar),
-                publishInputField, "Choose Input", setupRow++,
+        JPanel source = transparentPanel(new GridBagLayout());
+        GridBagConstraints sourceC = constraints();
+        int sectionRow = 0;
+        sectionRow = addPublishingControlRow(source, sourceC, label("source"), publishSourceCombo, sectionRow);
+        publishInputButton = addChooserRow(source, sourceC, requiredLabelCell(publishInputLabel, publishInputStar),
+                publishInputField, "Choose Input", sectionRow,
                 () -> FileDialogs.choosePath(host.owner(), publishInputField, false, "Choose publishing input"));
-        publishOutputButton = addChooserRow(setup, setupC, requiredLabelCell(publishOutputLabel, publishOutputStar),
-                publishOutputField, "Choose Output", setupRow,
-                () -> FileDialogs.choosePath(host.owner(), publishOutputField, true, "Choose publishing output"));
-        grid(panel, fieldGroup("Setup", setup), c, 0, row++, 4, 1);
+        grid(panel, fieldGroup("Source", source), c, 0, row++, 4, 1);
 
-        // --- Options box: the boolean command flags, surfaced (not buried) and
-        // boxed so each switch clearly belongs to the publishing command.
+        JPanel template = transparentPanel(new GridBagLayout());
+        GridBagConstraints templateC = constraints();
+        sectionRow = 0;
+        sectionRow = addPublishingControlRow(template, templateC, label("task"), publishTaskCombo, sectionRow);
+        sectionRow = addPublishingControlRow(template, templateC, label("templates"),
+                createPublishingTemplatePanel(), sectionRow);
+        addPublishingControlRow(template, templateC, label("note"), publishTaskHint, sectionRow);
+        grid(panel, fieldGroup("Template", template), c, 0, row++, 4, 1);
+
         JPanel options = transparentPanel(new GridBagLayout());
         GridBagConstraints optionsC = constraints();
-        int optionsRow = 0;
+        sectionRow = 0;
         JPanel toggles = flow(FlowLayout.LEFT);
         toggles.add(publishValidateBox);
         toggles.add(publishFlipBox);
         toggles.add(publishNoFenBox);
         toggles.add(publishWatermarkBox);
-        optionsRow = addPublishingControlRow(options, optionsC, label("flags"), toggles, optionsRow);
-        addPublishingControlRow(options, optionsC, label("watermark id"), publishWatermarkIdField, optionsRow);
-        grid(panel, fieldGroup("Options", options), c, 0, row++, 4, 1);
+        sectionRow = addPublishingControlRow(options, optionsC, label("flags"), toggles, sectionRow);
+        addPublishingControlRow(options, optionsC, label("watermark id"), publishWatermarkIdField, sectionRow);
+        grid(panel, fieldGroup("Display Options", options), c, 0, row++, 4, 1);
 
-        JPanel details = transparentPanel(new GridBagLayout());
-        GridBagConstraints detailsC = constraints();
-        int sectionRow = 0;
-        sectionRow = addPublishingControlRow(details, detailsC, label("title"), publishTitleField, sectionRow);
-        sectionRow = addPublishingControlRow(details, detailsC, label("subtitle"), publishSubtitleField, sectionRow);
-        sectionRow = addPublishingControlRow(details, detailsC, label("author"), publishAuthorField, sectionRow);
-        sectionRow = addPublishingControlRow(details, detailsC, label("date/place"),
+        JPanel metadata = transparentPanel(new GridBagLayout());
+        GridBagConstraints metadataC = constraints();
+        sectionRow = 0;
+        sectionRow = addPublishingControlRow(metadata, metadataC, label("title"), publishTitleField, sectionRow);
+        sectionRow = addPublishingControlRow(metadata, metadataC, label("subtitle"), publishSubtitleField, sectionRow);
+        sectionRow = addPublishingControlRow(metadata, metadataC, label("author"), publishAuthorField, sectionRow);
+        sectionRow = addPublishingControlRow(metadata, metadataC, label("date/place"),
                 compactPublishingRow(label("time"), publishTimeField, label("location"), publishLocationField),
                 sectionRow);
-        addPublishingControlRow(details, detailsC, label("language"), publishLanguageCombo, sectionRow);
-        grid(panel, collapsible("Details", details, false), c, 0, row++, 4, 1);
+        addPublishingControlRow(metadata, metadataC, label("language"), publishLanguageCombo, sectionRow);
+        grid(panel, collapsible("Metadata", metadata, false), c, 0, row++, 4, 1);
 
         JPanel layout = transparentPanel(new GridBagLayout());
         GridBagConstraints layoutC = constraints();
@@ -738,6 +758,9 @@ public final class PublishingPanel {
         JPanel files = transparentPanel(new GridBagLayout());
         GridBagConstraints filesC = constraints();
         sectionRow = 0;
+        publishOutputButton = addChooserRow(files, filesC, requiredLabelCell(publishOutputLabel, publishOutputStar),
+                publishOutputField, "Choose Output", sectionRow++,
+                () -> FileDialogs.choosePath(host.owner(), publishOutputField, true, "Choose publishing output"));
         publishManifestOutputButton = addChooserRow(files, filesC, publishManifestOutputLabel,
                 publishManifestOutputField, "Choose Manifest", sectionRow++,
                 () -> FileDialogs.choosePath(host.owner(), publishManifestOutputField, true, "Choose manifest output"));
@@ -747,27 +770,39 @@ public final class PublishingPanel {
         publishCoverOutputButton = addChooserRow(files, filesC, publishCoverOutputLabel, publishCoverOutputField,
                 "Choose Cover", sectionRow,
                 () -> FileDialogs.choosePath(host.owner(), publishCoverOutputField, true, "Choose cover output"));
-        grid(panel, collapsible("Extra output files", files, false), c, 0, row++, 4, 1);
+        grid(panel, collapsible("Output Files", files, false), c, 0, row++, 4, 1);
 
-        grid(panel, collapsible("Front matter", createPublishingFrontMatterPanel(), false), c, 0, row++, 4, 1);
+        grid(panel, collapsible("Front Matter", createPublishingFrontMatterPanel(), false), c, 0, row++, 4, 1);
 
-        JPanel command = transparentPanel(new GridBagLayout());
-        GridBagConstraints commandC = constraints();
+        JPanel advanced = transparentPanel(new GridBagLayout());
+        GridBagConstraints advancedC = constraints();
         publishCommandField.setEditable(false);
         publishCommandField.setFocusable(false);
         publishCommandField.setToolTipText("Generated publishing command");
-        grid(command, scroll(publishCommandField), commandC, 0, 0, 4, 1);
-        grid(panel, collapsible("Command line", command, false), c, 0, row++, 4, 1);
-
-        grid(panel, collapsible("Report", createReportPanel(), false), c, 0, row++, 4, 1);
+        sectionRow = 0;
+        sectionRow = addPublishingControlRow(advanced, advancedC, label("command"), scroll(publishCommandField),
+                sectionRow);
+        addPublishingControlRow(advanced, advancedC, label("report"), createReportPanel(), sectionRow);
+        grid(panel, collapsible("Advanced", advanced, false), c, 0, row++, 4, 1);
 
         publishCreateButton = button("Create PDF", true, event -> runPublishingCommand());
-        grid(panel, buttonRow(FlowLayout.LEFT,
-                publishCreateButton,
-                button("Copy Command", false, event -> host.copyText(publishCommandField.getText())),
-                button("Stop", false, event -> host.stopCommand())), c, 1, row++, 3, 1);
         addVerticalFiller(panel, c, row, 4);
         return panel;
+    }
+
+    /**
+     * Creates the Publish header action row.
+     *
+     * @return action row
+     */
+    private JComponent createPublishActions() {
+        if (publishCreateButton == null) {
+            publishCreateButton = button("Create PDF", true, event -> runPublishingCommand());
+        }
+        return controlRow(FlowLayout.RIGHT,
+                publishCreateButton,
+                button("Copy Command", false, event -> host.copyText(publishCommandField.getText())),
+                new HoldButton("Stop", host::stopCommand, true));
     }
 
     /**
@@ -890,6 +925,36 @@ public final class PublishingPanel {
     }
 
     /**
+     * Creates high-level publishing template shortcuts. Each enabled shortcut
+     * maps to an existing backend task; unsupported templates stay disabled
+     * instead of implying generation code that does not exist.
+     *
+     * @return template shortcut row
+     */
+    private JComponent createPublishingTemplatePanel() {
+        JPanel row = flow(FlowLayout.LEFT);
+        row.add(button("Diagram sheet", false, event -> selectPublishTemplate(PublishTask.DIAGRAMS)));
+        row.add(button("Puzzle worksheet", false, event -> selectPublishTemplate(PublishTask.COLLECTION)));
+        row.add(button("Study handout", false, event -> selectPublishTemplate(PublishTask.STUDY)));
+        JButton engineReport = button("Engine report", false, event -> {
+            // disabled below
+        });
+        engineReport.setEnabled(false);
+        engineReport.setToolTipText("Engine-report PDF generation is not implemented by the current backend.");
+        row.add(engineReport);
+        return row;
+    }
+
+    /**
+     * Selects an existing backend publishing template.
+     *
+     * @param task backend task
+     */
+    private void selectPublishTemplate(PublishTask task) {
+        publishTaskCombo.setSelectedItem(task);
+    }
+
+    /**
      * Creates the advanced repeated-text controls for book commands.
      *
      * @return front-matter panel
@@ -932,23 +997,43 @@ public final class PublishingPanel {
      */
     private JComponent createPublishingPreviewPanel() {
         JPanel panel = new SurfacePanel(new BorderLayout(8, 8));
-        panel.add(Theme.section("Preview"), BorderLayout.NORTH);
-
         publishReadinessLabel.setFont(Theme.font(12, Font.BOLD));
+        publishPreviewZoomLabel.setFont(Theme.mono(11));
+        publishPreviewZoomLabel.setForeground(Theme.MUTED);
         publishPreviewPageLabel.setFont(Theme.mono(11));
         publishPreviewPageLabel.setForeground(Theme.MUTED);
-        JPanel toolbar = transparentPanel(new BorderLayout(8, 0));
-        toolbar.add(publishReadinessLabel, BorderLayout.CENTER);
+
+        JPanel header = transparentPanel(new BorderLayout(Theme.SPACE_MD, Theme.SPACE_SM));
+        header.add(Theme.section("Preview"), BorderLayout.WEST);
+        header.add(publishReadinessLabel, BorderLayout.EAST);
+
+        JPanel toolbar = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        JPanel zoomControls = flow(FlowLayout.LEFT);
+        zoomControls.add(button("-", false, event -> zoomPublishPreview(-0.1d)));
+        zoomControls.add(publishPreviewZoomLabel);
+        zoomControls.add(button("+", false, event -> zoomPublishPreview(0.1d)));
+        zoomControls.add(button("Fit Page", false, event -> fitPublishPreviewPage()));
+        zoomControls.add(button("Fit Width", false, event -> fitPublishPreviewWidth()));
+        toolbar.add(zoomControls, BorderLayout.WEST);
+
         JPanel pageControls = flow(FlowLayout.RIGHT);
         pageControls.add(iconButton("Back", event -> previousPublishPreviewPage()));
         pageControls.add(publishPreviewPageLabel);
         pageControls.add(iconButton("Forward", event -> nextPublishPreviewPage()));
+        pageControls.add(button("Refresh", false, event -> updatePublishCommand()));
+        publishOpenPdfButton = button("Open PDF", false, event -> openPublishPdf());
+        pageControls.add(publishOpenPdfButton);
         toolbar.add(pageControls, BorderLayout.EAST);
-        panel.add(toolbar, BorderLayout.SOUTH);
 
-        // The visual page is the preview — the old text dump beneath it just
-        // repeated the command and readiness already shown elsewhere.
-        panel.add(publishVisualPreview, BorderLayout.CENTER);
+        JPanel north = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
+        north.add(header, BorderLayout.NORTH);
+        north.add(toolbar, BorderLayout.SOUTH);
+        panel.add(north, BorderLayout.NORTH);
+
+        publishPreviewScroll = scroll(publishVisualPreview);
+        panel.add(publishPreviewScroll, BorderLayout.CENTER);
+        updatePublishPreviewZoomLabel();
+        updatePublishOpenPdfButton();
         return panel;
     }
 
@@ -1099,6 +1184,7 @@ public final class PublishingPanel {
         setButtonEnabled(publishManifestOutputButton, publishManifestOutputField.isEnabled());
         setButtonEnabled(publishPdfOutputButton, publishPdfOutputField.isEnabled());
         setButtonEnabled(publishCoverOutputButton, publishCoverOutputField.isEnabled());
+        updatePublishOpenPdfButton();
     }
 
     /**
@@ -1210,6 +1296,94 @@ public final class PublishingPanel {
     }
 
     /**
+     * Adjusts preview zoom.
+     *
+     * @param delta zoom delta
+     */
+    private void zoomPublishPreview(double delta) {
+        publishVisualPreview.setZoom(publishVisualPreview.zoom() + delta);
+        updatePublishPreviewZoomLabel();
+    }
+
+    /**
+     * Fits the preview page into the standard preview size.
+     */
+    private void fitPublishPreviewPage() {
+        publishVisualPreview.fitPage();
+        updatePublishPreviewZoomLabel();
+    }
+
+    /**
+     * Fits the preview width to the current scroll viewport.
+     */
+    private void fitPublishPreviewWidth() {
+        int viewportWidth = publishPreviewScroll == null ? 0 : publishPreviewScroll.getViewport().getExtentSize().width;
+        double zoom = viewportWidth <= 0 ? 1.0d : Math.max(0.65d, (viewportWidth - 24) / 360.0d);
+        publishVisualPreview.setZoom(zoom);
+        updatePublishPreviewZoomLabel();
+    }
+
+    /**
+     * Updates the preview zoom label.
+     */
+    private void updatePublishPreviewZoomLabel() {
+        publishPreviewZoomLabel.setText(String.format(Locale.ROOT, "%.0f%%", publishVisualPreview.zoom() * 100.0d));
+    }
+
+    /**
+     * Opens the selected output PDF if it exists.
+     */
+    private void openPublishPdf() {
+        Path pdf = currentPublishPdfPath();
+        if (pdf == null) {
+            host.showError("Open PDF", "No PDF output path is configured for the current task.");
+            return;
+        }
+        if (!Files.exists(pdf)) {
+            host.showError("Open PDF", "PDF does not exist yet: " + pdf);
+            return;
+        }
+        if (!Desktop.isDesktopSupported()) {
+            host.showError("Open PDF", "Desktop file opening is not supported in this environment.");
+            return;
+        }
+        try {
+            Desktop.getDesktop().open(pdf.toFile());
+        } catch (IOException ex) {
+            host.showError("Open PDF", ex.getMessage());
+        }
+    }
+
+    /**
+     * Refreshes Open PDF enablement and tooltip.
+     */
+    private void updatePublishOpenPdfButton() {
+        if (publishOpenPdfButton == null) {
+            return;
+        }
+        Path pdf = currentPublishPdfPath();
+        boolean exists = pdf != null && Files.exists(pdf);
+        publishOpenPdfButton.setEnabled(exists);
+        publishOpenPdfButton.setToolTipText(pdf == null
+                ? "No PDF output path is configured"
+                : exists ? "Open " + pdf : "PDF has not been generated yet: " + pdf);
+    }
+
+    /**
+     * Returns the primary PDF path for the selected publishing task.
+     *
+     * @return output PDF path, or null
+     */
+    private Path currentPublishPdfPath() {
+        String value = switch (selectedPublishTask()) {
+            case DIAGRAMS, RENDER, STUDY -> trimmed(publishOutputField);
+            case COLLECTION -> trimmed(publishPdfOutputField);
+            case COVER -> trimmed(publishOutputField);
+        };
+        return value == null || value.isBlank() ? null : Path.of(value);
+    }
+
+    /**
      * Updates the visual publishing preview.
      *
      * @param issue readiness issue, or null
@@ -1237,7 +1411,20 @@ public final class PublishingPanel {
         publishReadinessLabel.setToolTipText(issue == null ? "Publishing command is ready" : issue);
         publishReadinessLabel.setForeground(issue == null ? Theme.STATUS_SUCCESS_TEXT
                 : Theme.STATUS_WARNING_TEXT);
+        workspaceHeader.setContext(publishContext(issue));
         updatePublishPreviewPageLabel();
+        updatePublishOpenPdfButton();
+    }
+
+    /**
+     * Returns the Publish shell context line.
+     *
+     * @param issue current preflight issue, or null when ready
+     * @return context summary
+     */
+    private String publishContext(String issue) {
+        return selectedPublishTask() + " · " + selectedPublishSource() + " · "
+                + (issue == null ? "Ready to publish" : "Needs attention");
     }
 
     /**
@@ -1329,9 +1516,9 @@ public final class PublishingPanel {
      */
     private String publishSourcePreview(PublishTask task) {
         if (task != PublishTask.DIAGRAMS) {
-    return pathOrMissing("input file", publishInputField);
+            return pathOrMissing("input file", publishInputField);
         }
-    return switch (selectedPublishSource()) {
+        return switch (selectedPublishSource()) {
             case CURRENT_FEN -> "current board FEN (" + FenInput.compactPreview(host.currentFen()) + ")";
             case GAME_PGN -> host.gameModel().lastPly() <= 0
                     ? "workbench game PGN (no moves)"
@@ -1348,7 +1535,7 @@ public final class PublishingPanel {
      * @return output summary
      */
     private String publishOutputPreview(PublishTask task) {
-    return switch (task) {
+        return switch (task) {
             case DIAGRAMS, RENDER, STUDY -> pathOrMissing("PDF", publishOutputField)
                     + optionalOutput("manifest copy", publishManifestOutputField, task == PublishTask.STUDY)
                     + optionalOutput("cover", publishCoverOutputField, task == PublishTask.STUDY);
@@ -1386,7 +1573,7 @@ public final class PublishingPanel {
                 || task == PublishTask.COVER)) {
             return explicitPages.intValue();
         }
-    return switch (task) {
+        return switch (task) {
             case COVER -> 1;
             case DIAGRAMS -> estimatedDiagramPages();
             case RENDER -> Math.max(1, optionalPreviewInteger(publishLimitField, 12) / 2);
@@ -1401,7 +1588,7 @@ public final class PublishingPanel {
      * @return page count
      */
     private int estimatedDiagramPages() {
-    return switch (selectedPublishSource()) {
+        return switch (selectedPublishSource()) {
             case CURRENT_FEN -> 1;
             case GAME_PGN -> Math.max(1, Math.max(1, host.gameModel().lastPly()) / 2);
             case BATCH_FENS -> Math.max(1, FenInput.validateBatchFenInput(host.batchInputText()).validRows());
@@ -1448,7 +1635,7 @@ public final class PublishingPanel {
         if (selectedPublishTask() != PublishTask.DIAGRAMS) {
             return null;
         }
-    return switch (selectedPublishSource()) {
+        return switch (selectedPublishSource()) {
             case GAME_PGN -> host.gameModel().lastPly() <= 0
                     ? "Play or import at least one game move before exporting PGN diagrams." : null;
             case BATCH_FENS -> batchFenIssue();
@@ -1729,7 +1916,7 @@ public final class PublishingPanel {
             return;
         }
         if (!value.matches("(?:[1-9]\\d*|0?\\.\\d+|[1-9]\\d*\\.\\d+)")) {
-    throw new IllegalArgumentException(flag + " expects a positive number.");
+            throw new IllegalArgumentException(flag + " expects a positive number.");
         }
         args.add(flag);
         args.add(value);
@@ -1796,7 +1983,7 @@ public final class PublishingPanel {
     private static String requiredText(JTextField field, String label) {
         String value = trimmed(field);
         if (value.isEmpty()) {
-    throw new IllegalArgumentException("Missing " + label + ".");
+            throw new IllegalArgumentException("Missing " + label + ".");
         }
         return value;
     }
@@ -1809,7 +1996,7 @@ public final class PublishingPanel {
      */
     private Path materializeWorkbenchPgn() throws IOException {
         if (host.gameModel().lastPly() <= 0) {
-    throw new IllegalArgumentException("Play or import at least one game move before exporting PGN.");
+            throw new IllegalArgumentException("Play or import at least one game move before exporting PGN.");
         }
         Path file = PathOps.createLocalTempFile("crtk-workbench-game-", ".pgn");
         file.toFile().deleteOnExit();
@@ -1829,7 +2016,7 @@ public final class PublishingPanel {
             text = host.gameModel().fenList();
         }
         if (text.isBlank()) {
-    throw new IllegalArgumentException("Add FENs to the Batch tab first.");
+            throw new IllegalArgumentException("Add FENs to the Batch tab first.");
         }
         Path file = PathOps.createLocalTempFile("crtk-workbench-fens-", ".txt");
         file.toFile().deleteOnExit();

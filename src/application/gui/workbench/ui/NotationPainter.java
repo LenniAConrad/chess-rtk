@@ -169,6 +169,25 @@ public final class NotationPainter {
     }
 
     /**
+     * Splits notation text into ordered text and figurine-piece segments using
+     * the same SAN / coordinate / figurine detection the on-screen painter uses.
+     *
+     * <p>This lets non-Swing surfaces (such as the search-tree SVG exporter)
+     * render the identical inline figurine notation: map each piece segment's
+     * {@link Segment#piece() placeholder} through
+     * {@link chess.book.render.NotationPieceSvg} and keep text segments as text.</p>
+     *
+     * @param text notation text
+     * @return parsed segments in left-to-right order (empty when text is blank)
+     */
+    public static List<Segment> tokenize(String text) {
+        if (text == null || text.isEmpty()) {
+            return List.of();
+        }
+        return List.copyOf(parseSegments(text));
+    }
+
+    /**
      * Counts piece SVG segments that would be painted.
      *
      * @param text notation text
@@ -436,12 +455,14 @@ public final class NotationPainter {
     }
 
     /**
-     * Parsed notation rendering segment.
+     * Parsed notation rendering segment: either a run of plain text or a single
+     * figurine-piece glyph. Exposed so non-Swing renderers can reuse
+     * {@link #tokenize(String)} and lay out the same notation.
      *
      * @param text text content for text segments
      * @param piece neutral cutout-piece placeholder for SVG segments
      */
-    private record Segment(String text, char piece) {
+    public record Segment(String text, char piece) {
 
         /**
          * Creates a text segment.
@@ -468,7 +489,7 @@ public final class NotationPainter {
          *
          * @return true for piece segments
          */
-        boolean isPiece() {
+        public boolean isPiece() {
             return piece != NO_PIECE;
         }
     }

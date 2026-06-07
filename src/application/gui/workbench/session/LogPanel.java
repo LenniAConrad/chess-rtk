@@ -5,6 +5,7 @@ import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.ui.HoldButton;
 import application.gui.workbench.ui.LoadingOverlay;
 import application.gui.workbench.ui.Theme;
+import application.gui.workbench.ui.WorkspaceHeader;
 import chess.debug.SessionCache;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
@@ -278,16 +279,18 @@ public final class LogPanel extends JPanel {
      * Applies the static Swing layout and component styling.
      */
     private void configure() {
-        setLayout(new BorderLayout(Theme.SPACE_MD, Theme.SPACE_MD));
+        setLayout(new BorderLayout(0, 0));
         setOpaque(true);
         setBackground(Theme.PANEL_SOLID);
         setForeground(Theme.TEXT);
-        setBorder(Theme.pad(Theme.SPACE_MD));
 
         add(header(), BorderLayout.NORTH);
-        add(splitPane(), BorderLayout.CENTER);
+        JPanel body = transparentPanel(new BorderLayout(0, Theme.SPACE_MD));
+        body.setBorder(Theme.pad(Theme.SPACE_MD));
+        body.add(splitPane(), BorderLayout.CENTER);
         statusLabel.setHorizontalAlignment(SwingConstants.LEFT);
-        add(statusLabel, BorderLayout.SOUTH);
+        body.add(statusLabel, BorderLayout.SOUTH);
+        add(body, BorderLayout.CENTER);
     }
 
     /**
@@ -296,20 +299,13 @@ public final class LogPanel extends JPanel {
      * @return header component
      */
     private JComponent header() {
-        JPanel header = transparentPanel(new BorderLayout(Theme.SPACE_MD, 0));
-        JPanel title = transparentPanel(new BorderLayout(0, Theme.SPACE_XS));
-        title.add(Theme.sectionTitle("Logs"), BorderLayout.NORTH);
-        title.add(caption("Persisted application and command logs"), BorderLayout.CENTER);
-        header.add(title, BorderLayout.WEST);
-
         JButton refresh = button("Refresh", false, event -> refreshLogs());
         JButton openFolder = button("Open Folder", false, event -> openSessionFolder());
         JButton openSelected = button("Open Selected", false, event -> openSelected());
         JButton copyPath = button("Copy Path", false, event -> copySelectedPath());
         HoldButton clean = new HoldButton("Clean logs", this::cleanLogs, true);
-        header.add(controlRow(FlowLayout.RIGHT, openFolder, openSelected, copyPath, clean, refresh),
-                BorderLayout.EAST);
-        return header;
+        return new WorkspaceHeader("Logs", "Persisted application and command logs",
+                controlRow(FlowLayout.RIGHT, openFolder, openSelected, copyPath, clean, refresh));
     }
 
     /**

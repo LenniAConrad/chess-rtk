@@ -87,6 +87,20 @@ final class BoardMarkupInput {
     }
 
     /**
+     * Replaces the persistent markup list with a detached copy of the supplied
+     * markups and clears any active gesture.
+     *
+     * @param replacement replacement markups
+     */
+    void replaceMarkups(List<BoardMarkup> replacement) {
+        markups.clear();
+        if (replacement != null) {
+            markups.addAll(replacement);
+        }
+        clearGesture();
+    }
+
+    /**
      * Returns the preview markup currently being drawn.
      *
      * @return preview markup, or null
@@ -102,6 +116,30 @@ final class BoardMarkupInput {
      */
     int markupCount() {
         return markups.size();
+    }
+
+    /**
+     * Removes one persistent markup by index.
+     *
+     * @param index markup index
+     * @return true when a markup was removed
+     */
+    boolean removeAt(int index) {
+        if (index < 0 || index >= markups.size()) {
+            return false;
+        }
+        markups.remove(index);
+        clearGesture();
+        return true;
+    }
+
+    /**
+     * Clears only persistent annotation markups, leaving any square highlights
+     * owned by the board unchanged.
+     */
+    void clearMarkups() {
+        markups.clear();
+        clearGesture();
     }
 
     /**

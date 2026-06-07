@@ -4,22 +4,23 @@ import application.gui.workbench.audio.SoundCue;
 import application.gui.workbench.audio.SoundService;
 import application.gui.workbench.board.BoardPanel;
 import application.gui.workbench.board.DropContext;
+import application.gui.workbench.command.CommandRunner;
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.ui.FileDialogs;
+import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.ToggleBox;
-import application.gui.workbench.ui.WrappingFlowLayout;
+import application.gui.workbench.ui.Ui;
 import chess.core.Move;
 import chess.core.Position;
 import chess.core.Setup;
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
+import java.awt.Component;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -30,6 +31,9 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
@@ -37,6 +41,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSplitPane;
 import javax.swing.JTextArea;
+import javax.swing.SwingConstants;
 import javax.swing.SwingWorker;
 import javax.swing.Timer;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -44,9 +49,7 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import static application.gui.workbench.ui.Ui.button;
 import static application.gui.workbench.ui.Ui.buttonRow;
 import static application.gui.workbench.ui.Ui.collapsible;
-import static application.gui.workbench.ui.Ui.constraints;
-import static application.gui.workbench.ui.Ui.grid;
-import static application.gui.workbench.ui.Ui.labeledControl;
+import static application.gui.workbench.ui.Ui.fillViewport;
 import static application.gui.workbench.ui.Ui.placeholder;
 import static application.gui.workbench.ui.Ui.scroll;
 import static application.gui.workbench.ui.Ui.styleAreas;
@@ -85,6 +88,26 @@ public final class PuzzlePanel extends JPanel {
     private static final int MODE_COMBO_WIDTH = 176;
 
     /**
+     * Empty inspector card key.
+     */
+    private static final String INSPECTOR_EMPTY = "empty";
+
+    /**
+     * Loaded inspector card key.
+     */
+    private static final String INSPECTOR_LOADED = "loaded";
+
+    /**
+     * Hidden solution card key.
+     */
+    private static final String SOLUTION_HIDDEN = "hidden";
+
+    /**
+     * Revealed solution card key.
+     */
+    private static final String SOLUTION_REVEALED = "revealed";
+
+    /**
      * Delay between the user's visible move and the automatic opponent reply.
      */
     private static final int OPPONENT_REPLY_DELAY_MS = 130;
@@ -103,6 +126,86 @@ public final class PuzzlePanel extends JPanel {
      * Hidden/collapsible solution preview.
      */
     private final JTextArea solutionArea = new JTextArea();
+
+    /**
+     * Raw solution preview retained for the Advanced/debug section.
+     */
+    private final JTextArea rawSolutionArea = new JTextArea();
+
+    /**
+     * Shell header refresh callback.
+     */
+    private final transient Runnable summaryChanged;
+
+    /**
+     * Right inspector card switcher.
+     */
+    private final JPanel inspectorCards = new JPanel(new CardLayout());
+
+    /**
+     * Solution card switcher.
+     */
+    private final JPanel solutionCards = new JPanel(new CardLayout());
+
+    /**
+     * Feedback state badge.
+     */
+    private final StatusBadge feedbackBadge = new StatusBadge();
+
+    /**
+     * Feedback text line.
+     */
+    private final JLabel feedbackLabel = new JLabel("No puzzle loaded");
+
+    /**
+     * Puzzle id metadata value.
+     */
+    private final JLabel puzzleIdValue = metricValue();
+
+    /**
+     * Source metadata value.
+     */
+    private final JLabel sourceValue = metricValue();
+
+    /**
+     * Rating metadata value.
+     */
+    private final JLabel ratingValue = metricValue();
+
+    /**
+     * Theme/tag metadata value.
+     */
+    private final JLabel themesValue = metricValue();
+
+    /**
+     * Side-to-solve metadata value.
+     */
+    private final JLabel sideToSolveValue = metricValue();
+
+    /**
+     * Progress metadata value.
+     */
+    private final JLabel progressValue = metricValue();
+
+    /**
+     * Wrong-attempt metadata value.
+     */
+    private final JLabel wrongValue = metricValue();
+
+    /**
+     * Hint metadata value.
+     */
+    private final JLabel hintsValue = metricValue();
+
+    /**
+     * Reveal metadata value.
+     */
+    private final JLabel revealsValue = metricValue();
+
+    /**
+     * Skipped-branch metadata value.
+     */
+    private final JLabel skippedValue = metricValue();
 
     /**
      * Puzzle title label.
@@ -191,6 +294,11 @@ public final class PuzzlePanel extends JPanel {
     private Path puzzleLibraryPath;
 
     /**
+     * Active puzzle-library entry, or null for editor/sample PGN mode.
+     */
+    private PuzzleLibrary.Entry activePuzzleEntry;
+
+    /**
      * Monotonic token used to ignore stale asynchronous puzzle loads.
      */
     private long loadGeneration;
@@ -221,10 +329,24 @@ public final class PuzzlePanel extends JPanel {
     private boolean responseAnimationActive;
 
     /**
+     * Whether the visible Solution card may show the line. Set by Reveal only.
+     */
+    private boolean solutionRevealed;
+
+    /**
      * Creates the puzzle trainer panel.
      */
     public PuzzlePanel() {
-        this(true);
+        this(true, null);
+    }
+
+    /**
+     * Creates the puzzle trainer panel.
+     *
+     * @param summaryChanged callback fired when shell header context should refresh
+     */
+    public PuzzlePanel(Runnable summaryChanged) {
+        this(true, summaryChanged);
     }
 
     /**
@@ -233,9 +355,21 @@ public final class PuzzlePanel extends JPanel {
      * @param loadLibrary true to load the default difficult-puzzle library
      */
     PuzzlePanel(boolean loadLibrary) {
+        this(loadLibrary, null);
+    }
+
+    /**
+     * Creates the puzzle trainer panel.
+     *
+     * @param loadLibrary true to load the default difficult-puzzle library
+     * @param summaryChanged callback fired when shell header context should refresh
+     */
+    private PuzzlePanel(boolean loadLibrary, Runnable summaryChanged) {
         super(new BorderLayout(0, 8));
+        this.summaryChanged = summaryChanged == null ? () -> {
+            // optional callback
+        } : summaryChanged;
         configurePanel();
-        add(createHeader(), BorderLayout.NORTH);
         add(createBody(), BorderLayout.CENTER);
         installBoardHandlers();
         showStartingPosition("No puzzle library loaded.");
@@ -266,19 +400,27 @@ public final class PuzzlePanel extends JPanel {
         board.setShowLastMoveHighlight(true);
         board.setSnapbackSoundEnabled(false);
         solutionArea.setEditable(false);
+        rawSolutionArea.setEditable(false);
         solutionArea.setLineWrap(true);
         solutionArea.setWrapStyleWord(true);
+        rawSolutionArea.setLineWrap(true);
+        rawSolutionArea.setWrapStyleWord(true);
         libraryLabel.setFont(Theme.font(12, Font.PLAIN));
         Theme.foreground(libraryLabel, Theme.ForegroundRole.MUTED);
         pgnInput.setLineWrap(true);
         pgnInput.setWrapStyleWord(false);
-        pgnInput.setRows(13);
+        pgnInput.setRows(10);
         pgnInput.setColumns(36);
+        pgnInput.setFont(Theme.mono(12f));
         responseAnimationTimer.setRepeats(false);
         responseAnimationTimer.setCoalesce(true);
-        solutionArea.setRows(5);
+        solutionArea.setRows(4);
         solutionArea.setColumns(36);
-        styleAreas(pgnInput, solutionArea);
+        solutionArea.setFont(Theme.mono(12f));
+        rawSolutionArea.setRows(4);
+        rawSolutionArea.setColumns(36);
+        rawSolutionArea.setFont(Theme.mono(12f));
+        styleAreas(pgnInput, solutionArea, rawSolutionArea);
         placeholder(pgnInput, "Paste a PGN puzzle with a FEN tag and variations");
         styleCombo(modeCombo);
         modeCombo.setPrototypeDisplayValue("Explore variations");
@@ -297,61 +439,6 @@ public final class PuzzlePanel extends JPanel {
     }
 
     /**
-     * Creates the top command strip.
-     *
-     * @return header component
-     */
-    private JComponent createHeader() {
-        JPanel header = transparentPanel(new GridBagLayout());
-        // Flat surface defined by a single bottom hairline, not a filled lighter
-        // box -- matches the other tabs instead of a stacked INPUT-coloured band.
-        header.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE),
-                Theme.pad(4, 8, 8, 8)));
-
-        // Panel title uses the shared Tier-1 size (FONT_TITLE) like Play/Publish.
-        // No "chess-rtk" scope prefix — the other board modes (Play vs Engine,
-        // Tactical Incidence) lead with the title alone, so this matches them.
-        Theme.foreground(titleLabel, Theme.ForegroundRole.TEXT);
-        titleLabel.setFont(Theme.font(Theme.FONT_TITLE, Font.BOLD));
-
-        progressLabel.setFont(Theme.font(12, Font.BOLD));
-        Theme.foreground(progressLabel, Theme.ForegroundRole.TEXT);
-        progressLabel.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        progressLabel.setBorder(Theme.pad(2, 10, 2, 10));
-
-        GridBagConstraints c = constraints();
-        c.gridy = 0;
-        c.insets = new Insets(0, 0, 3, Theme.SPACE_MD);
-        c.weightx = 1;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        grid(header, titleLabel, c, 0, 0, 1, 1);
-
-        c.insets = new Insets(0, 0, 3, 0);
-        c.weightx = 0;
-        c.fill = GridBagConstraints.NONE;
-        c.anchor = GridBagConstraints.EAST;
-        // Wrap so the count pill stays sized to its content (the header cell can
-        // stretch, but the pill must not become a full-width accent band).
-        JPanel progressWrap = transparentPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
-        progressWrap.add(progressLabel);
-        grid(header, progressWrap, c, 2, 0, 1, 1);
-
-        JPanel controls = transparentPanel(new WrappingFlowLayout(FlowLayout.RIGHT, 8, 0));
-        controls.add(labeledControl("", modeCombo));
-        controls.add(skipSimilarToggle);
-        c.gridy = 1;
-        c.gridx = 0;
-        c.gridwidth = 3;
-        c.weightx = 1;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        c.anchor = GridBagConstraints.EAST;
-        c.insets = new Insets(1, 0, 0, 0);
-        header.add(controls, c);
-        return header;
-    }
-
-    /**
      * Creates the split body.
      *
      * @return body component
@@ -363,8 +450,7 @@ public final class PuzzlePanel extends JPanel {
 
         JPanel side = new SurfacePanel(new BorderLayout(0, 8));
         side.setPreferredSize(new Dimension(430, 560));
-        side.add(createActions(), BorderLayout.NORTH);
-        side.add(createPuzzleTools(), BorderLayout.CENTER);
+        side.add(scroll(fillViewport(createInspector())), BorderLayout.CENTER);
 
         JSplitPane split = SplitPaneStyler.styledHorizontalSplit(boardStage, side, 0.68);
         return split;
@@ -387,65 +473,254 @@ public final class PuzzlePanel extends JPanel {
     }
 
     /**
-     * Creates the primary action cluster.
+     * Creates the right-side Solve inspector.
      *
-     * @return actions component
+     * @return inspector component
      */
-    private JComponent createActions() {
-        JPanel panel = transparentPanel(new GridBagLayout());
-        GridBagConstraints c = constraints();
-        c.insets = new Insets(0, 0, 6, 0);
-        grid(panel, Theme.section("Puzzle"), c, 0, 0, 3, 1);
+    private JComponent createInspector() {
+        inspectorCards.setOpaque(false);
+        inspectorCards.add(createEmptyInspector(), INSPECTOR_EMPTY);
+        inspectorCards.add(createLoadedInspector(), INSPECTOR_LOADED);
+        showInspectorCard();
+        return inspectorCards;
+    }
 
-        c.insets = new Insets(3, 0, 3, 0);
-        countersLabel.setFont(Theme.font(12, Font.PLAIN));
-        Theme.foreground(countersLabel, Theme.ForegroundRole.MUTED);
-        grid(panel, countersLabel, c, 0, 1, 3, 1);
-        grid(panel, libraryLabel, c, 0, 2, 3, 1);
-
-        JPanel rowOne = buttonRow(FlowLayout.LEFT,
-                button("Load Puzzle", true, event -> loadFromEditor()),
+    /**
+     * Creates the empty puzzle inspector state.
+     *
+     * @return empty inspector
+     */
+    private JComponent createEmptyInspector() {
+        JPanel stack = verticalPanel();
+        JComponent empty = Ui.emptyState("No puzzle loaded",
+                "Load a puzzle file, sample, or random puzzle to begin.",
+                button("Load Puzzle", true, event -> loadDefaultLibrary()),
                 button("Load File", false, event -> openFile()),
                 button("Sample", false, event -> loadSamplePuzzle()));
-        grid(panel, rowOne, c, 0, 3, 3, 1);
+        addStackSection(stack, Ui.card(null, empty));
+        return stack;
+    }
 
-        JPanel rowTwo = buttonRow(FlowLayout.LEFT,
+    /**
+     * Creates the loaded puzzle inspector state.
+     *
+     * @return loaded inspector
+     */
+    private JComponent createLoadedInspector() {
+        JPanel stack = verticalPanel();
+        addStackSection(stack, createSourceCard());
+        addStackSection(stack, createControlsCard());
+        addStackSection(stack, createFeedbackCard());
+        addStackSection(stack, createPgnCard());
+        addStackSection(stack, createSolutionCard());
+        addStackSection(stack, createAdvancedCard());
+        stack.add(Box.createVerticalGlue());
+        return stack;
+    }
+
+    /**
+     * Creates the puzzle source / metadata card.
+     *
+     * @return source card
+     */
+    private JComponent createSourceCard() {
+        JPanel grid = metricGrid(2);
+        grid.add(metricTile("Puzzle ID", puzzleIdValue));
+        grid.add(metricTile("Side", sideToSolveValue));
+        grid.add(metricTile("Source", sourceValue));
+        grid.add(metricTile("Rating", ratingValue));
+        grid.add(metricTile("Themes / Tags", themesValue));
+        grid.add(metricTile("Progress", progressValue));
+        return Ui.card("Puzzle Source", grid);
+    }
+
+    /**
+     * Creates grouped puzzle controls.
+     *
+     * @return controls card
+     */
+    private JComponent createControlsCard() {
+        JPanel body = verticalPanel();
+        body.add(controlGroup("Load",
+                button("Load Puzzle", true, event -> loadFromEditor()),
+                button("Load File", false, event -> openFile()),
+                button("Sample", false, event -> loadSamplePuzzle())));
+        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        body.add(controlGroup("Library",
                 button("Previous", false, event -> loadAdjacentPuzzle(-1)),
                 button("Next", false, event -> loadAdjacentPuzzle(1)),
-                button("Random", false, event -> loadRandomPuzzle()));
-        grid(panel, rowTwo, c, 0, 4, 3, 1);
-
-        JPanel rowThree = buttonRow(FlowLayout.LEFT,
+                button("Random", false, event -> loadRandomPuzzle())));
+        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        body.add(controlGroup("Solve",
                 button("Restart", false, event -> restart()),
                 button("Hint", false, event -> showHint()),
                 button("Reveal", false, event -> reveal()),
-                button("Skip", false, event -> skipVariation()));
-        grid(panel, rowThree, c, 0, 5, 3, 1);
+                button("Skip", false, event -> skipVariation())));
+        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        JPanel mode = new JPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        mode.setOpaque(false);
+        mode.add(modeCombo, BorderLayout.CENTER);
+        mode.add(skipSimilarToggle, BorderLayout.EAST);
+        body.add(Ui.labelControlRow("Mode", mode, 68));
+        return Ui.card("Puzzle Controls", body);
+    }
+
+    /**
+     * Creates the feedback/progress card.
+     *
+     * @return feedback card
+     */
+    private JComponent createFeedbackCard() {
+        feedbackBadge.setFixedTextWidth(120);
+        feedbackLabel.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
+        feedbackLabel.setForeground(Theme.TEXT);
+        JPanel top = new JPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        top.setOpaque(false);
+        top.add(feedbackBadge, BorderLayout.WEST);
+        top.add(feedbackLabel, BorderLayout.CENTER);
+
+        JPanel counters = metricGrid(4);
+        counters.add(metricTile("Wrong", wrongValue));
+        counters.add(metricTile("Hints", hintsValue));
+        counters.add(metricTile("Reveals", revealsValue));
+        counters.add(metricTile("Skipped", skippedValue));
+
+        JPanel body = verticalPanel();
+        body.add(top);
+        body.add(Box.createVerticalStrut(Theme.SPACE_MD));
+        body.add(counters);
+        return Ui.card("Progress / Feedback", body);
+    }
+
+    /**
+     * Creates the PGN/source editor card.
+     *
+     * @return PGN card
+     */
+    private JComponent createPgnCard() {
+        JButton copy = button("Copy PGN", false, event -> copyPgn());
+        JPanel body = new JPanel(new BorderLayout(0, Theme.SPACE_SM));
+        body.setOpaque(false);
+        body.add(scroll(pgnInput), BorderLayout.CENTER);
+        return Ui.card("PGN", copy, body);
+    }
+
+    /**
+     * Creates the hidden-by-default solution card.
+     *
+     * @return solution card
+     */
+    private JComponent createSolutionCard() {
+        solutionCards.setOpaque(false);
+        solutionCards.add(solutionLockedState(), SOLUTION_HIDDEN);
+        solutionCards.add(scroll(solutionArea), SOLUTION_REVEALED);
+        showSolutionCard();
+        return Ui.card("Solution", solutionCards);
+    }
+
+    /**
+     * Creates the locked solution state.
+     *
+     * @return locked solution component
+     */
+    private JComponent solutionLockedState() {
+        return Ui.emptyState("Solution hidden",
+                "Use Reveal to expose and play the next solution move.",
+                button("Reveal", false, event -> reveal()));
+    }
+
+    /**
+     * Creates the advanced/debug card.
+     *
+     * @return advanced card
+     */
+    private JComponent createAdvancedCard() {
+        JPanel body = verticalPanel();
+        body.add(collapsible("Raw Solution", scroll(rawSolutionArea), false));
+        return Ui.card("Advanced", body);
+    }
+
+    /**
+     * Creates one labelled group of buttons.
+     *
+     * @param title group label
+     * @param buttons buttons
+     * @return control group
+     */
+    private static JComponent controlGroup(String title, javax.swing.JButton... buttons) {
+        JPanel row = buttonRow(FlowLayout.LEFT, buttons);
+        return Ui.sectionHeader(title, null, row);
+    }
+
+    /**
+     * Adds a card to a vertical inspector stack.
+     *
+     * @param stack stack panel
+     * @param section section component
+     */
+    private static void addStackSection(JPanel stack, JComponent section) {
+        section.setAlignmentX(Component.LEFT_ALIGNMENT);
+        stack.add(section);
+        stack.add(Box.createVerticalStrut(Theme.SPACE_MD));
+    }
+
+    /**
+     * Creates a transparent vertical stack panel.
+     *
+     * @return vertical panel
+     */
+    private static JPanel verticalPanel() {
+        JPanel panel = new JPanel();
+        panel.setOpaque(false);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         return panel;
     }
 
     /**
-     * Creates collapsible puzzle details.
+     * Creates a metric grid.
      *
-     * @return tools component
+     * @param columns grid columns
+     * @return grid panel
      */
-    private JComponent createPuzzleTools() {
-        JPanel stack = transparentPanel(new GridBagLayout());
-        GridBagConstraints c = constraints();
-        c.gridx = 0;
-        c.gridy = 0;
-        c.weightx = 1;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        c.insets = new Insets(0, 0, 8, 0);
-        stack.add(collapsible("PGN", scroll(pgnInput), false), c);
-        c.gridy = 1;
-        stack.add(collapsible("Solution", scroll(solutionArea), false), c);
-        c.gridy = 2;
-        c.weighty = 1;
-        c.fill = GridBagConstraints.BOTH;
-        c.insets = new Insets(0, 0, 0, 0);
-        stack.add(transparentPanel(new BorderLayout()), c);
-        return stack;
+    private static JPanel metricGrid(int columns) {
+        JPanel panel = new JPanel(new java.awt.GridLayout(0, columns, Theme.SPACE_SM, Theme.SPACE_SM));
+        panel.setOpaque(false);
+        return panel;
+    }
+
+    /**
+     * Creates one metadata metric tile.
+     *
+     * @param title metric label
+     * @param value value label
+     * @return tile
+     */
+    private static JComponent metricTile(String title, JLabel value) {
+        JLabel label = new JLabel(title);
+        label.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
+        label.setForeground(Theme.MUTED);
+        JPanel tile = new JPanel(new BorderLayout(0, 2));
+        tile.setOpaque(true);
+        tile.setBackground(Theme.PANEL_SOLID);
+        tile.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Theme.LINE),
+                Theme.pad(Theme.SPACE_SM, Theme.SPACE_SM, Theme.SPACE_SM, Theme.SPACE_SM)));
+        tile.add(label, BorderLayout.NORTH);
+        tile.add(value, BorderLayout.CENTER);
+        return tile;
+    }
+
+    /**
+     * Creates a value label for metadata cards.
+     *
+     * @return value label
+     */
+    private static JLabel metricValue() {
+        JLabel label = new JLabel("n/a");
+        label.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
+        label.setForeground(Theme.TEXT);
+        label.setHorizontalAlignment(SwingConstants.LEFT);
+        return label;
     }
 
     /**
@@ -468,6 +743,8 @@ public final class PuzzlePanel extends JPanel {
         nextLoadGeneration();
         clearLibrarySelection();
         session = null;
+        activePuzzleEntry = null;
+        solutionRevealed = false;
         pgnInput.setText("");
         board.clearMarkup();
         board.clearWrongMoveMarker();
@@ -485,6 +762,8 @@ public final class PuzzlePanel extends JPanel {
             finishResponseAnimationInstantly();
             nextLoadGeneration();
             clearLibrarySelection();
+            activePuzzleEntry = null;
+            solutionRevealed = false;
             session = PuzzleSession.fromPgn(pgnInput.getText(), "editor", variationMode());
             session.reset();
             displaySnapshot(Move.NO_MOVE);
@@ -769,6 +1048,8 @@ public final class PuzzlePanel extends JPanel {
                                 variationMode());
                 session.reset();
                 puzzleLibraryIndex = candidate;
+                activePuzzleEntry = entry;
+                solutionRevealed = false;
                 pgnInput.setText(PuzzleLibrary.toPgn(entry));
                 displaySnapshot(Move.NO_MOVE);
                 setStatus("Loaded " + entry.title() + ".");
@@ -789,6 +1070,7 @@ public final class PuzzlePanel extends JPanel {
         puzzleLibrary = List.of();
         puzzleLibraryIndex = -1;
         puzzleLibraryPath = null;
+        activePuzzleEntry = null;
         libraryLabel.setText("");
     }
 
@@ -822,6 +1104,7 @@ public final class PuzzlePanel extends JPanel {
             return;
         }
         session.reset();
+        solutionRevealed = false;
         displaySnapshot(Move.NO_MOVE);
         setStatus("Restarted " + session.title());
     }
@@ -858,6 +1141,7 @@ public final class PuzzlePanel extends JPanel {
         if (session == null) {
             return;
         }
+        solutionRevealed = true;
         PuzzleSession.MoveResponse response = session.reveal(skipSimilarToggle.isSelected());
         playPuzzleResponseSound(response, true);
         applyResponse(response, response.expectedMove(), "Revealed");
@@ -1167,6 +1451,11 @@ public final class PuzzlePanel extends JPanel {
             libraryLabel.setText("");
             sideLabel.setText("");
             solutionArea.setText("");
+            rawSolutionArea.setText("");
+            clearMetadataLabels();
+            showInspectorCard();
+            showSolutionCard();
+            summaryChanged.run();
             return;
         }
         PuzzleSession.Snapshot snapshot = session.snapshot();
@@ -1178,8 +1467,63 @@ public final class PuzzlePanel extends JPanel {
                 + "  skipped " + session.skippedSimilarVariationCount());
         libraryLabel.setText(libraryText());
         sideLabel.setText((session.userWhite() ? "White" : "Black") + " to solve");
-        solutionArea.setText(solutionText(snapshot));
+        refreshMetadataLabels(snapshot);
+        String solutionText = solutionText(snapshot);
+        rawSolutionArea.setText(solutionText);
+        rawSolutionArea.setCaretPosition(0);
+        if (solutionRevealed) {
+            solutionArea.setText(solutionText);
+        } else {
+            solutionArea.setText("");
+        }
         solutionArea.setCaretPosition(0);
+        showInspectorCard();
+        showSolutionCard();
+        summaryChanged.run();
+    }
+
+    /**
+     * Clears loaded-puzzle metadata.
+     */
+    private void clearMetadataLabels() {
+        for (JLabel label : List.of(puzzleIdValue, sourceValue, ratingValue, themesValue,
+                sideToSolveValue, progressValue, wrongValue, hintsValue, revealsValue, skippedValue)) {
+            label.setText("n/a");
+        }
+    }
+
+    /**
+     * Refreshes loaded puzzle metadata labels.
+     *
+     * @param snapshot current snapshot
+     */
+    private void refreshMetadataLabels(PuzzleSession.Snapshot snapshot) {
+        puzzleIdValue.setText(puzzleIdText());
+        sourceValue.setText(sourceText());
+        ratingValue.setText(ratingText());
+        themesValue.setText(themesText());
+        sideToSolveValue.setText((session.userWhite() ? "White" : "Black") + " to solve");
+        progressValue.setText((snapshot.lineIndex() + 1) + " / " + Math.max(1, snapshot.totalLines()));
+        wrongValue.setText(Integer.toString(session.wrongMoveCount()));
+        hintsValue.setText(Integer.toString(session.hintCount()));
+        revealsValue.setText(Integer.toString(session.revealCount()));
+        skippedValue.setText(Integer.toString(session.skippedSimilarVariationCount()));
+    }
+
+    /**
+     * Shows the appropriate right-inspector card.
+     */
+    private void showInspectorCard() {
+        CardLayout layout = (CardLayout) inspectorCards.getLayout();
+        layout.show(inspectorCards, session == null ? INSPECTOR_EMPTY : INSPECTOR_LOADED);
+    }
+
+    /**
+     * Shows the hidden or revealed solution state.
+     */
+    private void showSolutionCard() {
+        CardLayout layout = (CardLayout) solutionCards.getLayout();
+        layout.show(solutionCards, solutionRevealed ? SOLUTION_REVEALED : SOLUTION_HIDDEN);
     }
 
     /**
@@ -1198,6 +1542,110 @@ public final class PuzzlePanel extends JPanel {
         String detail = entry.detail();
         String prefix = (puzzleLibraryIndex + 1) + " / " + puzzleLibrary.size() + " · " + source;
         return detail.isBlank() ? prefix : prefix + " · " + detail;
+    }
+
+    /**
+     * Returns the Board / Solve workspace context line.
+     *
+     * @return context text
+     */
+    public String workspaceContext() {
+        if (session == null) {
+            return "No puzzle loaded";
+        }
+        PuzzleSession.Snapshot snapshot = session.snapshot();
+        return puzzleIdText() + " · " + (session.userWhite() ? "White" : "Black") + " to solve · "
+                + (snapshot.lineIndex() + 1) + " / " + Math.max(1, snapshot.totalLines());
+    }
+
+    /**
+     * Returns the display puzzle id/title.
+     *
+     * @return puzzle id text
+     */
+    private String puzzleIdText() {
+        if (activePuzzleEntry != null && !activePuzzleEntry.id().isBlank()) {
+            return "Puzzle #" + activePuzzleEntry.id();
+        }
+        if (session == null) {
+            return "No puzzle loaded";
+        }
+        String source = session.source();
+        if (source != null && !source.isBlank() && !"editor".equalsIgnoreCase(source)) {
+            return "Puzzle #" + source;
+        }
+        return session.title();
+    }
+
+    /**
+     * Returns the source label.
+     *
+     * @return source label
+     */
+    private String sourceText() {
+        if (puzzleLibraryPath != null && puzzleLibraryPath.getFileName() != null) {
+            return puzzleLibraryPath.getFileName().toString();
+        }
+        if (activePuzzleEntry != null && !activePuzzleEntry.gameUrl().isBlank()) {
+            return activePuzzleEntry.gameUrl();
+        }
+        return session == null ? "n/a" : session.source();
+    }
+
+    /**
+     * Returns the rating label.
+     *
+     * @return rating label
+     */
+    private String ratingText() {
+        return activePuzzleEntry != null && activePuzzleEntry.rating() > 0
+                ? Integer.toString(activePuzzleEntry.rating())
+                : "n/a";
+    }
+
+    /**
+     * Returns compact theme/opening labels.
+     *
+     * @return theme label
+     */
+    private String themesText() {
+        if (activePuzzleEntry == null) {
+            return "n/a";
+        }
+        String themes = compactList(activePuzzleEntry.themes());
+        String openings = compactList(activePuzzleEntry.openingTags());
+        if (themes.isBlank()) {
+            return openings.isBlank() ? "n/a" : openings;
+        }
+        return openings.isBlank() ? themes : themes + " · " + openings;
+    }
+
+    /**
+     * Compacts comma/space-delimited metadata.
+     *
+     * @param text source text
+     * @return compact label
+     */
+    private static String compactList(String text) {
+        if (text == null || text.isBlank()) {
+            return "";
+        }
+        String[] parts = text.trim().replace(',', ' ').split("\\s+");
+        StringBuilder out = new StringBuilder();
+        int limit = Math.min(parts.length, 4);
+        for (int i = 0; i < limit; i++) {
+            if (parts[i].isBlank()) {
+                continue;
+            }
+            if (out.length() > 0) {
+                out.append(' ');
+            }
+            out.append(parts[i]);
+        }
+        if (parts.length > limit) {
+            out.append(" ...");
+        }
+        return out.toString();
     }
 
     /**
@@ -1224,7 +1672,54 @@ public final class PuzzlePanel extends JPanel {
      * @param text status text
      */
     private void setStatus(String text) {
-        statusLabel.setText(text == null ? "" : text);
+        String message = text == null ? "" : text;
+        statusLabel.setText(message);
+        updateFeedback(message);
+        summaryChanged.run();
+    }
+
+    /**
+     * Updates the feedback card from a status message.
+     *
+     * @param message status message
+     */
+    private void updateFeedback(String message) {
+        String lower = message == null ? "" : message.toLowerCase(java.util.Locale.ROOT);
+        if (lower.contains("loading")) {
+            feedbackBadge.running("loading");
+            feedbackLabel.setText(message);
+        } else if (session == null) {
+            if (lower.contains("could not") || lower.contains("not found") || lower.contains("empty")) {
+                feedbackBadge.warning("no puzzle");
+                feedbackLabel.setText(message.isBlank() ? "No puzzle loaded" : message);
+            } else {
+                feedbackBadge.notRun("not loaded");
+                feedbackLabel.setText("No puzzle loaded");
+            }
+        } else if (lower.contains("incorrect")) {
+            feedbackBadge.warning("incorrect");
+            feedbackLabel.setText("Incorrect, try again");
+        } else if (lower.contains("revealed")) {
+            feedbackBadge.warning("revealed");
+            feedbackLabel.setText("Solution revealed");
+        } else if (lower.contains("complete") || lower.contains("solved")) {
+            feedbackBadge.complete("complete");
+            feedbackLabel.setText("Puzzle complete");
+        } else if (lower.contains("correct")) {
+            feedbackBadge.complete("correct");
+            feedbackLabel.setText("Correct");
+        } else {
+            feedbackBadge.ready("waiting");
+            feedbackLabel.setText("Waiting for move");
+        }
+    }
+
+    /**
+     * Copies current PGN/source text.
+     */
+    private void copyPgn() {
+        CommandRunner.copyToClipboard(pgnInput.getText());
+        setStatus("Copied PGN.");
     }
 
     /**

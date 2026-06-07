@@ -155,18 +155,18 @@ final class StyledButton extends JButton {
         Graphics2D g = (Graphics2D) graphics.create();
         try {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            boolean primary = Boolean.TRUE.equals(getClientProperty(Theme.CLIENT_PRIMARY));
-            Color fill = buttonFill(primary);
-            Color border = isEnabled() ? Theme.buttonBorder(primary) : Theme.BUTTON_DISABLED_BORDER;
+            Theme.ButtonVariant variant = Theme.buttonVariant(this);
+            Color fill = buttonFill(variant);
+            Color border = isEnabled() ? Theme.buttonBorder(variant) : Theme.BUTTON_DISABLED_BORDER;
             setForeground(isEnabled()
-                    ? primary ? Theme.PRIMARY_BUTTON_TEXT : Theme.SECONDARY_BUTTON_TEXT
+                    ? Theme.buttonText(variant)
                     : Theme.BUTTON_DISABLED_TEXT);
             g.setColor(fill);
             g.fillRoundRect(0, 0, Math.max(0, getWidth() - 1), Math.max(0, getHeight() - 1), RADIUS, RADIUS);
             g.setColor(border);
             g.drawRoundRect(0, 0, Math.max(0, getWidth() - 1), Math.max(0, getHeight() - 1), RADIUS, RADIUS);
             if (isFocusOwner()) {
-                g.setColor(Theme.withAlpha(Theme.INPUT_FOCUS, 90));
+                g.setColor(Theme.FOCUS_RING);
                 g.drawRoundRect(2, 2, Math.max(0, getWidth() - 5), Math.max(0, getHeight() - 5), RADIUS, RADIUS);
             }
         } finally {
@@ -178,11 +178,11 @@ final class StyledButton extends JButton {
     /**
      * Returns the current flat button fill.
      *
-     * @param primary whether the button uses primary styling
+     * @param variant button hierarchy variant
      * @return fill color
      */
-    private Color buttonFill(boolean primary) {
-        Color desired = desiredButtonFill(primary);
+    private Color buttonFill(Theme.ButtonVariant variant) {
+        Color desired = desiredButtonFill(variant);
         boolean targetChangedWhileIdle = !sameColor(desired, transitionTargetFill) && !isFillRunning();
         if (animatedFill == null || targetChangedWhileIdle) {
             animatedFill = desired;
@@ -195,9 +195,9 @@ final class StyledButton extends JButton {
      * Starts a color transition toward the current button state.
      */
     private void startFillTransition() {
-        boolean primary = Boolean.TRUE.equals(getClientProperty(Theme.CLIENT_PRIMARY));
-        Color desired = desiredButtonFill(primary);
-        Color current = animatedFill == null ? restingButtonFill(primary) : animatedFill;
+        Theme.ButtonVariant variant = Theme.buttonVariant(this);
+        Color desired = desiredButtonFill(variant);
+        Color current = animatedFill == null ? restingButtonFill(variant) : animatedFill;
         boolean alreadyAtTarget = sameColor(desired, transitionTargetFill);
         boolean unchangedWhileIdle = sameColor(desired, current) && !isFillRunning();
         if (alreadyAtTarget || unchangedWhileIdle) {
@@ -234,30 +234,30 @@ final class StyledButton extends JButton {
     /**
      * Returns the desired fill for the current button state.
      *
-     * @param primary whether the button uses primary styling
+     * @param variant button hierarchy variant
      * @return desired fill color
      */
-    private Color desiredButtonFill(boolean primary) {
+    private Color desiredButtonFill(Theme.ButtonVariant variant) {
         if (!isEnabled()) {
             return Theme.BUTTON_DISABLED_BG;
         }
         if (getModel().isPressed()) {
-            return Theme.buttonPressed(primary);
+            return Theme.buttonPressed(variant);
         }
         if (getModel().isRollover()) {
-            return Theme.buttonHover(primary);
+            return Theme.buttonHover(variant);
         }
-        return Theme.buttonBackground(primary);
+        return Theme.buttonBackground(variant);
     }
 
     /**
      * Returns the non-hover button fill for transition starts.
      *
-     * @param primary whether the button uses primary styling
+     * @param variant button hierarchy variant
      * @return resting fill color
      */
-    private Color restingButtonFill(boolean primary) {
-        return isEnabled() ? Theme.buttonBackground(primary) : Theme.BUTTON_DISABLED_BG;
+    private Color restingButtonFill(Theme.ButtonVariant variant) {
+        return isEnabled() ? Theme.buttonBackground(variant) : Theme.BUTTON_DISABLED_BG;
     }
 
     /**

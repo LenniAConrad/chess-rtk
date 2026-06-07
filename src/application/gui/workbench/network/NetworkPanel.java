@@ -7,6 +7,7 @@ import application.gui.workbench.command.CommandRunner;
 import application.gui.workbench.game.Positions;
 import application.gui.workbench.mcts.MctsSearch;
 import application.gui.workbench.mcts.MctsWeightsPanel;
+import application.gui.workbench.ui.HoldButton;
 import application.gui.workbench.ui.InspectorPanel;
 import application.gui.workbench.ui.WrappingFlowLayout;
 import application.gui.workbench.ui.RenderAcceleration;
@@ -16,12 +17,15 @@ import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Toast;
 import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.Ui;
+import application.gui.workbench.ui.WorkspaceHeader;
 import chess.core.Move;
 import chess.core.Position;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.CardLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.GridLayout;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -39,6 +43,7 @@ import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
@@ -141,9 +146,19 @@ public final class NetworkPanel extends JPanel {
                 @Override
                 protected boolean removeEldestEntry(
                         Map.Entry<String, ActivationSnapshot> eldest) {
-    return size() > SNAPSHOT_CACHE_LIMIT;
+                    return size() > SNAPSHOT_CACHE_LIMIT;
                 }
             };
+
+    /**
+     * Workspace header for the evaluator / trace lab.
+     */
+    private final WorkspaceHeader workspaceHeader = new WorkspaceHeader("Engine Lab", "", null);
+
+    /**
+     * Scroll panes for each architecture view.
+     */
+    private final Map<String, JScrollPane> viewScrolls = new LinkedHashMap<>();
 
     /**
      * Architecture selector.
@@ -164,6 +179,12 @@ public final class NetworkPanel extends JPanel {
      */
     private final SegmentedSwitcher viewMode = new SegmentedSwitcher(
             new String[] { "Overview", "Trace", "All", "Atlas" });
+
+    /**
+     * View positioning controls.
+     */
+    private final JButton fitViewButton = Ui.button("Fit View", false, event -> fitActiveView());
+    private final JButton resetViewButton = Ui.button("Reset View", false, event -> resetActiveView());
 
     /**
      * Export button for the active network view.
@@ -279,8 +300,8 @@ public final class NetworkPanel extends JPanel {
     /**
      * MCTS stop button.
      */
-    private final JButton mctsStopButton = Ui.button("Stop", false,
-            event -> stopNetworkMcts());
+    private final HoldButton mctsStopButton = new HoldButton("Stop",
+            this::stopNetworkMcts, true);
 
     /**
      * MCTS visit limit spinner.
@@ -496,23 +517,28 @@ public final class NetworkPanel extends JPanel {
         setOpaque(true);
         setBackground(Theme.BG);
         setBorder(Theme.pad(Theme.SPACE_SM));
-        add(buildToolbar(), BorderLayout.NORTH);
+        JPanel north = new JPanel(new BorderLayout(0, 0));
+        north.setOpaque(false);
+        north.add(workspaceHeader, BorderLayout.NORTH);
+        north.add(buildToolbar(), BorderLayout.SOUTH);
+        add(north, BorderLayout.NORTH);
         cardPanel.setOpaque(true);
         cardPanel.setBackground(Theme.BG);
         // Each architecture card lives inside its own JScrollPane so the
         // atlas mode can paint a tall mosaic and the user scrolls through
         // it, while abstract/detailed/raw stay zero-overhead.
-        cardPanel.add(wrapInScroll(nnueView), ARCH_NNUE);
-        cardPanel.add(wrapInScroll(cnnView), ARCH_CNN);
-        cardPanel.add(wrapInScroll(bt4View), ARCH_BT4);
-        cardPanel.add(wrapInScroll(otisView), ARCH_OTIS);
-        cardPanel.add(wrapInScroll(classicalView), ARCH_CLASSICAL);
+        addViewCard(nnueView, ARCH_NNUE);
+        addViewCard(cnnView, ARCH_CNN);
+        addViewCard(bt4View, ARCH_BT4);
+        addViewCard(otisView, ARCH_OTIS);
+        addViewCard(classicalView, ARCH_CLASSICAL);
         cardPanel.add(loadingPanel, CARD_LOADING);
         nnueView.setInspector(inspectorPanel);
         cnnView.setInspector(inspectorPanel);
         bt4View.setInspector(inspectorPanel);
         otisView.setInspector(inspectorPanel);
         detailsTabs.addTab("Inspector", inspectorPanel);
+        detailsTabs.addTab("Legend", createNetworkLegend());
         detailsTabs.setPreferredSize(new Dimension(304, 600));
         detailsTabs.setMinimumSize(new Dimension(232, 260));
         inspectorPanel.setInspectListener(() -> Ui.setCollapsibleExpanded(detailsSection, true));
@@ -548,6 +574,7 @@ public final class NetworkPanel extends JPanel {
         showSelected();
         propagateViewMode();
         refreshToolbarChrome();
+        refreshWorkspaceHeader();
         publishCacheDiagnostics(activeCardKey());
     }
 
@@ -571,6 +598,18 @@ public final class NetworkPanel extends JPanel {
         super.removeNotify();
     }
 
+    /**
+     * Adds one architecture card and remembers its scroll pane for view controls.
+     *
+     * @param view view component
+     * @param key card key
+     */
+    private void addViewCard(JComponent view, String key) {
+        JScrollPane scroll = wrapInScroll(view);
+        viewScrolls.put(key, scroll);
+        cardPanel.add(scroll, key);
+    }
+
     private static JScrollPane wrapInScroll(JComponent view) {
         JScrollPane scroll = new JScrollPane(view);
         Ui.styleScrollPane(scroll);
@@ -580,6 +619,110 @@ public final class NetworkPanel extends JPanel {
         scroll.getVerticalScrollBar().setUnitIncrement(24);
         scroll.getHorizontalScrollBar().setUnitIncrement(24);
         return scroll;
+    }
+
+    /**
+     * Creates the trace / evaluator legend.
+     *
+     * @return legend component
+     */
+    private static JComponent createNetworkLegend() {
+        JPanel legend = new JPanel(new GridLayout(0, 1, 0, Theme.SPACE_SM));
+        legend.setOpaque(false);
+        legend.setBorder(Theme.pad(Theme.SPACE_SM));
+        legend.add(legendRow(TensorViz.POSITIVE, "Positive contribution",
+                "Green cells, bars, and edges raise the side-to-move evaluation."));
+        legend.add(legendRow(TensorViz.NEGATIVE, "Negative contribution",
+                "Red cells, bars, and edges lower the side-to-move evaluation."));
+        legend.add(legendRow(Theme.withAlpha(Theme.ACCENT, 150), "Opacity / magnitude",
+                "Stronger weights and activations are drawn with higher opacity or longer bars."));
+        legend.add(legendRow(TensorViz.FOCUS, "Selected node / layer",
+                "Focused nodes, lanes, and layers use the focus accent and drive the inspector."));
+        legend.add(legendRow(Theme.MUTED, "Raw technical values",
+                "Dense tensors remain available through Trace, All, and Atlas modes."));
+        return Ui.card("Trace Legend", legend);
+    }
+
+    /**
+     * Creates one legend row.
+     *
+     * @param color chip color
+     * @param title row title
+     * @param detail row detail
+     * @return row component
+     */
+    private static JComponent legendRow(Color color, String title, String detail) {
+        JPanel row = new JPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        row.setOpaque(false);
+        JComponent chip = new JComponent() {
+            private static final long serialVersionUID = 1L;
+
+            /**
+             * Returns the fixed legend-chip size.
+             *
+             * @return chip dimensions
+             */
+            @Override
+            public Dimension getPreferredSize() {
+                return new Dimension(12, 12);
+            }
+
+            /**
+             * Paints the legend color chip.
+             *
+             * @param graphics drawing context
+             */
+            @Override
+            protected void paintComponent(java.awt.Graphics graphics) {
+                graphics.setColor(color);
+                graphics.fillRoundRect(0, 2, 12, 8, 4, 4);
+            }
+        };
+        JPanel text = new JPanel(new GridLayout(0, 1));
+        text.setOpaque(false);
+        JLabel titleLabel = new JLabel(title);
+        titleLabel.setFont(Theme.font(12, java.awt.Font.BOLD));
+        Theme.foreground(titleLabel, Theme.ForegroundRole.TEXT);
+        text.add(titleLabel);
+        text.add(Ui.caption(detail));
+        row.add(chip, BorderLayout.WEST);
+        row.add(text, BorderLayout.CENTER);
+        return row;
+    }
+
+    /**
+     * Scrolls the active evaluator view to its primary graph area.
+     */
+    private void fitActiveView() {
+        resetActiveView();
+    }
+
+    /**
+     * Resets the active evaluator viewport.
+     */
+    private void resetActiveView() {
+        JScrollPane scroll = viewScrolls.get(activeCardKey());
+        if (scroll != null) {
+            scroll.getHorizontalScrollBar().setValue(0);
+            scroll.getVerticalScrollBar().setValue(0);
+        }
+        activeView().revalidate();
+        activeView().repaint();
+    }
+
+    /**
+     * Refreshes the Engine Lab workspace context.
+     */
+    private void refreshWorkspaceHeader() {
+        String source = overrideFen != null ? "Pinned position"
+                : mctsLeafFen != null && mctsFollowLeafToggle.isSelected() ? "PUCT leaf" : "Current board";
+        String mode = switch (viewMode.getSelectedIndex()) {
+            case 1 -> "Neural trace";
+            case MODE_RAW -> "Raw tensors";
+            case MODE_ATLAS -> "Atlas";
+            default -> "Evaluator overview";
+        };
+        workspaceHeader.setContext(displayNameFor(activeCardKey()) + " · " + source + " · " + mode);
     }
 
     /**
@@ -641,7 +784,7 @@ public final class NetworkPanel extends JPanel {
         if (mctsLeafFen != null && mctsFollowLeafToggle.isSelected()) {
             return mctsLeafFen;
         }
-    return baseFen();
+        return baseFen();
     }
 
     private String baseFen() {
@@ -665,7 +808,7 @@ public final class NetworkPanel extends JPanel {
     }
 
     private String activeCardKey() {
-    return cardKeyFor((String) archCombo.getSelectedItem());
+        return cardKeyFor((String) archCombo.getSelectedItem());
     }
 
     private static String cacheKey(String cardKey, String fen) {
@@ -686,6 +829,7 @@ public final class NetworkPanel extends JPanel {
             displayedKey = cacheKey(cardKey, fen);
             cards.show(cardPanel, cardKey);
             statusBadge.success(ARCH_CLASSICAL_LABEL + ": handcrafted, no model needed");
+            refreshWorkspaceHeader();
             return;
         }
         String key = cacheKey(cardKey, fen);
@@ -734,16 +878,21 @@ public final class NetworkPanel extends JPanel {
                 "Pick the evaluator to visualise (neural families or the classical hand-crafted evaluator).");
         styleToolbarCombo(positionCombo, 244,
                 "Pin a canned position to explore, or follow the main board.");
+        viewMode.setToolTipText("Overview, Trace, All, and Atlas switch between curated and raw evaluator internals.");
         exportPngButton.setToolTipText("Render the full current evaluator view to a high-resolution PNG file.");
+        fitViewButton.setToolTipText("Scroll the active evaluator view to its primary graph area.");
+        resetViewButton.setToolTipText("Reset the active evaluator viewport to the top-left.");
 
         JPanel controls = Ui.transparentPanel(
-    new WrappingFlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
+                new WrappingFlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
         controls.add(archCombo);
         controls.add(positionCombo);
         controls.add(viewMode);
+        controls.add(fitViewButton);
+        controls.add(resetViewButton);
 
         JPanel actions = Ui.transparentPanel(
-    new FlowLayout(FlowLayout.RIGHT, Theme.SPACE_SM, 0));
+                new FlowLayout(FlowLayout.RIGHT, Theme.SPACE_SM, 0));
         actions.add(Ui.button("Copy command", false, event -> copyCliCommand()));
         actions.add(exportPngButton);
         actions.add(statusBadge);
@@ -767,6 +916,7 @@ public final class NetworkPanel extends JPanel {
         mctsVisitsSpinner.setPreferredSize(new Dimension(86, Theme.CONTROL_HEIGHT));
         mctsMillisSpinner.setPreferredSize(new Dimension(86, Theme.CONTROL_HEIGHT));
         mctsCpuctSpinner.setPreferredSize(new Dimension(72, Theme.CONTROL_HEIGHT));
+        mctsCpuctSpinner.setToolTipText("Cpuct: PUCT exploration constant. Higher values explore prior-favored moves more aggressively.");
         mctsStartButton.setToolTipText("Run PUCT from the current board/canned position and stream each leaf into the evaluator view.");
         mctsPauseButton.setToolTipText("Pause or resume the PUCT worker while keeping the current leaf on screen.");
         mctsStopButton.setToolTipText("Stop PUCT and return the network view to the board/canned position.");
@@ -776,7 +926,7 @@ public final class NetworkPanel extends JPanel {
         mctsStatusBadge.idle("MCTS idle");
 
         JPanel controls = Ui.transparentPanel(
-    new WrappingFlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
+                new WrappingFlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
         controls.add(Ui.label("PUCT"));
         controls.add(mctsStartButton);
         controls.add(mctsPauseButton);
@@ -790,7 +940,7 @@ public final class NetworkPanel extends JPanel {
         controls.add(mctsFollowLeafToggle);
 
         JPanel status = Ui.transparentPanel(
-    new FlowLayout(FlowLayout.RIGHT, Theme.SPACE_SM, 0));
+                new FlowLayout(FlowLayout.RIGHT, Theme.SPACE_SM, 0));
         status.add(mctsStatusBadge);
 
         bar.add(controls, BorderLayout.CENTER);
@@ -993,6 +1143,7 @@ public final class NetworkPanel extends JPanel {
         cards.show(cardPanel, cardKey);
         propagateViewMode();
         refreshStatusBadge();
+        refreshWorkspaceHeader();
     }
 
     private boolean isLoadingActiveCard(String cardKey) {
@@ -1019,10 +1170,12 @@ public final class NetworkPanel extends JPanel {
         String cardKey = activeCardKey();
         if (cardKey == null) {
             statusBadge.idle("");
+            refreshWorkspaceHeader();
             return;
         }
         if (ARCH_CLASSICAL.equals(cardKey)) {
             statusBadge.success(ARCH_CLASSICAL_LABEL + ": handcrafted, no model needed");
+            refreshWorkspaceHeader();
             return;
         }
         String statusKey;
@@ -1044,6 +1197,7 @@ public final class NetworkPanel extends JPanel {
         } else {
             statusBadge.idle(message);
         }
+        refreshWorkspaceHeader();
     }
 
     private static String[] buildArchOptions() {
@@ -1063,10 +1217,11 @@ public final class NetworkPanel extends JPanel {
         updateAtlasAvailability();
         cardPanel.revalidate();
         cardPanel.repaint();
+        refreshWorkspaceHeader();
     }
 
     private ViewMode selectedViewMode() {
-    return switch (viewMode.getSelectedIndex()) {
+        return switch (viewMode.getSelectedIndex()) {
             case 1 -> ViewMode.DETAILED;
             case MODE_RAW -> ViewMode.RAW;
             case MODE_ATLAS -> ViewMode.ATLAS;
@@ -1089,7 +1244,7 @@ public final class NetworkPanel extends JPanel {
         try {
             String fen = baseFen();
             if (fen == null || fen.isBlank()) {
-    throw new IllegalArgumentException("no position is loaded");
+                throw new IllegalArgumentException("no position is loaded");
             }
             root = new Position(fen);
         } catch (IllegalArgumentException ex) {
@@ -1569,7 +1724,7 @@ public final class NetworkPanel extends JPanel {
              */
             @Override
             protected ActivationSnapshot doInBackground() {
-    return inferSnapshot(cardKey, fen);
+                return inferSnapshot(cardKey, fen);
             }
 
             /**
@@ -1644,6 +1799,7 @@ public final class NetworkPanel extends JPanel {
             displayedKey = cacheKey(cardKey, fen);
             cards.show(cardPanel, cardKey);
             publishCacheDiagnostics(cardKey);
+            refreshWorkspaceHeader();
         }
     }
 
@@ -1676,6 +1832,7 @@ public final class NetworkPanel extends JPanel {
                 loadingModelDetail(cardKey),
                 loadingPositionDetail(fen));
         statusBadge.busy("running " + displayNameFor(cardKey).toLowerCase(java.util.Locale.ROOT) + " inference");
+        refreshWorkspaceHeader();
         // Only swap to the full-screen loading card when there is no prior
         // content to keep visible. Otherwise leave the previous snapshot on
         // screen so changing the position does not blank out the entire

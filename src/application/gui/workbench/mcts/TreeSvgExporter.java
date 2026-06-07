@@ -1,11 +1,17 @@
 package application.gui.workbench.mcts;
 
 import application.gui.workbench.board.BoardStyle;
+import application.gui.workbench.ui.NotationPainter;
+import chess.book.render.NotationPieceSvg;
 import chess.core.Piece;
 import chess.core.Position;
 import chess.images.assets.shape.SvgShapes;
 import java.awt.Color;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
 import java.awt.Rectangle;
+import java.awt.image.BufferedImage;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -31,6 +37,29 @@ final class TreeSvgExporter {
      * Emerald selection ring, matching the live canvas.
      */
     private static final Color SELECT_COLOR = new Color(0x3D, 0xD6, 0x7E);
+
+    /**
+     * Caption move-label font (matches the live canvas: bold 11 sans-serif).
+     */
+    private static final Font LABEL_FONT = new Font(Font.SANS_SERIF, Font.BOLD, 11);
+
+    /**
+     * Metrics for {@link #LABEL_FONT}, used to advance the cursor between inline
+     * text runs and figurine glyphs so the layout mirrors the live canvas.
+     */
+    private static final FontMetrics LABEL_METRICS = labelMetrics();
+
+    /**
+     * Pixel gap between an inline figurine glyph and adjacent text (matches the
+     * live {@code NotationPainter} spacing).
+     */
+    private static final int NOTATION_PIECE_GAP = 2;
+
+    /**
+     * Embedded black fill used by every {@link NotationPieceSvg} outline glyph,
+     * swapped for the caption text color on export.
+     */
+    private static final String NOTATION_GLYPH_FILL = "fill=\"#000000\"";
 
     /**
      * Prevents instantiation.
@@ -123,9 +152,7 @@ final class TreeSvgExporter {
                 .append("\" width=\"").append(side).append("\" height=\"").append(capH)
                 .append("\" fill=\"").append(hex(captionFill)).append("\"/>\n");
         String label = node.root() ? "root" : node.info().san();
-        sb.append("<text x=\"").append(node.x() + 7).append("\" y=\"").append(capY + 14)
-                .append("\" font-family=\"sans-serif\" font-size=\"11\" font-weight=\"bold\" fill=\"")
-                .append(hex(textColor)).append("\">").append(escape(label)).append("</text>\n");
+        appendNotationLabel(sb, label, node.x() + 7, capY + 14, textColor);
         sb.append("<text x=\"").append(node.x() + 7).append("\" y=\"").append(capY + capH - 5)
                 .append("\" font-family=\"sans-serif\" font-size=\"9\" fill=\"")
                 .append(hex(mutedColor)).append("\">")
@@ -142,6 +169,76 @@ final class TreeSvgExporter {
                     .append("\" width=\"").append(node.w() + 2).append("\" height=\"").append(node.h() + 2)
                     .append("\" rx=\"7\" fill=\"none\" stroke=\"").append(hex(accent))
                     .append("\" stroke-width=\"1.6\"/>\n");
+        }
+    }
+
+    /**
+     * Appends a node's move label as inline figurine notation: SAN piece letters
+     * become the same neutral outline glyphs the live canvas paints (shared
+     * {@link NotationPainter} segmentation + {@link NotationPieceSvg} sources,
+     * recolored to the caption text color), while files, ranks, captures, and
+     * suffixes stay as text. Mirrors {@code NotationPainter.draw} so the export
+     * reads identically to the on-screen caption.
+     *
+     * @param sb output builder
+     * @param label move label (SAN, or {@code root})
+     * @param x left x coordinate
+     * @param baseline text baseline
+     * @param textColor caption text color
+     */
+    private static void appendNotationLabel(StringBuilder sb, String label, int x, int baseline,
+            Color textColor) {
+        int iconSize = NotationPainter.iconSize(LABEL_METRICS);
+        int iconTop = baseline
+                - (LABEL_METRICS.getAscent() - LABEL_METRICS.getDescent()) / 2 - iconSize / 2;
+        double scale = iconSize / PIECE_VIEWBOX_SIZE;
+        double cursor = x;
+        for (NotationPainter.Segment segment : NotationPainter.tokenize(label)) {
+            if (segment.isPiece()) {
+                String source = NotationPieceSvg.svg(segment.piece());
+                if (source != null) {
+                    sb.append("<g transform=\"translate(").append(fmt(cursor)).append(' ').append(iconTop)
+                            .append(") scale(").append(fmt(scale)).append(")\">")
+                            .append(inlineGlyph(source, textColor)).append("</g>\n");
+                }
+                cursor += iconSize + NOTATION_PIECE_GAP;
+            } else if (!segment.text().isEmpty()) {
+                sb.append("<text x=\"").append(fmt(cursor)).append("\" y=\"").append(baseline)
+                        .append("\" font-family=\"sans-serif\" font-size=\"11\" font-weight=\"bold\" fill=\"")
+                        .append(hex(textColor)).append("\">").append(escape(segment.text()))
+                        .append("</text>\n");
+                cursor += LABEL_METRICS.stringWidth(segment.text());
+            }
+        }
+    }
+
+    /**
+     * Prepares one figurine glyph for embedding: strips the outer {@code <svg>}
+     * wrapper and the per-glyph {@code <title>} (its fixed id would collide when
+     * many glyphs share one document), then recolors the outline to the caption
+     * text color.
+     *
+     * @param source notation glyph SVG source
+     * @param color caption text color
+     * @return inline-ready glyph markup
+     */
+    private static String inlineGlyph(String source, Color color) {
+        String inner = innerSvg(source).replaceAll("<title[^>]*>.*?</title>", "");
+        return inner.replace(NOTATION_GLYPH_FILL, "fill=\"" + hex(color) + "\"");
+    }
+
+    /**
+     * Resolves font metrics for the caption move label without a live component.
+     *
+     * @return metrics for {@link #LABEL_FONT}
+     */
+    private static FontMetrics labelMetrics() {
+        BufferedImage probe = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = probe.createGraphics();
+        try {
+            return g.getFontMetrics(LABEL_FONT);
+        } finally {
+            g.dispose();
         }
     }
 

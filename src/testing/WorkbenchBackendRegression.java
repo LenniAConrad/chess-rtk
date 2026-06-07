@@ -18,6 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
@@ -43,6 +44,7 @@ import javax.swing.text.StyleConstants;
 
 import application.gui.workbench.audio.SoundCue;
 import application.gui.workbench.audio.SoundService;
+import application.gui.workbench.board.BoardStyle;
 import application.gui.workbench.game.Positions;
 import application.gui.workbench.mcts.MctsPanel;
 import application.gui.workbench.mcts.MctsSearch;
@@ -130,9 +132,15 @@ final class WorkbenchBackendRegression {
         testMctsSessionLifecyclePublishesSnapshots();
         testMctsPanelInspectorUsesSolidSurface();
         testTreeGraphLayerGuidesIncludeVerticalDividers();
+        testTreeGraphLayerGuidesKeepShortBranchesAtDeeperLevel();
+        testTreePanelUsesFixedSvgBoardSize();
         testTreeGraphBoardThumbnailsHaveNoBoardBorder();
+        testTreeGraphMoveHighlightsArePixelAlignedFilledRectangles();
+        testTreeGraphBoardCacheSeparatesLastMoveHighlights();
         testTreeGraphSelectionRingWrapsFullCard();
+        testTreeGraphSelectionRingStaysOutsideCaptionAtHighZoom();
         testTreeGraphSelectedPathDrawsGreenEdges();
+        testTreeGraphSelectedPathUsesExactSegments();
         testTreeGraphNodeCaptionClipsOverflowText();
         // Full MCTS tab registration coverage is intentionally not part of
         // this Workbench pass; the Network tab still covers shared MCTS
@@ -503,6 +511,17 @@ final class WorkbenchBackendRegression {
                 List.of("doctor"), 3, "missing engine binary");
         assertTrue(String.valueOf(failure).startsWith("exit 3"),
                 "non-zero exit summary names the exit code");
+        String detail = String.valueOf(invokeStatic(parser, "detail",
+                new Class<?>[] { List.class, int.class, String.class, long.class },
+                List.of("engine", "bestmove"), 0,
+                "info depth 12 score cp 34 nodes 1000 nps 50000 time 20\nbestmove e2e4 ponder e7e5\n",
+                Long.valueOf(25L)));
+        assertTrue(detail.contains("Best move: e2e4"),
+                "parsed result exposes best move");
+        assertTrue(detail.contains("Score: cp 34"),
+                "parsed result exposes score");
+        assertTrue(detail.contains("Depth: 12"),
+                "parsed result exposes depth");
     }
 
     /**
@@ -518,15 +537,26 @@ final class WorkbenchBackendRegression {
         assertTrue(panel instanceof JComponent, "dashboard panel is a Swing component");
         assertTrue(((JComponent) panel).getComponentCount() > 0,
                 "dashboard panel builds its cards");
-        assertTrue(componentTreeHasLabelText((JComponent) panel, "NETWORK RUNTIME"),
-                "dashboard hosts network runtime diagnostics");
-        assertTrue(componentTreeContainsClass((JComponent) panel, "NetworkDiagnosticsPanel"),
-                "dashboard embeds reusable network diagnostics panel");
+        assertTrue(componentTreeHasLabelText((JComponent) panel, "Current Position"),
+                "dashboard has a useful position card");
+        assertTrue(componentTreeHasLabelText((JComponent) panel, "Engine Status"),
+                "dashboard has an engine status card");
+        assertTrue(componentTreeHasLabelText((JComponent) panel, "Health Checks"),
+                "dashboard has actionable health checks");
+        assertTrue(componentTreeHasLabelText((JComponent) panel, "Runtime Models"),
+                "dashboard has scannable runtime model rows");
+        assertTrue(componentTreeHasLabelText((JComponent) panel, "Cache / Activation"),
+                "dashboard has activation-cache status");
+        assertTrue(componentTreeHasLabelText((JComponent) panel, "No recent jobs"),
+                "dashboard uses the shared empty state for jobs");
         invoke(session, "updatePosition",
                 new Class<?>[] { String.class, boolean.class, int.class, int.class, int.class },
                 START_FEN, true, 0, 0, 20);
         invoke(session, "updateTags", new Class<?>[] { List.class },
                 List.of("OPENING: name=\"Start\"", "MATERIAL: equal"));
+        flushEdt();
+        assertTrue(componentTreeHasLabelText((JComponent) panel, "Even"),
+                "dashboard surfaces material status when tags provide it");
         assertPaintsOpaqueCorner((JComponent) panel, 1000, 760,
                 "dashboard infographics paint opaquely");
     }
@@ -654,10 +684,12 @@ final class WorkbenchBackendRegression {
         assertFalse(((JComponent) field(panel, "detailsTabs")).isVisible(),
                 "network inspector starts collapsed until data is selected");
         JComponent detailsTabs = (JComponent) field(panel, "detailsTabs");
-        assertEquals(Integer.valueOf(1), Integer.valueOf(((javax.swing.JTabbedPane) detailsTabs).getTabCount()),
-                "network details keep diagnostics out of the inspector tabs");
+        assertEquals(Integer.valueOf(2), Integer.valueOf(((javax.swing.JTabbedPane) detailsTabs).getTabCount()),
+                "network details expose inspector plus trace legend");
         assertEquals("Inspector", ((javax.swing.JTabbedPane) detailsTabs).getTitleAt(0),
-                "network details contain only the inspector tab");
+                "network details keep the inspector as the primary tab");
+        assertEquals("Legend", ((javax.swing.JTabbedPane) detailsTabs).getTitleAt(1),
+                "network details include trace legend tab");
         assertEquals(staticField(type("Defaults"), "MCTS_VISITS"), visits.getValue(),
                 "network MCTS uses shared visit default");
         assertFalse(followLeaf.isSelected(), "network leaf following starts off");
@@ -1730,6 +1762,32 @@ final class WorkbenchBackendRegression {
     }
 
     /**
+     * Counts pixels whose RGB differs between two images inside one region.
+     *
+     * @param a first image
+     * @param b second image
+     * @param x region x
+     * @param y region y
+     * @param width region width
+     * @param height region height
+     * @return differing-pixel count
+     */
+    private static int countDifferingPixels(java.awt.image.BufferedImage a,
+            java.awt.image.BufferedImage b, int x, int y, int width, int height) {
+        int differ = 0;
+        int maxX = Math.min(Math.min(a.getWidth(), b.getWidth()), x + Math.max(0, width));
+        int maxY = Math.min(Math.min(a.getHeight(), b.getHeight()), y + Math.max(0, height));
+        for (int yy = Math.max(0, y); yy < maxY; yy++) {
+            for (int xx = Math.max(0, x); xx < maxX; xx++) {
+                if ((a.getRGB(xx, yy) & 0xFFFFFF) != (b.getRGB(xx, yy) & 0xFFFFFF)) {
+                    differ++;
+                }
+            }
+        }
+        return differ;
+    }
+
+    /**
      * Verifies the workbench CNN path captures real model activations when the
      * local CNN weights file is installed.
      */
@@ -2155,6 +2213,26 @@ final class WorkbenchBackendRegression {
     }
 
     /**
+     * Verifies the tree uses a larger fixed SVG-era node board size and no
+     * longer exposes the old pixel-resolution spinner in the toolbar.
+     */
+    private static void testTreePanelUsesFixedSvgBoardSize() {
+        int nodeBoardSize = ((Integer) staticField(type("TreePanel"), "NODE_BOARD_SIZE")).intValue();
+        assertTrue(nodeBoardSize >= 96,
+                "tree panel uses a larger fixed node board size");
+        try {
+            String source = Files.readString(Path.of("src/application/gui/workbench/mcts/TreePanel.java"),
+                    StandardCharsets.UTF_8);
+            assertFalse(source.contains("boardSizeSpinner"),
+                    "tree panel removes the old board-size spinner");
+            assertFalse(source.contains("Ui.labeledControl(\"Board\""),
+                    "tree toolbar no longer exposes a Board resolution control");
+        } catch (IOException ex) {
+            throw new AssertionError("unable to inspect TreePanel source", ex);
+        }
+    }
+
+    /**
      * Verifies the tree graph clips SAN/stat text to the node caption instead of
      * letting large counts spill into neighboring graph space.
      */
@@ -2268,11 +2346,78 @@ final class WorkbenchBackendRegression {
             int captionY = panY + nodeY + nodeW;
             int captionH = nodeH - nodeW;
             int cardSidePixels = nonBackgroundPixels(image, Theme.BG,
-                    nodeX + nodeW, captionY + 4, 4, Math.max(1, captionH - 8));
-            assertTrue(cardSidePixels > 0, "selected tree node ring wraps caption side of full card");
+                    nodeX + nodeW + 4, captionY + 4, 8, Math.max(1, captionH - 8));
+            assertTrue(cardSidePixels > 0,
+                    "selected tree node ring wraps outside the caption side of the full card");
         } finally {
             Theme.setMode(previous);
         }
+    }
+
+    /**
+     * Verifies high-zoom selection rings keep their stroke outside the full
+     * node card instead of painting over the dark caption lane.
+     */
+    private static void testTreeGraphSelectionRingStaysOutsideCaptionAtHighZoom() {
+        Theme.Mode previous = Theme.mode();
+        try {
+            Theme.setMode(Theme.Mode.DARK);
+            int width = 620;
+            int height = 740;
+            int nodeX = 20;
+            int nodeY = 12;
+            int nodeW = 44;
+            int nodeH = 70;
+            double zoom = 8.0;
+            double panX = 40.0;
+            double panY = 40.0;
+            MctsSearch.NodeInfo info = treeInfo("root", "", 0, 100, 1L);
+            TreeLayout.Node plainNode = new TreeLayout.Node("root", info, nodeX, nodeY, nodeW, nodeH,
+                    0, true, false, false, false, List.of());
+            TreeLayout.Node selectedNode = new TreeLayout.Node("root", info, nodeX, nodeY, nodeW, nodeH,
+                    0, true, true, false, false, List.of());
+
+            BufferedImage plain = paintTreeNodeWithViewTransform(plainNode, width, height, zoom, panX, panY);
+            BufferedImage selected = paintTreeNodeWithViewTransform(selectedNode, width, height, zoom, panX, panY);
+
+            int captionY = (int) Math.round(panY + (nodeY + nodeW) * zoom);
+            int captionH = (int) Math.round((nodeH - nodeW) * zoom);
+            int cardRight = (int) Math.round(panX + (nodeX + nodeW) * zoom);
+            int insideDiff = countDifferingPixels(plain, selected,
+                    cardRight - 8, captionY + 14, 8, Math.max(1, captionH - 28));
+            int outsideDiff = countDifferingPixels(plain, selected,
+                    cardRight + 3, captionY + 14, 10, Math.max(1, captionH - 28));
+            assertEquals(Integer.valueOf(0), Integer.valueOf(insideDiff),
+                    "high-zoom selection ring stays outside the caption lane");
+            assertTrue(outsideDiff > 20,
+                    "high-zoom selection ring remains visible outside the card");
+        } finally {
+            Theme.setMode(previous);
+        }
+    }
+
+    /**
+     * Paints one tree node with a deterministic pan/zoom transform.
+     *
+     * @param node tree node
+     * @param width component width
+     * @param height component height
+     * @param zoom zoom factor
+     * @param panX horizontal pan
+     * @param panY vertical pan
+     * @return rendered image
+     */
+    private static BufferedImage paintTreeNodeWithViewTransform(TreeLayout.Node node,
+            int width, int height, double zoom, double panX, double panY) {
+        TreeGraphView view = new TreeGraphView();
+        view.setSize(width, height);
+        TreeLayout.Model model = new TreeLayout.Model(List.of(node), List.of(), width, height,
+                node.key(), 1, 0);
+        view.setModel(model);
+        setField(view, "zoom", Double.valueOf(zoom));
+        setField(view, "panX", Double.valueOf(panX));
+        setField(view, "panY", Double.valueOf(panY));
+        return paint(view, width, height);
     }
 
     /**
@@ -2326,6 +2471,131 @@ final class WorkbenchBackendRegression {
             Color edgePixel = new Color(image.getRGB(nodeX, panY + nodeY), true);
             assertTrue(!Objects.equals(themeColor("BOARD_EDGE"), edgePixel),
                     "tree board thumbnail omits the standalone board border");
+        } finally {
+            Theme.setMode(previous);
+        }
+    }
+
+    /**
+     * Verifies tree thumbnail move markers are rectangular and aligned to device
+     * pixels even when the tree is panned and zoomed to fractional coordinates.
+     */
+    private static void testTreeGraphMoveHighlightsArePixelAlignedFilledRectangles() {
+        Theme.Mode previous = Theme.mode();
+        try {
+            Theme.setMode(Theme.Mode.DARK);
+            int width = 520;
+            int height = 420;
+            int nodeX = 18;
+            int nodeY = 16;
+            int nodeW = 64;
+            int nodeH = 98;
+            double zoom = 4.35;
+            double panX = 23.4;
+            double panY = 31.6;
+            short move = Move.parse("g1f3");
+            MctsSearch.NodeInfo plainInfo = treeInfoWithMove("root", "", Move.NO_MOVE, 0, 100, 1L);
+            MctsSearch.NodeInfo moveInfo = treeInfoWithMove("root", "", move, 0, 100, 1L);
+            TreeLayout.Node plainNode = new TreeLayout.Node("root", plainInfo, nodeX, nodeY, nodeW, nodeH,
+                    0, true, false, false, false, List.of());
+            TreeLayout.Node moveNode = new TreeLayout.Node("root", moveInfo, nodeX, nodeY, nodeW, nodeH,
+                    0, true, false, false, false, List.of());
+
+            BufferedImage plain = paintTreeNodeWithViewTransform(plainNode, width, height, zoom, panX, panY);
+            BufferedImage highlighted = paintTreeNodeWithViewTransform(moveNode, width, height, zoom, panX, panY);
+            Rectangle board = new Rectangle(nodeX, nodeY, nodeW, nodeW);
+            Rectangle toSquare = BoardStyle.fieldSquareBounds(board, Move.getToIndex(move), true);
+            Rectangle pixelSquare = pixelRect(toSquare, zoom, panX, panY);
+
+            int top = countDifferingPixels(plain, highlighted,
+                    pixelSquare.x, pixelSquare.y, pixelSquare.width, 1);
+            int bottom = countDifferingPixels(plain, highlighted,
+                    pixelSquare.x, pixelSquare.y + pixelSquare.height - 1, pixelSquare.width, 1);
+            int left = countDifferingPixels(plain, highlighted,
+                    pixelSquare.x, pixelSquare.y, 1, pixelSquare.height);
+            int right = countDifferingPixels(plain, highlighted,
+                    pixelSquare.x + pixelSquare.width - 1, pixelSquare.y, 1, pixelSquare.height);
+            int outsideTop = countDifferingPixels(plain, highlighted,
+                    pixelSquare.x, pixelSquare.y - 1, pixelSquare.width, 1);
+            int center = countDifferingPixels(plain, highlighted,
+                    pixelSquare.x + 3, pixelSquare.y + 3,
+                    Math.max(1, pixelSquare.width - 6), Math.max(1, pixelSquare.height - 6));
+            Color actualCenter = new Color(highlighted.getRGB(
+                    pixelSquare.x + pixelSquare.width / 2,
+                    pixelSquare.y + pixelSquare.height / 2), true);
+            Color expectedCenter = expectedLastMoveFill(
+                    pixelRect(board, zoom, panX, panY),
+                    Move.getToIndex(move));
+            assertTrue(top >= pixelSquare.width - 2,
+                    "tree move highlight touches the exact top edge of the square");
+            assertTrue(bottom >= pixelSquare.width - 2,
+                    "tree move highlight touches the exact bottom edge of the square");
+            assertTrue(left >= pixelSquare.height - 2,
+                    "tree move highlight touches the exact left edge of the square");
+            assertTrue(right >= pixelSquare.height - 2,
+                    "tree move highlight touches the exact right edge of the square");
+            assertEquals(Integer.valueOf(0), Integer.valueOf(outsideTop),
+                    "tree move highlight does not bleed outside the square edge");
+            assertTrue(center > Math.max(12, pixelSquare.width * pixelSquare.height / 3),
+                    "tree move highlight fills the square interior with a transparent rectangle");
+            assertTrue(colorDistance(actualCenter, expectedCenter) <= 1.5,
+                    "tree move highlight uses the same fill color as the main board last-move highlight");
+        } finally {
+            Theme.setMode(previous);
+        }
+    }
+
+    /**
+     * Returns the expected center pixel for a board-square last-move fill.
+     *
+     * @param board device-space board rectangle
+     * @param square highlighted square
+     * @return composited last-move color
+     */
+    private static Color expectedLastMoveFill(Rectangle board, byte square) {
+        BufferedImage image = new BufferedImage(board.width, board.height, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = image.createGraphics();
+        try {
+            Rectangle localBoard = new Rectangle(0, 0, board.width, board.height);
+            BoardStyle.drawBoardSurface(g, localBoard, false);
+            BoardStyle.drawFilledSquareHighlight(g,
+                    BoardStyle.fieldSquareBounds(localBoard, square, true),
+                    Theme.LAST_MOVE_EDGE);
+            Rectangle localSquare = BoardStyle.fieldSquareBounds(localBoard, square, true);
+            return new Color(image.getRGB(
+                    localSquare.x + localSquare.width / 2,
+                    localSquare.y + localSquare.height / 2), true);
+        } finally {
+            g.dispose();
+        }
+    }
+
+    /**
+     * Verifies the cached tree thumbnail key includes the incoming move now that
+     * the last-move highlight is baked into the board image.
+     */
+    @SuppressWarnings("unchecked")
+    private static void testTreeGraphBoardCacheSeparatesLastMoveHighlights() {
+        Theme.Mode previous = Theme.mode();
+        try {
+            Theme.setMode(Theme.Mode.DARK);
+            TreeGraphView view = new TreeGraphView();
+            view.setSize(260, 140);
+            MctsSearch.NodeInfo leftInfo = treeInfoWithMove("left", "", Move.parse("g1f3"), 0, 100, 1L);
+            MctsSearch.NodeInfo rightInfo = treeInfoWithMove("right", "", Move.parse("b1c3"), 0, 100, 2L);
+            TreeLayout.Node left = new TreeLayout.Node("left", leftInfo, 20, 16, 64, 98,
+                    0, false, false, false, false, List.of());
+            TreeLayout.Node right = new TreeLayout.Node("right", rightInfo, 112, 16, 64, 98,
+                    0, false, false, false, false, List.of());
+            view.setModel(new TreeLayout.Model(List.of(left, right), List.of(), 260, 140, "left", 2, 0));
+            setField(view, "zoom", Double.valueOf(1.0));
+            setField(view, "panX", Double.valueOf(0.0));
+            setField(view, "panY", Double.valueOf(0.0));
+            paint(view, 260, 140);
+
+            Map<String, BufferedImage> cache = (Map<String, BufferedImage>) field(view, "boardCache");
+            assertTrue(cache.size() >= 2,
+                    "tree board cache separates thumbnails with the same FEN but different incoming moves");
         } finally {
             Theme.setMode(previous);
         }
@@ -2413,8 +2683,126 @@ final class WorkbenchBackendRegression {
     }
 
     /**
-     * Verifies the tree layer guide overlay includes vertical divider lines
-     * between visible node columns.
+     * Verifies a selected path follows the explicit directed segments instead of
+     * highlighting every sibling edge whose endpoints happen to be in the path
+     * key set.
+     */
+    private static void testTreeGraphSelectedPathUsesExactSegments() {
+        Theme.Mode previous = Theme.mode();
+        try {
+            Theme.setMode(Theme.Mode.DARK);
+            int width = 240;
+            int height = 210;
+            TreeGraphView view = new TreeGraphView();
+            view.setSize(width, height);
+            MctsSearch.NodeInfo rootInfo = treeInfo("root", "", 0, 100, 1L);
+            MctsSearch.NodeInfo leftInfo = treeInfo("left", "root", 1, 40, 2L);
+            MctsSearch.NodeInfo rightInfo = treeInfo("right", "root", 1, 45, 3L);
+            TreeLayout.Node root = new TreeLayout.Node("root", rootInfo, 100, 24, 40, 64,
+                    0, true, false, false, false, List.of());
+            TreeLayout.Node left = new TreeLayout.Node("left", leftInfo, 50, 124, 40, 64,
+                    1, false, false, false, false, List.of());
+            TreeLayout.Node right = new TreeLayout.Node("right", rightInfo, 150, 124, 40, 64,
+                    1, false, false, false, false, List.of());
+            TreeLayout.Model model = new TreeLayout.Model(
+                    List.of(root, left, right),
+                    List.of(
+                            new TreeLayout.Edge("root", "left", "", false),
+                            new TreeLayout.Edge("root", "right", "", false)),
+                    width, 205, "root", 3, 0);
+            view.setModel(model);
+            BufferedImage plain = paint(view, width, height);
+
+            view.setSelectedPath(
+                    Set.of("root", "left", "right"),
+                    Set.of(new TreeGraphView.PathSegment("root", "right")));
+            BufferedImage selected = paint(view, width, height);
+            int leftEdgeDiff = countDifferingPixels(plain, selected, 50, 104, 48, 42);
+            int rightEdgeDiff = countDifferingPixels(plain, selected, 142, 104, 58, 42);
+            assertTrue(rightEdgeDiff > 20,
+                    "selected tree path paints the explicit right-hand segment");
+            assertTrue(leftEdgeDiff < 12,
+                    "selected tree path does not invent a sibling segment");
+        } finally {
+            Theme.setMode(previous);
+        }
+    }
+
+    /**
+     * Creates a minimal node-info row for tree view visual regressions.
+     *
+     * @param id stable node id
+     * @param parentId parent id
+     * @param depth depth
+     * @param visits visit count
+     * @param signature position signature
+     * @return node info
+     */
+    private static MctsSearch.NodeInfo treeInfo(String id, String parentId,
+            int depth, int visits, long signature) {
+        return treeInfoWithMove(id, parentId, Move.NO_MOVE, depth, visits, signature);
+    }
+
+    /**
+     * Creates a minimal node-info row with a chosen incoming move.
+     *
+     * @param id stable node id
+     * @param parentId parent id
+     * @param move incoming move
+     * @param depth depth
+     * @param visits visit count
+     * @param signature position signature
+     * @return node info
+     */
+    private static MctsSearch.NodeInfo treeInfoWithMove(String id, String parentId,
+            short move, int depth, int visits, long signature) {
+        String uci = move == Move.NO_MOVE ? "" : Move.toString(move);
+        return new MctsSearch.NodeInfo(
+                id,
+                parentId,
+                new short[0],
+                new short[0],
+                move,
+                id,
+                uci,
+                uci,
+                uci,
+                depth,
+                visits,
+                0.10,
+                0.0,
+                0.0,
+                0.0,
+                0.50,
+                0.0,
+                0.50,
+                "",
+                "",
+                0,
+                START_FEN,
+                id,
+                signature);
+    }
+
+    /**
+     * Converts a world rectangle to the test's expected device-pixel rectangle.
+     *
+     * @param bounds world bounds
+     * @param zoom zoom factor
+     * @param panX horizontal pan
+     * @param panY vertical pan
+     * @return pixel bounds
+     */
+    private static Rectangle pixelRect(Rectangle bounds, double zoom, double panX, double panY) {
+        int x0 = (int) Math.round(bounds.x * zoom + panX);
+        int y0 = (int) Math.round(bounds.y * zoom + panY);
+        int x1 = (int) Math.round((bounds.x + bounds.width) * zoom + panX);
+        int y1 = (int) Math.round((bounds.y + bounds.height) * zoom + panY);
+        return new Rectangle(x0, y0, Math.max(1, x1 - x0), Math.max(1, y1 - y0));
+    }
+
+    /**
+     * Verifies the tree layer guide overlay partitions selected-level subtrees.
      */
     private static void testTreeGraphLayerGuidesIncludeVerticalDividers() {
         Theme.Mode previous = Theme.mode();
@@ -2424,6 +2812,31 @@ final class WorkbenchBackendRegression {
             int height = 180;
             TreeGraphView view = new TreeGraphView();
             view.setSize(width, height);
+            MctsSearch.NodeInfo rootInfo = new MctsSearch.NodeInfo(
+                    "root",
+                    "",
+                    new short[0],
+                    new short[0],
+                    Move.NO_MOVE,
+                    "root",
+                    "",
+                    "",
+                    "",
+                    0,
+                    20,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.50,
+                    0.0,
+                    0.50,
+                    "",
+                    "",
+                    0,
+                    START_FEN,
+                    "root",
+                    10L);
             MctsSearch.NodeInfo leftInfo = new MctsSearch.NodeInfo(
                     "left",
                     "",
@@ -2474,23 +2887,148 @@ final class WorkbenchBackendRegression {
                     START_FEN,
                     "right",
                     12L);
-            TreeLayout.Node left = new TreeLayout.Node("left", leftInfo, 40, 40, 40, 64,
-                    0, false, false, false, false, List.of());
-            TreeLayout.Node right = new TreeLayout.Node("right", rightInfo, 120, 40, 40, 64,
-                    0, false, false, false, false, List.of());
-            TreeLayout.Model model = new TreeLayout.Model(List.of(left, right), List.of(),
-                    width, 150, null, 2, 0);
+            MctsSearch.NodeInfo leftLeafInfo = new MctsSearch.NodeInfo(
+                    "leftLeaf",
+                    "",
+                    new short[0],
+                    new short[0],
+                    Move.NO_MOVE,
+                    "leftLeaf",
+                    "",
+                    "",
+                    "",
+                    0,
+                    3,
+                    0.20,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.50,
+                    0.0,
+                    0.50,
+                    "",
+                    "",
+                    0,
+                    START_FEN,
+                    "leftLeaf",
+                    13L);
+            MctsSearch.NodeInfo rightLeafInfo = new MctsSearch.NodeInfo(
+                    "rightLeaf",
+                    "",
+                    new short[0],
+                    new short[0],
+                    Move.NO_MOVE,
+                    "rightLeaf",
+                    "",
+                    "",
+                    "",
+                    0,
+                    2,
+                    -0.20,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.50,
+                    0.0,
+                    0.50,
+                    "",
+                    "",
+                    0,
+                    START_FEN,
+                    "rightLeaf",
+                    14L);
+            TreeLayout.Node root = new TreeLayout.Node("root", rootInfo, 90, 20, 40, 64,
+                    0, true, false, false, false, List.of());
+            TreeLayout.Node left = new TreeLayout.Node("left", leftInfo, 40, 94, 40, 64,
+                    1, false, false, false, false, List.of());
+            TreeLayout.Node right = new TreeLayout.Node("right", rightInfo, 120, 94, 40, 64,
+                    1, false, false, false, false, List.of());
+            TreeLayout.Node leftLeaf = new TreeLayout.Node("leftLeaf", leftLeafInfo, 46, 168, 40, 64,
+                    2, false, false, false, false, List.of());
+            TreeLayout.Node rightLeaf = new TreeLayout.Node("rightLeaf", rightLeafInfo, 126, 168, 40, 64,
+                    2, false, false, false, false, List.of());
+            TreeLayout.Model model = new TreeLayout.Model(
+                    List.of(root, left, right, leftLeaf, rightLeaf),
+                    List.of(
+                            new TreeLayout.Edge("root", "left", "e4", false),
+                            new TreeLayout.Edge("root", "right", "d4", false),
+                            new TreeLayout.Edge("left", "leftLeaf", "e5", false),
+                            new TreeLayout.Edge("right", "rightLeaf", "d5", false)),
+                    width, 180, "root", 5, 0);
             view.setModel(model);
 
             view.setShowLayers(false);
             BufferedImage plain = paint(view, width, height);
-            int plainCount = nonBackgroundPixels(plain, Theme.BG, 100, 0, 1, height);
+            int plainCount = nonBackgroundPixels(plain, Theme.BG, 26, 60, 1, 100);
 
             view.setShowLayers(true);
+            view.setGuidePartitionLayer(0);
+            BufferedImage guidesOff = paint(view, width, height);
+            int offCentralBoundary = countDifferingPixels(plain, guidesOff, 102, 126, 5, 44);
+            assertTrue(offCentralBoundary < 8,
+                    "tree guide level 0 hides vertical subtree partitions");
+
+            view.setGuidePartitionLayer(1);
             BufferedImage guided = paint(view, width, height);
-            int guidedCount = nonBackgroundPixels(guided, Theme.BG, 100, 0, 1, height);
-            assertTrue(guidedCount > plainCount + 40,
-                    "tree layer guides paint a vertical divider between node columns");
+            int guidedCount = nonBackgroundPixels(guided, Theme.BG, 26, 60, 1, 100);
+            assertTrue(guidedCount > plainCount + 35,
+                    "tree layer guides partition each selected-level subtree");
+            int centralBoundary = countDifferingPixels(guidesOff, guided, 102, 126, 5, 44);
+            int topBoundary = countDifferingPixels(guidesOff, guided, 102, 4, 5, 30);
+            int bottomBoundary = countDifferingPixels(guidesOff, guided, 102, height - 32, 5, 30);
+            int oldLeftBoundary = countDifferingPixels(guidesOff, guided, 99, 126, 2, 44);
+            int oldRightBoundary = countDifferingPixels(guidesOff, guided, 106, 126, 2, 44);
+            assertTrue(centralBoundary > offCentralBoundary + 25,
+                    "tree guide level draws one shared separator between sibling subtrees");
+            assertTrue(topBoundary > 12 && bottomBoundary > 12,
+                    "tree guide level dividers extend through the full visible height");
+            assertTrue(oldLeftBoundary < 8 && oldRightBoundary < 8,
+                    "tree guide level avoids adjacent double separators between subtrees");
+        } finally {
+            Theme.setMode(previous);
+        }
+    }
+
+    /**
+     * Verifies guide partitions keep ragged branches visible when a selected
+     * level is deeper than some branch's terminal node.
+     */
+    private static void testTreeGraphLayerGuidesKeepShortBranchesAtDeeperLevel() {
+        Theme.Mode previous = Theme.mode();
+        try {
+            Theme.setMode(Theme.Mode.DARK);
+            int width = 220;
+            int height = 240;
+            TreeGraphView view = new TreeGraphView();
+            view.setSize(width, height);
+            TreeLayout.Node root = new TreeLayout.Node("root", treeInfo("root", "", 0, 20, 10L),
+                    90, 20, 40, 64, 0, true, false, false, false, List.of());
+            TreeLayout.Node shortBranch = new TreeLayout.Node("short", treeInfo("short", "root", 1, 8, 11L),
+                    40, 94, 40, 64, 1, false, false, false, false, List.of());
+            TreeLayout.Node deepBranch = new TreeLayout.Node("deep", treeInfo("deep", "root", 1, 12, 12L),
+                    120, 94, 40, 64, 1, false, false, false, false, List.of());
+            TreeLayout.Node deepLeaf = new TreeLayout.Node("deepLeaf", treeInfo("deepLeaf", "deep", 2, 4, 13L),
+                    126, 168, 40, 64, 2, false, false, false, false, List.of());
+            TreeLayout.Model model = new TreeLayout.Model(
+                    List.of(root, shortBranch, deepBranch, deepLeaf),
+                    List.of(
+                            new TreeLayout.Edge("root", "short", "e4", false),
+                            new TreeLayout.Edge("root", "deep", "d4", false),
+                            new TreeLayout.Edge("deep", "deepLeaf", "d5", false)),
+                    width, height, "root", 4, 0);
+            view.setModel(model);
+            view.setShowLayers(true);
+            view.setGuidePartitionLayer(0);
+            BufferedImage guidesOff = paint(view, width, height);
+
+            view.setGuidePartitionLayer(2);
+            BufferedImage guided = paint(view, width, height);
+            int shortBranchBoundary = countDifferingPixels(guidesOff, guided, 24, 8, 5, height - 16);
+            int sharedBoundary = countDifferingPixels(guidesOff, guided, 101, 8, 7, height - 16);
+            assertTrue(shortBranchBoundary > 30,
+                    "deeper guide level keeps the shorter terminal branch partitioned");
+            assertTrue(sharedBoundary > 30,
+                    "deeper guide level draws a separator between ragged sibling partitions");
         } finally {
             Theme.setMode(previous);
         }

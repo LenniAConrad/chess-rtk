@@ -33,7 +33,7 @@ final class UiFormControls {
     static JLabel label(String text) {
         JLabel label = new JLabel(text);
         Theme.foreground(label, Theme.ForegroundRole.MUTED);
-        label.setFont(Theme.font(12, Font.BOLD));
+        label.setFont(Theme.font(Theme.FONT_SECTION_TITLE, Font.BOLD));
         label.setHorizontalAlignment(SwingConstants.LEFT);
         return label;
     }
@@ -57,7 +57,7 @@ final class UiFormControls {
     static JLabel caption(String text) {
         JLabel label = new JLabel(text);
         Theme.foreground(label, Theme.ForegroundRole.MUTED);
-        label.setFont(Theme.font(11, Font.PLAIN));
+        label.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
         label.setHorizontalAlignment(SwingConstants.LEFT);
         return label;
     }
@@ -106,7 +106,7 @@ final class UiFormControls {
      * @return option group
      */
     static JComponent optionGroup(String text, JComponent control) {
-        JPanel panel = UiLayout.transparentPanel(new BorderLayout(6, 0));
+        JPanel panel = UiLayout.transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
         control.setPreferredSize(new Dimension(120, Theme.CONTROL_HEIGHT));
         panel.add(label(text), BorderLayout.WEST);
         panel.add(control, BorderLayout.CENTER);

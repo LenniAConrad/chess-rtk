@@ -157,6 +157,32 @@ public final class Theme {
     }
 
     /**
+     * Shared action hierarchy for Workbench buttons.
+     */
+    public enum ButtonVariant {
+        /**
+         * High-emphasis action.
+         */
+        PRIMARY,
+
+        /**
+         * Standard toolbar/form action.
+         */
+        SECONDARY,
+
+        /**
+         * Low-emphasis action that should not add another visible surface until
+         * hover or focus.
+         */
+        GHOST,
+
+        /**
+         * Stop, resign, clear, and other destructive actions.
+         */
+        DESTRUCTIVE
+    }
+
+    /**
      * Active color mode.
      */
     private static Mode mode = Mode.LIGHT;
@@ -472,6 +498,46 @@ public final class Theme {
     public static Color SECONDARY_BUTTON_TEXT = PASTEL_INK;
 
     /**
+     * Ghost button resting fill.
+     */
+    public static Color GHOST_BUTTON = new Color(0, 0, 0, 0);
+
+    /**
+     * Ghost button hover fill.
+     */
+    public static Color GHOST_BUTTON_HOVER = PASTEL_SUBTLE;
+
+    /**
+     * Ghost button pressed fill.
+     */
+    public static Color GHOST_BUTTON_PRESSED = new Color(0xDFDFE4);
+
+    /**
+     * Ghost button text color.
+     */
+    public static Color GHOST_BUTTON_TEXT = PASTEL_INK;
+
+    /**
+     * Destructive button resting fill.
+     */
+    public static Color DESTRUCTIVE_BUTTON = new Color(0xFFF1F0);
+
+    /**
+     * Destructive button hover fill.
+     */
+    public static Color DESTRUCTIVE_BUTTON_HOVER = new Color(0xFFE4E2);
+
+    /**
+     * Destructive button pressed fill.
+     */
+    public static Color DESTRUCTIVE_BUTTON_PRESSED = new Color(0xC42B1C);
+
+    /**
+     * Destructive button text color.
+     */
+    public static Color DESTRUCTIVE_BUTTON_TEXT = new Color(0xB3261E);
+
+    /**
      * Disabled button fill color.
      */
     public static Color BUTTON_DISABLED_BG = PASTEL_CHROME;
@@ -495,6 +561,12 @@ public final class Theme {
      * Input focus ring color.
      */
     public static Color INPUT_FOCUS = PASTEL_BLUE;
+
+    /**
+     * Global keyboard focus-ring color.
+     */
+    public static Color FOCUS_RING = new Color(PASTEL_BLUE.getRed(), PASTEL_BLUE.getGreen(),
+            PASTEL_BLUE.getBlue(), 95);
 
     /**
      * Disabled input background color.
@@ -781,6 +853,126 @@ public final class Theme {
     public static Color STATUS_INFO_TEXT = PASTEL_BLUE_TEXT;
 
     /**
+     * Ready feedback surface.
+     */
+    public static Color STATUS_READY_BG = STATUS_INFO_BG;
+
+    /**
+     * Ready feedback border.
+     */
+    public static Color STATUS_READY_BORDER = STATUS_INFO_BORDER;
+
+    /**
+     * Ready feedback text.
+     */
+    public static Color STATUS_READY_TEXT = STATUS_INFO_TEXT;
+
+    /**
+     * Running feedback surface.
+     */
+    public static Color STATUS_RUNNING_BG = STATUS_INFO_BG;
+
+    /**
+     * Running feedback border.
+     */
+    public static Color STATUS_RUNNING_BORDER = STATUS_INFO_BORDER;
+
+    /**
+     * Running feedback text.
+     */
+    public static Color STATUS_RUNNING_TEXT = STATUS_INFO_TEXT;
+
+    /**
+     * Complete feedback surface.
+     */
+    public static Color STATUS_COMPLETE_BG = STATUS_SUCCESS_BG;
+
+    /**
+     * Complete feedback border.
+     */
+    public static Color STATUS_COMPLETE_BORDER = STATUS_SUCCESS_BORDER;
+
+    /**
+     * Complete feedback text.
+     */
+    public static Color STATUS_COMPLETE_TEXT = STATUS_SUCCESS_TEXT;
+
+    /**
+     * Missing feedback surface.
+     */
+    public static Color STATUS_MISSING_BG = STATUS_WARNING_BG;
+
+    /**
+     * Missing feedback border.
+     */
+    public static Color STATUS_MISSING_BORDER = STATUS_WARNING_BORDER;
+
+    /**
+     * Missing feedback text.
+     */
+    public static Color STATUS_MISSING_TEXT = STATUS_WARNING_TEXT;
+
+    /**
+     * Not-run feedback surface.
+     */
+    public static Color STATUS_NOT_RUN_BG = PASTEL_CHROME;
+
+    /**
+     * Not-run feedback border.
+     */
+    public static Color STATUS_NOT_RUN_BORDER = PASTEL_BORDER;
+
+    /**
+     * Not-run feedback text.
+     */
+    public static Color STATUS_NOT_RUN_TEXT = PASTEL_MUTED;
+
+    /**
+     * Paused feedback surface.
+     */
+    public static Color STATUS_PAUSED_BG = STATUS_WARNING_BG;
+
+    /**
+     * Paused feedback border.
+     */
+    public static Color STATUS_PAUSED_BORDER = STATUS_WARNING_BORDER;
+
+    /**
+     * Paused feedback text.
+     */
+    public static Color STATUS_PAUSED_TEXT = STATUS_WARNING_TEXT;
+
+    /**
+     * Stale feedback surface.
+     */
+    public static Color STATUS_STALE_BG = STATUS_WARNING_BG;
+
+    /**
+     * Stale feedback border.
+     */
+    public static Color STATUS_STALE_BORDER = STATUS_WARNING_BORDER;
+
+    /**
+     * Stale feedback text.
+     */
+    public static Color STATUS_STALE_TEXT = STATUS_WARNING_TEXT;
+
+    /**
+     * Code-preview surface.
+     */
+    public static Color CODE_BLOCK_BG = PASTEL_CHROME;
+
+    /**
+     * Code-preview border.
+     */
+    public static Color CODE_BLOCK_BORDER = PASTEL_BORDER;
+
+    /**
+     * Code-preview text.
+     */
+    public static Color CODE_BLOCK_TEXT = PASTEL_INK;
+
+    /**
      * Compact logo tile fill.
      */
     public static Color LOGO_BACKGROUND = new Color(PASTEL_PURPLE.getRed(), PASTEL_PURPLE.getGreen(),
@@ -803,9 +995,19 @@ public final class Theme {
     public static final String CLIENT_PRIMARY = "workbench.primary";
 
     /**
+     * Client-property key marking the explicit button hierarchy variant.
+     */
+    public static final String CLIENT_BUTTON_VARIANT = "workbench.buttonVariant";
+
+    /**
      * Client-property key carrying an explicit icon kind for a button.
      */
     public static final String CLIENT_ICON_KIND = "workbench.icon";
+
+    /**
+     * Client-property key marking icon-only buttons that must keep tooltip text.
+     */
+    public static final String CLIENT_ICON_ONLY = "workbench.iconOnly";
 
     /**
      * Client-property key marking flat command-tab toggle buttons.
@@ -818,6 +1020,11 @@ public final class Theme {
      * stamping it with the opaque input surface.
      */
     public static final String CLIENT_TRANSPARENT_FIELD = "workbench.transparentField";
+
+    /**
+     * Client-property key marking read-only code/command preview blocks.
+     */
+    public static final String CLIENT_CODE_BLOCK = "workbench.codeBlock";
 
     // ------------------------------------------------------------------
     // Spacing scale
@@ -886,7 +1093,17 @@ public final class Theme {
      * hierarchy instead of ad-hoc point sizes. Snaps to the sizes already
      * dominant in the app to avoid a disruptive reflow.
      */
-    public static final int FONT_TITLE = 15;
+    public static final int FONT_PAGE_TITLE = 20;
+
+    /**
+     * Backward-compatible title token.
+     */
+    public static final int FONT_TITLE = FONT_PAGE_TITLE;
+
+    /**
+     * Section heading size.
+     */
+    public static final int FONT_SECTION_TITLE = 13;
 
     /**
      * Default body / control size.
@@ -894,14 +1111,59 @@ public final class Theme {
     public static final int FONT_BODY = 13;
 
     /**
+     * Default control text size.
+     */
+    public static final int FONT_CONTROL = 13;
+
+    /**
+     * Dense table text size.
+     */
+    public static final int FONT_DENSE_TABLE = 12;
+
+    /**
      * Caption / helper-text size.
      */
     public static final int FONT_CAPTION = 11;
 
     /**
+     * Metadata text size.
+     */
+    public static final int FONT_METADATA = 11;
+
+    /**
+     * Monospace command/FEN text size.
+     */
+    public static final int FONT_MONO = 12;
+
+    /**
      * Uppercase eyebrow / micro-label size.
      */
-    public static final int FONT_MICRO = 10;
+    public static final int FONT_MICRO = FONT_METADATA;
+
+    /**
+     * Base z-order layer.
+     */
+    public static final int Z_BASE = 0;
+
+    /**
+     * Floating chrome z-order layer.
+     */
+    public static final int Z_FLOATING = 100;
+
+    /**
+     * Modal overlay z-order layer.
+     */
+    public static final int Z_MODAL = 200;
+
+    /**
+     * Command palette z-order layer.
+     */
+    public static final int Z_PALETTE = 300;
+
+    /**
+     * Toast z-order layer.
+     */
+    public static final int Z_TOAST = 400;
 
     /**
      * Maximum content width for report-style tabs that read better as a column
@@ -1071,7 +1333,9 @@ public final class Theme {
         } else if (component instanceof ConsoleLike console) {
             console.applyConsoleTheme();
         } else if (component instanceof JTextArea area) {
-            if (Boolean.TRUE.equals(area.getClientProperty(CLIENT_TRANSPARENT_FIELD))) {
+            if (Boolean.TRUE.equals(area.getClientProperty(CLIENT_CODE_BLOCK))) {
+                codeBlock(area);
+            } else if (Boolean.TRUE.equals(area.getClientProperty(CLIENT_TRANSPARENT_FIELD))) {
                 // Inline preview: keep it transparent so the host surface shows
                 // through; only re-resolve the palette-sensitive colours.
                 area.setForeground(TEXT);
@@ -1123,6 +1387,8 @@ public final class Theme {
         } else if (component instanceof AbstractButton button) {
             if (Boolean.TRUE.equals(button.getClientProperty(CLIENT_COMMAND_TAB))) {
                 applyCommandTabState(button);
+                } else if (button.getClientProperty(CLIENT_BUTTON_VARIANT) instanceof ButtonVariant variant) {
+                button(button, variant);
             } else if (button.getClientProperty(CLIENT_PRIMARY) instanceof Boolean value) {
                 button(button, value.booleanValue());
             } else {
@@ -1325,11 +1591,20 @@ public final class Theme {
         SECONDARY_BUTTON_HOVER = PASTEL_SUBTLE;
         SECONDARY_BUTTON_PRESSED = new Color(0xDFDFE4);
         SECONDARY_BUTTON_TEXT = PASTEL_INK;
+        GHOST_BUTTON = new Color(0, 0, 0, 0);
+        GHOST_BUTTON_HOVER = PASTEL_SUBTLE;
+        GHOST_BUTTON_PRESSED = new Color(0xDFDFE4);
+        GHOST_BUTTON_TEXT = PASTEL_INK;
+        DESTRUCTIVE_BUTTON = new Color(0xFFF1F0);
+        DESTRUCTIVE_BUTTON_HOVER = new Color(0xFFE4E2);
+        DESTRUCTIVE_BUTTON_PRESSED = new Color(0xFFD6D2);
+        DESTRUCTIVE_BUTTON_TEXT = new Color(0xB3261E);
         BUTTON_DISABLED_BG = PASTEL_CHROME;
         BUTTON_DISABLED_BORDER = PASTEL_BORDER;
         BUTTON_DISABLED_TEXT = PASTEL_MUTED;
         INPUT_BORDER = new Color(0xC6C6CC);
         INPUT_FOCUS = PASTEL_BLUE;
+        FOCUS_RING = withAlpha(INPUT_FOCUS, 95);
         INPUT_DISABLED = PASTEL_CHROME;
         TOGGLE_BG = PASTEL_SUBTLE;
         TOGGLE_BORDER = INPUT_BORDER;
@@ -1365,6 +1640,30 @@ public final class Theme {
         STATUS_INFO_BG = new Color(0xEAF4FF);
         STATUS_INFO_BORDER = PASTEL_BLUE;
         STATUS_INFO_TEXT = PASTEL_BLUE_TEXT;
+        STATUS_READY_BG = STATUS_INFO_BG;
+        STATUS_READY_BORDER = STATUS_INFO_BORDER;
+        STATUS_READY_TEXT = STATUS_INFO_TEXT;
+        STATUS_RUNNING_BG = STATUS_INFO_BG;
+        STATUS_RUNNING_BORDER = STATUS_INFO_BORDER;
+        STATUS_RUNNING_TEXT = STATUS_INFO_TEXT;
+        STATUS_COMPLETE_BG = STATUS_SUCCESS_BG;
+        STATUS_COMPLETE_BORDER = STATUS_SUCCESS_BORDER;
+        STATUS_COMPLETE_TEXT = STATUS_SUCCESS_TEXT;
+        STATUS_MISSING_BG = STATUS_WARNING_BG;
+        STATUS_MISSING_BORDER = STATUS_WARNING_BORDER;
+        STATUS_MISSING_TEXT = STATUS_WARNING_TEXT;
+        STATUS_NOT_RUN_BG = PASTEL_CHROME;
+        STATUS_NOT_RUN_BORDER = PASTEL_BORDER;
+        STATUS_NOT_RUN_TEXT = PASTEL_MUTED;
+        STATUS_PAUSED_BG = STATUS_WARNING_BG;
+        STATUS_PAUSED_BORDER = STATUS_WARNING_BORDER;
+        STATUS_PAUSED_TEXT = STATUS_WARNING_TEXT;
+        STATUS_STALE_BG = STATUS_WARNING_BG;
+        STATUS_STALE_BORDER = STATUS_WARNING_BORDER;
+        STATUS_STALE_TEXT = STATUS_WARNING_TEXT;
+        CODE_BLOCK_BG = PASTEL_CHROME;
+        CODE_BLOCK_BORDER = PASTEL_BORDER;
+        CODE_BLOCK_TEXT = PASTEL_INK;
         LOGO_BACKGROUND = new Color(PASTEL_PURPLE.getRed(), PASTEL_PURPLE.getGreen(), PASTEL_PURPLE.getBlue(), 230);
         LOGO_MARK = PASTEL_CORAL;
         TOGGLE_FOCUS = withAlpha(INPUT_FOCUS, 95);
@@ -1408,11 +1707,20 @@ public final class Theme {
         SECONDARY_BUTTON_HOVER = new Color(0x424242);
         SECONDARY_BUTTON_PRESSED = new Color(0x4B4B4B);
         SECONDARY_BUTTON_TEXT = DARK_INK;
+        GHOST_BUTTON = new Color(0, 0, 0, 0);
+        GHOST_BUTTON_HOVER = new Color(0x373737);
+        GHOST_BUTTON_PRESSED = new Color(0x424242);
+        GHOST_BUTTON_TEXT = DARK_INK;
+        DESTRUCTIVE_BUTTON = withAlpha(new Color(0xF07167), 18);
+        DESTRUCTIVE_BUTTON_HOVER = withAlpha(new Color(0xF07167), 34);
+        DESTRUCTIVE_BUTTON_PRESSED = withAlpha(new Color(0xF07167), 52);
+        DESTRUCTIVE_BUTTON_TEXT = new Color(0xF07167);
         BUTTON_DISABLED_BG = DARK_DOCUMENT;
         BUTTON_DISABLED_BORDER = DARK_SUBTLE;
         BUTTON_DISABLED_TEXT = new Color(0x868686);
         INPUT_BORDER = DARK_BORDER;
         INPUT_FOCUS = DARK_ACCENT;
+        FOCUS_RING = withAlpha(INPUT_FOCUS, 120);
         INPUT_DISABLED = new Color(0x323232);
         TOGGLE_BG = DARK_ELEVATED;
         TOGGLE_BORDER = DARK_BORDER;
@@ -1448,6 +1756,30 @@ public final class Theme {
         STATUS_INFO_BG = DARK_ELEVATED;
         STATUS_INFO_BORDER = DARK_ACCENT;
         STATUS_INFO_TEXT = DARK_INFO_TEXT;
+        STATUS_READY_BG = STATUS_INFO_BG;
+        STATUS_READY_BORDER = STATUS_INFO_BORDER;
+        STATUS_READY_TEXT = STATUS_INFO_TEXT;
+        STATUS_RUNNING_BG = STATUS_INFO_BG;
+        STATUS_RUNNING_BORDER = STATUS_INFO_BORDER;
+        STATUS_RUNNING_TEXT = STATUS_INFO_TEXT;
+        STATUS_COMPLETE_BG = STATUS_SUCCESS_BG;
+        STATUS_COMPLETE_BORDER = STATUS_SUCCESS_BORDER;
+        STATUS_COMPLETE_TEXT = STATUS_SUCCESS_TEXT;
+        STATUS_MISSING_BG = STATUS_WARNING_BG;
+        STATUS_MISSING_BORDER = STATUS_WARNING_BORDER;
+        STATUS_MISSING_TEXT = STATUS_WARNING_TEXT;
+        STATUS_NOT_RUN_BG = DARK_ELEVATED;
+        STATUS_NOT_RUN_BORDER = DARK_BORDER;
+        STATUS_NOT_RUN_TEXT = DARK_MUTED;
+        STATUS_PAUSED_BG = STATUS_WARNING_BG;
+        STATUS_PAUSED_BORDER = STATUS_WARNING_BORDER;
+        STATUS_PAUSED_TEXT = STATUS_WARNING_TEXT;
+        STATUS_STALE_BG = STATUS_WARNING_BG;
+        STATUS_STALE_BORDER = STATUS_WARNING_BORDER;
+        STATUS_STALE_TEXT = STATUS_WARNING_TEXT;
+        CODE_BLOCK_BG = DARK_DOCUMENT;
+        CODE_BLOCK_BORDER = DARK_BORDER;
+        CODE_BLOCK_TEXT = DARK_INK;
         LOGO_BACKGROUND = new Color(DARK_PURPLE.getRed(), DARK_PURPLE.getGreen(), DARK_PURPLE.getBlue(), 230);
         LOGO_MARK = DARK_CORAL;
         TOGGLE_FOCUS = withAlpha(INPUT_FOCUS, 120);
@@ -1611,6 +1943,10 @@ public final class Theme {
         UIManager.put("TabbedPane.selected", PANEL);
         UIManager.put("TabbedPane.contentAreaColor", BG);
         UIManager.put("TabbedPane.focus", LINE);
+        UIManager.put("Focus.color", FOCUS_RING);
+        UIManager.put("Button.focus", FOCUS_RING);
+        UIManager.put("TextField.focus", FOCUS_RING);
+        UIManager.put("ComboBox.focus", FOCUS_RING);
         UIManager.put("Table.background", ELEVATED_SOLID);
         UIManager.put("Table.foreground", TEXT);
         UIManager.put("Table.gridColor", LINE);
@@ -1726,10 +2062,10 @@ public final class Theme {
      * outside the workbench factories.
      */
     private static void installFontDefaults() {
-        Font uiFont = font(13, Font.PLAIN);
-        Font smallUiFont = font(12, Font.PLAIN);
-        Font boldSmallUiFont = font(12, Font.BOLD);
-        Font codeFont = mono(13);
+        Font uiFont = font(FONT_CONTROL, Font.PLAIN);
+        Font smallUiFont = font(FONT_DENSE_TABLE, Font.PLAIN);
+        Font boldSmallUiFont = font(FONT_DENSE_TABLE, Font.BOLD);
+        Font codeFont = mono(FONT_MONO);
         UIManager.put("Label.font", smallUiFont);
         UIManager.put("Button.font", uiFont);
         UIManager.put("ToggleButton.font", uiFont);
@@ -1742,7 +2078,7 @@ public final class Theme {
         UIManager.put("TextArea.font", codeFont);
         UIManager.put("TextPane.font", codeFont);
         UIManager.put("EditorPane.font", codeFont);
-        UIManager.put("List.font", mono(12));
+        UIManager.put("List.font", mono(FONT_MONO));
         UIManager.put("Table.font", smallUiFont);
         UIManager.put("TableHeader.font", boldSmallUiFont);
         UIManager.put("Tree.font", smallUiFont);
@@ -1948,7 +2284,7 @@ public final class Theme {
         field.setSelectionColor(TEXT_SELECTION);
         field.setSelectedTextColor(TEXT);
         field.setBorder(inputBorder(false));
-        field.setFont(font(13, Font.PLAIN));
+        field.setFont(font(FONT_CONTROL, Font.PLAIN));
         installFocusBorder(field);
         installEnabledBackground(field, INPUT);
     }
@@ -1968,9 +2304,30 @@ public final class Theme {
         area.setSelectionColor(TEXT_SELECTION);
         area.setSelectedTextColor(TEXT);
         area.setBorder(inputBorder(false));
-        area.setFont(mono(13));
+        area.setFont(mono(FONT_MONO));
         installFocusBorder(area);
         installEnabledBackground(area, TEXT_AREA);
+    }
+
+    /**
+     * Styles a read-only command/code preview block.
+     *
+     * @param area text area
+     */
+    public static void codeBlock(JTextArea area) {
+        area.putClientProperty(CLIENT_CODE_BLOCK, Boolean.TRUE);
+        area.setOpaque(true);
+        area.setBackground(CODE_BLOCK_BG);
+        area.setForeground(CODE_BLOCK_TEXT);
+        area.setCaretColor(CODE_BLOCK_TEXT);
+        area.setSelectionColor(TEXT_SELECTION);
+        area.setSelectedTextColor(CODE_BLOCK_TEXT);
+        area.setBorder(javax.swing.BorderFactory.createCompoundBorder(
+                javax.swing.BorderFactory.createLineBorder(CODE_BLOCK_BORDER),
+                pad(SPACE_SM)));
+        area.setFont(mono(FONT_MONO));
+        installFocusBorder(area);
+        installEnabledBackground(area, CODE_BLOCK_BG);
     }
 
     /**
@@ -2001,7 +2358,7 @@ public final class Theme {
         area.setSelectionColor(TEXT_SELECTION);
         area.setSelectedTextColor(TERMINAL_TEXT);
         area.setBorder(inputBorder(false));
-        area.setFont(mono(13));
+        area.setFont(mono(FONT_MONO));
         installFocusBorder(area);
     }
 
@@ -2012,18 +2369,79 @@ public final class Theme {
      * @param primary whether to use accent styling
      */
     public static void button(AbstractButton button, boolean primary) {
-        button.putClientProperty(CLIENT_PRIMARY, Boolean.valueOf(primary));
+        button(button, primary ? ButtonVariant.PRIMARY : ButtonVariant.SECONDARY);
+    }
+
+    /**
+     * Styles a button with an explicit hierarchy variant.
+     *
+     * @param button button
+     * @param variant action hierarchy variant
+     */
+    public static void button(AbstractButton button, ButtonVariant variant) {
+        ButtonVariant requested = buttonVariant(variant);
+        ButtonVariant resolved = requested == ButtonVariant.PRIMARY
+                ? requested
+                : destructiveActionLabel(button == null ? null : button.getText())
+                        ? ButtonVariant.DESTRUCTIVE
+                        : requested;
+        button.putClientProperty(CLIENT_BUTTON_VARIANT, resolved);
+        button.putClientProperty(CLIENT_PRIMARY, Boolean.valueOf(resolved == ButtonVariant.PRIMARY));
+        if (resolved == ButtonVariant.DESTRUCTIVE) {
+            button.putClientProperty(CLIENT_ICON_KIND, SvgIcon.Kind.DESTRUCTIVE);
+        } else if (!Boolean.TRUE.equals(button.getClientProperty(CLIENT_ICON_ONLY))) {
+            button.putClientProperty(CLIENT_ICON_KIND, null);
+        }
         button.setFocusPainted(false);
         button.setOpaque(false);
         button.setContentAreaFilled(false);
-        button.setIcon(SvgIcon.forButton(button, primary));
-        button.setIconTextGap(6);
-        button.setMargin(new Insets(6, 11, 6, 11));
-        button.setFont(font(13, primary ? Font.BOLD : Font.PLAIN));
-        button.setBackground(buttonBackground(primary));
-        button.setForeground(primary ? PRIMARY_BUTTON_TEXT : SECONDARY_BUTTON_TEXT);
+        button.setIcon(SvgIcon.forButton(button, resolved));
+        button.setIconTextGap(resolved == ButtonVariant.DESTRUCTIVE ? 5 : 6);
+        button.setMargin(resolved == ButtonVariant.DESTRUCTIVE
+                ? new Insets(6, 9, 6, 10)
+                : new Insets(6, 11, 6, 11));
+        button.setFont(font(FONT_CONTROL, resolved == ButtonVariant.PRIMARY ? Font.BOLD : Font.PLAIN));
+        button.setBackground(buttonBackground(resolved));
+        button.setForeground(buttonText(resolved));
         button.setDisabledIcon(SvgIcon.disabledForButton(button));
         button.setBorder(pad(5, 8, 5, 8));
+    }
+
+    /**
+     * Returns whether a visible action label should use destructive styling by
+     * default. These controls intentionally match the console Clear/Stop hold
+     * buttons: red outline, red text, and the circular destructive icon lane.
+     *
+     * @param text button label
+     * @return true for stop/clear/resign actions
+     */
+    public static boolean destructiveActionLabel(String text) {
+        if (text == null) {
+            return false;
+        }
+        String normalized = text.trim().toLowerCase(java.util.Locale.ROOT);
+        return normalized.equals("stop")
+                || normalized.startsWith("stop ")
+                || normalized.equals("resign")
+                || normalized.startsWith("resign ")
+                || normalized.equals("clear")
+                || normalized.startsWith("clear ")
+                || normalized.equals("delete")
+                || normalized.startsWith("delete ")
+                || normalized.equals("remove")
+                || normalized.startsWith("remove ")
+                || normalized.equals("abort")
+                || normalized.startsWith("abort ")
+                || normalized.equals("kill")
+                || normalized.startsWith("kill ")
+                || normalized.equals("wipe")
+                || normalized.startsWith("wipe ")
+                || normalized.equals("cancel scan")
+                || normalized.equals("cancel search")
+                || normalized.equals("cancel run")
+                || normalized.equals("cancel command")
+                || normalized.equals("cancel job")
+                || normalized.equals("cancel gauntlet");
     }
 
     /**
@@ -2033,7 +2451,22 @@ public final class Theme {
      * @return background color
      */
     public static Color buttonBackground(boolean primary) {
-        return primary ? ACCENT : SECONDARY_BUTTON;
+        return buttonBackground(primary ? ButtonVariant.PRIMARY : ButtonVariant.SECONDARY);
+    }
+
+    /**
+     * Returns the resting button background.
+     *
+     * @param variant action hierarchy variant
+     * @return background color
+     */
+    public static Color buttonBackground(ButtonVariant variant) {
+        return switch (buttonVariant(variant)) {
+            case PRIMARY -> ACCENT;
+            case SECONDARY -> SECONDARY_BUTTON;
+            case GHOST -> GHOST_BUTTON;
+            case DESTRUCTIVE -> DESTRUCTIVE_BUTTON;
+        };
     }
 
     /**
@@ -2043,7 +2476,22 @@ public final class Theme {
      * @return hover color
      */
     public static Color buttonHover(boolean primary) {
-        return primary ? ACCENT_HOVER : SECONDARY_BUTTON_HOVER;
+        return buttonHover(primary ? ButtonVariant.PRIMARY : ButtonVariant.SECONDARY);
+    }
+
+    /**
+     * Returns the hover button background.
+     *
+     * @param variant action hierarchy variant
+     * @return hover color
+     */
+    public static Color buttonHover(ButtonVariant variant) {
+        return switch (buttonVariant(variant)) {
+            case PRIMARY -> ACCENT_HOVER;
+            case SECONDARY -> SECONDARY_BUTTON_HOVER;
+            case GHOST -> GHOST_BUTTON_HOVER;
+            case DESTRUCTIVE -> DESTRUCTIVE_BUTTON_HOVER;
+        };
     }
 
     /**
@@ -2053,7 +2501,22 @@ public final class Theme {
      * @return pressed color
      */
     public static Color buttonPressed(boolean primary) {
-        return primary ? ACCENT_PRESSED : SECONDARY_BUTTON_PRESSED;
+        return buttonPressed(primary ? ButtonVariant.PRIMARY : ButtonVariant.SECONDARY);
+    }
+
+    /**
+     * Returns the pressed button background.
+     *
+     * @param variant action hierarchy variant
+     * @return pressed color
+     */
+    public static Color buttonPressed(ButtonVariant variant) {
+        return switch (buttonVariant(variant)) {
+            case PRIMARY -> ACCENT_PRESSED;
+            case SECONDARY -> SECONDARY_BUTTON_PRESSED;
+            case GHOST -> GHOST_BUTTON_PRESSED;
+            case DESTRUCTIVE -> DESTRUCTIVE_BUTTON_PRESSED;
+        };
     }
 
     /**
@@ -2063,7 +2526,64 @@ public final class Theme {
      * @return border color
      */
     public static Color buttonBorder(boolean primary) {
-        return primary ? ACCENT_PRESSED : INPUT_BORDER;
+        return buttonBorder(primary ? ButtonVariant.PRIMARY : ButtonVariant.SECONDARY);
+    }
+
+    /**
+     * Returns a button border color.
+     *
+     * @param variant action hierarchy variant
+     * @return border color
+     */
+    public static Color buttonBorder(ButtonVariant variant) {
+        return switch (buttonVariant(variant)) {
+            case PRIMARY -> ACCENT_PRESSED;
+            case SECONDARY -> INPUT_BORDER;
+            case GHOST -> withAlpha(INPUT_BORDER, isDark() ? 90 : 72);
+            case DESTRUCTIVE -> DESTRUCTIVE_BUTTON_PRESSED;
+        };
+    }
+
+    /**
+     * Returns button text color.
+     *
+     * @param variant action hierarchy variant
+     * @return text color
+     */
+    public static Color buttonText(ButtonVariant variant) {
+        return switch (buttonVariant(variant)) {
+            case PRIMARY -> PRIMARY_BUTTON_TEXT;
+            case SECONDARY -> SECONDARY_BUTTON_TEXT;
+            case GHOST -> GHOST_BUTTON_TEXT;
+            case DESTRUCTIVE -> DESTRUCTIVE_BUTTON_TEXT;
+        };
+    }
+
+    /**
+     * Reads a button's explicit variant, falling back to the legacy primary
+     * property for components styled before the variant API existed.
+     *
+     * @param button button
+     * @return resolved variant
+     */
+    public static ButtonVariant buttonVariant(AbstractButton button) {
+        if (button != null && button.getClientProperty(CLIENT_BUTTON_VARIANT) instanceof ButtonVariant variant) {
+            return variant;
+        }
+        if (button != null && Boolean.TRUE.equals(button.getClientProperty(CLIENT_PRIMARY))) {
+            return ButtonVariant.PRIMARY;
+        }
+        return ButtonVariant.SECONDARY;
+    }
+
+    /**
+     * Normalizes a possibly null button variant.
+     *
+     * @param variant requested variant
+     * @return non-null variant
+     */
+    private static ButtonVariant buttonVariant(ButtonVariant variant) {
+        return variant == null ? ButtonVariant.SECONDARY : variant;
     }
 
     /**
@@ -2109,16 +2629,9 @@ public final class Theme {
      * @return label
      */
     public static JLabel section(String text) {
-        // Modern editor-style section label: small, uppercase, slightly
-        // tracked out. The bottom divider line was removed — the uppercase
-        // tracking already provides enough visual separation, and dropping
-        // the divider trims redundant chrome from every section header in
-        // the app. Foreground stays TEXT (pinned by a regression test).
-        String upper = text == null ? "" : text.toUpperCase(java.util.Locale.ROOT);
-        JLabel label = new JLabel(upper);
+        JLabel label = new JLabel(text == null ? "" : text);
         foreground(label, ForegroundRole.TEXT);
-        label.setFont(font(FONT_MICRO, Font.BOLD).deriveFont(java.util.Map.of(
-                java.awt.font.TextAttribute.TRACKING, 0.12f)));
+        label.setFont(font(FONT_SECTION_TITLE, Font.BOLD));
         label.setBorder(pad(0, 0, 4, 0));
         return label;
     }

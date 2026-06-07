@@ -7,6 +7,7 @@ import application.gui.workbench.command.CommandRunner;
 import application.gui.workbench.game.SanRenderer;
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.network.TensorViz;
+import application.gui.workbench.ui.HoldButton;
 import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.ToggleBox;
@@ -131,7 +132,7 @@ public final class MctsPanel extends JPanel implements MctsSession.Listener {
     /**
      * Stops the current MCTS worker.
      */
-    private final JButton stopButton = Ui.button("Stop", false, null);
+    private final HoldButton stopButton;
 
     /**
      * Resets the search root to the current main-board FEN.
@@ -197,6 +198,7 @@ public final class MctsPanel extends JPanel implements MctsSession.Listener {
         super(new BorderLayout(0, 0));
         this.session = session;
         this.currentFen = currentFen;
+        this.stopButton = new HoldButton("Stop", () -> session.stop(), true);
         setOpaque(true);
         setBackground(Theme.BG);
         configureControls();
@@ -255,8 +257,6 @@ public final class MctsPanel extends JPanel implements MctsSession.Listener {
         statusBadge.idle("MCTS idle");
         pauseButton.addActionListener(event -> session.pause());
         resumeButton.addActionListener(event -> session.resume());
-        stopButton.addActionListener(event -> session.stop());
-
         Theme.table(rootTable, TABLE_ROW_HEIGHT);
         rootTable.setAutoCreateRowSorter(true);
         // The principal-variation column (last) absorbs any spare width so the
@@ -335,7 +335,8 @@ public final class MctsPanel extends JPanel implements MctsSession.Listener {
         // Always show the table (its headers + empty body fill the pane via
         // setFillsViewportHeight); a slim hint above it covers discoverability
         // until a search streams root moves, instead of a full-pane placeholder.
-        rootTableArea.setOpaque(false);
+        rootTableArea.setOpaque(true);
+        rootTableArea.setBackground(Theme.PANEL_SOLID);
         rootEmptyHint.setBorder(Theme.pad(0, Theme.SPACE_XS, 0, 0));
         rootTableArea.add(rootEmptyHint, BorderLayout.NORTH);
         rootTableArea.add(tableScroll, BorderLayout.CENTER);
@@ -353,7 +354,6 @@ public final class MctsPanel extends JPanel implements MctsSession.Listener {
         JSplitPane horizontal = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, rootTableArea, inspector);
         horizontal.setResizeWeight(0.72);
         horizontal.setBorder(BorderFactory.createEmptyBorder());
-        horizontal.setOpaque(false);
         SplitPaneStyler.style(horizontal);
         return horizontal;
     }

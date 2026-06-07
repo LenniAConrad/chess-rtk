@@ -55,7 +55,7 @@ final class WorkbenchCommandRegression {
         testRunArtifactsDesktopOpenHandlesRuntimeFailures();
         testCommandLineTokenizerPreservesQuotedArguments();
         testCommandPreviewQuoting();
-        testCommandPreviewHeightCapsAtFiveRows();
+        testCommandPreviewHeightUsesReadableRange();
         testPublishingPreviewFenCompaction();
         testPublishingVisualPreviewPages();
         testPublishingVisualPreviewPaintsTaskLayouts();
@@ -681,15 +681,15 @@ final class WorkbenchCommandRegression {
     }
 
     /**
-     * Verifies the command preview stays compact for short commands but caps tall
+     * Verifies the Run command preview reserves readable height but caps tall
      * commands so the scroll pane handles overflow.
      */
-    private static void testCommandPreviewHeightCapsAtFiveRows() {
+    private static void testCommandPreviewHeightUsesReadableRange() {
         String shortCommand = "crtk move list";
-        assertEquals(Integer.valueOf(1), invokeStatic(type("WindowCommandLayer"), "previewRows",
-                new Class<?>[] { String.class }, shortCommand), "short preview keeps compact minimum");
-        String tallCommand = String.join("\n", List.of("crtk", "a", "b", "c", "d", "e", "f", "g"));
-        assertEquals(Integer.valueOf(5), invokeStatic(type("WindowCommandLayer"), "previewRows",
-                new Class<?>[] { String.class }, tallCommand), "tall preview caps at five rows");
+        assertEquals(Integer.valueOf(6), invokeStatic(type("WindowCommandLayer"), "previewRows",
+                new Class<?>[] { String.class }, shortCommand), "short preview keeps readable minimum");
+        String tallCommand = String.join("\n", List.of("crtk", "a", "b", "c", "d", "e", "f", "g", "h", "i"));
+        assertEquals(Integer.valueOf(10), invokeStatic(type("WindowCommandLayer"), "previewRows",
+                new Class<?>[] { String.class }, tallCommand), "tall preview caps at ten rows");
     }
 }

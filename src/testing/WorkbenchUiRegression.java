@@ -8,6 +8,7 @@ import java.awt.Container;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.event.MouseEvent;
@@ -60,6 +61,7 @@ import application.gui.workbench.board.BoardMarkupTool;
 import application.gui.workbench.draw.DrawPanel;
 import application.gui.workbench.layout.LazyPanel;
 import application.gui.workbench.layout.FlatTabbedPaneUI;
+import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.board.MarkupBrush;
 import application.gui.workbench.command.Console;
 import application.gui.workbench.dataset.DatasetChart;
@@ -67,10 +69,14 @@ import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.EvalBar;
 import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.SettingsChipRow;
+import application.gui.workbench.ui.HoldButton;
+import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.SwitchedWorkspace;
+import application.gui.workbench.ui.SvgIcon;
 import application.gui.workbench.ui.TagCloud;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
+import application.gui.workbench.ui.WorkspaceHeader;
 import application.gui.workbench.ui.WorkspaceMode;
 import application.gui.workbench.window.LayoutMenu;
 import chess.core.Piece;
@@ -119,6 +125,12 @@ final class WorkbenchUiRegression {
         testComponentTreeStylingCoversPlainControls();
         testPlainCheckboxUsesWorkbenchGlyph();
         testProgressBarUsesWorkbenchChrome();
+        testDesignTokenLayerExposesWorkbenchScale();
+        testSharedUiPrimitivesAreAvailable();
+        testButtonVariantsExposeActionHierarchy();
+        testIconOnlyButtonsRequireTooltipText();
+        testStatusBadgeVariantsAreAvailable();
+        testWorkspaceHeaderPrimitiveAndShellRegistration();
         testDisabledComboUsesThemeBackground();
         testEnabledComboFillsArrowGutter();
         testSpinnerEditorUsesReadableInputColors();
@@ -137,7 +149,9 @@ final class WorkbenchUiRegression {
         testSwitchedWorkspaceRejectsMismatchedModes();
         testSwitchedWorkspaceRejectsInvalidEagerMode();
         testSwitchedWorkspaceUsesModeDescriptors();
+        testSwitchedWorkspaceCardHostClearsOldFrames();
         testSplitPaneSashAnimatesHover();
+        testSplitPanesClearOldFrames();
         testWorkbenchSplitPanesUseSharedStyler();
         testPlayTabUsesCompactMoveHistory();
         testChartsRevealNewData();
@@ -174,6 +188,198 @@ final class WorkbenchUiRegression {
         testEvalBarDrawsScoreLabel();
         WorkbenchUiEditorRegression.run();
     }
+
+    /**
+     * Verifies the foundation token layer exposes the requested compact
+     * Workbench scale.
+     */
+    private static void testDesignTokenLayerExposesWorkbenchScale() {
+        assertBetween((Integer) staticField(Theme.class, "FONT_PAGE_TITLE"), 18, 22,
+                "page title token");
+        assertBetween((Integer) staticField(Theme.class, "FONT_SECTION_TITLE"), 13, 14,
+                "section title token");
+        assertBetween((Integer) staticField(Theme.class, "FONT_CONTROL"), 12, 13,
+                "control text token");
+        assertBetween((Integer) staticField(Theme.class, "FONT_DENSE_TABLE"), 12, 13,
+                "dense table token");
+        assertBetween((Integer) staticField(Theme.class, "FONT_METADATA"), 11, 11,
+                "metadata token");
+        assertBetween((Integer) staticField(Theme.class, "FONT_MONO"), 12, 13,
+                "monospace token");
+        assertTrue((Integer) staticField(Theme.class, "RADIUS") <= 8,
+                "controls use compact radius");
+        assertTrue((Integer) staticField(Theme.class, "Z_BASE")
+                < (Integer) staticField(Theme.class, "Z_FLOATING"), "z-index base below floating");
+        assertTrue((Integer) staticField(Theme.class, "Z_MODAL")
+                < (Integer) staticField(Theme.class, "Z_TOAST"), "z-index modal below toast");
+    }
+
+    /**
+     * Verifies named primitives route through the shared UI package.
+     */
+    private static void testSharedUiPrimitivesAreAvailable() {
+        assertEquals("SegmentedControl",
+                Ui.segmentedControl("One", "Two").getClass().getSimpleName(),
+                "segmented control primitive");
+        assertEquals("CommandBlock", Ui.commandBlock("crtk engine bestmove").getClass().getSimpleName(),
+                "command block primitive");
+        assertEquals("FieldRow", Ui.fieldRow("FEN", new JTextField(), 72).getClass().getSimpleName(),
+                "field row primitive");
+        assertEquals("SurfacePanel", Ui.panel(new java.awt.BorderLayout()).getClass().getSimpleName(),
+                "panel primitive");
+        assertEquals("EmptyState", Ui.emptyState("No runs", "Run a command").getClass().getSimpleName(),
+                "empty state primitive");
+        assertEquals("SectionHeader", Ui.sectionHeader("Engine", "Ready", null).getClass().getSimpleName(),
+                "section header primitive");
+        assertEquals("WorkspaceHeader",
+                Ui.workspaceHeader("Run", "Current FEN", new JPanel()).getClass().getSimpleName(),
+                "workspace header primitive");
+        assertEquals(JTabbedPane.class, Ui.tabbedPane().getClass(), "tabs primitive stays standard Swing pane");
+        assertEquals("Card", Ui.card("Card", new JPanel()).getClass().getSimpleName(), "card primitive");
+    }
+
+    /**
+     * Verifies the workbench shell has one shared workspace-header primitive and
+     * that major routes register through it.
+     */
+    private static void testWorkspaceHeaderPrimitiveAndShellRegistration() {
+        WorkspaceHeader header = new WorkspaceHeader("Board / Analyze",
+                "Black to move · 28 legal moves", new JPanel());
+        assertEquals("Board / Analyze", header.title(), "workspace header title");
+        assertEquals("Black to move · 28 legal moves", header.context(), "workspace header context");
+        String lifecycle;
+        String boardLayer;
+        String lazyPanel;
+        try {
+            lifecycle = Files.readString(Path.of("src/application/gui/workbench/window/WindowLifecycle.java"),
+                    StandardCharsets.UTF_8);
+            boardLayer = Files.readString(Path.of("src/application/gui/workbench/window/WindowBoardLayer.java"),
+                    StandardCharsets.UTF_8);
+            lazyPanel = Files.readString(Path.of("src/application/gui/workbench/layout/LazyPanel.java"),
+                    StandardCharsets.UTF_8);
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("unable to read workbench shell sources", ex);
+        }
+        assertTrue(lifecycle.contains("new RegisteredView(\"Dashboard\", dashboardPanel)"),
+                "Dashboard remains a major shell route");
+        assertTrue(lifecycle.contains("new RegisteredView(\"Engine Lab\""),
+                "Engine route uses the Engine Lab UI label");
+        assertTrue(lifecycle.contains("refreshGlobalJobStatus"),
+                "global job status is wired into the shell");
+        assertTrue(boardLayer.contains("new SwitchedWorkspace(\"Board\""),
+                "Board workspace uses a titled shell header");
+        assertTrue(boardLayer.contains("new SwitchedWorkspace(\"Engine Lab\""),
+                "Engine Lab workspace uses a titled shell header");
+        assertTrue(boardLayer.contains("runHeader = new WorkspaceHeader"),
+                "Run surface owns a workspace header");
+        assertTrue(boardLayer.contains("createRunSettingsColumn()"),
+                "Run builder has a dedicated settings column");
+        assertTrue(boardLayer.contains("createRunOutputColumn()"),
+                "Run builder has a dedicated preview/output column");
+        assertTrue(boardLayer.contains("Command Preview"),
+                "Run builder exposes a readable command preview card");
+        assertTrue(boardLayer.contains("Raw Output / Log"),
+                "Run builder keeps raw command output accessible");
+        assertTrue(lazyPanel.contains("Ui.emptyState(\"Loading \" + name"),
+                "lazy shell placeholders use the shared empty state");
+    }
+
+    /**
+     * Verifies action buttons carry explicit hierarchy variants.
+     */
+    private static void testButtonVariantsExposeActionHierarchy() {
+        JButton primary = Ui.button("Run", Theme.ButtonVariant.PRIMARY, event -> {
+            // no-op test listener
+        });
+        JButton secondary = Ui.button("Copy", Theme.ButtonVariant.SECONDARY, event -> {
+            // no-op test listener
+        });
+        JButton ghost = Ui.ghostButton("Details", event -> {
+            // no-op test listener
+        });
+        JButton destructive = Ui.destructiveButton("Stop", event -> {
+            // no-op test listener
+        });
+        JButton clear = Ui.button("Clear", false, event -> {
+            // no-op test listener
+        });
+        JButton clearFlags = Ui.button("Clear Flags", false, event -> {
+            // no-op test listener
+        });
+        JButton resign = Ui.button("Resign", false, event -> {
+            // no-op test listener
+        });
+        JButton rawStop = new JButton("Stop");
+        Theme.button(rawStop, false);
+        HoldButton holdResign = new HoldButton("Resign", () -> {
+            // no-op test listener
+        });
+        assertEquals(Theme.ButtonVariant.PRIMARY,
+                primary.getClientProperty(Theme.CLIENT_BUTTON_VARIANT), "primary variant");
+        assertEquals(Theme.ButtonVariant.SECONDARY,
+                secondary.getClientProperty(Theme.CLIENT_BUTTON_VARIANT), "secondary variant");
+        assertEquals(Theme.ButtonVariant.GHOST,
+                ghost.getClientProperty(Theme.CLIENT_BUTTON_VARIANT), "ghost variant");
+        assertEquals(Theme.ButtonVariant.DESTRUCTIVE,
+                destructive.getClientProperty(Theme.CLIENT_BUTTON_VARIANT), "destructive variant");
+        assertEquals(Theme.ButtonVariant.DESTRUCTIVE,
+                clear.getClientProperty(Theme.CLIENT_BUTTON_VARIANT), "clear uses destructive variant");
+        assertEquals(Theme.ButtonVariant.DESTRUCTIVE,
+                clearFlags.getClientProperty(Theme.CLIENT_BUTTON_VARIANT), "clear-prefix action uses destructive variant");
+        assertEquals(Theme.ButtonVariant.DESTRUCTIVE,
+                resign.getClientProperty(Theme.CLIENT_BUTTON_VARIANT), "resign uses destructive variant");
+        assertEquals(Theme.ButtonVariant.DESTRUCTIVE,
+                rawStop.getClientProperty(Theme.CLIENT_BUTTON_VARIANT), "raw styled stop uses destructive variant");
+        assertEquals(SvgIcon.Kind.DESTRUCTIVE,
+                clear.getClientProperty(Theme.CLIENT_ICON_KIND), "clear uses destructive icon lane");
+        assertTrue(Theme.destructiveActionLabel("Delete selected"),
+                "delete action labels are destructive");
+        assertTrue(Theme.destructiveActionLabel("Cancel Scan"),
+                "cancel scan action labels are destructive");
+        assertTrue(((Boolean) field(holdResign, "danger")).booleanValue(),
+                "hold resign auto-uses destructive styling");
+    }
+
+    /**
+     * Verifies icon-only controls always expose tooltip/accessibility text.
+     */
+    private static void testIconOnlyButtonsRequireTooltipText() {
+        JButton button = Ui.iconButton("Back", event -> {
+            // no-op test listener
+        });
+        assertEquals("", button.getText(), "icon button hides visible text");
+        assertEquals("Back", button.getToolTipText(), "icon button tooltip");
+        assertEquals("Back", button.getAccessibleContext().getAccessibleName(),
+                "icon button accessible name");
+        assertEquals(Boolean.TRUE, button.getClientProperty(Theme.CLIENT_ICON_ONLY),
+                "icon-only marker");
+    }
+
+    /**
+     * Verifies the full status badge variant set is available.
+     */
+    private static void testStatusBadgeVariantsAreAvailable() {
+        StatusBadge badge = new StatusBadge();
+        for (StatusBadge.Variant variant : StatusBadge.Variant.values()) {
+            badge.set(variant.name().toLowerCase(java.util.Locale.ROOT), variant);
+            assertTrue(badge.getPreferredSize().width > 0, variant + " badge has width");
+        }
+        assertTrue(StatusBadge.Variant.values().length >= 9, "status badge exposes requested variants");
+    }
+
+    /**
+     * Verifies a numeric token is inside an inclusive range.
+     *
+     * @param value actual value
+     * @param min minimum accepted value
+     * @param max maximum accepted value
+     * @param label assertion label
+     */
+    private static void assertBetween(int value, int min, int max, String label) {
+        assertTrue(value >= min && value <= max,
+                label + " in [" + min + ", " + max + "], got " + value);
+    }
+
 
     /**
      * Verifies each piece set renders a non-empty knight and that the three
@@ -605,8 +811,8 @@ final class WorkbenchUiRegression {
         int tabbedPaneCreations = occurrences(source, "new JTabbedPane(")
                 + occurrences(source, "new javax.swing.JTabbedPane(");
         if (tabbedPaneCreations > 0) {
-            assertEquals("ui/Ui.java", relative,
-                    relative + " creates tab panes through Ui.tabbedPane()");
+            assertTrue("ui/Ui.java".equals(relative) || "ui/Tabs.java".equals(relative),
+                    relative + " creates tab panes through Ui.tabbedPane() / Tabs.create()");
         }
 
         int comboCreations = occurrences(source, "new JComboBox");
@@ -662,8 +868,10 @@ final class WorkbenchUiRegression {
         String source = readSource(Path.of("src/application/gui/workbench/window/WindowBoardLayer.java"));
         assertTrue(source.contains("new PlayMoveHistoryModel(gameModel)"),
                 "Play tab uses compact move-history model");
-        assertTrue(source.contains("titled(\"Move history\""),
-                "Play move rail is titled as move history");
+        assertTrue(source.contains("Ui.card(\"Move History\""),
+                "Play move rail uses an inspector card for move history");
+        assertTrue(source.contains("Start a game to record moves here."),
+                "Play move history has a designed empty state");
     }
 
     /**
@@ -1677,6 +1885,87 @@ final class WorkbenchUiRegression {
     }
 
     /**
+     * Verifies switched workspaces clear the card host itself when a transparent
+     * mode replaces a graphics-heavy mode, preventing stale board thumbnails
+     * from leaking into the next panel.
+     */
+    private static void testSwitchedWorkspaceCardHostClearsOldFrames() {
+        Theme.Mode previous = Theme.mode();
+        try {
+            Theme.setMode(Theme.Mode.DARK);
+            JPanel boardLike = new JPanel() {
+                private static final long serialVersionUID = 1L;
+
+                /**
+                 * Paints a high-contrast board-like old frame.
+                 *
+                 * @param graphics drawing context
+                 */
+                @Override
+                protected void paintComponent(java.awt.Graphics graphics) {
+                    for (int y = 0; y < getHeight(); y += 12) {
+                        for (int x = 0; x < getWidth(); x += 12) {
+                            graphics.setColor(((x + y) / 12) % 2 == 0
+                                    ? new Color(0xB8, 0x88, 0x58)
+                                    : new Color(0xEC, 0xD9, 0xB8));
+                            graphics.fillRect(x, y, 12, 12);
+                        }
+                    }
+                }
+            };
+            boardLike.setOpaque(false);
+            JPanel transparentNext = new JPanel();
+            transparentNext.setOpaque(false);
+            SwitchedWorkspace workspace = new SwitchedWorkspace(List.of(
+                    new WorkspaceMode("Tree", () -> boardLike),
+                    new WorkspaceMode("Other", () -> transparentNext)), 0);
+            JPanel body = (JPanel) field(workspace, "body");
+            assertTrue(body.isOpaque(), "switched workspace body clears old card pixels");
+            body.setSize(160, 100);
+            body.doLayout();
+            BufferedImage buffer = new BufferedImage(160, 100, BufferedImage.TYPE_INT_ARGB);
+            java.awt.Graphics2D graphics = buffer.createGraphics();
+            try {
+                body.paint(graphics);
+                assertTrue(countExactRgb(buffer, 0xB88858) > 100,
+                        "first card paints board-like old frame");
+                workspace.setMode(1);
+                body.setSize(160, 100);
+                body.doLayout();
+                body.paint(graphics);
+            } finally {
+                graphics.dispose();
+            }
+            assertEquals(Integer.valueOf(0), Integer.valueOf(countExactRgb(buffer, 0xB88858)),
+                    "transparent replacement card does not retain old board pixels");
+            assertEquals(Integer.valueOf(0), Integer.valueOf(countExactRgb(buffer, 0xECD9B8)),
+                    "transparent replacement card clears old light-square pixels");
+        } finally {
+            Theme.setMode(previous);
+        }
+    }
+
+    /**
+     * Counts exact RGB pixels in an image.
+     *
+     * @param image image
+     * @param rgb RGB value without alpha
+     * @return matching pixel count
+     */
+    private static int countExactRgb(BufferedImage image, int rgb) {
+        int count = 0;
+        int target = rgb & 0xFFFFFF;
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                if ((image.getRGB(x, y) & 0xFFFFFF) == target) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    /**
      * Verifies split-pane sashes ease into their hover color.
      */
     private static void testSplitPaneSashAnimatesHover() {
@@ -1693,6 +1982,48 @@ final class WorkbenchUiRegression {
         setField(divider, "transitionStartedAt", Long.valueOf(System.currentTimeMillis() - 1000L));
         invoke(divider, "tickTransition", new Class<?>[0]);
         assertFalse(timer.isRunning(), "split sash stops after hover transition");
+    }
+
+    /**
+     * Verifies split panes clear their full surface before painting children so
+     * stale board/tree pixels cannot leak through transparent content panes or
+     * the sash.
+     */
+    private static void testSplitPanesClearOldFrames() {
+        Theme.Mode previous = Theme.mode();
+        try {
+            Theme.setMode(Theme.Mode.DARK);
+            JPanel left = new JPanel();
+            JPanel right = new JPanel();
+            left.setOpaque(false);
+            right.setOpaque(false);
+            JSplitPane pane = SplitPaneStyler.styledHorizontalSplit(left, right, 0.5);
+            pane.setSize(180, 96);
+            pane.doLayout();
+            assertTrue(pane.isOpaque(), "split pane clears its workbench background");
+
+            BufferedImage buffer = new BufferedImage(180, 96, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D oldFrame = buffer.createGraphics();
+            try {
+                for (int y = 0; y < buffer.getHeight(); y += 12) {
+                    for (int x = 0; x < buffer.getWidth(); x += 12) {
+                        oldFrame.setColor(((x + y) / 12) % 2 == 0
+                                ? new Color(0xB8, 0x88, 0x58)
+                                : new Color(0xEC, 0xD9, 0xB8));
+                        oldFrame.fillRect(x, y, 12, 12);
+                    }
+                }
+                pane.paint(oldFrame);
+            } finally {
+                oldFrame.dispose();
+            }
+            assertEquals(Integer.valueOf(0), Integer.valueOf(countExactRgb(buffer, 0xB88858)),
+                    "split pane clears old dark-square pixels");
+            assertEquals(Integer.valueOf(0), Integer.valueOf(countExactRgb(buffer, 0xECD9B8)),
+                    "split pane clears old light-square pixels");
+        } finally {
+            Theme.setMode(previous);
+        }
     }
 
     /**
@@ -1995,6 +2326,10 @@ final class WorkbenchUiRegression {
                 "draw panel exposes opacity control");
         assertTrue(componentTreeHasLabelText(panel, "Width"),
                 "draw panel exposes arrow width control");
+        assertTrue(componentTreeHasLabelText(panel, "Annotation List"),
+                "draw panel exposes annotation history");
+        assertTrue(componentTreeHasLabelText(panel, "Export"),
+                "draw panel exposes grouped export controls");
         assertTrue(board.directAnnotationBrush().matches(MarkupBrush.defaultBrush()),
                 "draw panel starts with the default preset annotation brush");
     }
@@ -2026,6 +2361,20 @@ final class WorkbenchUiRegression {
         dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, d4, MouseEvent.BUTTON1);
         assertEquals(Integer.valueOf(2), Integer.valueOf(board.markupCount()),
                 "circle draw mode adds a circle annotation");
+        assertTrue(board.canUndoMarkupEdit(), "draw annotations can be undone");
+        board.undoMarkupEdit();
+        assertEquals(Integer.valueOf(1), Integer.valueOf(board.markupCount()),
+                "undo removes the latest draw annotation");
+        assertTrue(board.canRedoMarkupEdit(), "draw annotations can be redone");
+        board.redoMarkupEdit();
+        assertEquals(Integer.valueOf(2), Integer.valueOf(board.markupCount()),
+                "redo restores the latest draw annotation");
+        board.removeMarkup(0);
+        assertEquals(Integer.valueOf(1), Integer.valueOf(board.markupCount()),
+                "delete selected support removes one annotation");
+        board.clearUserMarkup();
+        assertEquals(Integer.valueOf(0), Integer.valueOf(board.markupCount()),
+                "clear all support removes draw annotations");
     }
 
     /**
@@ -2372,20 +2721,21 @@ final class WorkbenchUiRegression {
     }
 
     /**
-     * Verifies the puzzle header control strip keeps every visible control inside
-     * its parent bounds on a narrow editor pane.
+     * Verifies Solve mode exposes the redesigned inspector sections instead of
+     * the older single header control strip.
      */
     private static void testPuzzleHeaderControlsAvoidClippingAtNarrowWidth() {
-        JComponent panel = (JComponent) construct(type("PuzzlePanel"),
-                new Class<?>[] { boolean.class }, Boolean.FALSE);
-        JComponent header = (JComponent) panel.getComponent(0);
-        header.setSize(360, 96);
-        Dimension preferred = header.getPreferredSize();
-        header.setSize(360, preferred.height);
-        layoutTree(header);
-
-        assertTrue(preferred.height > 38, "puzzle header is allowed to grow beyond one cramped row");
-        assertVisibleChildrenInside(header, "puzzle header");
+        String source = readSource(Path.of("src/application/gui/workbench/game/PuzzlePanel.java"));
+        assertTrue(source.contains("Ui.emptyState(\"No puzzle loaded\""),
+                "Solve mode has a designed empty state");
+        assertTrue(source.contains("Ui.card(\"Puzzle Source\""),
+                "Solve mode exposes puzzle source metadata as a card");
+        assertTrue(source.contains("Ui.card(\"Puzzle Controls\""),
+                "Solve mode groups puzzle controls as a card");
+        assertTrue(source.contains("Ui.card(\"Progress / Feedback\""),
+                "Solve mode exposes feedback as a card");
+        assertTrue(source.contains("Ui.card(\"Solution\""),
+                "Solve mode wraps solution handling as a card");
     }
 
     /**

@@ -114,8 +114,18 @@ public final class SvgIcon implements Icon {
      * @return icon, or null when no icon applies
      */
     public static Icon forButton(AbstractButton button, boolean primary) {
-        Color iconColor = primary ? Theme.PRIMARY_BUTTON_TEXT : Theme.SECONDARY_BUTTON_TEXT;
-        return iconForButton(button, iconColor);
+        return forButton(button, primary ? Theme.ButtonVariant.PRIMARY : Theme.ButtonVariant.SECONDARY);
+    }
+
+    /**
+     * Returns a best-fit icon for a button.
+     *
+     * @param button source button
+     * @param variant action hierarchy variant
+     * @return icon, or null when no icon applies
+     */
+    public static Icon forButton(AbstractButton button, Theme.ButtonVariant variant) {
+        return iconForButton(button, Theme.buttonText(variant));
     }
 
     /**
@@ -167,7 +177,8 @@ public final class SvgIcon implements Icon {
             case "Back", "Takeback" -> Kind.PREVIOUS;
             case "Forward", "Skip" -> Kind.NEXT;
             case "End" -> Kind.LAST;
-            case "Reset", "Restart", "Drop Optional", "Clear", "Clear Flags", "Defaults", "Refresh" -> Kind.RESET;
+            case "Reset", "Restart", "Drop Optional", "Clear", "Clear drawings", "Clear Flags", "Defaults",
+                    "Refresh" -> Kind.RESET;
             case "Flip" -> Kind.FLIP;
             case "Copy", "Copy FEN", "Copy Command", "Copy Report", "Copy PGN", "Copy SAN", "Copy UCI",
                     "Copy FEN List", "Copy FENs", "Copy Path", "Prep Report" ->
@@ -253,6 +264,7 @@ public final class SvgIcon implements Icon {
             case COPY -> paintCopy(g);
             case RESET -> paintReset(g);
             case STOP -> paintStop(g);
+            case DESTRUCTIVE -> paintDestructive(g);
             case INFO -> paintInfo(g);
             case DRAW -> paintDraw(g);
             case SETTINGS -> paintSettings(g);
@@ -346,6 +358,17 @@ public final class SvgIcon implements Icon {
      */
     private void paintStop(Graphics2D g) {
         g.fillRoundRect(7, 7, 10, 10, 2, 2);
+    }
+
+    /**
+     * Paints the shared destructive-action marker.
+     *
+     * @param g graphics context
+     */
+    private void paintDestructive(Graphics2D g) {
+        g.setStroke(STROKE_MEDIUM);
+        g.drawOval(5, 5, 14, 14);
+        g.fillOval(10, 10, 4, 4);
     }
 
     /**
@@ -643,6 +666,11 @@ public final class SvgIcon implements Icon {
          * Stop command.
          */
         STOP,
+
+        /**
+         * Destructive action marker.
+         */
+        DESTRUCTIVE,
 
         /**
          * Information toggle.

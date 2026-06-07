@@ -100,6 +100,11 @@ public final class EvalBar extends JComponent {
     private static final int LABEL_FONT_SIZE = 9;
 
     /**
+     * Vertical rail label font size.
+     */
+    private static final int RAIL_LABEL_FONT_SIZE = 8;
+
+    /**
      * Animated visible white share.
      */
     private double displayedWhiteShare = 0.5;
@@ -313,9 +318,39 @@ public final class EvalBar extends JComponent {
             g.setStroke(FRAME_STROKE);
             g.setColor(Theme.EVAL_FRAME);
             g.drawRoundRect(x, y, w - 1, h - 1, BAR_ARC, BAR_ARC);
+            drawRailLabel(g, x, y, w, h);
             drawScoreLabel(g, x, y, w, h, split);
         } finally {
             g.dispose();
+        }
+    }
+
+    /**
+     * Draws a tiny vertical label so the rail reads as an evaluation scale, not
+     * as a zoom or scrollbar control.
+     *
+     * @param g graphics context
+     * @param x rail x
+     * @param y rail y
+     * @param w rail width
+     * @param h rail height
+     */
+    private static void drawRailLabel(Graphics2D g, int x, int y, int w, int h) {
+        if (h < 140 || w < 16) {
+            return;
+        }
+        String text = "EVAL";
+        g.setFont(Theme.font(RAIL_LABEL_FONT_SIZE, Font.BOLD));
+        FontMetrics metrics = g.getFontMetrics();
+        Graphics2D labelGraphics = (Graphics2D) g.create();
+        try {
+            labelGraphics.rotate(-Math.PI / 2.0, x + w / 2.0, y + h / 2.0);
+            labelGraphics.setColor(Theme.withAlpha(Theme.MUTED, 150));
+            int textX = x + (w - metrics.stringWidth(text)) / 2;
+            int textY = y + h / 2 + metrics.getAscent() / 2;
+            labelGraphics.drawString(text, textX, textY);
+        } finally {
+            labelGraphics.dispose();
         }
     }
 

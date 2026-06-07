@@ -37,6 +37,11 @@ public final class StatusBadge extends JComponent {
     private static final int GAP = Theme.SPACE_SM;
 
     /**
+     * Horizontal badge padding.
+     */
+    private static final int PAD_X = Theme.SPACE_SM;
+
+    /**
      * Animation frame cadence for status-dot transitions.
      */
     private static final int ANIMATION_DELAY_MS = 16;
@@ -73,6 +78,56 @@ public final class StatusBadge extends JComponent {
     }
 
     /**
+     * Full status variant set used across Workbench surfaces.
+     */
+    public enum Variant {
+        /**
+         * Ready / idle but available.
+         */
+        READY,
+
+        /**
+         * Work in progress.
+         */
+        RUNNING,
+
+        /**
+         * Finished successfully.
+         */
+        COMPLETE,
+
+        /**
+         * Needs attention.
+         */
+        WARNING,
+
+        /**
+         * Failed.
+         */
+        ERROR,
+
+        /**
+         * Required resource is missing.
+         */
+        MISSING,
+
+        /**
+         * Has not run yet.
+         */
+        NOT_RUN,
+
+        /**
+         * Temporarily paused.
+         */
+        PAUSED,
+
+        /**
+         * Available information is stale.
+         */
+        STALE
+    }
+
+    /**
      * Current message text.
      */
     private String text = "";
@@ -80,17 +135,17 @@ public final class StatusBadge extends JComponent {
     /**
      * Current message severity.
      */
-    private Kind kind = Kind.IDLE;
+    private Variant variant = Variant.NOT_RUN;
 
     /**
      * Dot color at the beginning of the current transition.
      */
-    private Color transitionStartColor = dotColor(Kind.IDLE);
+    private Color transitionStartColor = dotColor(Variant.NOT_RUN);
 
     /**
      * Dot color at the end of the current transition.
      */
-    private Color transitionTargetColor = dotColor(Kind.IDLE);
+    private Color transitionTargetColor = dotColor(Variant.NOT_RUN);
 
     /**
      * Wall-clock start time for the current color transition.
@@ -123,7 +178,7 @@ public final class StatusBadge extends JComponent {
      */
     public StatusBadge() {
         setOpaque(false);
-        setFont(Theme.font(11, Font.PLAIN));
+        setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
         animationTimer.setCoalesce(true);
         addHierarchyListener(event -> {
             if ((event.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) != 0L) {
@@ -138,7 +193,7 @@ public final class StatusBadge extends JComponent {
      * @param message message text
      */
     public void idle(String message) {
-        set(message, Kind.IDLE);
+        set(message, Variant.NOT_RUN);
     }
 
     /**
@@ -147,7 +202,7 @@ public final class StatusBadge extends JComponent {
      * @param message message text
      */
     public void busy(String message) {
-        set(message, Kind.BUSY);
+        set(message, Variant.RUNNING);
     }
 
     /**
@@ -156,7 +211,7 @@ public final class StatusBadge extends JComponent {
      * @param message message text
      */
     public void success(String message) {
-        set(message, Kind.SUCCESS);
+        set(message, Variant.COMPLETE);
     }
 
     /**
@@ -165,7 +220,79 @@ public final class StatusBadge extends JComponent {
      * @param message message text
      */
     public void error(String message) {
-        set(message, Kind.ERROR);
+        set(message, Variant.ERROR);
+    }
+
+    /**
+     * Shows a ready message.
+     *
+     * @param message message text
+     */
+    public void ready(String message) {
+        set(message, Variant.READY);
+    }
+
+    /**
+     * Shows a running message.
+     *
+     * @param message message text
+     */
+    public void running(String message) {
+        set(message, Variant.RUNNING);
+    }
+
+    /**
+     * Shows a complete message.
+     *
+     * @param message message text
+     */
+    public void complete(String message) {
+        set(message, Variant.COMPLETE);
+    }
+
+    /**
+     * Shows a warning message.
+     *
+     * @param message message text
+     */
+    public void warning(String message) {
+        set(message, Variant.WARNING);
+    }
+
+    /**
+     * Shows a missing-resource message.
+     *
+     * @param message message text
+     */
+    public void missing(String message) {
+        set(message, Variant.MISSING);
+    }
+
+    /**
+     * Shows a not-run message.
+     *
+     * @param message message text
+     */
+    public void notRun(String message) {
+        set(message, Variant.NOT_RUN);
+    }
+
+    /**
+     * Shows a paused message.
+     *
+     * @param message message text
+     */
+    public void paused(String message) {
+        set(message, Variant.PAUSED);
+    }
+
+    /**
+     * Shows a stale message.
+     *
+     * @param message message text
+     */
+    public void stale(String message) {
+        set(message, Variant.STALE);
     }
 
     /**
@@ -175,20 +302,30 @@ public final class StatusBadge extends JComponent {
      * @param newKind severity
      */
     public void set(String message, Kind newKind) {
-        Kind nextKind = newKind == null ? Kind.IDLE : newKind;
+        set(message, variantFor(newKind));
+    }
+
+    /**
+     * Sets the message text and variant together.
+     *
+     * @param message message text (null treated as empty)
+     * @param newVariant status variant
+     */
+    public void set(String message, Variant newVariant) {
+        Variant nextVariant = newVariant == null ? Variant.NOT_RUN : newVariant;
         Color currentColor = currentDotColor();
         Dimension previousPreferredSize = getPreferredSize();
         this.text = message == null ? "" : message;
-        if (nextKind != kind) {
+        if (nextVariant != variant) {
             transitionStartColor = currentColor;
-            transitionTargetColor = dotColor(nextKind);
+            transitionTargetColor = dotColor(nextVariant);
             transitionProgress = 0.0d;
             transitionStartedAt = System.currentTimeMillis();
         }
-        this.kind = nextKind;
-        if (kind == Kind.BUSY && pulseStartedAt == 0L) {
+        this.variant = nextVariant;
+        if (variant == Variant.RUNNING && pulseStartedAt == 0L) {
             pulseStartedAt = System.currentTimeMillis();
-        } else if (kind != Kind.BUSY) {
+        } else if (variant != Variant.RUNNING) {
             pulseStartedAt = 0L;
         }
         updateAnimationTimer();
@@ -241,7 +378,7 @@ public final class StatusBadge extends JComponent {
     public Dimension getPreferredSize() {
         FontMetrics fm = getFontMetrics(getFont());
         int textWidth = fixedTextWidth > 0 ? fixedTextWidth : fm.stringWidth(text);
-        int width = DOT + GAP + textWidth;
+        int width = PAD_X * 2 + DOT + GAP + textWidth;
         return new Dimension(width, Math.max(Theme.CONTROL_HEIGHT, fm.getHeight()));
     }
 
@@ -261,15 +398,21 @@ public final class StatusBadge extends JComponent {
             g.setFont(getFont());
             FontMetrics fm = g.getFontMetrics();
             int cy = getHeight() / 2;
+            g.setColor(backgroundColor(variant));
+            g.fillRoundRect(0, 3, Math.max(0, getWidth() - 1), Math.max(0, getHeight() - 7),
+                    Theme.RADIUS, Theme.RADIUS);
+            g.setColor(borderColor(variant));
+            g.drawRoundRect(0, 3, Math.max(0, getWidth() - 1), Math.max(0, getHeight() - 7),
+                    Theme.RADIUS, Theme.RADIUS);
             Color dot = currentDotColor();
             int size = animatedDotSize();
-            int x = Math.max(0, (DOT - size) / 2);
+            int x = PAD_X + Math.max(0, (DOT - size) / 2);
             g.setColor(dot);
             g.fillOval(x, cy - size / 2, size, size);
-            g.setColor(Theme.MUTED);
+            g.setColor(textColor(variant));
             int baseline = cy + fm.getAscent() / 2 - 1;
-            int textX = DOT + GAP;
-            int textWidth = Math.max(0, getWidth() - textX);
+            int textX = PAD_X + DOT + GAP;
+            int textWidth = Math.max(0, getWidth() - textX - PAD_X);
             g.drawString(Ui.elide(text, fm, textWidth), textX, baseline);
         } finally {
             g.dispose();
@@ -292,7 +435,7 @@ public final class StatusBadge extends JComponent {
      * Starts or stops the animation timer based on active visual work.
      */
     private void updateAnimationTimer() {
-        boolean shouldRun = transitionProgress < 1.0d || kind == Kind.BUSY && isShowing();
+        boolean shouldRun = transitionProgress < 1.0d || variant == Variant.RUNNING && isShowing();
         if (shouldRun && !animationTimer.isRunning()) {
             animationTimer.start();
         } else if (!shouldRun && animationTimer.isRunning()) {
@@ -324,15 +467,95 @@ public final class StatusBadge extends JComponent {
     /**
      * Returns the active theme dot color for a status kind.
      *
-     * @param value status kind
+     * @param value status variant
      * @return active dot color
      */
-    private static Color dotColor(Kind value) {
-        return switch (value == null ? Kind.IDLE : value) {
-            case BUSY -> Theme.ACCENT;
-            case SUCCESS -> Theme.STATUS_SUCCESS_TEXT;
+    private static Color dotColor(Variant value) {
+        return switch (value == null ? Variant.NOT_RUN : value) {
+            case READY -> Theme.STATUS_READY_TEXT;
+            case RUNNING -> Theme.STATUS_RUNNING_TEXT;
+            case COMPLETE -> Theme.STATUS_COMPLETE_TEXT;
+            case WARNING -> Theme.STATUS_WARNING_TEXT;
             case ERROR -> Theme.STATUS_ERROR_TEXT;
-            case IDLE -> Theme.MUTED;
+            case MISSING -> Theme.STATUS_MISSING_TEXT;
+            case NOT_RUN -> Theme.STATUS_NOT_RUN_TEXT;
+            case PAUSED -> Theme.STATUS_PAUSED_TEXT;
+            case STALE -> Theme.STATUS_STALE_TEXT;
+        };
+    }
+
+    /**
+     * Returns a status variant for a legacy status kind.
+     *
+     * @param value legacy kind
+     * @return status variant
+     */
+    private static Variant variantFor(Kind value) {
+        return switch (value == null ? Kind.IDLE : value) {
+            case BUSY -> Variant.RUNNING;
+            case SUCCESS -> Variant.COMPLETE;
+            case ERROR -> Variant.ERROR;
+            case IDLE -> Variant.NOT_RUN;
+        };
+    }
+
+    /**
+     * Returns the variant background color.
+     *
+     * @param value status variant
+     * @return background color
+     */
+    private static Color backgroundColor(Variant value) {
+        return switch (value == null ? Variant.NOT_RUN : value) {
+            case READY -> Theme.STATUS_READY_BG;
+            case RUNNING -> Theme.STATUS_RUNNING_BG;
+            case COMPLETE -> Theme.STATUS_COMPLETE_BG;
+            case WARNING -> Theme.STATUS_WARNING_BG;
+            case ERROR -> Theme.STATUS_ERROR_BG;
+            case MISSING -> Theme.STATUS_MISSING_BG;
+            case NOT_RUN -> Theme.STATUS_NOT_RUN_BG;
+            case PAUSED -> Theme.STATUS_PAUSED_BG;
+            case STALE -> Theme.STATUS_STALE_BG;
+        };
+    }
+
+    /**
+     * Returns the variant border color.
+     *
+     * @param value status variant
+     * @return border color
+     */
+    private static Color borderColor(Variant value) {
+        return switch (value == null ? Variant.NOT_RUN : value) {
+            case READY -> Theme.STATUS_READY_BORDER;
+            case RUNNING -> Theme.STATUS_RUNNING_BORDER;
+            case COMPLETE -> Theme.STATUS_COMPLETE_BORDER;
+            case WARNING -> Theme.STATUS_WARNING_BORDER;
+            case ERROR -> Theme.STATUS_ERROR_BORDER;
+            case MISSING -> Theme.STATUS_MISSING_BORDER;
+            case NOT_RUN -> Theme.STATUS_NOT_RUN_BORDER;
+            case PAUSED -> Theme.STATUS_PAUSED_BORDER;
+            case STALE -> Theme.STATUS_STALE_BORDER;
+        };
+    }
+
+    /**
+     * Returns the variant text color.
+     *
+     * @param value status variant
+     * @return text color
+     */
+    private static Color textColor(Variant value) {
+        return switch (value == null ? Variant.NOT_RUN : value) {
+            case READY -> Theme.STATUS_READY_TEXT;
+            case RUNNING -> Theme.STATUS_RUNNING_TEXT;
+            case COMPLETE -> Theme.STATUS_COMPLETE_TEXT;
+            case WARNING -> Theme.STATUS_WARNING_TEXT;
+            case ERROR -> Theme.STATUS_ERROR_TEXT;
+            case MISSING -> Theme.STATUS_MISSING_TEXT;
+            case NOT_RUN -> Theme.STATUS_NOT_RUN_TEXT;
+            case PAUSED -> Theme.STATUS_PAUSED_TEXT;
+            case STALE -> Theme.STATUS_STALE_TEXT;
         };
     }
 

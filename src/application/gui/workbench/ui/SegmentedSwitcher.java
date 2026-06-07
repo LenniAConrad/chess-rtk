@@ -11,11 +11,14 @@ import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
+import javax.swing.AbstractAction;
 import javax.swing.JComponent;
+import javax.swing.KeyStroke;
 import javax.swing.Timer;
 
 /**
@@ -27,7 +30,7 @@ import javax.swing.Timer;
  * by the workbench toolbar to pick view modes without burying the choices
  * inside a dropdown.</p>
  */
-public final class SegmentedSwitcher extends JComponent {
+public class SegmentedSwitcher extends JComponent {
 
     /**
      * Serialization identifier for Swing component compatibility.
@@ -138,14 +141,17 @@ public final class SegmentedSwitcher extends JComponent {
         }
         this.selected = 0;
         setOpaque(false);
+        setFocusable(true);
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         selectionTimer.setCoalesce(true);
+        installKeyboardActions();
         addMouseListener(new MouseAdapter() {
             /**
              * {@inheritDoc}
              */
             @Override
             public void mousePressed(MouseEvent event) {
+                requestFocusInWindow();
                 onPress(event.getX(), event.getY());
             }
 
@@ -243,7 +249,7 @@ public final class SegmentedSwitcher extends JComponent {
         for (String label : labels) {
             total += fm.stringWidth(label) + PAD_X * 2;
         }
-    return new Dimension(total, HEIGHT);
+        return new Dimension(total, HEIGHT);
     }
 
     /**
@@ -271,6 +277,11 @@ public final class SegmentedSwitcher extends JComponent {
                 x += w;
             }
             paintSelectionIndicator(g, height);
+            if (isFocusOwner()) {
+                g.setColor(Theme.FOCUS_RING);
+                g.drawRoundRect(1, 1, Math.max(0, getWidth() - 3), Math.max(0, getHeight() - 3),
+                        Theme.RADIUS, Theme.RADIUS);
+            }
         } finally {
             g.dispose();
         }
@@ -405,6 +416,100 @@ public final class SegmentedSwitcher extends JComponent {
                     startSelectionAnimation();
                     fire();
                 }
+                return;
+            }
+        }
+    }
+
+    /**
+     * Installs keyboard selection affordances.
+     */
+    private void installKeyboardActions() {
+        bind(KeyEvent.VK_LEFT, "previousSegment", -1);
+        bind(KeyEvent.VK_UP, "previousSegmentUp", -1);
+        bind(KeyEvent.VK_RIGHT, "nextSegment", 1);
+        bind(KeyEvent.VK_DOWN, "nextSegmentDown", 1);
+        getInputMap(WHEN_FOCUSED).put(KeyStroke.getKeyStroke(KeyEvent.VK_HOME, 0), "firstSegment");
+        getActionMap().put("firstSegment", new AbstractAction() {
+            /**
+             * Selects the first enabled segment.
+             *
+             * @param event action event
+             */
+            @Override
+            public void actionPerformed(ActionEvent event) {
+                selectEndpoint(true);
+            }
+        });
+        getInputMap(WHEN_FOCUSED).put(KeyStroke.getKeyStroke(KeyEvent.VK_END, 0), "lastSegment");
+        getActionMap().put("lastSegment", new AbstractAction() {
+            /**
+             * Selects the last enabled segment.
+             *
+             * @param event action event
+             */
+            @Override
+            public void actionPerformed(ActionEvent event) {
+                selectEndpoint(false);
+            }
+        });
+    }
+
+    /**
+     * Binds a relative segment selection action.
+     *
+     * @param key key code
+     * @param name action name
+     * @param direction selection direction
+     */
+    private void bind(int key, String name, int direction) {
+        getInputMap(WHEN_FOCUSED).put(KeyStroke.getKeyStroke(key, 0), name);
+        getActionMap().put(name, new AbstractAction() {
+            /**
+             * Moves selection by one enabled segment.
+             *
+             * @param event action event
+             */
+            @Override
+            public void actionPerformed(ActionEvent event) {
+                selectRelative(direction);
+            }
+        });
+    }
+
+    /**
+     * Selects the next enabled segment in the requested direction.
+     *
+     * @param direction -1 for previous, 1 for next
+     */
+    private void selectRelative(int direction) {
+        if (labels.length == 0) {
+            return;
+        }
+        int index = selected;
+        for (int step = 0; step < labels.length; step++) {
+            index = Math.max(0, Math.min(labels.length - 1, index + direction));
+            if (segmentEnabled[index]) {
+                setSelectedIndex(index);
+                return;
+            }
+            if (index == 0 || index == labels.length - 1) {
+                return;
+            }
+        }
+    }
+
+    /**
+     * Selects the first or last enabled segment.
+     *
+     * @param first true for first, false for last
+     */
+    private void selectEndpoint(boolean first) {
+        for (int i = first ? 0 : labels.length - 1;
+                i >= 0 && i < labels.length;
+                i += first ? 1 : -1) {
+            if (segmentEnabled[i]) {
+                setSelectedIndex(i);
                 return;
             }
         }

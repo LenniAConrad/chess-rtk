@@ -4,6 +4,7 @@ import application.gui.workbench.ui.Theme;
 import java.awt.BorderLayout;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
 
 /**
  * Maintains the persistent chrome around an editor group.
@@ -70,12 +71,30 @@ final class EditorPaneShell {
                 return;
             }
             host.removeAll();
+            host.setOpaque(true);
+            host.setBackground(Theme.PANEL_SOLID);
             host.add(panel, BorderLayout.CENTER);
+            refreshHost(host);
             return;
         }
         if (host.getComponentCount() > 0) {
             host.removeAll();
         }
+        host.setOpaque(true);
+        host.setBackground(Theme.PANEL_SOLID);
+        refreshHost(host);
+    }
+
+    /**
+     * Forces the host bounds dirty after a selected panel changes so old double
+     * buffered pixels cannot survive behind transparent child surfaces.
+     *
+     * @param host selected-panel host
+     */
+    private static void refreshHost(JPanel host) {
+        host.revalidate();
+        host.repaint();
+        SwingUtilities.invokeLater(host::repaint);
     }
 
     /**
