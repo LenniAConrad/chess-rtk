@@ -26,7 +26,6 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -82,7 +81,7 @@ public final class BoardPanel extends JPanel {
     /**
      * Default move-animation duration in milliseconds.
      */
-    private static final int MOVE_ANIMATION_MS = 95;
+    private static final int MOVE_ANIMATION_MS = BoardAnimationState.DEFAULT_MOVE_ANIMATION_MS;
 
     /**
      * Animation timer delay in milliseconds.
@@ -110,11 +109,6 @@ public final class BoardPanel extends JPanel {
     private static final AlphaComposite DRAG_ALPHA = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f);
 
     /**
-     * Sentinel target value for circle markups.
-     */
-    private static final byte MARKUP_CIRCLE = Field.NO_SQUARE;
-
-    /**
      * Opacity for the markup currently being drawn.
      */
     private static final double MARKUP_CURRENT_OPACITY = 0.9;
@@ -123,6 +117,7 @@ public final class BoardPanel extends JPanel {
      * Opacity for a pending erase markup.
      */
     private static final double MARKUP_PENDING_ERASE_OPACITY = 0.6;
+
     /**
      * Current position rendered on the board.
      */
@@ -149,35 +144,14 @@ public final class BoardPanel extends JPanel {
     private short lastMove = Move.NO_MOVE, suggestedMove = Move.NO_MOVE;
 
     /**
-     * Selected source square.
+     * Queued premove arrow, independent from the legal suggested-move arrow.
      */
-    private byte selectedSquare = Field.NO_SQUARE;
+    private short pendingPremove = Move.NO_MOVE;
 
     /**
-     * Legal move cache for the selected source square.
+     * Piece selection and drag/drop state.
      */
-    private short[] selectedLegalMoves = new short[0];
-
-    /**
-     * Legal target-square cache for the selected source square.
-     */
-    private byte[] selectedLegalTargets = new byte[0];
-
-    /**
-     * Drag source, target, hover square, and piece state.
-     */
-    private byte dragSquare = Field.NO_SQUARE, dragTargetSquare = Field.NO_SQUARE,
-            dragHoverSquare = Field.NO_SQUARE, draggedPiece = Piece.EMPTY;
-
-    /**
-     * Drag anchor and live pointer coordinates.
-     */
-    private int dragStartX, dragStartY, dragX, dragY;
-
-    /**
-     * True while a piece drag is active.
-     */
-    private boolean draggingPiece;
+    private final BoardPieceInput pieceInput = new BoardPieceInput();
 
     /**
      * Dirty rectangle queued for throttled drag repainting.
@@ -188,29 +162,6 @@ public final class BoardPanel extends JPanel {
      * Last throttled drag repaint timestamp.
      */
     private long lastDragRepaintNanos;
-
-    /**
-     * Pieces involved in the current move animation.
-     */
-    private byte animatedMovePiece = Piece.EMPTY, animatedSecondaryMovePiece = Piece.EMPTY,
-            animatedCapturePiece = Piece.EMPTY;
-
-    /**
-     * Squares involved in the current move animation.
-     */
-    private byte animatedMoveFrom = Field.NO_SQUARE, animatedMoveTo = Field.NO_SQUARE,
-            animatedSecondaryMoveFrom = Field.NO_SQUARE, animatedSecondaryMoveTo = Field.NO_SQUARE,
-            animatedCaptureSquare = Field.NO_SQUARE;
-
-    /**
-     * Move-animation start timestamp.
-     */
-    private long moveAnimationStartedAt;
-
-    /**
-     * True while a move animation is running.
-     */
-    private boolean moveAnimationActive;
 
     /**
      * Move handler used for drag-drop play.
@@ -241,7 +192,12 @@ public final class BoardPanel extends JPanel {
      * Board overlay visibility toggles.
      */
     private boolean showNotation = true, showLegalMovePreview = true,
-            showLastMoveHighlight = true, showSuggestedMoveArrow = true, animationsEnabled = true;
+            showLastMoveHighlight = true, showSuggestedMoveArrow = true;
+
+    /**
+     * Move, snap, flip, and wrong-move marker animation state.
+     */
+    private final BoardAnimationState animationState = new BoardAnimationState();
 
     /**
      * Programmatic square highlights.
@@ -249,29 +205,29 @@ public final class BoardPanel extends JPanel {
     private final Map<Byte, Color> squareHighlights = new LinkedHashMap<>();
 
     /**
-     * Persistent arrow and highlight markups.
+     * Persistent annotation list and transient annotation gesture state.
      */
-    private final List<BoardMarkup> boardMarkups = new ArrayList<>();
-
-    /**
-     * Markup currently being drawn by the user.
-     */
-    private BoardMarkup currentMarkup;
-
-    /**
-     * Source square for a pending board markup.
-     */
-    private byte markupOrigin = Field.NO_SQUARE;
-
-    /**
-     * Active board markup brush.
-     */
-    private MarkupBrush markupBrush;
+    private final BoardMarkupInput markupInput = new BoardMarkupInput();
 
     /**
      * Optional drag-start filter.
      */
     private Predicate<DragContext> dragStartFilter;
+
+    /**
+     * Optional drag-start filter for premoves while the opponent is to move.
+     */
+    private Predicate<DragContext> premoveStartFilter;
+
+    /**
+     * Optional handler for queued premoves.
+     */
+    private PremoveHandler premoveHandler;
+
+    /**
+     * True when the current selection/drag is a premove gesture.
+     */
+    private boolean premoveSelection;
 
     /**
      * Optional drop resolver for custom board interactions.
@@ -323,47 +279,6 @@ public final class BoardPanel extends JPanel {
      */
     private BiConsumer<Byte, Byte> setupEditObserver;
 
-    /**
-     * Active snap animation.
-     */
-    private SnapAnimation snapAnimation;
-
-    /**
-     * Square hidden while a snap animation paints the moving piece.
-     */
-    private byte snapHiddenSquare = Field.NO_SQUARE;
-
-    /**
-     * True to skip the next move animation.
-     */
-    private boolean suppressNextMoveAnimation;
-
-    /**
-     * Flip animation progress and start time.
-     */
-    private double flipAnimationProgress = Double.NaN;
-    /**
-     * Flip animation start timestamp.
-     */
-    private long flipAnimationStartedAt;
-
-    /**
-     * Animation durations in milliseconds.
-     */
-    private int moveAnimationMs = MOVE_ANIMATION_MS, snapbackAnimationMs = 90,
-            snapAnimationMs = 55, flipAnimationMs = 140;
-    /**
-     * Wrong-move marker animation duration in milliseconds.
-     */
-    private static final int WRONG_MOVE_MARKER_MS = 320;
-    /**
-     * Wrong-move marker square and start timestamp.
-     */
-    private byte wrongMoveMarkerSquare = Field.NO_SQUARE;
-    /**
-     * Wrong-move marker start timestamp.
-     */
-    private long wrongMoveMarkerStartedAt;
     /**
      * Creates the board panel.
      */
@@ -470,10 +385,10 @@ public final class BoardPanel extends JPanel {
         cachedLegalMoves = null;
         lastMove = move;
         suggestedMove = Move.NO_MOVE;
+        pendingPremove = Move.NO_MOVE;
         clearSelection();
         clearDragState();
-        if (!animateMove || suppressNextMoveAnimation) {
-            suppressNextMoveAnimation = false;
+        if (!animateMove || animationState.consumeSuppressNextMoveAnimation()) {
             clearMoveAnimation();
         } else {
             startMoveAnimation(previousBoard, position == null ? null : position.getBoard(),
@@ -548,6 +463,43 @@ public final class BoardPanel extends JPanel {
         // them here cancelled a move the moment the engine replied.
         repaint();
     }
+
+    /**
+     * Shows or clears the queued premove square highlights. Unlike suggested
+     * moves, premoves are not required to be legal in the current position
+     * because they execute only after the opponent reply.
+     *
+     * @param move queued premove, or {@link Move#NO_MOVE}
+     */
+    public void setPremove(short move) {
+        short next = legalPremoveShape(move) ? move : Move.NO_MOVE;
+        if (next == pendingPremove) {
+            return;
+        }
+        pendingPremove = next;
+        repaint();
+    }
+
+    /**
+     * Clears any queued premove highlight.
+     */
+    public void clearPremove() {
+        setPremove(Move.NO_MOVE);
+    }
+
+    private static boolean legalPremoveShape(short move) {
+        if (move == Move.NO_MOVE) {
+            return false;
+        }
+        try {
+            byte from = Move.getFromIndex(move);
+            byte to = Move.getToIndex(move);
+            return isSquareIndex(from) && isSquareIndex(to) && from != to;
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
     private boolean legalSuggestedMove(short move) {
         if (move == Move.NO_MOVE || position == null) {
             return false;
@@ -602,26 +554,20 @@ public final class BoardPanel extends JPanel {
         // If a previous flip is still pending its midpoint commit, apply that
         // commit now so a rapid double-flip toggles the orientation twice
         // instead of swallowing the second call.
-        if (flipPending) {
+        if (animationState.flipPending()) {
             whiteDown = !whiteDown;
-            flipPending = false;
+            animationState.clearFlipPending();
         }
-        if (!animationsEnabled || flipAnimationMs <= 0 || getWidth() <= 0) {
+        if (!animationState.canAnimateFlip() || getWidth() <= 0) {
             // Headless or zero-sized panel: flip immediately.
             whiteDown = !whiteDown;
             repaint();
             return;
         }
-        flipAnimationStartedAt = System.currentTimeMillis();
-        flipAnimationProgress = 0.0;
-        flipPending = true;
+        animationState.startFlipAnimation(System.currentTimeMillis());
         startAnimation();
         repaint();
     }
-    /**
-     * True when a flip animation is pending completion.
-     */
-    private boolean flipPending;
     /**
      * Sets the orientation explicitly.
      * @param value new value
@@ -692,13 +638,16 @@ public final class BoardPanel extends JPanel {
     }
     /**
      * Returns whether legal move previews are painted.
+     *
      * @return true when legal move previews are painted
      */
     public boolean isShowLegalMovePreview() {
         return showLegalMovePreview;
     }
+
     /**
      * Sets whether the previous move should be highlighted.
+     *
      * @param show true to show the feature
      */
     public void setShowLastMoveHighlight(boolean show) {
@@ -708,15 +657,19 @@ public final class BoardPanel extends JPanel {
         showLastMoveHighlight = show;
         repaint();
     }
+
     /**
      * Returns whether previous-move highlights are painted.
+     *
      * @return true when previous-move highlights are painted
      */
     public boolean isShowLastMoveHighlight() {
         return showLastMoveHighlight;
     }
+
     /**
      * Sets whether suggested engine moves should be painted as arrows.
+     *
      * @param show true to show the feature
      */
     public void setShowSuggestedMoveArrow(boolean show) {
@@ -726,15 +679,19 @@ public final class BoardPanel extends JPanel {
         showSuggestedMoveArrow = show;
         repaint();
     }
+
     /**
      * Returns whether suggested engine arrows are painted.
+     *
      * @return true when suggested-move arrows are painted
      */
     public boolean isShowSuggestedMoveArrow() {
         return showSuggestedMoveArrow;
     }
+
     /**
      * Highlights one square with an arbitrary color.
+     *
      * @param square board square index
      * @param color display color
      */
@@ -745,8 +702,10 @@ public final class BoardPanel extends JPanel {
         squareHighlights.put(square, color);
         repaint();
     }
+
     /**
      * Removes any highlight for a square.
+     *
      * @param square board square index
      */
     public void clearSquareHighlight(byte square) {
@@ -754,71 +713,163 @@ public final class BoardPanel extends JPanel {
             repaint();
         }
     }
+
     /**
-     * Removes all square and arrow markups. chessboard.js does not have a direct equivalent; mirrors common analysis-board UX.
+     * Removes all square highlights and arrow markups from the shared board
+     * surface.
      */
     public void clearMarkup() {
-        if (squareHighlights.isEmpty() && boardMarkups.isEmpty()) {
+        if (squareHighlights.isEmpty() && markupInput.isEmpty()) {
             return;
         }
         squareHighlights.clear();
-        boardMarkups.clear();
-        clearMarkupGesture();
+        markupInput.clear();
         repaint();
     }
+
+    /**
+     * Enables or disables direct annotation input. When enabled, left-click
+     * gestures create board annotations; right-click annotations remain
+     * available in all modes.
+     *
+     * @param enabled true to route left-click gestures to annotation drawing
+     */
+    public void setDirectAnnotationMode(boolean enabled) {
+        if (markupInput.directAnnotationMode() == enabled) {
+            return;
+        }
+        markupInput.setDirectAnnotationMode(enabled);
+        clearDragState();
+        clearSelection();
+        setCursor(Cursor.getDefaultCursor());
+        repaint();
+    }
+
+    /**
+     * Returns whether left-click annotation drawing is active.
+     *
+     * @return true when direct annotation input is enabled
+     */
+    public boolean isDirectAnnotationMode() {
+        return markupInput.directAnnotationMode();
+    }
+
+    /**
+     * Selects the shape used by unmodified direct annotation gestures.
+     *
+     * @param tool annotation shape
+     */
+    public void setMarkupTool(BoardMarkupTool tool) {
+        markupInput.setTool(tool);
+        repaint();
+    }
+
+    /**
+     * Returns the shape used by unmodified direct annotation gestures.
+     *
+     * @return annotation shape
+     */
+    public BoardMarkupTool markupTool() {
+        return markupInput.tool();
+    }
+
+    /**
+     * Selects the brush used by unmodified direct annotation gestures.
+     *
+     * @param brush annotation brush
+     */
+    public void setDirectAnnotationBrush(MarkupBrush brush) {
+        if (brush == null) {
+            return;
+        }
+        markupInput.setDirectBrush(brush);
+        repaint();
+    }
+
+    /**
+     * Returns the brush used by unmodified direct annotation gestures.
+     *
+     * @return annotation brush
+     */
+    public MarkupBrush directAnnotationBrush() {
+        return markupInput.directBrush();
+    }
+
+    /**
+     * Returns the number of persistent board annotations.
+     *
+     * @return annotation count
+     */
+    public int markupCount() {
+        return markupInput.markupCount();
+    }
+
     /**
      * Shows a temporary chess-web-style wrong-move badge on one square.
+     *
      * @param square board square index
      */
     public void showWrongMoveMarker(byte square) {
         if (!isSquareIndex(square)) {
             return;
         }
-        wrongMoveMarkerSquare = square;
-        wrongMoveMarkerStartedAt = System.currentTimeMillis();
+        animationState.showWrongMoveMarker(square, System.currentTimeMillis());
         startAnimation();
         repaint();
     }
+
     /**
      * Clears the temporary wrong-move badge.
      */
     public void clearWrongMoveMarker() {
-        if (wrongMoveMarkerSquare == Field.NO_SQUARE) {
+        if (animationState.wrongMoveMarkerSquare() == Field.NO_SQUARE) {
             return;
         }
         clearWrongMoveMarkerState();
         repaint();
     }
+
     /**
-     * Adds an arrow markup between two squares.
+     * Adds a persistent arrow markup between two squares using the standard
+     * Workbench annotation width.
+     *
      * @param from origin square
      * @param to destination square
      * @param color display color
      */
     public void addArrow(byte from, byte to, Color color) {
-        if (!isSquareIndex(from) || !isSquareIndex(to) || color == null) {
-            return;
-        }
-        boardMarkups.add(new BoardMarkup(from, to, MarkupBrush.forThemeColor(color)));
-        repaint();
+        addArrowMarkup(from, to, color == null ? null : MarkupBrush.forColor(color));
     }
 
     /**
      * Adds a persistent arrow with an exact colour and line width, for dense
      * overlays such as the tactical-incidence relation graph where the default
      * markup width is too heavy.
+     *
      * @param from origin square
      * @param to destination square
      * @param color exact arrow colour (alpha honoured)
      * @param lineWidth arrow line width in pixels
      */
     public void addArrow(byte from, byte to, Color color, int lineWidth) {
-        if (!isSquareIndex(from) || !isSquareIndex(to) || color == null) {
+        addArrowMarkup(from, to, color == null ? null : MarkupBrush.custom(color, lineWidth));
+    }
+
+    /**
+     * Adds one already-resolved arrow brush to the persistent board markup list.
+     *
+     * @param from origin square
+     * @param to destination square
+     * @param brush resolved annotation brush
+     */
+    private void addArrowMarkup(byte from, byte to, MarkupBrush brush) {
+        if (!isSquareIndex(from) || !isSquareIndex(to) || brush == null) {
             return;
         }
-        boardMarkups.add(new BoardMarkup(from, to, new MarkupBrush("custom", color, Math.max(1, lineWidth))));
+        markupInput.add(new BoardMarkup(from, to, brush));
         repaint();
     }
+
     /**
      * Sets the duration of move/snapback/snap/flip animations.
      * @param moveMs move animation duration in milliseconds
@@ -827,15 +878,8 @@ public final class BoardPanel extends JPanel {
      * @param flipMs flip animation duration in milliseconds
      */
     public void setAnimationSpeeds(int moveMs, int snapbackMs, int snapMs, int flipMs) {
-        moveAnimationMs = Math.max(0, moveMs);
-        snapbackAnimationMs = Math.max(0, snapbackMs);
-        snapAnimationMs = Math.max(0, snapMs);
-        flipAnimationMs = Math.max(0, flipMs);
-        animationsEnabled = moveAnimationMs > 0
-                || snapbackAnimationMs > 0
-                || snapAnimationMs > 0
-                || flipAnimationMs > 0;
-        if (!animationsEnabled) {
+        animationState.setAnimationSpeeds(moveMs, snapbackMs, snapMs, flipMs);
+        if (!animationState.animationsEnabled()) {
             clearAllAnimations();
         }
     }
@@ -844,10 +888,10 @@ public final class BoardPanel extends JPanel {
      * @param enabled true to enable the behavior
      */
     public void setAnimationsEnabled(boolean enabled) {
-        if (enabled == animationsEnabled) {
+        if (enabled == animationState.animationsEnabled()) {
             return;
         }
-        animationsEnabled = enabled;
+        animationState.setAnimationsEnabled(enabled);
         if (!enabled) {
             clearAllAnimations();
         }
@@ -858,7 +902,7 @@ public final class BoardPanel extends JPanel {
      * @return true when board animations are enabled
      */
     public boolean isAnimationsEnabled() {
-        return animationsEnabled;
+        return animationState.animationsEnabled();
     }
     /**
      * Sets a drag-start filter; called before each drag begins.
@@ -867,6 +911,27 @@ public final class BoardPanel extends JPanel {
     public void setDragStartFilter(Predicate<DragContext> filter) {
         dragStartFilter = filter;
     }
+
+    /**
+     * Sets a premove drag-start filter; called for non-side-to-move pieces while
+     * a premove handler is installed.
+     *
+     * @param filter premove drag-start filter
+     */
+    public void setPremoveStartFilter(Predicate<DragContext> filter) {
+        premoveStartFilter = filter;
+    }
+
+    /**
+     * Sets a premove handler for queuing future human moves while the opponent
+     * is thinking.
+     *
+     * @param handler premove handler
+     */
+    public void setPremoveHandler(PremoveHandler handler) {
+        premoveHandler = handler;
+    }
+
     /**
      * Sets a drop resolver; called when the user drops a piece.
      * @param resolver drop resolver callback
@@ -999,6 +1064,7 @@ public final class BoardPanel extends JPanel {
             cachedLegalMoves = null;
             lastMove = move;
             suggestedMove = Move.NO_MOVE;
+            pendingPremove = Move.NO_MOVE;
             clearSelection();
             clearDragState();
             clearMoveAnimation();
@@ -1053,6 +1119,7 @@ public final class BoardPanel extends JPanel {
                 drawMoveHighlights(copy, board);
                 drawSelection(copy, board);
                 drawCheckHighlight(copy, board);
+                drawPremove(copy, board);
             }
             drawPieces(copy, board);
             if (!setupEditMode) {
@@ -1074,11 +1141,12 @@ public final class BoardPanel extends JPanel {
         }
     }
     private void drawFlipOverlay(Graphics2D g, Rectangle board) {
-        if (Double.isNaN(flipAnimationProgress)) {
+        double flipProgress = animationState.flipAnimationProgress();
+        if (Double.isNaN(flipProgress)) {
             return;
         }
         // Triangular ramp: alpha peaks at progress 0.5.
-        float alpha = (float) (Math.sin(Math.PI * flipAnimationProgress) * 0.55);
+        float alpha = (float) (Math.sin(Math.PI * flipProgress) * 0.55);
         if (alpha <= 0f) {
             return;
         }
@@ -1106,14 +1174,16 @@ public final class BoardPanel extends JPanel {
         }
     }
     private void drawBoardMarkups(Graphics2D g, Rectangle board) {
-        if (boardMarkups.isEmpty() && currentMarkup == null) {
+        if (markupInput.isEmpty()) {
             return;
         }
-        int pendingEraseIndex = pendingEraseMarkupIndex();
+        int pendingEraseIndex = markupInput.pendingEraseIndex();
+        List<BoardMarkup> boardMarkups = markupInput.markups();
         for (int i = 0; i < boardMarkups.size(); i++) {
             double opacity = i == pendingEraseIndex ? MARKUP_PENDING_ERASE_OPACITY : 1.0;
             drawBoardMarkup(g, board, boardMarkups.get(i), opacity);
         }
+        BoardMarkup currentMarkup = markupInput.currentMarkup();
         if (currentMarkup != null && pendingEraseIndex < 0) {
             drawBoardMarkup(g, board, currentMarkup, MARKUP_CURRENT_OPACITY);
         }
@@ -1121,7 +1191,7 @@ public final class BoardPanel extends JPanel {
     private void drawBoardMarkup(Graphics2D g, Rectangle board, BoardMarkup markup, double opacity) {
         Color savedColor = g.getColor();
         try {
-            g.setColor(markupColor(markup.brush().themedColor(), opacity));
+            g.setColor(markupColor(markup.brush().displayColor(), opacity));
             if (markup.isCircle()) {
                 drawMarkupCircle(g, squareBounds(board, markup.from()), markup.brush());
             } else {
@@ -1157,20 +1227,8 @@ public final class BoardPanel extends JPanel {
         int alpha = (int) Math.round(color.getAlpha() * Math.max(0.0, Math.min(1.0, opacity)));
         return Theme.withAlpha(color, alpha);
     }
-    private int pendingEraseMarkupIndex() {
-        if (currentMarkup == null) {
-            return -1;
-        }
-        for (int i = 0; i < boardMarkups.size(); i++) {
-            BoardMarkup existing = boardMarkups.get(i);
-            if (sameMarkupEndpoints(existing, currentMarkup) && sameMarkupBrush(existing, currentMarkup)) {
-                return i;
-            }
-        }
-        return -1;
-    }
     private void drawSnapAnimation(Graphics2D g, Rectangle board) {
-        SnapAnimation snap = snapAnimation;
+        SnapAnimation snap = animationState.snapAnimation();
         if (snap == null) {
             return;
         }
@@ -1235,6 +1293,7 @@ public final class BoardPanel extends JPanel {
         }
     }
     private void drawSelection(Graphics2D g, Rectangle board) {
+        byte selectedSquare = pieceInput.selectedSquare();
         if (position == null || selectedSquare == Field.NO_SQUARE) {
             return;
         }
@@ -1244,7 +1303,11 @@ public final class BoardPanel extends JPanel {
             BoardStyle.drawFilledSquareHighlight(g, selected, Theme.SELECTED_EDGE);
         }
         if (showLegalMovePreview) {
-            drawLegalTargets(g, board);
+            if (premoveSelection) {
+                drawPremoveTargets(g, board);
+            } else {
+                drawLegalTargets(g, board);
+            }
             drawDropTarget(g, board);
         }
     }
@@ -1298,11 +1361,24 @@ public final class BoardPanel extends JPanel {
     }
     private void drawLegalTargets(Graphics2D g, Rectangle board) {
         Rectangle clip = g.getClipBounds();
-        for (byte target : selectedLegalTargets) {
+        byte selectedSquare = pieceInput.selectedSquare();
+        for (byte target : pieceInput.selectedLegalTargets()) {
             if (target != selectedSquare) {
                 Rectangle bounds = squareBounds(board, target);
                 if (intersectsClip(clip, bounds)) {
                     BoardStyle.drawLegalTarget(g, bounds, isCaptureTarget(target));
+                }
+            }
+        }
+    }
+    private void drawPremoveTargets(Graphics2D g, Rectangle board) {
+        Rectangle clip = g.getClipBounds();
+        byte selectedSquare = pieceInput.selectedSquare();
+        for (byte target : pieceInput.selectedLegalTargets()) {
+            if (target != selectedSquare) {
+                Rectangle bounds = squareBounds(board, target);
+                if (intersectsClip(clip, bounds)) {
+                    BoardStyle.drawPremoveTarget(g, bounds, isOccupied(target));
                 }
             }
         }
@@ -1327,6 +1403,7 @@ public final class BoardPanel extends JPanel {
         }
     }
     private void drawWrongMoveMarker(Graphics2D g, Rectangle board) {
+        byte wrongMoveMarkerSquare = animationState.wrongMoveMarkerSquare();
         if (wrongMoveMarkerSquare == Field.NO_SQUARE) {
             return;
         }
@@ -1389,16 +1466,16 @@ public final class BoardPanel extends JPanel {
         for (byte square = 0; square < 64; square++) {
             byte piece = pieces[square];
             if (piece != Piece.EMPTY) {
-                if (draggingPiece && square == dragSquare) {
+                if (pieceInput.isDragging() && square == pieceInput.dragSquare()) {
                     continue;
                 }
-                if (moveAnimationActive && square == animatedMoveTo) {
+                if (animationState.moveAnimationActive() && square == animationState.animatedMoveTo()) {
                     continue;
                 }
-                if (moveAnimationActive && square == animatedSecondaryMoveTo) {
+                if (animationState.moveAnimationActive() && square == animationState.animatedSecondaryMoveTo()) {
                     continue;
                 }
-                if (square == snapHiddenSquare) {
+                if (square == animationState.snapHiddenSquare()) {
                     continue;
                 }
                 Rectangle bounds = squareBounds(board, square);
@@ -1422,12 +1499,32 @@ public final class BoardPanel extends JPanel {
         arrowPainter.drawSuggested(g, center(board, Move.getFromIndex(suggestedMove)),
                 center(board, Move.getToIndex(suggestedMove)), gap);
     }
-    private void drawAnimatedMove(Graphics2D g, Rectangle board) {
-        if (!moveAnimationActive) {
+    private void drawPremove(Graphics2D g, Rectangle board) {
+        if (pendingPremove == Move.NO_MOVE || !legalPremoveShape(pendingPremove)) {
             return;
         }
-        drawAnimatedPiece(g, board, animatedMovePiece, animatedMoveFrom, animatedMoveTo);
-        drawAnimatedPiece(g, board, animatedSecondaryMovePiece, animatedSecondaryMoveFrom, animatedSecondaryMoveTo);
+        Rectangle clip = g.getClipBounds();
+        Rectangle from = squareBounds(board, Move.getFromIndex(pendingPremove));
+        Rectangle to = squareBounds(board, Move.getToIndex(pendingPremove));
+        if (intersectsClip(clip, from)) {
+            BoardStyle.drawCurrentPremoveSquare(g, from);
+        }
+        if (intersectsClip(clip, to)) {
+            BoardStyle.drawCurrentPremoveSquare(g, to);
+        }
+    }
+    private void drawAnimatedMove(Graphics2D g, Rectangle board) {
+        if (!animationState.moveAnimationActive()) {
+            return;
+        }
+        drawAnimatedPiece(g, board,
+                animationState.animatedMovePiece(),
+                animationState.animatedMoveFrom(),
+                animationState.animatedMoveTo());
+        drawAnimatedPiece(g, board,
+                animationState.animatedSecondaryMovePiece(),
+                animationState.animatedSecondaryMoveFrom(),
+                animationState.animatedSecondaryMoveTo());
     }
     private void drawAnimatedPiece(Graphics2D g, Rectangle board, byte piece, byte from, byte to) {
         if (piece == Piece.EMPTY || from == Field.NO_SQUARE || to == Field.NO_SQUARE) {
@@ -1442,7 +1539,11 @@ public final class BoardPanel extends JPanel {
         drawPieceAt(g, cell, x, y, piece);
     }
     private void drawAnimatedCapture(Graphics2D g, Rectangle board) {
-        if (!moveAnimationActive || animatedCapturePiece == Piece.EMPTY || animatedCaptureSquare == Field.NO_SQUARE) {
+        byte animatedCapturePiece = animationState.animatedCapturePiece();
+        byte animatedCaptureSquare = animationState.animatedCaptureSquare();
+        if (!animationState.moveAnimationActive()
+                || animatedCapturePiece == Piece.EMPTY
+                || animatedCaptureSquare == Field.NO_SQUARE) {
             return;
         }
         int cell = board.width / 8;
@@ -1457,23 +1558,31 @@ public final class BoardPanel extends JPanel {
         }
     }
     private void drawDropTarget(Graphics2D g, Rectangle board) {
-        if (!draggingPiece) {
+        if (!pieceInput.isDragging()) {
             return;
         }
-        if (dragTargetSquare != Field.NO_SQUARE) {
-            Rectangle bounds = squareBounds(board, dragTargetSquare);
+        byte targetSquare = pieceInput.dragTargetSquare();
+        if (targetSquare != Field.NO_SQUARE) {
+            Rectangle bounds = squareBounds(board, targetSquare);
             if (intersectsClip(g.getClipBounds(), bounds)) {
-                BoardStyle.drawLegalTarget(g, bounds, isCaptureTarget(dragTargetSquare));
+                if (premoveSelection) {
+                    BoardStyle.drawPremoveTarget(g, bounds, isOccupied(targetSquare));
+                } else {
+                    BoardStyle.drawLegalTarget(g, bounds, isDragCaptureTarget(targetSquare));
+                }
             }
         }
     }
     private void drawDraggedPiece(Graphics2D g, Rectangle board) {
-        if (!draggingPiece || draggedPiece == Piece.EMPTY) {
+        byte draggedPiece = pieceInput.draggedPiece();
+        if (!pieceInput.isDragging() || draggedPiece == Piece.EMPTY) {
             return;
         }
         int cell = board.width / 8;
         int scaledCell = (int) Math.round(cell * DRAG_SCALE);
         int offset = (scaledCell - cell) / 2;
+        int dragX = pieceInput.dragX();
+        int dragY = pieceInput.dragY();
         int pieceX = dragX - cell / 2 - offset;
         int pieceY = dragY - cell / 2 - offset;
         Rectangle bounds = new Rectangle(pieceX, pieceY, scaledCell, scaledCell);
@@ -1520,11 +1629,15 @@ public final class BoardPanel extends JPanel {
             handleSetupEdit(event);
             return;
         }
+        if (markupInput.directAnnotationMode() && SwingUtilities.isLeftMouseButton(event)) {
+            handleMarkupPress(event);
+            return;
+        }
         if (SwingUtilities.isRightMouseButton(event)) {
             handleMarkupPress(event);
             return;
         }
-        if (position == null || moveHandler == null) {
+        if (position == null || (moveHandler == null && premoveHandler == null)) {
             return;
         }
         if (!SwingUtilities.isLeftMouseButton(event)) {
@@ -1544,8 +1657,17 @@ public final class BoardPanel extends JPanel {
         if (square == Field.NO_SQUARE) {
             return;
         }
-        if (selectedSquare != Field.NO_SQUARE) {
-            short[] candidates = matchingMovesTo(selectedLegalMoves, square);
+        if (pieceInput.hasSelection()) {
+            if (premoveSelection) {
+                byte from = pieceInput.selectedSquare();
+                byte selectedPiece = isSquareIndex(from) ? position.getBoard()[from] : Piece.EMPTY;
+                if (queuePremove(from, square, selectedPiece)) {
+                    clearSelection();
+                    repaint();
+                    return;
+                }
+            }
+            short[] candidates = pieceInput.selectedMovesTo(square);
             if (candidates.length > 0) {
                 clearSelection();
                 playOrPromote(candidates, event.getX(), event.getY());
@@ -1553,7 +1675,7 @@ public final class BoardPanel extends JPanel {
             }
         }
         byte piece = position.getBoard()[square];
-        if (piece != Piece.EMPTY && Piece.isWhite(piece) == position.isWhiteToMove()) {
+        if (moveHandler != null && piece != Piece.EMPTY && Piece.isWhite(piece) == position.isWhiteToMove()) {
             if (dragStartFilter != null
                     && !dragStartFilter.test(new DragContext(square, piece, position.toString()))) {
                 clearSelection();
@@ -1561,12 +1683,12 @@ public final class BoardPanel extends JPanel {
                 return;
             }
             selectSquare(square);
-            dragSquare = square;
-            draggedPiece = piece;
-            dragStartX = event.getX();
-            dragStartY = event.getY();
-            dragX = dragStartX;
-            dragY = dragStartY;
+            pieceInput.startDrag(square, piece, event.getX(), event.getY());
+            warmDragPieceImage(piece);
+            setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
+        } else if (isPremoveSource(square, piece)) {
+            selectPremoveSquare(square);
+            pieceInput.startDrag(square, piece, event.getX(), event.getY());
             warmDragPieceImage(piece);
             setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
         } else {
@@ -1575,26 +1697,48 @@ public final class BoardPanel extends JPanel {
         repaint();
     }
     private void handleSetupEdit(MouseEvent event) {
-        if (!setupPaintGesture(event) && !setupEraseGesture(event)) {
+        boolean paintGesture = setupPaintGesture(event);
+        boolean eraseGesture = setupEraseGesture(event);
+        if (!paintGesture && !eraseGesture) {
             return;
         }
         byte square = squareAt(event.getX(), event.getY());
         if (square == Field.NO_SQUARE) {
             return;
         }
-        byte piece = setupEraseGesture(event) ? Piece.EMPTY : setupEditSelectedPiece;
+        byte piece = eraseGesture ? Piece.EMPTY : setupEditSelectedPiece;
         setSetupEditPieceAt(square, piece, true);
         setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
         event.consume();
     }
+
+    /**
+     * Returns whether a setup-editor event should paint the selected piece.
+     *
+     * @param event mouse event
+     * @return true for left-button setup painting
+     */
     private static boolean setupPaintGesture(MouseEvent event) {
         return SwingUtilities.isLeftMouseButton(event)
                 || (event.getModifiersEx() & MouseEvent.BUTTON1_DOWN_MASK) != 0;
     }
+
+    /**
+     * Returns whether a setup-editor event should erase the target square.
+     *
+     * @param event mouse event
+     * @return true for right-button setup erasing
+     */
     private static boolean setupEraseGesture(MouseEvent event) {
         return SwingUtilities.isRightMouseButton(event)
                 || (event.getModifiersEx() & MouseEvent.BUTTON3_DOWN_MASK) != 0;
     }
+
+    /**
+     * Begins one board-annotation gesture from the pressed square.
+     *
+     * @param event press event
+     */
     private void handleMarkupPress(MouseEvent event) {
         byte square = squareAt(event.getX(), event.getY());
         if (square == Field.NO_SQUARE) {
@@ -1604,73 +1748,32 @@ public final class BoardPanel extends JPanel {
         clearDragState();
         clearSelection();
         cancelPromotionOverlay();
-        markupOrigin = square;
-        markupBrush = markupBrush(event);
-        currentMarkup = markupFromPointer(event.getX(), event.getY());
+        markupInput.begin(square, square, markupInput.brushFor(event));
         repaint();
     }
+
+    /**
+     * Updates the preview annotation while the pointer is dragged.
+     *
+     * @param event drag event
+     */
     private void handleMarkupDrag(MouseEvent event) {
         event.consume();
-        currentMarkup = markupFromPointer(event.getX(), event.getY());
+        markupInput.update(squareAt(event.getX(), event.getY()));
         repaint();
     }
+
+    /**
+     * Completes the active annotation gesture and toggles the resulting markup.
+     *
+     * @param event release event
+     */
     private void handleMarkupRelease(MouseEvent event) {
         event.consume();
-        BoardMarkup finished = markupFromPointer(event.getX(), event.getY());
-        clearMarkupGesture();
-        if (finished != null) {
-            toggleMarkup(finished);
-        }
+        markupInput.complete(squareAt(event.getX(), event.getY()));
         repaint();
     }
-    private BoardMarkup markupFromPointer(int pointerX, int pointerY) {
-        byte target = squareAt(pointerX, pointerY);
-        if (target == Field.NO_SQUARE || markupBrush == null || markupOrigin == Field.NO_SQUARE) {
-            return null;
-        }
-    return new BoardMarkup(markupOrigin, target == markupOrigin ? MARKUP_CIRCLE : target, markupBrush);
-    }
-    private void clearMarkupGesture() {
-        currentMarkup = null;
-        markupOrigin = Field.NO_SQUARE;
-        markupBrush = null;
-    }
-    private static MarkupBrush markupBrush(MouseEvent event) {
-        boolean modA = event.isShiftDown() || event.isControlDown();
-        boolean modB = event.isAltDown() || event.isMetaDown() || event.isAltGraphDown();
-        return MarkupBrush.forGesture((modA ? 1 : 0) + (modB ? 2 : 0));
-    }
-    private void toggleMarkup(BoardMarkup markup) {
-        boolean foundSameEndpoints = false;
-        boolean foundSameBrush = false;
-        for (int i = boardMarkups.size() - 1; i >= 0; i--) {
-            BoardMarkup existing = boardMarkups.get(i);
-            if (sameMarkupEndpoints(existing, markup)) {
-                foundSameEndpoints = true;
-                foundSameBrush |= sameMarkupBrush(existing, markup);
-                boardMarkups.remove(i);
-            }
-        }
-        if (!foundSameEndpoints || !foundSameBrush) {
-            boardMarkups.add(markup);
-        }
-    }
-    private static boolean sameMarkupEndpoints(BoardMarkup first, BoardMarkup second) {
-        return first.from() == second.from() && first.to() == second.to();
-    }
-    private static boolean sameMarkupBrush(BoardMarkup first, BoardMarkup second) {
-        return first.brush().matches(second.brush());
-    }
-    private static short[] matchingMovesTo(short[] moves, byte to) {
-        int count = 0;
-        short[] buffer = new short[moves.length];
-        for (short move : moves) {
-            if (Move.getToIndex(move) == to) {
-                buffer[count++] = move;
-            }
-        }
-        return Arrays.copyOf(buffer, count);
-    }
+
     private void playOrPromote(short[] candidates, int popupX, int popupY) {
         boolean anyPromotion = false;
         for (short m : candidates) {
@@ -1703,38 +1806,36 @@ public final class BoardPanel extends JPanel {
             handleSetupEdit(event);
             return;
         }
-        if (markupOrigin != Field.NO_SQUARE) {
+        if (markupInput.hasGesture()) {
             handleMarkupDrag(event);
             return;
         }
-        if (dragSquare == Field.NO_SQUARE || draggedPiece == Piece.EMPTY) {
+        if (!pieceInput.hasDragSource()) {
             return;
         }
         if (!SwingUtilities.isLeftMouseButton(event)) {
             return;
         }
-        boolean wasDragging = draggingPiece;
+        boolean wasDragging = pieceInput.isDragging();
         Rectangle board = boardBounds();
-        Rectangle oldDirty = dragRepaintBounds(board, dragTargetSquare, dragHoverSquare,
-                dragX, dragY, wasDragging, false);
-        dragX = event.getX();
-        dragY = event.getY();
-        if (!draggingPiece && isDragPastThreshold(dragStartX, dragStartY, dragX, dragY)) {
-            draggingPiece = true;
+        Rectangle oldDirty = dragRepaintBounds(board, pieceInput.dragTargetSquare(), pieceInput.dragHoverSquare(),
+                pieceInput.dragX(), pieceInput.dragY(), wasDragging, false);
+        pieceInput.updatePointer(event.getX(), event.getY());
+        if (!pieceInput.isDragging() && pieceInput.isPastDragThreshold(DRAG_THRESHOLD)) {
+            pieceInput.setDragging(true);
         }
-        if (draggingPiece) {
-            byte hovered = squareAt(dragX, dragY);
-            dragHoverSquare = hovered;
-            dragTargetSquare = legalDropTarget(hovered);
+        if (pieceInput.isDragging()) {
+            byte hovered = squareAt(pieceInput.dragX(), pieceInput.dragY());
+            pieceInput.setDragHoverTarget(hovered,
+                    premoveSelection ? premoveDropTarget(hovered) : legalDropTarget(hovered));
         } else {
-            dragTargetSquare = Field.NO_SQUARE;
-            dragHoverSquare = Field.NO_SQUARE;
+            pieceInput.clearDragHoverTarget();
         }
-        if (wasDragging || draggingPiece) {
-            boolean dragStarted = !wasDragging && draggingPiece;
+        if (wasDragging || pieceInput.isDragging()) {
+            boolean dragStarted = !wasDragging && pieceInput.isDragging();
             scheduleDragRepaint(union(oldDirty,
-                    dragRepaintBounds(board, dragTargetSquare, dragHoverSquare,
-                            dragX, dragY, draggingPiece, dragStarted)));
+                    dragRepaintBounds(board, pieceInput.dragTargetSquare(), pieceInput.dragHoverSquare(),
+                            pieceInput.dragX(), pieceInput.dragY(), pieceInput.isDragging(), dragStarted)));
         }
     }
     private void handleRelease(MouseEvent event) {
@@ -1742,25 +1843,37 @@ public final class BoardPanel extends JPanel {
             updateCursor(event);
             return;
         }
-        if (markupOrigin != Field.NO_SQUARE) {
+        if (markupInput.hasGesture()) {
             handleMarkupRelease(event);
             return;
         }
-        if (dragSquare == Field.NO_SQUARE) {
+        if (!pieceInput.hasDragSource()) {
             updateCursor(event);
             return;
         }
-        if (!draggingPiece) {
+        if (!pieceInput.isDragging()) {
             clearDragState();
             updateCursor(event);
             return;
         }
-        byte from = dragSquare;
-        byte piece = draggedPiece;
+        byte from = pieceInput.dragSquare();
+        byte piece = pieceInput.draggedPiece();
         int releaseX = event.getX();
         int releaseY = event.getY();
         byte target = squareAt(releaseX, releaseY);
-        short[] candidates = target == Field.NO_SQUARE ? new short[0] : matchingMovesTo(legalMovesFrom(from), target);
+        if (premoveSelection) {
+            boolean queued = queuePremove(from, target, piece);
+            clearDragState();
+            clearSelection();
+            setCursor(Cursor.getDefaultCursor());
+            if (queued) {
+                startSnapAnimation(piece, releaseX, releaseY, from, true);
+            }
+            repaint();
+            return;
+        }
+        short[] candidates = target == Field.NO_SQUARE ? new short[0]
+                : BoardPieceInput.matchingMovesTo(legalMovesFrom(from), target);
         short defaultMove = candidates.length > 0 ? candidates[0] : Move.NO_MOVE;
         short resolved = defaultMove;
         if (dropResolver != null) {
@@ -1775,7 +1888,7 @@ public final class BoardPanel extends JPanel {
             startSnapAnimation(piece, releaseX, releaseY, target, false);
             // The snap animation IS the move animation visually; suppress the
             // redundant from->to slide that setPosition would otherwise start.
-            suppressNextMoveAnimation = true;
+            animationState.suppressNextMoveAnimation();
             if (candidates.length == 1 || !hasPromotionAlternatives(candidates)) {
                 moveHandler.play(resolved);
             } else {
@@ -1806,25 +1919,34 @@ public final class BoardPanel extends JPanel {
         if (!isSquareIndex(landingSquare)) {
             return;
         }
-        if (!animationsEnabled) {
+        if (!animationState.animationsEnabled()) {
             return;
         }
         Rectangle bounds = squareBounds(boardBounds(), landingSquare);
         int cell = bounds.width;
-        int duration = snapback ? snapbackAnimationMs : snapAnimationMs;
+        int duration = animationState.snapDuration(snapback);
         if (duration <= 0 || cell <= 0) {
             return;
         }
-        snapAnimation = new SnapAnimation(piece, fromX - cell / 2, fromY - cell / 2, bounds.x, bounds.y, duration,
-                snapback);
-        snapHiddenSquare = landingSquare;
+        animationState.startSnapAnimation(
+                new SnapAnimation(piece, fromX - cell / 2, fromY - cell / 2, bounds.x, bounds.y, duration,
+                        snapback),
+                landingSquare);
         startAnimation();
     }
     private byte legalDropTarget(byte square) {
+        byte dragSquare = pieceInput.dragSquare();
         if (square == Field.NO_SQUARE || dragSquare == Field.NO_SQUARE) {
             return Field.NO_SQUARE;
         }
-    return findLegalMove(dragSquare, square) == Move.NO_MOVE ? Field.NO_SQUARE : square;
+        return findLegalMove(dragSquare, square) == Move.NO_MOVE ? Field.NO_SQUARE : square;
+    }
+    private byte premoveDropTarget(byte square) {
+        byte dragSquare = pieceInput.dragSquare();
+        if (square == Field.NO_SQUARE || dragSquare == Field.NO_SQUARE || square == dragSquare) {
+            return Field.NO_SQUARE;
+        }
+        return isPremoveTarget(dragSquare, pieceInput.draggedPiece(), square) ? square : Field.NO_SQUARE;
     }
     private boolean isCaptureTarget(byte square) {
         if (position == null || !isSquareIndex(square)) {
@@ -1833,18 +1955,125 @@ public final class BoardPanel extends JPanel {
         byte piece = position.getBoard()[square];
         return piece != Piece.EMPTY && Piece.isWhite(piece) != position.isWhiteToMove();
     }
+    private boolean isOccupied(byte square) {
+        return position != null && isSquareIndex(square) && position.getBoard()[square] != Piece.EMPTY;
+    }
+    private boolean isDragCaptureTarget(byte square) {
+        if (!premoveSelection || position == null || !isSquareIndex(square)) {
+            return isCaptureTarget(square);
+        }
+        byte target = position.getBoard()[square];
+        byte dragged = pieceInput.draggedPiece();
+        return target != Piece.EMPTY && dragged != Piece.EMPTY && Piece.isWhite(target) != Piece.isWhite(dragged);
+    }
+    private boolean isPremoveSource(byte square, byte piece) {
+        if (position == null || premoveStartFilter == null || premoveHandler == null) {
+            return false;
+        }
+        if (!isSquareIndex(square) || piece == Piece.EMPTY) {
+            return false;
+        }
+        return premoveStartFilter.test(new DragContext(square, piece, position.toString()));
+    }
+    private boolean queuePremove(byte from, byte to, byte piece) {
+        if (premoveHandler == null || position == null) {
+            return false;
+        }
+        if (!isSquareIndex(from) || !isSquareIndex(to) || from == to || piece == Piece.EMPTY
+                || !isPremoveTarget(from, piece, to)) {
+            return false;
+        }
+        short move = Move.of(from, to, premovePromotion(piece, to));
+        boolean accepted = premoveHandler.queue(
+                new PremoveContext(from, to, piece, position.toString(), move));
+        if (accepted) {
+            setPremove(move);
+        }
+        return accepted;
+    }
+    private byte[] premoveTargets(byte from, byte piece) {
+        if (!isSquareIndex(from) || piece == Piece.EMPTY) {
+            return new byte[0];
+        }
+        byte[] buffer = new byte[64];
+        int count = 0;
+        for (byte target = 0; target < 64; target++) {
+            if (target != from && isPremoveTarget(from, piece, target)) {
+                buffer[count++] = target;
+            }
+        }
+        return Arrays.copyOf(buffer, count);
+    }
+    private boolean isPremoveTarget(byte from, byte piece, byte to) {
+        if (!isSquareIndex(from) || !isSquareIndex(to) || from == to || piece == Piece.EMPTY) {
+            return false;
+        }
+        int fromFile = Field.getX(from);
+        int fromRank = Field.getY(from);
+        int toFile = Field.getX(to);
+        int toRank = Field.getY(to);
+        int df = Math.abs(toFile - fromFile);
+        int dr = Math.abs(toRank - fromRank);
+        return switch (Math.abs(piece)) {
+            case Piece.PAWN -> isPremovePawnTarget(piece, fromFile, fromRank, toFile, toRank);
+            case Piece.KNIGHT -> df * dr == 2;
+            case Piece.BISHOP -> df == dr;
+            case Piece.ROOK -> df == 0 || dr == 0;
+            case Piece.QUEEN -> df == dr || df == 0 || dr == 0;
+            case Piece.KING -> Math.max(df, dr) == 1
+                    || isPremoveCastleTarget(piece, fromFile, fromRank, toFile, toRank);
+            default -> false;
+        };
+    }
+    private static boolean isPremovePawnTarget(byte piece, int fromFile, int fromRank, int toFile, int toRank) {
+        int direction = Piece.isWhite(piece) ? 1 : -1;
+        int df = Math.abs(toFile - fromFile);
+        int rankDelta = toRank - fromRank;
+        if (df == 1) {
+            return rankDelta == direction;
+        }
+        if (df != 0) {
+            return false;
+        }
+        if (rankDelta == direction) {
+            return true;
+        }
+        int startRank = Piece.isWhite(piece) ? 1 : 6;
+        return fromRank == startRank && rankDelta == direction * 2;
+    }
+    private boolean isPremoveCastleTarget(byte piece, int fromFile, int fromRank, int toFile, int toRank) {
+        boolean white = Piece.isWhite(piece);
+        int homeRank = white ? 0 : 7;
+        if (fromFile != 4 || fromRank != homeRank || toRank != homeRank) {
+            return false;
+        }
+        byte[] board = position == null ? null : position.getBoard();
+        if (board == null) {
+            return false;
+        }
+        byte rook = white ? Piece.WHITE_ROOK : Piece.BLACK_ROOK;
+        if (toFile == 6) {
+            return board[(byte) Field.toIndex(7, homeRank)] == rook;
+        }
+        if (toFile == 2) {
+            return board[(byte) Field.toIndex(0, homeRank)] == rook;
+        }
+        return false;
+    }
+    private static byte premovePromotion(byte piece, byte to) {
+        if (piece != Piece.WHITE_PAWN && piece != Piece.BLACK_PAWN) {
+            return 0;
+        }
+        int rank = Field.getY(to);
+        return rank == 0 || rank == 7 ? (byte) 4 : 0;
+    }
     private void clearDragState() {
         cancelPendingDragRepaint();
-        dragSquare = Field.NO_SQUARE;
-        dragTargetSquare = Field.NO_SQUARE;
-        dragHoverSquare = Field.NO_SQUARE;
-        draggedPiece = Piece.EMPTY;
-        draggingPiece = false;
+        pieceInput.clearDrag();
     }
     private void clearSelection() {
-        selectedSquare = Field.NO_SQUARE;
-        selectedLegalMoves = new short[0];
-        selectedLegalTargets = new byte[0];
+        pieceInput.clearSelection();
+        premoveSelection = false;
     }
     private void setSetupEditPieceAt(byte square, byte piece, boolean notify) {
         if (!isSquareIndex(square)) {
@@ -1864,8 +2093,14 @@ public final class BoardPanel extends JPanel {
         }
     }
     private void selectSquare(byte square) {
-        selectedSquare = square;
+        premoveSelection = false;
+        pieceInput.select(square, new short[0], new byte[0]);
         refreshSelectedLegalMoves();
+    }
+    private void selectPremoveSquare(byte square) {
+        premoveSelection = true;
+        byte piece = position == null || !isSquareIndex(square) ? Piece.EMPTY : position.getBoard()[square];
+        pieceInput.select(square, new short[0], premoveTargets(square, piece));
     }
     private void updateCursor(MouseEvent event) {
         if (setupEditMode) {
@@ -1883,7 +2118,8 @@ public final class BoardPanel extends JPanel {
         }
         byte square = squareAt(event.getX(), event.getY());
         byte piece = square == Field.NO_SQUARE ? Piece.EMPTY : position.getBoard()[square];
-        boolean draggable = piece != Piece.EMPTY && Piece.isWhite(piece) == position.isWhiteToMove();
+        boolean draggable = piece != Piece.EMPTY && ((moveHandler != null && Piece.isWhite(piece) == position.isWhiteToMove())
+                || isPremoveSource(square, piece));
         setCursor(draggable ? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) : Cursor.getDefaultCursor());
         notifyMouseover(square);
     }
@@ -1898,10 +2134,10 @@ public final class BoardPanel extends JPanel {
         mouseoverSquareObserver.accept(square);
     }
     private short findLegalMove(byte from, byte to) {
-        if (selectedSquare == from) {
-    return findLegalMove(selectedLegalMoves, to);
+        if (pieceInput.isSelected(from)) {
+            return findLegalMove(pieceInput.selectedLegalMoves(), to);
         }
-    return findLegalMove(legalMovesFrom(from), to);
+        return findLegalMove(legalMovesFrom(from), to);
     }
     private static short findLegalMove(short[] moves, byte to) {
         short first = Move.NO_MOVE;
@@ -1933,6 +2169,7 @@ public final class BoardPanel extends JPanel {
         return Arrays.copyOf(buffer, count);
     }
     private void refreshSelectedLegalMoves() {
+        byte selectedSquare = pieceInput.selectedSquare();
         if (position == null || selectedSquare == Field.NO_SQUARE) {
             clearSelection();
             return;
@@ -1956,8 +2193,8 @@ public final class BoardPanel extends JPanel {
                 }
             }
         }
-        selectedLegalMoves = Arrays.copyOf(moveBuffer, moveCount);
-        selectedLegalTargets = Arrays.copyOf(targetBuffer, targetCount);
+        pieceInput.select(selectedSquare, Arrays.copyOf(moveBuffer, moveCount),
+                Arrays.copyOf(targetBuffer, targetCount));
     }
     private static boolean containsTarget(byte[] targets, int count, byte target) {
         for (int i = 0; i < count; i++) {
@@ -2034,18 +2271,19 @@ public final class BoardPanel extends JPanel {
                 whiteDown,
                 lastMove,
                 suggestedMove,
-                selectedSquare,
-                selectedLegalTargets,
+                pieceInput.selectedSquare(),
+                pieceInput.selectedLegalTargets(),
                 selectedCaptureTargets(),
                 checkedKingSquare(),
                 new LinkedHashMap<>(squareHighlights),
-                new ArrayList<>(boardMarkups),
+                markupInput.copyMarkups(),
                 showNotation,
                 showLegalMovePreview,
                 showLastMoveHighlight,
                 showSuggestedMoveArrow);
     }
     private byte[] selectedCaptureTargets() {
+        byte[] selectedLegalTargets = pieceInput.selectedLegalTargets();
         byte[] captures = new byte[selectedLegalTargets.length];
         int count = 0;
         for (byte target : selectedLegalTargets) {
@@ -2061,11 +2299,6 @@ public final class BoardPanel extends JPanel {
     private BufferedImage pieceImage(byte piece, int cell) {
         return imageCache.pieceImage(piece, cell);
     }
-    private static boolean isDragPastThreshold(int startX, int startY, int currentX, int currentY) {
-        long dx = (long) currentX - startX;
-        long dy = (long) currentY - startY;
-        return dx * dx + dy * dy >= (long) DRAG_THRESHOLD * DRAG_THRESHOLD;
-    }
     private Rectangle dragRepaintBounds(
             Rectangle board,
             byte targetSquare,
@@ -2075,6 +2308,7 @@ public final class BoardPanel extends JPanel {
             boolean includeDraggedPiece,
             boolean includeOriginSquare) {
         Rectangle dirty = null;
+        byte dragSquare = pieceInput.dragSquare();
         if (includeOriginSquare && isSquareIndex(dragSquare)) {
             dirty = union(dirty, expanded(squareBounds(board, dragSquare), DRAG_REPAINT_PADDING));
         }
@@ -2084,7 +2318,7 @@ public final class BoardPanel extends JPanel {
         if (isSquareIndex(hoverSquare)) {
             dirty = union(dirty, expanded(squareBounds(board, hoverSquare), DRAG_REPAINT_PADDING));
         }
-        if (includeDraggedPiece && draggedPiece != Piece.EMPTY) {
+        if (includeDraggedPiece && pieceInput.draggedPiece() != Piece.EMPTY) {
             int cell = board.width / 8;
             int scaledCell = (int) Math.round(cell * DRAG_SCALE);
             dirty = union(dirty, new Rectangle(
@@ -2161,7 +2395,7 @@ public final class BoardPanel extends JPanel {
     }
     private void startMoveAnimation(byte[] oldBoard, byte[] newBoard, short move,
             boolean reverseMoveAnimation) {
-        if (!animationsEnabled || moveAnimationMs <= 0) {
+        if (!animationState.canAnimateMove()) {
             clearMoveAnimation();
             return;
         }
@@ -2184,13 +2418,9 @@ public final class BoardPanel extends JPanel {
         if (piece == Piece.EMPTY) {
             return;
         }
-        animatedMovePiece = piece;
-        animatedMoveFrom = from;
-        animatedMoveTo = to;
+        animationState.startMove(piece, from, to, System.currentTimeMillis());
         configureAnimatedCapture(oldBoard, newBoard, from, to, piece);
         configureSecondaryMove(oldBoard, newBoard, moveFrom, moveTo, reverseMoveAnimation);
-        moveAnimationStartedAt = System.currentTimeMillis();
-        moveAnimationActive = true;
         startAnimation();
     }
     private static byte animatedPiece(byte[] oldBoard, byte[] newBoard, byte from, byte to) {
@@ -2204,8 +2434,7 @@ public final class BoardPanel extends JPanel {
     private void configureAnimatedCapture(byte[] oldBoard, byte[] newBoard, byte from, byte to, byte movingPiece) {
         byte direct = oldBoard[to];
         if (direct != Piece.EMPTY && Piece.isWhite(direct) != Piece.isWhite(movingPiece)) {
-            animatedCapturePiece = direct;
-            animatedCaptureSquare = to;
+            animationState.setAnimatedCapture(direct, to);
             return;
         }
         if (!Piece.isPawn(oldBoard[from]) || Field.getX(from) == Field.getX(to)) {
@@ -2214,8 +2443,7 @@ public final class BoardPanel extends JPanel {
         byte candidate = (byte) ((from / 8) * 8 + Field.getX(to));
         if (isSquareIndex(candidate) && oldBoard[candidate] != Piece.EMPTY && newBoard[candidate] == Piece.EMPTY
                 && Piece.isWhite(oldBoard[candidate]) != Piece.isWhite(movingPiece)) {
-            animatedCapturePiece = oldBoard[candidate];
-            animatedCaptureSquare = candidate;
+            animationState.setAnimatedCapture(oldBoard[candidate], candidate);
         }
     }
     private void configureSecondaryMove(byte[] oldBoard, byte[] newBoard, byte moveFrom, byte moveTo,
@@ -2241,45 +2469,25 @@ public final class BoardPanel extends JPanel {
         if (rookPiece == Piece.EMPTY || newBoard[rookTo] != rookPiece) {
             return;
         }
-        animatedSecondaryMovePiece = rookPiece;
-        animatedSecondaryMoveFrom = rookFrom;
-        animatedSecondaryMoveTo = rookTo;
+        animationState.setAnimatedSecondaryMove(rookPiece, rookFrom, rookTo);
     }
     private void clearMoveAnimation() {
-        animatedMovePiece = Piece.EMPTY;
-        animatedSecondaryMovePiece = Piece.EMPTY;
-        animatedCapturePiece = Piece.EMPTY;
-        animatedMoveFrom = Field.NO_SQUARE;
-        animatedMoveTo = Field.NO_SQUARE;
-        animatedSecondaryMoveFrom = Field.NO_SQUARE;
-        animatedSecondaryMoveTo = Field.NO_SQUARE;
-        animatedCaptureSquare = Field.NO_SQUARE;
-        moveAnimationStartedAt = 0L;
-        moveAnimationActive = false;
+        animationState.clearMoveAnimation();
     }
     private void clearAllAnimations() {
-        clearMoveAnimation();
-        snapAnimation = null;
-        snapHiddenSquare = Field.NO_SQUARE;
-        // Commit a pending flip so disabling animations mid-flight does not
-        // silently leave the board in its pre-flip orientation.
-        if (flipPending) {
+        if (animationState.clearAllAnimations()) {
+            // Commit a pending flip so disabling animations mid-flight does not
+            // silently leave the board in its pre-flip orientation.
             whiteDown = !whiteDown;
-            flipPending = false;
         }
-        flipAnimationStartedAt = 0L;
-        flipAnimationProgress = Double.NaN;
-        clearWrongMoveMarkerState();
         animationTimer.stop();
     }
     private void tickAnimation() {
-        if (moveAnimationActive && moveAnimationProgress() >= 1.0) {
+        if (animationState.moveAnimationActive() && moveAnimationProgress() >= 1.0) {
             clearMoveAnimation();
         }
-        if (snapAnimation != null && snapAnimation.progress() >= 1.0) {
-            SnapAnimation finished = snapAnimation;
-            snapAnimation = null;
-            snapHiddenSquare = Field.NO_SQUARE;
+        SnapAnimation finished = animationState.takeFinishedSnapAnimation();
+        if (finished != null) {
             if (finished.snapback) {
                 if (snapbackEndObserver != null) {
                     snapbackEndObserver.run();
@@ -2288,20 +2496,11 @@ public final class BoardPanel extends JPanel {
                 snapEndObserver.run();
             }
         }
-        if (wrongMoveMarkerSquare != Field.NO_SQUARE && wrongMoveMarkerProgress() >= 1.0) {
+        if (animationState.wrongMoveMarkerSquare() != Field.NO_SQUARE && wrongMoveMarkerProgress() >= 1.0) {
             clearWrongMoveMarkerState();
         }
-        if (!Double.isNaN(flipAnimationProgress)) {
-            double elapsed = (double) System.currentTimeMillis() - (double) flipAnimationStartedAt;
-            flipAnimationProgress = Math.max(0.0, Math.min(1.0, elapsed / Math.max(1.0, flipAnimationMs)));
-            if (flipPending && flipAnimationProgress >= 0.5) {
-                whiteDown = !whiteDown;
-                flipPending = false;
-            }
-            if (flipAnimationProgress >= 1.0) {
-                flipAnimationProgress = Double.NaN;
-                flipPending = false;
-            }
+        if (animationState.tickFlipAnimation(System.currentTimeMillis())) {
+            whiteDown = !whiteDown;
         }
         if (!hasActiveAnimation()) {
             animationTimer.stop();
@@ -2309,28 +2508,16 @@ public final class BoardPanel extends JPanel {
         repaint();
     }
     private boolean hasActiveAnimation() {
-        return moveAnimationActive
-                || snapAnimation != null
-                || !Double.isNaN(flipAnimationProgress)
-                || wrongMoveMarkerSquare != Field.NO_SQUARE;
+        return animationState.hasActiveAnimation();
     }
     private double moveAnimationProgress() {
-        if (!moveAnimationActive || moveAnimationStartedAt == 0L) {
-            return 1.0;
-        }
-        double elapsed = (double) System.currentTimeMillis() - (double) moveAnimationStartedAt;
-        return Math.max(0.0, Math.min(1.0, elapsed / Math.max(1.0, moveAnimationMs)));
+        return animationState.moveAnimationProgress(System.currentTimeMillis());
     }
     private double wrongMoveMarkerProgress() {
-        if (wrongMoveMarkerSquare == Field.NO_SQUARE || wrongMoveMarkerStartedAt == 0L) {
-            return 1.0;
-        }
-        double elapsed = (double) System.currentTimeMillis() - (double) wrongMoveMarkerStartedAt;
-        return Math.max(0.0, Math.min(1.0, elapsed / Math.max(1.0, WRONG_MOVE_MARKER_MS)));
+        return animationState.wrongMoveMarkerProgress(System.currentTimeMillis());
     }
     private void clearWrongMoveMarkerState() {
-        wrongMoveMarkerSquare = Field.NO_SQUARE;
-        wrongMoveMarkerStartedAt = 0L;
+        animationState.clearWrongMoveMarker();
     }
     /**
      * Cubic ease-out matching the short board transition feel.

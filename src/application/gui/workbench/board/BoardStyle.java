@@ -8,6 +8,8 @@ import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.Stroke;
+import java.awt.geom.Area;
+import java.awt.geom.Ellipse2D;
 
 /**
  * Shared chessboard.js-style board painting and square geometry.
@@ -221,6 +223,52 @@ public final class BoardStyle {
             g.setStroke(savedStroke);
             g.setColor(savedColor);
         }
+    }
+
+    /**
+     * Draws a lichess/chessground-style premove destination marker.
+     *
+     * @param g graphics context
+     * @param bounds square bounds
+     * @param occupied true when a piece occupies the destination square
+     */
+    public static void drawPremoveTarget(Graphics2D g, Rectangle bounds, boolean occupied) {
+        Color savedColor = g.getColor();
+        try {
+            int centerX = bounds.x + bounds.width / 2;
+            int centerY = bounds.y + bounds.height / 2;
+            int cell = Math.min(bounds.width, bounds.height);
+            if (occupied) {
+                int outerDiameter = Math.max(24, Math.round(cell * 0.86f));
+                int innerDiameter = Math.max(12, Math.round(cell * 0.66f));
+                Area ring = new Area(new Ellipse2D.Double(
+                        centerX - outerDiameter / 2.0, centerY - outerDiameter / 2.0,
+                        outerDiameter, outerDiameter));
+                ring.subtract(new Area(new Ellipse2D.Double(
+                        centerX - innerDiameter / 2.0, centerY - innerDiameter / 2.0,
+                        innerDiameter, innerDiameter)));
+                g.setColor(new Color(20, 30, 85, 70));
+                g.fill(ring);
+            } else {
+                int diameter = Math.max(10, Math.round(cell * 0.29f));
+                g.setColor(new Color(20, 30, 85, 128));
+                g.fillOval(centerX - diameter / 2, centerY - diameter / 2, diameter, diameter);
+                g.setColor(new Color(32, 48, 133, 160));
+                g.drawOval(centerX - diameter / 2, centerY - diameter / 2, diameter, diameter);
+            }
+        } finally {
+            g.setColor(savedColor);
+        }
+    }
+
+    /**
+     * Draws the lichess/chessground current-premove square fill.
+     *
+     * @param g graphics context
+     * @param bounds square bounds
+     */
+    public static void drawCurrentPremoveSquare(Graphics2D g, Rectangle bounds) {
+        drawFilledSquareHighlight(g, bounds, new Color(20, 30, 85, 128));
     }
 
     /**

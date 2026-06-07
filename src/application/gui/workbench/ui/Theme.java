@@ -1523,7 +1523,7 @@ public final class Theme {
      */
     public static Color withAlpha(Color color, int alpha) {
         int clamped = Math.max(0, Math.min(255, alpha));
-    return new Color(color.getRed(), color.getGreen(), color.getBlue(), clamped);
+        return new Color(color.getRed(), color.getGreen(), color.getBlue(), clamped);
     }
 
     /**

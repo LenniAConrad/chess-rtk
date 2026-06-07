@@ -2,7 +2,10 @@ package application.gui.workbench.play;
 
 import application.gui.workbench.play.Opponent.MoveChoice;
 import application.gui.workbench.ui.Toast;
+import chess.core.Field;
 import chess.core.Move;
+import chess.core.MoveList;
+import chess.core.Piece;
 import chess.core.Position;
 import java.util.ArrayList;
 import java.util.List;
@@ -160,6 +163,12 @@ public final class PlaySession {
     private boolean awaitingEngine;
 
     /**
+     * One queued human premove, resolved after the engine reply reaches the
+     * board. The move is a from/to shape and may be illegal until then.
+     */
+    private short pendingPremove = Move.NO_MOVE;
+
+    /**
      * Current strength profile.
      */
     private StrengthProfile profile = StrengthProfile.ofElo(1200);
@@ -286,6 +295,7 @@ public final class PlaySession {
         host.setBoardWhiteDown(humanIsWhite);
         host.setPositionEntryLocked(true);
         host.clearHint();
+        clearPremove();
 
         Position pos = host.currentPosition();
         if (pos == null) {
@@ -339,6 +349,9 @@ public final class PlaySession {
                 scheduleEngineReply(after);
             }
         } else {
+            if (tryPlayPremove(after)) {
+                return;
+            }
             host.setInputGate(true);
             notifyStatus(after.inCheck() ? "Your move — check" : "Your move");
         }
@@ -436,6 +449,7 @@ public final class PlaySession {
         opponent.cancel();
         awaitingEngine = false;
         host.clearHint();
+        clearPremove();
         // Forget the abandoned line's positions so it cannot inflate the
         // repetition count when the human replays. History keeps plies 0..target.
         while (history.size() > target + 1) {
@@ -457,6 +471,7 @@ public final class PlaySession {
         opponent.cancel();
         awaitingEngine = false;
         host.clearHint();
+        clearPremove();
         host.setPositionEntryLocked(false);
         host.setInputGate(true);
         notifyStatus("No game");
@@ -529,6 +544,15 @@ public final class PlaySession {
     }
 
     /**
+     * Returns the human side resolved for the current or most recent game.
+     *
+     * @return true when the human has the white pieces
+     */
+    public boolean isHumanWhite() {
+        return humanIsWhite;
+    }
+
+    /**
      * Returns whether the human may move right now. Always true when no game is
      * active, so ordinary analysis input is unaffected.
      *
@@ -543,6 +567,131 @@ public final class PlaySession {
         }
         Position pos = host.currentPosition();
         return pos != null && pos.isWhiteToMove() == humanIsWhite;
+    }
+
+    /**
+     * Returns whether the human may queue a premove while the engine is thinking.
+     *
+     * @return true when premove input is allowed
+     */
+    public boolean isPremoveInputAllowed() {
+        if (!active || !awaitingEngine) {
+            return false;
+        }
+        Position pos = host.currentPosition();
+        return pos != null && pos.isWhiteToMove() != humanIsWhite;
+    }
+
+    /**
+     * Returns whether a board square may start a premove gesture.
+     *
+     * @param square source square
+     * @param piece piece on the source square
+     * @return true when the human owns the piece and premove input is open
+     */
+    public boolean isPremoveSourceAllowed(byte square, byte piece) {
+        if (!isPremoveInputAllowed() || !isSquare(square) || piece == Piece.EMPTY) {
+            return false;
+        }
+        if (Piece.isWhite(piece) != humanIsWhite) {
+            return false;
+        }
+        Position pos = host.currentPosition();
+        return pos != null && pos.getBoard()[square] == piece;
+    }
+
+    /**
+     * Queues one premove. A later premove replaces the previous one.
+     *
+     * @param move from/to candidate, usually not legal until the engine replies
+     * @return true when the premove was accepted
+     */
+    public boolean queuePremove(short move) {
+        if (!isPremoveInputAllowed() || move == Move.NO_MOVE) {
+            return false;
+        }
+        byte from = Move.getFromIndex(move);
+        byte to = Move.getToIndex(move);
+        if (!isSquare(from) || !isSquare(to) || from == to) {
+            return false;
+        }
+        Position pos = host.currentPosition();
+        if (pos == null) {
+            return false;
+        }
+        byte piece = pos.getBoard()[from];
+        if (piece == Piece.EMPTY || Piece.isWhite(piece) != humanIsWhite) {
+            return false;
+        }
+        pendingPremove = move;
+        host.clearHint();
+        host.showPremove(move);
+        notifyStatus("Premove queued: " + Move.toString(move));
+        return true;
+    }
+
+    /**
+     * Attempts to execute the queued premove in the just-returned human-to-move
+     * position.
+     *
+     * @param position current position after the engine reply
+     * @return true when a legal premove was played
+     */
+    private boolean tryPlayPremove(Position position) {
+        if (pendingPremove == Move.NO_MOVE || position == null || position.isWhiteToMove() != humanIsWhite) {
+            return false;
+        }
+        short queued = pendingPremove;
+        clearPremove();
+        short legal = resolvePremove(position, queued);
+        if (legal == Move.NO_MOVE) {
+            return false;
+        }
+        host.setInputGate(false);
+        host.playMove(legal);
+        return true;
+    }
+
+    /**
+     * Resolves a queued from/to candidate against the current legal moves.
+     *
+     * @param position position where the premove should execute
+     * @param queued queued premove shape
+     * @return legal move to play, or {@link Move#NO_MOVE}
+     */
+    private static short resolvePremove(Position position, short queued) {
+        byte from = Move.getFromIndex(queued);
+        byte to = Move.getToIndex(queued);
+        byte promotion = Move.getPromotion(queued);
+        MoveList legalMoves = position.legalMoves();
+        for (int i = 0; i < legalMoves.size(); i++) {
+            short move = legalMoves.raw(i);
+            if (Move.getFromIndex(move) != from || Move.getToIndex(move) != to) {
+                continue;
+            }
+            if (Move.getPromotion(move) == promotion) {
+                return move;
+            }
+        }
+        return Move.NO_MOVE;
+    }
+
+    /**
+     * Clears the stored premove and board arrow.
+     */
+    private void clearPremove() {
+        pendingPremove = Move.NO_MOVE;
+        host.clearPremove();
+    }
+
+    /**
+     * Returns whether a byte is a board square.
+     *
+     * @param square square candidate
+     * @return true for 0..63
+     */
+    private static boolean isSquare(byte square) {
+        return square != Field.NO_SQUARE && square >= 0 && square < 64;
     }
 
     /**
@@ -734,6 +883,7 @@ public final class PlaySession {
         opponent.cancel();
         awaitingEngine = false;
         host.clearHint();
+        clearPremove();
         host.setPositionEntryLocked(false);
         host.setInputGate(true);
         host.toast(kind, message);

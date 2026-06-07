@@ -4,6 +4,7 @@ import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import javax.swing.Box;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -76,6 +77,24 @@ final class UiFormControls {
             row.add(label(caption));
         }
         row.add(control);
+        return row;
+    }
+
+    /**
+     * Pairs a fixed-width label with a control in a compact flow row.
+     *
+     * @param text label text
+     * @param control control component
+     * @param labelWidth fixed label width in pixels
+     * @return labelled control row
+     */
+    static JComponent labelControlRow(String text, JComponent control, int labelWidth) {
+        JLabel label = label(text);
+        label.setPreferredSize(new Dimension(labelWidth, Theme.CONTROL_HEIGHT));
+        JPanel row = UiLayout.transparentPanel(new FlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
+        row.add(label);
+        row.add(control);
+        row.add(Box.createHorizontalGlue());
         return row;
     }
 

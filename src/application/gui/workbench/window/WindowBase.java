@@ -87,7 +87,7 @@ public abstract class WindowBase extends JFrame {
 
     /**
      * Board tab index — the unified board surface hosting the Analyze, Play,
-     * Solve, and Relations modes behind a switcher.
+     * Solve, Relations, and Draw modes behind a switcher.
      */
     protected static final int TAB_BOARD = 1;
 
@@ -168,6 +168,11 @@ public abstract class WindowBase extends JFrame {
     protected static final int BOARD_RELATIONS = 3;
 
     /**
+     * Board surface mode: free annotation drawing and board export.
+     */
+    protected static final int BOARD_DRAW = 4;
+
+    /**
      * Engine surface mode: the neural-network visualizer.
      */
     protected static final int ENGINE_NETWORK = 0;
@@ -182,7 +187,12 @@ public abstract class WindowBase extends JFrame {
      */
     protected static final int ENGINE_TREE = 2;
 
-    // Analyze, Play, Solve (puzzles), and Relations are no longer separate
+    /**
+     * Engine surface mode: deterministic self-play gauntlets.
+     */
+    protected static final int ENGINE_GAUNTLET = 3;
+
+    // Analyze, Play, Solve (puzzles), Relations, and Draw are no longer separate
     // top-level tabs: they are modes of the unified Board surface (TAB_BOARD,
     // BOARD_* constants). Network and MCTS are likewise modes of the unified
     // Engine surface (TAB_ENGINE, ENGINE_* constants), and the former CLI tabs
@@ -190,8 +200,8 @@ public abstract class WindowBase extends JFrame {
     // application.gui.workbench.ui.SwitchedWorkspace instances.
 
     /**
-     * The single shared board view. The Board surface's Analyze, Play, and
-     * Relations modes all reuse this one board (it is re-parented into the
+     * The single shared board view. The Board surface's Analyze, Play, Relations,
+     * and Draw modes all reuse this one board (it is re-parented into the
      * active mode and reconfigured for it), so a position carries across modes
      * with no duplicate widgets. The Solve (puzzle) mode keeps its own board
      * because puzzles step through their own positions independent of the
@@ -919,7 +929,7 @@ public abstract class WindowBase extends JFrame {
     protected JTabbedPane analysisTabs;
 
     /**
-     * The unified Board surface hosting the Analyze/Play/Solve/Relations modes.
+     * The unified Board surface hosting the Analyze/Play/Solve/Relations/Draw modes.
      * Assigned when the Board tab is built; used to route navigation and input
      * gating to the active board mode.
      */
@@ -1202,7 +1212,7 @@ public abstract class WindowBase extends JFrame {
     protected abstract JComponent createBoardTab();
 
     /**
-     * Creates the unified Board surface (Analyze/Play/Solve/Relations modes
+     * Creates the unified Board surface (Analyze/Play/Solve/Relations/Draw modes
      * behind a switcher), assigning {@link #boardWorkspace}.
      *
      * @return board workspace component

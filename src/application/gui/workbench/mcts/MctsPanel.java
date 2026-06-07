@@ -3,6 +3,7 @@ package application.gui.workbench.mcts;
 import static application.gui.workbench.ui.Ui.setColumnWidth;
 import application.gui.workbench.Defaults;
 import application.gui.workbench.board.BoardStyle;
+import application.gui.workbench.command.CommandRunner;
 import application.gui.workbench.game.SanRenderer;
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.network.TensorViz;
@@ -313,6 +314,7 @@ public final class MctsPanel extends JPanel implements MctsSession.Listener {
         controls.add(resumeButton);
         controls.add(stopButton);
         controls.add(resetRootButton);
+        controls.add(Ui.button("Copy command", false, event -> copyCliCommand()));
         controls.add(followBoardToggle);
         controls.add(reuseSubtreeToggle);
 
@@ -375,6 +377,31 @@ public final class MctsPanel extends JPanel implements MctsSession.Listener {
                 ((Number) millisSpinner.getValue()).longValue(),
                 ((Number) cpuctSpinner.getValue()).doubleValue(),
                 reuseSubtreeToggle.isSelected()));
+    }
+
+    /**
+     * Copies the equivalent {@code crtk engine search} command for the current
+     * controls to the system clipboard.
+     */
+    private void copyCliCommand() {
+        List<String> args = new ArrayList<>(List.of("engine", "search"));
+        String fen = currentFen.get();
+        if (fen != null && !fen.isBlank()) {
+            args.add("--fen");
+            args.add(fen);
+        }
+        MctsCliSupport.backendArgs(args, (MctsSession.Backend) backendCombo.getSelectedItem());
+        long millis = ((Number) millisSpinner.getValue()).longValue();
+        if (millis > 0) {
+            args.add("--max-duration");
+            args.add(millis + "ms");
+        } else {
+            args.add("--nodes");
+            args.add(Integer.toString(((Number) visitsSpinner.getValue()).intValue()));
+        }
+        args.add("--cpuct");
+        args.add(MctsCliSupport.trimDouble(((Number) cpuctSpinner.getValue()).doubleValue()));
+        CommandRunner.copyToClipboard(CommandRunner.displayCommand(args));
     }
 
     /**

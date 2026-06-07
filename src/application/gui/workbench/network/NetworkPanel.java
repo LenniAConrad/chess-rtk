@@ -3,6 +3,7 @@ package application.gui.workbench.network;
 import application.gui.workbench.Defaults;
 import application.gui.workbench.audio.SoundCue;
 import application.gui.workbench.audio.SoundService;
+import application.gui.workbench.command.CommandRunner;
 import application.gui.workbench.game.Positions;
 import application.gui.workbench.mcts.MctsSearch;
 import application.gui.workbench.mcts.MctsWeightsPanel;
@@ -743,6 +744,7 @@ public final class NetworkPanel extends JPanel {
 
         JPanel actions = Ui.transparentPanel(
     new FlowLayout(FlowLayout.RIGHT, Theme.SPACE_SM, 0));
+        actions.add(Ui.button("Copy command", false, event -> copyCliCommand()));
         actions.add(exportPngButton);
         actions.add(statusBadge);
 
@@ -917,6 +919,45 @@ public final class NetworkPanel extends JPanel {
         java.awt.Window window = SwingUtilities.getWindowAncestor(this);
         if (window instanceof JFrame frame) {
             Toast.show(frame, kind, message);
+        }
+    }
+
+    /**
+     * Copies the equivalent {@code crtk engine trace} command for the active
+     * architecture and position to the system clipboard.
+     */
+    private void copyCliCommand() {
+        java.util.List<String> args = new java.util.ArrayList<>(java.util.List.of("engine", "trace"));
+        String fen = effectiveFen();
+        if (fen != null && !fen.isBlank()) {
+            args.add("--fen");
+            args.add(fen);
+        }
+        traceBackendArgs(args, (String) archCombo.getSelectedItem());
+        CommandRunner.copyToClipboard(CommandRunner.displayCommand(args));
+        statusBadge.success("command copied");
+        toast(Toast.Kind.SUCCESS, "Command copied");
+    }
+
+    /**
+     * Appends the {@code engine trace} backend flags for an architecture label.
+     *
+     * @param args mutable argument list
+     * @param archLabel selected architecture label
+     */
+    private static void traceBackendArgs(List<String> args, String archLabel) {
+        if (ARCH_CNN_LABEL.equals(archLabel)) {
+            args.add("--lc0");
+        } else if (ARCH_BT4_LABEL.equals(archLabel)) {
+            args.add("--bt4");
+            args.add("--weights");
+            args.add("models/bt4-1024x15x32h.bin");
+        } else if (ARCH_OTIS_LABEL.equals(archLabel)) {
+            args.add("--otis");
+        } else if (ARCH_CLASSICAL_LABEL.equals(archLabel)) {
+            args.add("--classical");
+        } else {
+            args.add("--nnue");
         }
     }
 

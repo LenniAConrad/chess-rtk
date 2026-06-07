@@ -17,6 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListCellRenderer;
@@ -92,6 +93,16 @@ public final class PgnExplorerDialog extends JDialog {
     private final transient Consumer<String> textLoader;
 
     /**
+     * Supplies the current Workbench board FEN for position filtering.
+     */
+    private final transient Supplier<String> currentFenSupplier;
+
+    /**
+     * Clipboard helper for selected database rows.
+     */
+    private final transient Consumer<String> copyText;
+
+    /**
      * Text field that filters the currently loaded PGN games.
      */
     private final JTextField searchField = new JTextField();
@@ -134,6 +145,26 @@ public final class PgnExplorerDialog extends JDialog {
     private final JButton openButton = Ui.button("Open PGN", false, event -> openFile());
 
     /**
+     * Position filter button.
+     */
+    private final JButton positionButton = Ui.button("Current Position", false, event -> togglePositionFilter());
+
+    /**
+     * Duplicate cleanup button.
+     */
+    private final JButton dedupeButton = Ui.button("Dedupe Games", false, event -> deduplicateSource());
+
+    /**
+     * Selected-PGN copy button.
+     */
+    private final JButton copyButton = Ui.button("Copy PGN", false, event -> copySelection());
+
+    /**
+     * Prep-report copy button.
+     */
+    private final JButton reportButton = Ui.button("Prep Report", false, event -> copyPrepReport());
+
+    /**
      * Full source text for the currently loaded file or seed.
      */
     private String sourceText = "";
@@ -144,14 +175,41 @@ public final class PgnExplorerDialog extends JDialog {
     private List<PgnExplorerModel.Entry> entries = List.of();
 
     /**
+     * True when result rows are limited to games reaching the current board.
+     */
+    private boolean positionFilterActive;
+
+    /**
      * Creates a PGN explorer dialog.
      *
      * @param owner parent workbench window
      * @param textLoader callback receiving selected text
      */
     public PgnExplorerDialog(JFrame owner, Consumer<String> textLoader) {
+        this(owner, textLoader, () -> "", text -> { });
+    }
+
+    /**
+     * Creates a PGN explorer dialog.
+     *
+     * @param owner parent workbench window
+     * @param textLoader callback receiving selected text
+     * @param currentFenSupplier current board FEN supplier
+     * @param copyText clipboard callback
+     */
+    public PgnExplorerDialog(JFrame owner, Consumer<String> textLoader,
+            Supplier<String> currentFenSupplier, Consumer<String> copyText) {
         super(owner, "PGN Explorer", false);
         this.textLoader = textLoader == null ? text -> { } : textLoader;
+        this.currentFenSupplier = currentFenSupplier == null ? () -> "" : currentFenSupplier;
+        this.copyText = copyText == null ? text -> { } : copyText;
+        positionButton.getAccessibleContext().setAccessibleDescription(
+                "Filter loaded PGN games to those reaching the current Workbench board position.");
+        dedupeButton.getAccessibleContext().setAccessibleDescription(
+                "Remove exact duplicate games from the loaded PGN database.");
+        reportButton.getAccessibleContext().setAccessibleDescription(
+                "Copy an opening and player prep report for the visible games.");
+        copyButton.getAccessibleContext().setAccessibleDescription("Copy the selected PGN game.");
         setDefaultCloseOperation(HIDE_ON_CLOSE);
         setMinimumSize(new Dimension(WIDTH, HEIGHT));
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
@@ -212,7 +270,8 @@ public final class PgnExplorerDialog extends JDialog {
         Theme.foreground(statusLabel, Theme.ForegroundRole.MUTED);
         statusLabel.setFont(Theme.font(12, Font.PLAIN));
         footer.add(statusLabel, BorderLayout.CENTER);
-        footer.add(Ui.buttonRow(java.awt.FlowLayout.RIGHT, openButton, loadButton),
+        footer.add(Ui.buttonRow(java.awt.FlowLayout.RIGHT, positionButton, dedupeButton, reportButton, copyButton,
+                openButton, loadButton),
                 BorderLayout.EAST);
         content.add(footer, BorderLayout.SOUTH);
         return content;
@@ -377,9 +436,11 @@ public final class PgnExplorerDialog extends JDialog {
     private void applySource(String text, String name, List<PgnExplorerModel.Entry> parsed) {
         sourceText = text == null ? "" : text;
         entries = parsed == null ? List.of() : List.copyOf(parsed);
+        positionFilterActive = false;
+        positionButton.setText("Current Position");
         statusLabel.setText(entries.isEmpty()
                 ? "No PGN games parsed. Load will try the source as FEN or SAN/UCI."
-                : name + ": " + entries.size() + " game" + (entries.size() == 1 ? "" : "s"));
+                : databaseStatus(name, entries));
         refilter();
     }
 
@@ -388,16 +449,23 @@ public final class PgnExplorerDialog extends JDialog {
      */
     private void refilter() {
         visibleEntries.clear();
+        List<PgnExplorerModel.Entry> base = positionFilterActive
+                ? PgnExplorerModel.filterByPosition(entries, currentFenSupplier.get())
+                : entries;
         List<PgnExplorerModel.Entry> filtered =
-                PgnExplorerModel.filter(entries, searchField.getText());
+                PgnExplorerModel.filter(base, searchField.getText());
         for (PgnExplorerModel.Entry entry : filtered) {
             visibleEntries.addElement(entry);
         }
-        countLabel.setText(Integer.toString(filtered.size()));
+        countLabel.setText(filtered.size() + "/" + entries.size());
         if (!visibleEntries.isEmpty()) {
             resultList.setSelectedIndex(0);
         }
-        loadButton.setEnabled(!visibleEntries.isEmpty() || !sourceText.isBlank());
+        boolean hasSelection = !visibleEntries.isEmpty() || !sourceText.isBlank();
+        loadButton.setEnabled(hasSelection);
+        copyButton.setEnabled(hasSelection);
+        reportButton.setEnabled(!visibleEntries.isEmpty());
+        dedupeButton.setEnabled(PgnExplorerModel.duplicateCount(entries) > 0);
     }
 
     /**
@@ -430,6 +498,85 @@ public final class PgnExplorerDialog extends JDialog {
     }
 
     /**
+     * Toggles filtering to games that reach the current Workbench position.
+     */
+    private void togglePositionFilter() {
+        if (entries.isEmpty()) {
+            statusLabel.setText("Open a PGN file first.");
+            return;
+        }
+        positionFilterActive = !positionFilterActive;
+        positionButton.setText(positionFilterActive ? "All Games" : "Current Position");
+        refilter();
+        if (positionFilterActive && visibleEntries.isEmpty()) {
+            statusLabel.setText("No loaded games reach the current board position.");
+        } else if (positionFilterActive) {
+            statusLabel.setText(visibleEntries.size() + " games reach the current board position.");
+        } else {
+            statusLabel.setText(databaseStatus("Database", entries));
+        }
+    }
+
+    /**
+     * Removes exact duplicate game rows from the loaded source.
+     */
+    private void deduplicateSource() {
+        int duplicates = PgnExplorerModel.duplicateCount(entries);
+        if (duplicates <= 0) {
+            statusLabel.setText("No duplicate games found.");
+            return;
+        }
+        entries = PgnExplorerModel.deduplicate(entries);
+        positionFilterActive = false;
+        positionButton.setText("Current Position");
+        refilter();
+        statusLabel.setText("Removed " + duplicates + " duplicate game" + (duplicates == 1 ? "" : "s")
+                + ".");
+    }
+
+    /**
+     * Copies the selected PGN game or raw source text.
+     */
+    private void copySelection() {
+        PgnExplorerModel.Entry selected = resultList.getSelectedValue();
+        String text = selected == null ? sourceText : selected.pgn();
+        if (text == null || text.isBlank()) {
+            statusLabel.setText("Open a PGN file first.");
+            return;
+        }
+        copyText.accept(text);
+        statusLabel.setText(selected == null ? "Copied loaded source." : "Copied game " + selected.index() + ".");
+    }
+
+    /**
+     * Copies a prep report for the visible database rows.
+     */
+    private void copyPrepReport() {
+        List<PgnExplorerModel.Entry> rows = visibleRows();
+        if (rows.isEmpty()) {
+            statusLabel.setText("No games to report.");
+            return;
+        }
+        String player = searchField.getText() == null ? "" : searchField.getText().trim();
+        copyText.accept(PgnPrepReport.report(rows, player));
+        statusLabel.setText("Copied prep report for " + rows.size() + " game"
+                + (rows.size() == 1 ? "" : "s") + ".");
+    }
+
+    /**
+     * Returns visible rows in display order.
+     *
+     * @return visible rows
+     */
+    private List<PgnExplorerModel.Entry> visibleRows() {
+        java.util.ArrayList<PgnExplorerModel.Entry> rows = new java.util.ArrayList<>(visibleEntries.size());
+        for (int i = 0; i < visibleEntries.size(); i++) {
+            rows.add(visibleEntries.get(i));
+        }
+        return List.copyOf(rows);
+    }
+
+    /**
      * Shows a loading state in the footer.
      *
      * @param message status message
@@ -452,6 +599,20 @@ public final class PgnExplorerDialog extends JDialog {
         statusLabel.setText("Load failed: " + message);
         loadButton.setEnabled(!visibleEntries.isEmpty() || !sourceText.isBlank());
         countLabel.setText(Integer.toString(visibleEntries.size()));
+    }
+
+    /**
+     * Builds a compact database status line.
+     *
+     * @param name source name
+     * @param rows database rows
+     * @return status line
+     */
+    private static String databaseStatus(String name, List<PgnExplorerModel.Entry> rows) {
+        int games = rows == null ? 0 : rows.size();
+        int duplicates = PgnExplorerModel.duplicateCount(rows);
+        return name + ": " + games + " game" + (games == 1 ? "" : "s")
+                + (duplicates > 0 ? ", " + duplicates + " duplicate" + (duplicates == 1 ? "" : "s") : "");
     }
 
     /**
@@ -512,7 +673,19 @@ public final class PgnExplorerDialog extends JDialog {
          */
         private static String html(PgnExplorerModel.Entry entry) {
             return "<html><b>" + escape(entry.title()) + "</b><br><span style='color:"
-                    + colorHex(Theme.MUTED) + "'>" + escape(entry.detail()) + "</span></html>";
+                    + colorHex(Theme.MUTED) + "'>" + escape(databaseLine(entry)) + "</span></html>";
+        }
+
+        /**
+         * Builds a compact database row detail.
+         *
+         * @param entry source entry
+         * @return detail text
+         */
+        private static String databaseLine(PgnExplorerModel.Entry entry) {
+            String base = entry.detail() == null || entry.detail().isBlank() ? "" : entry.detail();
+            String plys = entry.plyCount() + " ply";
+            return base.isBlank() ? plys : base + " | " + plys;
         }
 
         /**

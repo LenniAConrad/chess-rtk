@@ -2,6 +2,7 @@ package application.gui.workbench.mcts;
 
 import static application.gui.workbench.ui.Ui.setColumnWidth;
 import application.gui.workbench.Defaults;
+import application.gui.workbench.command.CommandRunner;
 import application.gui.workbench.game.Positions;
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.network.Prefs;
@@ -707,7 +708,8 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
         bar.add(GroupBox.of("View", mergeToggle, batchLeavesToggle, layersToggle,
                 Ui.labeledControl("Board", boardSizeSpinner)));
         bar.add(GroupBox.of("Display", autoFitToggle, detailsToggle,
-                fitButton, openBoardButton, exportSvgButton));
+                fitButton, openBoardButton, exportSvgButton,
+                Ui.button("Copy command", false, event -> copyCliCommand())));
         bar.add(statusBadge);
         return bar;
     }
@@ -1753,7 +1755,40 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
     }
 
     /**
-     * Exports the current tree to a standalone SVG file.
+     * Copies the equivalent {@code crtk engine tree} command for the current
+     * controls to the system clipboard.
+     */
+    private void copyCliCommand() {
+        java.util.List<String> args = new ArrayList<>(java.util.List.of("engine", "tree"));
+        String fen = currentFen.get();
+        if (fen != null && !fen.isBlank()) {
+            args.add("--fen");
+            args.add(fen);
+        }
+        MctsCliSupport.backendArgs(args, (MctsSession.Backend) backendCombo.getSelectedItem());
+        long millis = ((Number) millisSpinner.getValue()).longValue();
+        if (millis > 0) {
+            args.add("--max-duration");
+            args.add(millis + "ms");
+        } else {
+            args.add("--nodes");
+            args.add(Integer.toString(((Number) visitsSpinner.getValue()).intValue()));
+        }
+        args.add("--cpuct");
+        args.add(MctsCliSupport.trimDouble(((Number) cpuctSpinner.getValue()).doubleValue()));
+        args.add("--depth");
+        args.add(Integer.toString(((Number) depthSpinner.getValue()).intValue()));
+        args.add("--branches");
+        args.add(Integer.toString(((Number) branchesSpinner.getValue()).intValue()));
+        args.add("--min-visits");
+        args.add(Integer.toString(((Number) minVisitsSpinner.getValue()).intValue()));
+        CommandRunner.copyToClipboard(CommandRunner.displayCommand(args));
+        statusBadge.success("command copied");
+        toast(Toast.Kind.SUCCESS, "Command copied");
+    }
+
+    /**
+     * Exports the current tree to an SVG file.
      */
     private void exportSvg() {
         TreeLayout.Model model = view.model();

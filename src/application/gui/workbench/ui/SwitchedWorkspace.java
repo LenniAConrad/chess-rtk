@@ -3,6 +3,7 @@ package application.gui.workbench.ui;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.FlowLayout;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.IntConsumer;
 import java.util.function.Supplier;
@@ -13,13 +14,12 @@ import javax.swing.JPanel;
  * A surface that hosts several modes behind a {@link SegmentedSwitcher}, each
  * built lazily on first activation and cached in a {@link CardLayout}.
  *
- * <p>This is the shared primitive behind the workbench's consolidated tabs — the
- * Board surface (Analyze/Play/Solve/Relations) and the Engine surface
- * (Network/Search) are both just a labelled list of lazy builders over this one
- * mechanism, so adding a mode is one label + one builder. The opening mode can
- * be built eagerly when the shell needs to wire something through it at startup;
- * every other mode builds the first time it is selected, preserving its state
- * across later switches.</p>
+ * <p>This is the shared primitive behind the workbench's consolidated tabs: the
+ * Board surface (Analyze/Play/Solve/Relations/Draw) and the Engine surface
+ * (Evaluator/Search/Tree) are both lists of {@link WorkspaceMode} descriptors
+ * over this one mechanism. The opening mode can be built eagerly when the shell
+ * needs to wire something through it at startup; every other mode builds the
+ * first time it is selected, preserving its state across later switches.</p>
  */
 public class SwitchedWorkspace extends JPanel {
 
@@ -44,9 +44,9 @@ public class SwitchedWorkspace extends JPanel {
     private final JPanel body = new JPanel(cards);
 
     /**
-     * Lazy builders, one per mode, in mode order.
+     * Mode descriptors, in switcher order.
      */
-    private final transient List<Supplier<JComponent>> builders;
+    private final transient List<WorkspaceMode> modes;
 
     /**
      * Whether each mode's body has been built yet.
@@ -68,12 +68,24 @@ public class SwitchedWorkspace extends JPanel {
      * @param eagerMode mode to build and show immediately
      */
     public SwitchedWorkspace(String[] labels, List<Supplier<JComponent>> builders, int eagerMode) {
+        this(toModes(labels, builders), eagerMode);
+    }
+
+    /**
+     * Creates a switched workspace from mode descriptors.
+     *
+     * @param modes mode descriptors in switcher order
+     * @param eagerMode mode to build and show immediately
+     */
+    public SwitchedWorkspace(List<WorkspaceMode> modes, int eagerMode) {
         super(new BorderLayout(0, Theme.SPACE_SM));
+        requireUsableModes(modes);
+        requireValidEagerMode(eagerMode, modes.size());
         setOpaque(true);
         setBackground(Theme.BG);
-        this.builders = List.copyOf(builders);
-        this.built = new boolean[this.builders.size()];
-        switcher = new SegmentedSwitcher(labels);
+        this.modes = List.copyOf(modes);
+        this.built = new boolean[this.modes.size()];
+        switcher = new SegmentedSwitcher(labels(this.modes));
 
         // The switcher sits in a quiet toolbar band closed by a hairline, the
         // same chrome the Network and Datasets tabs lead with, so a consolidated
@@ -129,7 +141,7 @@ public class SwitchedWorkspace extends JPanel {
      * @param mode mode index
      */
     public void setMode(int mode) {
-        if (mode < 0 || mode >= builders.size()) {
+        if (mode < 0 || mode >= modes.size()) {
             return;
         }
         if (switcher.getSelectedIndex() == mode) {
@@ -150,16 +162,83 @@ public class SwitchedWorkspace extends JPanel {
     }
 
     /**
+     * Verifies that every switcher label has exactly one lazy body builder.
+     *
+     * @param labels segment labels in mode order
+     * @param builders lazy body builders in mode order
+     */
+    private static void requireMatchingModeCounts(String[] labels, List<Supplier<JComponent>> builders) {
+        if (labels.length != builders.size()) {
+            throw new IllegalArgumentException("SwitchedWorkspace labels and builders differ: "
+                    + labels.length + " labels, " + builders.size() + " builders");
+        }
+    }
+
+    /**
+     * Converts the legacy label/builder pair into mode descriptors.
+     *
+     * @param labels segment labels in mode order
+     * @param builders lazy body builders in mode order
+     * @return mode descriptors
+     */
+    private static List<WorkspaceMode> toModes(String[] labels, List<Supplier<JComponent>> builders) {
+        requireMatchingModeCounts(labels, builders);
+        List<WorkspaceMode> converted = new ArrayList<>(labels.length);
+        for (int i = 0; i < labels.length; i++) {
+            converted.add(new WorkspaceMode(labels[i], builders.get(i)));
+        }
+        return converted;
+    }
+
+    /**
+     * Verifies that a descriptor-backed workspace has at least one mode.
+     *
+     * @param modes mode descriptors in display order
+     */
+    private static void requireUsableModes(List<WorkspaceMode> modes) {
+        if (modes == null || modes.isEmpty()) {
+            throw new IllegalArgumentException("SwitchedWorkspace requires at least one mode");
+        }
+    }
+
+    /**
+     * Verifies that the eager mode points at a registered mode.
+     *
+     * @param eagerMode mode to build and show immediately
+     * @param modeCount number of registered modes
+     */
+    private static void requireValidEagerMode(int eagerMode, int modeCount) {
+        if (eagerMode < 0 || eagerMode >= modeCount) {
+            throw new IllegalArgumentException("SwitchedWorkspace eager mode out of range: "
+                    + eagerMode + " for " + modeCount + " modes");
+        }
+    }
+
+    /**
+     * Extracts segment labels from mode descriptors.
+     *
+     * @param modes mode descriptors in display order
+     * @return segment labels
+     */
+    private static String[] labels(List<WorkspaceMode> modes) {
+        String[] labels = new String[modes.size()];
+        for (int i = 0; i < modes.size(); i++) {
+            labels[i] = modes.get(i).label();
+        }
+        return labels;
+    }
+
+    /**
      * Builds (on first use) and reveals a mode's body.
      *
      * @param mode mode index
      */
     private void showMode(int mode) {
-        if (mode < 0 || mode >= builders.size()) {
+        if (mode < 0 || mode >= modes.size()) {
             return;
         }
         if (!built[mode]) {
-            JComponent panel = builders.get(mode).get();
+            JComponent panel = modes.get(mode).builder().get();
             JComponent body0 = panel == null ? Ui.transparentPanel(new BorderLayout()) : panel;
             // A mode built after startup misses the shell's initial theme pass, so
             // sub-components that cache palette colours at construction (combos,

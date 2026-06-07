@@ -69,20 +69,15 @@ public final class TagTextCommand {
         TagTextOptions opts = parseOptions(a);
         List<Position> positions = loadPositions(opts);
         if (positions.isEmpty()) {
-            System.err.println(COMMAND_LABEL + ": no valid positions provided");
-            System.exit(2);
+            throw new CommandFailure(COMMAND_LABEL + ": no valid positions provided", 2);
         }
 
         Model model;
         try {
             model = BinLoader.load(opts.modelPath);
         } catch (Exception ex) {
-            System.err.println(COMMAND_LABEL + ": failed to load model: " + ex.getMessage());
-            if (opts.verbose) {
-                ex.printStackTrace(System.err);
-            }
-            System.exit(2);
-            return;
+            throw new CommandFailure(COMMAND_LABEL + ": failed to load model: " + ex.getMessage(),
+                    ex, 2, opts.verbose);
         }
 
         if (opts.analyze) {
@@ -122,9 +117,7 @@ public final class TagTextCommand {
         }
         a.ensureConsumed();
         if (modelPath == null || modelPath.isBlank()) {
-            System.err.println(COMMAND_LABEL + ": missing --model and config key t5-model-path is empty");
-            System.exit(2);
-            return null;
+            throw new CommandFailure(COMMAND_LABEL + ": missing --model and config key t5-model-path is empty", 2);
         }
 
         return new TagTextOptions(verbose, includeFen, analyze, protoPath, nodesCap, durMs, multipv, threads, hash,
@@ -148,12 +141,8 @@ public final class TagTextCommand {
                 }
                 return positions;
             } catch (Exception ex) {
-                System.err.println(COMMAND_LABEL + ": failed to read input: " + ex.getMessage());
-                if (opts.verbose) {
-                    ex.printStackTrace(System.err);
-                }
-                System.exit(2);
-                return List.of();
+                throw new CommandFailure(COMMAND_LABEL + ": failed to read input: " + ex.getMessage(),
+                        ex, 2, opts.verbose);
             }
         }
         if (opts.fen == null || opts.fen.isBlank()) {
@@ -189,12 +178,11 @@ public final class TagTextCommand {
             } finally {
                 CommandSupport.finish(bar);
             }
+        } catch (CommandFailure failure) {
+            throw failure;
         } catch (Exception ex) {
-            System.err.println(COMMAND_LABEL + ": inference failed: " + ex.getMessage());
-            if (opts.verbose) {
-                ex.printStackTrace(System.err);
-            }
-            System.exit(2);
+            throw new CommandFailure(COMMAND_LABEL + ": inference failed: " + ex.getMessage(),
+                    ex, 2, opts.verbose);
         }
     }
 
@@ -229,12 +217,11 @@ public final class TagTextCommand {
             } finally {
                 CommandSupport.finish(bar);
             }
+        } catch (CommandFailure failure) {
+            throw failure;
         } catch (Exception ex) {
-            System.err.println(COMMAND_LABEL + ": inference failed: " + ex.getMessage());
-            if (opts.verbose) {
-                ex.printStackTrace(System.err);
-            }
-            System.exit(2);
+            throw new CommandFailure(COMMAND_LABEL + ": inference failed: " + ex.getMessage(),
+                    ex, 2, opts.verbose);
         }
     }
 

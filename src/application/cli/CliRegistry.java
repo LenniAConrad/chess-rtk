@@ -15,6 +15,10 @@ import application.cli.command.DoctorCommand;
 import application.cli.command.EvalCommand;
 import application.cli.command.EngineBatchCommand;
 import application.cli.command.EngineBenchmarkCommand;
+import application.cli.command.EngineGauntletCommand;
+import application.cli.command.EngineSearchCommand;
+import application.cli.command.EngineTraceCommand;
+import application.cli.command.EngineTreeCommand;
 import application.cli.command.FenCommand;
 import application.cli.command.GenFensCommand;
 import application.cli.command.GpuCommand;
@@ -134,6 +138,17 @@ public final class CliRegistry {
 				.example("crtk mate --fen \"<FEN>\" --mate 4")
 				.example("crtk find-mate --fen \"<FEN>\" --mate 6 --max-nodes 5000000 --threads 4 --format summary")
 				.related("engine mate"));
+		root.add(CliCommand.leaf("gauntlet", "Run a deterministic self-play A/B engine gauntlet",
+				EngineGauntletCommand::runGauntlet)
+				.detailHelpKey("engine gauntlet")
+				.alias("selfplay")
+				.usage("[options]")
+				.about("Shortcut for `engine gauntlet`: measure a search/eval change's strength by playing a "
+						+ "candidate configuration against a baseline at an equal per-move budget over varied "
+						+ "openings, then report the score and a point Elo estimate.")
+				.example("crtk gauntlet --a all --b none --nodes 3000 --openings 8")
+				.example("crtk gauntlet --searchA mcts --searchB alpha-beta --movetime 200 --workers 4")
+				.related("engine gauntlet"));
 		root.add(positionGroup());
 		root.add(bookGroup());
 		root.add(puzzleGroup());
@@ -567,6 +582,48 @@ public final class CliRegistry {
 				.usage("[options]")
 				.example("crtk engine benchmark --startpos --depth 5 --iterations 5")
 				.example("crtk engine benchmark --fen \"<FEN>\" --depth 4 --json"));
+		engine.add(CliCommand.leaf("gauntlet", "Run a deterministic self-play A/B engine gauntlet",
+				EngineGauntletCommand::runGauntlet)
+				.detailHelpKey("engine gauntlet")
+				.alias("selfplay")
+				.usage("[options]")
+				.about("Pit a candidate engine configuration (A) against a baseline (B) at an equal, fixed "
+						+ "per-move budget over varied openings played from both colors, then report the "
+						+ "candidate-perspective score and a point Elo estimate. Deterministic for a given seed; "
+						+ "use `--json` for a single machine-readable summary.")
+				.example("crtk engine gauntlet --a all --b none --nodes 3000 --openings 8")
+				.example("crtk engine gauntlet --searchA mcts --searchB alpha-beta --movetime 200 --workers 4")
+				.example("crtk engine gauntlet --evalA nnue --evalB classical --openings 50 --seed 42 --json"));
+		engine.add(CliCommand.leaf("search", "Run a PUCT search and print root-move statistics",
+				EngineSearchCommand::runSearch)
+				.detailHelpKey("engine search")
+				.alias("mcts")
+				.usage("[options]")
+				.about("Run a Monte-Carlo (PUCT) search and report each root move's visits, prior, value, and "
+						+ "centipawn score — the data the workbench Search panel shows. Backend is selected like "
+						+ "`engine builtin`. Use `--json` for one machine-readable object.")
+				.example("crtk engine search --startpos --nodes 5000")
+				.example("crtk engine search --fen \"<FEN>\" --nnue --nodes 8000 --moves 5")
+				.example("crtk engine search --startpos --otis --max-duration 2s --json"));
+		engine.add(CliCommand.leaf("tree", "Run a PUCT search and dump the search tree",
+				EngineTreeCommand::runTree)
+				.detailHelpKey("engine tree")
+				.usage("[options]")
+				.about("Run a Monte-Carlo (PUCT) search and dump the resulting tree — per-node visits, prior, "
+						+ "value, and score — the structure the workbench Tree panel visualizes. Use `--depth` and "
+						+ "`--branches` to bound the output, and `--json` for a nested tree.")
+				.example("crtk engine tree --startpos --nodes 4000 --depth 3 --branches 4")
+				.example("crtk engine tree --fen \"<FEN>\" --lc0 --nodes 2000 --depth 2 --json"));
+		engine.add(CliCommand.leaf("trace", "Trace a neural evaluation: value, WDL, policy, and layers",
+				EngineTraceCommand::runTrace)
+				.detailHelpKey("engine trace")
+				.usage("[options]")
+				.about("Run a neural network over a position and print the value, win/draw/loss probabilities, the "
+						+ "top policy moves, and a per-layer activation summary — the data the workbench Evaluator "
+						+ "(neural trace) panel visualizes. Use `--json` for a machine-readable object.")
+				.example("crtk engine trace --startpos --nnue")
+				.example("crtk engine trace --fen \"<FEN>\" --otis --top 8")
+				.example("crtk engine trace --startpos --lc0 --json"));
 		engine.add(CliCommand.leaf("builtin", "Search with the built-in engine", BuiltInEngineCommand::runBuiltIn)
 				.detailHelpKey("engine builtin")
 				.alias("java")

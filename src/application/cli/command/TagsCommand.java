@@ -147,16 +147,13 @@ public final class TagsCommand {
         a.ensureConsumed();
 
         if (pgn != null && (input != null || fen != null)) {
-            System.err.println(CMD_TAGS + ": provide either --pgn or a FEN input, not both");
-            System.exit(2);
+            throw new CommandFailure(CMD_TAGS + ": provide either --pgn or a FEN input, not both", 2);
         }
         if (input != null && fen != null) {
-            System.err.println(CMD_TAGS + ": provide either --input or a single FEN, not both");
-            System.exit(2);
+            throw new CommandFailure(CMD_TAGS + ": provide either --input or a single FEN, not both", 2);
         }
         if (mainline && sidelines) {
-            System.err.println(CMD_TAGS + ": use only one of --mainline or --sidelines");
-            System.exit(2);
+            throw new CommandFailure(CMD_TAGS + ": use only one of --mainline or --sidelines", 2);
         }
         if (analyzeGame && pgn == null) {
             throw new CommandFailure(CMD_TAGS + ": --analyze-game requires --pgn", 2);
@@ -255,12 +252,8 @@ public final class TagsCommand {
         try {
             return Reader.readPositionRecords(opts.inputConfig.input);
         } catch (Exception ex) {
-            System.err.println(CMD_TAGS + ": failed to read input: " + ex.getMessage());
-            if (opts.flags.verbose) {
-                ex.printStackTrace(System.err);
-            }
-            System.exit(2);
-            return List.of();
+            throw new CommandFailure(CMD_TAGS + ": failed to read input: " + ex.getMessage(),
+                    ex, 2, opts.flags.verbose);
         }
     }
 
@@ -286,8 +279,7 @@ public final class TagsCommand {
      */
      private static TagsInputs loadSingleFenInput(TagsOptions opts) {
         if (opts.inputConfig.fen == null || opts.inputConfig.fen.isBlank()) {
-            System.err.println(CMD_TAGS + " requires a FEN (use --fen or --input)");
-            System.exit(2);
+            throw new CommandFailure(CMD_TAGS + " requires a FEN (use --fen or --input)", 2);
         }
         List<Record> single = new ArrayList<>(1);
         single.add(new Record().withPosition(
@@ -359,12 +351,11 @@ public final class TagsCommand {
             } finally {
                 CommandSupport.finish(bar);
             }
+        } catch (CommandFailure failure) {
+            throw failure;
         } catch (Exception ex) {
-            System.err.println(CMD_TAGS + ": failed to initialize engine: " + ex.getMessage());
-            if (opts.flags.verbose) {
-                ex.printStackTrace(System.err);
-            }
-            System.exit(2);
+            throw new CommandFailure(CMD_TAGS + ": failed to initialize engine: " + ex.getMessage(),
+                    ex, 2, opts.flags.verbose);
         }
     }
 

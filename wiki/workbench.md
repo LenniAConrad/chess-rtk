@@ -4,8 +4,9 @@ The Workbench is the same chess core as the CLI, with a board in front of it. Th
 
 ## What you can do
 
-- Analyze positions and PGNs on an interactive board with legal-move overlays, deterministic tags, and ECO lookup.
-- Play full games against an in-process opponent (alpha-beta or MCTS) backed by the classical, NNUE, LC0 CNN, or OTIS evaluator.
+- Analyze positions and PGNs on an interactive board with legal-move overlays, deterministic tags, an ECO opening tree, post-game review, endgame tablebase status, and study authoring.
+- Play full games against in-process alpha-beta/classical preset opponents, with Custom controls for MCTS and neural-evaluator experiments.
+- Run deterministic built-in engine gauntlets from the Engine surface.
 - Build any `crtk` command as a guided form, with validation and a live preview of the exact command text.
 - Run batch jobs over FEN lists and command scripts, then watch progress and collect artifacts.
 - Load, validate, and chart exported datasets and records.
@@ -45,8 +46,8 @@ The Workbench is a set of dockable tabs, each carved out around one job rather t
 | Area | Purpose |
 | --- | --- |
 | Dashboard | Session overview, health, recent jobs, and generated artifacts |
-| Analyze | Interactive board, PGN navigation, legal moves, tags, ECO, board editor, and engine controls |
-| Play | Human-vs-engine games against an in-process alpha-beta or MCTS opponent |
+| Analyze | Interactive board, PGN navigation, legal moves, tags, ECO tree, post-game review, study authoring, endgame tablebase status, board editor, and engine controls |
+| Play | Human-vs-engine games against in-process alpha-beta/classical preset opponents |
 | Commands | GUI forms that build and run any `crtk` command |
 | Batch | FEN-list and command-script execution with progress |
 | Datasets | Loading, validation, summaries, and charts for exported data |
@@ -59,15 +60,33 @@ The Workbench is a set of dockable tabs, each carved out around one job rather t
 
 ## Analysis and PGN board
 
-Analyze is where you land. The board sits in the middle, surrounded by everything you'd want pointed at a position: move navigation, the legal-move list, deterministic tags, ECO opening lookup, a board editor for arbitrary setups, and panels for both the in-process search and the external analysis engine. Load a PGN and you step through the game from the same view.
+Analyze is where you land. The board sits in the middle, surrounded by everything you'd want pointed at a position: move navigation, the legal-move list, deterministic tags, an ECO opening tree, deterministic post-game review with retry jumps, study TOML authoring from the current line, endgame tablebase-hit status, a board editor for arbitrary setups, and panels for both the in-process search and the external analysis engine. Load a PGN and you step through the game from the same view.
 
 ![Workbench analysis board](../assets/screenshots/workbench-analysis.png)
 
 The board sees the world the way the CLI does: identical move generation, identical FEN/SAN/UCI handling, identical Chess960 support. The tags on the board are the ones `fen tags` produces, down to the bit. Live analysis drives your configured external UCI engine — Stockfish or LC0 — the same way `engine analyze` does, MultiPV included.
 
+The PGN explorer doubles as a lightweight database workspace. It indexes player/opening/result metadata, filters games reaching the current board position, removes exact duplicates, copies selected games, and can copy a prep report for the visible games or named player query.
+
+The Engine surface includes a Gauntlet mode for reproducible built-in engine self-play. It builds the exact `testing.SelfPlayGauntlet` JVM command, runs it in a child process, and streams W-D-L/Elo output into the panel.
+
+### Where to find the new analysis tools
+
+| Tool | Path |
+| --- | --- |
+| Opening tree | Analyze -> Board -> Tools -> Opening Tree, or the side rail ECO tab |
+| Post-game review and retry | Analyze -> Board -> Tools -> Review, or Analyze -> Game -> Study / Review / Database -> Review Game |
+| PGN database workspace | Analyze -> Board -> PGN Database, or Analyze -> Game -> Study / Review / Database -> PGN Database |
+| Player prep report | PGN Database -> Prep Report after loading/searching PGNs |
+| Engine gauntlet manager | Analyze -> Board -> Tools -> Gauntlet, or Engine -> Gauntlet |
+| Endgame/tablebase panel | Analyze -> Board -> Tools -> Endgame, or the side rail Endgame tab |
+| Study/repertoire authoring | Analyze -> Board -> Tools -> Study, or Analyze -> Game -> Study / Review / Database -> Author Study |
+
+The command palette also exposes the same workflows by name: Opening tree, Review game, Author study, Endgame tablebase, PGN database, Player prep report, and Open engine gauntlet.
+
 ## Play vs engine
 
-Play runs a full human-versus-engine game from the start position, the current board, or a pasted FEN. Two selectors, chosen independently:
+Play runs a full human-versus-engine game from the start position, the current board, or a pasted FEN. The named preset bots all use alpha-beta search with the always-available classical evaluator; their Elo changes adjust the search budget and move sampling, not the backend. Choose Custom to expose the two backend selectors:
 
 - **Search** chooses the move-picking algorithm: `Alpha-Beta` or `MCTS`.
 - **Network** chooses the leaf evaluator: `Classical`, `NNUE`, `CNN` (LC0), or `OTIS`.

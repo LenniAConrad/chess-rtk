@@ -707,9 +707,7 @@ public final class CommandForm extends JPanel {
             JPanel lead = new JPanel(new BorderLayout());
             lead.setOpaque(false);
             lead.add(title, BorderLayout.CENTER);
-            lead.setPreferredSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
-            lead.setMinimumSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
-            lead.setMaximumSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
+            applyFixedSize(lead, leadColumnSize());
             applyGroupTooltip(lead, block);
             JPanel selector = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
             selector.setOpaque(false);
@@ -727,13 +725,26 @@ public final class CommandForm extends JPanel {
     }
 
     /**
-     * Returns whether a group member needs a visible detail editor.
+     * Returns whether an option needs an editable value component.
      *
      * @param field option field
-     * @return true when the option shows a value editor below its chip group
+     * @return true when the option accepts a non-fixed value
      */
     private static boolean needsValueEditor(Field field) {
         return field.option.takesValue() && !field.option.fixedChoice();
+    }
+
+    /**
+     * Creates a transparent horizontal row aligned for option-form content.
+     *
+     * @return horizontal option row
+     */
+    private static JPanel horizontalOptionRow() {
+        JPanel row = new JPanel();
+        row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
+        row.setOpaque(false);
+        row.setAlignmentX(LEFT_ALIGNMENT);
+        return row;
     }
 
     /**
@@ -744,10 +755,7 @@ public final class CommandForm extends JPanel {
      * @return card component
      */
     private JComponent memberCard(Field field, int indent) {
-        JPanel card = new JPanel();
-        card.setLayout(new BoxLayout(card, BoxLayout.X_AXIS));
-        card.setOpaque(false);
-        card.setAlignmentX(LEFT_ALIGNMENT);
+        JPanel card = horizontalOptionRow();
         if (indent > 0) {
             card.add(Box.createHorizontalStrut(indent));
         }
@@ -759,13 +767,8 @@ public final class CommandForm extends JPanel {
             card.add(Box.createHorizontalGlue());
             return card;
         }
-        if (field.option.takesValue() && !field.option.fixedChoice()) {
-            JComponent editor = valueEditor(field);
-            Dimension size = valueEditorSize(field);
-            editor.setPreferredSize(size);
-            editor.setMaximumSize(size);
-            editor.setMinimumSize(size);
-            card.add(editor);
+        if (needsValueEditor(field)) {
+            card.add(sizedValueEditor(field));
         }
         applyOptionTooltip(card, field.option);
         card.add(Box.createHorizontalGlue());
@@ -810,20 +813,13 @@ public final class CommandForm extends JPanel {
      * @return cell content
      */
     private JComponent optionalFieldContent(JComponent lead, Field field) {
-        JPanel row = new JPanel();
-        row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
-        row.setOpaque(false);
-        row.setAlignmentX(LEFT_ALIGNMENT);
+        JPanel row = horizontalOptionRow();
         applyOptionTooltip(row, field.option);
         lead.setAlignmentY(CENTER_ALIGNMENT);
         row.add(lead);
-        if (field.option.takesValue() && !field.option.fixedChoice()) {
+        if (needsValueEditor(field)) {
             row.add(Box.createHorizontalStrut(CELL_GAP));
-            JComponent editor = valueEditor(field);
-            Dimension size = valueEditorSize(field);
-            editor.setPreferredSize(size);
-            editor.setMaximumSize(size);
-            editor.setMinimumSize(size);
+            JComponent editor = sizedValueEditor(field);
             editor.setAlignmentY(CENTER_ALIGNMENT);
             row.add(editor);
         }
@@ -840,25 +836,40 @@ public final class CommandForm extends JPanel {
      * @return rendered row
      */
     private JComponent optionRow(JComponent lead, Field field) {
-        JPanel row = new JPanel();
-        row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
-        row.setOpaque(false);
-        row.setAlignmentX(LEFT_ALIGNMENT);
+        JPanel row = horizontalOptionRow();
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, ROW_HEIGHT));
         row.setBorder(Theme.pad(2, 0, 2, 0));
         applyOptionTooltip(row, field.option);
         row.add(fixedLead(lead));
         row.add(Box.createHorizontalStrut(Theme.SPACE_SM));
-        JComponent editor = field.option.takesValue() && !field.option.fixedChoice()
-                ? valueEditor(field)
-                : valuePlaceholder(field);
-        Dimension size = valueEditorSize(field);
-        editor.setPreferredSize(size);
-        editor.setMaximumSize(size);
-        editor.setMinimumSize(size);
+        JComponent editor = needsValueEditor(field)
+                ? sizedValueEditor(field)
+                : sizedValueComponent(valuePlaceholder(field), field);
         row.add(editor);
         row.add(Box.createHorizontalGlue());
         return row;
+    }
+
+    /**
+     * Builds a value editor and applies the standard value-column footprint.
+     *
+     * @param field option field
+     * @return sized editor component
+     */
+    private JComponent sizedValueEditor(Field field) {
+        return sizedValueComponent(valueEditor(field), field);
+    }
+
+    /**
+     * Applies the standard value-column footprint to a component.
+     *
+     * @param component component to size
+     * @param field option field determining the target width
+     * @return the same component for inline row construction
+     */
+    private static JComponent sizedValueComponent(JComponent component, Field field) {
+        applyFixedSize(component, valueEditorSize(field));
+        return component;
     }
 
     /**
@@ -873,6 +884,27 @@ public final class CommandForm extends JPanel {
     }
 
     /**
+     * Returns the fixed lead-column footprint used beside option value editors.
+     *
+     * @return lead-column dimensions
+     */
+    private static Dimension leadColumnSize() {
+        return new Dimension(LEAD_WIDTH, ROW_HEIGHT);
+    }
+
+    /**
+     * Applies one fixed footprint as preferred, minimum, and maximum size.
+     *
+     * @param component component to constrain
+     * @param size fixed component dimensions
+     */
+    private static void applyFixedSize(JComponent component, Dimension size) {
+        component.setPreferredSize(new Dimension(size));
+        component.setMinimumSize(new Dimension(size));
+        component.setMaximumSize(new Dimension(size));
+    }
+
+    /**
      * Wraps a lead control in a fixed-width container so value editors align.
      *
      * @param lead lead control
@@ -882,9 +914,7 @@ public final class CommandForm extends JPanel {
         JPanel holder = new JPanel(new BorderLayout());
         holder.setOpaque(false);
         holder.add(lead);
-        holder.setPreferredSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
-        holder.setMinimumSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
-        holder.setMaximumSize(new Dimension(LEAD_WIDTH, ROW_HEIGHT));
+        applyFixedSize(holder, leadColumnSize());
         holder.setAlignmentX(LEFT_ALIGNMENT);
         return holder;
     }

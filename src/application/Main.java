@@ -96,8 +96,7 @@ public final class Main {
 			return 0;
 		}
 		if (CMD_HELP.equals(argv[0])) {
-			HelpCommand.runHelp(new Argv(Arrays.copyOfRange(argv, 1, argv.length)));
-			return 0;
+			return HelpCommand.runHelpWithStatus(new Argv(Arrays.copyOfRange(argv, 1, argv.length)));
 		}
 		if (isHelpFlag(argv[0])) {
 			HelpCommand.helpSummary();

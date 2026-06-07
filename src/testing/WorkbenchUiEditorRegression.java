@@ -811,11 +811,12 @@ final class WorkbenchUiEditorRegression {
                 "button transitions are short");
         assertTrue((Integer) staticField(type("BoardPanel"), "MOVE_ANIMATION_MS") <= 120,
                 "board move animation is short");
-        assertTrue((Integer) field(board, "snapbackAnimationMs") <= 100,
+        Object animation = field(board, "animationState");
+        assertTrue((Integer) invoke(animation, "snapbackAnimationMs", new Class<?>[0]) <= 100,
                 "snapback animation is short");
-        assertTrue((Integer) field(board, "snapAnimationMs") <= 70,
+        assertTrue((Integer) invoke(animation, "snapAnimationMs", new Class<?>[0]) <= 70,
                 "snap animation is short");
-        assertTrue((Integer) field(board, "flipAnimationMs") <= 160,
+        assertTrue((Integer) invoke(animation, "flipAnimationMs", new Class<?>[0]) <= 160,
                 "flip animation is short");
         assertTrue((Integer) staticField(type("EvalBar"), "ANIMATION_DURATION_MS") <= 260,
                 "eval bar transition is smooth but still responsive");

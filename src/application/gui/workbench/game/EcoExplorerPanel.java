@@ -6,6 +6,7 @@ import chess.core.Setup;
 import chess.eco.Encyclopedia;
 import chess.eco.Entry;
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -14,8 +15,10 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -23,11 +26,18 @@ import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.JTree;
 import javax.swing.ListSelectionModel;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableColumnModel;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeCellRenderer;
+import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreePath;
+import javax.swing.tree.TreeSelectionModel;
 
 import static application.gui.workbench.ui.Ui.button;
 import static application.gui.workbench.ui.Ui.buttonRow;
@@ -39,6 +49,7 @@ import static application.gui.workbench.ui.Ui.label;
 import static application.gui.workbench.ui.Ui.placeholder;
 import static application.gui.workbench.ui.Ui.scroll;
 import static application.gui.workbench.ui.Ui.styleFields;
+import static application.gui.workbench.ui.Ui.tabbedPane;
 import static application.gui.workbench.ui.Ui.transparentPanel;
 
 /**
@@ -135,6 +146,21 @@ public final class EcoExplorerPanel extends JPanel {
      * Visible continuation table.
      */
     private final JTable table = new JTable(tableModel);
+
+    /**
+     * Root node for the current ECO opening tree.
+     */
+    private DefaultMutableTreeNode treeRoot = new DefaultMutableTreeNode(EcoTreeNode.root("ECO root", List.of()));
+
+    /**
+     * Tree model showing the current ECO prefix and continuations.
+     */
+    private final DefaultTreeModel treeModel = new DefaultTreeModel(treeRoot);
+
+    /**
+     * Tree view of ECO continuations reachable from the current prefix.
+     */
+    private final JTree openingTree = new JTree(treeModel);
 
     /**
      * Current standard-start move path.
@@ -239,6 +265,60 @@ public final class EcoExplorerPanel extends JPanel {
     }
 
     /**
+     * Returns the number of visible rows in the ECO opening tree.
+     *
+     * @return visible tree row count
+     */
+    public int treeRowCount() {
+        return openingTree.getRowCount();
+    }
+
+    /**
+     * Selects the first visible child under the ECO tree root.
+     *
+     * @return true when a child node was selected
+     */
+    public boolean selectFirstTreeChild() {
+        if (treeRoot.getChildCount() == 0) {
+            return false;
+        }
+        DefaultMutableTreeNode child = (DefaultMutableTreeNode) treeRoot.getChildAt(0);
+        openingTree.setSelectionPath(new TreePath(child.getPath()));
+        openingTree.scrollPathToVisible(new TreePath(child.getPath()));
+        return true;
+    }
+
+    /**
+     * Loads the selected ECO tree prefix into the workbench.
+     *
+     * @return true when a non-root tree node was selected and loaded
+     */
+    public boolean loadSelectedTreeLine() {
+        EcoTreeNode node = requireSelectedTreeNode();
+        if (node == null) {
+            return false;
+        }
+        loadLineConsumer.accept(node.movetext());
+        setStatus("Loaded " + node.summary(), Theme.ForegroundRole.SUCCESS);
+        return true;
+    }
+
+    /**
+     * Copies the selected ECO tree prefix movetext.
+     *
+     * @return true when copied
+     */
+    public boolean copySelectedTreeLine() {
+        EcoTreeNode node = requireSelectedTreeNode();
+        if (node == null) {
+            return false;
+        }
+        copyTextConsumer.accept(node.movetext());
+        setStatus("Copied tree line", Theme.ForegroundRole.SUCCESS);
+        return true;
+    }
+
+    /**
      * Returns the selected ECO row, or {@code null} after setting a "select a
      * line first" warning. Shared by the load/copy actions so the guard and its
      * message live in one place.
@@ -251,6 +331,21 @@ public final class EcoExplorerPanel extends JPanel {
             setStatus("Select an ECO line first", Theme.ForegroundRole.WARNING);
         }
         return row;
+    }
+
+    /**
+     * Returns the selected tree node, or {@code null} after setting a "select a
+     * tree node first" warning.
+     *
+     * @return selected tree node, or null when nothing usable is selected
+     */
+    private EcoTreeNode requireSelectedTreeNode() {
+        EcoTreeNode node = selectedTreeNode();
+        if (node == null || node.root() || node.movetext().isBlank()) {
+            setStatus("Select an ECO tree node first", Theme.ForegroundRole.WARNING);
+            return null;
+        }
+        return node;
     }
 
     /**
@@ -309,7 +404,7 @@ public final class EcoExplorerPanel extends JPanel {
         setForeground(Theme.TEXT);
         setBorder(Theme.pad(Theme.SPACE_MD));
         add(collapsible("Search", createHeader(), true), BorderLayout.NORTH);
-        add(createTablePanel(), BorderLayout.CENTER);
+        add(createResultsPanel(), BorderLayout.CENTER);
         add(createActions(), BorderLayout.SOUTH);
     }
 
@@ -346,6 +441,43 @@ public final class EcoExplorerPanel extends JPanel {
      *
      * @return table component
      */
+    private JComponent createResultsPanel() {
+        JTabbedPane tabs = tabbedPane();
+        tabs.addTab("Tree", createTreePanel());
+        tabs.addTab("Lines", createTablePanel());
+        JPanel panel = transparentPanel(new BorderLayout(0, 5));
+        panel.add(statusLabel, BorderLayout.NORTH);
+        panel.add(tabs, BorderLayout.CENTER);
+        return panel;
+    }
+
+    /**
+     * Creates the ECO opening tree view.
+     *
+     * @return tree component
+     */
+    private JComponent createTreePanel() {
+        openingTree.setRootVisible(true);
+        openingTree.setShowsRootHandles(true);
+        openingTree.setModel(treeModel);
+        openingTree.setOpaque(true);
+        openingTree.setBackground(Theme.PANEL_SOLID);
+        openingTree.setForeground(Theme.TEXT);
+        openingTree.setFont(Theme.font(12, Font.PLAIN));
+        openingTree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
+        openingTree.setCellRenderer(new EcoTreeRenderer());
+        openingTree.setToolTipText("ECO opening tree for the current board prefix");
+
+        JPanel panel = transparentPanel(new BorderLayout(0, 5));
+        panel.add(scroll(openingTree), BorderLayout.CENTER);
+        return panel;
+    }
+
+    /**
+     * Creates the ECO result table.
+     *
+     * @return table component
+     */
     private JComponent createTablePanel() {
         Theme.table(table, ROW_HEIGHT);
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -355,7 +487,6 @@ public final class EcoExplorerPanel extends JPanel {
         configureColumns();
 
         JPanel panel = transparentPanel(new BorderLayout(0, 5));
-        panel.add(statusLabel, BorderLayout.NORTH);
         panel.add(scroll(table), BorderLayout.CENTER);
         return panel;
     }
@@ -382,6 +513,8 @@ public final class EcoExplorerPanel extends JPanel {
     private JComponent createActions() {
         JButton refresh = button("Refresh", false, event -> refresh());
         return buttonRow(FlowLayout.LEFT,
+                button("Load Node", true, event -> loadSelectedTreeLine()),
+                button("Copy Node", false, event -> copySelectedTreeLine()),
                 button("Load Line", true, event -> loadSelectedLine()),
                 button("Copy Line", false, event -> copySelectedLine()),
                 button("Copy FEN", false, event -> copySelectedFen()),
@@ -395,12 +528,14 @@ public final class EcoExplorerPanel extends JPanel {
     private void rebuildRows() {
         if (bookEntries.isEmpty()) {
             tableModel.setRows(List.of());
+            rebuildTree(List.of(), false);
             setStatus(loadError == null ? "No ECO entries loaded" : loadError, Theme.ForegroundRole.ERROR);
             return;
         }
         String query = filterText();
         boolean searching = !query.isBlank();
         List<EcoRow> rows = new ArrayList<>();
+        List<BookEntry> treeEntries = new ArrayList<>();
         for (BookEntry entry : bookEntries) {
             if (searching && !entry.searchable().contains(query)) {
                 continue;
@@ -408,13 +543,100 @@ public final class EcoExplorerPanel extends JPanel {
             if (!searching && currentPathStandard && !isContinuation(entry.moves(), currentPath)) {
                 continue;
             }
+            treeEntries.add(entry);
             rows.add(toRow(entry));
             if (rows.size() >= DISPLAY_LIMIT && !searching && currentPath.isEmpty()) {
                 break;
             }
         }
         tableModel.setRows(rows);
+        rebuildTree(!searching && !currentPathStandard ? List.of() : treeEntries, searching);
         updateStatusForRows(rows.size(), searching);
+    }
+
+    /**
+     * Rebuilds the prefix tree for the current ECO scope.
+     *
+     * @param entries ECO entries in the current table scope
+     * @param searching true when the text filter is active
+     */
+    private void rebuildTree(List<BookEntry> entries, boolean searching) {
+        List<Short> rootPath = searching ? List.of() : currentPath;
+        TreeBuildNode root = new TreeBuildNode(rootPath, treeRootLabel(searching), currentMatch);
+        root.lineCount = entries.size();
+        int matchedPrefix = searching || !currentPathStandard ? 0 : currentPath.size();
+        for (BookEntry entry : entries) {
+            addTreeEntry(root, entry, matchedPrefix);
+        }
+        treeRoot = toTreeNode(root, true);
+        treeModel.setRoot(treeRoot);
+        treeModel.reload();
+        openingTree.expandRow(0);
+    }
+
+    /**
+     * Adds one ECO entry to the current prefix tree.
+     *
+     * @param root tree root
+     * @param entry ECO entry
+     * @param matchedPrefix number of already-matched current-path plies
+     */
+    private void addTreeEntry(TreeBuildNode root, BookEntry entry, int matchedPrefix) {
+        TreeBuildNode node = root;
+        Position cursor = STANDARD_START.copy();
+        short[] moves = entry.moves();
+        for (int i = 0; i < moves.length; i++) {
+            String san = PositionText.safeSan(cursor, moves[i]);
+            cursor.play(moves[i]);
+            if (i < matchedPrefix) {
+                continue;
+            }
+            node = node.child(moves[i], san);
+            node.lineCount++;
+            if (i == moves.length - 1) {
+                node.entry = entry;
+            }
+        }
+    }
+
+    /**
+     * Converts an internal tree node into a Swing tree node.
+     *
+     * @param source internal node
+     * @param root true when the node is the displayed root
+     * @return Swing tree node
+     */
+    private DefaultMutableTreeNode toTreeNode(TreeBuildNode source, boolean root) {
+        DefaultMutableTreeNode node = new DefaultMutableTreeNode(EcoTreeNode.from(source, root));
+        List<TreeBuildNode> children = new ArrayList<>(source.children.values());
+        children.sort(Comparator.comparingInt(TreeBuildNode::lineCount).reversed()
+                .thenComparing(TreeBuildNode::san));
+        for (TreeBuildNode child : children) {
+            node.add(toTreeNode(child, false));
+        }
+        return node;
+    }
+
+    /**
+     * Returns the root label for the current tree scope.
+     *
+     * @param searching true when the text filter is active
+     * @return tree root label
+     */
+    private String treeRootLabel(boolean searching) {
+        if (searching) {
+            return "Filtered ECO entries";
+        }
+        if (!currentPathStandard) {
+            return "Off-book position";
+        }
+        if (currentPath.isEmpty()) {
+            return "ECO root";
+        }
+        if (currentMatch != null) {
+            return currentMatch.eco() + " " + currentMatch.name();
+        }
+        return "Current ECO prefix";
     }
 
     /**
@@ -496,6 +718,24 @@ public final class EcoExplorerPanel extends JPanel {
         }
         int modelRow = table.convertRowIndexToModel(selected);
         return tableModel.rowAt(modelRow);
+    }
+
+    /**
+     * Returns the selected tree node.
+     *
+     * @return selected tree node, or null
+     */
+    private EcoTreeNode selectedTreeNode() {
+        TreePath path = openingTree.getSelectionPath();
+        if (path == null) {
+            return null;
+        }
+        Object selected = path.getLastPathComponent();
+        if (!(selected instanceof DefaultMutableTreeNode treeNode)) {
+            return null;
+        }
+        Object value = treeNode.getUserObject();
+        return value instanceof EcoTreeNode node ? node : null;
     }
 
     /**
@@ -601,6 +841,49 @@ public final class EcoExplorerPanel extends JPanel {
     }
 
     /**
+     * Formats a move path as SAN movetext from the standard start position.
+     *
+     * @param path move path
+     * @return SAN movetext, or empty text at the root
+     */
+    private static String movetext(List<Short> path) {
+        if (path == null || path.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        Position cursor = STANDARD_START.copy();
+        for (Short boxedMove : path) {
+            if (boxedMove == null) {
+                continue;
+            }
+            short move = boxedMove.shortValue();
+            if (sb.length() > 0) {
+                sb.append(' ');
+            }
+            sb.append(PositionText.safeSan(cursor, move));
+            cursor.play(move);
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Converts a list move path into an immutable primitive-array copy.
+     *
+     * @param path move path
+     * @return primitive move array
+     */
+    private static short[] pathArray(List<Short> path) {
+        if (path == null || path.isEmpty()) {
+            return new short[0];
+        }
+        short[] copy = new short[path.size()];
+        for (int i = 0; i < path.size(); i++) {
+            copy[i] = path.get(i).shortValue();
+        }
+        return copy;
+    }
+
+    /**
      * Returns a safe copy of a nullable path.
      *
      * @param path nullable path
@@ -666,6 +949,238 @@ public final class EcoExplorerPanel extends JPanel {
     private static String searchable(Entry entry) {
         return (entry.getECO() + " " + entry.getName() + " " + entry.getMovetext())
                 .toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * Mutable builder node used while aggregating ECO entries into a prefix tree.
+     */
+    private static final class TreeBuildNode {
+
+        /**
+         * Move path from the standard start to this node.
+         */
+        private final List<Short> path;
+
+        /**
+         * Display SAN for the edge into this node, or a root label.
+         */
+        private final String san;
+
+        /**
+         * Child nodes keyed by encoded move.
+         */
+        private final Map<Short, TreeBuildNode> children = new LinkedHashMap<>();
+
+        /**
+         * Representative ECO entry ending exactly on this node.
+         */
+        private BookEntry entry;
+
+        /**
+         * Number of ECO lines passing through this node.
+         */
+        private int lineCount;
+
+        /**
+         * Creates a tree builder node.
+         *
+         * @param path move path
+         * @param san display SAN
+         * @param entry exact ECO entry, or null
+         */
+        private TreeBuildNode(List<Short> path, String san, BookEntry entry) {
+            this.path = List.copyOf(path);
+            this.san = san == null ? "" : san;
+            this.entry = entry;
+        }
+
+        /**
+         * Returns the existing child for a move, or creates one.
+         *
+         * @param move encoded move
+         * @param san display SAN
+         * @return child node
+         */
+        private TreeBuildNode child(short move, String san) {
+            Short key = Short.valueOf(move);
+            TreeBuildNode child = children.get(key);
+            if (child != null) {
+                return child;
+            }
+            List<Short> nextPath = new ArrayList<>(path);
+            nextPath.add(key);
+            child = new TreeBuildNode(nextPath, san, null);
+            children.put(key, child);
+            return child;
+        }
+
+        /**
+         * Returns the display SAN.
+         *
+         * @return display SAN
+         */
+        private String san() {
+            return san;
+        }
+
+        /**
+         * Returns the line count.
+         *
+         * @return line count
+         */
+        private int lineCount() {
+            return lineCount;
+        }
+    }
+
+    /**
+     * Immutable value stored in one visible ECO tree node.
+     *
+     * @param label display label
+     * @param path move path from the standard start
+     * @param movetext SAN movetext for the path
+     * @param eco ECO code, or empty text
+     * @param name opening name, or empty text
+     * @param lineCount number of ECO lines under the node
+     * @param root true when this is the tree root
+     */
+    private record EcoTreeNode(
+            String label,
+            short[] path,
+            String movetext,
+            String eco,
+            String name,
+            int lineCount,
+            boolean root) {
+
+        /**
+         * Creates a root node.
+         *
+         * @param label root label
+         * @param path current path
+         * @return root tree node
+         */
+        private static EcoTreeNode root(String label, List<Short> path) {
+            return new EcoTreeNode(label, pathArray(path), EcoExplorerPanel.movetext(path), "", "", 0, true);
+        }
+
+        /**
+         * Converts a builder node into an immutable tree value.
+         *
+         * @param source builder node
+         * @param root true when this is the root node
+         * @return tree node value
+         */
+        private static EcoTreeNode from(TreeBuildNode source, boolean root) {
+            BookEntry entry = source.entry;
+            return new EcoTreeNode(
+                    source.san,
+                    pathArray(source.path),
+                    EcoExplorerPanel.movetext(source.path),
+                    entry == null ? "" : entry.eco(),
+                    entry == null ? "" : entry.name(),
+                    source.lineCount,
+                    root);
+        }
+
+        /**
+         * Defensive path copy for immutable record semantics.
+         */
+        private EcoTreeNode {
+            path = path == null ? new short[0] : path.clone();
+        }
+
+        /**
+         * Returns a defensive move-path copy.
+         *
+         * @return move path
+         */
+        @Override
+        public short[] path() {
+            return path.clone();
+        }
+
+        /**
+         * Returns a compact status summary for load/copy feedback.
+         *
+         * @return summary text
+         */
+        private String summary() {
+            if (eco == null || eco.isBlank()) {
+                return label;
+            }
+            return eco + " " + name;
+        }
+
+        /**
+         * Returns the display text shown by the Swing tree.
+         *
+         * @return display text
+         */
+        @Override
+        public String toString() {
+            if (root) {
+                return label + countSuffix();
+            }
+            String opening = eco == null || eco.isBlank() ? "" : " - " + eco + " " + name;
+            return label + countSuffix() + opening;
+        }
+
+        /**
+         * Formats the descendant line count suffix.
+         *
+         * @return count suffix
+         */
+        private String countSuffix() {
+            if (lineCount <= 0) {
+                return "";
+            }
+            return " (" + lineCount + (lineCount == 1 ? " line)" : " lines)");
+        }
+    }
+
+    /**
+     * Workbench-coloured renderer for the ECO opening tree.
+     */
+    private static final class EcoTreeRenderer extends DefaultTreeCellRenderer {
+
+        /**
+         * Serialization identifier for Swing renderer compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Renders one tree node in the Workbench palette.
+         *
+         * @param tree source tree
+         * @param value node value
+         * @param selected true when selected
+         * @param expanded true when expanded
+         * @param leaf true when leaf
+         * @param row row index
+         * @param hasFocus true when focused
+         * @return renderer component
+         */
+        @Override
+        public Component getTreeCellRendererComponent(JTree tree, Object value, boolean selected,
+                boolean expanded, boolean leaf, int row, boolean hasFocus) {
+            Component component = super.getTreeCellRendererComponent(tree, value, selected, expanded, leaf, row,
+                    hasFocus);
+            setFont(Theme.font(12, Font.PLAIN));
+            setOpaque(true);
+            setIcon(null);
+            setLeafIcon(null);
+            setOpenIcon(null);
+            setClosedIcon(null);
+            if (selected) {
+                setForeground(Theme.TEXT);
+                setBackground(Theme.SELECTION);
+            } else {
+                setForeground(Theme.TEXT);
+                setBackground(Theme.PANEL_SOLID);
+            }
+            return component;
+        }
     }
 
     /**

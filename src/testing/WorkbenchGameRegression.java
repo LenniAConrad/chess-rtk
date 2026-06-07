@@ -13,17 +13,25 @@ import java.util.List;
 
 import javax.swing.JComponent;
 import javax.swing.JTable;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.JTree;
 import javax.swing.Timer;
 
+import application.gui.workbench.engine.EngineGauntletPanel;
 import application.gui.workbench.board.BoardExporter;
 import application.gui.workbench.board.BoardPanel;
 import application.gui.workbench.game.GameModel;
+import application.gui.workbench.game.GameReviewPanel;
 import application.gui.workbench.game.PgnExplorerModel;
+import application.gui.workbench.game.PgnPrepReport;
+import application.gui.workbench.game.PlayMoveHistoryModel;
 import application.gui.workbench.game.PuzzleLibrary;
 import application.gui.workbench.game.PuzzlePanel;
 import application.gui.workbench.game.PuzzleSession;
 import application.gui.workbench.game.SanRenderer;
+import application.gui.workbench.game.StudyAuthorPanel;
+import application.gui.workbench.game.TablebasePanel;
 import application.gui.workbench.ui.NotationPainter;
 import application.gui.workbench.ui.Theme;
 
@@ -55,6 +63,7 @@ final class WorkbenchGameRegression {
         testInlineNotationPainterHandlesFeatureLabels();
         testGameModelLoadsPgnVariations();
         testGameModelNavigatesSelectedVariationLine();
+        testPlayMoveHistoryModelPairsSanMoves();
         testPuzzleSessionExploresOpponentVariationBranches();
         testPuzzlePanelStartsStandardWithoutLoadedLibrary();
         testPuzzlePanelTogglesReviewStartEnd();
@@ -70,12 +79,17 @@ final class WorkbenchGameRegression {
         testPuzzlePanelPaintsOpaqueSurface();
         testAnalysisBoardExportsRasterAndSvg();
         testPgnExplorerModelFiltersGames();
+        testPgnPrepReportSummarizesPlayerOpenings();
         testEcoExplorerFiltersAndLoadsLines();
+        testGameReviewPanelFindsStaticSwings();
+        testStudyAuthorPanelBuildsManifestFromGameLine();
+        testAccessibilityLabelsForNewWorkbenchPanels();
         testEvalBarMapping();
         testEvalBarAnimation();
         testEvalBarFrameFollowsTheme();
         testEvalBarThinkingIsStatic();
         testEngineEvalParsing();
+        testTablebasePanelSummarizesEngineOutput();
         testLiveEngineStatusFormatting();
         testOptionalPositiveIntegerParsing();
         testAnalysisGraphStoresSamples();
@@ -250,6 +264,36 @@ final class WorkbenchGameRegression {
     }
 
     /**
+     * Verifies the Play move-history rail shows compact White/Black pairs
+     * instead of the raw Ply/SAN/UCI/FEN game table.
+     */
+    private static void testPlayMoveHistoryModelPairsSanMoves() {
+        GameModel game = new GameModel();
+        Position cursor = new Position(START_FEN);
+        for (String uci : List.of("e2e4", "e7e5", "g1f3")) {
+            short move = Move.parse(uci);
+            Position next = cursor.copy();
+            next.play(move);
+            game.append(cursor, move, next);
+            cursor = next;
+        }
+
+        PlayMoveHistoryModel history = new PlayMoveHistoryModel(game);
+        assertEquals(Integer.valueOf(3), Integer.valueOf(history.getColumnCount()),
+                "play history has move number plus White/Black columns");
+        assertEquals("#", history.getColumnName(0), "move-number column");
+        assertEquals("White", history.getColumnName(1), "white column");
+        assertEquals("Black", history.getColumnName(2), "black column");
+        assertEquals(Integer.valueOf(2), Integer.valueOf(history.getRowCount()),
+                "three plies become two move rows");
+        assertEquals(Integer.valueOf(1), history.getValueAt(0, 0), "first move number");
+        assertEquals("e4", history.getValueAt(0, 1), "white first move");
+        assertEquals("e5", history.getValueAt(0, 2), "black first move");
+        assertEquals("Nf3", history.getValueAt(1, 1), "white second move");
+        assertEquals("", history.getValueAt(1, 2), "missing black reply stays blank");
+    }
+
+    /**
      * Verifies the native puzzle session follows the chess-web variation flow.
      */
     private static void testPuzzleSessionExploresOpponentVariationBranches() {
@@ -355,11 +399,14 @@ final class WorkbenchGameRegression {
                 "puzzle board advances to opponent reply");
         assertFalse((Boolean) field(panel, "responseAnimationActive"),
                 "opponent reply animation completes");
-        assertTrue((Boolean) field(board, "moveAnimationActive"),
+        Object animation = boardAnimation(board);
+        assertTrue((Boolean) invoke(animation, "moveAnimationActive", new Class<?>[0]),
                 "opponent reply uses board move animation");
-        assertEquals(Byte.valueOf(Move.getFromIndex(opponentMove)), field(board, "animatedMoveFrom"),
+        assertEquals(Byte.valueOf(Move.getFromIndex(opponentMove)),
+                invoke(animation, "animatedMoveFrom", new Class<?>[0]),
                 "opponent reply animated origin");
-        assertEquals(Byte.valueOf(Move.getToIndex(opponentMove)), field(board, "animatedMoveTo"),
+        assertEquals(Byte.valueOf(Move.getToIndex(opponentMove)),
+                invoke(animation, "animatedMoveTo", new Class<?>[0]),
                 "opponent reply animated target");
     }
 
@@ -378,11 +425,12 @@ final class WorkbenchGameRegression {
 
         assertEquals(Short.valueOf(Move.NO_MOVE), field(board, "suggestedMove"),
                 "wrong puzzle move does not reveal expected move arrow");
-        assertEquals(Byte.valueOf(Move.getToIndex(wrongMove)), field(board, "wrongMoveMarkerSquare"),
+        assertEquals(Byte.valueOf(Move.getToIndex(wrongMove)),
+                invoke(boardAnimation(board), "wrongMoveMarkerSquare", new Class<?>[0]),
                 "wrong puzzle move marks attempted target");
         assertTrue(((java.util.Map<?, ?>) field(board, "squareHighlights")).isEmpty(),
                 "wrong puzzle move avoids hint square highlight");
-        assertTrue(((java.util.List<?>) field(board, "boardMarkups")).isEmpty(),
+        assertEquals(Integer.valueOf(0), Integer.valueOf(((BoardPanel) board).markupCount()),
                 "wrong puzzle move avoids hint arrow markup");
         String status = ((javax.swing.JLabel) field(panel, "statusLabel")).getText();
         assertFalse(status.contains("e4d6"), "wrong puzzle status does not print expected move");
@@ -401,7 +449,8 @@ final class WorkbenchGameRegression {
         byte target = Field.toIndex('h', '8');
 
         invoke(board, "showWrongMoveMarker", new Class<?>[] { byte.class }, target);
-        setField(board, "wrongMoveMarkerStartedAt", Long.valueOf(System.currentTimeMillis() - 200L));
+        invoke(boardAnimation(board), "setWrongMoveMarkerStartedAt", new Class<?>[] { long.class },
+                Long.valueOf(System.currentTimeMillis() - 200L));
         BufferedImage image = paint(component, 640, 640);
         Point center = boardPoint(target, true, 640, 640);
         int cell = Math.min(640 - 64, 640 - 64) / 8;
@@ -639,12 +688,71 @@ final class WorkbenchGameRegression {
                 """;
         List<PgnExplorerModel.Entry> entries = PgnExplorerModel.entries(pgn);
         assertEquals(Integer.valueOf(2), Integer.valueOf(entries.size()), "PGN explorer indexes games");
+        assertEquals("Alpha", entries.get(0).white(), "PGN database exposes White player");
+        assertEquals("Beta", entries.get(0).black(), "PGN database exposes Black player");
+        assertEquals("Ruy Lopez", entries.get(0).opening(), "PGN database exposes opening tag");
+        assertEquals(Integer.valueOf(5), Integer.valueOf(entries.get(0).plyCount()),
+                "PGN database counts mainline plies");
         assertEquals(Integer.valueOf(1), Integer.valueOf(PgnExplorerModel.filter(entries, "alpha ruy").size()),
                 "PGN explorer filters by player and opening");
         assertEquals(Integer.valueOf(1), Integer.valueOf(PgnExplorerModel.filter(entries, "study paris").size()),
                 "PGN explorer filters by event and site");
+        Position afterE4E5 = new Position(START_FEN);
+        afterE4E5.play(Move.parse("e2e4"));
+        afterE4E5.play(Move.parse("e7e5"));
+        assertEquals(Integer.valueOf(1),
+                Integer.valueOf(PgnExplorerModel.filterByPosition(entries, afterE4E5.toString()).size()),
+                "PGN database filters games reaching current position");
+        List<PgnExplorerModel.Entry> duplicated = PgnExplorerModel.entries(pgn + "\n\n" + entries.get(0).pgn());
+        assertEquals(Integer.valueOf(1), Integer.valueOf(PgnExplorerModel.duplicateCount(duplicated)),
+                "PGN database detects duplicate game rows");
+        assertEquals(Integer.valueOf(2), Integer.valueOf(PgnExplorerModel.deduplicate(duplicated).size()),
+                "PGN database removes duplicate game rows");
         assertTrue(entries.get(0).pgn().contains("[Event \"Training Match\"]"),
                 "PGN explorer serializes selected game");
+    }
+
+    /**
+     * Verifies prep reports summarize a player's openings, score, and weak
+     * lines.
+     */
+    private static void testPgnPrepReportSummarizesPlayerOpenings() {
+        String pgn = """
+                [Event "Prep 1"]
+                [White "Alpha"]
+                [Black "Beta"]
+                [Result "1-0"]
+                [ECO "C60"]
+                [Opening "Ruy Lopez"]
+
+                1. e4 e5 2. Nf3 Nc6 3. Bb5 1-0
+
+                [Event "Prep 2"]
+                [White "Gamma"]
+                [Black "Alpha"]
+                [Result "1-0"]
+                [ECO "B20"]
+                [Opening "Sicilian Defense"]
+
+                1. e4 c5 1-0
+
+                [Event "Prep 3"]
+                [White "Alpha"]
+                [Black "Delta"]
+                [Result "1/2-1/2"]
+                [ECO "D06"]
+                [Opening "Queen's Gambit"]
+
+                1. d4 d5 2. c4 1/2-1/2
+                """;
+        String report = PgnPrepReport.report(PgnExplorerModel.entries(pgn), "Alpha");
+        assertTrue(report.contains("Player games: 3  score: 1.5/3 (50.0%)"),
+                "prep report player score");
+        assertTrue(report.contains("As White: 2  As Black: 1"), "prep report color split");
+        assertTrue(report.contains("- Ruy Lopez: 1"), "prep report opening count");
+        assertTrue(report.contains("- C60: 1"), "prep report ECO count");
+        assertTrue(report.contains("- B20 Sicilian Defense: 1 game, 0.0%"),
+                "prep report weak-line candidate");
     }
 
     /**
@@ -669,6 +777,17 @@ final class WorkbenchGameRegression {
 
         assertTrue(((Integer) invoke(explorer, "rowCount", new Class<?>[0])).intValue() > 0,
                 "ECO explorer has continuations for e4 e5");
+        assertTrue(((Integer) invoke(explorer, "treeRowCount", new Class<?>[0])).intValue() > 1,
+                "ECO opening tree has continuations for e4 e5");
+        assertTrue((Boolean) invoke(explorer, "selectFirstTreeChild", new Class<?>[0]),
+                "ECO opening tree selects first continuation");
+        assertTrue((Boolean) invoke(explorer, "loadSelectedTreeLine", new Class<?>[0]),
+                "ECO opening tree loads selected prefix");
+        assertTrue(loaded[0] != null && loaded[0].startsWith("e4 e5"),
+                "loaded ECO tree prefix starts at the standard opening root");
+        assertTrue((Boolean) invoke(explorer, "copySelectedTreeLine", new Class<?>[0]),
+                "ECO opening tree copies selected prefix");
+        assertEquals(loaded[0], copied[0], "copied selected ECO tree prefix");
         invoke(explorer, "setFilter", new Class<?>[] { String.class }, "Ruy Lopez");
         assertTrue(((Integer) invoke(explorer, "rowCount", new Class<?>[0])).intValue() > 0,
                 "ECO explorer filters Ruy Lopez rows");
@@ -687,6 +806,13 @@ final class WorkbenchGameRegression {
                 "ECO table header uses workbench background");
         assertEquals(themeColor("MUTED"), header.getForeground(),
                 "ECO table header uses workbench foreground");
+        JTree tree = (JTree) field(explorer, "openingTree");
+        Component treeNode = tree.getCellRenderer().getTreeCellRendererComponent(tree,
+                tree.getModel().getRoot(), false, true, false, 0, false);
+        assertEquals(themeColor("PANEL_SOLID"), treeNode.getBackground(),
+                "ECO tree renderer uses workbench background");
+        assertEquals(themeColor("TEXT"), treeNode.getForeground(),
+                "ECO tree renderer uses workbench foreground");
         assertTrue(table.getColumnModel().getColumn(1).getCellRenderer() instanceof SanRenderer,
                 "ECO next-move column uses inline SAN renderer");
         assertTrue(table.getColumnModel().getColumn(4).getCellRenderer() instanceof SanRenderer,
@@ -694,6 +820,81 @@ final class WorkbenchGameRegression {
         assertTrue(NotationPainter.pieceSvgCount(loaded[0]) > 0,
                 "selected ECO movetext contains drawable algebraic piece notation");
         assertPaintsOpaqueCorner((JComponent) explorer, 420, 520, "ECO explorer opaque background");
+    }
+
+    /**
+     * Verifies post-game review uses mainline snapshots and surfaces tactical
+     * static swings.
+     */
+    private static void testGameReviewPanelFindsStaticSwings() {
+        Position root = new Position("4k3/8/8/8/8/8/4q3/4KQ2 w - - 0 1");
+        GameModel model = new GameModel();
+        model.loadLine(root, List.of(Short.valueOf(Move.parse("f1e2"))));
+
+        List<GameModel.PlySnapshot> snapshots = model.mainlineSnapshots();
+        assertEquals(Integer.valueOf(1), Integer.valueOf(snapshots.size()), "review snapshots mainline move");
+        assertEquals(root.toString(), snapshots.get(0).beforeFen(), "review snapshot stores before position");
+        assertEquals("f1e2", snapshots.get(0).uci(), "review snapshot stores UCI");
+
+        List<GameReviewPanel.ReviewFinding> findings = GameReviewPanel.analyze(model);
+        assertEquals(Integer.valueOf(1), Integer.valueOf(findings.size()), "review analyzes mainline move");
+        GameReviewPanel.ReviewFinding finding = findings.get(0);
+        assertEquals("f1e2", finding.uci(), "review finding keeps move identity");
+        assertTrue("Strong".equals(finding.verdict()) || "Good".equals(finding.verdict()),
+                "review marks queen capture as a positive swing");
+        assertTrue(finding.afterWhiteCp() > finding.beforeWhiteCp(),
+                "review stores White-relative evaluation swing");
+        assertTrue(finding.summary().contains("Effects:") && finding.summary().contains("Position:"),
+                "review explanation includes deterministic tags and position description");
+    }
+
+    /**
+     * Verifies study authoring exports the current game line as aligned
+     * figure arrays.
+     */
+    private static void testStudyAuthorPanelBuildsManifestFromGameLine() {
+        GameModel model = new GameModel();
+        model.loadLine(new Position(START_FEN), List.of(
+                Short.valueOf(Move.parse("e2e4")),
+                Short.valueOf(Move.parse("e7e5"))));
+        StudyAuthorPanel panel = new StudyAuthorPanel(() -> model, () -> START_FEN, value -> { });
+        StudyAuthorPanel.StudyDraft draft = panel.draft();
+        assertEquals(Integer.valueOf(3), Integer.valueOf(draft.figureFens().size()),
+                "study draft includes start plus two moves");
+        assertEquals("Start", draft.figureMovesAlgebraic().get(0), "study draft start label");
+        assertEquals("e2e4", draft.figureArrows().get(1), "study draft first arrow");
+        assertEquals("e7e5", draft.figureArrows().get(2), "study draft second arrow");
+        String toml = StudyAuthorPanel.buildStudyToml(draft);
+        assertTrue(toml.contains("[[compositions]]"), "study TOML has composition array");
+        assertTrue(toml.contains("figureFens = ["), "study TOML has FEN array");
+        assertTrue(toml.contains("figureArrows = ["), "study TOML has arrow array");
+        assertTrue(toml.contains("1. e4"), "study TOML has SAN label");
+    }
+
+    /**
+     * Verifies newly added GUI surfaces expose useful accessible names.
+     */
+    private static void testAccessibilityLabelsForNewWorkbenchPanels() {
+        GameModel model = new GameModel();
+        GameReviewPanel review = new GameReviewPanel(() -> model, ply -> { }, value -> { });
+        JTable reviewTable = (JTable) field(review, "table");
+        assertEquals("Post-game review findings", reviewTable.getAccessibleContext().getAccessibleName(),
+                "review table accessible name");
+
+        StudyAuthorPanel study = new StudyAuthorPanel(() -> model, () -> START_FEN, value -> { });
+        JTextArea manifest = (JTextArea) field(study, "manifestArea");
+        assertEquals("Generated study TOML", manifest.getAccessibleContext().getAccessibleName(),
+                "study manifest accessible name");
+
+        TablebasePanel tablebase = new TablebasePanel(() -> START_FEN, value -> { });
+        JTextArea output = (JTextArea) field(tablebase, "outputArea");
+        assertEquals("Endgame engine output", output.getAccessibleContext().getAccessibleName(),
+                "tablebase output accessible name");
+
+        EngineGauntletPanel gauntlet = new EngineGauntletPanel(value -> { });
+        JTextArea command = (JTextArea) field(gauntlet, "commandArea");
+        assertEquals("Gauntlet command preview", command.getAccessibleContext().getAccessibleName(),
+                "gauntlet command accessible name");
     }
 
     /**
@@ -769,6 +970,38 @@ final class WorkbenchGameRegression {
         assertTrue(mate != null, "mate eval parsed");
         assertTrue(engineEvalMate(mate), "mate eval flag");
         assertEquals(Integer.valueOf(-3), Integer.valueOf(engineEvalValue(mate)), "mate eval value");
+    }
+
+    /**
+     * Verifies the Endgame panel command and tablebase-hit summary parser.
+     */
+    private static void testTablebasePanelSummarizesEngineOutput() {
+        String fen = "8/8/8/8/8/8/4K2R/k7 w - - 0 1";
+        List<String> args = TablebasePanel.analyzeArgs(fen);
+        assertEquals(List.of("engine", "analyze"), args.subList(0, 2),
+                "tablebase panel uses engine analyze");
+        assertEquals(fen, valueAfterFlag(args, "--fen"), "tablebase command uses current FEN");
+        assertEquals("8", valueAfterFlag(args, "--multipv"), "tablebase command requests winning moves");
+        assertEquals("100000", valueAfterFlag(args, "--max-nodes"), "tablebase command is fixed-node");
+        assertTrue(hasFlag(args, "--wdl"), "tablebase command requests WDL");
+
+        String output = """
+                PV1
+                  eval: #1
+                  tablebase hits: 2
+                  wdl: 1000/0/0  bound: exact
+                  best: h1h8 (Rh8#)
+                PV2
+                  eval: +0
+                  tablebase hits: 1
+                """;
+        TablebasePanel.Summary summary = TablebasePanel.summarize(fen, output);
+        assertEquals(Integer.valueOf(3), Integer.valueOf(summary.pieces()), "tablebase piece count");
+        assertTrue(summary.eligible(), "tablebase position is eligible");
+        assertEquals(Long.valueOf(3), Long.valueOf(summary.tablebaseHits()), "tablebase hit count");
+        assertEquals(Integer.valueOf(2), Integer.valueOf(summary.pvCount()), "tablebase PV count");
+        assertEquals("h1h8 (Rh8#)", summary.bestMove(), "tablebase best move");
+        assertEquals("Tablebase hit reported", summary.verdict(), "tablebase verdict");
     }
 
     /**
@@ -876,5 +1109,15 @@ final class WorkbenchGameRegression {
                 new Output("info depth 14 multipv 1 score cp -31 nodes 2000 nps 6500 pv g1f3"),
                 Move.parse("g1f3"));
         assertPaintsOpaqueCorner(graph, 360, 260, "analysis graph opaque background");
+    }
+
+    /**
+     * Returns the board animation state helper.
+     *
+     * @param board board component
+     * @return animation state helper
+     */
+    private static Object boardAnimation(Object board) {
+        return field(board, "animationState");
     }
 }

@@ -175,7 +175,7 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         this.jobTable = new JTable(jobModel);
 
         setOpaque(true);
-        setBackground(Theme.BG);
+        setBackground(Theme.PANEL_SOLID);
 
         // The compact status cards flow through a responsive masonry so the
         // dashboard uses the full desktop canvas instead of a narrow centred
@@ -217,9 +217,9 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         // divider, the same chrome the Network and Datasets tabs open with so
         // the operational tabs read as one design system.
         add(buildToolbarBand(), BorderLayout.NORTH);
-        // Declare the backdrop so cards float on BG, not the darker PANEL_SOLID
-        // the viewport would otherwise stamp behind a transparent grid.
-        add(Ui.scroll(Ui.fillViewport(grid), () -> Theme.BG), BorderLayout.CENTER);
+        // Keep the page body on the editor surface; only the actual cards should
+        // introduce a brighter grouped panel.
+        add(Ui.scroll(Ui.fillViewport(grid), () -> Theme.PANEL_SOLID), BorderLayout.CENTER);
 
         session.addListener(this);
         session.artifacts().addListener(() -> SwingUtilities.invokeLater(this::refreshArtifacts));

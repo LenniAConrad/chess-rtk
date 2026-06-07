@@ -1,6 +1,10 @@
 package testing;
 
 import application.gui.workbench.board.BoardPanel;
+import application.gui.workbench.draw.DrawPanel;
+import application.gui.workbench.game.GameModel;
+import application.gui.workbench.game.PlayMoveHistoryModel;
+import application.gui.workbench.play.PlayPanel;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import java.awt.Component;
@@ -63,6 +67,7 @@ public final class WorkbenchShots {
             shoot(outDir, "datasets", mode, width, 1100, WorkbenchShots::datasets);
             shoot(outDir, "datasets-loaded", mode, width, 1100, WorkbenchShots::datasetsLoaded);
             shoot(outDir, "play", mode, Math.max(width, 1500), 900, WorkbenchShots::play);
+            shoot(outDir, "draw", mode, Math.max(width, 1500), 900, WorkbenchShots::draw);
             shoot(outDir, "analyze", mode, Math.max(width, 1500), 900, WorkbenchShots::analyze);
             shoot(outDir, "puzzle", mode, Math.max(width, 1500), 1000, WorkbenchShots::puzzle);
             shoot(outDir, "commands", mode, width, 950, WorkbenchShots::commands);
@@ -223,7 +228,7 @@ public final class WorkbenchShots {
             Object session = sessionType.getDeclaredConstructor(hostType, strengthType, providerType)
                     .newInstance(stub(hostType), strength, stub(providerType));
             Supplier<String> fenSupplier = () -> fen;
-            JComponent playPanel = (JComponent) Class.forName("application.gui.workbench.play.PlayPanel")
+            PlayPanel playPanel = (PlayPanel) Class.forName("application.gui.workbench.play.PlayPanel")
                     .getDeclaredConstructor(sessionType, Supplier.class)
                     .newInstance(session, fenSupplier);
 
@@ -232,17 +237,25 @@ public final class WorkbenchShots {
             board.setPositionInstant(new chess.core.Position(fen), chess.core.Move.NO_MOVE);
             JPanel stage = new JPanel(new java.awt.BorderLayout());
             stage.setBackground(Theme.BG);
+            stage.add(playPanel.opponentIdentityStrip(), java.awt.BorderLayout.NORTH);
             stage.add(board, java.awt.BorderLayout.CENTER);
+            stage.add(playPanel.playerIdentityStrip(), java.awt.BorderLayout.SOUTH);
 
-            javax.swing.table.AbstractTableModel gameModel =
-                    (javax.swing.table.AbstractTableModel) Class.forName("application.gui.workbench.game.GameModel")
-                            .getDeclaredConstructor().newInstance();
-            JTable moves = new JTable(gameModel);
+            GameModel gameModel = new GameModel();
+            gameModel.loadLine(new chess.core.Position(fen), java.util.List.of(
+                    Short.valueOf(chess.core.Move.parse("e2e4")),
+                    Short.valueOf(chess.core.Move.parse("e7e5")),
+                    Short.valueOf(chess.core.Move.parse("g1f3")),
+                    Short.valueOf(chess.core.Move.parse("b8c6"))));
+            JTable moves = new JTable(new PlayMoveHistoryModel(gameModel));
             Theme.table(moves, Theme.TABLE_ROW_HEIGHT);
             JPanel rail = new JPanel(new java.awt.BorderLayout(0, Theme.SPACE_MD));
             rail.setOpaque(false);
             rail.add(playPanel, java.awt.BorderLayout.NORTH);
-            rail.add(Ui.titled("Moves", new JScrollPane(moves)), java.awt.BorderLayout.CENTER);
+            JComponent moveHistory = Ui.titled("Move history", new JScrollPane(moves));
+            moveHistory.setOpaque(true);
+            moveHistory.setBackground(Theme.BG);
+            rail.add(moveHistory, java.awt.BorderLayout.CENTER);
             rail.setPreferredSize(new Dimension(400, 560));
 
             JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, stage, rail);
@@ -252,6 +265,32 @@ public final class WorkbenchShots {
         } catch (ReflectiveOperationException ex) {
             throw new IllegalStateException(ex);
         }
+    }
+
+    /**
+     * Builds the Draw tab sample: shared board plus annotation/export rail.
+     *
+     * @return draw tab component
+     */
+    private static JComponent draw() {
+        String fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+        BoardPanel board = new BoardPanel();
+        board.setShowNotation(true);
+        board.setPositionInstant(new chess.core.Position(fen), chess.core.Move.NO_MOVE);
+        board.setDirectAnnotationMode(true);
+        board.addArrow((byte) 12, (byte) 28, new java.awt.Color(0x21, 0x9E, 0x3C, 212), 10);
+
+        JPanel stage = new JPanel(new java.awt.BorderLayout());
+        stage.setBackground(Theme.BG);
+        stage.add(board, java.awt.BorderLayout.CENTER);
+
+        JScrollPane rail = Ui.scroll(Ui.fillViewport(new DrawPanel(board, stage)));
+        rail.setPreferredSize(new Dimension(400, 560));
+
+        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, stage, rail);
+        split.setResizeWeight(0.68);
+        split.setDividerLocation(0.68);
+        return split;
     }
 
     /**

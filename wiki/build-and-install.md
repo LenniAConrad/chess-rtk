@@ -149,6 +149,7 @@ If the manual steps above feel like one too many, `./install.sh` collapses them 
 - optionally builds the CUDA, ROCm/HIP, and oneAPI JNI backends when their vendor toolchains are present
 
 Any `models/*.bin`, `models/*.pb.gz`, and `models/*.nnue` files it downloads are local artifacts, and git ignores them.
+If a `crtk` command already exists on `PATH` and already points at this checkout, the installer reuses it and only replaces the Java build (`out/` and `crtk.jar`). That update path does not need sudo unless you also choose a package install, a native toolchain install, or a launcher/desktop rewrite.
 
 Run the installer, then verify:
 
@@ -177,6 +178,7 @@ Left alone, the installer detects what toolchains are present and acts on them. 
 | `--require-cuda` / `--require-rocm` / `--require-oneapi` | Fail the install if that backend cannot be built |
 | `--no-cuda` / `--no-rocm` / `--no-oneapi` | Skip that native GPU backend build |
 | `--no-launcher` | Skip installing the `/usr/local/bin/crtk` launcher |
+| `--force-launcher` | Rewrite the command launcher even when an existing `crtk` command already points at this checkout |
 | `--no-desktop` (alias `--no-app-launcher`) | Skip the desktop app entry |
 | `-h`, `--help` | Show installer usage |
 
@@ -209,6 +211,7 @@ Rebuild and reinstall the current checkout without pulling new commits:
 Notes:
 
 - `scripts/update.sh` refuses to pull when the worktree has local changes, so an in-progress edit is never clobbered.
+- When the installed `crtk` command already targets this checkout, `scripts/update.sh --no-pull --no-models --no-cuda --no-rocm --no-oneapi` rebuilds the jar behind that command without reinstalling the launcher.
 - Anything it doesn't recognize passes straight through to `./install.sh` — for example `./scripts/update.sh --no-cuda`.
 
 ## Uninstall

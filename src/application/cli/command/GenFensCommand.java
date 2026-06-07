@@ -302,7 +302,7 @@ public final class GenFensCommand {
 	}
 
 	/**
-	 * Ensures the target directory exists or exits with a diagnostic.
+	 * Ensures the target directory exists or throws a structured command failure.
 	 *
 	 * @param cmd     command label used in diagnostics
 	 * @param dir     output directory to create
@@ -312,11 +312,8 @@ public final class GenFensCommand {
 		try {
 			Files.createDirectories(dir);
 		} catch (IOException e) {
-			System.err.println(cmd + ": failed to create output directory: " + e.getMessage());
-			if (verbose) {
-				e.printStackTrace(System.err);
-			}
-			System.exit(2);
+			throw new CommandFailure(cmd + ": failed to create output directory: " + e.getMessage(),
+					e, 2, verbose);
 		}
 	}
 
@@ -359,7 +356,7 @@ public final class GenFensCommand {
 	}
 
 	/**
-	 * Writes a single FEN shard file and terminates the process on failure.
+	 * Writes a single FEN shard file and throws a structured command failure on failure.
 	 *
 	 * @param target    output path
 	 * @param fenCount  number of FENs to write
@@ -374,11 +371,8 @@ public final class GenFensCommand {
 		try {
 			writeFenShard(target, fenCount, chess960, context);
 		} catch (IOException | IllegalStateException e) {
-			System.err.println(COMMAND_LABEL + ": failed to write " + target + ": " + e.getMessage());
-			if (context.verbose()) {
-				e.printStackTrace(System.err);
-			}
-			System.exit(1);
+			throw new CommandFailure(COMMAND_LABEL + ": failed to write " + target + ": " + e.getMessage(),
+					e, 1, context.verbose());
 		}
 	}
 

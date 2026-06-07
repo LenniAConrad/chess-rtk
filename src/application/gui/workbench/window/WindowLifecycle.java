@@ -935,8 +935,8 @@ public abstract class WindowLifecycle extends WindowBase {
         // UX redesign builds the view/inspector system on.
         ViewRegistry registry = new ViewRegistry()
                 .add(new RegisteredView("Dashboard", dashboardPanel))
-                // Board is the unified board surface: Analyze, Play, Solve, and
-                // Relations are modes of one workspace (a switcher over a shared
+                // Board is the unified board surface: Analyze, Play, Solve,
+                // Relations, and Draw are modes of one workspace (a switcher over a shared
                 // board area), not four separate tabs. Built eagerly because its
                 // Analyze mode wires the main board at startup. Duplicating the
                 // Board tab spawns an independent analysis workspace.
@@ -1978,7 +1978,7 @@ public abstract class WindowLifecycle extends WindowBase {
      */
     protected void showPgnExplorer() {
         if (pgnExplorer == null) {
-            pgnExplorer = new PgnExplorerDialog(this, this::loadGameText);
+            pgnExplorer = new PgnExplorerDialog(this, this::loadGameText, this::currentFen, this::copyText);
         }
         pgnExplorer.showExplorer(gameModel.pgn());
     }
@@ -1999,6 +1999,14 @@ public abstract class WindowLifecycle extends WindowBase {
                         () -> setLiveExternalEngineEnabled(!liveExternalEngineEnabled)),
     new PaletteAction("View", "Analysis data", "Show live evaluation, depth, and speed graphs",
                         this::showAnalysisData),
+    new PaletteAction("View", "Opening tree", "Show ECO opening tree and candidate continuations",
+                        () -> showBoardDetail("ECO")),
+    new PaletteAction("View", "Review game", "Show deterministic post-game review and retry tools",
+                        () -> showBoardDetail("Review")),
+    new PaletteAction("View", "Author study", "Show study/repertoire TOML authoring",
+                        () -> showBoardDetail("Study")),
+    new PaletteAction("View", "Endgame tablebase", "Show tablebase eligibility and endgame analysis",
+                        () -> showBoardDetail("Endgame")),
     new PaletteAction("Copy", "Copy analysis CSV", "Copy live analysis graph data as CSV",
                         this::copyAnalysisCsv),
     new PaletteAction("Copy", "Copy analysis report", "Copy the live analysis summary report",
@@ -2034,10 +2042,15 @@ public abstract class WindowLifecycle extends WindowBase {
                         () -> openBoard(BOARD_PLAY)),
     new PaletteAction("View", "Open relations", "Overlay OTIS tactical-incidence channels on the board",
                         () -> openBoard(BOARD_RELATIONS)),
+    new PaletteAction("View", "Open draw", "Annotate and export the current board",
+                        () -> openBoard(BOARD_DRAW)),
     new PaletteAction("View", "New analyze tab", "Open another independent analysis workspace",
                         this::openNewAnalyzeTab),
     new PaletteAction("View", "Focus game line", "Show the merged game tools", this::focusGameInput),
-    new PaletteAction("File", "PGN explorer", "Search the current PGN or open a PGN file", this::showPgnExplorer),
+    new PaletteAction("File", "PGN database", "Search, filter, dedupe, and report on PGN games",
+                        this::showPgnExplorer),
+    new PaletteAction("File", "Player prep report", "Open PGN database and use Copy Prep Report",
+                        this::showPgnExplorer),
     new PaletteAction("View", "Open commands tab", "Show the command builder",
                         () -> openRun(RUN_BUILD)),
     new PaletteAction("View", "Open datasets tab", "Inspect and analyze training datasets",
@@ -2050,6 +2063,8 @@ public abstract class WindowLifecycle extends WindowBase {
                         () -> openEngine(ENGINE_NETWORK)),
     new PaletteAction("View", "Open MCTS search", "Inspect the shared PUCT/MCTS search tree",
                         () -> openEngine(ENGINE_SEARCH)),
+    new PaletteAction("View", "Open engine gauntlet", "Run deterministic built-in engine self-play",
+                        () -> openEngine(ENGINE_GAUNTLET)),
     new PaletteAction("View", "Show Console", "Open the command-output tab",
                         this::showConsoleDock),
     new PaletteAction("View", "Show Logs", "Open and refresh the log browser tab",
@@ -2134,13 +2149,23 @@ public abstract class WindowLifecycle extends WindowBase {
      * Opens the analysis data view.
      */
     protected void showAnalysisData() {
+        showBoardDetail("Data");
+    }
+
+    /**
+     * Opens the Analyze board surface and selects one side-rail detail tab by
+     * title. This is used by feature shortcuts and the command palette so
+     * buried tools like Review, Study, ECO, and Endgame have direct entry
+     * points.
+     *
+     * @param title detail tab title
+     */
+    protected void showBoardDetail(String title) {
         openBoard(BOARD_ANALYZE);
         if (analysisTabs != null) {
             analysisTabs.setSelectedIndex(0);
         }
-        if (boardDetailTabs != null) {
-            selectBoardDetailTab("Data");
-        }
+        selectBoardDetailTab(title);
     }
 
     private void selectBoardDetailTab(String title) {

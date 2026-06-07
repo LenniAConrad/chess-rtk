@@ -77,12 +77,11 @@ public final class PuzzleTextCommand {
                 configureTagAnalysis(engine, opts, wdlFlag);
             }
             emitSummaries(records, opts, engine, runner);
+        } catch (CommandFailure failure) {
+            throw failure;
         } catch (Exception ex) {
-            System.err.println(COMMAND_LABEL + ": inference failed: " + ex.getMessage());
-            if (opts.flags.verbose) {
-                ex.printStackTrace(System.err);
-            }
-            System.exit(2);
+            throw new CommandFailure(COMMAND_LABEL + ": inference failed: " + ex.getMessage(),
+                    ex, 2, opts.flags.verbose);
         }
     }
 
@@ -96,12 +95,8 @@ public final class PuzzleTextCommand {
         try {
             return BinLoader.load(modelPath);
         } catch (Exception ex) {
-            System.err.println(COMMAND_LABEL + ": failed to load model: " + ex.getMessage());
-            if (verbose) {
-                ex.printStackTrace(System.err);
-            }
-            System.exit(2);
-            return null;
+            throw new CommandFailure(COMMAND_LABEL + ": failed to load model: " + ex.getMessage(),
+                    ex, 2, verbose);
         }
     }
 
@@ -126,8 +121,7 @@ public final class PuzzleTextCommand {
         List<chess.struct.Record> records = PuzzleSupport.buildRecords(root, analysis, opts.limits.pvPlies,
                 COMMAND_LABEL);
         if (records.isEmpty()) {
-            System.err.println(COMMAND_LABEL + ": no records extracted from PVs");
-            System.exit(2);
+            throw new CommandFailure(COMMAND_LABEL + ": no records extracted from PVs", 2);
         }
         return records;
     }
@@ -232,18 +226,14 @@ public final class PuzzleTextCommand {
         }
         a.ensureConsumed();
         if (modelPath == null || modelPath.isBlank()) {
-            System.err.println(COMMAND_LABEL + ": missing --model and config key t5-model-path is empty");
-            System.exit(2);
-            return null;
+            throw new CommandFailure(COMMAND_LABEL + ": missing --model and config key t5-model-path is empty", 2);
         }
 
         if (wdl && noWdl) {
-            System.err.println(COMMAND_LABEL + ": only one of --wdl or --no-wdl may be set");
-            System.exit(2);
+            throw new CommandFailure(COMMAND_LABEL + ": only one of --wdl or --no-wdl may be set", 2);
         }
         if (fen == null || fen.isBlank()) {
-            System.err.println(COMMAND_LABEL + " requires --fen or a positional FEN");
-            System.exit(2);
+            throw new CommandFailure(COMMAND_LABEL + " requires --fen or a positional FEN", 2);
         }
         int mpv = multipv == null ? 3 : Math.max(1, multipv);
         int plies = pvPlies == null ? 12 : Math.max(1, pvPlies);
@@ -267,7 +257,7 @@ public final class PuzzleTextCommand {
      private static Position parsePositionOrExit(String fen, boolean verbose) {
         Position pos = parsePositionOrNull(fen, COMMAND_LABEL, verbose);
         if (pos == null) {
-            System.exit(2);
+            throw new CommandFailure("", 2);
         }
         return pos;
     }

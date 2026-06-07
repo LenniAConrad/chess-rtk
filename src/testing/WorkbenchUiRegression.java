@@ -8,6 +8,8 @@ import java.awt.Container;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -53,6 +55,9 @@ import javax.swing.UIManager;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.TableCellRenderer;
 
+import application.gui.workbench.board.BoardPanel;
+import application.gui.workbench.board.BoardMarkupTool;
+import application.gui.workbench.draw.DrawPanel;
 import application.gui.workbench.layout.LazyPanel;
 import application.gui.workbench.layout.FlatTabbedPaneUI;
 import application.gui.workbench.board.MarkupBrush;
@@ -62,14 +67,18 @@ import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.EvalBar;
 import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.SettingsChipRow;
+import application.gui.workbench.ui.SwitchedWorkspace;
 import application.gui.workbench.ui.TagCloud;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
+import application.gui.workbench.ui.WorkspaceMode;
 import application.gui.workbench.window.LayoutMenu;
 import chess.core.Piece;
 import chess.images.assets.PieceSet;
 import chess.images.assets.Shapes;
 import application.gui.workbench.window.SettingsMenu;
+import chess.core.Move;
+import chess.core.Position;
 
 
 /**
@@ -125,8 +134,12 @@ final class WorkbenchUiRegression {
         testStatusBadgeAnimatesStateChanges();
         testStatusBadgeCanReserveStableTextWidth();
         testSegmentedSwitcherAnimatesSelection();
+        testSwitchedWorkspaceRejectsMismatchedModes();
+        testSwitchedWorkspaceRejectsInvalidEagerMode();
+        testSwitchedWorkspaceUsesModeDescriptors();
         testSplitPaneSashAnimatesHover();
         testWorkbenchSplitPanesUseSharedStyler();
+        testPlayTabUsesCompactMoveHistory();
         testChartsRevealNewData();
         testCommandFormLeadColumnAligns();
         testCommandFormFlagsWrapAcrossColumns();
@@ -137,6 +150,8 @@ final class WorkbenchUiRegression {
         testNnueAtlasPlaneLabelsUseUniformColor();
         testHorizontalMetricBarKeepsLabelLaneClear();
         testBoardMarkupBrushesUseFixedDistinctColors();
+        testDrawPanelBuildsAnnotationControls();
+        testDrawModeLeftDragAddsAnnotation();
         testThemeRefreshPreservesLabelRoles();
         testThemeRefreshUpdatesLineBorders();
         testThemeRefreshRestoresCustomControlUis();
@@ -637,6 +652,18 @@ final class WorkbenchUiRegression {
         String commandLayer = readSource(root.resolve("window/WindowCommandLayer.java"));
         return boardLayer.contains("Theme.table(movesTable")
                 && commandLayer.contains("Theme.table(gameTable");
+    }
+
+    /**
+     * Verifies Play mode uses the compact White/Black move history instead of
+     * exposing the raw shared game table beside the board.
+     */
+    private static void testPlayTabUsesCompactMoveHistory() {
+        String source = readSource(Path.of("src/application/gui/workbench/window/WindowBoardLayer.java"));
+        assertTrue(source.contains("new PlayMoveHistoryModel(gameModel)"),
+                "Play tab uses compact move-history model");
+        assertTrue(source.contains("titled(\"Move history\""),
+                "Play move rail is titled as move history");
     }
 
     /**
@@ -1596,6 +1623,60 @@ final class WorkbenchUiRegression {
     }
 
     /**
+     * Verifies switched workspaces fail fast when labels and lazy builders drift
+     * out of sync.
+     */
+    private static void testSwitchedWorkspaceRejectsMismatchedModes() {
+        try {
+            new SwitchedWorkspace(new String[] { "One", "Two" }, List.of(() -> new JPanel()), 0);
+            throw new AssertionError("mismatched switched workspace modes should fail");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("labels and builders differ"),
+                    "mismatched switched workspace mode counts explain the failure");
+        }
+    }
+
+    /**
+     * Verifies switched workspaces reject an eager mode outside the registered
+     * mode list.
+     */
+    private static void testSwitchedWorkspaceRejectsInvalidEagerMode() {
+        try {
+            new SwitchedWorkspace(List.of(new WorkspaceMode("One", () -> new JPanel())), 1);
+            throw new AssertionError("invalid eager mode should fail");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("eager mode out of range"),
+                    "invalid eager mode explains the failure");
+        }
+    }
+
+    /**
+     * Verifies switched workspaces can be registered as mode descriptors instead
+     * of parallel label and builder collections.
+     */
+    private static void testSwitchedWorkspaceUsesModeDescriptors() {
+        AtomicInteger built = new AtomicInteger();
+        SwitchedWorkspace workspace = new SwitchedWorkspace(List.of(
+                new WorkspaceMode("One", () -> {
+                    built.addAndGet(1);
+                    return new JPanel();
+                }),
+                new WorkspaceMode("Two", () -> {
+                    built.addAndGet(10);
+                    return new JPanel();
+                })), 0);
+        assertEquals(Integer.valueOf(1), Integer.valueOf(built.get()),
+                "eager descriptor mode builds at startup");
+        workspace.setMode(1);
+        assertEquals(Integer.valueOf(11), Integer.valueOf(built.get()),
+                "descriptor mode builds lazily when selected");
+        assertTrue(workspace.isBuilt(1), "descriptor mode build state is tracked");
+        workspace.setMode(1);
+        assertEquals(Integer.valueOf(11), Integer.valueOf(built.get()),
+                "descriptor modes are cached after first build");
+    }
+
+    /**
      * Verifies split-pane sashes ease into their hover color.
      */
     private static void testSplitPaneSashAnimatesHover() {
@@ -1882,16 +1963,16 @@ final class WorkbenchUiRegression {
      */
     private static void testBoardMarkupBrushesUseFixedDistinctColors() {
         Theme.setMode(Theme.Mode.LIGHT);
-        Color green = MarkupBrush.forGesture(0).themedColor();
-        Color red = MarkupBrush.forGesture(1).themedColor();
-        Color blue = MarkupBrush.forGesture(2).themedColor();
-        Color yellow = MarkupBrush.forGesture(3).themedColor();
+        Color green = MarkupBrush.forGesture(0).displayColor();
+        Color red = MarkupBrush.forGesture(1).displayColor();
+        Color blue = MarkupBrush.forGesture(2).displayColor();
+        Color yellow = MarkupBrush.forGesture(3).displayColor();
 
         // The colour must not change with the theme.
         Theme.setMode(Theme.Mode.DARK);
-        assertEquals(green, MarkupBrush.forGesture(0).themedColor(),
+        assertEquals(green, MarkupBrush.forGesture(0).displayColor(),
                 "green markup colour is theme-independent");
-        assertEquals(blue, MarkupBrush.forGesture(2).themedColor(),
+        assertEquals(blue, MarkupBrush.forGesture(2).displayColor(),
                 "blue markup colour is theme-independent");
 
         // The four gesture colours must be visually distinct.
@@ -1900,6 +1981,81 @@ final class WorkbenchUiRegression {
         assertColorDistanceAtLeast(green, blue, 16.0, "green and blue markups differ");
 
         Theme.setMode(Theme.Mode.LIGHT);
+    }
+
+    /**
+     * Verifies the Draw rail exposes the expected annotation controls.
+     */
+    private static void testDrawPanelBuildsAnnotationControls() {
+        BoardPanel board = new BoardPanel();
+        DrawPanel panel = new DrawPanel(board, new JPanel());
+        assertTrue(componentTreeHasLabelText(panel, "Shape"),
+                "draw panel exposes shape picker");
+        assertTrue(componentTreeHasLabelText(panel, "Opacity"),
+                "draw panel exposes opacity control");
+        assertTrue(componentTreeHasLabelText(panel, "Width"),
+                "draw panel exposes arrow width control");
+        assertTrue(board.directAnnotationBrush().matches(MarkupBrush.defaultBrush()),
+                "draw panel starts with the default preset annotation brush");
+    }
+
+    /**
+     * Verifies Draw mode routes left-drag gestures into persistent board
+     * annotations, including circle-only mode.
+     */
+    private static void testDrawModeLeftDragAddsAnnotation() {
+        BoardPanel board = new BoardPanel();
+        board.setSize(520, 520);
+        board.setPositionInstant(new Position(START_FEN), Move.NO_MOVE);
+        board.setDirectAnnotationMode(true);
+        board.setMarkupTool(BoardMarkupTool.ARROW);
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0x21, 0x9E, 0x3C, 212), 12));
+        board.doLayout();
+
+        Point e2 = squareCenter(board, (byte) 52);
+        Point e4 = squareCenter(board, (byte) 36);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, e2, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_DRAGGED, MouseEvent.BUTTON1_DOWN_MASK, e4, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, e4, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(1), Integer.valueOf(board.markupCount()),
+                "left-drag draw mode adds an arrow annotation");
+
+        board.setMarkupTool(BoardMarkupTool.CIRCLE);
+        Point d4 = squareCenter(board, (byte) 35);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, d4, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, d4, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(2), Integer.valueOf(board.markupCount()),
+                "circle draw mode adds a circle annotation");
+    }
+
+    /**
+     * Returns the current center point for a board square.
+     *
+     * @param board board
+     * @param square square index
+     * @return square center
+     */
+    private static Point squareCenter(BoardPanel board, byte square) {
+        Rectangle bounds = board.currentBoardBounds();
+        int cell = Math.max(1, bounds.width / 8);
+        int col = square % 8;
+        int row = square / 8;
+        return new Point(bounds.x + col * cell + cell / 2,
+                bounds.y + row * cell + cell / 2);
+    }
+
+    /**
+     * Dispatches one mouse event to the board.
+     *
+     * @param board board
+     * @param id event id
+     * @param modifiers extended modifiers
+     * @param point event point
+     * @param button mouse button
+     */
+    private static void dispatchBoardMouse(BoardPanel board, int id, int modifiers, Point point, int button) {
+        board.dispatchEvent(new MouseEvent(board, id, System.currentTimeMillis(),
+                modifiers, point.x, point.y, 1, false, button));
     }
 
     /**

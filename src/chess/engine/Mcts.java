@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import chess.core.Move;
+import chess.core.MoveInference;
 import chess.core.MoveList;
 import chess.core.Piece;
 import chess.core.Position;
@@ -299,8 +300,20 @@ public final class Mcts implements AutoCloseable {
      * @throws IOException if weights cannot be loaded
      */
     public static Mcts lc0(Path weights) throws IOException {
+        return lc0(weights, DEFAULT_CPUCT);
+    }
+
+    /**
+     * Creates an LC0 CNN policy/value-backed MCTS searcher with a custom cpuct.
+     *
+     * @param weights LC0 weights path, or {@code null} for the bundled default
+     * @param cpuct exploration constant
+     * @return policy/value-backed searcher
+     * @throws IOException if weights cannot be loaded
+     */
+    public static Mcts lc0(Path weights, double cpuct) throws IOException {
         Path resolved = weights == null ? chess.nn.lc0.cnn.Model.DEFAULT_WEIGHTS : weights;
-        return new Mcts(new CnnBackend(chess.nn.lc0.cnn.Model.load(resolved)), DEFAULT_CPUCT);
+        return new Mcts(new CnnBackend(chess.nn.lc0.cnn.Model.load(resolved)), cpuct);
     }
 
     /**
@@ -311,10 +324,22 @@ public final class Mcts implements AutoCloseable {
      * @throws IOException if weights cannot be loaded
      */
     public static Mcts bt4(Path weights) throws IOException {
+        return bt4(weights, DEFAULT_CPUCT);
+    }
+
+    /**
+     * Creates an LC0 BT4 policy/value-backed MCTS searcher with a custom cpuct.
+     *
+     * @param weights BT4 weights path
+     * @param cpuct exploration constant
+     * @return policy/value-backed searcher
+     * @throws IOException if weights cannot be loaded
+     */
+    public static Mcts bt4(Path weights, double cpuct) throws IOException {
         if (weights == null) {
             throw new IllegalArgumentException("weights == null");
         }
-        return new Mcts(new Bt4Backend(chess.nn.lc0.bt4.Network.load(weights)), DEFAULT_CPUCT);
+        return new Mcts(new Bt4Backend(chess.nn.lc0.bt4.Network.load(weights)), cpuct);
     }
 
     /**
@@ -325,8 +350,20 @@ public final class Mcts implements AutoCloseable {
      * @throws IOException if weights cannot be loaded
      */
     public static Mcts otis(Path weights) throws IOException {
+        return otis(weights, DEFAULT_CPUCT);
+    }
+
+    /**
+     * Creates an OTIS policy/WDL-backed MCTS searcher with a custom cpuct.
+     *
+     * @param weights OTIS weights path, or {@code null} for the bundled default
+     * @param cpuct exploration constant
+     * @return policy/value-backed searcher
+     * @throws IOException if weights cannot be loaded
+     */
+    public static Mcts otis(Path weights, double cpuct) throws IOException {
         Path resolved = weights == null ? chess.nn.otis.Model.DEFAULT_WEIGHTS : weights;
-        return new Mcts(new OtisBackend(chess.nn.otis.Model.load(resolved)), DEFAULT_CPUCT);
+        return new Mcts(new OtisBackend(chess.nn.otis.Model.load(resolved)), cpuct);
     }
 
     /**
@@ -502,6 +539,97 @@ public final class Mcts implements AutoCloseable {
     @Override
     public void close() {
         backend.close();
+    }
+
+    /**
+     * Immutable public view of one node in the search tree, mirroring what the
+     * workbench tree and search panels display.
+     *
+     * @param san move SAN that reached this node ("" for the root)
+     * @param uci move UCI that reached this node ("" for the root)
+     * @param visits real visit count
+     * @param q value from the moving side's perspective (higher is better for the
+     *        side that played the move; the root uses its own side-to-move value)
+     * @param prior policy prior of the move that reached this node
+     * @param scoreCentipawns {@code q} converted to centipawns
+     * @param depth plies from the root (the root is zero)
+     * @param proof proof state name: UNKNOWN, WIN, DRAW, or LOSS
+     * @param children ordered child nodes (best first), bounded by the snapshot limits
+     */
+    public record TreeNode(
+            String san,
+            String uci,
+            long visits,
+            double q,
+            double prior,
+            int scoreCentipawns,
+            int depth,
+            String proof,
+            List<TreeNode> children) {
+    }
+
+    /**
+     * Returns a bounded public snapshot of the most recent search tree, or
+     * {@code null} when no search has populated a tree.
+     *
+     * <p>
+     * Children are ordered exactly like the engine ranks root moves (proven
+     * outcomes first, then visits, then value, then prior). Call this after a
+     * {@code search} returns; the tree is stable once the search has joined.
+     * </p>
+     *
+     * @param maxDepth maximum plies below the root to include (root is depth 0)
+     * @param maxChildren maximum children kept per node, or zero for all
+     * @param minVisits drop children with fewer real visits than this
+     * @return root snapshot node, or {@code null} when no tree exists
+     */
+    public TreeNode treeSnapshot(int maxDepth, int maxChildren, int minVisits) {
+        Node localRoot = root;
+        if (localRoot == null) {
+            return null;
+        }
+        return buildTreeNode(localRoot, null, Math.max(0, maxDepth), maxChildren, Math.max(0, minVisits));
+    }
+
+    /**
+     * Builds the public snapshot for one node and its bounded descendants.
+     *
+     * @param node engine node
+     * @param parentPosition parent position for move notation, or {@code null} at the root
+     * @param depthRemaining remaining plies to descend
+     * @param maxChildren maximum children kept per node, or zero for all
+     * @param minVisits minimum real visits to keep a child
+     * @return public snapshot node
+     */
+    private TreeNode buildTreeNode(Node node, Position parentPosition, int depthRemaining,
+            int maxChildren, int minVisits) {
+        String san = "";
+        String uci = "";
+        if (parentPosition != null && node.move != Move.NO_MOVE) {
+            MoveInference.Notation notation = MoveInference.notation(parentPosition, node.move);
+            san = notation.san();
+            uci = notation.uci();
+        }
+        double value = parentPosition == null ? node.q() : rootPerspectiveQ(node);
+        int scoreCentipawns = valueToCentipawns(value);
+        List<TreeNode> children = new ArrayList<>();
+        if (depthRemaining > 0 && node.expanded && !node.children.isEmpty()) {
+            List<Node> ordered = new ArrayList<>(node.children);
+            ordered.sort(Mcts::compareRootChildren);
+            int kept = 0;
+            for (Node child : ordered) {
+                if (minVisits > 0 && child.visits() < minVisits) {
+                    continue;
+                }
+                children.add(buildTreeNode(child, node.position, depthRemaining - 1, maxChildren, minVisits));
+                kept++;
+                if (maxChildren > 0 && kept >= maxChildren) {
+                    break;
+                }
+            }
+        }
+        return new TreeNode(san, uci, node.visits(), value, node.prior, scoreCentipawns,
+                node.depth, node.proof.name(), List.copyOf(children));
     }
 
     /**

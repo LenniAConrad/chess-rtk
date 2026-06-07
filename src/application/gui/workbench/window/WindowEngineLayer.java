@@ -185,6 +185,8 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
         refreshStatusBar();
         updateSessionPosition();
         refreshEcoExplorer();
+        refreshStudyAuthorPanel();
+        refreshTablebasePanel();
     }
 
     /**

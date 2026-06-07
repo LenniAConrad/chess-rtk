@@ -23,7 +23,9 @@ import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 import javax.swing.Timer;
 
+import application.gui.workbench.board.BoardPanel;
 import application.gui.workbench.board.BoardStyle;
+import application.gui.workbench.board.PremoveContext;
 import application.gui.workbench.network.TensorViz;
 
 import chess.core.Field;
@@ -56,6 +58,10 @@ final class WorkbenchBoardRegression {
         testBoardRightClickTogglesLichessCircleMarkup();
         testBoardRightDragReplacesMarkupColorLikeLichess();
         testBoardDragEmitsLegalMove();
+        testBoardDragQueuesPremoveForNonSideToMovePiece();
+        testBoardRejectsNonLichessPremoveShape();
+        testBoardPremoveSelectionShowsLichessBlueDestinations();
+        testBoardQueuedPremoveUsesLichessBlueSquares();
         testBoardDragInvalidHoverDoesNotPaintRedBox();
         testBoardDragDirtyBoundsIncludesInvalidHoverSquare();
         testBoardDragDirtyBoundsDoNotSpanOriginAfterStart();
@@ -272,7 +278,7 @@ final class WorkbenchBoardRegression {
         Point to = boardPoint(Field.toIndex('e', '4'), true, 640, 640);
 
         drawRightArrow(board, from, to, 0);
-        List<?> markups = (List<?>) field(board, "boardMarkups");
+        List<?> markups = boardMarkups(board);
         assertEquals(Integer.valueOf(1), Integer.valueOf(markups.size()), "right drag adds one arrow");
         Object markup = markups.get(0);
         assertEquals(Byte.valueOf(Field.toIndex('e', '2')), field(markup, "from"), "arrow origin");
@@ -280,6 +286,7 @@ final class WorkbenchBoardRegression {
         assertEquals("green", field(field(markup, "brush"), "name"), "default arrow brush");
 
         drawRightArrow(board, from, to, 0);
+        markups = boardMarkups(board);
         assertEquals(Integer.valueOf(0), Integer.valueOf(markups.size()), "same right drag deletes arrow");
     }
 
@@ -292,13 +299,14 @@ final class WorkbenchBoardRegression {
         Point square = boardPoint(Field.toIndex('d', '4'), true, 640, 640);
 
         rightClick(board, square, 0);
-        List<?> markups = (List<?>) field(board, "boardMarkups");
+        List<?> markups = boardMarkups(board);
         assertEquals(Integer.valueOf(1), Integer.valueOf(markups.size()), "right click adds one circle");
         Object markup = markups.get(0);
         assertEquals(Byte.valueOf(Field.toIndex('d', '4')), field(markup, "from"), "circle square");
         assertEquals(Byte.valueOf(Field.NO_SQUARE), field(markup, "to"), "circle has no target");
 
         rightClick(board, square, 0);
+        markups = boardMarkups(board);
         assertEquals(Integer.valueOf(0), Integer.valueOf(markups.size()), "same right click deletes circle");
     }
 
@@ -313,7 +321,7 @@ final class WorkbenchBoardRegression {
 
         drawRightArrow(board, from, to, 0);
         drawRightArrow(board, from, to, MouseEvent.SHIFT_DOWN_MASK);
-        List<?> markups = (List<?>) field(board, "boardMarkups");
+        List<?> markups = boardMarkups(board);
         assertEquals(Integer.valueOf(1), Integer.valueOf(markups.size()), "same endpoints keep one markup");
         assertEquals("red", field(field(markups.get(0), "brush"), "name"),
                 "shift right drag replaces with red brush");
@@ -343,6 +351,143 @@ final class WorkbenchBoardRegression {
     }
 
     /**
+     * Verifies a human piece can be dragged as a premove while the FEN says the
+     * opponent is to move.
+     */
+    private static void testBoardDragQueuesPremoveForNonSideToMovePiece() {
+        BoardPanel board = new BoardPanel();
+        board.setSize(640, 640);
+        board.setPositionInstant(new Position(
+                "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"),
+                Move.NO_MOVE);
+        PremoveContext[] queued = new PremoveContext[1];
+        board.setPremoveStartFilter(context -> Piece.isWhite(context.piece()));
+        board.setPremoveHandler(context -> {
+            queued[0] = context;
+            return true;
+        });
+
+        Point from = boardPoint(Field.toIndex('g', '1'), true, 640, 640);
+        Point to = boardPoint(Field.toIndex('f', '3'), true, 640, 640);
+        long now = System.currentTimeMillis();
+        board.dispatchEvent(mouse(board, MouseEvent.MOUSE_PRESSED, now, from.x, from.y, 1));
+        board.dispatchEvent(mouse(board, MouseEvent.MOUSE_DRAGGED, now + 1L, to.x, to.y, 0));
+        board.dispatchEvent(mouse(board, MouseEvent.MOUSE_RELEASED, now + 2L, to.x, to.y, 1));
+
+        assertTrue(queued[0] != null, "premove drag queues a context");
+        assertEquals("g1f3", Move.toString(queued[0].tentativeMove()), "premove drag move");
+        assertEquals(Move.toString(queued[0].tentativeMove()),
+                Move.toString((Short) field(board, "pendingPremove")), "premove arrow state");
+    }
+
+    /**
+     * Verifies premove input follows lichess/chessground pseudo-legal piece
+     * movement instead of accepting arbitrary destination squares.
+     */
+    private static void testBoardRejectsNonLichessPremoveShape() {
+        BoardPanel board = premoveBoard();
+        PremoveContext[] queued = new PremoveContext[1];
+        board.setPremoveStartFilter(context -> Piece.isWhite(context.piece()));
+        board.setPremoveHandler(context -> {
+            queued[0] = context;
+            return true;
+        });
+
+        Point from = boardPoint(Field.toIndex('g', '1'), true, 640, 640);
+        Point illegal = boardPoint(Field.toIndex('g', '3'), true, 640, 640);
+        long now = System.currentTimeMillis();
+        board.dispatchEvent(mouse(board, MouseEvent.MOUSE_PRESSED, now, from.x, from.y, 1));
+        board.dispatchEvent(mouse(board, MouseEvent.MOUSE_DRAGGED, now + 1L, illegal.x, illegal.y, 0));
+        board.dispatchEvent(mouse(board, MouseEvent.MOUSE_RELEASED, now + 2L, illegal.x, illegal.y, 1));
+
+        assertEquals(null, queued[0], "invalid knight premove shape is not queued");
+        assertEquals(Short.valueOf(Move.NO_MOVE), field(board, "pendingPremove"),
+                "invalid premove leaves no current premove");
+    }
+
+    /**
+     * Verifies selecting a premove source paints blue lichess-style destination
+     * dots instead of green legal-move dots.
+     */
+    private static void testBoardPremoveSelectionShowsLichessBlueDestinations() {
+        BoardPanel board = premoveBoard();
+        board.setPremoveStartFilter(context -> Piece.isWhite(context.piece()));
+        board.setPremoveHandler(context -> true);
+        Point from = boardPoint(Field.toIndex('g', '1'), true, 640, 640);
+        Point target = boardPoint(Field.toIndex('f', '3'), true, 640, 640);
+
+        Color baseline = new Color(paint(board, 640, 640).getRGB(target.x, target.y), true);
+        board.dispatchEvent(mouse(board, MouseEvent.MOUSE_PRESSED, System.currentTimeMillis(), from.x, from.y, 1));
+        Color selected = new Color(paint(board, 640, 640).getRGB(target.x, target.y), true);
+
+        assertTrue(blueOverlayVisible(baseline, selected), "premove destination marker is lichess blue");
+    }
+
+    /**
+     * Verifies a queued premove is shown as blue origin/destination square fills,
+     * matching chessground's current-premove class rather than a red arrow.
+     */
+    private static void testBoardQueuedPremoveUsesLichessBlueSquares() {
+        BoardPanel board = premoveBoard();
+        byte targetSquare = Field.toIndex('f', '3');
+        Point target = boardPoint(targetSquare, true, 640, 640);
+        Color baseline = new Color(paint(board, 640, 640).getRGB(target.x, target.y), true);
+
+        board.setPremove(Move.parse("g1f3"));
+        Color queued = new Color(paint(board, 640, 640).getRGB(target.x, target.y), true);
+
+        assertTrue(blueOverlayVisible(baseline, queued), "queued premove destination square is lichess blue");
+    }
+
+    /**
+     * Builds a board where White may premove because Black is to move.
+     *
+     * @return premove test board
+     */
+    private static BoardPanel premoveBoard() {
+        BoardPanel board = new BoardPanel();
+        board.setSize(640, 640);
+        board.setPositionInstant(new Position(
+                "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"),
+                Move.NO_MOVE);
+        return board;
+    }
+
+    /**
+     * Returns whether an overlay shifted a sampled square toward lichess blue.
+     *
+     * @param before baseline square color
+     * @param after overlaid square color
+     * @return true when blue increased and red decreased
+     */
+    private static boolean blueOverlayVisible(Color before, Color after) {
+        return after.getRed() < before.getRed()
+                && after.getGreen() < before.getGreen()
+                && after.getBlue() - after.getRed() > before.getBlue() - before.getRed();
+    }
+
+    /**
+     * Returns the board annotations captured by the export snapshot.
+     *
+     * @param board board component
+     * @return exported annotation list
+     */
+    private static List<?> boardMarkups(Object board) {
+        Object snapshot = invoke(board, "exportSnapshot", new Class<?>[0]);
+        return (List<?>) field(snapshot, "boardMarkups");
+    }
+
+    /**
+     * Returns the board animation state helper.
+     *
+     * @param board board component
+     * @return animation state helper
+     */
+    private static Object boardAnimation(Object board) {
+        return field(board, "animationState");
+    }
+
+    /**
      * Verifies invalid drag hovers do not paint a red rejection box.
      */
     private static void testBoardDragInvalidHoverDoesNotPaintRedBox() {
@@ -354,12 +499,8 @@ final class WorkbenchBoardRegression {
 
         byte from = Field.toIndex('e', '2');
         byte invalidHover = Field.toIndex('f', '3');
-        setField(board, "dragSquare", Byte.valueOf(from));
-        setField(board, "draggedPiece", Byte.valueOf(Piece.WHITE_PAWN));
-        setField(board, "draggingPiece", Boolean.TRUE);
-        setField(board, "dragX", Integer.valueOf(24));
-        setField(board, "dragY", Integer.valueOf(24));
-        setField(board, "dragHoverSquare", Byte.valueOf(Field.NO_SQUARE));
+        seedBoardDrag(board, from, Piece.WHITE_PAWN, 24, 24, true);
+        setBoardDragHover(board, Field.NO_SQUARE, Field.NO_SQUARE);
 
         int size = Math.min(640 - 64, 640 - 64);
         size = Math.max(64, size - size % 8);
@@ -369,7 +510,7 @@ final class WorkbenchBoardRegression {
         int sampleY = hover.y - cell / 2 + 2;
         Color baseline = new Color(paint(component, 640, 640).getRGB(sampleX, sampleY), true);
 
-        setField(board, "dragHoverSquare", Byte.valueOf(invalidHover));
+        setBoardDragHover(board, invalidHover, Field.NO_SQUARE);
         Color actual = new Color(paint(component, 640, 640).getRGB(sampleX, sampleY), true);
 
         assertColor(baseline, actual, "invalid drag hover leaves square unboxed");
@@ -386,8 +527,7 @@ final class WorkbenchBoardRegression {
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class },
                 new Position(START_FEN), Move.NO_MOVE);
         byte invalidHover = Field.toIndex('f', '3');
-        setField(board, "dragSquare", Byte.valueOf(Field.toIndex('e', '2')));
-        setField(board, "draggedPiece", Byte.valueOf(Piece.WHITE_PAWN));
+        seedBoardDrag(board, Field.toIndex('e', '2'), Piece.WHITE_PAWN, 12, 12, false);
 
         Rectangle boardBounds = (Rectangle) invoke(board, "boardBounds", new Class<?>[0]);
         Rectangle dirty = (Rectangle) invoke(board, "dragRepaintBounds",
@@ -417,8 +557,7 @@ final class WorkbenchBoardRegression {
                 new Position(START_FEN), Move.NO_MOVE);
         byte origin = Field.toIndex('a', '2');
         byte target = Field.toIndex('h', '7');
-        setField(board, "dragSquare", Byte.valueOf(origin));
-        setField(board, "draggedPiece", Byte.valueOf(Piece.WHITE_PAWN));
+        seedBoardDrag(board, origin, Piece.WHITE_PAWN, 0, 0, false);
         Rectangle boardBounds = (Rectangle) invoke(board, "boardBounds", new Class<?>[0]);
         Point pointer = boardPoint(target, true, 640, 640);
 
@@ -477,6 +616,42 @@ final class WorkbenchBoardRegression {
     }
 
     /**
+     * Seeds the board's piece drag helper for paint and dirty-region tests.
+     *
+     * @param board board component
+     * @param square drag source square
+     * @param piece dragged piece
+     * @param pointerX pointer x-coordinate
+     * @param pointerY pointer y-coordinate
+     * @param dragging true to mark the drag as active
+     */
+    private static void seedBoardDrag(
+            Object board,
+            byte square,
+            byte piece,
+            int pointerX,
+            int pointerY,
+            boolean dragging) {
+        Object input = field(board, "pieceInput");
+        invoke(input, "startDrag", new Class<?>[] { byte.class, byte.class, int.class, int.class },
+                Byte.valueOf(square), Byte.valueOf(piece), Integer.valueOf(pointerX), Integer.valueOf(pointerY));
+        invoke(input, "setDragging", new Class<?>[] { boolean.class }, Boolean.valueOf(dragging));
+    }
+
+    /**
+     * Seeds drag hover and target squares in the board's piece drag helper.
+     *
+     * @param board board component
+     * @param hoverSquare hovered square
+     * @param targetSquare legal target square
+     */
+    private static void setBoardDragHover(Object board, byte hoverSquare, byte targetSquare) {
+        Object input = field(board, "pieceInput");
+        invoke(input, "setDragHoverTarget", new Class<?>[] { byte.class, byte.class },
+                Byte.valueOf(hoverSquare), Byte.valueOf(targetSquare));
+    }
+
+    /**
      * Verifies setting a played move starts the Java2D glide animation.
      */
     private static void testBoardMoveAnimationStarts() {
@@ -488,9 +663,13 @@ final class WorkbenchBoardRegression {
         Position next = start.copy().play(move);
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class }, next, move);
 
-        assertTrue((Boolean) field(board, "moveAnimationActive"), "move animation active");
-        assertEquals(Byte.valueOf(Field.toIndex('e', '2')), field(board, "animatedMoveFrom"), "animated origin");
-        assertEquals(Byte.valueOf(Field.toIndex('e', '4')), field(board, "animatedMoveTo"), "animated target");
+        Object animation = boardAnimation(board);
+        assertTrue((Boolean) invoke(animation, "moveAnimationActive", new Class<?>[0]),
+                "move animation active");
+        assertEquals(Byte.valueOf(Field.toIndex('e', '2')),
+                invoke(animation, "animatedMoveFrom", new Class<?>[0]), "animated origin");
+        assertEquals(Byte.valueOf(Field.toIndex('e', '4')),
+                invoke(animation, "animatedMoveTo", new Class<?>[0]), "animated target");
         double eased = (Double) invokeStatic(type("BoardPanel"), "easeOutCubic",
                 new Class<?>[] { double.class }, 0.5d);
         assertTrue(eased > 0.5d && eased < 1.0d, "move animation ease-out curve");
@@ -509,10 +688,14 @@ final class WorkbenchBoardRegression {
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class, boolean.class },
                 start, move, Boolean.TRUE);
 
-        assertTrue((Boolean) field(board, "moveAnimationActive"), "reverse move animation active");
-        assertEquals(Byte.valueOf(Field.toIndex('e', '4')), field(board, "animatedMoveFrom"),
+        Object animation = boardAnimation(board);
+        assertTrue((Boolean) invoke(animation, "moveAnimationActive", new Class<?>[0]),
+                "reverse move animation active");
+        assertEquals(Byte.valueOf(Field.toIndex('e', '4')),
+                invoke(animation, "animatedMoveFrom", new Class<?>[0]),
                 "reverse animated origin");
-        assertEquals(Byte.valueOf(Field.toIndex('e', '2')), field(board, "animatedMoveTo"),
+        assertEquals(Byte.valueOf(Field.toIndex('e', '2')),
+                invoke(animation, "animatedMoveTo", new Class<?>[0]),
                 "reverse animated target");
     }
 
@@ -528,10 +711,13 @@ final class WorkbenchBoardRegression {
         Position next = start.copy().play(move);
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class }, next, move);
 
-        assertTrue((Boolean) field(board, "moveAnimationActive"), "capture animation active");
-        assertEquals(Byte.valueOf(Field.toIndex('d', '5')), field(board, "animatedCaptureSquare"),
+        Object animation = boardAnimation(board);
+        assertTrue((Boolean) invoke(animation, "moveAnimationActive", new Class<?>[0]),
+                "capture animation active");
+        assertEquals(Byte.valueOf(Field.toIndex('d', '5')),
+                invoke(animation, "animatedCaptureSquare", new Class<?>[0]),
                 "capture fade square");
-        assertFalse(((Byte) field(board, "animatedCapturePiece")).byteValue() == Piece.EMPTY,
+        assertFalse(((Byte) invoke(animation, "animatedCapturePiece", new Class<?>[0])).byteValue() == Piece.EMPTY,
                 "capture fade piece");
     }
 
@@ -547,11 +733,15 @@ final class WorkbenchBoardRegression {
         Position next = start.copy().play(move);
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class }, next, move);
 
-        assertEquals(Byte.valueOf(Field.toIndex('h', '1')), field(board, "animatedSecondaryMoveFrom"),
+        Object animation = boardAnimation(board);
+        assertEquals(Byte.valueOf(Field.toIndex('h', '1')),
+                invoke(animation, "animatedSecondaryMoveFrom", new Class<?>[0]),
                 "castle rook origin");
-        assertEquals(Byte.valueOf(Field.toIndex('f', '1')), field(board, "animatedSecondaryMoveTo"),
+        assertEquals(Byte.valueOf(Field.toIndex('f', '1')),
+                invoke(animation, "animatedSecondaryMoveTo", new Class<?>[0]),
                 "castle rook target");
-        assertFalse(((Byte) field(board, "animatedSecondaryMovePiece")).byteValue() == Piece.EMPTY,
+        assertFalse(((Byte) invoke(animation, "animatedSecondaryMovePiece", new Class<?>[0])).byteValue()
+                == Piece.EMPTY,
                 "castle rook animated piece");
     }
 
@@ -618,7 +808,8 @@ final class WorkbenchBoardRegression {
         short best = Move.parse("e2e4");
         invoke(board, "setSuggestedMove", new Class<?>[] { short.class }, best);
         assertEquals(Short.valueOf(best), field(board, "suggestedMove"), "legal suggested move accepted");
-        assertEquals(Byte.valueOf(Field.toIndex('e', '2')), field(board, "selectedSquare"),
+        Object snapshot = invoke(board, "exportSnapshot", new Class<?>[0]);
+        assertEquals(Byte.valueOf(Field.toIndex('e', '2')), field(snapshot, "selectedSquare"),
                 "best arrow keeps the user's selected square");
 
         BufferedImage image = new BufferedImage(640, 640, BufferedImage.TYPE_INT_ARGB);
@@ -747,7 +938,7 @@ final class WorkbenchBoardRegression {
 
         assertEquals(Short.valueOf(move), field(board, "lastMove"),
                 "instant position stores the last move for highlighting");
-        assertFalse((Boolean) field(board, "moveAnimationActive"),
+        assertFalse((Boolean) invoke(boardAnimation(board), "moveAnimationActive", new Class<?>[0]),
                 "instant position does not start move animation");
         assertColorDistanceAtLeast(boardSquareCenterColor(component, Field.toIndex('e', '2')),
                 baseBoardColor(Field.toIndex('e', '2')), 16.0,
@@ -781,7 +972,8 @@ final class WorkbenchBoardRegression {
         short move = Move.parse("e2e4");
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class }, start, Move.NO_MOVE);
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class }, start.copy().play(move), move);
-        assertFalse((Boolean) field(board, "moveAnimationActive"), "move animation suppressed");
+        assertFalse((Boolean) invoke(boardAnimation(board), "moveAnimationActive", new Class<?>[0]),
+                "move animation suppressed");
     }
 
     /**

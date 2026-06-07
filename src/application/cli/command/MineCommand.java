@@ -166,12 +166,7 @@ public final class MineCommand {
 			}
 		} catch (Exception ex) {
 			LogService.error(ex, "Failed to load seed positions (input=%s)", String.valueOf(input));
-			System.err.println("Failed to load seed positions; see log for details.");
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(2);
-			return;
+			throw new CommandFailure("Failed to load seed positions; see log for details.", ex, 2, verbose);
 		}
 
 		final List<Record> frontier = seeds;
@@ -202,11 +197,7 @@ public final class MineCommand {
 			mine(pool, frontier, config);
 		} catch (Exception e) {
 			LogService.error(e, "Failed during mining (pool/create/analyse/flush)");
-			System.err.println("Mining failed; see log for details.");
-			if (verbose) {
-				e.printStackTrace(System.err);
-			}
-			System.exit(1);
+			throw new CommandFailure("Mining failed; see log for details.", e, 1, verbose);
 		}
 	}
 

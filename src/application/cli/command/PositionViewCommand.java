@@ -97,9 +97,7 @@ public final class PositionViewCommand {
 		String fen = CommandSupport.resolveFenArgument(a, "print", false);
 
 		if (fen == null || fen.isEmpty()) {
-			System.err.println("print requires a FEN (" + MSG_FEN_REQUIRED_HINT + ")");
-			System.exit(2);
-			return;
+			throw new CommandFailure("print requires a FEN (" + MSG_FEN_REQUIRED_HINT + ")", 2);
 		}
 
 		try {
@@ -117,19 +115,13 @@ public final class PositionViewCommand {
 				}
 			}
 		} catch (IllegalArgumentException ex) {
-			System.err.println(ERR_INVALID_FEN + (ex.getMessage() == null ? "" : ex.getMessage()));
 			LogService.error(ex, "print: invalid FEN", LOG_CTX_FEN_PREFIX + fen);
-			if (verbose) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(3);
-		} catch (Exception t) {
-			System.err.println("Error: failed to print position. " + (t.getMessage() == null ? "" : t.getMessage()));
-			LogService.error(t, "print: unexpected failure while printing position", LOG_CTX_FEN_PREFIX + fen);
-			if (verbose) {
-				t.printStackTrace(System.err);
-			}
-			System.exit(3);
+			throw new CommandFailure(ERR_INVALID_FEN + (ex.getMessage() == null ? "" : ex.getMessage()),
+					ex, 3, verbose);
+		} catch (Exception ex) {
+			LogService.error(ex, "print: unexpected failure while printing position", LOG_CTX_FEN_PREFIX + fen);
+			throw new CommandFailure("Error: failed to print position. "
+					+ (ex.getMessage() == null ? "" : ex.getMessage()), ex, 3, verbose);
 		}
 	}
 
@@ -142,9 +134,7 @@ public final class PositionViewCommand {
 		DisplayOptions opts = parseDisplayOptions(a);
 
 		if (opts.fen() == null || opts.fen().isEmpty()) {
-			System.err.println("display requires a FEN (" + MSG_FEN_REQUIRED_HINT + ")");
-			System.exit(2);
-			return;
+			throw new CommandFailure("display requires a FEN (" + MSG_FEN_REQUIRED_HINT + ")", 2);
 		}
 
 		try {
@@ -166,20 +156,14 @@ public final class PositionViewCommand {
 				display.setDisplayTitle("Chess-RTK Board View - " + backendLabel);
 			}
 		} catch (IllegalArgumentException ex) {
-			System.err.println("Error: invalid display input. " + (ex.getMessage() == null ? "" : ex.getMessage()));
 			LogService.error(ex, "display: invalid input", LOG_CTX_FEN_PREFIX + opts.fen());
-			if (opts.verbose()) {
-				ex.printStackTrace(System.err);
-			}
-			System.exit(3);
-		} catch (Exception t) {
-			System.err.println("Error: failed to display position. " + (t.getMessage() == null ? "" : t.getMessage()));
-			LogService.error(t, "display: unexpected failure while rendering position",
+			throw new CommandFailure("Error: invalid display input. "
+					+ (ex.getMessage() == null ? "" : ex.getMessage()), ex, 3, opts.verbose());
+		} catch (Exception ex) {
+			LogService.error(ex, "display: unexpected failure while rendering position",
 					LOG_CTX_FEN_PREFIX + opts.fen());
-			if (opts.verbose()) {
-				t.printStackTrace(System.err);
-			}
-			System.exit(3);
+			throw new CommandFailure("Error: failed to display position. "
+					+ (ex.getMessage() == null ? "" : ex.getMessage()), ex, 3, opts.verbose());
 		}
 	}
 
@@ -189,7 +173,7 @@ public final class PositionViewCommand {
 	 * @param a argument parser for the subcommand
 	 */
 	public static void runRenderImage(Argv a) {
-		renderImageOrExit(parseRenderImageOptions(a));
+		renderImage(parseRenderImageOptions(a));
 	}
 
 	/**
@@ -504,26 +488,24 @@ public final class PositionViewCommand {
 	}
 
 	/**
-	 * Renders an image to disk or exits with an error.
+	 * Renders an image to disk or throws a structured command failure.
 	 *
 	 * @param opts parsed render options
 	 */
-	private static void renderImageOrExit(RenderImageOptions opts) {
+	private static void renderImage(RenderImageOptions opts) {
 		String validationError = validateRenderImageOptions(opts);
 		if (validationError != null) {
-			System.err.println(validationError);
-			System.exit(2);
-			return;
+			throw new CommandFailure(validationError, 2);
 		}
 
 		try {
 			renderImageToDisk(opts);
 		} catch (IllegalArgumentException ex) {
-			handleRenderFailure(opts, "Error: invalid render input. ", "render: invalid input", ex);
+			throw renderFailure(opts, "Error: invalid render input. ", "render: invalid input", ex);
 		} catch (IOException ex) {
-			handleRenderFailure(opts, "Error: failed to write image. ", "render: failed to write image", ex);
+			throw renderFailure(opts, "Error: failed to write image. ", "render: failed to write image", ex);
 		} catch (Exception ex) {
-			handleRenderFailure(opts, "Error: failed to render image. ",
+			throw renderFailure(opts, "Error: failed to render image. ",
 					"render: unexpected failure while rendering image", ex);
 		}
 	}
@@ -594,21 +576,19 @@ public final class PositionViewCommand {
 	}
 
 	/**
-	 * Logs and prints a render failure, then exits.
+	 * Builds a structured render failure after recording diagnostic context.
 	 *
 	 * @param opts        parsed render options
 	 * @param userPrefix  prefix to display for user-facing errors
 	 * @param logMessage  message to include in logs
 	 * @param ex          exception that triggered the failure
+	 * @return command failure to throw
 	 */
-	private static void handleRenderFailure(RenderImageOptions opts, String userPrefix, String logMessage,
+	private static CommandFailure renderFailure(RenderImageOptions opts, String userPrefix, String logMessage,
 			Exception ex) {
-		System.err.println(userPrefix + (ex.getMessage() == null ? "" : ex.getMessage()));
 		LogService.error(ex, logMessage, LOG_CTX_FEN_PREFIX + opts.fen());
-		if (opts.verbose()) {
-			ex.printStackTrace(System.err);
-		}
-		System.exit(3);
+		return new CommandFailure(userPrefix + (ex.getMessage() == null ? "" : ex.getMessage()),
+				ex, 3, opts.verbose());
 	}
 
 	/**

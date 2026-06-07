@@ -136,4 +136,20 @@ public final class WindowPlayHost extends WindowHost implements PlayHost {
     public void clearHint() {
         window.board.setSuggestedMove(Move.NO_MOVE);
     }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void showPremove(short move) {
+        window.board.setPremove(move);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void clearPremove() {
+        window.board.clearPremove();
+    }
 }

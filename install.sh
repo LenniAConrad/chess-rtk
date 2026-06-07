@@ -41,6 +41,9 @@ REQUIRE_ONEAPI=0
 MODEL_MODE="auto"     # auto|yes|no
 INSTALL_LAUNCHER=1
 INSTALL_DESKTOP=1
+FORCE_LAUNCHER=0
+REUSE_EXISTING_LAUNCHER=0
+REUSE_EXISTING_DESKTOP=0
 
 # Colors (opt-out with NO_COLOR or non-TTY)
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
@@ -121,6 +124,10 @@ while [[ $# -gt 0 ]]; do
       INSTALL_LAUNCHER=0
       shift
       ;;
+    --force-launcher)
+      FORCE_LAUNCHER=1
+      shift
+      ;;
     --no-desktop|--no-app-launcher)
       INSTALL_DESKTOP=0
       shift
@@ -134,27 +141,39 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     -h|--help)
-      echo "Usage: ./install.sh [--cuda|--require-cuda|--no-cuda] [--rocm|--require-rocm|--no-rocm] [--oneapi|--require-oneapi|--no-oneapi] [--models|--no-models] [--no-launcher] [--no-desktop]"
+      echo "Usage: ./install.sh [--cuda|--require-cuda|--no-cuda] [--rocm|--require-rocm|--no-rocm] [--oneapi|--require-oneapi|--no-oneapi] [--models|--no-models] [--no-launcher|--force-launcher] [--no-desktop]"
       exit 0
       ;;
     *)
       err "Unknown argument: $1"
-      echo "Usage: ./install.sh [--cuda|--require-cuda|--no-cuda] [--rocm|--require-rocm|--no-rocm] [--oneapi|--require-oneapi|--no-oneapi] [--models|--no-models] [--no-launcher] [--no-desktop]" >&2
+      echo "Usage: ./install.sh [--cuda|--require-cuda|--no-cuda] [--rocm|--require-rocm|--no-rocm] [--oneapi|--require-oneapi|--no-oneapi] [--models|--no-models] [--no-launcher|--force-launcher] [--no-desktop]" >&2
       exit 2
       ;;
   esac
 done
 
 SUDO=''
-if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
+is_root() {
+  [[ "${EUID:-$(id -u)}" -eq 0 ]]
+}
+
+if ! is_root && command -v sudo >/dev/null 2>&1; then
+  SUDO='sudo'
+fi
+
+require_privilege() {
+  local action="$1"
+  if is_root; then
+    return 0
+  fi
   if command -v sudo >/dev/null 2>&1; then
     SUDO='sudo'
-  else
-    err "This script needs root privileges for package installs and installing $LAUNCHER."
-    echo "Please run as root or install sudo."
-    exit 1
+    return 0
   fi
-fi
+  err "This script needs root privileges to $action."
+  echo "Run as root, install sudo, or rerun with flags that skip privileged steps." >&2
+  return 1
+}
 
 confirm() {
   # confirm "Prompt" [default:Y|N]
@@ -176,6 +195,7 @@ confirm() {
 need_apt_update=0
 apt_update_once() {
   if [[ $need_apt_update -eq 0 ]]; then
+    require_privilege "run apt-get" || return 1
     if ! $SUDO apt-get update -y; then
       return 1
     fi
@@ -335,6 +355,80 @@ PY
 
 shell_quote() {
   printf '%q' "$1"
+}
+
+write_file_from_tmp() {
+  # write_file_from_tmp TMP DEST MODE LABEL
+  local tmp="$1"
+  local dest="$2"
+  local mode="$3"
+  local label="$4"
+  local dir
+  dir="$(dirname "$dest")"
+
+  if [[ -e "$dest" && -w "$dest" ]]; then
+    cat "$tmp" > "$dest"
+    chmod "$mode" "$dest"
+    rm -f "$tmp"
+    return 0
+  fi
+  if [[ ! -e "$dest" && -d "$dir" && -w "$dir" ]]; then
+    mv "$tmp" "$dest"
+    chmod "$mode" "$dest"
+    return 0
+  fi
+
+  require_privilege "install $label to $dest" || {
+    rm -f "$tmp"
+    return 1
+  }
+  $SUDO mv "$tmp" "$dest"
+  $SUDO chmod "$mode" "$dest"
+}
+
+ensure_directory() {
+  # ensure_directory DIR LABEL
+  local dir="$1"
+  local label="$2"
+  local parent
+  if [[ -d "$dir" ]]; then
+    return 0
+  fi
+  parent="$(dirname "$dir")"
+  if [[ -d "$parent" && -w "$parent" ]]; then
+    mkdir -p "$dir"
+    return 0
+  fi
+  require_privilege "create $label directory at $dir" || return 1
+  $SUDO mkdir -p "$dir"
+}
+
+launcher_targets_this_checkout() {
+  local path="$1"
+  local expected_app_home
+  expected_app_home="APP_HOME=$(shell_quote "$APP_HOME")"
+  [[ -n "$path" && -f "$path" && -x "$path" && -r "$path" ]] || return 1
+  grep -Fxq "$expected_app_home" "$path" || return 1
+  grep -Fq -- "-jar \"\$APP_HOME/crtk.jar\"" "$path" || return 1
+}
+
+detect_reusable_launcher() {
+  local found=""
+  if [[ $INSTALL_LAUNCHER -eq 0 || $FORCE_LAUNCHER -eq 1 ]]; then
+    return 0
+  fi
+  found="$(command -v "$APP_NAME" 2>/dev/null || true)"
+  if launcher_targets_this_checkout "$found"; then
+    LAUNCHER="$found"
+    REUSE_EXISTING_LAUNCHER=1
+  fi
+}
+
+desktop_entry_targets_launcher() {
+  [[ -f "$DESKTOP_ENTRY" && -r "$DESKTOP_ENTRY" ]] || return 1
+  grep -Fxq "TryExec=$LAUNCHER" "$DESKTOP_ENTRY" || return 1
+  grep -Fxq "Exec=$LAUNCHER workbench" "$DESKTOP_ENTRY" || return 1
+  grep -Fxq "Icon=$DESKTOP_ICON" "$DESKTOP_ENTRY" || return 1
 }
 
 cmake_cache_get() {
@@ -976,6 +1070,8 @@ try_build_oneapi_backend() {
   return 0
 }
 
+detect_reusable_launcher
+
 title "ChessRTK installer"
 info "Repo: $APP_HOME"
 info "Launcher: $LAUNCHER"
@@ -1060,10 +1156,14 @@ fi
 
 section "Launcher"
 if [[ $INSTALL_LAUNCHER -eq 1 ]]; then
-  step "Installing launcher to $LAUNCHER"
-  LAUNCHER_TMP="$(mktemp)"
-  APP_HOME_LITERAL="$(shell_quote "$APP_HOME")"
-  cat > "$LAUNCHER_TMP" <<EOF
+  if [[ $REUSE_EXISTING_LAUNCHER -eq 1 ]]; then
+    step "Reusing existing launcher at $LAUNCHER"
+    info "It already points at $JAR_PATH, so rebuilding the jar updates the command."
+  else
+    step "Installing launcher to $LAUNCHER"
+    LAUNCHER_TMP="$(mktemp)"
+    APP_HOME_LITERAL="$(shell_quote "$APP_HOME")"
+    cat > "$LAUNCHER_TMP" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
 APP_HOME=$APP_HOME_LITERAL
@@ -1105,17 +1205,21 @@ fi
 exec "\$JAVA_BIN" "\${DESKTOP_OPTS[@]}" "\${GPU_OPTS[@]}" \$JAVA_OPTS \$LIB_OPT -jar "\$APP_HOME/crtk.jar" "\$@"
 EOF
 
-  $SUDO mv "$LAUNCHER_TMP" "$LAUNCHER"
-  $SUDO chmod +x "$LAUNCHER"
+    write_file_from_tmp "$LAUNCHER_TMP" "$LAUNCHER" 755 "launcher"
+  fi
 else
   warn "Skipping launcher install (--no-launcher)."
 fi
 
 section "Desktop App"
 if [[ $INSTALL_DESKTOP -eq 1 && $INSTALL_LAUNCHER -eq 1 ]]; then
-  step "Installing workbench desktop entry to $DESKTOP_ENTRY"
-  DESKTOP_TMP="$(mktemp)"
-  cat > "$DESKTOP_TMP" <<EOF
+  if desktop_entry_targets_launcher; then
+    REUSE_EXISTING_DESKTOP=1
+    step "Reusing existing workbench desktop entry at $DESKTOP_ENTRY"
+  else
+    step "Installing workbench desktop entry to $DESKTOP_ENTRY"
+    DESKTOP_TMP="$(mktemp)"
+    cat > "$DESKTOP_TMP" <<EOF
 [Desktop Entry]
 Type=Application
 Name=ChessRTK Workbench
@@ -1130,11 +1234,17 @@ StartupNotify=true
 StartupWMClass=crtk-workbench
 EOF
 
-  $SUDO mkdir -p "$(dirname "$DESKTOP_ENTRY")"
-  $SUDO mv "$DESKTOP_TMP" "$DESKTOP_ENTRY"
-  $SUDO chmod 644 "$DESKTOP_ENTRY"
-  if command -v update-desktop-database >/dev/null 2>&1; then
-    $SUDO update-desktop-database "$(dirname "$DESKTOP_ENTRY")" >/dev/null 2>&1 || true
+    ensure_directory "$(dirname "$DESKTOP_ENTRY")" "desktop entry"
+    write_file_from_tmp "$DESKTOP_TMP" "$DESKTOP_ENTRY" 644 "desktop entry"
+    if command -v update-desktop-database >/dev/null 2>&1; then
+      if is_root || [[ -w "$(dirname "$DESKTOP_ENTRY")" ]]; then
+        update-desktop-database "$(dirname "$DESKTOP_ENTRY")" >/dev/null 2>&1 || true
+      elif require_privilege "refresh the desktop app database"; then
+        $SUDO update-desktop-database "$(dirname "$DESKTOP_ENTRY")" >/dev/null 2>&1 || true
+      else
+        warn "Skipping desktop database refresh (need root or sudo)."
+      fi
+    fi
   fi
 elif [[ $INSTALL_DESKTOP -eq 1 ]]; then
   warn "Skipping desktop app install because the command launcher was skipped."
@@ -1145,10 +1255,18 @@ fi
 section "Summary"
 title "Done"
 if [[ $INSTALL_LAUNCHER -eq 1 ]]; then
-  step "Launcher installed: $LAUNCHER"
+  if [[ $REUSE_EXISTING_LAUNCHER -eq 1 ]]; then
+    step "Launcher reused: $LAUNCHER"
+  else
+    step "Launcher installed: $LAUNCHER"
+  fi
 fi
 if [[ $INSTALL_DESKTOP -eq 1 && $INSTALL_LAUNCHER -eq 1 ]]; then
-  step "Workbench app installed: $DESKTOP_ENTRY"
+  if [[ $REUSE_EXISTING_DESKTOP -eq 1 ]]; then
+    step "Workbench app reused: $DESKTOP_ENTRY"
+  else
+    step "Workbench app installed: $DESKTOP_ENTRY"
+  fi
 fi
 if [[ "$CUDA_RESULT" == "built" ]]; then
   step "CUDA backend: built ($CUDA_LIB_SO)"

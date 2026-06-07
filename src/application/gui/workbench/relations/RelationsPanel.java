@@ -55,6 +55,11 @@ public final class RelationsPanel extends JPanel {
 	private static final int[] DEFAULT_CHANNELS = { 0, 1, 9, 11 };
 
 	/**
+	 * Fixed width for compact Relations rail control labels.
+	 */
+	private static final int LABEL_WIDTH = 78;
+
+	/**
 	 * Board this panel overlays.
 	 */
 	private final transient BoardPanel board;
@@ -242,21 +247,10 @@ public final class RelationsPanel extends JPanel {
 	 * @return opacity row
 	 */
 	private JComponent opacityRow() {
-		JPanel row = Ui.transparentPanel(null);
-		row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
-		JLabel label = new JLabel("Opacity");
-		label.setForeground(Theme.MUTED);
-		label.setFont(Theme.font(12, Font.PLAIN));
-		label.setPreferredSize(new Dimension(78, Theme.CONTROL_HEIGHT));
-		label.setMaximumSize(new Dimension(78, Theme.CONTROL_HEIGHT));
-		label.setAlignmentY(Component.CENTER_ALIGNMENT);
 		Ui.styleSlider(opacitySlider);
 		opacitySlider.setOpaque(false);
-		opacitySlider.setAlignmentY(Component.CENTER_ALIGNMENT);
 		opacitySlider.addChangeListener(event -> refresh());
-		row.add(label);
-		row.add(opacitySlider);
-		return row;
+		return Ui.labelControlRow("Opacity", opacitySlider, LABEL_WIDTH);
 	}
 
 	/**

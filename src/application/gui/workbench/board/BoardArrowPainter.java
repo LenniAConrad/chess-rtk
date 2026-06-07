@@ -59,9 +59,22 @@ final class BoardArrowPainter {
      * @param gap distance to keep from each piece centre (a quarter square)
      */
     void drawSuggested(Graphics2D graphics, Point from, Point to, double gap) {
+        drawColored(graphics, from, to, gap, ARROW_FILL);
+    }
+
+    /**
+     * Draws a board arrow with the supplied fill.
+     *
+     * @param graphics graphics context
+     * @param from origin point
+     * @param to destination point
+     * @param gap distance to keep from each piece centre (a quarter square)
+     * @param fill arrow fill
+     */
+    private void drawColored(Graphics2D graphics, Point from, Point to, double gap, Color fill) {
         Color savedColor = graphics.getColor();
         try {
-            graphics.setColor(ARROW_FILL);
+            graphics.setColor(fill);
             draw(graphics, from, to, ARROW_STROKE.getLineWidth(), gap);
         } finally {
             graphics.setColor(savedColor);

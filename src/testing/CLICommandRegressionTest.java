@@ -112,6 +112,7 @@ public final class CLICommandRegressionTest {
 		testGroupedFenAndMoveCommands();
 		testMachineReadableFenAndMoveCommands();
 		testStructuredFenAndMoveFailures();
+		testStructuredLegacyCommandFailures();
 		testVersionCommand();
 		testBatchRunCommandScript();
 		testDefaultOutputPathsUseDumpDirectory();
@@ -545,6 +546,44 @@ public final class CLICommandRegressionTest {
 		assertTrue(badFen.stderr().contains("Invalid FEN"), "fen normalize invalid FEN message");
 		assertFalse(badFen.stderr().contains("Exception"), "fen normalize invalid FEN hides stack by default");
 
+		TestSupport.FailureResult missingPrint = TestSupport.runMainExpectFailure("fen", "print");
+		assertEquals(2, missingPrint.exitCode(), "fen print missing FEN exit code");
+		assertTrue(missingPrint.stderr().contains("print requires a FEN"), "fen print missing FEN message");
+
+		TestSupport.FailureResult badPrint = TestSupport.runMainExpectFailure("fen", "print",
+				FEN_OPTION, "not-a-fen");
+		assertEquals(3, badPrint.exitCode(), "fen print invalid FEN exit code");
+		assertTrue(badPrint.stderr().contains("invalid FEN"), "fen print invalid FEN message");
+		assertFalse(badPrint.stderr().contains("Exception"), "fen print invalid FEN hides stack by default");
+
+		TestSupport.FailureResult missingDisplay = TestSupport.runMainExpectFailure("fen", "display");
+		assertEquals(2, missingDisplay.exitCode(), "fen display missing FEN exit code");
+		assertTrue(missingDisplay.stderr().contains("display requires a FEN"), "fen display missing FEN message");
+
+		TestSupport.FailureResult badDisplay = TestSupport.runMainExpectFailure("fen", "display",
+				FEN_OPTION, "not-a-fen");
+		assertEquals(3, badDisplay.exitCode(), "fen display invalid FEN exit code");
+		assertTrue(badDisplay.stderr().contains("invalid display input"), "fen display invalid FEN message");
+		assertFalse(badDisplay.stderr().contains("Exception"), "fen display invalid FEN hides stack by default");
+
+		TestSupport.FailureResult missingRenderFen = TestSupport.runMainExpectFailure("fen", "render",
+				"--output", "unused.png");
+		assertEquals(2, missingRenderFen.exitCode(), "fen render missing FEN exit code");
+		assertTrue(missingRenderFen.stderr().contains("render requires a FEN"),
+				"fen render missing FEN message");
+
+		TestSupport.FailureResult missingRenderOutput = TestSupport.runMainExpectFailure("fen", "render",
+				FEN_OPTION, SIMPLE_FEN);
+		assertEquals(2, missingRenderOutput.exitCode(), "fen render missing output exit code");
+		assertTrue(missingRenderOutput.stderr().contains("render requires --output"),
+				"fen render missing output message");
+
+		TestSupport.FailureResult badRender = TestSupport.runMainExpectFailure("fen", "render",
+				FEN_OPTION, "not-a-fen", "--output", "unused.png");
+		assertEquals(3, badRender.exitCode(), "fen render invalid FEN exit code");
+		assertTrue(badRender.stderr().contains("invalid render input"), "fen render invalid FEN message");
+		assertFalse(badRender.stderr().contains("Exception"), "fen render invalid FEN hides stack by default");
+
 		TestSupport.FailureResult adjacentFenDigits = TestSupport.runMainExpectFailure(
 				"fen",
 				"validate",
@@ -574,6 +613,75 @@ public final class CLICommandRegressionTest {
 		assertEquals(2, jsonConflict.exitCode(), "move list json/jsonl conflict exit code");
 		assertTrue(jsonConflict.stderr().contains("use either --json or --jsonl"),
 				"move list json/jsonl conflict message");
+	}
+
+	/**
+	 * Verifies older CLI implementations return structured failures instead of
+	 * terminating the in-process caller.
+	 */
+	private static void testStructuredLegacyCommandFailures() {
+		TestSupport.FailureResult missingTagsFen = TestSupport.runMainExpectFailure("fen", "tags");
+		assertEquals(2, missingTagsFen.exitCode(), "fen tags missing FEN exit code");
+		assertTrue(missingTagsFen.stderr().contains("tags requires a FEN"), "fen tags missing FEN message");
+
+		TestSupport.FailureResult tagsSourceConflict = TestSupport.runMainExpectFailure("fen", "tags",
+				"--pgn", "missing.pgn", FEN_OPTION, SIMPLE_FEN);
+		assertEquals(2, tagsSourceConflict.exitCode(), "fen tags source conflict exit code");
+		assertTrue(tagsSourceConflict.stderr().contains("provide either --pgn or a FEN input"),
+				"fen tags source conflict message");
+
+		TestSupport.FailureResult textMissingFen = TestSupport.runMainExpectFailure("fen", "text",
+				"--model", "missing-model.bin");
+		assertEquals(2, textMissingFen.exitCode(), "fen text missing FEN exit code");
+		assertTrue(textMissingFen.stderr().contains("no valid positions provided"),
+				"fen text missing FEN message");
+
+		TestSupport.FailureResult puzzleTagsBadFen = TestSupport.runMainExpectFailure("puzzle", "tags",
+				FEN_OPTION, "not-a-fen");
+		assertEquals(2, puzzleTagsBadFen.exitCode(), "puzzle tags invalid FEN exit code");
+		assertTrue(puzzleTagsBadFen.stderr().contains("invalid FEN skipped"),
+				"puzzle tags invalid FEN message");
+
+		TestSupport.FailureResult puzzleTextMissingFen = TestSupport.runMainExpectFailure("puzzle", "text",
+				"--model", "missing-model.bin");
+		assertEquals(2, puzzleTextMissingFen.exitCode(), "puzzle text missing FEN exit code");
+		assertTrue(puzzleTextMissingFen.stderr().contains("puzzle text requires --fen"),
+				"puzzle text missing FEN message");
+
+		try {
+			Path outputBlocker = PathOps.createLocalTempFile("crtk-gen-fens-blocker-", ".txt");
+			TestSupport.FailureResult genOutputConflict = TestSupport.runMainExpectFailure(
+					"gen",
+					"fens",
+					"--output",
+					outputBlocker.toString(),
+					"--files",
+					"1",
+					"--per-file",
+					"1",
+					"--chess960-files",
+					"0",
+					"--max-attempts",
+					"1");
+			assertEquals(2, genOutputConflict.exitCode(), "gen fens output-file conflict exit code");
+			assertTrue(genOutputConflict.stderr().contains("failed to create output directory"),
+					"gen fens output-file conflict message");
+
+			Path missingMineInput = PathOps.createLocalTempDirectory("crtk-mine-missing-")
+					.resolve("missing-records.json");
+			TestSupport.FailureResult mineMissingInput = TestSupport.runMainExpectFailure(
+					"puzzle",
+					"mine",
+					"--input",
+					missingMineInput.toString(),
+					"--output",
+					"unused-mine-output.json");
+			assertEquals(2, mineMissingInput.exitCode(), "puzzle mine missing input exit code");
+			assertTrue(mineMissingInput.stderr().contains("Failed to load seed positions"),
+					"puzzle mine missing input message");
+		} catch (IOException ex) {
+			throw new AssertionError("structured legacy failure temp path failed", ex);
+		}
 	}
 
 	/**
@@ -1047,6 +1155,11 @@ public final class CLICommandRegressionTest {
 
 		TestSupport.FailureResult removedNextGui = TestSupport.runMainExpectFailure("gui-next", "--help");
 		assertTrue(removedNextGui.stderr().contains("Unknown command: gui-next"), "removed gui-next command");
+
+		TestSupport.FailureResult unknownHelp = TestSupport.runMainExpectFailure("help", "nope");
+		assertEquals(2, unknownHelp.exitCode(), "unknown help path exits non-zero");
+		assertTrue(unknownHelp.stderr().contains("Unknown command for help: nope"),
+				"unknown help path reports the typo");
 	}
 
 	/**

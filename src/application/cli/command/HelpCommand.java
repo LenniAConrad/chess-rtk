@@ -351,6 +351,26 @@ public final class HelpCommand {
 	private static final String ENGINE_BENCHMARK_OPTIONS_MARKER = "engine benchmark options:";
 
 	/**
+	 * Help marker for {@code engine gauntlet}.
+	 */
+	private static final String ENGINE_GAUNTLET_OPTIONS_MARKER = "engine gauntlet options:";
+
+	/**
+	 * Help marker for {@code engine search}.
+	 */
+	private static final String ENGINE_SEARCH_OPTIONS_MARKER = "engine search options:";
+
+	/**
+	 * Help marker for {@code engine tree}.
+	 */
+	private static final String ENGINE_TREE_OPTIONS_MARKER = "engine tree options:";
+
+	/**
+	 * Help marker for {@code engine trace}.
+	 */
+	private static final String ENGINE_TRACE_OPTIONS_MARKER = "engine trace options:";
+
+	/**
 	 * Help marker for {@code engine builtin}.
 	 */
 	private static final String BUILTIN_ENGINE_OPTIONS_MARKER = "engine builtin options:";
@@ -473,6 +493,10 @@ public final class HelpCommand {
 			Map.entry("engine bestmove-batch", BESTMOVE_BATCH_OPTIONS_MARKER),
 			Map.entry("engine compare", ENGINE_COMPARE_OPTIONS_MARKER),
 			Map.entry("engine benchmark", ENGINE_BENCHMARK_OPTIONS_MARKER),
+			Map.entry("engine gauntlet", ENGINE_GAUNTLET_OPTIONS_MARKER),
+			Map.entry("engine search", ENGINE_SEARCH_OPTIONS_MARKER),
+			Map.entry("engine tree", ENGINE_TREE_OPTIONS_MARKER),
+			Map.entry("engine trace", ENGINE_TRACE_OPTIONS_MARKER),
 			Map.entry("engine builtin", BUILTIN_ENGINE_OPTIONS_MARKER),
 			Map.entry("engine java", BUILTIN_ENGINE_OPTIONS_MARKER),
 			Map.entry("engine mate", MATE_OPTIONS_MARKER),
@@ -536,6 +560,16 @@ public final class HelpCommand {
 	 * @param a argument parser for the subcommand
 	 */
 	public static void runHelp(Argv a) {
+		runHelpWithStatus(a);
+	}
+
+	/**
+	 * Handles {@code help} and returns the process exit status.
+	 *
+	 * @param a argument parser for the subcommand
+	 * @return exit code
+	 */
+	public static int runHelpWithStatus(Argv a) {
 		boolean full = a.flag("--full");
 		boolean self = a.flag(CMD_HELP_SHORT, CMD_HELP_LONG);
 		List<String> rest = a.positionals();
@@ -543,11 +577,10 @@ public final class HelpCommand {
 
 		if (self) {
 			printCommandHelp(CliRegistry.resolve(List.of(CMD_HELP)), CMD_HELP, System.out);
-			return;
+			return 0;
 		}
 		if (!rest.isEmpty()) {
-			helpCommand(rest);
-			return;
+			return helpCommand(rest);
 		}
 
 		if (full) {
@@ -555,6 +588,7 @@ public final class HelpCommand {
 		} else {
 			helpSummary();
 		}
+		return 0;
 	}
 
 	/**
@@ -609,14 +643,15 @@ public final class HelpCommand {
 	 * @param command command name to display help for
 	 * @param pathTokens path tokens value
 	 */
-	private static void helpCommand(List<String> pathTokens) {
+	private static int helpCommand(List<String> pathTokens) {
 		CliCommand command = CliRegistry.resolve(pathTokens);
 		if (command == null || command.isRoot()) {
 			System.err.println("Unknown command for help: " + String.join(" ", pathTokens));
 			helpSummary(System.err);
-			return;
+			return 2;
 		}
 		printCommandHelp(command, String.join(" ", pathTokens), System.out);
+		return 0;
 	}
 
 	/**
@@ -1601,6 +1636,73 @@ public final class HelpCommand {
 			  --threads N                Worker threads for root moves (default: 1)
 			  --json                     Emit one JSON object
 			  --jsonl                    Emit one JSON object line
+			  --verbose|-v               Print stack trace on failure
+
+			engine gauntlet options:
+			  --a CSV                     Candidate features: all, none, or feature CSV (default: all)
+			  --b CSV                     Baseline features: all, none, or feature CSV (default: none)
+			  --search alpha-beta|mcts    Search for both sides (default: alpha-beta)
+			  --searchA|--searchB KIND    Per-side search override (alpha-beta or mcts)
+			  --eval classical|nnue       Evaluator for both sides (default: classical)
+			  --evalA|--evalB NAME        Per-side evaluator override
+			  --nodes N                   Fixed node budget per move (default: 5000)
+			  --movetime MS               Fixed time budget per move in ms (overrides --nodes)
+			  --openings N                Seeded-random opening count; 0 uses the curated set (default: 0)
+			  --seed N                    Opening RNG seed for reproducibility (default: 20260531)
+			  --maxplies N                Adjudicate a draw past this many plies (default: 240)
+			  --workers N                 Opening pairs to play concurrently (default: 1)
+			  --threadsA|--threadsB N     Per-side search threads (default: 1)
+			  --cpuctA|--cpuctB N         MCTS exploration constant per side (default: 2.8)
+			  --fpuA|--fpuB N             MCTS first-play-urgency reduction per side (default: 0.05)
+			  --checkPriorA|--checkPriorB N           MCTS check-prior bonus per side (default: 4000)
+			  --capturePenaltyA|--capturePenaltyB N   MCTS losing-capture prior penalty per side (default: 8000)
+			  --captureWinScaleA|--captureWinScaleB N MCTS winning-capture prior scale per side (default: 8)
+			  --json                      Emit one JSON summary object
+
+			engine search options:
+			  --fen FEN                  Input FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
+			  --classical|--nnue|--lc0|--bt4|--otis
+			                              Backend shortcut (default: classical)
+			  --evaluator KIND           classical, nnue, lc0, bt4, or otis
+			  --weights PATH             NNUE/LC0/OTIS weights path (required for --bt4)
+			  --nodes N                  Playout budget (default: 2000)
+			  --max-duration D           Time budget, e.g. 2s (overrides --nodes)
+			  --cpuct N                  Exploration constant (default: 2.8)
+			  --threads N                Worker threads (default: 1)
+			  --moves N                  Limit printed root moves; 0 = all (default: 0)
+			  --json                     Emit one JSON summary object
+			  --verbose|-v               Print stack trace on failure
+
+			engine tree options:
+			  --fen FEN                  Input FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
+			  --classical|--nnue|--lc0|--bt4|--otis
+			                              Backend shortcut (default: classical)
+			  --evaluator KIND           classical, nnue, lc0, bt4, or otis
+			  --weights PATH             NNUE/LC0/OTIS weights path (required for --bt4)
+			  --nodes N                  Playout budget (default: 2000)
+			  --max-duration D           Time budget, e.g. 2s (overrides --nodes)
+			  --cpuct N                  Exploration constant (default: 2.8)
+			  --threads N                Worker threads (default: 1)
+			  --depth|-d N               Printed tree depth (default: 3)
+			  --branches N               Max children printed per node; 0 = all (default: 4)
+			  --min-visits N             Drop children below this visit count (default: 1)
+			  --json                     Emit a nested JSON tree
+			  --verbose|-v               Print stack trace on failure
+
+			engine trace options:
+			  --fen FEN                  Input FEN
+			  --startpos                 Use the standard chess start position
+			  --randompos                Use a reachable random legal standard position
+			  --classical|--nnue|--lc0|--bt4|--otis
+			                              Backend shortcut (default: nnue)
+			  --evaluator KIND           classical, nnue, lc0, bt4, or otis
+			  --weights PATH             Network weights path (required for --bt4)
+			  --top N                    Top policy moves to print (default: 6)
+			  --json                     Emit one JSON summary object
 			  --verbose|-v               Print stack trace on failure
 
 			engine builtin options:

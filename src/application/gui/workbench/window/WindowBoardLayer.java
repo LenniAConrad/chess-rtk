@@ -5,8 +5,14 @@ import application.gui.workbench.audio.SoundCue;
 import application.gui.workbench.audio.SoundService;
 import application.gui.workbench.board.BoardEditorPanel;
 import application.gui.workbench.board.BoardExportActions;
+import application.gui.workbench.draw.DrawPanel;
+import application.gui.workbench.engine.EngineGauntletPanel;
 import application.gui.workbench.game.EcoExplorerPanel;
+import application.gui.workbench.game.GameReviewPanel;
+import application.gui.workbench.game.PlayMoveHistoryModel;
 import application.gui.workbench.game.SanRenderer;
+import application.gui.workbench.game.StudyAuthorPanel;
+import application.gui.workbench.game.TablebasePanel;
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.session.LogPanel;
 import application.gui.workbench.command.Console;
@@ -14,8 +20,10 @@ import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.WrappingFlowLayout;
 import application.gui.workbench.ui.HoldButton;
 import application.gui.workbench.ui.SurfacePanel;
+import application.gui.workbench.ui.SwitchedWorkspace;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Toast;
+import application.gui.workbench.ui.WorkspaceMode;
 import chess.images.assets.PieceSet;
 import chess.core.Setup;
 import java.awt.BorderLayout;
@@ -30,6 +38,7 @@ import java.awt.event.MouseEvent;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -86,7 +95,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
 
     /**
      * Preferred size of the right-side rail next to the shared board (Analyze /
-     * Play / Relations all use the same rail proportion).
+     * Play / Relations / Draw all use the same rail proportion).
      */
     private static final Dimension SIDE_RAIL_SIZE = new Dimension(400, 560);
 
@@ -101,13 +110,28 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     protected EcoExplorerPanel ecoExplorerPanel;
 
     /**
+     * Post-game review panel, created lazily with the board detail tabs.
+     */
+    protected GameReviewPanel gameReviewPanel;
+
+    /**
+     * Endgame tablebase panel, created lazily with the board detail tabs.
+     */
+    protected TablebasePanel tablebasePanel;
+
+    /**
+     * Study authoring panel, created lazily with the board detail tabs.
+     */
+    protected StudyAuthorPanel studyAuthorPanel;
+
+    /**
      * Setup editor panel, created lazily with the board detail tabs.
      */
     protected BoardEditorPanel boardEditorPanel;
 
     /**
      * The shared board stage (board + material strips) re-parented into the
-     * active Analyze/Play/Relations mode slot.
+     * active Analyze/Play/Relations/Draw mode slot.
      */
     private transient application.gui.workbench.board.BoardStage sharedBoardStage;
 
@@ -128,6 +152,16 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     private transient JPanel relationsBoardSlot;
 
     /**
+     * Board slot in the Draw mode card.
+     */
+    private transient JPanel drawBoardSlot;
+
+    /**
+     * True after the Relations overlay has populated shared board markups.
+     */
+    private transient boolean relationMarkupActive;
+
+    /**
      * Relations control rail, retained so the shared board can be re-synced with
      * its tactical overlay when the Relations mode activates.
      */
@@ -141,7 +175,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
 
     /**
      * Creates the unified Board surface: one workspace hosting the Analyze,
-     * Play, Solve, and Relations modes behind a switcher, replacing the four
+     * Play, Solve, Relations, and Draw modes behind a switcher, replacing the four
      * former top-level tabs. Analyze is built eagerly (it wires the main board
      * and the nested analysis tabs at startup); the other modes build lazily on
      * first selection.
@@ -149,7 +183,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * @return board workspace component
      */
     protected JComponent createBoardWorkspaceTab() {
-        // One shared board backs the Analyze, Play, and Relations modes: it is
+        // One shared board backs the Analyze, Play, Relations, and Draw modes: it is
         // re-parented into the active mode's slot and reconfigured for it by
         // configureBoardForMode, so a position carries across modes with no
         // duplicate widgets. Solve keeps its own board (puzzles step their own
@@ -158,13 +192,13 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         evalBar.setToolTipText("Engine evaluation");
         board.setEvalBar(evalBar);
         sharedBoardStage = new application.gui.workbench.board.BoardStage(board);
-        boardWorkspace = new application.gui.workbench.ui.SwitchedWorkspace(
-                new String[] { "Analyze", "Play", "Solve", "Relations" },
-                java.util.List.of(
-                        this::createBoardTab,
-                        this::createPlayTab,
-                        this::createPuzzleTab,
-                        this::createRelationsTab),
+        boardWorkspace = new SwitchedWorkspace(
+                List.of(
+                        new WorkspaceMode("Analyze", this::createBoardTab),
+                        new WorkspaceMode("Play", this::createPlayTab),
+                        new WorkspaceMode("Solve", this::createPuzzleTab),
+                        new WorkspaceMode("Relations", this::createRelationsTab),
+                        new WorkspaceMode("Draw", this::createDrawTab)),
                 BOARD_ANALYZE);
         boardWorkspace.setModeListener(this::configureBoardForMode);
         return boardWorkspace;
@@ -173,9 +207,9 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     /**
      * Re-parents the single shared board into the activated board mode's slot
      * and reconfigures it for that mode. Analyze and Play are interactive
-     * (turn-gated input, the analysis position, no relation overlay); Relations
-     * is a read-only tactical overlay; Solve keeps its own board, so this is a
-     * no-op for it.
+     * (turn-gated input and the analysis position), Relations is a read-only
+     * tactical overlay, Draw routes pointer gestures to annotations, and Solve
+     * keeps its own board, so this is a no-op for it.
      *
      * @param mode activated board mode (see BOARD_* constants)
      */
@@ -184,6 +218,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
             case BOARD_ANALYZE -> analyzeBoardSlot;
             case BOARD_PLAY -> playBoardSlot;
             case BOARD_RELATIONS -> relationsBoardSlot;
+            case BOARD_DRAW -> drawBoardSlot;
             default -> null;
         };
         if (slot == null || sharedBoardStage == null) {
@@ -197,20 +232,63 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         if (mode == BOARD_RELATIONS) {
             // A visualization, not an editor: dragging is disabled and the
             // current position's relation channels are drawn onto the board.
-            board.setDragStartFilter(context -> false);
+            board.setDirectAnnotationMode(false);
+            board.clearMarkup();
+            relationMarkupActive = true;
+            disableSharedBoardMoveInput();
             if (relationsControls != null) {
                 relationsControls.syncToBoard();
             }
+        } else if (mode == BOARD_DRAW) {
+            clearRelationMarkupIfActive();
+            board.setDirectAnnotationMode(true);
+            disableSharedBoardMoveInput();
+            restoreSharedBoardPosition();
         } else {
-            // Analyze / Play: interactive. Drop any relation overlay, re-arm the
-            // move funnel and turn-gated input, and restore the analysis line.
-            board.clearMarkup();
+            // Analyze / Play: interactive. Drop any relation overlay, re-arm
+            // the move funnel and turn-gated input, and restore the analysis line.
+            clearRelationMarkupIfActive();
+            board.setDirectAnnotationMode(false);
             board.setMoveHandler(this::playMove);
             board.setDragStartFilter(context ->
                     playSession == null || playSession.isHumanInputAllowed());
-            if (currentPosition != null) {
-                board.setPositionInstant(currentPosition, chess.core.Move.NO_MOVE);
-            }
+            board.setPremoveStartFilter(context ->
+                    playSession != null && playSession.isPremoveSourceAllowed(context.square(), context.piece()));
+            board.setPremoveHandler(context ->
+                    playSession != null && playSession.queuePremove(context.tentativeMove()));
+            restoreSharedBoardPosition();
+        }
+    }
+
+    /**
+     * Clears temporary Relations overlays when leaving the Relations mode.
+     */
+    private void clearRelationMarkupIfActive() {
+        if (!relationMarkupActive) {
+            return;
+        }
+        board.clearMarkup();
+        relationMarkupActive = false;
+    }
+
+    /**
+     * Disables board move input for read-only or annotation-focused modes.
+     */
+    private void disableSharedBoardMoveInput() {
+        board.setMoveHandler(null);
+        board.setDragStartFilter(context -> false);
+        board.setPremoveStartFilter(context -> false);
+        board.setPremoveHandler(null);
+        board.clearPremove();
+    }
+
+    /**
+     * Restores the shared board to the current analysis position without move
+     * animation.
+     */
+    private void restoreSharedBoardPosition() {
+        if (currentPosition != null) {
+            board.setPositionInstant(currentPosition, chess.core.Move.NO_MOVE);
         }
     }
 
@@ -233,12 +311,12 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * @return engine workspace component
      */
     protected JComponent createEngineWorkspaceTab() {
-        engineWorkspace = new application.gui.workbench.ui.SwitchedWorkspace(
-                new String[] { "Evaluator", "Search", "Tree" },
-                java.util.List.of(
-                        this::createNetworkTab,
-                        this::createMctsTab,
-                        this::createTreeTab),
+        engineWorkspace = new SwitchedWorkspace(
+                List.of(
+                        new WorkspaceMode("Evaluator", this::createNetworkTab),
+                        new WorkspaceMode("Search", this::createMctsTab),
+                        new WorkspaceMode("Tree", this::createTreeTab),
+                        new WorkspaceMode("Gauntlet", this::createGauntletTab)),
                 ENGINE_NETWORK);
         return engineWorkspace;
     }
@@ -377,7 +455,35 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         // it was duplicated here on the rail. Removing the rail copy trims a row
         // of chrome from the analyze rail without losing the control.
         grid(panel, createPgnExplorerLauncher(), c, 0, 4, 4, 1);
+        grid(panel, createAnalyzeFeatureShortcuts(), c, 0, 5, 4, 1);
         return panel;
+    }
+
+    /**
+     * Creates explicit shortcuts for the analysis features that live in the
+     * side-rail detail tabs. Without these buttons, the tools exist but are easy
+     * to miss behind the compact tab strip.
+     *
+     * @return shortcut row
+     */
+    private JComponent createAnalyzeFeatureShortcuts() {
+        JPanel row = transparentPanel(new WrappingFlowLayout(FlowLayout.LEFT, 6, 0));
+        JButton opening = button("Opening Tree", false, event -> showBoardDetail("ECO"));
+        opening.setToolTipText("Show ECO opening tree and candidate line explorer");
+        JButton review = button("Review", false, event -> showBoardDetail("Review"));
+        review.setToolTipText("Show post-game review and retry critical moves");
+        JButton endgame = button("Endgame", false, event -> showBoardDetail("Endgame"));
+        endgame.setToolTipText("Show tablebase-eligibility and fixed-node endgame analysis");
+        JButton study = button("Study", false, event -> showBoardDetail("Study"));
+        study.setToolTipText("Show study/repertoire TOML authoring for the current game line");
+        JButton gauntlet = button("Gauntlet", false, event -> openEngine(ENGINE_GAUNTLET));
+        gauntlet.setToolTipText("Open deterministic built-in engine self-play gauntlets");
+        row.add(opening);
+        row.add(review);
+        row.add(endgame);
+        row.add(study);
+        row.add(gauntlet);
+        return collapsible("Tools", row, true);
     }
 
     /**
@@ -487,7 +593,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      */
     private JComponent createPgnExplorerLauncher() {
         JPanel row = transparentPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        JButton open = button("Open PGN…", false, event -> showPgnExplorer());
+        JButton open = button("PGN Database...", false, event -> showPgnExplorer());
         open.setToolTipText("Open PGN explorer (Ctrl+P)");
         row.add(open);
         return row;
@@ -643,6 +749,9 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         boardDetailTabs.addTab("Moves", titled("Legal Moves", scroll(movesTable)));
         boardDetailTabs.addTab("Tags", titled("Tags", scroll(tagCloud)));
         boardDetailTabs.addTab("ECO", createEcoExplorerPanel());
+        boardDetailTabs.addTab("Review", createGameReviewPanel());
+        boardDetailTabs.addTab("Study", createStudyAuthorPanel());
+        boardDetailTabs.addTab("Endgame", createTablebasePanel());
         boardDetailTabs.addTab("Data", createAnalysisDataPanel());
         boardDetailTabs.addTab("Editor", createBoardEditorPanel());
         boardDetailTabs.addChangeListener(event -> syncBoardEditorMode());
@@ -672,11 +781,60 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
+     * Creates the deterministic post-game review panel.
+     *
+     * @return review component
+     */
+    protected JComponent createGameReviewPanel() {
+        gameReviewPanel = new GameReviewPanel(() -> gameModel, this::jumpGameTo, this::copyText);
+        return scroll(fillViewport(gameReviewPanel));
+    }
+
+    /**
+     * Creates the endgame tablebase panel.
+     *
+     * @return tablebase component
+     */
+    protected JComponent createTablebasePanel() {
+        tablebasePanel = new TablebasePanel(this::currentFen, this::copyText);
+        return scroll(fillViewport(tablebasePanel));
+    }
+
+    /**
+     * Creates the study/repertoire authoring panel.
+     *
+     * @return study authoring component
+     */
+    protected JComponent createStudyAuthorPanel() {
+        studyAuthorPanel = new StudyAuthorPanel(() -> gameModel, this::currentFen, this::copyText);
+        return scroll(fillViewport(studyAuthorPanel));
+    }
+
+    /**
      * Refreshes the ECO explorer when the visible game position changes.
      */
     protected void refreshEcoExplorer() {
         if (ecoExplorerPanel != null) {
             ecoExplorerPanel.refresh();
+        }
+    }
+
+    /**
+     * Refreshes the endgame tablebase panel when the visible game position
+     * changes.
+     */
+    protected void refreshTablebasePanel() {
+        if (tablebasePanel != null) {
+            tablebasePanel.refreshPosition();
+        }
+    }
+
+    /**
+     * Refreshes the generated study manifest when the visible game line changes.
+     */
+    protected void refreshStudyAuthorPanel() {
+        if (studyAuthorPanel != null) {
+            studyAuthorPanel.refreshManifest();
         }
     }
 
@@ -1052,10 +1210,16 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
 
         JComponent exportTools = buttonRow(FlowLayout.LEFT,
                 button("Copy FENs", false, event -> copyText(gameModel.fenList())));
+        JComponent studyTools = buttonRow(FlowLayout.LEFT,
+                button("Opening Tree", false, event -> showBoardDetail("ECO")),
+                button("Review Game", false, event -> showBoardDetail("Review")),
+                button("Author Study", false, event -> showBoardDetail("Study")),
+                button("PGN Database", false, event -> showPgnExplorer()));
 
         grid(panel, collapsible("Import", importTools, true), c, 0, 1, 4, 1);
-        grid(panel, collapsible("Exports", exportTools, false), c, 0, 2, 4, 1);
-        addVerticalFiller(panel, c, 3, 4);
+        grid(panel, collapsible("Study / Review / Database", studyTools, true), c, 0, 2, 4, 1);
+        grid(panel, collapsible("Exports", exportTools, false), c, 0, 3, 4, 1);
+        addVerticalFiller(panel, c, 4, 4);
         return panel;
     }
 
@@ -1309,6 +1473,15 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
+     * Creates the engine self-play gauntlet tab.
+     *
+     * @return gauntlet tab
+     */
+    protected JComponent createGauntletTab() {
+        return new EngineGauntletPanel(this::copyText);
+    }
+
+    /**
      * Creates an independent search-tree graph tab instance.
      *
      * @return tree tab
@@ -1330,26 +1503,53 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         // carries straight across modes; board wiring lives in
         // configureBoardForMode. The board is re-parented into this slot when
         // Play activates.
-        playBoardSlot = boardSlotPanel();
+        application.gui.workbench.play.PlayPanel controls = playPanel();
+        playBoardSlot = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
+        playBoardSlot.add(controls.opponentIdentityStrip(), BorderLayout.NORTH);
+        playBoardSlot.add(controls.playerIdentityStrip(), BorderLayout.SOUTH);
 
-        // Fill the rail like a real game screen: setup/controls on top, the live
-        // move list below — chess.com / lichess show the moves beside the board
-        // during play. The list is a second view on the shared game model, so it
-        // tracks every move with no extra wiring.
-        javax.swing.JTable playMoves = new javax.swing.JTable(gameModel);
-        Theme.table(playMoves, Theme.TABLE_ROW_HEIGHT);
-        playMoves.setAutoResizeMode(javax.swing.JTable.AUTO_RESIZE_LAST_COLUMN);
-        playMoves.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         // The setup form scrolls on its own (it is tall once Advanced/Expert are
         // open) and the move list scrolls on its own, joined by a resizable
         // sash — so neither is ever clipped on a short window.
-        JComponent setup = scroll(fillViewport(playPanel()));
-        JComponent moves = titled("Moves", scroll(playMoves));
+        JComponent setup = scroll(fillViewport(controls));
+        JComponent moves = createPlayMoveHistory();
         JSplitPane rail = SplitPaneStyler.styledVerticalSplit(setup, moves, 0.62);
         rail.setPreferredSize(SIDE_RAIL_SIZE);
 
         JSplitPane playPage = SplitPaneStyler.styledHorizontalSplit(playBoardSlot, rail, 0.68);
         return playPage;
+    }
+
+    /**
+     * Creates the compact move-pair table used by Play mode.
+     *
+     * @return move-history component
+     */
+    private JComponent createPlayMoveHistory() {
+        PlayMoveHistoryModel historyModel = new PlayMoveHistoryModel(gameModel);
+        javax.swing.JTable playMoves = new javax.swing.JTable(historyModel);
+        Theme.table(playMoves, Theme.TABLE_ROW_HEIGHT);
+        playMoves.setAutoCreateColumnsFromModel(false);
+        playMoves.setAutoResizeMode(javax.swing.JTable.AUTO_RESIZE_LAST_COLUMN);
+        playMoves.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        javax.swing.table.TableColumnModel columns = playMoves.getColumnModel();
+        columns.getColumn(0).setMaxWidth(42);
+        columns.getColumn(0).setPreferredWidth(42);
+        columns.getColumn(1).setPreferredWidth(130);
+        columns.getColumn(2).setPreferredWidth(130);
+        columns.getColumn(1).setCellRenderer(new SanRenderer());
+        columns.getColumn(2).setCellRenderer(new SanRenderer());
+        historyModel.addTableModelListener(event -> javax.swing.SwingUtilities.invokeLater(() -> {
+            int lastRow = playMoves.getRowCount() - 1;
+            if (lastRow >= 0) {
+                playMoves.getSelectionModel().setSelectionInterval(lastRow, lastRow);
+                playMoves.scrollRectToVisible(playMoves.getCellRect(lastRow, 0, true));
+            }
+        }));
+        JComponent section = titled("Move history", scroll(playMoves));
+        section.setOpaque(true);
+        section.setBackground(Theme.BG);
+        return section;
     }
 
     /**
@@ -1373,6 +1573,19 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         JComponent rail = scroll(fillViewport(relationsControls));
         rail.setPreferredSize(SIDE_RAIL_SIZE);
         return SplitPaneStyler.styledHorizontalSplit(relationsBoardSlot, rail, 0.68);
+    }
+
+    /**
+     * Creates the board drawing tab: the shared board on the left and annotation
+     * tool/color/export controls on the right.
+     *
+     * @return draw tab
+     */
+    protected JComponent createDrawTab() {
+        drawBoardSlot = boardSlotPanel();
+        JComponent rail = scroll(fillViewport(new DrawPanel(board, this)));
+        rail.setPreferredSize(SIDE_RAIL_SIZE);
+        return SplitPaneStyler.styledHorizontalSplit(drawBoardSlot, rail, 0.68);
     }
 
     /**

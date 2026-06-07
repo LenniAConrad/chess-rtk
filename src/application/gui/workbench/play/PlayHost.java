@@ -121,4 +121,21 @@ public interface PlayHost {
     default void clearHint() {
         // optional; the window host clears the suggested-move arrow
     }
+
+    /**
+     * Draws a queued premove on the board. Defaulted to a no-op for headless
+     * tests and alternate hosts.
+     *
+     * @param move queued premove
+     */
+    default void showPremove(short move) {
+        // optional; the window host draws the premove arrow
+    }
+
+    /**
+     * Clears any queued premove arrow.
+     */
+    default void clearPremove() {
+        // optional; the window host clears the premove arrow
+    }
 }

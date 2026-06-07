@@ -164,23 +164,27 @@ public final class SvgIcon implements Icon {
                     "Search", "Best", "Analyze", "Smoke", "Reveal" ->
                     Kind.PLAY;
             case "Start" -> Kind.FIRST;
-            case "Back" -> Kind.PREVIOUS;
+            case "Back", "Takeback" -> Kind.PREVIOUS;
             case "Forward", "Skip" -> Kind.NEXT;
             case "End" -> Kind.LAST;
             case "Reset", "Restart", "Drop Optional", "Clear", "Clear Flags", "Defaults", "Refresh" -> Kind.RESET;
             case "Flip" -> Kind.FLIP;
             case "Copy", "Copy FEN", "Copy Command", "Copy Report", "Copy PGN", "Copy SAN", "Copy UCI",
-                    "Copy FEN List", "Copy FENs", "Copy Path" ->
+                    "Copy FEN List", "Copy FENs", "Copy Path", "Prep Report" ->
                     Kind.COPY;
-            case "Stop" -> Kind.STOP;
+            case "Stop", "Resign" -> Kind.STOP;
             case "Hide", "Close" -> Kind.CLOSE;
             case "Info", "Info +", "Info -", "Hint" -> Kind.INFO;
+            case "Offer Draw" -> Kind.DRAW;
             case "Settings" -> Kind.SETTINGS;
             case "Tags" -> Kind.TAG;
-            case "Actions", "Commands", "Batch", "Game", "Perft", "Engine", "Validate Config", "Analysis data" ->
+            case "Actions", "Commands", "Batch", "Game", "Perft", "Engine", "Validate Config", "Analysis data",
+                    "Opening Tree", "Review", "Review Game", "Author Study", "Endgame", "Study", "Gauntlet",
+                    "Dedupe Games", "Current Position", "All Games" ->
                     Kind.GRID;
             case "Add Current FEN", "Add FEN", "Add to Batch", "New Game", "Sample" -> Kind.PLUS;
-            case "Publish", "Browse", "Load File", "Open PGN", "PGN Explorer", "Save PGN", "Save Report",
+            case "Publish", "Browse", "Load File", "Open PGN", "PGN Explorer", "PGN Database...",
+                    "PGN Database", "Save PGN", "Save Report",
                     "Choose Input", "Choose Output", "Choose PDF", "Choose Cover", "Choose Manifest",
                     "Choose Protocol", "Open Folder", "Open Selected",
                     "Export", "Export PNG", "Export SVG" ->
@@ -250,6 +254,7 @@ public final class SvgIcon implements Icon {
             case RESET -> paintReset(g);
             case STOP -> paintStop(g);
             case INFO -> paintInfo(g);
+            case DRAW -> paintDraw(g);
             case SETTINGS -> paintSettings(g);
             case FLIP -> paintFlip(g);
             case TAG -> paintTag(g);
@@ -364,6 +369,17 @@ public final class SvgIcon implements Icon {
         g.drawOval(5, 5, 14, 14);
         g.fillOval(11, 8, 2, 2);
         g.drawLine(12, 12, 12, 16);
+    }
+
+    /**
+     * Paints a draw-offer equal-sign icon.
+     *
+     * @param g graphics context
+     */
+    private void paintDraw(Graphics2D g) {
+        g.setStroke(STROKE_BOLD);
+        g.drawLine(7, 9, 17, 9);
+        g.drawLine(7, 15, 17, 15);
     }
 
     /**
@@ -632,6 +648,11 @@ public final class SvgIcon implements Icon {
          * Information toggle.
          */
         INFO,
+
+        /**
+         * Draw offer.
+         */
+        DRAW,
 
         /**
          * Settings command.

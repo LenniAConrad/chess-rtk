@@ -90,6 +90,7 @@ final class WorkbenchBackendRegression {
         testArtifactIndexNormalizesAndDeduplicatesPaths();
         testCommandResultParserSummaries();
         testDashboardPanelConstructsHeadlessly();
+        testDashboardCenterUsesPanelSurface();
         testDashboardCardsGrowWithDynamicContent();
         testNetworkPanelSimpleControlsRenderHeadlessly();
         testNetworkLoadingCardTracksRequestedArchitecture();
@@ -528,6 +529,39 @@ final class WorkbenchBackendRegression {
                 List.of("OPENING: name=\"Start\"", "MATERIAL: equal"));
         assertPaintsOpaqueCorner((JComponent) panel, 1000, 760,
                 "dashboard infographics paint opaquely");
+    }
+
+    /**
+     * Verifies the Dashboard body uses the dark editor surface rather than a
+     * lighter root-chrome viewport behind all cards.
+     */
+    private static void testDashboardCenterUsesPanelSurface() {
+        Theme.Mode previous = Theme.mode();
+        try {
+            Theme.setMode(Theme.Mode.DARK);
+            Object session = construct(type("Session"), new Class<?>[0]);
+            Class<?> actionsType = type("DashboardActions");
+            Object actions = Proxy.newProxyInstance(actionsType.getClassLoader(),
+                    new Class<?>[] { actionsType }, (proxy, method, args) -> null);
+            JComponent panel = (JComponent) construct(type("DashboardPanel"),
+                    new Class<?>[] { type("Session"), actionsType }, session, actions);
+            JScrollPane centerScroll = null;
+            for (Component child : panel.getComponents()) {
+                if (child instanceof JScrollPane scroll) {
+                    centerScroll = scroll;
+                    break;
+                }
+            }
+            assertTrue(centerScroll != null, "dashboard has a center scroll pane");
+            assertEquals(Theme.PANEL_SOLID, panel.getBackground(),
+                    "dashboard panel uses editor surface");
+            assertEquals(Theme.PANEL_SOLID, centerScroll.getViewport().getBackground(),
+                    "dashboard center viewport uses editor surface");
+            assertFalse(Objects.equals(Theme.BG, centerScroll.getViewport().getBackground()),
+                    "dashboard center removes oversized root-chrome box");
+        } finally {
+            Theme.setMode(previous);
+        }
     }
 
     /**
@@ -2553,6 +2587,8 @@ final class WorkbenchBackendRegression {
                 "Dashboard is the first tab");
         assertEquals(Integer.valueOf(1), staticField(window, "TAB_BOARD"),
                 "Board follows the Dashboard tab");
+        assertEquals(Integer.valueOf(4), staticField(window, "BOARD_DRAW"),
+                "Draw is the fifth board mode");
     }
 
     /**

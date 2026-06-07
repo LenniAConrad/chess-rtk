@@ -1,0 +1,293 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+:root{
+  --app:#15171a; --panel:#1c1f24; --card:#22262c; --card2:#262b32; --sel:#2a313b;
+  --line:#30353d; --line2:#3a4048;
+  --txt:#e6e8eb; --txt2:#9aa3ad; --txt3:#6b7480;
+  --blue:#3b82f6; --blue2:#2f6fe0; --green:#22c55e; --amber:#f59e0b; --red:#ef4444;
+  --yellow:#e0b400;
+  --light-sq:#ecd6b4; --dark-sq:#b58863;
+  --mono:"DejaVu Sans Mono",ui-monospace,monospace;
+  --ui:"Inter","Segoe UI","DejaVu Sans",system-ui,sans-serif;
+}
+body.light{
+  --app:#f4f5f6; --panel:#ffffff; --card:#fbfbfc; --card2:#f4f5f6; --sel:#e7eefc;
+  --line:#e2e4e8; --line2:#d4d7dd;
+  --txt:#1a1d21; --txt2:#5a626c; --txt3:#8b929b;
+  --blue:#2563eb; --blue2:#1d4ed8;
+}
+*{box-sizing:border-box; margin:0; padding:0}
+html,body{width:1600px; height:1000px}
+body{background:var(--app); color:var(--txt); font-family:var(--ui); font-size:13px;
+  -webkit-font-smoothing:antialiased; overflow:hidden}
+.col{display:flex; flex-direction:column}
+.row{display:flex; align-items:center}
+.sp{flex:1}
+.muted{color:var(--txt2)} .dim{color:var(--txt3)}
+.mono{font-family:var(--mono)}
+
+/* OS menubar */
+.menubar{height:30px; background:var(--app); border-bottom:1px solid var(--line);
+  display:flex; align-items:center; gap:16px; padding:0 12px; color:var(--txt2); font-size:12.5px}
+.menubar .ttl{position:absolute; left:50%; transform:translateX(-50%); color:var(--txt); font-weight:600}
+.menubar .pal{margin-left:auto; width:330px; height:18px; background:var(--card); border:1px solid var(--line);
+  border-radius:5px; color:var(--txt3); font-size:11px; display:flex; align-items:center; padding:0 8px; gap:8px}
+.dots{display:flex; gap:7px; margin-left:14px}
+.dots i{width:11px; height:11px; border-radius:50%; display:inline-block}
+.dots .r{background:#ff5f57}.dots .y{background:#febc2e}.dots .g{background:#28c840}
+
+/* top nav */
+.nav{height:42px; display:flex; align-items:center; gap:6px; padding:0 14px; border-bottom:1px solid var(--line);
+  background:var(--app)}
+.nav .t{padding:7px 12px; border-radius:7px; color:var(--txt2); font-weight:500; font-size:13px}
+.nav .t.on{background:var(--card); color:var(--txt); box-shadow:inset 0 0 0 1px var(--line2)}
+.statpill{display:inline-flex; align-items:center; gap:7px; height:26px; padding:0 12px; border-radius:14px;
+  background:rgba(34,197,94,.12); color:var(--green); font-weight:600; font-size:12px; border:1px solid rgba(34,197,94,.35)}
+.statpill .d{width:7px;height:7px;border-radius:50%;background:var(--green)}
+.kebab{color:var(--txt3); padding:0 6px; font-size:18px}
+
+/* mode bar + page header */
+.modewrap{padding:14px 22px 0 22px}
+.modebar{display:inline-flex; gap:4px; background:var(--panel); border:1px solid var(--line);
+  border-radius:9px; padding:4px}
+.modebar .m{padding:7px 15px; border-radius:6px; color:var(--txt2); font-weight:600; font-size:13px}
+.modebar .m.on{background:var(--blue); color:#fff}
+.pagehead{display:flex; align-items:flex-end; margin-top:14px}
+.pagehead h1{font-size:23px; font-weight:700; letter-spacing:.2px}
+.pagehead .sub{color:var(--txt2); font-size:13.5px; margin-top:5px}
+.pagehead .acts{margin-left:auto; display:flex; gap:9px}
+
+/* buttons */
+.btn{height:34px; padding:0 15px; border-radius:8px; border:1px solid var(--line2); background:var(--card);
+  color:var(--txt); font-weight:600; font-size:13px; display:inline-flex; align-items:center; gap:7px; cursor:default}
+.btn.pri{background:var(--blue); border-color:var(--blue); color:#fff}
+.btn.dng{background:rgba(239,68,68,.12); border-color:rgba(239,68,68,.4); color:#ff7a7a}
+.btn.gho{background:transparent; border-color:var(--line2); color:var(--txt2)}
+.btn.sm{height:30px; padding:0 11px; font-size:12.5px}
+.btn.xs{height:27px; padding:0 9px; font-size:12px; font-weight:600}
+
+/* main grid */
+.main{display:grid; grid-template-columns:744px 1fr; gap:20px; padding:16px 22px 22px 22px; height:calc(1000px - 30px - 42px - 86px)}
+
+/* board card */
+.boardcard{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; display:flex; flex-direction:column}
+.bc-head{display:flex; align-items:center; margin-bottom:12px}
+.bc-head .t{font-size:15px; font-weight:700}
+.bc-head .s{color:var(--txt2); font-size:12px; margin-top:2px}
+.bc-head .tag{margin-left:auto; display:flex; gap:7px}
+.tagpill{height:24px; padding:0 11px; border-radius:12px; background:var(--card); border:1px solid var(--line2);
+  color:var(--txt2); font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:6px}
+.tagpill.live{color:var(--green); border-color:rgba(34,197,94,.4)}
+.tagpill.live .d{width:6px;height:6px;border-radius:50%;background:var(--green)}
+
+.boardwrap{display:flex; gap:12px; align-items:stretch}
+.evalbar{width:18px; border-radius:5px; overflow:hidden; position:relative; border:1px solid var(--line2);
+  display:flex; flex-direction:column}
+.evalbar .b{background:#111; } .evalbar .w{background:#f3f3f3}
+.evalbar .num{position:absolute; bottom:4px; left:50%; transform:translateX(-50%); font-size:9px; font-weight:700;
+  color:#111; font-family:var(--mono)}
+.board{position:relative; width:576px; height:576px; border:1px solid #00000055; border-radius:4px; overflow:hidden}
+.sq{position:absolute; width:72px; height:72px; display:flex; align-items:center; justify-content:center}
+.sq.l{background:var(--light-sq)} .sq.d{background:var(--dark-sq)}
+.pc{font-size:54px; line-height:1; font-family:"DejaVu Sans",sans-serif}
+.pc.w{color:#f6f3ee; -webkit-text-stroke:1.6px #3a3a3a; text-shadow:0 1px 1px #0003}
+.pc.b{color:#262626; -webkit-text-stroke:1px #000}
+.lab{position:absolute; font-size:10px; font-weight:700; opacity:.55}
+.lab.f{right:4px; bottom:2px} .lab.r{left:4px; top:1px}
+.ovl{position:absolute; inset:0; pointer-events:none}
+.boardfoot{margin-top:13px; display:flex; align-items:center; background:var(--card); border:1px solid var(--line);
+  border-radius:9px; padding:11px 14px; gap:12px}
+.boardfoot .who{font-weight:700; font-size:13.5px}
+.boardfoot .det{color:var(--txt2); font-size:12px}
+.boardfoot .ctl{margin-left:auto; display:flex; gap:8px; align-items:center}
+.clock{font-family:var(--mono); font-weight:700; font-size:18px}
+.clock.run{color:var(--green)}
+
+/* rail */
+.rail{overflow:hidden; display:flex; flex-direction:column; gap:14px}
+.railhead{font-size:13px; font-weight:800; letter-spacing:1.2px; color:var(--txt2); text-transform:uppercase}
+.card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:15px}
+.card.tight{padding:13px}
+.ctitle{font-size:12px; font-weight:800; letter-spacing:.8px; text-transform:uppercase; color:var(--txt)}
+.csub{color:var(--txt2); font-size:11.5px; margin-top:3px; margin-bottom:12px}
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:11px}
+.grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:11px}
+.cardgrid{display:grid; gap:14px}
+
+.metric{background:var(--card2); border:1px solid var(--line); border-radius:10px; padding:11px 12px}
+.metric .l{font-size:10px; font-weight:800; letter-spacing:.6px; text-transform:uppercase; color:var(--txt3)}
+.metric .v{font-size:22px; font-weight:800; margin-top:3px}
+.metric .v.amber{color:var(--amber)} .metric .v.green{color:var(--green)} .metric .v.blue{color:var(--blue)}
+.metric .s{font-size:10.5px; color:var(--txt3); margin-top:2px}
+
+.chip{display:inline-flex; align-items:center; height:24px; padding:0 11px; border-radius:13px; font-size:11.5px;
+  font-weight:600; background:rgba(59,130,246,.14); color:#9cc0ff; border:1px solid rgba(59,130,246,.3)}
+.chips{display:flex; flex-wrap:wrap; gap:7px}
+
+.seg{display:inline-flex; background:var(--card2); border:1px solid var(--line2); border-radius:9px; padding:3px; gap:3px}
+.seg .o{padding:6px 13px; border-radius:6px; color:var(--txt2); font-weight:600; font-size:12.5px}
+.seg .o.on{background:var(--blue); color:#fff}
+.seg.lg .o{padding:8px 15px}
+
+.frow{display:flex; align-items:center; gap:10px; margin-top:11px}
+.frow .k{color:var(--txt2); font-size:12.5px; min-width:96px}
+.frow .v{margin-left:auto; display:flex; gap:7px}
+
+.tog{width:38px; height:22px; border-radius:12px; background:var(--line2); position:relative; flex:0 0 auto}
+.tog.on{background:var(--blue)} .tog i{position:absolute; top:2px; width:18px; height:18px; border-radius:50%;
+  background:#fff; left:2px} .tog.on i{left:18px}
+
+.input{height:40px; border:1px solid var(--line2); background:var(--app); border-radius:9px; color:var(--txt);
+  display:flex; align-items:center; padding:0 12px; font-size:13px; width:100%}
+.input.mono{font-family:var(--mono); font-size:12px; color:var(--txt2)}
+.note{background:var(--card2); border:1px solid var(--line); border-left:3px solid var(--blue); border-radius:8px;
+  padding:11px 13px; color:var(--txt2); font-size:12.5px; margin-top:11px}
+.note.ok{border-left-color:var(--green); color:#bfe8cd; background:rgba(34,197,94,.07)}
+
+/* ramp (difficulty) */
+.ramp{display:flex; gap:2px; align-items:stretch; margin-top:4px}
+.ramp .step{flex:1; text-align:center; padding:11px 4px; background:var(--card2); border:1px solid var(--line2);
+  color:var(--txt2); font-weight:700; font-size:12px; position:relative}
+.ramp .step:first-child{border-radius:9px 0 0 9px} .ramp .step:last-child{border-radius:0 9px 9px 0}
+.ramp .step small{display:block; font-size:10px; font-weight:600; color:var(--txt3); margin-top:2px}
+.ramp .step.on{background:var(--blue); border-color:var(--blue); color:#fff}
+.ramp .step.on small{color:#dbe8ff}
+
+/* spec list */
+.spec{display:flex; flex-direction:column; gap:9px; margin-top:2px}
+.spec .r{display:flex; align-items:center; gap:10px; font-size:13px}
+.spec .r .k{color:var(--txt3); width:70px; font-size:11px; text-transform:uppercase; letter-spacing:.5px; font-weight:700}
+.spec .r .v{font-weight:600}
+.badge{display:inline-flex; align-items:center; height:22px; padding:0 9px; border-radius:6px; font-size:11.5px;
+  font-weight:700; gap:6px}
+.badge.ok{background:rgba(34,197,94,.14); color:#74e39b} .badge.ok .d{width:6px;height:6px;border-radius:50%;background:var(--green)}
+.badge.neutral{background:var(--card2); color:var(--txt2)}
+
+/* move history */
+.mh{margin-top:4px}
+.mh .hr{display:grid; grid-template-columns:34px 1fr 1fr 70px; padding:6px 4px; font-size:11px; color:var(--txt3);
+  font-weight:700; text-transform:uppercase; letter-spacing:.4px}
+.mh .mr{display:grid; grid-template-columns:34px 1fr 1fr 70px; padding:9px 4px; border-radius:7px; align-items:center}
+.mh .mr:nth-child(even){background:var(--card2)}
+.mh .mr .n{color:var(--txt3)} .mh .mr .san{font-family:var(--mono); font-size:13px}
+.mh .bk{justify-self:end} .bktag{height:20px; padding:0 8px; border-radius:10px; background:rgba(59,130,246,.16);
+  color:#9cc0ff; font-size:10.5px; font-weight:700}
+
+/* channel list */
+.chan{display:flex; flex-direction:column; gap:2px; margin-top:4px}
+.chan .c{display:flex; align-items:center; gap:10px; padding:8px 6px; border-radius:7px}
+.chan .c:hover{background:var(--card2)}
+.chan .sw{width:13px; height:13px; border-radius:3px; flex:0 0 auto}
+.chan .nm{font-family:var(--mono); font-size:12px}
+.chan .ct{margin-left:auto; min-width:30px; text-align:center; height:22px; padding:0 8px; border-radius:11px;
+  background:var(--card2); border:1px solid var(--line2); font-weight:700; font-size:12px}
+.chan .cbx{width:15px;height:15px;border-radius:4px;border:1.5px solid var(--line2)}
+.chan .cbx.on{background:var(--blue); border-color:var(--blue)}
+.foldrow{display:flex; align-items:center; gap:8px; padding:9px 6px; color:var(--txt3); font-size:12px; cursor:default}
+
+.legend .lg{display:flex; align-items:center; gap:11px; margin-top:10px; font-size:12.5px}
+.legend .lg .sw{width:22px; height:8px; border-radius:4px}
+.legend .lg .sw.dot{width:12px;height:12px;border-radius:50%}
+
+/* tools palette (draw) */
+.tools{display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-top:2px}
+.tools .tl{padding:11px 6px; text-align:center; border-radius:9px; background:var(--card2); border:1px solid var(--line2);
+  color:var(--txt2); font-weight:700; font-size:12px}
+.tools .tl.on{background:var(--blue); border-color:var(--blue); color:#fff}
+.swatches{display:flex; gap:9px; align-items:center; margin-top:4px}
+.swatches .s{width:24px; height:24px; border-radius:50%; border:2px solid transparent}
+.swatches .s.on{border-color:#fff; box-shadow:0 0 0 2px var(--blue)}
+.layer{display:flex; align-items:center; gap:10px; padding:9px 8px; border-radius:8px; background:var(--card2);
+  border:1px solid var(--line); margin-top:8px; font-size:12.5px}
+.layer .sw{width:13px;height:13px;border-radius:3px} .layer .x{margin-left:auto; color:var(--txt3); font-weight:700}
+.kbd{display:inline-flex; align-items:center; height:22px; padding:0 8px; border-radius:6px; background:var(--card2);
+  border:1px solid var(--line2); font-family:var(--mono); font-size:11px; color:var(--txt2)}
+.sc{display:flex; align-items:center; gap:10px; margin-top:9px; font-size:12.5px; color:var(--txt2)}
+
+/* ===== light old-rail Analyze ===== */
+.ed-tabs{height:36px; display:flex; align-items:stretch; background:var(--app); border-bottom:1px solid var(--line)}
+.ed-tabs .et{display:flex; align-items:center; gap:9px; padding:0 14px; color:var(--txt2); font-size:12.5px;
+  border-right:1px solid var(--line)}
+.ed-tabs .et.on{background:var(--panel); color:var(--txt); border-bottom:2px solid var(--blue)}
+.ed-tabs .et .x{color:var(--txt3); font-size:13px}
+.ed-tabs .plus{padding:0 12px; color:var(--txt3); align-self:center}
+.amain{display:grid; grid-template-columns:1fr 420px; gap:0; height:calc(1000px - 30px - 36px)}
+.aboard{padding:26px 24px; display:flex; gap:14px}
+.arail{border-left:1px solid var(--line); background:var(--panel); padding:16px; overflow:hidden; display:flex;
+  flex-direction:column; gap:13px}
+.asec{}
+.asec .h{font-size:11px; font-weight:800; letter-spacing:.7px; text-transform:uppercase; color:var(--txt3); margin-bottom:8px}
+.iconrow{display:flex; gap:6px; flex-wrap:wrap}
+.icbtn{width:34px; height:32px; border-radius:7px; border:1px solid var(--line2); background:var(--card);
+  display:flex; align-items:center; justify-content:center; color:var(--txt2); font-size:14px}
+.atabs{display:flex; gap:3px; flex-wrap:wrap; border-bottom:1px solid var(--line); padding-bottom:0}
+.atabs .at{padding:7px 9px; font-size:12px; color:var(--txt2); font-weight:600; border-bottom:2px solid transparent}
+.atabs .at.on{color:var(--txt); border-bottom-color:var(--blue)}
+.empty{flex:1; border:1px dashed var(--line2); border-radius:10px; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:9px; color:var(--txt3); min-height:150px; text-align:center; padding:18px}
+.empty .t{font-weight:700; color:var(--txt2); font-size:14px}
+.fencard{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px}
+.fencard .f{font-family:var(--mono); font-size:12px; color:var(--txt); word-break:break-all; line-height:1.5}
+.fencard .meta{color:var(--txt2); font-size:11.5px; margin-top:7px; display:flex; align-items:center; gap:6px}
+</style></head>
+<body class="">
+<div class="menubar"><span class="dots"><i class="r"></i><i class="y"></i><i class="g"></i></span>
+  <span>File</span><span>Edit</span><span>View</span><span>Go</span><span>Run</span><span>Terminal</span><span>Help</span>
+  <span class="ttl">ChessRTK Workbench</span>
+  <span class="pal"><span>⌘K</span><span>Command Palette</span></span></div>
+<div class="nav"><div class="t ">Dashboard</div><div class="t on">Board</div><div class="t ">Run</div><div class="t ">Datasets</div><div class="t ">Publish</div><div class="t ">Engine Lab</div><div class="t ">Logs</div><span class="sp"></span>
+  <span class="statpill"><span class="d"></span>Engine Ready</span><span class="kebab">⋮</span></div>
+<div class="modewrap"><div class="modebar"><div class="m ">Analyze</div><div class="m ">Play</div><div class="m ">Solve</div><div class="m on">Relations</div><div class="m ">Draw</div></div>
+  <div class="pagehead"><div><h1>Board / Relations</h1><div class="sub">Tactical incidence · 12 edges across 4 channels · Current position</div></div>
+  <div class="acts"><button class="btn pri">Sync to board</button><button class="btn ">Load FEN</button><button class="btn ">Export</button></div></div></div>
+<div class="main"><div class="boardcard"><div class="bc-head"><div><div class="t">Relations overlay</div><div class="s">Typed edges read by the network input channels</div></div>
+  <div class="tag"><span class="tagpill">12 edges</span><span class="tagpill live"><span class="d"></span>live</span></div></div>
+  <div class="boardwrap"><div class="board"><div class="sq l" style="left:0px;top:0px;"><span class="lab r">8</span><span class="pc b">♜</span></div><div class="sq d" style="left:72px;top:0px;"><span class="pc b">♞</span></div><div class="sq l" style="left:144px;top:0px;"><span class="pc b">♝</span></div><div class="sq d" style="left:216px;top:0px;"><span class="pc b">♛</span></div><div class="sq l" style="left:288px;top:0px;"><span class="pc b">♚</span></div><div class="sq d" style="left:360px;top:0px;"><span class="pc b">♝</span></div><div class="sq l" style="left:432px;top:0px;"><span class="pc b">♞</span></div><div class="sq d" style="left:504px;top:0px;"><span class="pc b">♜</span></div><div class="sq d" style="left:0px;top:72px;"><span class="lab r">7</span><span class="pc b">♟</span></div><div class="sq l" style="left:72px;top:72px;"><span class="pc b">♟</span></div><div class="sq d" style="left:144px;top:72px;"><span class="pc b">♟</span></div><div class="sq l" style="left:216px;top:72px;"><span class="pc b">♟</span></div><div class="sq d" style="left:288px;top:72px;"><span class="pc b">♟</span></div><div class="sq l" style="left:360px;top:72px;"><span class="pc b">♟</span></div><div class="sq d" style="left:432px;top:72px;"><span class="pc b">♟</span></div><div class="sq l" style="left:504px;top:72px;"><span class="pc b">♟</span></div><div class="sq l" style="left:0px;top:144px;"><span class="lab r">6</span></div><div class="sq d" style="left:72px;top:144px;"></div><div class="sq l" style="left:144px;top:144px;"></div><div class="sq d" style="left:216px;top:144px;"></div><div class="sq l" style="left:288px;top:144px;"></div><div class="sq d" style="left:360px;top:144px;"></div><div class="sq l" style="left:432px;top:144px;"></div><div class="sq d" style="left:504px;top:144px;"></div><div class="sq d" style="left:0px;top:216px;"><span class="lab r">5</span></div><div class="sq l" style="left:72px;top:216px;"></div><div class="sq d" style="left:144px;top:216px;"></div><div class="sq l" style="left:216px;top:216px;"></div><div class="sq d" style="left:288px;top:216px;"></div><div class="sq l" style="left:360px;top:216px;"></div><div class="sq d" style="left:432px;top:216px;"></div><div class="sq l" style="left:504px;top:216px;"></div><div class="sq l" style="left:0px;top:288px;"><span class="lab r">4</span></div><div class="sq d" style="left:72px;top:288px;"></div><div class="sq l" style="left:144px;top:288px;"></div><div class="sq d" style="left:216px;top:288px;"></div><div class="sq l" style="left:288px;top:288px;"></div><div class="sq d" style="left:360px;top:288px;"></div><div class="sq l" style="left:432px;top:288px;"></div><div class="sq d" style="left:504px;top:288px;"></div><div class="sq d" style="left:0px;top:360px;"><span class="lab r">3</span></div><div class="sq l" style="left:72px;top:360px;"></div><div class="sq d" style="left:144px;top:360px;"></div><div class="sq l" style="left:216px;top:360px;"></div><div class="sq d" style="left:288px;top:360px;"></div><div class="sq l" style="left:360px;top:360px;"></div><div class="sq d" style="left:432px;top:360px;"></div><div class="sq l" style="left:504px;top:360px;"></div><div class="sq l" style="left:0px;top:432px;"><span class="lab r">2</span><span class="pc w">♟</span></div><div class="sq d" style="left:72px;top:432px;"><span class="pc w">♟</span></div><div class="sq l" style="left:144px;top:432px;"><span class="pc w">♟</span></div><div class="sq d" style="left:216px;top:432px;"><span class="pc w">♟</span></div><div class="sq l" style="left:288px;top:432px;"><span class="pc w">♟</span></div><div class="sq d" style="left:360px;top:432px;"><span class="pc w">♟</span></div><div class="sq l" style="left:432px;top:432px;"><span class="pc w">♟</span></div><div class="sq d" style="left:504px;top:432px;"><span class="pc w">♟</span></div><div class="sq d" style="left:0px;top:504px;"><span class="lab f">a</span><span class="lab r">1</span><span class="pc w">♜</span></div><div class="sq l" style="left:72px;top:504px;"><span class="lab f">b</span><span class="pc w">♞</span></div><div class="sq d" style="left:144px;top:504px;"><span class="lab f">c</span><span class="pc w">♝</span></div><div class="sq l" style="left:216px;top:504px;"><span class="lab f">d</span><span class="pc w">♛</span></div><div class="sq d" style="left:288px;top:504px;"><span class="lab f">e</span><span class="pc w">♚</span></div><div class="sq l" style="left:360px;top:504px;"><span class="lab f">f</span><span class="pc w">♝</span></div><div class="sq d" style="left:432px;top:504px;"><span class="lab f">g</span><span class="pc w">♞</span></div><div class="sq l" style="left:504px;top:504px;"><span class="lab f">h</span><span class="pc w">♜</span></div><svg class="ovl" viewBox="0 0 576 576"><defs><marker id="me0b400" markerWidth="3.2" markerHeight="3.2" refX="1.7" refY="1.6" orient="auto"><path d="M0,0 L3.2,1.6 L0,3.2 L1.1,1.6 Z" fill="#e0b400"/></marker><marker id="m22c55e" markerWidth="3.2" markerHeight="3.2" refX="1.7" refY="1.6" orient="auto"><path d="M0,0 L3.2,1.6 L0,3.2 L1.1,1.6 Z" fill="#22c55e"/></marker><marker id="m3b82f6" markerWidth="3.2" markerHeight="3.2" refX="1.7" refY="1.6" orient="auto"><path d="M0,0 L3.2,1.6 L0,3.2 L1.1,1.6 Z" fill="#3b82f6"/></marker></defs><line x1="108" y1="468" x2="164.4" y2="411.6" stroke="#e0b400" stroke-width="9" stroke-linecap="round" opacity="0.8" marker-end="url(#me0b400)"/><line x1="252" y1="468" x2="308.4" y2="411.6" stroke="#e0b400" stroke-width="9" stroke-linecap="round" opacity="0.8" marker-end="url(#me0b400)"/><line x1="396" y1="468" x2="452.4" y2="411.6" stroke="#e0b400" stroke-width="9" stroke-linecap="round" opacity="0.8" marker-end="url(#me0b400)"/><line x1="468" y1="468" x2="524.4" y2="411.6" stroke="#e0b400" stroke-width="9" stroke-linecap="round" opacity="0.8" marker-end="url(#me0b400)"/><line x1="108" y1="108" x2="164.4" y2="164.4" stroke="#22c55e" stroke-width="9" stroke-linecap="round" opacity="0.8" marker-end="url(#m22c55e)"/><line x1="252" y1="108" x2="308.4" y2="164.4" stroke="#22c55e" stroke-width="9" stroke-linecap="round" opacity="0.8" marker-end="url(#m22c55e)"/><line x1="396" y1="108" x2="452.4" y2="164.4" stroke="#22c55e" stroke-width="9" stroke-linecap="round" opacity="0.8" marker-end="url(#m22c55e)"/><line x1="468" y1="108" x2="524.4" y2="164.4" stroke="#22c55e" stroke-width="9" stroke-linecap="round" opacity="0.8" marker-end="url(#m22c55e)"/><line x1="108" y1="36" x2="170.2" y2="160.3" stroke="#e0b400" stroke-width="9" stroke-linecap="round" opacity="0.85" marker-end="url(#me0b400)"/><line x1="468" y1="36" x2="405.8" y2="160.3" stroke="#e0b400" stroke-width="9" stroke-linecap="round" opacity="0.85" marker-end="url(#me0b400)"/><line x1="108" y1="540" x2="170.2" y2="415.7" stroke="#22c55e" stroke-width="9" stroke-linecap="round" opacity="0.85" marker-end="url(#m22c55e)"/><line x1="468" y1="540" x2="405.8" y2="415.7" stroke="#22c55e" stroke-width="9" stroke-linecap="round" opacity="0.85" marker-end="url(#m22c55e)"/><line x1="180" y1="36" x2="524.4" y2="380.4" stroke="#3b82f6" stroke-width="8" stroke-linecap="round" opacity="0.7" marker-end="url(#m3b82f6)"/><line x1="396" y1="540" x2="51.6" y2="195.6" stroke="#3b82f6" stroke-width="8" stroke-linecap="round" opacity="0.7" marker-end="url(#m3b82f6)"/></svg></div></div><div class="boardfoot"><div><div class="who">Selected edge</div>
+      <div class="det">b8 ♞ → c6 · knight_attack · feature #21953</div></div>
+      <div class="ctl"><button class="btn xs gho">Set as focus</button></div></div></div><div class="rail">
+    <div class="railhead">Relations explorer</div>
+    <div class="card"><div class="ctitle">Dataset / source</div><div class="csub">Adapter follows the board position</div>
+      <div class="row" style="gap:9px"><div class="input mono" style="flex:1">rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1</div><button class="btn sm gho">Copy</button></div>
+      <div class="frow"><div class="k">Mode</div><div class="v"><span class="seg"><span class="o on">All</span><span class="o">Selected</span><span class="o">Changed</span></span></div></div>
+    </div>
+    <div class="grid2" style="align-items:start">
+      <div class="card tight"><div class="ctitle">Channels</div><div class="csub">Toggle typed edge groups</div>
+        <div class="chan">
+          <div class="c"><span class="cbx on"></span><span class="sw" style="background:#e0b400"></span><span class="nm">us_attacks_them</span><span class="ct">6</span></div>
+          <div class="c"><span class="cbx on"></span><span class="sw" style="background:#22c55e"></span><span class="nm">them_attacks_us</span><span class="ct">6</span></div>
+          <div class="c"><span class="cbx on"></span><span class="sw" style="background:#e0b400"></span><span class="nm">knight_attack</span><span class="ct">12</span></div>
+          <div class="c"><span class="cbx on"></span><span class="sw" style="background:#3b82f6"></span><span class="nm">bishop_ray</span><span class="ct">2</span></div>
+        </div>
+        <div class="foldrow">▸ 5 inactive channels (0 edges)</div>
+        <div class="row" style="gap:7px; margin-top:8px"><button class="btn xs gho">All</button><button class="btn xs gho">None</button><button class="btn xs gho">Invert</button></div>
+      </div>
+      <div class="col" style="gap:14px">
+        <div class="card tight legend"><div class="ctitle">Legend</div>
+          <div class="lg"><span class="sw" style="background:#e0b400"></span>Opponent piece attacks</div>
+          <div class="lg"><span class="sw" style="background:#22c55e"></span>Own piece attacks</div>
+          <div class="lg"><span class="sw" style="background:#3b82f6"></span>Sliding ray visible</div>
+          <div class="lg"><span class="sw" style="background:linear-gradient(90deg,#fff6,#fff)"></span>Opacity = confidence</div>
+        </div>
+        <div class="card tight"><div class="ctitle">Selected edge</div>
+          <div class="spec" style="margin-top:10px">
+            <div class="r"><span class="k">From</span><span class="v">b8 · ♞</span></div>
+            <div class="r"><span class="k">To</span><span class="v">c6</span></div>
+            <div class="r"><span class="k">Channel</span><span class="v mono" style="font-size:11.5px">knight_attack</span></div>
+            <div class="r"><span class="k">Feature</span><span class="v mono">#21953</span></div>
+          </div>
+          <div class="row" style="gap:7px; margin-top:11px"><button class="btn xs gho">Center</button><button class="btn xs gho">Copy edge</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="card"><div class="ctitle">Overlay controls</div><div class="csub">Density &amp; readability</div>
+      <div class="grid2" style="margin-top:10px">
+        <div><div class="muted" style="font-size:11px">Opacity</div><div style="height:6px; border-radius:3px; background:var(--line2); margin-top:7px; position:relative"><span style="position:absolute; left:0; width:62%; height:6px; border-radius:3px; background:var(--blue)"></span><span style="position:absolute; left:62%; top:-3px; width:12px;height:12px;border-radius:50%;background:var(--blue)"></span></div></div>
+        <div><div class="muted" style="font-size:11px">Edge width</div><div style="height:6px; border-radius:3px; background:var(--line2); margin-top:7px; position:relative"><span style="position:absolute; left:0; width:78%; height:6px; border-radius:3px; background:var(--yellow)"></span><span style="position:absolute; left:78%; top:-3px; width:12px;height:12px;border-radius:50%;background:var(--yellow)"></span></div></div>
+      </div>
+      <div class="row" style="gap:22px; margin-top:14px">
+        <div class="row" style="gap:8px"><span class="tog"><i></i></span><span class="muted">Show labels</span></div>
+        <div class="row" style="gap:8px"><span class="tog on"><i></i></span><span class="muted">Hide weak edges</span></div>
+        <div class="row" style="gap:8px"><span class="tog on"><i></i></span><span class="muted">Live sync</span></div>
+      </div>
+    </div>
+    </div></div>
+</body></html>

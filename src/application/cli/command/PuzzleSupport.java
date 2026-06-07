@@ -35,13 +35,11 @@ final class PuzzleSupport {
      */
      static List<Record> buildRecords(Position root, Analysis analysis, int pvPlies, String cmd) {
         if (analysis == null || analysis.isEmpty()) {
-            System.err.println(cmd + ": analysis unavailable for puzzle line");
-            System.exit(2);
+            throw new CommandFailure(cmd + ": analysis unavailable for puzzle line", 2);
         }
         List<List<String>> pvs = extractPvSanLines(root, analysis, pvPlies);
         if (pvs.isEmpty()) {
-            System.err.println(cmd + ": no PVs found for puzzle line");
-            System.exit(2);
+            throw new CommandFailure(cmd + ": no PVs found for puzzle line", 2);
         }
         String pgn = buildPgn(root, pvs);
         Game game = parseSingleGame(pgn, cmd);
@@ -189,8 +187,7 @@ final class PuzzleSupport {
      private static Game parseSingleGame(String pgn, String cmd) {
         List<Game> games = Pgn.parseGames(pgn);
         if (games.isEmpty()) {
-            System.err.println(cmd + ": failed to parse generated PGN");
-            System.exit(2);
+            throw new CommandFailure(cmd + ": failed to parse generated PGN", 2);
         }
         return games.get(0);
     }

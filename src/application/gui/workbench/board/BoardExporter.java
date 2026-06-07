@@ -233,7 +233,7 @@ public final class BoardExporter {
                     board.width / 8.0 * BoardStyle.ARROW_PIECE_GAP_FRACTION);
         }
         for (BoardMarkup markup : snapshot.boardMarkups()) {
-            g.setColor(markup.brush().themedColor());
+            g.setColor(markup.brush().displayColor());
             if (markup.isCircle()) {
                 paintRasterCircle(g, BoardGeometry.squareBounds(board, markup.from(), snapshot.whiteDown()), markup.brush());
             } else {
@@ -433,7 +433,7 @@ public final class BoardExporter {
                     Theme.withAlpha(Theme.BOARD_ARROW, SUGGESTED_ARROW_ALPHA));
         }
         for (BoardMarkup markup : snapshot.boardMarkups()) {
-            Color color = markup.brush().themedColor();
+            Color color = markup.brush().displayColor();
             if (markup.isCircle()) {
                 appendCircleMarkup(svg, BoardGeometry.squareBounds(board, markup.from(), snapshot.whiteDown()), markup.brush(), color);
             } else {

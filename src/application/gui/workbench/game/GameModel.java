@@ -407,6 +407,28 @@ public final class GameModel extends AbstractTableModel {
     }
 
     /**
+     * Returns immutable snapshots for each mainline ply.
+     *
+     * <p>
+     * Each snapshot carries the position before and after the move, so review,
+     * study, and export panels can inspect a game without depending on the
+     * table model's private row storage.
+     * </p>
+     *
+     * @return mainline ply snapshots in move order
+     */
+    public List<PlySnapshot> mainlineSnapshots() {
+        List<PlySnapshot> snapshots = new ArrayList<>();
+        for (int i = 0; i < moves.size(); i++) {
+            MoveRow row = moves.get(i);
+            Position before = positions.get(i);
+            snapshots.add(new PlySnapshot(i + 1, row.san(), row.uci(), before.toString(),
+                    row.fen(), row.move(), before.isWhiteToMove()));
+        }
+        return List.copyOf(snapshots);
+    }
+
+    /**
      * Returns the current game line as PGN.
      *
      * @return PGN text
@@ -953,5 +975,26 @@ public final class GameModel extends AbstractTableModel {
      */
     private record MoveRow(String ply, String san, String uci, String fen, short move,
             Position position, List<Short> path, boolean mainline) {
+    }
+
+    /**
+     * Immutable mainline-ply snapshot for review and authoring panels.
+     *
+     * @param ply one-based ply number
+     * @param san SAN move text
+     * @param uci UCI move text
+     * @param beforeFen position before the move
+     * @param afterFen position after the move
+     * @param move encoded move
+     * @param whiteMove true when White made the move
+     */
+    public record PlySnapshot(
+            int ply,
+            String san,
+            String uci,
+            String beforeFen,
+            String afterFen,
+            short move,
+            boolean whiteMove) {
     }
 }

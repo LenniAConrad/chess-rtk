@@ -135,6 +135,9 @@ public final class AnalyzeCommand {
 					CommandSupport.formatCount(best.getNodes()),
 					CommandSupport.formatCount(best.getNodesPerSecond()),
 					formatMillis(best.getTime()));
+			if (best.hasTableBaseHits()) {
+				System.out.printf("  tablebase hits: %s%n", CommandSupport.formatCount(best.getTableBaseHits()));
+			}
 			System.out.printf("  wdl: %s  bound: %s%n", wdl, bound);
 			short bestMove = analysis.getBestMove(pv);
 			if (bestMove != Move.NO_MOVE) {

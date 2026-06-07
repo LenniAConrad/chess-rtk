@@ -7,12 +7,14 @@ import application.gui.workbench.play.Opponent;
 import application.gui.workbench.play.Opponent.MoveChoice;
 import application.gui.workbench.play.Opponent.RankedMove;
 import application.gui.workbench.play.PlayHost;
+import application.gui.workbench.play.PlayPanel;
 import application.gui.workbench.play.PlaySession;
 import application.gui.workbench.play.StrengthModel;
 import application.gui.workbench.play.StrengthProfile;
 import application.gui.workbench.ui.Toast;
 import chess.core.Move;
 import chess.core.MoveList;
+import chess.core.Piece;
 import chess.core.Position;
 import chess.core.Setup;
 import java.util.ArrayList;
@@ -59,6 +61,7 @@ public final class PlayModeRegressionTest {
         testAlphaBetaOpponent();
         testSessionHumanWhite();
         testSessionHumanBlackEngineFirst();
+        testPremoveExecutesAfterEngineReply();
         testSessionResignUnlocks();
         testSessionDrawUnlocks();
         testSessionTakeback();
@@ -69,6 +72,7 @@ public final class PlayModeRegressionTest {
         testResultClearedOnNewGame();
         testThreefoldRepetition();
         testFiftyMoveRule();
+        testPresetBotsUseAlphaBetaClassical();
         testOpponentSelection();
         testAllBackendCombinations();
         testOpeningBook();
@@ -353,6 +357,76 @@ public final class PlayModeRegressionTest {
             check("black: engine made the first move", moved && host.moveCount == 1);
             check("black: human (black) to move after engine", !host.position.isWhiteToMove() && host.gate);
         } finally {
+            session.dispose();
+        }
+    }
+
+    /**
+     * Verifies a premove queued while the engine is thinking is resolved against
+     * the post-reply legal moves, then re-enters the same board move funnel as a
+     * normal human move.
+     */
+    private static void testPremoveExecutesAfterEngineReply() {
+        FakeHost host = new FakeHost();
+        CountDownLatch firstSearchEntered = new CountDownLatch(1);
+        CountDownLatch releaseFirstSearch = new CountDownLatch(1);
+        CountDownLatch secondSearchEntered = new CountDownLatch(1);
+        CountDownLatch releaseSecondSearch = new CountDownLatch(1);
+        PlaySession.OpponentProvider blocking = config -> new Opponent() {
+            private int callCount;
+
+            /**
+             * First engine reply is scripted; the next search blocks so the test
+             * can assert immediately after the premove is applied.
+             */
+            @Override
+            public MoveChoice chooseMove(Position position, StrengthModel.Budget budget, long requestId) {
+                callCount++;
+                if (callCount == 1) {
+                    firstSearchEntered.countDown();
+                    awaitLatch(releaseFirstSearch);
+                    short move = findMove(position, "g8f6");
+                    return new MoveChoice(move, List.of(new RankedMove(move, 1, 1.0, 0.0)), 0, "");
+                }
+                secondSearchEntered.countDown();
+                awaitLatch(releaseSecondSearch);
+                MoveList legal = position.legalMoves();
+                short move = legal.isEmpty() ? Move.NO_MOVE : legal.raw(0);
+                return new MoveChoice(move, List.of(new RankedMove(move, 1, 1.0, 0.0)), 0, "");
+            }
+
+            /**
+             * Releases the blocked second search during session disposal.
+             */
+            @Override
+            public void cancel() {
+                releaseSecondSearch.countDown();
+            }
+        };
+        PlaySession session = new PlaySession(host, new StrengthModel(), blocking);
+        host.bind(session);
+        try {
+            session.start(Setup.getStandardStartFEN(), PlaySession.Side.WHITE,
+                    StrengthProfile.ofElo(1200));
+            host.expect(3);
+            host.playMove(findMove(host.position, "e2e4"));
+            check("premove: engine search started", awaitLatch(firstSearchEntered));
+            short premove = Move.parse("g1f3");
+            check("premove: source allowed while engine thinks",
+                    session.isPremoveSourceAllowed(Move.getFromIndex(premove), Piece.WHITE_KNIGHT));
+            check("premove: queue accepted while engine thinks", session.queuePremove(premove));
+            check("premove: host arrow shown", host.lastPremove == premove);
+            releaseFirstSearch.countDown();
+            check("premove: engine reply and premove reached the board", host.await());
+            check("premove: applied as third ply", host.moveCount == 3);
+            check("premove: played move sequence",
+                    "e2e4".equals(Move.toString(host.playedMoves.get(0)))
+                            && "g8f6".equals(Move.toString(host.playedMoves.get(1)))
+                            && "g1f3".equals(Move.toString(host.playedMoves.get(2))));
+            check("premove: arrow cleared after execution", host.lastPremove == Move.NO_MOVE);
+            check("premove: next engine search scheduled after premove", awaitLatch(secondSearchEntered));
+        } finally {
+            releaseSecondSearch.countDown();
             session.dispose();
         }
     }
@@ -722,6 +796,52 @@ public final class PlayModeRegressionTest {
     }
 
     /**
+     * Verifies every named one-tap Workbench Play opponent uses the stable
+     * alpha-beta + classical backend. Custom still exposes the experimental
+     * search/network combinations, but presets should vary strength only.
+     */
+    private static void testPresetBotsUseAlphaBetaClassical() {
+        try {
+            java.lang.reflect.Field botsField = PlayPanel.class.getDeclaredField("BOTS");
+            botsField.setAccessible(true);
+            java.util.List<?> bots = (java.util.List<?>) botsField.get(null);
+            check("presets: bot list is non-empty", !bots.isEmpty());
+
+            for (Object bot : bots) {
+                java.lang.reflect.Method nameMethod = bot.getClass().getDeclaredMethod("name");
+                java.lang.reflect.Method searchMethod = bot.getClass().getDeclaredMethod("search");
+                java.lang.reflect.Method networkMethod = bot.getClass().getDeclaredMethod("network");
+                java.lang.reflect.Method legacyMethod = PlayPanel.class.getDeclaredMethod("isLegacyPresetBackend",
+                        bot.getClass(), Opponent.Search.class, Opponent.Network.class);
+                nameMethod.setAccessible(true);
+                searchMethod.setAccessible(true);
+                networkMethod.setAccessible(true);
+                legacyMethod.setAccessible(true);
+
+                String name = String.valueOf(nameMethod.invoke(bot));
+                Opponent.Search search = (Opponent.Search) searchMethod.invoke(bot);
+                Opponent.Network network = (Opponent.Network) networkMethod.invoke(bot);
+                check("presets: " + name + " uses alpha-beta",
+                        search == Opponent.Search.ALPHA_BETA);
+                check("presets: " + name + " uses classical eval",
+                        network == Opponent.Network.CLASSICAL);
+
+                boolean legacyExpected = "Club".equals(name) || "Expert".equals(name)
+                        || "Master".equals(name) || "Maximum".equals(name);
+                Opponent.Search legacySearch = "Maximum".equals(name)
+                        ? Opponent.Search.MCTS : Opponent.Search.ALPHA_BETA;
+                Opponent.Network legacyNetwork = "Maximum".equals(name)
+                        ? Opponent.Network.OTIS : Opponent.Network.NNUE;
+                boolean legacy = (Boolean) legacyMethod.invoke(null, bot, legacySearch, legacyNetwork);
+                check("presets: " + name + " legacy backend migration",
+                        legacy == legacyExpected);
+            }
+        } catch (ReflectiveOperationException | RuntimeException ex) {
+            check("presets: bot backend introspection failed", false);
+        }
+    }
+
+    /**
      * Returns a provider whose opponent plays a fixed sequence of UCI moves, one
      * per call, for scripting deterministic controller scenarios.
      *
@@ -1042,6 +1162,11 @@ public final class PlayModeRegressionTest {
         private final List<Position> history = new ArrayList<>();
 
         /**
+         * Moves applied through the fake board funnel.
+         */
+        private final List<Short> playedMoves = new ArrayList<>();
+
+        /**
          * Owning session.
          */
         private PlaySession session;
@@ -1112,6 +1237,7 @@ public final class PlayModeRegressionTest {
                 history.remove(history.size() - 1);
             }
             history.add(position.copy());
+            playedMoves.add(move);
             moveCount++;
             // Re-enter the controller exactly as the real funnel does (synchronously,
             // within playMove) BEFORE signaling the latch, so a test that wakes on the
@@ -1130,6 +1256,7 @@ public final class PlayModeRegressionTest {
             position = new Position(fen.trim());
             history.clear();
             history.add(position.copy());
+            playedMoves.clear();
             moveCount = 0;
         }
 
@@ -1231,6 +1358,11 @@ public final class PlayModeRegressionTest {
         private int clearHintCount;
 
         /**
+         * Last premove arrow shown (NO_MOVE after a clear).
+         */
+        private short lastPremove = Move.NO_MOVE;
+
+        /**
          * Latch released when a hint arrow is shown.
          */
         private CountDownLatch hintLatch = new CountDownLatch(0);
@@ -1273,6 +1405,22 @@ public final class PlayModeRegressionTest {
         public void clearHint() {
             lastHint = Move.NO_MOVE;
             clearHintCount++;
+        }
+
+        /**
+         * Records the currently shown premove.
+         */
+        @Override
+        public void showPremove(short move) {
+            lastPremove = move;
+        }
+
+        /**
+         * Clears the currently shown premove.
+         */
+        @Override
+        public void clearPremove() {
+            lastPremove = Move.NO_MOVE;
         }
     }
 }

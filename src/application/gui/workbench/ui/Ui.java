@@ -222,6 +222,18 @@ public final class Ui {
     }
 
     /**
+     * Pairs a fixed-width label with one control in a compact, left-aligned row.
+     *
+     * @param text label text
+     * @param control control component
+     * @param labelWidth fixed label width in pixels
+     * @return labelled control row
+     */
+    public static JComponent labelControlRow(String text, JComponent control, int labelWidth) {
+        return UiFormControls.labelControlRow(text, control, labelWidth);
+    }
+
+    /**
      * Creates one compact form option group.
      *
      * @param text label text

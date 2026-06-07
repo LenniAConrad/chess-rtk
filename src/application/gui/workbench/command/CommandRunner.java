@@ -480,6 +480,23 @@ public final class CommandRunner {
     }
 
     /**
+     * Copies text to the system clipboard (best effort).
+     *
+     * @param text text to copy
+     */
+    public static void copyToClipboard(String text) {
+        if (text == null) {
+            return;
+        }
+        try {
+            java.awt.Toolkit.getDefaultToolkit().getSystemClipboard()
+                    .setContents(new java.awt.datatransfer.StringSelection(text), null);
+        } catch (IllegalStateException ignored) {
+            // clipboard temporarily unavailable; nothing to do
+        }
+    }
+
+    /**
      * Returns the Java invocation for a CRTK argument list.
      *
      * @param args CRTK args
