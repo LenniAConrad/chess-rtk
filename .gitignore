@@ -2,10 +2,12 @@
 session/*
 !session/.gitkeep
 hs_err_pid*.log
+javac.*.args
 
 # Calculation results
 dump/*
 !dump/.gitkeep
+artifacts/
 workbench-fens/
 data/
 training/

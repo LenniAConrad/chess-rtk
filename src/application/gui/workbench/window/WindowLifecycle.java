@@ -20,6 +20,7 @@ import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Toast;
 import application.gui.workbench.ui.Ui;
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Component;
 import java.awt.GridBagConstraints;
 import java.awt.KeyboardFocusManager;
@@ -87,6 +88,11 @@ public abstract class WindowLifecycle extends WindowBase {
      * Preference key for the appearance theme mode.
      */
     protected static final String PREF_THEME_MODE = "appearance.themeMode";
+
+    /**
+     * Preference key for the UI density preset.
+     */
+    protected static final String PREF_DENSITY = "appearance.density";
 
     /**
      * Preference key for status-bar visibility.
@@ -250,12 +256,74 @@ public abstract class WindowLifecycle extends WindowBase {
     }
 
     /**
-     * Loads the persisted theme mode.
+     * Loads the persisted appearance settings (UI density first, then theme
+     * mode) before the UI is built so both apply to freshly-constructed panels.
      */
     protected void loadThemeSetting() {
+        Theme.setDensity(Theme.Density.fromPreference(
+                WORKBENCH_PREFS.get(PREF_DENSITY, Theme.Density.DENSE.id())));
         Theme.setMode(Theme.Mode.fromPreference(
                 WORKBENCH_PREFS.get(PREF_THEME_MODE, Theme.Mode.LIGHT.id())));
         TensorViz.refreshPalette();
+    }
+
+    /**
+     * Applies and persists the requested UI density, rescaling the live
+     * component tree so the change is visible without a restart.
+     *
+     * @param next requested density
+     */
+    protected void setDensity(Theme.Density next) {
+        Theme.Density resolved = next == null ? Theme.Density.DENSE : next;
+        if (Theme.density() == resolved) {
+            return;
+        }
+        double ratio = Theme.setDensity(resolved);
+        WORKBENCH_PREFS.put(PREF_DENSITY, resolved.id());
+        // Rescale the live tree (and any detached surfaces) from their current
+        // fonts FIRST, then re-seed the UIManager defaults for later-created
+        // components — so nothing can be scaled off an already-updated default.
+        Theme.rescaleFonts(this, ratio);
+        rescaleDetachedWindows(ratio);
+        Theme.refreshFontDefaults();
+        revalidate();
+        repaint();
+        if (settingsMenu != null) {
+            settingsMenu.refreshTheme();
+        }
+        toast(Toast.Kind.INFO, resolved.label() + " density");
+    }
+
+    /**
+     * Rescales fonts on surfaces that are not currently attached to this frame's
+     * tree (so {@link Theme#rescaleFonts(Component, double)} on {@code this}
+     * misses them): the PGN explorer is always a separate window, while the
+     * settings dialog and command palette are overlay panels that are detached
+     * from the layered pane while hidden. Surfaces currently attached are skipped
+     * to avoid scaling them twice.
+     *
+     * @param ratio font-scale ratio from the previous density to the new one
+     */
+    private void rescaleDetachedWindows(double ratio) {
+        rescaleIfDetached(settingsDialog, ratio);
+        rescaleIfDetached(commandPalette, ratio);
+        rescaleIfDetached(pgnExplorer, ratio);
+    }
+
+    /**
+     * Rescales and relayouts one surface only when it is not part of this
+     * frame's live component tree (attached surfaces are already covered).
+     *
+     * @param surface surface to rescale, may be {@code null}
+     * @param ratio font-scale ratio from the previous density to the new one
+     */
+    private void rescaleIfDetached(Component surface, double ratio) {
+        if (surface == null || SwingUtilities.isDescendingFrom(surface, this)) {
+            return;
+        }
+        Theme.rescaleFonts(surface, ratio);
+        surface.revalidate();
+        surface.repaint();
     }
 
     /**
@@ -512,6 +580,26 @@ public abstract class WindowLifecycle extends WindowBase {
             @Override
             public void setThemeMode(Theme.Mode mode) {
                 setDarkMode(mode == Theme.Mode.DARK);
+            }
+
+            /**
+             * Returns the active UI density.
+             *
+             * @return active density
+             */
+            @Override
+            public Theme.Density density() {
+                return Theme.density();
+            }
+
+            /**
+             * Applies the selected UI density.
+             *
+             * @param density requested density
+             */
+            @Override
+            public void setDensity(Theme.Density density) {
+                WindowLifecycle.this.setDensity(density);
             }
 
             /**
@@ -2279,10 +2367,15 @@ public abstract class WindowLifecycle extends WindowBase {
      */
     protected void showBoardDetail(String title) {
         openBoard(BOARD_ANALYZE);
-        if (analysisTabs != null) {
-            analysisTabs.setSelectedIndex(0);
-        }
+        showAnalyzeCard(ANALYZE_CARD_BOARD);
         selectBoardDetailTab(title);
+    }
+
+    private void showAnalyzeCard(String card) {
+        if (analysisCards == null || !(analysisCards.getLayout() instanceof CardLayout layout)) {
+            return;
+        }
+        layout.show(analysisCards, card);
     }
 
     private void selectBoardDetailTab(String title) {
@@ -2406,9 +2499,7 @@ public abstract class WindowLifecycle extends WindowBase {
      */
     protected void focusGameInput() {
         openBoard(BOARD_ANALYZE);
-        if (analysisTabs != null) {
-            analysisTabs.setSelectedIndex(1);
-        }
+        showAnalyzeCard(ANALYZE_CARD_GAME);
         SwingUtilities.invokeLater(gameInput::requestFocusInWindow);
     }
 

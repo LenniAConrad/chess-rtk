@@ -66,10 +66,12 @@ import application.gui.workbench.board.MarkupBrush;
 import application.gui.workbench.command.Console;
 import application.gui.workbench.dataset.DatasetChart;
 import application.gui.workbench.network.TensorViz;
+import application.gui.workbench.ui.ChipGroup;
 import application.gui.workbench.ui.EvalBar;
 import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.SettingsChipRow;
 import application.gui.workbench.ui.HoldButton;
+import application.gui.workbench.ui.SegmentedSwitcher;
 import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.SwitchedWorkspace;
 import application.gui.workbench.ui.SvgIcon;
@@ -126,7 +128,10 @@ final class WorkbenchUiRegression {
         testPlainCheckboxUsesWorkbenchGlyph();
         testProgressBarUsesWorkbenchChrome();
         testDesignTokenLayerExposesWorkbenchScale();
+        testThemeCachesSharedFonts();
         testSharedUiPrimitivesAreAvailable();
+        testSegmentedSwitcherHandlesEmptyLabels();
+        testChipGroupHandlesEmptyLabels();
         testButtonVariantsExposeActionHierarchy();
         testIconOnlyButtonsRequireTooltipText();
         testStatusBadgeVariantsAreAvailable();
@@ -215,10 +220,30 @@ final class WorkbenchUiRegression {
     }
 
     /**
+     * Verifies paint-heavy font factories reuse immutable font instances and
+     * refresh them when density changes.
+     */
+    private static void testThemeCachesSharedFonts() {
+        Theme.setDensity(Theme.Density.DENSE);
+        Font first = Theme.font(Theme.FONT_BODY, Font.BOLD);
+        Font second = Theme.font(Theme.FONT_BODY, Font.BOLD);
+        assertTrue(first == second, "UI font factory reuses cached font instances");
+        assertTrue(Theme.mono(Theme.FONT_MONO) == Theme.mono(Theme.FONT_MONO),
+                "mono font factory reuses cached font instances");
+        assertTrue(Theme.consoleMono(Theme.FONT_MONO) == Theme.consoleMono(Theme.FONT_MONO),
+                "console font factory reuses cached font instances");
+
+        Theme.setDensity(Theme.Density.COMFORTABLE);
+        Font comfortable = Theme.font(Theme.FONT_BODY, Font.BOLD);
+        assertFalse(first == comfortable, "density change clears cached UI fonts");
+        Theme.setDensity(Theme.Density.DENSE);
+    }
+
+    /**
      * Verifies named primitives route through the shared UI package.
      */
     private static void testSharedUiPrimitivesAreAvailable() {
-        assertEquals("SegmentedControl",
+        assertEquals("SegmentedSwitcher",
                 Ui.segmentedControl("One", "Two").getClass().getSimpleName(),
                 "segmented control primitive");
         assertEquals("CommandBlock", Ui.commandBlock("crtk engine bestmove").getClass().getSimpleName(),
@@ -236,6 +261,38 @@ final class WorkbenchUiRegression {
                 "workspace header primitive");
         assertEquals(JTabbedPane.class, Ui.tabbedPane().getClass(), "tabs primitive stays standard Swing pane");
         assertEquals("Card", Ui.card("Card", new JPanel()).getClass().getSimpleName(), "card primitive");
+    }
+
+    /**
+     * Verifies the segmented selector behaves predictably when a caller has no
+     * labels yet.
+     */
+    private static void testSegmentedSwitcherHandlesEmptyLabels() {
+        SegmentedSwitcher direct = new SegmentedSwitcher(null);
+        assertEquals(Integer.valueOf(-1), Integer.valueOf(direct.getSelectedIndex()),
+                "null-labelled segmented switcher has no selection");
+        direct.setSelectedIndex(0);
+        assertEquals(Integer.valueOf(-1), Integer.valueOf(direct.getSelectedIndex()),
+                "empty segmented switcher ignores impossible selection");
+
+        SegmentedSwitcher fromFactory = Ui.segmentedControl((String[]) null);
+        assertEquals(Integer.valueOf(-1), Integer.valueOf(fromFactory.getSelectedIndex()),
+                "factory null labels have no selected segment");
+        paint(fromFactory, Math.max(1, fromFactory.getPreferredSize().width),
+                fromFactory.getPreferredSize().height);
+    }
+
+    /**
+     * Verifies an empty chip set is inert rather than an array-bounds crash.
+     */
+    private static void testChipGroupHandlesEmptyLabels() {
+        ChipGroup empty = new ChipGroup(List.of());
+        assertEquals(Integer.valueOf(-1), Integer.valueOf(empty.getSelectedIndex()),
+                "empty chip group has no selection");
+        empty.setSelectedIndex(0);
+        assertEquals(Integer.valueOf(-1), Integer.valueOf(empty.getSelectedIndex()),
+                "empty chip group ignores impossible selection");
+        paint(empty, Math.max(1, empty.getPreferredSize().width), empty.getPreferredSize().height);
     }
 
     /**
@@ -2546,6 +2603,10 @@ final class WorkbenchUiRegression {
      * Verifies the workbench keeps interface and code fonts separated.
      */
     private static void testThemeUsesDeliberateFontStacks() {
+        // The base type scale is asserted at the default (DENSE) density, where
+        // the density multiplier is 1.0; reset it so this stays true regardless
+        // of any density a prior in-JVM step may have set.
+        Theme.setDensity(Theme.Density.DENSE);
         Theme.install();
         Font uiFont = Theme.font(13, Font.PLAIN);
         Font monoFont = Theme.mono(13);
@@ -2721,21 +2782,23 @@ final class WorkbenchUiRegression {
     }
 
     /**
-     * Verifies Solve mode exposes the redesigned inspector sections instead of
-     * the older single header control strip.
+     * Verifies Solve mode exposes compact inspector sections instead of a stack of
+     * elevated cards in the right rail.
      */
     private static void testPuzzleHeaderControlsAvoidClippingAtNarrowWidth() {
         String source = readSource(Path.of("src/application/gui/workbench/game/PuzzlePanel.java"));
         assertTrue(source.contains("Ui.emptyState(\"No puzzle loaded\""),
                 "Solve mode has a designed empty state");
-        assertTrue(source.contains("Ui.card(\"Puzzle Source\""),
-                "Solve mode exposes puzzle source metadata as a card");
-        assertTrue(source.contains("Ui.card(\"Puzzle Controls\""),
-                "Solve mode groups puzzle controls as a card");
-        assertTrue(source.contains("Ui.card(\"Progress / Feedback\""),
-                "Solve mode exposes feedback as a card");
-        assertTrue(source.contains("Ui.card(\"Solution\""),
-                "Solve mode wraps solution handling as a card");
+        assertTrue(source.contains("flatSection(\"Puzzle\""),
+                "Solve mode exposes puzzle source and feedback in one compact section");
+        assertTrue(source.contains("flatSection(\"Controls\""),
+                "Solve mode keeps puzzle controls visible in a flat section");
+        assertTrue(source.contains("flatSection(\"Solution\""),
+                "Solve mode wraps solution handling in a flat section");
+        assertFalse(source.contains("Ui.card(\"Puzzle Source\""),
+                "Solve mode no longer uses a separate puzzle source card");
+        assertFalse(source.contains("Ui.card(\"Progress / Feedback\""),
+                "Solve mode no longer uses a separate feedback card");
     }
 
     /**

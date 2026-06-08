@@ -200,8 +200,8 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         lowerGrid.add(buildQuickActionsCard());
         lowerGrid.add(buildRuntimeModelsCard());
         lowerGrid.add(buildCacheActivationCard());
-        lowerGrid.add(buildJobsCard());
         lowerGrid.add(buildWarningsCard());
+        lowerGrid.add(buildJobsCard());
 
         JPanel content = Ui.transparentPanel(new GridBagLayout());
         content.setBorder(Theme.pad(Theme.SPACE_MD));
@@ -476,28 +476,18 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     private void refreshCacheRows() {
         cacheRows.removeAll();
         String summary = NetworkPanel.runtimeCacheSummary();
-        StatusBadge cacheBadge = new StatusBadge();
-        if (summary.startsWith("0 /")) {
-            cacheBadge.notRun("empty");
-        } else {
-            cacheBadge.ready("ready");
-        }
-        cacheRows.add(statusDetailRow("Activation snapshots", cacheBadge,
+        String cacheState = summary.startsWith("0 /") ? "empty" : "ready";
+        cacheRows.add(statusDetailRow("Activation snapshots", cacheState, statusRole(cacheState),
                 "Network tab cache", summary));
 
-        StatusBadge providerBadge = new StatusBadge();
-        providerBadge.paused("lazy");
-        cacheRows.add(statusDetailRow("Inference provider", providerBadge,
+        cacheRows.add(statusDetailRow("Inference provider", "lazy", Theme.ForegroundRole.MUTED,
                 "Models load on demand", "Dashboard checks status without loading weights."));
 
-        StatusBadge fenBadge = new StatusBadge();
         if (session.fen().isEmpty()) {
-            fenBadge.notRun("no FEN");
-            cacheRows.add(statusDetailRow("Current position", fenBadge,
+            cacheRows.add(statusDetailRow("Current position", "no FEN", Theme.ForegroundRole.MUTED,
                     "No active FEN", "Open or paste a position before running activation inference."));
         } else {
-            fenBadge.ready("ready");
-            cacheRows.add(statusDetailRow("Current position", fenBadge,
+            cacheRows.add(statusDetailRow("Current position", "ready", Theme.ForegroundRole.SUCCESS,
                     sideValue.getText() + " to move", "Available for analysis and model previews."));
         }
         cacheRows.revalidate();
@@ -520,13 +510,8 @@ public final class DashboardPanel extends JPanel implements SessionListener {
                 "Smoke test the configured UCI protocol before trusting engine output.");
         for (RealActivations.ModelStatus status : runtimeProvider.modelStatuses()) {
             if (!status.present() || "fallback".equals(status.state())) {
-                StatusBadge badge = new StatusBadge();
-                if ("fallback".equals(status.state())) {
-                    badge.warning("fallback");
-                } else {
-                    badge.missing("missing");
-                }
-                issues.add(statusDetailRow(status.label(), badge,
+                String state = "fallback".equals(status.state()) ? "fallback" : "missing";
+                issues.add(statusDetailRow(status.label(), state, statusRole(state),
                         modelSource(status), modelNote(status)));
             }
         }
@@ -611,9 +596,7 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         if (check != HealthSnapshot.Check.FAILED) {
             return;
         }
-        StatusBadge badge = new StatusBadge();
-        badge.error("failed");
-        issues.add(statusDetailRow(label, badge, "Health check", note));
+        issues.add(statusDetailRow(label, "failed", Theme.ForegroundRole.ERROR, "Health check", note));
     }
 
     /**
@@ -627,9 +610,8 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         if (pathText == null || pathText.isBlank() || pathExists(pathText)) {
             return;
         }
-        StatusBadge badge = new StatusBadge();
-        badge.missing("missing");
-        issues.add(statusDetailRow(label, badge, "Configured model path", pathText));
+        issues.add(statusDetailRow(label, "missing", Theme.ForegroundRole.ERROR,
+                "Configured model path", pathText));
     }
 
     /**
@@ -773,15 +755,8 @@ public final class DashboardPanel extends JPanel implements SessionListener {
      * @return row component
      */
     private static JComponent modelStatusRow(RealActivations.ModelStatus status) {
-        StatusBadge badge = new StatusBadge();
-        switch (status.state()) {
-            case "loaded" -> badge.complete("loaded");
-            case "available" -> badge.ready("available");
-            case "fallback" -> badge.warning("fallback");
-            case "missing" -> badge.missing("missing");
-            default -> badge.notRun(status.state());
-        }
-        return statusDetailRow(status.label(), badge, modelSource(status), modelNote(status));
+        return runtimeModelRow(status.label(), status.state(), statusRole(status.state()),
+                modelSummary(status), modelTooltip(status));
     }
 
     /**
@@ -792,35 +767,90 @@ public final class DashboardPanel extends JPanel implements SessionListener {
      * @return row component
      */
     private static JComponent configModelRow(String label, String pathText) {
-        StatusBadge badge = new StatusBadge();
         String state = pathState(pathText);
-        switch (state) {
-            case "present" -> badge.ready("present");
-            case "missing", "invalid" -> badge.missing(state);
-            default -> badge.notRun("empty");
-        }
-        return statusDetailRow(label, badge, "CLI config", pathDetail(pathText));
+        String detail = switch (state) {
+            case "present" -> "CLI config path set";
+            case "missing" -> "CLI config path missing";
+            case "invalid" -> "CLI config path invalid";
+            default -> "CLI config not set";
+        };
+        return runtimeModelRow(label, state, statusRole(state), detail, pathDetail(pathText));
+    }
+
+    /**
+     * Builds one compact Runtime Models row.
+     *
+     * @param label row label
+     * @param state short state text
+     * @param role foreground role for the state text
+     * @param detail compact single-line detail
+     * @param tooltip full detail tooltip
+     * @return row component
+     */
+    private static JComponent runtimeModelRow(String label, String state,
+            Theme.ForegroundRole role, String detail, String tooltip) {
+        JPanel row = Ui.transparentPanel(new BorderLayout(Theme.SPACE_SM, 1));
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        row.setBorder(Theme.pad(Theme.SPACE_XS, 0, Theme.SPACE_XS, 0));
+
+        JLabel title = new JLabel(label);
+        title.setFont(Theme.font(Theme.FONT_CONTROL, Font.BOLD));
+        Theme.foreground(title, Theme.ForegroundRole.TEXT);
+        title.setToolTipText(tooltip == null || tooltip.isBlank() ? label : tooltip);
+
+        JLabel stateLabel = new JLabel(state == null || state.isBlank() ? "-" : state);
+        stateLabel.setFont(Theme.font(Theme.FONT_METADATA, Font.BOLD));
+        Theme.foreground(stateLabel, role == null ? Theme.ForegroundRole.MUTED : role);
+        stateLabel.setHorizontalAlignment(SwingConstants.RIGHT);
+        stateLabel.setPreferredSize(new Dimension(82, Theme.CONTROL_HEIGHT - 8));
+        stateLabel.setToolTipText(stateLabel.getText());
+
+        JPanel top = Ui.transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        top.add(title, BorderLayout.CENTER);
+        top.add(stateLabel, BorderLayout.EAST);
+
+        JLabel detailLabel = new JLabel(detail == null || detail.isBlank() ? "-" : detail);
+        detailLabel.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
+        Theme.foreground(detailLabel, Theme.ForegroundRole.MUTED);
+        detailLabel.setToolTipText(tooltip == null || tooltip.isBlank() ? detailLabel.getText() : tooltip);
+
+        row.add(top, BorderLayout.NORTH);
+        row.add(detailLabel, BorderLayout.CENTER);
+        return row;
     }
 
     /**
      * Builds one aligned status/detail row.
      *
      * @param label row label
-     * @param badge status badge
+     * @param state short state text
+     * @param role foreground role for the state text
      * @param source source or size
      * @param note explanatory note
      * @return row component
      */
-    private static JComponent statusDetailRow(String label, StatusBadge badge, String source, String note) {
-        JPanel row = Ui.transparentPanel(new GridBagLayout());
+    private static JComponent statusDetailRow(String label, String state,
+            Theme.ForegroundRole role, String source, String note) {
+        JPanel row = Ui.transparentPanel(new BorderLayout(0, 2));
         row.setAlignmentX(Component.LEFT_ALIGNMENT);
-        row.setBorder(Theme.pad(Theme.SPACE_XS / 2, 0));
+        row.setBorder(Theme.pad(Theme.SPACE_XS, 0, Theme.SPACE_XS, 0));
 
         JLabel title = new JLabel(label);
         title.setFont(Theme.font(Theme.FONT_CONTROL, Font.BOLD));
         Theme.foreground(title, Theme.ForegroundRole.TEXT);
+        title.setToolTipText(label);
 
-        badge.setFixedTextWidth(82);
+        JLabel stateLabel = new JLabel(state == null || state.isBlank() ? "-" : state);
+        stateLabel.setFont(Theme.font(Theme.FONT_METADATA, Font.BOLD));
+        Theme.foreground(stateLabel, role == null ? Theme.ForegroundRole.MUTED : role);
+        stateLabel.setHorizontalAlignment(SwingConstants.RIGHT);
+        stateLabel.setPreferredSize(new Dimension(92, Theme.CONTROL_HEIGHT));
+        stateLabel.setToolTipText(stateLabel.getText());
+
+        JPanel top = Ui.transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        top.add(title, BorderLayout.CENTER);
+        top.add(stateLabel, BorderLayout.EAST);
+        row.add(top, BorderLayout.NORTH);
 
         JLabel sourceLabel = new JLabel(source == null || source.isBlank() ? "-" : source);
         sourceLabel.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
@@ -832,31 +862,37 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         Theme.foreground(noteLabel, Theme.ForegroundRole.MUTED);
         noteLabel.setToolTipText(noteLabel.getText());
 
+        JPanel bottom = Ui.transparentPanel(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
         c.gridy = 0;
         c.anchor = GridBagConstraints.WEST;
-        c.insets = new Insets(0, 0, 0, Theme.SPACE_SM);
-
+        c.fill = GridBagConstraints.HORIZONTAL;
         c.gridx = 0;
-        c.weightx = 0.35;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        row.add(title, c);
-
+        c.weightx = 0.55;
+        c.insets = new Insets(0, 0, 0, Theme.SPACE_SM);
+        bottom.add(sourceLabel, c);
         c.gridx = 1;
-        c.weightx = 0.0;
-        c.fill = GridBagConstraints.NONE;
-        row.add(badge, c);
-
-        c.gridx = 2;
-        c.weightx = 0.25;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        row.add(sourceLabel, c);
-
-        c.gridx = 3;
-        c.weightx = 0.40;
+        c.weightx = 0.45;
         c.insets = new Insets(0, 0, 0, 0);
-        row.add(noteLabel, c);
+        bottom.add(noteLabel, c);
+        row.add(bottom, BorderLayout.CENTER);
         return row;
+    }
+
+    /**
+     * Returns a lightweight text colour for passive status rows.
+     *
+     * @param state state token
+     * @return foreground role
+     */
+    private static Theme.ForegroundRole statusRole(String state) {
+        String normalized = state == null ? "" : state.toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "loaded", "available", "present", "ready" -> Theme.ForegroundRole.SUCCESS;
+            case "fallback" -> Theme.ForegroundRole.WARNING;
+            case "missing", "invalid", "failed" -> Theme.ForegroundRole.ERROR;
+            default -> Theme.ForegroundRole.MUTED;
+        };
     }
 
     /**
@@ -1037,6 +1073,46 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         JPanel panel = Ui.transparentPanel(null);
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         return panel;
+    }
+
+    /**
+     * Returns the compact Runtime Models detail line.
+     *
+     * @param status model status
+     * @return short status detail
+     */
+    private static String modelSummary(RealActivations.ModelStatus status) {
+        String size = detailSize(status.detail());
+        String state = status.state() == null ? "" : status.state().toLowerCase(Locale.ROOT);
+        String behavior = switch (state) {
+            case "loaded" -> "loaded in memory";
+            case "available" -> "loads on demand";
+            case "fallback" -> "synthetic fallback";
+            case "missing" -> "synthetic fallback";
+            default -> modelNote(status);
+        };
+        if (!size.isBlank() && status.present()) {
+            return size + " - " + behavior;
+        }
+        return behavior;
+    }
+
+    /**
+     * Returns full Runtime Models detail for tooltips.
+     *
+     * @param status model status
+     * @return tooltip text
+     */
+    private static String modelTooltip(RealActivations.ModelStatus status) {
+        String path = status.path() == null ? "" : status.path().toString();
+        String detail = status.detail() == null ? "" : status.detail();
+        if (path.isBlank()) {
+            return detail;
+        }
+        if (detail.isBlank()) {
+            return path;
+        }
+        return path + " - " + detail;
     }
 
     /**

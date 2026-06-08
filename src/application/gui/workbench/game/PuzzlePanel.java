@@ -30,7 +30,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
-import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
@@ -41,7 +40,6 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSplitPane;
 import javax.swing.JTextArea;
-import javax.swing.SwingConstants;
 import javax.swing.SwingWorker;
 import javax.swing.Timer;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -186,26 +184,6 @@ public final class PuzzlePanel extends JPanel {
      * Progress metadata value.
      */
     private final JLabel progressValue = metricValue();
-
-    /**
-     * Wrong-attempt metadata value.
-     */
-    private final JLabel wrongValue = metricValue();
-
-    /**
-     * Hint metadata value.
-     */
-    private final JLabel hintsValue = metricValue();
-
-    /**
-     * Reveal metadata value.
-     */
-    private final JLabel revealsValue = metricValue();
-
-    /**
-     * Skipped-branch metadata value.
-     */
-    private final JLabel skippedValue = metricValue();
 
     /**
      * Puzzle title label.
@@ -491,14 +469,20 @@ public final class PuzzlePanel extends JPanel {
      * @return empty inspector
      */
     private JComponent createEmptyInspector() {
-        JPanel stack = verticalPanel();
         JComponent empty = Ui.emptyState("No puzzle loaded",
-                "Load a puzzle file, sample, or random puzzle to begin.",
+                "Solve tactical puzzles on the board - load a file, a sample, or a random puzzle to begin.",
                 button("Load Puzzle", true, event -> loadDefaultLibrary()),
                 button("Load File", false, event -> openFile()),
                 button("Sample", false, event -> loadSamplePuzzle()));
-        addStackSection(stack, Ui.card(null, empty));
-        return stack;
+        JComponent card = Ui.card(null, empty);
+        // Center the full-width empty card vertically in the tall inspector
+        // instead of pinning it to the top, where it reads as a small fragment.
+        JPanel center = verticalPanel();
+        center.setBorder(Theme.pad(Theme.SPACE_MD));
+        center.add(Box.createVerticalGlue());
+        center.add(card);
+        center.add(Box.createVerticalGlue());
+        return center;
     }
 
     /**
@@ -508,38 +492,52 @@ public final class PuzzlePanel extends JPanel {
      */
     private JComponent createLoadedInspector() {
         JPanel stack = verticalPanel();
-        addStackSection(stack, createSourceCard());
-        addStackSection(stack, createControlsCard());
-        addStackSection(stack, createFeedbackCard());
-        addStackSection(stack, createPgnCard());
-        addStackSection(stack, createSolutionCard());
-        addStackSection(stack, createAdvancedCard());
+        addStackSection(stack, createPuzzleSection());
+        addStackSection(stack, createControlsSection());
+        addStackSection(stack, createPgnSection());
+        addStackSection(stack, createSolutionSection());
+        addStackSection(stack, createAdvancedSection());
         stack.add(Box.createVerticalGlue());
         return stack;
     }
 
     /**
-     * Creates the puzzle source / metadata card.
+     * Creates compact puzzle metadata and feedback.
      *
-     * @return source card
+     * @return puzzle section
      */
-    private JComponent createSourceCard() {
-        JPanel grid = metricGrid(2);
-        grid.add(metricTile("Puzzle ID", puzzleIdValue));
-        grid.add(metricTile("Side", sideToSolveValue));
-        grid.add(metricTile("Source", sourceValue));
-        grid.add(metricTile("Rating", ratingValue));
-        grid.add(metricTile("Themes / Tags", themesValue));
-        grid.add(metricTile("Progress", progressValue));
-        return Ui.card("Puzzle Source", grid);
+    private JComponent createPuzzleSection() {
+        feedbackBadge.setFixedTextWidth(104);
+        feedbackLabel.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
+        feedbackLabel.setForeground(Theme.TEXT);
+        countersLabel.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
+        Theme.foreground(countersLabel, Theme.ForegroundRole.MUTED);
+
+        JPanel feedback = new JPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        feedback.setOpaque(false);
+        feedback.add(feedbackBadge, BorderLayout.WEST);
+        feedback.add(feedbackLabel, BorderLayout.CENTER);
+
+        JPanel body = verticalPanel();
+        body.add(feedback);
+        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        body.add(detailRow("Puzzle", puzzleIdValue));
+        body.add(detailRow("Side", sideToSolveValue));
+        body.add(detailRow("Rating", ratingValue));
+        body.add(detailRow("Progress", progressValue));
+        body.add(detailRow("Source", sourceValue));
+        body.add(detailRow("Themes", themesValue));
+        body.add(Box.createVerticalStrut(Theme.SPACE_XS));
+        body.add(countersLabel);
+        return flatSection("Puzzle", null, body);
     }
 
     /**
      * Creates grouped puzzle controls.
      *
-     * @return controls card
+     * @return controls section
      */
-    private JComponent createControlsCard() {
+    private JComponent createControlsSection() {
         JPanel body = verticalPanel();
         body.add(controlGroup("Load",
                 button("Load Puzzle", true, event -> loadFromEditor()),
@@ -562,60 +560,33 @@ public final class PuzzlePanel extends JPanel {
         mode.add(modeCombo, BorderLayout.CENTER);
         mode.add(skipSimilarToggle, BorderLayout.EAST);
         body.add(Ui.labelControlRow("Mode", mode, 68));
-        return Ui.card("Puzzle Controls", body);
+        return flatSection("Controls", null, body);
     }
 
     /**
-     * Creates the feedback/progress card.
+     * Creates the PGN/source editor section.
      *
-     * @return feedback card
+     * @return PGN section
      */
-    private JComponent createFeedbackCard() {
-        feedbackBadge.setFixedTextWidth(120);
-        feedbackLabel.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
-        feedbackLabel.setForeground(Theme.TEXT);
-        JPanel top = new JPanel(new BorderLayout(Theme.SPACE_SM, 0));
-        top.setOpaque(false);
-        top.add(feedbackBadge, BorderLayout.WEST);
-        top.add(feedbackLabel, BorderLayout.CENTER);
-
-        JPanel counters = metricGrid(4);
-        counters.add(metricTile("Wrong", wrongValue));
-        counters.add(metricTile("Hints", hintsValue));
-        counters.add(metricTile("Reveals", revealsValue));
-        counters.add(metricTile("Skipped", skippedValue));
-
-        JPanel body = verticalPanel();
-        body.add(top);
-        body.add(Box.createVerticalStrut(Theme.SPACE_MD));
-        body.add(counters);
-        return Ui.card("Progress / Feedback", body);
-    }
-
-    /**
-     * Creates the PGN/source editor card.
-     *
-     * @return PGN card
-     */
-    private JComponent createPgnCard() {
+    private JComponent createPgnSection() {
         JButton copy = button("Copy PGN", false, event -> copyPgn());
         JPanel body = new JPanel(new BorderLayout(0, Theme.SPACE_SM));
         body.setOpaque(false);
         body.add(scroll(pgnInput), BorderLayout.CENTER);
-        return Ui.card("PGN", copy, body);
+        return flatSection("PGN", copy, body);
     }
 
     /**
-     * Creates the hidden-by-default solution card.
+     * Creates the hidden-by-default solution section.
      *
-     * @return solution card
+     * @return solution section
      */
-    private JComponent createSolutionCard() {
+    private JComponent createSolutionSection() {
         solutionCards.setOpaque(false);
         solutionCards.add(solutionLockedState(), SOLUTION_HIDDEN);
         solutionCards.add(scroll(solutionArea), SOLUTION_REVEALED);
         showSolutionCard();
-        return Ui.card("Solution", solutionCards);
+        return flatSection("Solution", null, solutionCards);
     }
 
     /**
@@ -630,14 +601,30 @@ public final class PuzzlePanel extends JPanel {
     }
 
     /**
-     * Creates the advanced/debug card.
+     * Creates the advanced/debug section.
      *
-     * @return advanced card
+     * @return advanced section
      */
-    private JComponent createAdvancedCard() {
+    private JComponent createAdvancedSection() {
         JPanel body = verticalPanel();
         body.add(collapsible("Raw Solution", scroll(rawSolutionArea), false));
-        return Ui.card("Advanced", body);
+        return flatSection("Advanced", null, body);
+    }
+
+    /**
+     * Creates one flat inspector section without an elevated card surface.
+     *
+     * @param title section title
+     * @param trailing optional trailing component
+     * @param body section body
+     * @return section component
+     */
+    private static JComponent flatSection(String title, JComponent trailing, JComponent body) {
+        JPanel panel = new JPanel(new BorderLayout(0, Theme.SPACE_SM));
+        panel.setOpaque(false);
+        panel.add(Ui.sectionHeader(title, null, trailing), BorderLayout.NORTH);
+        panel.add(body, BorderLayout.CENTER);
+        return panel;
     }
 
     /**
@@ -677,37 +664,24 @@ public final class PuzzlePanel extends JPanel {
     }
 
     /**
-     * Creates a metric grid.
-     *
-     * @param columns grid columns
-     * @return grid panel
-     */
-    private static JPanel metricGrid(int columns) {
-        JPanel panel = new JPanel(new java.awt.GridLayout(0, columns, Theme.SPACE_SM, Theme.SPACE_SM));
-        panel.setOpaque(false);
-        return panel;
-    }
-
-    /**
-     * Creates one metadata metric tile.
+     * Creates one compact metadata row.
      *
      * @param title metric label
      * @param value value label
-     * @return tile
+     * @return row
      */
-    private static JComponent metricTile(String title, JLabel value) {
+    private static JComponent detailRow(String title, JLabel value) {
         JLabel label = new JLabel(title);
         label.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
         label.setForeground(Theme.MUTED);
-        JPanel tile = new JPanel(new BorderLayout(0, 2));
-        tile.setOpaque(true);
-        tile.setBackground(Theme.PANEL_SOLID);
-        tile.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Theme.LINE),
-                Theme.pad(Theme.SPACE_SM, Theme.SPACE_SM, Theme.SPACE_SM, Theme.SPACE_SM)));
-        tile.add(label, BorderLayout.NORTH);
-        tile.add(value, BorderLayout.CENTER);
-        return tile;
+        label.setPreferredSize(new Dimension(72, Theme.CONTROL_HEIGHT));
+
+        JPanel row = new JPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        row.setOpaque(false);
+        row.setBorder(Theme.pad(1, 0, 1, 0));
+        row.add(label, BorderLayout.WEST);
+        row.add(value, BorderLayout.CENTER);
+        return row;
     }
 
     /**
@@ -719,7 +693,6 @@ public final class PuzzlePanel extends JPanel {
         JLabel label = new JLabel("n/a");
         label.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
         label.setForeground(Theme.TEXT);
-        label.setHorizontalAlignment(SwingConstants.LEFT);
         return label;
     }
 
@@ -1487,7 +1460,7 @@ public final class PuzzlePanel extends JPanel {
      */
     private void clearMetadataLabels() {
         for (JLabel label : List.of(puzzleIdValue, sourceValue, ratingValue, themesValue,
-                sideToSolveValue, progressValue, wrongValue, hintsValue, revealsValue, skippedValue)) {
+                sideToSolveValue, progressValue)) {
             label.setText("n/a");
         }
     }
@@ -1504,10 +1477,6 @@ public final class PuzzlePanel extends JPanel {
         themesValue.setText(themesText());
         sideToSolveValue.setText((session.userWhite() ? "White" : "Black") + " to solve");
         progressValue.setText((snapshot.lineIndex() + 1) + " / " + Math.max(1, snapshot.totalLines()));
-        wrongValue.setText(Integer.toString(session.wrongMoveCount()));
-        hintsValue.setText(Integer.toString(session.hintCount()));
-        revealsValue.setText(Integer.toString(session.revealCount()));
-        skippedValue.setText(Integer.toString(session.skippedSimilarVariationCount()));
     }
 
     /**

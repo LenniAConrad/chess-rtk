@@ -106,6 +106,14 @@ public final class WindowPublishingHost extends WindowHost implements Publishing
      * {@inheritDoc}
      */
     @Override
+    public JComponent commandStopButton() {
+        return window.createCommandStopButton();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void toast(Toast.Kind kind, String message) {
         window.toast(kind, message);
     }

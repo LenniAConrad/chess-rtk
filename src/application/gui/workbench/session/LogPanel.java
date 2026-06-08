@@ -4,6 +4,7 @@ import application.gui.workbench.command.Console;
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.ui.HoldButton;
 import application.gui.workbench.ui.LoadingOverlay;
+import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.WorkspaceHeader;
 import chess.debug.SessionCache;
@@ -12,6 +13,7 @@ import java.awt.CardLayout;
 import java.awt.Component;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.GridLayout;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
 import java.io.File;
@@ -112,6 +114,36 @@ public final class LogPanel extends JPanel {
     private final Console logView = new Console();
 
     /**
+     * Current log selection label shown above the raw text.
+     */
+    private final JLabel selectedNameLabel = new JLabel("No log selected");
+
+    /**
+     * Compact location label for the current selection.
+     */
+    private final JLabel selectedPathLabel = caption(" ");
+
+    /**
+     * Number of files covered by the current selection.
+     */
+    private final JLabel selectedFilesValue = metricValue("0");
+
+    /**
+     * Byte size covered by the current selection.
+     */
+    private final JLabel selectedSizeValue = metricValue("0 B");
+
+    /**
+     * Line count loaded into the viewer.
+     */
+    private final JLabel selectedLinesValue = metricValue("0");
+
+    /**
+     * Warning/error signal count loaded into the viewer.
+     */
+    private final JLabel selectedSignalsValue = metricValue("0 W / 0 E");
+
+    /**
      * Card layout swapping the viewer between its content and a loading overlay.
      */
     private final CardLayout viewerCards = new CardLayout();
@@ -175,6 +207,9 @@ public final class LogPanel extends JPanel {
     public void refreshLogs() {
         int generation = ++scanGeneration;
         showStatus("Scanning session logs...", Theme.ForegroundRole.MUTED);
+        if (currentLogs.isEmpty()) {
+            showScanningState();
+        }
         new SwingWorker<List<LogEntry>, Void>() {
 
             /**
@@ -199,6 +234,8 @@ public final class LogPanel extends JPanel {
                 try {
                     installEntries(get());
                 } catch (Exception ex) {
+                    loadingOverlay.stop();
+                    viewerCards.show(viewerBody, "view");
                     currentLogs = List.of();
                     logModel.clear();
                     showText("Log scan failed: " + ex.getMessage() + '\n');
@@ -323,18 +360,16 @@ public final class LogPanel extends JPanel {
             }
         });
 
-        JPanel filePanel = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
+        JPanel filePanel = new SurfacePanel(new BorderLayout(0, Theme.SPACE_SM));
         filePanel.add(Theme.section("Files"), BorderLayout.NORTH);
         filePanel.add(scroll(logList), BorderLayout.CENTER);
 
-        // Viewer pane mirrors the file pane: a section eyebrow plus a centered
-        // empty state so the large console reads as deliberate, not a black void.
         logView.setPlaceholder("Select a log file to view its contents.");
         viewerBody.setOpaque(false);
         viewerBody.add(scroll(logView), "view");
         viewerBody.add(loadingOverlay, "loading");
-        JPanel viewerPanel = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
-        viewerPanel.add(Theme.section("Log"), BorderLayout.NORTH);
+        JPanel viewerPanel = new SurfacePanel(new BorderLayout(0, Theme.SPACE_MD));
+        viewerPanel.add(viewerHeader(), BorderLayout.NORTH);
         viewerPanel.add(viewerBody, BorderLayout.CENTER);
 
         JSplitPane pane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, filePanel, viewerPanel);
@@ -353,7 +388,11 @@ public final class LogPanel extends JPanel {
         currentLogs = List.copyOf(entries);
         logModel.clear();
         if (currentLogs.isEmpty()) {
+            loadingOverlay.stop();
+            viewerCards.show(viewerBody, "view");
             showText(NO_LOGS_TEXT);
+            updateSelectionSummary(null);
+            updateLoadedSummary(NO_LOGS_TEXT);
             showStatus("No log files in " + rootLabel() + ".", Theme.ForegroundRole.MUTED);
             return;
         }
@@ -368,6 +407,22 @@ public final class LogPanel extends JPanel {
     }
 
     /**
+     * Shows a coherent initial scan state before the asynchronous file walk
+     * completes.
+     */
+    private void showScanningState() {
+        updateSelectionSummary(null);
+        selectedNameLabel.setText("Scanning logs");
+        selectedPathLabel.setText(compactRootLabel());
+        selectedFilesValue.setText("...");
+        selectedSizeValue.setText("...");
+        selectedLinesValue.setText("...");
+        selectedSignalsValue.setText("...");
+        loadingOverlay.start("Scanning session logs...");
+        viewerCards.show(viewerBody, "loading");
+    }
+
+    /**
      * Loads the selected aggregate or individual log entry in the background.
      */
     private void loadSelectedLog() {
@@ -376,11 +431,18 @@ public final class LogPanel extends JPanel {
             return;
         }
         int generation = ++loadGeneration;
+        updateSelectionSummary(selected);
+        selectedLinesValue.setText("loading");
+        selectedSignalsValue.setText("loading");
         showStatus("Loading " + selected.label() + "...", Theme.ForegroundRole.MUTED);
+        logView.clearOutput();
+        logView.setPlaceholder("Loading " + selected.label() + "...");
         // The aggregate "All logs" read can take a moment; show a clear loading
         // indicator over the viewer until the text arrives.
         loadingOverlay.start("Loading " + selected.label() + "…");
         viewerCards.show(viewerBody, "loading");
+        viewerBody.revalidate();
+        viewerBody.repaint();
         new SwingWorker<String, Void>() {
 
             /**
@@ -407,10 +469,16 @@ public final class LogPanel extends JPanel {
                 loadingOverlay.stop();
                 viewerCards.show(viewerBody, "view");
                 try {
-                    showText(get());
+                    String text = get();
+                    logView.setPlaceholder("Select a log file to view its contents.");
+                    showText(text);
+                    updateLoadedSummary(text);
                     showStatus(statusForSelection(selected), Theme.ForegroundRole.MUTED);
                 } catch (Exception ex) {
+                    logView.setPlaceholder("Select a log file to view its contents.");
                     showText("Log load failed: " + ex.getMessage() + '\n');
+                    selectedLinesValue.setText("-");
+                    selectedSignalsValue.setText("-");
                     showStatus("Log load failed.", Theme.ForegroundRole.ERROR);
                 }
             }
@@ -645,6 +713,120 @@ public final class LogPanel extends JPanel {
     }
 
     /**
+     * Creates the integrated metadata band above the log text viewer.
+     *
+     * @return header component
+     */
+    private JComponent viewerHeader() {
+        JPanel header = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
+        selectedNameLabel.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
+        selectedNameLabel.setForeground(Theme.TEXT);
+        selectedPathLabel.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
+        JPanel title = transparentPanel(new BorderLayout(0, 2));
+        title.add(selectedNameLabel, BorderLayout.NORTH);
+        title.add(selectedPathLabel, BorderLayout.CENTER);
+
+        JPanel metrics = transparentPanel(new GridLayout(1, 4, Theme.SPACE_SM, 0));
+        metrics.add(metricTile("Files", selectedFilesValue));
+        metrics.add(metricTile("Size", selectedSizeValue));
+        metrics.add(metricTile("Lines", selectedLinesValue));
+        metrics.add(metricTile("Signals", selectedSignalsValue));
+
+        header.add(Theme.section("Selected log"), BorderLayout.NORTH);
+        header.add(title, BorderLayout.CENTER);
+        header.add(metrics, BorderLayout.SOUTH);
+        return header;
+    }
+
+    /**
+     * Updates selection metadata before the log text finishes loading.
+     *
+     * @param entry selected entry, or null when there are no logs
+     */
+    private void updateSelectionSummary(LogEntry entry) {
+        if (entry == null) {
+            selectedNameLabel.setText("No logs");
+            selectedPathLabel.setText(compactRootLabel());
+            selectedPathLabel.setToolTipText(rootLabel());
+            selectedFilesValue.setText("0");
+            selectedSizeValue.setText("0 B");
+            selectedLinesValue.setText("0");
+            selectedSignalsValue.setText("0 W / 0 E");
+            return;
+        }
+        String name = entry.aggregate() ? ALL_LOGS_LABEL : entry.label();
+        selectedNameLabel.setText(name);
+        selectedNameLabel.setToolTipText(entry.aggregate() ? rootLabel() : entry.path().toString());
+        selectedPathLabel.setText(entry.aggregate() ? compactRootLabel() : "File: " + entry.label());
+        selectedPathLabel.setToolTipText(entry.aggregate() ? rootLabel() : entry.path().toString());
+        selectedFilesValue.setText(entry.aggregate()
+                ? String.format(Locale.ROOT, "%,d", currentLogs.size())
+                : "1");
+        selectedSizeValue.setText(humanSize(entry.size()));
+    }
+
+    /**
+     * Updates text-derived metrics from the content loaded into the viewer.
+     *
+     * @param text loaded log text
+     */
+    private void updateLoadedSummary(String text) {
+        LogStats stats = LogStats.from(text);
+        selectedLinesValue.setText(String.format(Locale.ROOT, "%,d", stats.lines()));
+        selectedSignalsValue.setText(stats.warnings() + " W / " + stats.errors() + " E");
+    }
+
+    /**
+     * Builds one compact metadata tile.
+     *
+     * @param title metric title
+     * @param value metric value label
+     * @return metric tile component
+     */
+    private static JComponent metricTile(String title, JLabel value) {
+        JPanel tile = transparentPanel(new BorderLayout(0, 2));
+        tile.setOpaque(true);
+        tile.setBackground(Theme.PANEL_SOLID);
+        tile.setBorder(javax.swing.BorderFactory.createCompoundBorder(
+                javax.swing.BorderFactory.createLineBorder(Theme.LINE),
+                Theme.pad(Theme.SPACE_XS, Theme.SPACE_SM, Theme.SPACE_XS, Theme.SPACE_SM)));
+        JLabel label = new JLabel(title);
+        label.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
+        Theme.foreground(label, Theme.ForegroundRole.MUTED);
+        tile.add(label, BorderLayout.NORTH);
+        tile.add(value, BorderLayout.CENTER);
+        return tile;
+    }
+
+    /**
+     * Creates one styled metric value label.
+     *
+     * @param text initial text
+     * @return label
+     */
+    private static JLabel metricValue(String text) {
+        JLabel label = new JLabel(text);
+        label.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
+        label.setForeground(Theme.TEXT);
+        return label;
+    }
+
+    /**
+     * Returns a compact session-root label for the metadata band.
+     *
+     * @return compact root label
+     */
+    private static String compactRootLabel() {
+        Path root = sessionRoot();
+        Path cwd = Path.of("").toAbsolutePath().normalize();
+        try {
+            return "Folder: " + cwd.relativize(root);
+        } catch (IllegalArgumentException ex) {
+            return "Folder: " + root;
+        }
+    }
+
+    /**
      * Updates the footer status label.
      *
      * @param text status text
@@ -738,6 +920,47 @@ public final class LogPanel extends JPanel {
         @Override
         public String toString() {
             return label;
+        }
+    }
+
+    /**
+     * Lightweight text statistics shown in the viewer metadata band.
+     *
+     * @param lines number of loaded lines
+     * @param warnings warning lines
+     * @param errors error/failure lines
+     */
+    private record LogStats(int lines, int warnings, int errors) {
+
+        /**
+         * Computes stats from loaded log text.
+         *
+         * @param text loaded text
+         * @return computed stats
+         */
+        static LogStats from(String text) {
+            if (text == null || text.isEmpty()) {
+                return new LogStats(0, 0, 0);
+            }
+            int lines = 0;
+            int warnings = 0;
+            int errors = 0;
+            String[] parts = text.split("\\R", -1);
+            for (String line : parts) {
+                if (!line.isEmpty()) {
+                    lines++;
+                }
+                String normalized = ' ' + line.strip().toUpperCase(Locale.ROOT) + ' ';
+                if (normalized.contains(" WARNING ") || normalized.contains(" WARN ")) {
+                    warnings++;
+                }
+                if (normalized.contains(" ERROR ") || normalized.contains(" SEVERE ")
+                        || normalized.contains(" EXCEPTION ") || normalized.contains(" FAILED ")
+                        || normalized.contains(" INVALID ")) {
+                    errors++;
+                }
+            }
+            return new LogStats(lines, warnings, errors);
         }
     }
 

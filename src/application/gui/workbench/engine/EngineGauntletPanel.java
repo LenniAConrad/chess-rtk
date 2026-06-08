@@ -343,15 +343,62 @@ public final class EngineGauntletPanel extends JPanel {
         JPanel body = transparentPanel(new java.awt.GridBagLayout());
         java.awt.GridBagConstraints c = constraints();
         int row = 0;
-        row = detailControl(body, c, "Nodes", nodes, row);
-        row = detailControl(body, c, "Openings", openings, row);
-        row = detailControl(body, c, "Seed", seed, row);
-        row = detailControl(body, c, "Max plies", maxPlies, row);
-        row = detailControl(body, c, "Workers", workers, row);
-        row = detailControl(body, c, "Threads A", threadsA, row);
-        row = detailControl(body, c, "Threads B", threadsB, row);
+        // Two columns keep this card's height close to the Candidate/Baseline
+        // cards beside it, so the setup row no longer leaves a dead gap below
+        // the shorter cards.
+        row = settingsPair(body, c, "Nodes", nodes, "Openings", openings, row);
+        row = settingsPair(body, c, "Seed", seed, "Max plies", maxPlies, row);
+        row = settingsPair(body, c, "Workers", workers, "Threads A", threadsA, row);
+        row = settingsPair(body, c, "Threads B", threadsB, null, null, row);
         detailComponent(body, c, "Status", settingsBadge, row);
         return card("Run Settings", body);
+    }
+
+    /**
+     * Adds one or two label/control cells on a single row of a four-column grid.
+     *
+     * @param panel target panel
+     * @param c shared constraints
+     * @param keyA first label
+     * @param valueA first control
+     * @param keyB second label, or {@code null} for a single cell
+     * @param valueB second control, or {@code null}
+     * @param row row index
+     * @return next row
+     */
+    private static int settingsPair(JPanel panel, java.awt.GridBagConstraints c, String keyA,
+            JComponent valueA, String keyB, JComponent valueB, int row) {
+        addPairCell(panel, c, keyA, valueA, 0, row);
+        if (keyB != null && valueB != null) {
+            addPairCell(panel, c, keyB, valueB, 2, row);
+        }
+        return row + 1;
+    }
+
+    /**
+     * Adds a label + stretching control into two adjacent grid columns.
+     *
+     * @param panel target panel
+     * @param c shared constraints
+     * @param key label text
+     * @param control control component
+     * @param col label column (control goes in {@code col + 1})
+     * @param row row index
+     */
+    private static void addPairCell(JPanel panel, java.awt.GridBagConstraints c, String key,
+            JComponent control, int col, int row) {
+        JLabel label = Ui.label(key);
+        label.setToolTipText(tooltipFor(key));
+        c.gridx = col;
+        c.gridy = row;
+        c.gridwidth = 1;
+        c.gridheight = 1;
+        c.weightx = 0;
+        c.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        panel.add(label, c);
+        c.gridx = col + 1;
+        c.weightx = 1;
+        panel.add(control, c);
     }
 
     /**

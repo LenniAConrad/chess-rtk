@@ -285,7 +285,7 @@ public final class Bt4View extends NetworkView {
      */
     @Override
     protected String emptyStateTitle() {
-        return "Loading BT4 snapshot\u2026";
+        return "No BT4 snapshot yet";
     }
 
     /**

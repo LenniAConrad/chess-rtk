@@ -1,6 +1,8 @@
 package application.gui.workbench.ui;
 
 import java.awt.BorderLayout;
+import java.awt.Component;
+import java.awt.Dimension;
 import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
@@ -40,7 +42,27 @@ final class UiSurfaces {
      * @return panel
      */
     static JPanel titled(String title, JComponent child) {
-        JPanel panel = UiLayout.transparentPanel(new BorderLayout(6, 6));
+        JPanel panel = new JPanel(new BorderLayout(6, 6)) {
+            private static final long serialVersionUID = 1L;
+
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public Dimension getMaximumSize() {
+                Dimension preferred = getPreferredSize();
+                return new Dimension(Integer.MAX_VALUE, preferred.height);
+            }
+
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public float getAlignmentX() {
+                return Component.LEFT_ALIGNMENT;
+            }
+        };
+        panel.setOpaque(false);
         panel.setBorder(Theme.pad(0, 0, 0, 0));
         panel.add(Theme.section(title), BorderLayout.NORTH);
         panel.add(child, BorderLayout.CENTER);

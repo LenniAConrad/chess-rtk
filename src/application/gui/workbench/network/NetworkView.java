@@ -357,12 +357,12 @@ public abstract class NetworkView extends JComponent {
 
     /**
      * Returns the centered empty-state title; subclasses name their network
-     * kind (e.g. "Loading NNUE snapshot\u2026").
+     * kind (e.g. "No NNUE snapshot yet").
      *
      * @return empty-state title
      */
     protected String emptyStateTitle() {
-        return "Loading evaluator snapshot\u2026";
+        return "No evaluator snapshot yet";
     }
 
     /**

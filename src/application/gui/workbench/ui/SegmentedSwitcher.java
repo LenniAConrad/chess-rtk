@@ -30,7 +30,7 @@ import javax.swing.Timer;
  * by the workbench toolbar to pick view modes without burying the choices
  * inside a dropdown.</p>
  */
-public class SegmentedSwitcher extends JComponent {
+public final class SegmentedSwitcher extends JComponent {
 
     /**
      * Serialization identifier for Swing component compatibility.
@@ -134,12 +134,12 @@ public class SegmentedSwitcher extends JComponent {
      * @param labels segment labels
      */
     public SegmentedSwitcher(String[] labels) {
-        this.labels = labels.clone();
-        this.segmentEnabled = new boolean[labels.length];
-        for (int i = 0; i < labels.length; i++) {
+        this.labels = labels == null ? new String[0] : labels.clone();
+        this.segmentEnabled = new boolean[this.labels.length];
+        for (int i = 0; i < this.labels.length; i++) {
             this.segmentEnabled[i] = true;
         }
-        this.selected = 0;
+        this.selected = this.labels.length == 0 ? -1 : 0;
         setOpaque(false);
         setFocusable(true);
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));

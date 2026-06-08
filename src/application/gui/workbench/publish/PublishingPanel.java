@@ -8,7 +8,6 @@ import application.gui.workbench.game.GameModel;
 import application.gui.workbench.publish.PublishSampleData.SampleItem;
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.ui.FileDialogs;
-import application.gui.workbench.ui.HoldButton;
 import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Toast;
@@ -214,10 +213,17 @@ public final class PublishingPanel {
          */
     void copyText(String text);
 
-        /**
-         * Stops the running command.
-         */
+    /**
+     * Stops the running command.
+     */
     void stopCommand();
+
+    /**
+     * Creates a stop button that follows the foreground command lifecycle.
+     *
+     * @return command stop button
+     */
+    JComponent commandStopButton();
 
         /**
          * Shows a toast.
@@ -802,7 +808,7 @@ public final class PublishingPanel {
         return controlRow(FlowLayout.RIGHT,
                 publishCreateButton,
                 button("Copy Command", false, event -> host.copyText(publishCommandField.getText())),
-                new HoldButton("Stop", host::stopCommand, true));
+                host.commandStopButton());
     }
 
     /**

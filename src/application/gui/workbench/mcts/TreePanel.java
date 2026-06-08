@@ -7,7 +7,6 @@ import application.gui.workbench.game.Positions;
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.network.Prefs;
 import application.gui.workbench.network.TensorViz;
-import application.gui.workbench.ui.GroupBox;
 import application.gui.workbench.ui.HoldButton;
 import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.Theme;
@@ -508,6 +507,17 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
      * @param currentFen current board FEN supplier
      */
     public TreePanel(MctsSession session, Supplier<String> currentFen) {
+        this(session, currentFen, true);
+    }
+
+    /**
+     * Creates the panel.
+     *
+     * @param session shared MCTS session
+     * @param currentFen current board FEN supplier
+     * @param showWorkspaceHeader true to show the standalone Search Tree header
+     */
+    public TreePanel(MctsSession session, Supplier<String> currentFen, boolean showWorkspaceHeader) {
         super(new BorderLayout(0, 0));
         this.session = session;
         this.currentFen = currentFen;
@@ -516,7 +526,9 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
         setBackground(Theme.BG);
         configureControls();
         JPanel north = Ui.transparentPanel(new BorderLayout(0, 0));
-        north.add(workspaceHeader, BorderLayout.NORTH);
+        if (showWorkspaceHeader) {
+            north.add(workspaceHeader, BorderLayout.NORTH);
+        }
         north.add(buildToolbar(), BorderLayout.SOUTH);
         add(north, BorderLayout.NORTH);
         add(buildBody(), BorderLayout.CENTER);
@@ -656,7 +668,7 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
         maxNodesSpinner.setPreferredSize(new Dimension(96, Theme.CONTROL_HEIGHT));
         minVisitsSpinner.setPreferredSize(new Dimension(78, Theme.CONTROL_HEIGHT));
         branchesSpinner.setPreferredSize(new Dimension(62, Theme.CONTROL_HEIGHT));
-        statusBadge.setFixedTextWidth(300);
+        statusBadge.setFixedTextWidth(190);
         statusBadge.idle("MCTS idle");
         pauseButton.addActionListener(event -> session.pause());
         resumeButton.addActionListener(event -> session.resume());
@@ -806,40 +818,68 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
     }
 
     /**
-     * Builds the boxed control toolbar. Groups wrap responsively so nothing is
-     * clipped when the window narrows.
+     * Builds the Tree control toolbar as one plain wrapped band. Primary search
+     * controls are added first so they remain visible whenever the toolbar wraps.
      *
      * @return toolbar component
      */
     private JComponent buildToolbar() {
-        JPanel bar = Ui.transparentPanel(new WrappingFlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, Theme.SPACE_XS));
+        JPanel bar = Ui.transparentPanel(null);
+        bar.setLayout(new BoxLayout(bar, BoxLayout.Y_AXIS));
         bar.setOpaque(true);
         bar.setBackground(Theme.PANEL_SOLID);
         bar.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE),
-                Theme.pad(Theme.SPACE_SM, Theme.SPACE_SM, Theme.SPACE_SM, Theme.SPACE_SM)));
-        bar.add(GroupBox.of("PUCT", startButton, pauseButton, resumeButton, stopButton,
-                Ui.labeledControl("Backend", backendCombo),
-                Ui.labeledControl("Visits", visitsSpinner),
-                Ui.labeledControl("Millis", millisSpinner),
-                Ui.labeledControl("Cpuct", cpuctSpinner)));
-        bar.add(GroupBox.of("Position", positionCombo));
-        bar.add(GroupBox.of("Target", targetField, targetLabel));
-        // "Tree" = the filters controlling which nodes show; "View" = how they're
-        // drawn; "Display" = canvas actions. Everything stays visible (the bar
-        // wraps responsively) so no setting is hidden.
-        bar.add(GroupBox.of("Tree",
-                Ui.labeledControl("Depth", depthSpinner),
-                Ui.labeledControl("Max nodes", maxNodesSpinner),
-                Ui.labeledControl("Min visits", minVisitsSpinner),
-                Ui.labeledControl("Branches", branchesSpinner)));
-        bar.add(GroupBox.of("View", mergeToggle, batchLeavesToggle, layersToggle,
-                guideLevelControl()));
-        bar.add(GroupBox.of("Display", autoFitToggle, detailsToggle,
-                fitButton, resetViewButton, openBoardButton, exportSvgButton,
-                Ui.button("Copy command", false, event -> copyCliCommand())));
-        bar.add(statusBadge);
+                Theme.pad(Theme.SPACE_XS, Theme.SPACE_SM, Theme.SPACE_XS, Theme.SPACE_SM)));
+
+        JPanel searchRow = toolbarRow();
+        searchRow.add(startButton);
+        searchRow.add(pauseButton);
+        searchRow.add(resumeButton);
+        searchRow.add(stopButton);
+        searchRow.add(statusBadge);
+        searchRow.add(Ui.labeledControl("Backend", backendCombo));
+        searchRow.add(Ui.labeledControl("Position", positionCombo));
+
+        JPanel limitsRow = toolbarRow();
+        limitsRow.add(Ui.labeledControl("Visits", visitsSpinner));
+        limitsRow.add(Ui.labeledControl("Millis", millisSpinner));
+        limitsRow.add(Ui.labeledControl("Cpuct", cpuctSpinner));
+        limitsRow.add(Ui.labeledControl("Target", targetField));
+        limitsRow.add(targetLabel);
+        limitsRow.add(Ui.labeledControl("Depth", depthSpinner));
+        limitsRow.add(Ui.labeledControl("Max nodes", maxNodesSpinner));
+        limitsRow.add(Ui.labeledControl("Min visits", minVisitsSpinner));
+        limitsRow.add(Ui.labeledControl("Branches", branchesSpinner));
+
+        JPanel viewRow = toolbarRow();
+        viewRow.add(mergeToggle);
+        viewRow.add(batchLeavesToggle);
+        viewRow.add(layersToggle);
+        viewRow.add(guideLevelControl());
+        viewRow.add(autoFitToggle);
+        viewRow.add(detailsToggle);
+        viewRow.add(fitButton);
+        viewRow.add(resetViewButton);
+        viewRow.add(openBoardButton);
+        viewRow.add(exportSvgButton);
+        viewRow.add(Ui.button("Copy command", false, event -> copyCliCommand()));
+
+        bar.add(searchRow);
+        bar.add(limitsRow);
+        bar.add(viewRow);
         return bar;
+    }
+
+    /**
+     * Creates one compact toolbar row.
+     *
+     * @return wrapping row
+     */
+    private static JPanel toolbarRow() {
+        JPanel row = Ui.transparentPanel(new WrappingFlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, Theme.SPACE_XS));
+        row.setAlignmentX(LEFT_ALIGNMENT);
+        return row;
     }
 
     /**

@@ -31,7 +31,6 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
-import javax.swing.JColorChooser;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -89,9 +88,49 @@ public final class DrawPanel extends JPanel {
     private static final int SWATCH_SIZE = 30;
 
     /**
+     * Preferred width for RGB channel sliders.
+     */
+    private static final int CHANNEL_SLIDER_WIDTH = 150;
+
+    /**
+     * Width for RGB numeric fields, including spinner arrows.
+     */
+    private static final int CHANNEL_SPINNER_WIDTH = 90;
+
+    /**
      * Fixed width for compact Draw rail control rows.
      */
     private static final int LABEL_WIDTH = 78;
+
+    /**
+     * Compact height for the current-color preview card.
+     */
+    private static final int COLOR_PREVIEW_HEIGHT = 56;
+
+    /**
+     * Compact height for the current-stroke preview card.
+     */
+    private static final int STROKE_PREVIEW_HEIGHT = 38;
+
+    /**
+     * Maximum color sample size inside the current-color preview.
+     */
+    private static final int COLOR_PREVIEW_SWATCH_MAX = 36;
+
+    /**
+     * Preferred visible height for the annotation list.
+     */
+    private static final int ANNOTATION_LIST_HEIGHT = 146;
+
+    /**
+     * Soft light-theme annotation row selection.
+     */
+    private static final Color ANNOTATION_SELECTION_LIGHT = new Color(0xEAF4FF);
+
+    /**
+     * Soft dark-theme annotation row selection.
+     */
+    private static final Color ANNOTATION_SELECTION_DARK = new Color(0x253A52);
 
     /**
      * Selection marker for a custom color outside the preset swatch list.
@@ -134,6 +173,11 @@ public final class DrawPanel extends JPanel {
     private int selectedSwatch;
 
     /**
+     * True while RGB widgets are being updated from code.
+     */
+    private boolean syncingColorControls;
+
+    /**
      * Preset color swatches.
      */
     private final transient List<Swatch> swatches = new ArrayList<>();
@@ -149,6 +193,20 @@ public final class DrawPanel extends JPanel {
     private final JSlider opacitySlider = new JSlider(MIN_ALPHA, MAX_ALPHA, DEFAULT_ALPHA);
 
     /**
+     * Inline RGB controls for custom draw colors.
+     */
+    private final JSlider redSlider = new JSlider(0, 255, baseColor.getRed()),
+            greenSlider = new JSlider(0, 255, baseColor.getGreen()),
+            blueSlider = new JSlider(0, 255, baseColor.getBlue());
+
+    /**
+     * Numeric RGB fields paired with the inline color sliders.
+     */
+    private final JSpinner redSpinner = channelSpinner(baseColor.getRed()),
+            greenSpinner = channelSpinner(baseColor.getGreen()),
+            blueSpinner = channelSpinner(baseColor.getBlue());
+
+    /**
      * Arrow line width.
      */
     private final JSpinner widthSpinner =
@@ -157,17 +215,12 @@ public final class DrawPanel extends JPanel {
     /**
      * Suggested-engine-arrow export/display toggle.
      */
-    private final ToggleBox suggestedToggle = new ToggleBox("Suggested arrows", true);
+    private final ToggleBox suggestedToggle = new ToggleBox("", true);
 
     /**
-     * Snap status toggle. Board gestures are square-based by design.
+     * Inline color preview.
      */
-    private final ToggleBox snapToggle = new ToggleBox("Snap to square", true);
-
-    /**
-     * Selected color label.
-     */
-    private final JLabel selectedColorLabel = new JLabel();
+    private final ColorPreview colorPreview = new ColorPreview();
 
     /**
      * Stroke preview component.
@@ -269,11 +322,11 @@ public final class DrawPanel extends JPanel {
     private void build() {
         JPanel stack = Ui.transparentPanel(null);
         stack.setLayout(new BoxLayout(stack, BoxLayout.Y_AXIS));
-        addSection(stack, Ui.card("Tool", toolSection()));
-        addSection(stack, Ui.card("Style", styleSection()));
-        addSection(stack, Ui.card("Arrow Settings", arrowSection()));
-        addSection(stack, Ui.card("Annotation List", annotationSection()));
-        addSection(stack, Ui.card("Export", exportSection()));
+        addSection(stack, Ui.titled("Tool", toolSection()));
+        addSection(stack, Ui.titled("Color Mixer", styleSection()));
+        addSection(stack, Ui.titled("Brush", brushSection()));
+        addSection(stack, Ui.titled("Annotation List", annotationSection()));
+        addSection(stack, Ui.titled("Export", exportSection()));
         stack.add(Box.createVerticalGlue());
         add(stack, BorderLayout.NORTH);
     }
@@ -307,8 +360,6 @@ public final class DrawPanel extends JPanel {
         deleteButton = new HoldButton("Delete selected", this::deleteSelected, true);
         clearButton = new HoldButton("Clear all", this::clearAll, true);
         panel.add(wrappingButtons(undoButton, redoButton, deleteButton, clearButton));
-        panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
-        panel.add(Ui.caption("Shortcuts: Ctrl+Z undo, Ctrl+Y redo, Delete removes the selected annotation."));
         return panel;
     }
 
@@ -321,18 +372,36 @@ public final class DrawPanel extends JPanel {
         JPanel panel = verticalPanel();
         JPanel row = Ui.transparentPanel(new FlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
         for (MarkupBrush brush : MarkupBrush.presetBrushes()) {
-            Swatch swatch = new Swatch(brush, swatches.size());
-            swatches.add(swatch);
-            row.add(swatch);
+            addSwatch(row, brush.name(), opaque(brush.displayColor()));
         }
-        row.add(Ui.button("Custom", false, event -> chooseCustomColor()));
+        addSwatch(row, "purple", new Color(0x8B, 0x5C, 0xD6));
+        addSwatch(row, "cyan", new Color(0x00, 0x9F, 0xB7));
+        addSwatch(row, "white", new Color(0xF6, 0xF6, 0xF6));
+        addSwatch(row, "black", new Color(0x24, 0x24, 0x24));
         panel.add(row);
 
-        selectedColorLabel.setForeground(Theme.TEXT);
-        selectedColorLabel.setFont(Theme.font(Theme.FONT_METADATA, Font.BOLD));
         panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
-        panel.add(selectedColorLabel);
+        panel.add(colorPreview);
         panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
+
+        configureColorChannel(redSlider, redSpinner);
+        configureColorChannel(greenSlider, greenSpinner);
+        configureColorChannel(blueSlider, blueSpinner);
+        panel.add(channelRow("Red", redSlider, redSpinner));
+        panel.add(Box.createVerticalStrut(Theme.SPACE_XS));
+        panel.add(channelRow("Green", greenSlider, greenSpinner));
+        panel.add(Box.createVerticalStrut(Theme.SPACE_XS));
+        panel.add(channelRow("Blue", blueSlider, blueSpinner));
+        return panel;
+    }
+
+    /**
+     * Builds brush controls.
+     *
+     * @return brush section
+     */
+    private JComponent brushSection() {
+        JPanel panel = verticalPanel();
 
         opacitySlider.setToolTipText("Annotation opacity.");
         Ui.styleSlider(opacitySlider);
@@ -340,33 +409,18 @@ public final class DrawPanel extends JPanel {
         panel.add(controlRow("Opacity", opacitySlider));
         panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
         panel.add(strokePreview);
-        return panel;
-    }
 
-    /**
-     * Builds arrow settings.
-     *
-     * @return arrow settings section
-     */
-    private JComponent arrowSection() {
-        JPanel panel = verticalPanel();
         Ui.styleSpinner(widthSpinner);
         widthSpinner.setToolTipText("Arrow line width.");
         widthSpinner.addChangeListener(event -> applyBrush());
+        panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
         panel.add(controlRow("Width", widthSpinner));
 
         suggestedToggle.setSelected(board.isShowSuggestedMoveArrow());
         suggestedToggle.setToolTipText("Show the current engine suggested-move arrow on the board and include it in exports.");
         suggestedToggle.addActionListener(event -> board.setShowSuggestedMoveArrow(suggestedToggle.isSelected()));
         panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
-        panel.add(suggestedToggle);
-        panel.add(Ui.caption("Suggested arrows come from the board's current engine suggestion, not from Draw annotations."));
-
-        snapToggle.setSelected(true);
-        snapToggle.setEnabled(false);
-        snapToggle.setToolTipText("Board annotations already begin and end on exact board squares.");
-        panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
-        panel.add(snapToggle);
+        panel.add(toggleRow("Suggested arrows", suggestedToggle));
         return panel;
     }
 
@@ -379,16 +433,18 @@ public final class DrawPanel extends JPanel {
         JPanel panel = verticalPanel();
         annotationList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         annotationList.setVisibleRowCount(6);
-        annotationList.setBackground(Theme.INPUT);
-        annotationList.setForeground(Theme.TEXT);
+        Theme.list(annotationList);
         annotationList.setFont(Theme.mono(Theme.FONT_MONO));
-        annotationList.setBorder(Theme.pad(Theme.SPACE_SM));
+        annotationList.setFixedCellHeight(22);
+        annotationList.setSelectionBackground(annotationSelectionBackground());
+        annotationList.setSelectionForeground(Theme.TEXT);
+        annotationList.setBorder(Theme.pad(Theme.SPACE_XS, Theme.SPACE_SM));
         annotationList.addListSelectionListener(event -> updateActionState());
 
         annotationCards.add(Ui.emptyState("No annotations", "Draw arrows or circles on the board to list them here."),
                 ANNOTATIONS_EMPTY);
-        JScrollPane listScroll = Ui.scroll(annotationList, () -> Theme.INPUT);
-        listScroll.setPreferredSize(new Dimension(240, 154));
+        JScrollPane listScroll = Ui.scroll(annotationList, () -> Theme.ELEVATED_SOLID);
+        listScroll.setPreferredSize(new Dimension(240, ANNOTATION_LIST_HEIGHT));
         annotationCards.add(listScroll, ANNOTATIONS_LIST);
         panel.add(annotationCards);
         return panel;
@@ -461,8 +517,9 @@ public final class DrawPanel extends JPanel {
      */
     private void applyBrush() {
         board.setDirectAnnotationBrush(selectedAnnotationBrush());
-        updateSelectedColorLabel();
+        updateSelectedColorPreview();
         repaintSwatches();
+        colorPreview.repaint();
         strokePreview.repaint();
     }
 
@@ -563,11 +620,13 @@ public final class DrawPanel extends JPanel {
     }
 
     /**
-     * Updates selected color label.
+     * Updates selected color preview details.
      */
-    private void updateSelectedColorLabel() {
-        selectedColorLabel.setText("Selected color: " + colorLabel(baseColor)
-                + " · " + opacitySlider.getValue() + "/255 opacity");
+    private void updateSelectedColorPreview() {
+        String readout = colorLabel(baseColor) + " RGB "
+                + baseColor.getRed() + " / " + baseColor.getGreen() + " / " + baseColor.getBlue()
+                + " opacity " + opacitySlider.getValue() + "/255";
+        colorPreview.setToolTipText("Current draw color: " + readout);
     }
 
     /**
@@ -580,19 +639,6 @@ public final class DrawPanel extends JPanel {
     }
 
     /**
-     * Opens a custom color chooser.
-     */
-    private void chooseCustomColor() {
-        Color chosen = JColorChooser.showDialog(this, "Draw Color", baseColor);
-        if (chosen == null) {
-            return;
-        }
-        selectedSwatch = CUSTOM_SWATCH_INDEX;
-        baseColor = opaque(chosen);
-        applyBrush();
-    }
-
-    /**
      * Handles one preset swatch selection.
      *
      * @param index swatch index
@@ -601,7 +647,93 @@ public final class DrawPanel extends JPanel {
     private void selectSwatch(int index, Color color) {
         selectedSwatch = index;
         baseColor = opaque(color);
+        updateColorControlsFromBase();
         applyBrush();
+    }
+
+    /**
+     * Adds one selectable color swatch.
+     *
+     * @param row swatch row
+     * @param name swatch name
+     * @param color swatch color
+     */
+    private void addSwatch(JPanel row, String name, Color color) {
+        Swatch swatch = new Swatch(name, color, swatches.size());
+        swatches.add(swatch);
+        row.add(swatch);
+    }
+
+    /**
+     * Configures one RGB channel control pair.
+     *
+     * @param slider channel slider
+     * @param spinner channel numeric input
+     */
+    private void configureColorChannel(JSlider slider, JSpinner spinner) {
+        Ui.styleSlider(slider);
+        slider.setPreferredSize(new Dimension(CHANNEL_SLIDER_WIDTH, Theme.CONTROL_HEIGHT));
+        slider.setToolTipText("Custom color channel.");
+        Ui.styleSpinner(spinner);
+        Dimension spinnerSize = new Dimension(CHANNEL_SPINNER_WIDTH, Theme.CONTROL_HEIGHT);
+        spinner.setPreferredSize(spinnerSize);
+        spinner.setMinimumSize(spinnerSize);
+        spinner.setToolTipText("Custom color channel value.");
+        slider.addChangeListener(event -> {
+            if (syncingColorControls) {
+                return;
+            }
+            syncingColorControls = true;
+            spinner.setValue(Integer.valueOf(slider.getValue()));
+            syncingColorControls = false;
+            applyColorFromChannels();
+        });
+        spinner.addChangeListener(event -> {
+            if (syncingColorControls) {
+                return;
+            }
+            syncingColorControls = true;
+            slider.setValue(channelValue(spinner));
+            syncingColorControls = false;
+            applyColorFromChannels();
+        });
+    }
+
+    /**
+     * Applies RGB controls as a custom color.
+     */
+    private void applyColorFromChannels() {
+        selectedSwatch = CUSTOM_SWATCH_INDEX;
+        baseColor = new Color(redSlider.getValue(), greenSlider.getValue(), blueSlider.getValue());
+        applyBrush();
+    }
+
+    /**
+     * Updates the RGB controls to match the selected swatch.
+     */
+    private void updateColorControlsFromBase() {
+        syncingColorControls = true;
+        redSlider.setValue(baseColor.getRed());
+        redSpinner.setValue(Integer.valueOf(baseColor.getRed()));
+        greenSlider.setValue(baseColor.getGreen());
+        greenSpinner.setValue(Integer.valueOf(baseColor.getGreen()));
+        blueSlider.setValue(baseColor.getBlue());
+        blueSpinner.setValue(Integer.valueOf(baseColor.getBlue()));
+        syncingColorControls = false;
+    }
+
+    /**
+     * Returns one numeric RGB channel value.
+     *
+     * @param spinner source spinner
+     * @return clamped channel value
+     */
+    private static int channelValue(JSpinner spinner) {
+        Object value = spinner.getValue();
+        if (value instanceof Number number) {
+            return Math.max(0, Math.min(255, number.intValue()));
+        }
+        return 0;
     }
 
     /**
@@ -623,6 +755,60 @@ public final class DrawPanel extends JPanel {
      */
     private static JComponent controlRow(String text, JComponent control) {
         return Ui.labelControlRow(text, control, LABEL_WIDTH);
+    }
+
+    /**
+     * Builds one RGB channel row.
+     *
+     * @param text row label
+     * @param slider channel slider
+     * @param spinner channel numeric input
+     * @return row component
+     */
+    private static JComponent channelRow(String text, JSlider slider, JSpinner spinner) {
+        JPanel controls = Ui.transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        controls.add(slider, BorderLayout.CENTER);
+        controls.add(spinner, BorderLayout.EAST);
+        controls.setPreferredSize(new Dimension(CHANNEL_SLIDER_WIDTH + CHANNEL_SPINNER_WIDTH + Theme.SPACE_SM,
+                Theme.CONTROL_HEIGHT));
+        return controlRow(text, controls);
+    }
+
+    /**
+     * Creates one RGB channel spinner.
+     *
+     * @param value initial value
+     * @return spinner
+     */
+    private static JSpinner channelSpinner(int value) {
+        return new JSpinner(new SpinnerNumberModel(value, 0, 255, 1));
+    }
+
+    /**
+     * Returns the draw rail's softer annotation selection color.
+     *
+     * @return annotation list selection color
+     */
+    private static Color annotationSelectionBackground() {
+        return Theme.isDark() ? ANNOTATION_SELECTION_DARK : ANNOTATION_SELECTION_LIGHT;
+    }
+
+    /**
+     * Creates a full-width label/switch row for Draw boolean settings.
+     *
+     * @param label row label
+     * @param toggle switch control
+     * @return row component
+     */
+    private static JComponent toggleRow(String label, ToggleBox toggle) {
+        JPanel row = Ui.transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        row.setBorder(Theme.pad(Theme.SPACE_XS, 0, Theme.SPACE_XS, 0));
+        JLabel text = Ui.label(label);
+        text.setToolTipText(toggle.getToolTipText());
+        toggle.getAccessibleContext().setAccessibleName(label);
+        row.add(text, BorderLayout.CENTER);
+        row.add(toggle, BorderLayout.EAST);
+        return row;
     }
 
     /**
@@ -687,6 +873,78 @@ public final class DrawPanel extends JPanel {
     }
 
     /**
+     * Inline color preview.
+     */
+    private final class ColorPreview extends JComponent {
+
+        /**
+         * Serialization identifier for Swing component compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Creates the preview.
+         */
+        ColorPreview() {
+            setPreferredSize(new Dimension(220, COLOR_PREVIEW_HEIGHT));
+            setMinimumSize(new Dimension(120, COLOR_PREVIEW_HEIGHT));
+            setMaximumSize(new Dimension(Integer.MAX_VALUE, COLOR_PREVIEW_HEIGHT));
+            setToolTipText("Current draw color.");
+        }
+
+        /**
+         * Paints the current color and alpha sample.
+         *
+         * @param graphics graphics context
+         */
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            Graphics2D g = (Graphics2D) graphics.create();
+            try {
+                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                int width = getWidth() - 1;
+                int height = getHeight() - 1;
+                g.setColor(Theme.INPUT);
+                g.fillRoundRect(0, 0, width, height, Theme.RADIUS, Theme.RADIUS);
+                g.setColor(Theme.LINE);
+                g.drawRoundRect(0, 0, width, height, Theme.RADIUS, Theme.RADIUS);
+
+                int swatch = Math.min(COLOR_PREVIEW_SWATCH_MAX, Math.max(24, height - Theme.SPACE_MD));
+                int x = Theme.SPACE_SM;
+                int y = (height - swatch) / 2;
+                paintChecker(g, x, y, swatch, swatch);
+                g.setColor(Theme.withAlpha(baseColor, opacitySlider.getValue()));
+                g.fillRoundRect(x, y, swatch, swatch, Theme.RADIUS, Theme.RADIUS);
+                g.setColor(Theme.withAlpha(Theme.TEXT, 80));
+                g.drawRoundRect(x, y, swatch, swatch, Theme.RADIUS, Theme.RADIUS);
+
+                g.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
+                g.setColor(Theme.TEXT);
+                g.drawString("Color", x + swatch + Theme.SPACE_MD, y + 17);
+                g.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
+                g.setColor(Theme.MUTED);
+                g.drawString(colorLabel(baseColor), x + swatch + Theme.SPACE_MD, y + 36);
+            } finally {
+                g.dispose();
+            }
+        }
+
+        /**
+         * Paints a small checkerboard under translucent color samples.
+         */
+        private void paintChecker(Graphics2D g, int x, int y, int width, int height) {
+            int cell = 7;
+            for (int yy = 0; yy < height; yy += cell) {
+                for (int xx = 0; xx < width; xx += cell) {
+                    boolean light = ((xx / cell) + (yy / cell)) % 2 == 0;
+                    g.setColor(light ? Theme.PANEL_SOLID : Theme.ELEVATED_SOLID);
+                    g.fillRect(x + xx, y + yy, Math.min(cell, width - xx), Math.min(cell, height - yy));
+                }
+            }
+        }
+    }
+
+    /**
      * Stroke preview.
      */
     private final class StrokePreview extends JComponent {
@@ -700,9 +958,9 @@ public final class DrawPanel extends JPanel {
          * Creates the preview.
          */
         StrokePreview() {
-            setPreferredSize(new Dimension(220, 44));
-            setMinimumSize(new Dimension(120, 44));
-            setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
+            setPreferredSize(new Dimension(220, STROKE_PREVIEW_HEIGHT));
+            setMinimumSize(new Dimension(120, STROKE_PREVIEW_HEIGHT));
+            setMaximumSize(new Dimension(Integer.MAX_VALUE, STROKE_PREVIEW_HEIGHT));
             setToolTipText("Current stroke preview.");
         }
 
@@ -726,7 +984,15 @@ public final class DrawPanel extends JPanel {
                 int width = Math.max(3, brush.lineWidth());
                 g.setStroke(new java.awt.BasicStroke(width, java.awt.BasicStroke.CAP_ROUND,
                         java.awt.BasicStroke.JOIN_ROUND));
-                g.drawLine(Theme.SPACE_LG, y, Math.max(Theme.SPACE_LG, getWidth() - Theme.SPACE_LG), y);
+                int start = Theme.SPACE_LG;
+                int end = Math.max(start, getWidth() - Theme.SPACE_LG - 20);
+                g.drawLine(start, y, end, y);
+                java.awt.Polygon arrow = new java.awt.Polygon(
+                        new int[] { end, end - 16, end - 16 },
+                        new int[] { y, y - 9, y + 9 },
+                        3);
+                g.fillPolygon(arrow);
+                g.drawOval(Math.max(start, getWidth() - Theme.SPACE_XL), y - 9, 18, 18);
                 g.setFont(Theme.font(Theme.FONT_METADATA, Font.BOLD));
                 g.setColor(Theme.TEXT);
                 g.drawString(width + " px", Theme.SPACE_LG, Math.max(12, y - width));
@@ -759,17 +1025,18 @@ public final class DrawPanel extends JPanel {
         /**
          * Creates one swatch.
          *
-         * @param brush source preset brush
+         * @param name swatch name
+         * @param color swatch color
          * @param index swatch index
          */
-        Swatch(MarkupBrush brush, int index) {
-            color = opaque(brush.displayColor());
+        Swatch(String name, Color color, int index) {
+            this.color = opaque(color);
             this.index = index;
             Dimension size = new Dimension(SWATCH_SIZE, Theme.CONTROL_HEIGHT);
             setPreferredSize(size);
             setMinimumSize(size);
             setMaximumSize(size);
-            setToolTipText("Use " + brush.name());
+            setToolTipText("Use " + name);
             setBorder(BorderFactory.createEmptyBorder());
             addMouseListener(new java.awt.event.MouseAdapter() {
                 /**
@@ -779,7 +1046,7 @@ public final class DrawPanel extends JPanel {
                  */
                 @Override
                 public void mousePressed(java.awt.event.MouseEvent event) {
-                    selectSwatch(index, color);
+                    selectSwatch(index, Swatch.this.color);
                 }
             });
         }

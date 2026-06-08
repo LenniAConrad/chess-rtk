@@ -8,6 +8,8 @@ import java.awt.Font;
 import java.awt.Graphics2D;
 import java.awt.Insets;
 import java.awt.RenderingHints;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.AbstractButton;
@@ -117,6 +119,103 @@ public final class Theme {
     }
 
     /**
+     * UI density presets. Every workbench font is built through
+     * {@link #font(float, int)} / {@link #mono(float)} / {@link #consoleMono(float)},
+     * so a single per-density scale factor applied there rescales the whole app
+     * without touching the named {@code FONT_*} design tokens (which the UI
+     * regression test pins to fixed sizes). {@link #DENSE} is the historical
+     * default and renders at the unscaled base sizes.
+     */
+    public enum Density {
+        /**
+         * Slightly larger, more readable type and controls.
+         */
+        COMFORTABLE("comfortable", "Comfortable", 1.15f),
+
+        /**
+         * Tighter type for fitting more on screen.
+         */
+        COMPACT("compact", "Compact", 0.92f),
+
+        /**
+         * The original dense workbench scale (unchanged baseline).
+         */
+        DENSE("dense", "Dense", 1.0f);
+
+        /**
+         * Stable preference value.
+         */
+        private final String id;
+
+        /**
+         * Display label.
+         */
+        private final String label;
+
+        /**
+         * Font-size multiplier applied at the font factories.
+         */
+        private final float fontScale;
+
+        /**
+         * Creates one density preset.
+         *
+         * @param id stable preference value
+         * @param label display label
+         * @param fontScale font-size multiplier
+         */
+        Density(String id, String label, float fontScale) {
+            this.id = id;
+            this.label = label;
+            this.fontScale = fontScale;
+        }
+
+        /**
+         * Returns the stable preference value.
+         *
+         * @return preference id
+         */
+        public String id() {
+            return id;
+        }
+
+        /**
+         * Returns the display label.
+         *
+         * @return label
+         */
+        public String label() {
+            return label;
+        }
+
+        /**
+         * Returns the font-size multiplier.
+         *
+         * @return scale factor
+         */
+        public float fontScale() {
+            return fontScale;
+        }
+
+        /**
+         * Parses a persisted density preset.
+         *
+         * @param value stored value
+         * @return parsed density, defaulting to {@link #DENSE}
+         */
+        public static Density fromPreference(String value) {
+            if (value != null) {
+                for (Density candidate : values()) {
+                    if (candidate.id.equalsIgnoreCase(value) || candidate.name().equalsIgnoreCase(value)) {
+                        return candidate;
+                    }
+                }
+            }
+            return DENSE;
+        }
+    }
+
+    /**
      * Semantic foreground roles that can be refreshed after palette changes.
      */
     public enum ForegroundRole {
@@ -186,6 +285,27 @@ public final class Theme {
      * Active color mode.
      */
     private static Mode mode = Mode.LIGHT;
+
+    /**
+     * Active UI density. Defaults to {@link Density#DENSE} so the baseline look
+     * is unchanged until a user opts into a roomier scale.
+     */
+    private static Density density = Density.DENSE;
+
+    /**
+     * Cached UI fonts keyed by style and density-scaled point size.
+     */
+    private static final Map<Long, Font> UI_FONT_CACHE = new HashMap<>();
+
+    /**
+     * Cached monospace fonts keyed by density-scaled point size.
+     */
+    private static final Map<Long, Font> MONO_FONT_CACHE = new HashMap<>();
+
+    /**
+     * Cached console monospace fonts keyed by density-scaled point size.
+     */
+    private static final Map<Long, Font> CONSOLE_FONT_CACHE = new HashMap<>();
 
     /**
      * Client property for empty text-control placeholder copy.
@@ -1252,6 +1372,35 @@ public final class Theme {
     }
 
     /**
+     * Returns the active UI density.
+     *
+     * @return active density
+     */
+    public static Density density() {
+        return density;
+    }
+
+    /**
+     * Switches the active UI density. Callers that want existing realized
+     * components to follow the new scale should rescale their live component
+     * trees with {@link #rescaleFonts(Component, double)} using the ratio
+     * returned here, then revalidate.
+     *
+     * @param value requested density
+     * @return the font-scale ratio from the previous density to the new one
+     *         (1.0 when unchanged), suitable for {@link #rescaleFonts}
+     */
+    public static double setDensity(Density value) {
+        Density next = value == null ? Density.DENSE : value;
+        double ratio = next.fontScale() / density.fontScale();
+        if (next != density) {
+            density = next;
+            clearFontCaches();
+        }
+        return ratio;
+    }
+
+    /**
      * Switches the active color mode.
      *
      * @param value requested mode
@@ -2220,7 +2369,7 @@ public final class Theme {
      * @return font
      */
     public static Font font(float size, int style) {
-        return new Font(UI_FONT_FAMILY, style, Math.round(size));
+        return cachedFont(UI_FONT_CACHE, UI_FONT_FAMILY, style, scaledSize(size));
     }
 
     /**
@@ -2230,7 +2379,7 @@ public final class Theme {
      * @return font
      */
     public static Font mono(float size) {
-        return new Font(MONO_FONT_FAMILY, Font.PLAIN, Math.round(size));
+        return cachedFont(MONO_FONT_CACHE, MONO_FONT_FAMILY, Font.PLAIN, scaledSize(size));
     }
 
     /**
@@ -2241,7 +2390,124 @@ public final class Theme {
      * @return console monospaced font
      */
     public static Font consoleMono(float size) {
-        return new Font(CONSOLE_FONT_FAMILY, Font.PLAIN, Math.round(size));
+        return cachedFont(CONSOLE_FONT_CACHE, CONSOLE_FONT_FAMILY, Font.PLAIN, scaledSize(size));
+    }
+
+    /**
+     * Returns a cached immutable font instance.
+     *
+     * @param cache target cache
+     * @param family font family
+     * @param style font style
+     * @param size scaled point size
+     * @return cached font
+     */
+    private static Font cachedFont(Map<Long, Font> cache, String family, int style, int size) {
+        Long key = fontCacheKey(style, size);
+        synchronized (cache) {
+            Font existing = cache.get(key);
+            if (existing != null) {
+                return existing;
+            }
+            Font created = new Font(family, style, size);
+            cache.put(key, created);
+            return created;
+        }
+    }
+
+    /**
+     * Returns the cache key for one style/size pair.
+     *
+     * @param style font style
+     * @param size scaled point size
+     * @return cache key
+     */
+    private static Long fontCacheKey(int style, int size) {
+        return Long.valueOf((((long) style) << Integer.SIZE) ^ (size & 0xffff_ffffL));
+    }
+
+    /**
+     * Clears cached fonts after a density-scale change.
+     */
+    private static void clearFontCaches() {
+        clearFontCache(UI_FONT_CACHE);
+        clearFontCache(MONO_FONT_CACHE);
+        clearFontCache(CONSOLE_FONT_CACHE);
+    }
+
+    /**
+     * Clears one synchronized font cache.
+     *
+     * @param cache cache to clear
+     */
+    private static void clearFontCache(Map<Long, Font> cache) {
+        synchronized (cache) {
+            cache.clear();
+        }
+    }
+
+    /**
+     * Applies the active {@link Density} scale to a base font size and rounds to
+     * a whole point size (clamped to a readable minimum).
+     *
+     * @param size unscaled base size
+     * @return density-scaled, rounded point size
+     */
+    private static int scaledSize(float size) {
+        return Math.max(7, Math.round(size * density.fontScale()));
+    }
+
+    /**
+     * Scales a fixed pixel dimension by the active {@link Density} so chrome that
+     * sits beside scaled text (decorative marks, min-heights, struts) keeps its
+     * proportions at non-default densities.
+     *
+     * @param px base pixel size
+     * @return density-scaled pixel size
+     */
+    public static int scaledPx(int px) {
+        return Math.round(px * density.fontScale());
+    }
+
+    /**
+     * Re-seeds the UIManager font defaults at the active density. Lighter than a
+     * full {@link #install()} for a density change: only later-created Swing
+     * components need the refreshed defaults, since live components are rescaled
+     * directly by {@link #rescaleFonts(Component, double)}.
+     */
+    public static void refreshFontDefaults() {
+        installFontDefaults();
+    }
+
+    /**
+     * Rescales the fonts of an existing component tree by a fixed ratio. Used
+     * when switching {@link Density} at runtime so already-realized components
+     * follow the new scale; the ratio is the value returned by
+     * {@link #setDensity(Density)}. Custom-painted text that reads
+     * {@link #font(float, int)} at paint time picks up the new scale on its own,
+     * so this only needs to touch the per-component font Swing stores.
+     *
+     * @param component root component (may be null)
+     * @param ratio multiplier from the previous scale to the new one
+     */
+    public static void rescaleFonts(Component component, double ratio) {
+        if (component == null || ratio <= 0 || ratio == 1.0) {
+            return;
+        }
+        Font current = component.getFont();
+        if (current != null) {
+            // Round to a whole point size so a rescaled component stays close to
+            // what the font() factory would build fresh at the new density
+            // (within ~1pt across repeated toggles) instead of accumulating
+            // unbounded fractional drift.
+            int next = Math.max(7, Math.round((float) (current.getSize2D() * ratio)));
+            component.setFont(current.deriveFont((float) next));
+        }
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                rescaleFonts(child, ratio);
+            }
+        }
     }
 
     /**

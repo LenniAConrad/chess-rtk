@@ -639,7 +639,7 @@ public final class CommandForm extends JPanel {
         }
 
         boolean hasDetail = members.stream().anyMatch(CommandForm::needsValueEditor);
-        int detailIndent = optionalSection ? 0 : LEAD_WIDTH + Theme.SPACE_MD;
+        int detailIndent = optionalSection || hasCurrentFenEditor(block) ? 0 : LEAD_WIDTH + Theme.SPACE_MD;
         java.awt.CardLayout cards = new java.awt.CardLayout();
         JPanel detail = new JPanel(cards);
         detail.setOpaque(false);
@@ -735,6 +735,23 @@ public final class CommandForm extends JPanel {
     }
 
     /**
+     * Returns whether a group contains the long current-FEN editor. FEN values
+     * need the whole detail row; indenting them under the selector clips the
+     * field inside the Run settings card.
+     *
+     * @param block option group
+     * @return true when one member edits the current FEN value
+     */
+    private static boolean hasCurrentFenEditor(Block block) {
+        for (Field field : block.members()) {
+            if (needsValueEditor(field) && field.option.source() == ValueSource.CURRENT_FEN) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Creates a transparent horizontal row aligned for option-form content.
      *
      * @return horizontal option row
@@ -816,6 +833,9 @@ public final class CommandForm extends JPanel {
         JPanel row = horizontalOptionRow();
         applyOptionTooltip(row, field.option);
         lead.setAlignmentY(CENTER_ALIGNMENT);
+        Dimension leadSize = lead.getPreferredSize();
+        lead.setMinimumSize(new Dimension(leadSize));
+        lead.setMaximumSize(new Dimension(leadSize));
         row.add(lead);
         if (needsValueEditor(field)) {
             row.add(Box.createHorizontalStrut(CELL_GAP));

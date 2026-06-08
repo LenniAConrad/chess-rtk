@@ -57,6 +57,11 @@ public final class ChipGroup extends JComponent {
     private final int[] chipW;
 
     /**
+     * Total preferred width from the last chip layout pass.
+     */
+    private final int preferredWidth;
+
+    /**
      * Selected chip index.
      */
     private int selected;
@@ -101,16 +106,17 @@ public final class ChipGroup extends JComponent {
     /**
      * Creates a chip group.
      *
-     * @param labels chip labels (at least one)
+     * @param labels chip labels
      */
     public ChipGroup(List<String> labels) {
-        this.labels = List.copyOf(labels);
+        this.labels = labels == null ? List.of() : List.copyOf(labels);
         this.chipX = new int[this.labels.size()];
         this.chipW = new int[this.labels.size()];
+        selected = this.labels.isEmpty() ? -1 : 0;
         setOpaque(false);
-        layoutChips();
-        indicatorX = chipX[0];
-        indicatorW = chipW[0];
+        preferredWidth = layoutChips();
+        indicatorX = this.labels.isEmpty() ? 0 : chipX[0];
+        indicatorW = this.labels.isEmpty() ? 0 : chipW[0];
         animator = new Timer(16, event -> tick());
         animator.setCoalesce(true);
         addMouseListener(new MouseAdapter() {
@@ -180,6 +186,10 @@ public final class ChipGroup extends JComponent {
      * Advances the slide animation.
      */
     private void tick() {
+        if (selected < 0 || selected >= labels.size()) {
+            animator.stop();
+            return;
+        }
         double progress = Math.min(1.0,
                 (System.currentTimeMillis() - animationStart) / (double) ANIMATION_MS);
         double eased = progress < 0.5
@@ -198,7 +208,7 @@ public final class ChipGroup extends JComponent {
     /**
      * Computes per-chip bounds from the label widths.
      */
-    private void layoutChips() {
+    private int layoutChips() {
         FontMetrics fm = getFontMetrics(Theme.font(12, Font.BOLD));
         int x = 0;
         for (int i = 0; i < labels.size(); i++) {
@@ -206,6 +216,7 @@ public final class ChipGroup extends JComponent {
             chipX[i] = x;
             x += chipW[i];
         }
+        return x;
     }
 
     /**
@@ -228,8 +239,7 @@ public final class ChipGroup extends JComponent {
      */
     @Override
     public Dimension getPreferredSize() {
-        int width = chipX[labels.size() - 1] + chipW[labels.size() - 1];
-    return new Dimension(width, HEIGHT);
+        return new Dimension(preferredWidth, HEIGHT);
     }
 
     /**
@@ -237,7 +247,7 @@ public final class ChipGroup extends JComponent {
      */
     @Override
     public Dimension getMinimumSize() {
-    return getPreferredSize();
+        return getPreferredSize();
     }
 
     /**
@@ -245,7 +255,7 @@ public final class ChipGroup extends JComponent {
      */
     @Override
     public Dimension getMaximumSize() {
-    return getPreferredSize();
+        return getPreferredSize();
     }
 
     /**
@@ -255,10 +265,13 @@ public final class ChipGroup extends JComponent {
     protected void paintComponent(Graphics graphics) {
         Graphics2D g = (Graphics2D) graphics.create();
         try {
+            if (labels.isEmpty()) {
+                return;
+            }
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
                     RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-            int w = getPreferredSize().width;
+            int w = preferredWidth;
             int h = HEIGHT;
             // VS Code-style segmented input: white field, hairline border,
             // and a pale active option instead of a saturated pill.

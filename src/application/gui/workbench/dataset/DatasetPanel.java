@@ -640,27 +640,33 @@ public final class DatasetPanel extends JPanel {
      * @return body component
      */
     private JComponent createBody() {
-        JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, createOverview(), createTables());
-        // Give the sample / issue tables a roughly equal share with the charts and
-        // hand them half of any extra height, so inspecting rows is not squeezed
-        // into a thin strip under the overview.
-        split.setResizeWeight(0.5d);
-        SplitPaneStyler.style(split);
-        // setDividerLocation(double) is ignored until the split has a real height,
-        // so place it 50/50 on the first sizing pass, then leave it to the user.
-        split.addComponentListener(new java.awt.event.ComponentAdapter() {
+        JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, createOverview(), createTables()) {
+            /**
+             * Serialization identifier for Swing component compatibility.
+             */
+            private static final long serialVersionUID = 1L;
+
+            /**
+             * Whether the initial proportional divider was applied.
+             */
+            private boolean dividerPlaced;
+
             /**
              * {@inheritDoc}
              */
             @Override
-            public void componentResized(java.awt.event.ComponentEvent event) {
-                if (split.getHeight() > 0) {
-                    split.removeComponentListener(this);
-                    split.setDividerLocation(0.5d);
+            public void doLayout() {
+                if (!dividerPlaced && getHeight() > 0) {
+                    dividerPlaced = true;
+                    setDividerLocation(Math.max(300, (int) Math.round(getHeight() * 0.54d)));
                 }
+                super.doLayout();
             }
-        });
-
+        };
+        // Give the overview enough height to show the primary chart rows on
+        // common laptop widths while still leaving the row inspector usable.
+        split.setResizeWeight(0.54d);
+        SplitPaneStyler.style(split);
         // Show a focused welcome hero until a dataset is scanned, so the tab is
         // not a wall of repeated "No dataset loaded" placeholders; reveal the
         // full analytics once there are rows.
@@ -761,11 +767,9 @@ public final class DatasetPanel extends JPanel {
      * @return hero component
      */
     private JComponent createEmptyHero() {
-        JButton browse = button("Browse…", true, event -> chooseDatasetPath());
         return application.gui.workbench.ui.Ui.emptyState("Profile a dataset",
                 "Choose a .pgn or .jsonl file — or a directory — then Analyze to chart validity, "
-                        + "tags, score bands, and material across every position.",
-                browse);
+                        + "tags, score bands, and material across every position.");
     }
 
     /**
@@ -808,7 +812,7 @@ public final class DatasetPanel extends JPanel {
         // minimum column keeps them in several columns (rather than collapsing to
         // one tall stack) as the panel narrows, so they "extend" like the tiles.
         application.gui.workbench.ui.CardGrid charts =
-                new application.gui.workbench.ui.CardGrid(270, Theme.SPACE_LG);
+                new application.gui.workbench.ui.CardGrid(240, Theme.SPACE_MD);
         charts.add(card("Dataset Health", qualityChart));
         charts.add(card("Side Balance", sideChart));
         charts.add(card("Position Mix", positionMixChart));
@@ -831,7 +835,7 @@ public final class DatasetPanel extends JPanel {
         // windows instead of being squeezed thin in a fixed 1x7 row. Same gap as
         // the chart grid below so the whole overview shares one rhythm.
         application.gui.workbench.ui.CardGrid metrics =
-                new application.gui.workbench.ui.CardGrid(150, Theme.SPACE_LG);
+                new application.gui.workbench.ui.CardGrid(132, Theme.SPACE_MD);
         metrics.add(filesMetric);
         metrics.add(rowsMetric);
         metrics.add(validMetric);
@@ -896,15 +900,15 @@ public final class DatasetPanel extends JPanel {
      * @return inspector component
      */
     private JComponent createRowInspector() {
-        inspectorBoard.setPreferredSize(new Dimension(180, 180));
-        inspectorBoard.setMinimumSize(new Dimension(132, 132));
+        inspectorBoard.setPreferredSize(new Dimension(156, 156));
+        inspectorBoard.setMinimumSize(new Dimension(120, 120));
         inspectorBoard.setPositionInstant(new Position(Setup.getStandardStartFEN()), Move.NO_MOVE);
         Theme.codeBlock(inspectorFenArea);
         inspectorFenArea.setEditable(false);
         inspectorFenArea.setFocusable(true);
         inspectorFenArea.setLineWrap(true);
         inspectorFenArea.setWrapStyleWord(true);
-        inspectorFenArea.setRows(4);
+        inspectorFenArea.setRows(2);
         inspectorFenArea.setText("Select a dataset row.");
 
         JPanel details = transparentPanel(new java.awt.GridLayout(0, 2, Theme.SPACE_MD, Theme.SPACE_XS));
@@ -1119,17 +1123,17 @@ public final class DatasetPanel extends JPanel {
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.setAutoResizeMode(JTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS);
         TableColumnModel columns = table.getColumnModel();
-        setColumnWidth(columns, 0, 120);
-        setColumnWidth(columns, 1, 64);
-        setColumnWidth(columns, 2, 70);
-        setColumnWidth(columns, 3, 70);
-        setColumnWidth(columns, 4, 82);
-        setColumnWidth(columns, 5, 150);
-        setColumnWidth(columns, 6, 420);
+        setColumnWidth(columns, 0, 96);
+        setColumnWidth(columns, 1, 48);
+        setColumnWidth(columns, 2, 58);
+        setColumnWidth(columns, 3, 58);
+        setColumnWidth(columns, 4, 70);
+        setColumnWidth(columns, 5, 112);
+        setColumnWidth(columns, 6, 300);
         columns.getColumn(5).setCellRenderer(new ChipCellRenderer());
         columns.getColumn(6).setCellRenderer(new FenCellRenderer());
         if (columns.getColumnCount() > 7) {
-            setColumnWidth(columns, 7, 170);
+            setColumnWidth(columns, 7, 140);
             columns.getColumn(7).setCellRenderer(new FenCellRenderer());
         }
     }
@@ -1250,6 +1254,7 @@ public final class DatasetPanel extends JPanel {
         sampleModel.setRows(summary.samples());
         issueModel.setRows(summary.issues());
         copyReportButton.setEnabled(hasReport());
+        setStatus(datasetStatus(), datasetStatusRole());
         workspaceHeader.setContext(datasetContext());
         updateBodyState();
     }
@@ -1463,6 +1468,31 @@ public final class DatasetPanel extends JPanel {
                     + percent(1.0d - summary.duplicateRatio()) + " unique";
         }
         return "No dataset loaded · row limit " + cleanRowLimitText();
+    }
+
+    /**
+     * Returns the toolbar status line for the current dataset state.
+     *
+     * @return status text
+     */
+    private String datasetStatus() {
+        if (summary.rows() <= 0L) {
+            return "No dataset loaded";
+        }
+        return sourceName() + " loaded · " + format(summary.rows()) + " rows · "
+                + percent(summary.validRatio()) + " valid";
+    }
+
+    /**
+     * Returns the role for the toolbar status line.
+     *
+     * @return status foreground role
+     */
+    private Theme.ForegroundRole datasetStatusRole() {
+        if (summary.rows() <= 0L) {
+            return Theme.ForegroundRole.MUTED;
+        }
+        return summary.invalidRows() == 0L ? Theme.ForegroundRole.SUCCESS : Theme.ForegroundRole.WARNING;
     }
 
     /**
@@ -1808,7 +1838,7 @@ public final class DatasetPanel extends JPanel {
         @Override
         public Dimension getPreferredSize() {
             Dimension base = super.getPreferredSize();
-            return new Dimension(Math.max(132, base.width), Math.max(78, base.height));
+            return new Dimension(Math.max(118, base.width), Math.max(74, base.height));
         }
 
         /**
@@ -1900,7 +1930,7 @@ public final class DatasetPanel extends JPanel {
                 boolean focused, int row, int column) {
             Component component = super.getTableCellRendererComponent(table, value, selected, focused, row, column);
             String text = value == null ? "" : value.toString();
-            setText(compactText(text, 96));
+            setText(compactText(text, 64));
             setToolTipText(text.isBlank() ? null : text);
             setFont(Theme.mono(12));
             if (!selected) {

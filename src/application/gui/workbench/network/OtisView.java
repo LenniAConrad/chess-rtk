@@ -31,7 +31,7 @@ public final class OtisView extends NetworkView {
      */
     @Override
     protected String emptyStateTitle() {
-        return "Loading OTIS snapshot\u2026";
+        return "No OTIS snapshot yet";
     }
 
     /**

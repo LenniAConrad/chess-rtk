@@ -199,9 +199,9 @@ public final class PlayPanel extends JPanel {
     private JComponent statusRow;
 
     /**
-     * Advanced preset note shown while a named one-tap opponent is selected.
+     * Advanced engine settings section, shown only for the Custom opponent.
      */
-    private JComponent presetAdvancedNote;
+    private JComponent advancedEngineSection;
 
     /**
      * Selectable preset-bot toggles (one per {@link #BOTS} entry), plus a
@@ -253,24 +253,9 @@ public final class PlayPanel extends JPanel {
     private final JLabel opponentMaterialLabel = new JLabel();
 
     /**
-     * Selected-opponent strength summary.
+     * Compact selected-opponent backend summary.
      */
-    private final JLabel opponentStrengthValue = metricValue();
-
-    /**
-     * Selected-opponent search summary.
-     */
-    private final JLabel opponentSearchValue = metricValue();
-
-    /**
-     * Selected-opponent evaluation/network summary.
-     */
-    private final JLabel opponentEvalValue = metricValue();
-
-    /**
-     * Selected-opponent deterministic/opening behavior summary.
-     */
-    private final JLabel opponentModeValue = metricValue();
+    private final JLabel opponentSummaryLabel = new JLabel();
 
     /**
      * One-line description for the selected opponent.
@@ -581,19 +566,16 @@ public final class PlayPanel extends JPanel {
         opponentDescriptionLabel.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
         opponentDescriptionLabel.setForeground(Theme.MUTED);
         opponentDescriptionLabel.setBorder(Theme.pad(Theme.SPACE_SM, 0, 0, 0));
+        opponentSummaryLabel.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
+        opponentSummaryLabel.setForeground(Theme.TEXT);
+        opponentSummaryLabel.setBorder(Theme.pad(Theme.SPACE_XS, 0, 0, 0));
 
         networkNote.setFont(Theme.font(Theme.FONT_METADATA, Font.BOLD));
         networkNote.setForeground(Theme.STATUS_WARNING_TEXT);
         networkNote.setVisible(false);
 
-        JPanel metrics = metricGrid(2);
-        metrics.add(metricTile("Strength", opponentStrengthValue));
-        metrics.add(metricTile("Search", opponentSearchValue));
-        metrics.add(metricTile("Eval / Network", opponentEvalValue));
-        metrics.add(metricTile("Mode", opponentModeValue));
-
         JPanel summary = verticalPanel();
-        summary.add(metrics);
+        summary.add(opponentSummaryLabel);
         summary.add(opponentDescriptionLabel);
         summary.add(networkNote);
         return summary;
@@ -673,29 +655,14 @@ public final class PlayPanel extends JPanel {
      * @return advanced engine settings section
      */
     private JComponent buildAdvancedEngineSection() {
-        presetAdvancedNote = advancedPresetNote();
         customCard = buildCustomControls();
         customCard.setVisible(false);
 
         JPanel body = verticalPanel();
-        body.add(presetAdvancedNote);
         body.add(customCard);
-        return Ui.card("Advanced Engine Settings", body);
-    }
-
-    /**
-     * Builds the compact note shown for named presets instead of dumping all
-     * custom engine controls into the default path.
-     *
-     * @return preset note
-     */
-    private JComponent advancedPresetNote() {
-        JLabel text = new JLabel("<html>Preset opponents use the stable local Alpha-Beta / Classical path. "
-                + "Select Custom to edit search, eval/network, strength, deterministic play, and opening behavior.</html>");
-        text.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
-        text.setForeground(Theme.MUTED);
-        text.setBorder(Theme.pad(Theme.SPACE_XS, 0, Theme.SPACE_XS, 0));
-        return text;
+        advancedEngineSection = Ui.card("Advanced Engine Settings", body);
+        advancedEngineSection.setVisible(false);
+        return advancedEngineSection;
     }
 
     /**
@@ -921,10 +888,9 @@ public final class PlayPanel extends JPanel {
         Bot bot = selectedBot();
         int elo = eloSlider.getValue();
         Opponent.Network network = selectedNetwork();
-        opponentStrengthValue.setText(elo + " · " + tier(elo));
-        opponentSearchValue.setText(selectedSearch().label());
-        opponentEvalValue.setText(network.label() + (Networks.isAvailable(network) ? "" : " missing"));
-        opponentModeValue.setText((deterministicToggle.isSelected() ? "Deterministic" : "Sampled")
+        opponentSummaryLabel.setText(elo + " · " + tier(elo) + " · " + selectedSearch().label()
+                + " / " + network.label()
+                + " · " + (deterministicToggle.isSelected() ? "Deterministic" : "Sampled")
                 + " · " + (openingBookToggle.isSelected() ? "Book on" : "Book off"));
         opponentDescriptionLabel.setText(opponentDescription(bot));
     }
@@ -1243,8 +1209,8 @@ public final class PlayPanel extends JPanel {
         if (customCard != null && customCard.isVisible() != visible) {
             customCard.setVisible(visible);
         }
-        if (presetAdvancedNote != null) {
-            presetAdvancedNote.setVisible(!visible);
+        if (advancedEngineSection != null && advancedEngineSection.isVisible() != visible) {
+            advancedEngineSection.setVisible(visible);
         }
         revalidate();
         repaint();

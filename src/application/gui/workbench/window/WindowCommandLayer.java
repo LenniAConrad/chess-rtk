@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
+import javax.swing.JComponent;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 
@@ -441,6 +442,14 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
         if (runStopButton != null) {
             runStopButton.setVisible(running);
             runStopButton.setEnabled(running);
+        }
+        for (JComponent button : commandStopButtons) {
+            button.setVisible(running);
+            button.setEnabled(running);
+            if (button.getParent() != null) {
+                button.getParent().revalidate();
+                button.getParent().repaint();
+            }
         }
         if (runCommandButton != null) {
             runCommandButton.setEnabled(commandFormRunnable && !running);

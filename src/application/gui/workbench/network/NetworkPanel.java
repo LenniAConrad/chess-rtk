@@ -510,16 +510,27 @@ public final class NetworkPanel extends JPanel {
     }
 
     /**
-     * Creates the network panel.
+     * Creates a standalone network panel with its own header.
      */
     public NetworkPanel() {
+        this(true);
+    }
+
+    /**
+     * Creates the network panel.
+     *
+     * @param showWorkspaceHeader true to show the standalone Engine Lab header
+     */
+    public NetworkPanel(boolean showWorkspaceHeader) {
         super(new BorderLayout());
         setOpaque(true);
         setBackground(Theme.BG);
         setBorder(Theme.pad(Theme.SPACE_SM));
-        JPanel north = new JPanel(new BorderLayout(0, 0));
+        JPanel north = new JPanel(new BorderLayout(0, showWorkspaceHeader ? Theme.SPACE_SM : 0));
         north.setOpaque(false);
-        north.add(workspaceHeader, BorderLayout.NORTH);
+        if (showWorkspaceHeader) {
+            north.add(workspaceHeader, BorderLayout.NORTH);
+        }
         north.add(buildToolbar(), BorderLayout.SOUTH);
         add(north, BorderLayout.NORTH);
         cardPanel.setOpaque(true);
@@ -557,7 +568,7 @@ public final class NetworkPanel extends JPanel {
         JPanel lowerDiagnostics = Ui.transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
         lowerDiagnostics.add(buildMctsToolbar(), BorderLayout.NORTH);
         lowerDiagnostics.add(mctsWeightsSection, BorderLayout.CENTER);
-        center.add(lowerDiagnostics, BorderLayout.SOUTH);
+        center.add(Ui.collapsible("PUCT probe", lowerDiagnostics, false), BorderLayout.SOUTH);
         add(center, BorderLayout.CENTER);
         archCombo.addActionListener(event -> onArchitectureChanged());
         positionCombo.addActionListener(event -> onPositionPicked());

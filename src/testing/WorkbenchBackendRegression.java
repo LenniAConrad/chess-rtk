@@ -1529,7 +1529,7 @@ final class WorkbenchBackendRegression {
         int[] visibleFeatures = (int[]) field(view, "visibleFeatures");
         assertEquals(Integer.valueOf(35), Integer.valueOf(visibleSlots[0]),
                 "Trace slot ranking uses combined contribution");
-        assertEquals(Integer.valueOf(32), Integer.valueOf(visibleSlots.length),
+        assertEquals(Integer.valueOf(16), Integer.valueOf(visibleSlots.length),
                 "Trace keeps top accumulator slots focused");
         assertEquals(Integer.valueOf(features), Integer.valueOf(visibleFeatures.length),
                 "Trace shows every active feature");

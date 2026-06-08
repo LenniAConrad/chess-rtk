@@ -52,9 +52,10 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
 
     /**
      * Maximum accumulator slots drawn in Trace mode. Trace is an instructional
-     * path view; dense all-slot data remains available in All mode.
+     * path view that shows only the strongest-magnitude slots so the wiring
+     * reads clearly; the dense all-slot diagram remains available in All mode.
      */
-    protected static final int TRACE_MAX_VISIBLE_SLOTS = 32;
+    protected static final int TRACE_MAX_VISIBLE_SLOTS = 16;
 
     /**
      * Fixed feature lanes in Trace mode. A legal position has at most 30
@@ -607,7 +608,7 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
      */
     @Override
     protected String emptyStateTitle() {
-        return "Loading NNUE snapshot\u2026";
+        return "No NNUE snapshot yet";
     }
 
     /**

@@ -81,7 +81,7 @@ final class UiLayout {
      * @return viewport-filling wrapper
      */
     static JComponent fillViewport(JComponent content) {
-        JPanel wrapper = new ViewportFillPanel(new BorderLayout());
+        JPanel wrapper = new ViewportPanel(new BorderLayout());
         wrapper.add(content, BorderLayout.CENTER);
         return wrapper;
     }

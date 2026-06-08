@@ -661,6 +661,9 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
         addRecentRunCommand(display);
         runRawOutput.clearOutput();
         runRawOutput.appendOutput("$ " + display + "\n");
+        // The raw-output section is collapsed by default; reveal it now so the
+        // live stream the message points at is actually visible.
+        Ui.setCollapsibleExpanded(runRawOutputSection, true);
         runParsedOutput.setText("Command running...\nRaw output is streaming below.");
         runParsedOutput.setCaretPosition(0);
     }

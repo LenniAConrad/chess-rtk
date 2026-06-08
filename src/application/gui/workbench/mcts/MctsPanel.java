@@ -16,6 +16,7 @@ import application.gui.workbench.ui.WrappingFlowLayout;
 import chess.core.Move;
 import chess.struct.Game;
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -155,18 +156,20 @@ public final class MctsPanel extends JPanel implements MctsSession.Listener {
     private final JTable rootTable = new JTable(rootModel);
 
     /**
-     * Container for the root-move table. The table (with its column headers) is
-     * always shown so the pane reads as "results land here", rather than a large
-     * blank void behind a centered placeholder; a slim hint sits above it until a
-     * search streams moves.
+     * Card container for the root-move table and its centered idle state.
      */
-    private final JPanel rootTableArea = new JPanel(new BorderLayout(0, Theme.SPACE_SM));
+    private final JPanel rootTableArea = new JPanel(new CardLayout());
 
     /**
-     * One-line hint shown above the empty root table until a search runs.
+     * Table content shown after the first root rows arrive.
      */
-    private final JLabel rootEmptyHint =
-            Ui.caption("No search yet — press Start to stream root moves and PUCT scores.");
+    private final JPanel rootTableContent = new JPanel(new BorderLayout(0, Theme.SPACE_SM));
+
+    /**
+     * Idle state shown before a search streams root rows.
+     */
+    private final JComponent rootEmptyState =
+            Ui.emptyState("No search yet", "Press Start to stream root moves and PUCT scores.");
 
     /**
      * Selected-node detail area.
@@ -332,14 +335,13 @@ public final class MctsPanel extends JPanel implements MctsSession.Listener {
      */
     private JComponent buildBody() {
         JScrollPane tableScroll = Ui.scroll(rootTable);
-        // Always show the table (its headers + empty body fill the pane via
-        // setFillsViewportHeight); a slim hint above it covers discoverability
-        // until a search streams root moves, instead of a full-pane placeholder.
         rootTableArea.setOpaque(true);
         rootTableArea.setBackground(Theme.PANEL_SOLID);
-        rootEmptyHint.setBorder(Theme.pad(0, Theme.SPACE_XS, 0, 0));
-        rootTableArea.add(rootEmptyHint, BorderLayout.NORTH);
-        rootTableArea.add(tableScroll, BorderLayout.CENTER);
+        rootTableContent.setOpaque(true);
+        rootTableContent.setBackground(Theme.PANEL_SOLID);
+        rootTableContent.add(tableScroll, BorderLayout.CENTER);
+        rootTableArea.add(rootEmptyState, "empty");
+        rootTableArea.add(rootTableContent, "table");
         rootTableArea.setPreferredSize(new Dimension(740, 260));
         updateRootEmptyState();
 
@@ -362,7 +364,8 @@ public final class MctsPanel extends JPanel implements MctsSession.Listener {
      * Shows the root table when it has rows, otherwise the empty-state.
      */
     private void updateRootEmptyState() {
-        rootEmptyHint.setVisible(rootModel.getRowCount() == 0);
+        ((CardLayout) rootTableArea.getLayout()).show(rootTableArea,
+                rootModel.getRowCount() == 0 ? "empty" : "table");
     }
 
     /**

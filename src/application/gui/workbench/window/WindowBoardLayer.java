@@ -59,6 +59,7 @@ import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JSlider;
 import javax.swing.JSplitPane;
+import javax.swing.SwingUtilities;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.ListSelectionModel;
@@ -167,11 +168,6 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     private final JLabel analysisSamplesValue = metricValue();
 
     /**
-     * Board / Analyze stop button shown only while a foreground command runs.
-     */
-    private HoldButton analyzeStopButton;
-
-    /**
      * ECO explorer panel, created lazily with the board detail tabs.
      */
     protected EcoExplorerPanel ecoExplorerPanel;
@@ -235,6 +231,13 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     private transient application.gui.workbench.relations.RelationsPanel relationsControls;
 
     /**
+     * Scroll pane for the Relations rail, reset when the mode activates so the
+     * rail never opens mid-list after reused viewport state or automated capture
+     * scroll events.
+     */
+    private transient JScrollPane relationsRailScroll;
+
+    /**
      * Draw control rail, retained so the workspace header can reflect annotation
      * counts.
      */
@@ -245,6 +248,12 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * selection in step when the set changes.
      */
     private transient application.gui.workbench.ui.ChipGroup pieceSetChips;
+
+    /**
+     * The collapsed-by-default "Raw Output / Log" section on the Run surface,
+     * retained so a run can expand it when live process output starts streaming.
+     */
+    protected transient JComponent runRawOutputSection;
 
     /**
      * Creates the unified Board surface: one workspace hosting the Analyze,
@@ -303,6 +312,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
             slot.revalidate();
             slot.repaint();
         }
+        board.setEvalBar(mode == BOARD_DRAW ? null : evalBar);
         if (mode == BOARD_RELATIONS) {
             // A visualization, not an editor: dragging is disabled and the
             // current position's relation channels are drawn onto the board.
@@ -314,6 +324,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                 relationsControls.activateBoardInteractions();
                 relationsControls.syncToBoard();
             }
+            scrollRelationsRailToTop();
         } else if (mode == BOARD_DRAW) {
             if (relationsControls != null) {
                 relationsControls.deactivateBoardInteractions();
@@ -592,10 +603,10 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
 
         JSplitPane boardPage = SplitPaneStyler.styledHorizontalSplit(analyzeBoardSlot, side, 0.70);
 
-        analysisTabs = createSectionTabs();
-        analysisTabs.addTab("Board", boardPage);
-        analysisTabs.addTab("Game", createGameSection());
-        return analysisTabs;
+        analysisCards = transparentPanel(new CardLayout());
+        analysisCards.add(boardPage, ANALYZE_CARD_BOARD);
+        analysisCards.add(createGameSection(), ANALYZE_CARD_GAME);
+        return analysisCards;
     }
 
     /**
@@ -607,8 +618,6 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         JPanel stack = transparentPanel(null);
         stack.setLayout(new BoxLayout(stack, BoxLayout.Y_AXIS));
         stack.add(createPositionControls());
-        stack.add(Box.createVerticalStrut(Theme.SPACE_MD));
-        stack.add(createAnalyzeFeatureShortcuts());
         stack.add(Box.createVerticalStrut(Theme.SPACE_MD));
         stack.add(createAnalysisControls());
         stack.add(Box.createVerticalStrut(Theme.SPACE_MD));
@@ -711,14 +720,16 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                 }),
                 button("Open PGN", false, event -> showPgnExplorer()),
                 createExportBoardButton()));
+        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        body.add(createAnalyzeFeatureShortcuts());
         refreshAnalyzeInspector();
         return Ui.card("Position", body);
     }
 
     /**
-     * Creates explicit shortcuts for the analysis features that live in the
-     * side-rail detail tabs. Without these buttons, the tools exist but are easy
-     * to miss behind the compact tab strip.
+     * Creates compact shortcuts for the analysis features that live in the
+     * side-rail detail tabs. Keeping them in the Position card avoids a separate
+     * rail card on small windows.
      *
      * @return shortcut row
      */
@@ -739,7 +750,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         row.add(endgame);
         row.add(study);
         row.add(gauntlet);
-        return Ui.card("Tools", row);
+        return row;
     }
 
     /**
@@ -943,17 +954,6 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
 
         panel.add(settings);
         panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
-        panel.add(statusLabel);
-        panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
-
-        analyzeStopButton = new HoldButton("Stop", this::stopCommand, true);
-        analyzeStopButton.setToolTipText("Stop the running command");
-        panel.add(controlRow(FlowLayout.LEFT,
-                button("Analyze", true, event -> runAnalyze()),
-                button("Search", false, event -> runBuiltInSearch()),
-                button("Best move", false, event -> runBestMove()),
-                analyzeStopButton));
-        panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
         panel.add(collapsible("Advanced / raw command settings", createAdvancedAnalysisControls(), false));
         refreshAnalysisCommandState();
         return Ui.card("Engine / Search Settings", panel);
@@ -1044,11 +1044,6 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * Refreshes command-dependent Analyze controls.
      */
     protected void refreshAnalysisCommandState() {
-        boolean running = isForegroundCommandRunning();
-        if (analyzeStopButton != null) {
-            analyzeStopButton.setVisible(running);
-            analyzeStopButton.setEnabled(running);
-        }
         if (boardWorkspace != null && boardWorkspace.mode() == BOARD_ANALYZE) {
             boardWorkspace.refreshHeader();
         }
@@ -1890,7 +1885,11 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         JScrollPane pane = scroll(runRawOutput, () -> Theme.TERMINAL);
         pane.setPreferredSize(new Dimension(520, 220));
         pane.setMinimumSize(new Dimension(320, 160));
-        return Ui.card("Raw Output / Log", pane);
+        // Raw log is secondary to the parsed result: collapse it by default so it
+        // no longer dominates the column with a large empty terminal box. A run
+        // re-expands it (see prepareRunCommandOutput) so live output stays visible.
+        runRawOutputSection = collapsible("Raw Output / Log", pane, false);
+        return runRawOutputSection;
     }
 
     /**
@@ -1909,7 +1908,9 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         body.add(Box.createVerticalStrut(Theme.SPACE_SM));
         JButton copySelected = button("Copy Selected", false, event -> copySelectedRecentCommand());
         body.add(buttonRow(FlowLayout.LEFT, copySelected));
-        return Ui.card("Recent Commands", body);
+        // History is a convenience; keep it collapsed until the user wants it so
+        // an empty list does not read as a dead panel.
+        return collapsible("Recent Commands", body, false);
     }
 
     /**
@@ -2122,12 +2123,17 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         playBoardSlot.add(controls.opponentIdentityStrip(), BorderLayout.NORTH);
         playBoardSlot.add(controls.playerIdentityStrip(), BorderLayout.SOUTH);
 
-        // The setup form scrolls on its own (it is tall once Advanced/Expert are
-        // open) and the move list scrolls on its own, joined by a resizable
-        // sash — so neither is ever clipped on a short window.
+        // The setup form scrolls on its own (it is tall once Custom is open) and
+        // the move list keeps a stable lower slot. A fixed column avoids the
+        // visual collision that came from nesting a vertical split inside the
+        // already-split Play workspace.
         JComponent setup = scroll(fillViewport(controls));
         JComponent moves = createPlayMoveHistory();
-        JSplitPane rail = SplitPaneStyler.styledVerticalSplit(setup, moves, 0.62);
+        moves.setPreferredSize(new Dimension(SIDE_RAIL_SIZE.width, 300));
+        moves.setMinimumSize(new Dimension(0, 170));
+        JPanel rail = transparentPanel(new BorderLayout(0, Theme.SPACE_MD));
+        rail.add(setup, BorderLayout.CENTER);
+        rail.add(moves, BorderLayout.SOUTH);
         rail.setPreferredSize(SIDE_RAIL_SIZE);
 
         JSplitPane playPage = SplitPaneStyler.styledHorizontalSplit(playBoardSlot, rail, 0.68);
@@ -2226,9 +2232,25 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         relationsControls =
                 new application.gui.workbench.relations.RelationsPanel(board, () -> currentPosition,
                         this::refreshWorkspaceHeaders);
-        JComponent rail = scroll(fillViewport(relationsControls));
-        rail.setPreferredSize(SIDE_RAIL_SIZE);
-        return SplitPaneStyler.styledHorizontalSplit(relationsBoardSlot, rail, 0.68);
+        relationsRailScroll = scroll(fillViewport(relationsControls));
+        relationsRailScroll.setPreferredSize(SIDE_RAIL_SIZE);
+        scrollRelationsRailToTop();
+        return SplitPaneStyler.styledHorizontalSplit(relationsBoardSlot, relationsRailScroll, 0.68);
+    }
+
+    /**
+     * Returns the Relations control rail to its first section after layout
+     * settles.
+     */
+    private void scrollRelationsRailToTop() {
+        if (relationsRailScroll == null) {
+            return;
+        }
+        SwingUtilities.invokeLater(() -> {
+            if (relationsRailScroll != null) {
+                relationsRailScroll.getVerticalScrollBar().setValue(0);
+            }
+        });
     }
 
     /**
@@ -2353,8 +2375,8 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                 controlRow(FlowLayout.RIGHT,
                 button("Open Logs", false, event -> showLogsDock()),
                 button("Save Log", false, event -> saveConsoleLog(target)),
-                new HoldButton("Clear", target::clearOutput, true),
-                new HoldButton("Stop", this::stopCommand, true)));
+                button("Empty Log", false, event -> target.clearOutput()),
+                createCommandStopButton()));
         consoleHeaders.add(header);
         panel.add(header, BorderLayout.NORTH);
         target.setPlaceholder("Run a command to see its output here.");

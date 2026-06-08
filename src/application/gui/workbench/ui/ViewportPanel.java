@@ -7,11 +7,10 @@ import javax.swing.JPanel;
 import javax.swing.Scrollable;
 
 /**
- * Base class for lightweight panels that behave as scroll-pane viewport
- * content, track the viewport width, and stretch vertically while their
- * preferred content is shorter than the available view.
+ * Lightweight scroll-pane viewport content that tracks the viewport width and
+ * stretches vertically while its preferred content is shorter than the view.
  */
-abstract class AbstractViewportPanel extends JPanel implements Scrollable {
+class ViewportPanel extends JPanel implements Scrollable {
 
     /**
      * Serialization identifier for Swing panel compatibility.
@@ -23,7 +22,7 @@ abstract class AbstractViewportPanel extends JPanel implements Scrollable {
      *
      * @param layout layout manager
      */
-    AbstractViewportPanel(LayoutManager layout) {
+    ViewportPanel(LayoutManager layout) {
         super(layout);
         setOpaque(false);
         setBackground(Theme.BG);

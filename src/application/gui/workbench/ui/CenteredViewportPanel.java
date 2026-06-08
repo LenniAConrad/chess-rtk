@@ -8,7 +8,7 @@ import javax.swing.JComponent;
  * Scrollable wrapper that centers one child up to a maximum width while still
  * tracking compact viewport widths to avoid horizontal scrolling.
  */
-final class CenteredViewportPanel extends AbstractViewportPanel {
+final class CenteredViewportPanel extends ViewportPanel {
 
     /**
      * Serialization identifier for Swing panel compatibility.

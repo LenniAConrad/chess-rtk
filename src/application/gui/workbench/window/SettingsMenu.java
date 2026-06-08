@@ -8,6 +8,7 @@ import java.awt.Container;
 import java.awt.Font;
 import java.util.Objects;
 import javax.swing.BorderFactory;
+import javax.swing.ButtonGroup;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JMenu;
@@ -42,6 +43,24 @@ public final class SettingsMenu {
          * @param mode requested appearance mode
          */
         void setThemeMode(Theme.Mode mode);
+
+        /**
+         * Returns the active workbench UI density.
+         *
+         * @return active density
+         */
+        default Theme.Density density() {
+            return Theme.density();
+        }
+
+        /**
+         * Applies a new workbench UI density.
+         *
+         * @param density requested density
+         */
+        default void setDensity(Theme.Density density) {
+            // Implemented by the window; default keeps unrelated controllers compiling.
+        }
 
         /**
          * Returns whether workbench sound effects are enabled.
@@ -321,6 +340,8 @@ public final class SettingsMenu {
                 item("Console", "Ctrl+`", controller::showConsole),
                 item("Logs", null, controller::showLogs),
                 separator(),
+                densityMenu(),
+                separator(),
                 item("Board Settings…", null, controller::showDisplaySettings),
                 item("Engine Settings…", null, controller::showEngineSettings)));
         menuBar.add(menu("Go",
@@ -347,6 +368,27 @@ public final class SettingsMenu {
         menuBar.add(menu("Help",
                 item("Command Palette…", "Ctrl+K", controller::showCommandPalette),
                 item("Settings…", "Ctrl+,", controller::showDisplaySettings)));
+    }
+
+    /**
+     * Builds the UI density submenu: a radio group reflecting and switching the
+     * active {@link Theme.Density}. Ordered least-to-most roomy
+     * (Compact, Dense, Comfortable).
+     *
+     * @return density submenu
+     */
+    private JMenu densityMenu() {
+        JMenu menu = new JMenu("Density");
+        ButtonGroup group = new ButtonGroup();
+        Theme.Density active = controller.density();
+        for (Theme.Density value : new Theme.Density[] {
+                Theme.Density.COMPACT, Theme.Density.DENSE, Theme.Density.COMFORTABLE }) {
+            JRadioButtonMenuItem entry = new JRadioButtonMenuItem(value.label(), value == active);
+            entry.addActionListener(event -> controller.setDensity(value));
+            group.add(entry);
+            menu.add(entry);
+        }
+        return menu;
     }
 
     /**

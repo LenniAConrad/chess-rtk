@@ -74,6 +74,27 @@ public final class RelationsPanel extends JPanel {
     private static final int[] DEFAULT_CHANNELS = {0, 1, 9, 11};
 
     /**
+     * A named, related set of channels shown together in the channel list.
+     *
+     * @param name group heading
+     * @param channels member channel indices
+     */
+    private record ChannelGroup(String name, int[] channels) {
+    }
+
+    /**
+     * Channel list grouping: every channel appears in exactly one group so the
+     * list reads by purpose (attacks, king safety, rays, pieces) rather than as
+     * one long flat column.
+     */
+    private static final ChannelGroup[] CHANNEL_GROUPS = {
+        new ChannelGroup("Attacks & defenses", new int[] {0, 1, 2, 3}),
+        new ChannelGroup("King safety", new int[] {4, 5, 11}),
+        new ChannelGroup("Rays", new int[] {6, 7, 8}),
+        new ChannelGroup("Pieces & pawns", new int[] {9, 10})
+    };
+
+    /**
      * User-facing channel labels, index-aligned with {@link Model#RELATION_NAMES}.
      */
     private static final String[] CHANNEL_LABELS = {
@@ -280,13 +301,13 @@ public final class RelationsPanel extends JPanel {
     private void buildUi() {
         JPanel stack = Ui.transparentPanel(null);
         stack.setLayout(new BoxLayout(stack, BoxLayout.Y_AXIS));
-        addSection(stack, Ui.card("Source", sourceSection()));
-        addSection(stack, Ui.card("Presets", presetsSection()));
-        addSection(stack, Ui.card("Channels", channelsSection()));
-        addSection(stack, Ui.card("Display", displaySection()));
-        addSection(stack, Ui.card("Legend", legendSection()));
-        addSection(stack, Ui.card("Selection Details", selectionSection()));
-        addSection(stack, Ui.card("Advanced / Raw Names", advancedSection()));
+        addSection(stack, Ui.titled("Source", sourceSection()));
+        addSection(stack, Ui.titled("Presets", presetsSection()));
+        addSection(stack, Ui.titled("Channels", channelsSection()));
+        addSection(stack, Ui.titled("Display", displaySection()));
+        addSection(stack, Ui.titled("Legend", legendSection()));
+        addSection(stack, Ui.titled("Selection Details", selectionSection()));
+        addSection(stack, Ui.titled("Advanced / Raw Names", advancedSection()));
         stack.add(Box.createVerticalGlue());
         add(stack, BorderLayout.NORTH);
     }
@@ -369,10 +390,22 @@ public final class RelationsPanel extends JPanel {
         for (int channel : DEFAULT_CHANNELS) {
             defaultOn[channel] = true;
         }
-        for (int channel = 0; channel < Model.RELATION_COUNT; channel++) {
-            list.add(channelRow(channel, defaultOn[channel]));
-            if (channel + 1 < Model.RELATION_COUNT) {
-                list.add(Box.createVerticalStrut(Theme.SPACE_XS));
+        boolean firstGroup = true;
+        for (ChannelGroup group : CHANNEL_GROUPS) {
+            if (!firstGroup) {
+                list.add(Box.createVerticalStrut(Theme.SPACE_MD));
+            }
+            firstGroup = false;
+            JPanel header = Ui.transparentPanel(new BorderLayout());
+            header.add(Theme.section(group.name()), BorderLayout.WEST);
+            list.add(header);
+            list.add(Box.createVerticalStrut(Theme.SPACE_XS));
+            int[] channels = group.channels();
+            for (int i = 0; i < channels.length; i++) {
+                list.add(channelRow(channels[i], defaultOn[channels[i]]));
+                if (i + 1 < channels.length) {
+                    list.add(Box.createVerticalStrut(Theme.SPACE_XS));
+                }
             }
         }
         return list;
@@ -402,9 +435,11 @@ public final class RelationsPanel extends JPanel {
         text.add(raw);
         row.add(text, BorderLayout.CENTER);
 
-        ToggleBox toggle = new ToggleBox("Visible", true);
+        // The switch state already conveys visibility and the row labels the
+        // channel, so a per-row "Visible" caption is just repeated noise.
+        ToggleBox toggle = new ToggleBox("", true);
         toggle.setSelected(selected);
-        toggle.setToolTipText(Model.RELATION_NAMES[channel] + " - " + CHANNEL_NOTES[channel]);
+        toggle.setToolTipText("Show " + CHANNEL_LABELS[channel] + " - " + CHANNEL_NOTES[channel]);
         toggle.addActionListener(event -> refresh());
         channelToggles[channel] = toggle;
         row.add(toggle, BorderLayout.EAST);

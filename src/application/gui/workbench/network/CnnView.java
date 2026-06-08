@@ -134,7 +134,7 @@ public final class CnnView extends NetworkView {
      */
     @Override
     protected String emptyStateTitle() {
-        return "Loading CNN snapshot\u2026";
+        return "No CNN snapshot yet";
     }
 
     /**

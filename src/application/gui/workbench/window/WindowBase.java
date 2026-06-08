@@ -33,6 +33,7 @@ import application.gui.workbench.session.RunArtifacts;
 import application.gui.workbench.session.Session;
 import application.gui.workbench.ui.AnalysisGraph;
 import application.gui.workbench.ui.EvalBar;
+import application.gui.workbench.ui.HoldButton;
 import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.TagCloud;
 import application.gui.workbench.ui.Toast;
@@ -175,6 +176,16 @@ public abstract class WindowBase extends JFrame {
      * Board surface mode: free annotation drawing and board export.
      */
     protected static final int BOARD_DRAW = 4;
+
+    /**
+     * Card key for the default Analyze board layout.
+     */
+    protected static final String ANALYZE_CARD_BOARD = "board";
+
+    /**
+     * Card key for the Analyze game-line layout.
+     */
+    protected static final String ANALYZE_CARD_GAME = "game";
 
     /**
      * Engine surface mode: the neural-network visualizer.
@@ -446,6 +457,12 @@ public abstract class WindowBase extends JFrame {
     protected JComponent runStopButton;
 
     /**
+     * Stop buttons outside the Run header, also visible only while a command is
+     * running.
+     */
+    protected final List<JComponent> commandStopButtons = new ArrayList<>();
+
+    /**
      * Last known command-form validity.
      */
     protected boolean commandFormRunnable = true;
@@ -652,7 +669,7 @@ public abstract class WindowBase extends JFrame {
         if (primary && networkPanel != null) {
             return networkPanel;
         }
-        NetworkPanel panel = new NetworkPanel();
+        NetworkPanel panel = new NetworkPanel(!primary);
         if (currentPosition != null) {
             panel.setFen(currentPosition.toString());
         }
@@ -780,7 +797,7 @@ public abstract class WindowBase extends JFrame {
             return treePanel;
         }
         application.gui.workbench.mcts.TreePanel panel =
-                new application.gui.workbench.mcts.TreePanel(mctsSession, this::currentFen);
+                new application.gui.workbench.mcts.TreePanel(mctsSession, this::currentFen, !primary);
         panel.setOpenInNewBoard(this::openFenInNewBoard);
         if (currentPosition != null) {
             panel.setBoardFen(currentPosition.toString());
@@ -996,9 +1013,10 @@ public abstract class WindowBase extends JFrame {
     protected EditorSplitArea tabs;
 
     /**
-     * Nested analysis tabs.
+     * Card stack for Analyze board vs game-line layouts. This intentionally has
+     * no visible tab chrome; entry points select the needed card directly.
      */
-    protected JTabbedPane analysisTabs;
+    protected JPanel analysisCards;
 
     /**
      * The unified Board surface hosting the Analyze/Play/Solve/Relations/Draw modes.
@@ -1247,6 +1265,21 @@ public abstract class WindowBase extends JFrame {
      * Stops the foreground command.
      */
     protected abstract void stopCommand();
+
+    /**
+     * Creates a shared command stop button for non-Run surfaces. It follows the
+     * foreground command lifecycle instead of staying red while idle.
+     *
+     * @return stop button
+     */
+    protected JComponent createCommandStopButton() {
+        boolean running = runningCommand != null && runningCommand.isRunning();
+        HoldButton button = new HoldButton("Stop", this::stopCommand, true);
+        button.setVisible(running);
+        button.setEnabled(running);
+        commandStopButtons.add(button);
+        return button;
+    }
 
     /**
      * Requests a publish command refresh.

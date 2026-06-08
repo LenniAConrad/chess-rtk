@@ -466,7 +466,7 @@ public final class Ui {
      * @return centred empty-state component
      */
     public static JComponent emptyState(String title, String hint, JButton... actions) {
-        return EmptyStateRenderer.component(title, hint, actions);
+        return new EmptyState(title, hint, actions);
     }
 
     /**
@@ -490,7 +490,7 @@ public final class Ui {
      * @param hint one-line hint, or {@code null}
      */
     public static void paintEmptyState(Graphics2D g, Rectangle bounds, String title, String hint) {
-        EmptyStateRenderer.paint(g, bounds, title, hint);
+        EmptyState.paint(g, bounds, title, hint);
     }
 
     /**
@@ -597,8 +597,8 @@ public final class Ui {
      * @param labels segment labels
      * @return segmented control
      */
-    public static SegmentedControl segmentedControl(String... labels) {
-        return new SegmentedControl(labels == null ? new String[0] : labels);
+    public static SegmentedSwitcher segmentedControl(String... labels) {
+        return new SegmentedSwitcher(labels);
     }
 
     /**
