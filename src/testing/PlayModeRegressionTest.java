@@ -809,22 +809,48 @@ public final class PlayModeRegressionTest {
 
             for (Object bot : bots) {
                 java.lang.reflect.Method nameMethod = bot.getClass().getDeclaredMethod("name");
+                java.lang.reflect.Method eloMethod = bot.getClass().getDeclaredMethod("elo");
                 java.lang.reflect.Method searchMethod = bot.getClass().getDeclaredMethod("search");
                 java.lang.reflect.Method networkMethod = bot.getClass().getDeclaredMethod("network");
+                java.lang.reflect.Method deterministicMethod = bot.getClass().getDeclaredMethod("deterministic");
+                java.lang.reflect.Method openingBookMethod = bot.getClass().getDeclaredMethod("openingBook");
                 java.lang.reflect.Method legacyMethod = PlayPanel.class.getDeclaredMethod("isLegacyPresetBackend",
                         bot.getClass(), Opponent.Search.class, Opponent.Network.class);
+                java.lang.reflect.Method legacySelectionMethod =
+                        PlayPanel.class.getDeclaredMethod("isLegacyPresetSelection",
+                                bot.getClass(), int.class, Opponent.Search.class, Opponent.Network.class);
                 nameMethod.setAccessible(true);
+                eloMethod.setAccessible(true);
                 searchMethod.setAccessible(true);
                 networkMethod.setAccessible(true);
+                deterministicMethod.setAccessible(true);
+                openingBookMethod.setAccessible(true);
                 legacyMethod.setAccessible(true);
+                legacySelectionMethod.setAccessible(true);
 
                 String name = String.valueOf(nameMethod.invoke(bot));
+                int elo = ((Integer) eloMethod.invoke(bot)).intValue();
                 Opponent.Search search = (Opponent.Search) searchMethod.invoke(bot);
                 Opponent.Network network = (Opponent.Network) networkMethod.invoke(bot);
+                boolean deterministic = ((Boolean) deterministicMethod.invoke(bot)).booleanValue();
+                boolean openingBook = ((Boolean) openingBookMethod.invoke(bot)).booleanValue();
                 check("presets: " + name + " uses alpha-beta",
                         search == Opponent.Search.ALPHA_BETA);
                 check("presets: " + name + " uses classical eval",
                         network == Opponent.Network.CLASSICAL);
+                if ("Rookie".equals(name)) {
+                    check("presets: Rookie uses a true beginner budget", elo <= 600);
+                    check("presets: Rookie is sampled, not arg-max", !deterministic);
+                    check("presets: Rookie does not use opening book", !openingBook);
+                } else if ("Casual".equals(name)) {
+                    check("presets: Casual does not use opening book", !openingBook);
+                } else if ("Maximum".equals(name)) {
+                    check("presets: Maximum uses deterministic arg-max", deterministic);
+                    check("presets: Maximum uses opening book", openingBook);
+                } else {
+                    check("presets: " + name + " remains sampled", !deterministic);
+                    check("presets: " + name + " uses opening book", openingBook);
+                }
 
                 boolean legacyExpected = "Club".equals(name) || "Expert".equals(name)
                         || "Master".equals(name) || "Maximum".equals(name);
@@ -835,6 +861,10 @@ public final class PlayModeRegressionTest {
                 boolean legacy = (Boolean) legacyMethod.invoke(null, bot, legacySearch, legacyNetwork);
                 check("presets: " + name + " legacy backend migration",
                         legacy == legacyExpected);
+                boolean legacyRookie = (Boolean) legacySelectionMethod.invoke(null, bot, 800,
+                        Opponent.Search.ALPHA_BETA, Opponent.Network.CLASSICAL);
+                check("presets: " + name + " legacy Rookie 800 migration",
+                        legacyRookie == "Rookie".equals(name));
             }
         } catch (ReflectiveOperationException | RuntimeException ex) {
             check("presets: bot backend introspection failed", false);

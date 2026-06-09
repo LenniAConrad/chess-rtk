@@ -309,12 +309,37 @@ final class BoardMarkupInput {
             return null;
         }
         if (directAnnotationMode && markupTool == BoardMarkupTool.CIRCLE) {
-            return new BoardMarkup(markupOrigin, MARKUP_CIRCLE, markupBrush);
+            return new BoardMarkup(BoardMarkupTool.CIRCLE, markupOrigin, MARKUP_CIRCLE, markupBrush);
+        }
+        if (directAnnotationMode && markupTool == BoardMarkupTool.GLYPH) {
+            return new BoardMarkup(BoardMarkupTool.GLYPH, markupOrigin, MARKUP_CIRCLE, markupBrush);
         }
         if (target == Field.NO_SQUARE) {
             return null;
         }
-        return new BoardMarkup(markupOrigin, target == markupOrigin ? MARKUP_CIRCLE : target, markupBrush);
+        if (directAnnotationMode && markupTool == BoardMarkupTool.RECTANGLE) {
+            return rectangleMarkup(markupOrigin, target, markupBrush);
+        }
+        return new BoardMarkup(target == markupOrigin ? BoardMarkupTool.CIRCLE : BoardMarkupTool.ARROW,
+                markupOrigin, target == markupOrigin ? MARKUP_CIRCLE : target, markupBrush);
+    }
+
+    /**
+     * Creates a normalized rectangle markup from two corner squares.
+     *
+     * @param first first corner
+     * @param second second corner
+     * @param brush annotation brush
+     * @return rectangle markup
+     */
+    private static BoardMarkup rectangleMarkup(byte first, byte second, MarkupBrush brush) {
+        int fileA = Field.getX(first);
+        int fileB = Field.getX(second);
+        int rowA = first / 8;
+        int rowB = second / 8;
+        byte from = (byte) (Math.min(rowA, rowB) * 8 + Math.min(fileA, fileB));
+        byte to = (byte) (Math.max(rowA, rowB) * 8 + Math.max(fileA, fileB));
+        return new BoardMarkup(BoardMarkupTool.RECTANGLE, from, to, brush);
     }
 
     /**
@@ -348,7 +373,7 @@ final class BoardMarkupInput {
      * @return true when endpoints match
      */
     private static boolean sameEndpoints(BoardMarkup first, BoardMarkup second) {
-        return first.from() == second.from() && first.to() == second.to();
+        return first.tool() == second.tool() && first.from() == second.from() && first.to() == second.to();
     }
 
     /**

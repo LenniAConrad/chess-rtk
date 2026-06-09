@@ -593,6 +593,7 @@ public final class CliRegistry {
 						+ "use `--json` for a single machine-readable summary.")
 				.example("crtk engine gauntlet --a all --b none --nodes 3000 --openings 8")
 				.example("crtk engine gauntlet --searchA mcts --searchB alpha-beta --movetime 200 --workers 4")
+				.example("crtk engine gauntlet --engineB /usr/bin/stockfish --movetimeA 200 --movetimeB 50 --openings 20")
 				.example("crtk engine gauntlet --evalA nnue --evalB classical --openings 50 --seed 42 --json"));
 		engine.add(CliCommand.leaf("search", "Run a PUCT search and print root-move statistics",
 				EngineSearchCommand::runSearch)

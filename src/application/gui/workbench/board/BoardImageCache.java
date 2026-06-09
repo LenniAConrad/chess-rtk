@@ -4,6 +4,7 @@ import application.gui.workbench.ui.RenderAcceleration;
 import chess.core.Piece;
 import chess.images.assets.PieceSet;
 import chess.images.assets.Shapes;
+import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
@@ -49,6 +50,16 @@ final class BoardImageCache {
     private int boardTextureCacheSize = -1;
 
     /**
+     * Light-square color represented by the cached board texture.
+     */
+    private Color boardTextureLight;
+
+    /**
+     * Dark-square color represented by the cached board texture.
+     */
+    private Color boardTextureDark;
+
+    /**
      * Cached scaled bitmap for the currently dragged piece.
      */
     private byte dragImageCachedPiece = Piece.EMPTY;
@@ -70,9 +81,26 @@ final class BoardImageCache {
      * @return cached board texture
      */
     BufferedImage boardTexture(int size) {
-        if (boardTextureCache == null || boardTextureCacheSize != size) {
-            boardTextureCache = renderBoardTexture(size);
+        return boardTexture(size, BoardStyle.squareColor(0, 0), BoardStyle.squareColor(0, 1));
+    }
+
+    /**
+     * Returns the cached board texture for a board size and color pair.
+     *
+     * @param size board image size in pixels
+     * @param light light-square color
+     * @param dark dark-square color
+     * @return cached board texture
+     */
+    BufferedImage boardTexture(int size, Color light, Color dark) {
+        Color safeLight = opaque(light == null ? BoardStyle.squareColor(0, 0) : light);
+        Color safeDark = opaque(dark == null ? BoardStyle.squareColor(0, 1) : dark);
+        if (boardTextureCache == null || boardTextureCacheSize != size
+                || !sameRgb(boardTextureLight, safeLight) || !sameRgb(boardTextureDark, safeDark)) {
+            boardTextureCache = renderBoardTexture(size, safeLight, safeDark);
             boardTextureCacheSize = size;
+            boardTextureLight = safeLight;
+            boardTextureDark = safeDark;
         }
         return boardTextureCache;
     }
@@ -160,14 +188,14 @@ final class BoardImageCache {
      * @param size board image size in pixels
      * @return rendered board texture
      */
-    private static BufferedImage renderBoardTexture(int size) {
+    private static BufferedImage renderBoardTexture(int size, Color light, Color dark) {
         BufferedImage image = RenderAcceleration.opaqueImage(size, size);
         Graphics2D graphics = image.createGraphics();
         try {
             int cell = size / 8;
             for (int row = 0; row < 8; row++) {
                 for (int col = 0; col < 8; col++) {
-                    graphics.setColor(BoardStyle.squareColor(row, col));
+                    graphics.setColor(BoardStyle.squareColor(row, col, light, dark));
                     graphics.fillRect(col * cell, row * cell, cell, cell);
                 }
             }
@@ -209,5 +237,29 @@ final class BoardImageCache {
             return -1;
         }
         return piece + PIECE_CACHE_OFFSET;
+    }
+
+    /**
+     * Returns an opaque copy of a color.
+     *
+     * @param color source color
+     * @return opaque color
+     */
+    private static Color opaque(Color color) {
+        return new Color(color.getRed(), color.getGreen(), color.getBlue());
+    }
+
+    /**
+     * Returns whether two colors share RGB channels.
+     *
+     * @param first first color
+     * @param second second color
+     * @return true when RGB channels match
+     */
+    private static boolean sameRgb(Color first, Color second) {
+        return first != null && second != null
+                && first.getRed() == second.getRed()
+                && first.getGreen() == second.getGreen()
+                && first.getBlue() == second.getBlue();
     }
 }

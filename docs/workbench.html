@@ -70,12 +70,14 @@
 <section class="nav-section"><h2>Commands</h2>
 <a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
 <a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="cli-command-guide.html" data-title="command guide">Command Guide</a>
 <a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
 <a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
 </section>
 <section class="nav-section"><h2>Desktop Workbench</h2>
 <a class="active" href="workbench.html" data-title="workbench">Workbench</a>
+<a class="" href="workbench-design-guide.html" data-title="design guide">Design Guide</a>
 </section>
 <section class="nav-section"><h2>Engines &amp; Models</h2>
 <a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
@@ -109,8 +111,9 @@
 <p>The Workbench is the same chess core as the CLI, with a board in front of it. There is no second engine, no second evaluator, no parallel implementation that drifts out of sync — a position you analyze in the GUI, a command you assemble in a form, and a dataset you inspect in a panel all resolve through the code path you would hit from a shell. Reach for the Workbench when a task wants a live board, a preview pane, or a command you&#x27;d rather click together than memorize. Reach for the <a href="command-reference.html">CLI</a> when you want scripting, CI, stable text output, or a batch run that doesn&#x27;t need a human watching it.</p>
 <h2 id="what-you-can-do">What you can do</h2>
 <ul>
-<li>Analyze positions and PGNs on an interactive board with legal-move overlays, deterministic tags, and ECO lookup.</li>
-<li>Play full games against an in-process opponent (alpha-beta or MCTS) backed by the classical, NNUE, LC0 CNN, or OTIS evaluator.</li>
+<li>Analyze positions and PGNs on an interactive board with legal-move overlays, deterministic tags, an ECO opening tree, post-game review, endgame tablebase status, and study authoring.</li>
+<li>Play full games against in-process alpha-beta/classical preset opponents, with Custom controls for MCTS and neural-evaluator experiments.</li>
+<li>Run deterministic built-in engine gauntlets from the Engine surface.</li>
 <li>Build any <code>crtk</code> command as a guided form, with validation and a live preview of the exact command text.</li>
 <li>Run batch jobs over FEN lists and command scripts, then watch progress and collect artifacts.</li>
 <li>Load, validate, and chart exported datasets and records.</li>
@@ -158,11 +161,11 @@ crtk workbench --flip</code></pre>
 </tr>
 <tr>
 <td>Analyze</td>
-<td>Interactive board, PGN navigation, legal moves, tags, ECO, board editor, and engine controls</td>
+<td>Interactive board, PGN navigation, legal moves, tags, ECO tree, post-game review, study authoring, endgame tablebase status, board editor, and engine controls</td>
 </tr>
 <tr>
 <td>Play</td>
-<td>Human-vs-engine games against an in-process alpha-beta or MCTS opponent</td>
+<td>Human-vs-engine games against in-process alpha-beta/classical preset opponents</td>
 </tr>
 <tr>
 <td>Commands</td>
@@ -202,11 +205,49 @@ crtk workbench --flip</code></pre>
 </tr>
 </tbody></table></div>
 <h2 id="analysis-and-pgn-board">Analysis and PGN board</h2>
-<p>Analyze is where you land. The board sits in the middle, surrounded by everything you&#x27;d want pointed at a position: move navigation, the legal-move list, deterministic tags, ECO opening lookup, a board editor for arbitrary setups, and panels for both the in-process search and the external analysis engine. Load a PGN and you step through the game from the same view.</p>
+<p>Analyze is where you land. The board sits in the middle, surrounded by everything you&#x27;d want pointed at a position: move navigation, the legal-move list, deterministic tags, an ECO opening tree, deterministic post-game review with retry jumps, study TOML authoring from the current line, endgame tablebase-hit status, a board editor for arbitrary setups, and panels for both the in-process search and the external analysis engine. Load a PGN and you step through the game from the same view.</p>
 <p><img src="assets/screenshots/workbench-analysis.png" alt="Workbench analysis board" loading="lazy"></p>
 <p>The board sees the world the way the CLI does: identical move generation, identical FEN/SAN/UCI handling, identical Chess960 support. The tags on the board are the ones <code>fen tags</code> produces, down to the bit. Live analysis drives your configured external UCI engine — Stockfish or LC0 — the same way <code>engine analyze</code> does, MultiPV included.</p>
+<p>The PGN explorer doubles as a lightweight database workspace. It indexes player/opening/result metadata, filters games reaching the current board position, removes exact duplicates, copies selected games, and can copy a prep report for the visible games or named player query.</p>
+<p>The Engine surface includes a Gauntlet mode for reproducible built-in engine self-play. It builds the exact <code>testing.SelfPlayGauntlet</code> JVM command, runs it in a child process, and streams W-D-L/Elo output into the panel.</p>
+<h3 id="where-to-find-the-new-analysis-tools">Where to find the new analysis tools</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tool</th>
+<th>Path</th>
+</tr></thead><tbody>
+<tr>
+<td>Opening tree</td>
+<td>Analyze -&gt; Board -&gt; Tools -&gt; Opening Tree, or the side rail ECO tab</td>
+</tr>
+<tr>
+<td>Post-game review and retry</td>
+<td>Analyze -&gt; Board -&gt; Tools -&gt; Review, or Analyze -&gt; Game -&gt; Study / Review / Database -&gt; Review Game</td>
+</tr>
+<tr>
+<td>PGN database workspace</td>
+<td>Analyze -&gt; Board -&gt; PGN Database, or Analyze -&gt; Game -&gt; Study / Review / Database -&gt; PGN Database</td>
+</tr>
+<tr>
+<td>Player prep report</td>
+<td>PGN Database -&gt; Prep Report after loading/searching PGNs</td>
+</tr>
+<tr>
+<td>Engine gauntlet manager</td>
+<td>Analyze -&gt; Board -&gt; Tools -&gt; Gauntlet, or Engine -&gt; Gauntlet</td>
+</tr>
+<tr>
+<td>Endgame/tablebase panel</td>
+<td>Analyze -&gt; Board -&gt; Tools -&gt; Endgame, or the side rail Endgame tab</td>
+</tr>
+<tr>
+<td>Study/repertoire authoring</td>
+<td>Analyze -&gt; Board -&gt; Tools -&gt; Study, or Analyze -&gt; Game -&gt; Study / Review / Database -&gt; Author Study</td>
+</tr>
+</tbody></table></div>
+<p>The command palette also exposes the same workflows by name: Opening tree, Review game, Author study, Endgame tablebase, PGN database, Player prep report, and Open engine gauntlet.</p>
 <h2 id="play-vs-engine">Play vs engine</h2>
-<p>Play runs a full human-versus-engine game from the start position, the current board, or a pasted FEN. Two selectors, chosen independently:</p>
+<p>Play runs a full human-versus-engine game from the start position, the current board, or a pasted FEN. The named preset bots all use alpha-beta search with the always-available classical evaluator; their Elo changes adjust the search budget and move sampling, not the backend. Choose Custom to expose the two backend selectors:</p>
 <ul>
 <li><strong>Search</strong> chooses the move-picking algorithm: <code>Alpha-Beta</code> or <code>MCTS</code>.</li>
 <li><strong>Network</strong> chooses the leaf evaluator: <code>Classical</code>, <code>NNUE</code>, <code>CNN</code> (LC0), or <code>OTIS</code>.</li>
@@ -270,6 +311,7 @@ crtk workbench --flip</code></pre>
 </ul>
 <h2 id="related-pages">Related pages</h2>
 <ul>
+<li><a href="workbench-design-guide.html">Workbench Design Guide</a> - visual direction and contributor rules for Workbench UI changes.</li>
 <li><a href="getting-started.html">Getting Started</a> — install, configure, and run your first commands.</li>
 <li><a href="command-reference.html">Command Reference</a> — every area and action the command forms mirror.</li>
 <li><a href="in-house-engine.html">In-house engine</a> — the alpha-beta and MCTS search behind Play and <code>engine builtin</code>.</li>
@@ -282,6 +324,7 @@ crtk workbench --flip</code></pre>
 <a class="toc-h2" href="#launch">Launch</a>
 <a class="toc-h2" href="#main-areas">Main areas</a>
 <a class="toc-h2" href="#analysis-and-pgn-board">Analysis and PGN board</a>
+<a class="toc-h3" href="#where-to-find-the-new-analysis-tools">Where to find the new analysis tools</a>
 <a class="toc-h2" href="#play-vs-engine">Play vs engine</a>
 <a class="toc-h2" href="#command-controller-and-forms">Command controller and forms</a>
 <a class="toc-h2" href="#batch-jobs">Batch jobs</a>

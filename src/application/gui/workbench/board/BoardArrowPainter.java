@@ -92,6 +92,38 @@ final class BoardArrowPainter {
      *     clear gap from the start and target piece centres (a quarter square)
      */
     void draw(Graphics2D graphics, Point from, Point to, float lineWidth, double gap) {
+        draw(graphics, from, to, lineWidth, gap, null);
+    }
+
+    /**
+     * Draws an arrow from square center to square center with an optional
+     * explicit outline color.
+     *
+     * @param graphics graphics context
+     * @param from origin point
+     * @param to destination point
+     * @param lineWidth arrow line width in pixels
+     * @param gap distance to pull both endpoints inward
+     * @param borderColor explicit border color, or null for automatic contrast
+     */
+    void draw(Graphics2D graphics, Point from, Point to, float lineWidth, double gap, Color borderColor) {
+        draw(graphics, from, to, lineWidth, gap, borderColor, Math.max(1.5f, lineWidth * 0.16f));
+    }
+
+    /**
+     * Draws an arrow from square center to square center with an optional
+     * explicit outline color and outline width.
+     *
+     * @param graphics graphics context
+     * @param from origin point
+     * @param to destination point
+     * @param lineWidth arrow line width in pixels
+     * @param gap distance to pull both endpoints inward
+     * @param borderColor explicit border color, or null for automatic contrast
+     * @param borderWidth explicit border width in pixels
+     */
+    void draw(Graphics2D graphics, Point from, Point to, float lineWidth, double gap, Color borderColor,
+            float borderWidth) {
         double distance = from.distance(to);
         if (distance < 2.0) {
             return;
@@ -145,9 +177,12 @@ final class BoardArrowPainter {
         // separates from whatever it crosses. The shaft body keeps the caller's
         // colour; only the edge gains the contrast.
         Stroke savedStroke = graphics.getStroke();
-        graphics.setColor(outlineColor(fill));
-        graphics.setStroke(outlineStroke(Math.max(1.5f, lineWidth * 0.16f)));
-        graphics.draw(arrowShape);
+        Color outline = borderColor == null ? outlineColor(fill) : borderColor;
+        if (outline.getAlpha() > 0 && borderWidth > 0f) {
+            graphics.setColor(outline);
+            graphics.setStroke(outlineStroke(borderWidth));
+            graphics.draw(arrowShape);
+        }
         graphics.setColor(fill);
         graphics.setStroke(savedStroke);
     }

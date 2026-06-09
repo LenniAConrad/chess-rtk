@@ -4,6 +4,8 @@ One command-line interface drives every feature of ChessRTK ("crtk"), and one ch
 
 Invocations follow `crtk <area> <action> [options] [args]`. From a build tree rather than the installed launcher, that becomes `java -jar crtk.jar <area> <action> ...` or `java -cp out application.Main <area> <action> ...`. For anything this page leaves vague, `crtk help --full` prints the authoritative spec, and per-command help is either `crtk help <area> <action>` or `crtk <area> <action> --help`.
 
+Adding or changing commands? Use the [CLI Command Guide](cli-command-guide.md) for implementation, help, docs, and regression requirements.
+
 ## Command style and global conventions
 
 The grammar is noun-verb: an *area* (the noun, such as `engine` or `record`) followed by an *action* (the verb, such as `bestmove` or `export`). A few areas add a second noun level, as in `record export plain` or `record dataset npy`. In scripts, spell out the full grouped form — it survives renames and reads clearly six months later.

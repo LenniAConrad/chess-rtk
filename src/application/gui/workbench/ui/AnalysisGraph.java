@@ -75,14 +75,9 @@ public final class AnalysisGraph extends JComponent {
     private static final int BAND_LABEL_H = 20;
 
     /**
-     * Horizontal inset for bounded plot data.
+     * Inner edge reserved for the chart border.
      */
-    private static final int PLOT_INSET_X = 8;
-
-    /**
-     * Bottom inset for bounded plot data.
-     */
-    private static final int PLOT_BOTTOM_INSET = 5;
+    private static final int PLOT_EDGE_INSET = 1;
 
     /**
      * Printable graph snapshot width.
@@ -478,10 +473,10 @@ public final class AnalysisGraph extends JComponent {
     private void paintEvalBand(Graphics2D g, int x, int y, int w, int h) {
         paintGrid(g, x, y, w, h, 4);
         paintBandLabel(g, "Evaluation", x, y);
-        int plotX = x + PLOT_INSET_X;
+        int plotX = x + PLOT_EDGE_INSET;
         int plotY = y + BAND_LABEL_H;
-        int plotW = Math.max(1, w - PLOT_INSET_X * 2);
-        int plotH = Math.max(1, h - BAND_LABEL_H - PLOT_BOTTOM_INSET);
+        int plotW = Math.max(1, w - PLOT_EDGE_INSET * 2);
+        int plotH = Math.max(1, h - BAND_LABEL_H - PLOT_EDGE_INSET);
         int range = evalRange();
         int zeroY = evalY(plotY, plotH, 0, range);
         g.setColor(zeroColor());
@@ -491,7 +486,8 @@ public final class AnalysisGraph extends JComponent {
         paintAxisLabel(g, formatEvalCp(-range), x + w - 8, plotY + plotH - 4, SwingConstants.RIGHT);
 
         if (samples.size() < 2) {
-            paintPoint(g, plotX + plotW, evalY(plotY, plotH, latest().evalCp(), range), evalLineColor());
+            paintPoint(g, (int) Math.round(sampleX(plotX, plotW, samples.size() - 1)),
+                    evalY(plotY, plotH, latest().evalCp(), range), evalLineColor());
             paintValueLabel(g, formatEval(latest()), x + w - 8, y + 28, Math.max(40, w - 16));
             return;
         }
@@ -520,7 +516,8 @@ public final class AnalysisGraph extends JComponent {
             plot.setStroke(new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
             plot.setColor(evalLineColor());
             plot.draw(line);
-            paintPoint(plot, plotX + plotW, evalY(plotY, plotH, latest().evalCp(), range), evalLineColor());
+            paintPoint(plot, (int) Math.round(sampleX(plotX, plotW, samples.size() - 1)),
+                    evalY(plotY, plotH, latest().evalCp(), range), evalLineColor());
         } finally {
             plot.dispose();
         }
@@ -539,10 +536,10 @@ public final class AnalysisGraph extends JComponent {
     private void paintDepthBand(Graphics2D g, int x, int y, int w, int h) {
         paintGrid(g, x, y, w, h, 2);
         paintBandLabel(g, "Depth", x, y);
-        int plotX = x + PLOT_INSET_X;
+        int plotX = x + PLOT_EDGE_INSET;
         int plotY = y + BAND_LABEL_H;
-        int plotW = Math.max(1, w - PLOT_INSET_X * 2);
-        int plotH = Math.max(1, h - BAND_LABEL_H - PLOT_BOTTOM_INSET);
+        int plotW = Math.max(1, w - PLOT_EDGE_INSET * 2);
+        int plotH = Math.max(1, h - BAND_LABEL_H - PLOT_EDGE_INSET);
         int maxDepth = Math.max(1, samples.stream().mapToInt(Sample::depth).max().orElse(1));
         double slotW = plotW / (double) Math.max(1, samples.size());
 
@@ -554,7 +551,8 @@ public final class AnalysisGraph extends JComponent {
                 int barH = (int) Math.round((sample.depth() / (double) maxDepth) * plotH);
                 int bx = (int) Math.round(plotX + i * slotW);
                 int nextX = (int) Math.round(plotX + (i + 1) * slotW);
-                int bw = Math.max(1, nextX - bx - 1);
+                int gap = i == samples.size() - 1 ? 0 : 1;
+                int bw = Math.max(1, nextX - bx - gap);
                 plot.fillRoundRect(bx, plotY + plotH - barH, bw, barH, 3, 3);
             }
         } finally {
@@ -575,10 +573,10 @@ public final class AnalysisGraph extends JComponent {
     private void paintSpeedBand(Graphics2D g, int x, int y, int w, int h) {
         paintGrid(g, x, y, w, h, 2);
         paintBandLabel(g, "Nodes / NPS", x, y);
-        int plotX = x + PLOT_INSET_X;
+        int plotX = x + PLOT_EDGE_INSET;
         int plotY = y + BAND_LABEL_H;
-        int plotW = Math.max(1, w - PLOT_INSET_X * 2);
-        int plotH = Math.max(1, h - BAND_LABEL_H - PLOT_BOTTOM_INSET);
+        int plotW = Math.max(1, w - PLOT_EDGE_INSET * 2);
+        int plotH = Math.max(1, h - BAND_LABEL_H - PLOT_EDGE_INSET);
         long maxNodes = Math.max(1L, samples.stream().mapToLong(Sample::nodes).max().orElse(1L));
         long maxNps = Math.max(1L, samples.stream().mapToLong(Sample::nps).max().orElse(1L));
         double slotW = plotW / (double) Math.max(1, samples.size());
@@ -591,7 +589,8 @@ public final class AnalysisGraph extends JComponent {
                 int barH = (int) Math.round((sample.nodes() / (double) maxNodes) * plotH);
                 int bx = (int) Math.round(plotX + i * slotW);
                 int nextX = (int) Math.round(plotX + (i + 1) * slotW);
-                int bw = Math.max(1, nextX - bx - 1);
+                int gap = i == samples.size() - 1 ? 0 : 1;
+                int bw = Math.max(1, nextX - bx - gap);
                 plot.fillRoundRect(bx, plotY + plotH - barH, bw, barH, 3, 3);
             }
 
@@ -611,8 +610,8 @@ public final class AnalysisGraph extends JComponent {
                 plot.draw(nps);
                 int pointY = plotY + plotH
                         - (int) Math.round((latest().nps() / (double) maxNps) * plotH);
-                paintPoint(plot, plotX + plotW, Math.max(plotY + 4, Math.min(plotY + plotH - 4, pointY)),
-                        npsLineColor());
+                paintPoint(plot, (int) Math.round(sampleX(plotX, plotW, samples.size() - 1)),
+                        Math.max(plotY + 4, Math.min(plotY + plotH - 4, pointY)), npsLineColor());
             }
         } finally {
             plot.dispose();
@@ -811,10 +810,11 @@ public final class AnalysisGraph extends JComponent {
      * @return x coordinate
      */
     private double sampleX(int x, int w, int index) {
+        int span = Math.max(0, w - 1);
         if (samples.size() <= 1) {
-            return (double) x + w;
+            return (double) x + span;
         }
-        return x + (index / (double) (samples.size() - 1)) * w;
+        return x + (index / (double) (samples.size() - 1)) * span;
     }
 
     /**

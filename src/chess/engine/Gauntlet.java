@@ -9,6 +9,12 @@ import chess.core.Position;
 import chess.eval.CentipawnEvaluator;
 import chess.eval.Classical;
 import chess.eval.Nnue;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -23,6 +29,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Deterministic self-play A/B gauntlet engine for the built-in searchers.
@@ -128,6 +135,45 @@ public final class Gauntlet {
         default void onNote(String message) {
             // optional
         }
+
+        /**
+         * Reports a completed game, with its full move list, so callers can
+         * render or replay it. May be invoked from worker threads and must be
+         * safe to call concurrently.
+         *
+         * @param record completed game record
+         */
+        default void onGame(GameRecord record) {
+            // optional
+        }
+    }
+
+    /**
+     * A single completed gauntlet game, captured so callers can review or
+     * replay it.
+     *
+     * @param index zero-based game index in play order
+     * @param candidateWhite whether the candidate played White this game
+     * @param result game result from the candidate's perspective
+     *               ({@code win}, {@code draw}, or {@code loss})
+     * @param openingFen opening position FEN the game started from
+     * @param moves moves played, in UCI notation, in order
+     */
+    public record GameRecord(int index, boolean candidateWhite, String result, String openingFen,
+            List<String> moves) {
+
+        /**
+         * Normalizes the move list to an immutable copy.
+         *
+         * @param index zero-based game index
+         * @param candidateWhite whether the candidate played White
+         * @param result candidate-perspective result label
+         * @param openingFen opening FEN
+         * @param moves UCI moves in order
+         */
+        public GameRecord {
+            moves = moves == null ? List.of() : List.copyOf(moves);
+        }
     }
 
     /**
@@ -188,8 +234,23 @@ public final class Gauntlet {
      * @param searchB baseline search kind
      * @param evalA candidate evaluator name
      * @param evalB baseline evaluator name
-     * @param nodes fixed node budget per move (used when {@code movetime} is zero)
-     * @param movetime fixed time budget per move in milliseconds, or zero
+     * @param nodes shared fixed node budget per move (used when {@code movetime}
+     *              is zero and a side has no per-side override)
+     * @param movetime shared fixed time budget per move in milliseconds, or zero
+     * @param nodesA candidate per-move node budget, or zero to use {@code nodes}
+     * @param nodesB baseline per-move node budget, or zero to use {@code nodes}
+     * @param movetimeA candidate per-move time budget in ms, or zero to share
+     * @param movetimeB baseline per-move time budget in ms, or zero to share
+     * @param engineA external UCI engine command for the candidate, or blank to
+     *                use the built-in searcher
+     * @param engineB external UCI engine command for the baseline, or blank to
+     *                use the built-in searcher
+     * @param hashA candidate UCI engine hash size in MB, or zero for its default
+     * @param hashB baseline UCI engine hash size in MB, or zero for its default
+     * @param optionsA candidate UCI {@code name=value} options, semicolon- or
+     *                 newline-separated
+     * @param optionsB baseline UCI {@code name=value} options, semicolon- or
+     *                 newline-separated
      * @param cpuctA candidate MCTS cpuct
      * @param cpuctB baseline MCTS cpuct
      * @param fpuA candidate MCTS first-play-urgency reduction
@@ -216,6 +277,16 @@ public final class Gauntlet {
             String evalB,
             long nodes,
             long movetime,
+            long nodesA,
+            long nodesB,
+            long movetimeA,
+            long movetimeB,
+            String engineA,
+            String engineB,
+            int hashA,
+            int hashB,
+            String optionsA,
+            String optionsB,
             double cpuctA,
             double cpuctB,
             double fpuA,
@@ -234,9 +305,9 @@ public final class Gauntlet {
             int workers) {
 
         /**
-         * Returns the per-move search limits implied by this configuration.
+         * Returns the shared per-move search limits implied by this configuration.
          *
-         * @return per-move limits
+         * @return shared per-move limits
          */
         public Limits limits() {
             return movetime > 0
@@ -245,12 +316,82 @@ public final class Gauntlet {
         }
 
         /**
-         * Returns a human-readable per-move budget description.
+         * Returns the candidate (A) per-move limits, honoring a per-side
+         * override and falling back to the shared budget.
+         *
+         * @return candidate per-move limits
+         */
+        public Limits limitsA() {
+            return sideLimits(movetimeA, nodesA);
+        }
+
+        /**
+         * Returns the baseline (B) per-move limits, honoring a per-side override
+         * and falling back to the shared budget.
+         *
+         * @return baseline per-move limits
+         */
+        public Limits limitsB() {
+            return sideLimits(movetimeB, nodesB);
+        }
+
+        /**
+         * Resolves per-side limits, preferring a per-side time or node budget and
+         * falling back to the shared {@code movetime}/{@code nodes}.
+         *
+         * @param sideMovetime per-side time budget in ms, or zero
+         * @param sideNodes per-side node budget, or zero
+         * @return resolved per-move limits
+         */
+        private Limits sideLimits(long sideMovetime, long sideNodes) {
+            long resolvedMovetime = sideMovetime > 0 ? sideMovetime : movetime;
+            long resolvedNodes = sideNodes > 0 ? sideNodes : nodes;
+            return resolvedMovetime > 0
+                    ? new Limits(AlphaBeta.MAX_DEPTH, 0L, resolvedMovetime)
+                    : new Limits(AlphaBeta.MAX_DEPTH, resolvedNodes, 0L);
+        }
+
+        /**
+         * Returns whether the candidate side is an external UCI engine.
+         *
+         * @return true when an external candidate engine is configured
+         */
+        public boolean usesEngineA() {
+            return engineA != null && !engineA.isBlank();
+        }
+
+        /**
+         * Returns whether the baseline side is an external UCI engine.
+         *
+         * @return true when an external baseline engine is configured
+         */
+        public boolean usesEngineB() {
+            return engineB != null && !engineB.isBlank();
+        }
+
+        /**
+         * Returns a human-readable per-move budget description, collapsing to one
+         * value when both sides share the same budget.
          *
          * @return budget description
          */
         public String budgetText() {
-            return movetime > 0 ? movetime + "ms/move" : nodes + " nodes/move";
+            String a = sideBudgetText(movetimeA, nodesA);
+            String b = sideBudgetText(movetimeB, nodesB);
+            return a.equals(b) ? a : "A=" + a + " B=" + b;
+        }
+
+        /**
+         * Returns a per-side budget description.
+         *
+         * @param sideMovetime per-side time budget in ms, or zero
+         * @param sideNodes per-side node budget, or zero
+         * @return per-side budget description
+         */
+        private String sideBudgetText(long sideMovetime, long sideNodes) {
+            long resolvedMovetime = sideMovetime > 0 ? sideMovetime : movetime;
+            long resolvedNodes = sideNodes > 0 ? sideNodes : nodes;
+            return resolvedMovetime > 0 ? resolvedMovetime + "ms/move" : resolvedNodes + " nodes/move";
         }
     }
 
@@ -272,7 +413,20 @@ public final class Gauntlet {
         /**
          * Candidate lost.
          */
-        LOSS
+        LOSS;
+
+        /**
+         * Returns the lowercase candidate-perspective result label.
+         *
+         * @return result label
+         */
+        String label() {
+            return switch (this) {
+                case WIN -> "win";
+                case DRAW -> "draw";
+                case LOSS -> "loss";
+            };
+        }
     }
 
     /**
@@ -305,6 +459,333 @@ public final class Gauntlet {
         @Override
         void close();
     }
+
+    /**
+     * Drives an external UCI engine over its standard-input/-output protocol so
+     * it can play one side of a gauntlet game.
+     *
+     * <p>
+     * Each instance owns one engine process for the duration of a single game:
+     * it performs the {@code uci}/{@code isready} handshake on construction,
+     * sends {@code position fen ...} plus a budget-matched {@code go} for every
+     * move, and parses the engine's {@code bestmove}. Failures (a crashed or
+     * silent engine) surface as {@link Move#NO_MOVE}, which the game loop treats
+     * as a forfeit rather than letting one bad engine hang the whole gauntlet.
+     * </p>
+     */
+    private static final class UciSearcher implements GameSearcher {
+
+        /**
+         * Maximum time to wait for the handshake and for each {@code bestmove}.
+         */
+        private static final long REPLY_TIMEOUT_MILLIS = 60_000L;
+
+        /**
+         * Engine process.
+         */
+        private final Process process;
+
+        /**
+         * Engine standard output reader.
+         */
+        private final BufferedReader reader;
+
+        /**
+         * Engine standard input writer.
+         */
+        private final BufferedWriter writer;
+
+        /**
+         * Original command, for diagnostics.
+         */
+        private final String command;
+
+        /**
+         * Engine threads, hash, and extra UCI options applied at startup.
+         */
+        private final int threads;
+        private final int hashMb;
+        private final String options;
+
+        /**
+         * Starts and handshakes an external UCI engine.
+         *
+         * @param command engine command line (path plus optional arguments)
+         * @param threads number of engine threads, or non-positive for default
+         * @param hashMb engine hash size in MB, or non-positive for default
+         * @param options extra {@code name=value} UCI options, semicolon- or
+         *                newline-separated
+         */
+        UciSearcher(String command, int threads, int hashMb, String options) {
+            this.command = command;
+            this.threads = threads;
+            this.hashMb = hashMb;
+            this.options = options;
+            try {
+                ProcessBuilder builder = new ProcessBuilder(tokenize(command));
+                builder.redirectErrorStream(false);
+                this.process = builder.start();
+                this.reader = new BufferedReader(
+                        new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
+                this.writer = new BufferedWriter(
+                        new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8));
+                handshake();
+            } catch (IOException ex) {
+                throw new IllegalStateException("failed to start UCI engine: " + command, ex);
+            }
+        }
+
+        /**
+         * Performs the UCI initialization handshake, applying the configured
+         * Threads, Hash, and any extra options before signalling readiness.
+         *
+         * @throws IOException on a stream failure or premature engine exit
+         */
+        private void handshake() throws IOException {
+            send("uci");
+            awaitToken("uciok");
+            if (threads > 0) {
+                send("setoption name Threads value " + threads);
+            }
+            if (hashMb > 0) {
+                send("setoption name Hash value " + hashMb);
+            }
+            for (String option : parseOptions(options)) {
+                send(option);
+            }
+            send("isready");
+            awaitToken("readyok");
+            send("ucinewgame");
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public Result search(Position position, Limits limits, long[] history) {
+            try {
+                send("position fen " + position);
+                send("go " + goArguments(limits));
+                return new Result(readBestMove(), 0, 0, 0L, 0L, false, NO_PV);
+            } catch (IOException ex) {
+                return new Result(Move.NO_MOVE, 0, 0, 0L, 0L, true, NO_PV);
+            }
+        }
+
+        /**
+         * Builds the {@code go} arguments matching the per-move budget.
+         *
+         * @param limits per-move limits
+         * @return {@code go} arguments
+         */
+        private static String goArguments(Limits limits) {
+            if (limits.maxDurationMillis() > 0L) {
+                return "movetime " + limits.maxDurationMillis();
+            }
+            if (limits.maxNodes() > 0L) {
+                return "nodes " + limits.maxNodes();
+            }
+            return "depth " + limits.depth();
+        }
+
+        /**
+         * Reads lines until a {@code bestmove} is reported and decodes it.
+         *
+         * @return decoded move, or {@link Move#NO_MOVE} when none is available
+         * @throws IOException on a stream failure or premature engine exit
+         */
+        private short readBestMove() throws IOException {
+            String line = awaitLine("bestmove");
+            String[] parts = line.trim().split("\\s+");
+            if (parts.length < 2) {
+                return Move.NO_MOVE;
+            }
+            String uci = parts[1];
+            if ("(none)".equals(uci) || "0000".equals(uci)) {
+                return Move.NO_MOVE;
+            }
+            try {
+                return Move.parse(uci);
+            } catch (IllegalArgumentException ex) {
+                return Move.NO_MOVE;
+            }
+        }
+
+        /**
+         * Waits for a line starting with the supplied token.
+         *
+         * @param token expected leading token
+         * @throws IOException on a stream failure or premature engine exit
+         */
+        private void awaitToken(String token) throws IOException {
+            awaitLine(token);
+        }
+
+        /**
+         * Waits for and returns the first line whose first whitespace-delimited
+         * token equals the supplied token, within the reply timeout.
+         *
+         * @param token expected leading token
+         * @return matching line
+         * @throws IOException on a stream failure, timeout, or premature exit
+         */
+        private String awaitLine(String token) throws IOException {
+            long deadline = System.nanoTime() + REPLY_TIMEOUT_MILLIS * 1_000_000L;
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String trimmed = line.trim();
+                if (trimmed.equals(token) || trimmed.startsWith(token + " ")) {
+                    return trimmed;
+                }
+                if (System.nanoTime() > deadline) {
+                    throw new IOException("UCI engine '" + command + "' timed out waiting for '" + token + "'");
+                }
+            }
+            throw new IOException("UCI engine '" + command + "' exited before '" + token + "'");
+        }
+
+        /**
+         * Sends one command line to the engine.
+         *
+         * @param line command without a trailing newline
+         * @throws IOException on a stream failure
+         */
+        private void send(String line) throws IOException {
+            writer.write(line);
+            writer.write('\n');
+            writer.flush();
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public void close() {
+            try {
+                send("quit");
+            } catch (IOException ignored) {
+                // The engine may already be gone; fall through to destroy.
+            }
+            process.destroy();
+            try {
+                if (!process.waitFor(2, TimeUnit.SECONDS)) {
+                    process.destroyForcibly();
+                }
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                process.destroyForcibly();
+            }
+        }
+
+        /**
+         * Splits an engine command line into a process argument list on
+         * whitespace.
+         *
+         * @param command engine command line
+         * @return non-empty argument list
+         */
+        private static List<String> tokenize(String command) {
+            List<String> tokens = new ArrayList<>();
+            for (String part : command.trim().split("\\s+")) {
+                if (!part.isEmpty()) {
+                    tokens.add(part);
+                }
+            }
+            if (tokens.isEmpty()) {
+                throw new IllegalArgumentException("empty UCI engine command");
+            }
+            return tokens;
+        }
+
+        /**
+         * Parses free-form {@code name=value} options (separated by semicolons or
+         * newlines) into ready-to-send {@code setoption} command lines.
+         *
+         * @param options option text, possibly blank
+         * @return setoption command lines
+         */
+        private static List<String> parseOptions(String options) {
+            List<String> commands = new ArrayList<>();
+            if (options == null || options.isBlank()) {
+                return commands;
+            }
+            for (String entry : options.split("[;\\n]")) {
+                String trimmed = entry.trim();
+                int equals = trimmed.indexOf('=');
+                if (equals <= 0) {
+                    continue;
+                }
+                String name = trimmed.substring(0, equals).trim();
+                String value = trimmed.substring(equals + 1).trim();
+                if (!name.isEmpty()) {
+                    commands.add("setoption name " + name + " value " + value);
+                }
+            }
+            return commands;
+        }
+    }
+
+    /**
+     * Probes an external UCI engine: starts it, performs the {@code uci}
+     * handshake, and returns the engine's reported {@code id name}. Used by the
+     * workbench's engine connection test.
+     *
+     * @param command engine command line (path plus optional arguments)
+     * @return reported engine name, never blank
+     * @throws IOException if the engine cannot be started or does not respond
+     */
+    public static String uciEngineName(String command) throws IOException {
+        ProcessBuilder builder = new ProcessBuilder(UciSearcher.tokenize(command));
+        builder.redirectErrorStream(true);
+        Process process = builder.start();
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
+                BufferedWriter writer = new BufferedWriter(
+                        new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8))) {
+            writer.write("uci\n");
+            writer.flush();
+            String name = null;
+            long deadline = System.nanoTime() + 10_000L * 1_000_000L;
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String trimmed = line.trim();
+                if (trimmed.startsWith("id name ")) {
+                    name = trimmed.substring("id name ".length()).trim();
+                }
+                if (trimmed.equals("uciok")) {
+                    break;
+                }
+                if (System.nanoTime() > deadline) {
+                    throw new IOException("engine did not answer 'uci' within 10s");
+                }
+            }
+            try {
+                writer.write("quit\n");
+                writer.flush();
+            } catch (IOException ignored) {
+                // Engine may already be exiting.
+            }
+            if (name == null || name.isBlank()) {
+                throw new IOException("engine did not report an id name");
+            }
+            return name;
+        } finally {
+            process.destroy();
+            try {
+                if (!process.waitFor(2, TimeUnit.SECONDS)) {
+                    process.destroyForcibly();
+                }
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                process.destroyForcibly();
+            }
+        }
+    }
+
+    /**
+     * Shared empty principal variation for synthetic results.
+     */
+    private static final short[] NO_PV = new short[0];
 
     /**
      * Varied opening positions (each played from both colors) so the two
@@ -399,10 +880,9 @@ public final class Gauntlet {
         if (!config.evalB().equalsIgnoreCase(config.evalA())) {
             probeEvaluator(config.evalB(), sink);
         }
-        Limits limits = config.limits();
         return config.workers() == 1
-                ? runSequential(config, openings, limits, sink)
-                : runParallel(config, openings, limits, sink);
+                ? runSequential(config, openings, sink)
+                : runParallel(config, openings, sink);
     }
 
     /**
@@ -410,15 +890,13 @@ public final class Gauntlet {
      *
      * @param config gauntlet configuration
      * @param openings opening FENs
-     * @param limits per-move search limits
      * @param listener progress listener
      * @return aggregate score
      */
-    private static Score runSequential(Config config, String[] openings, Limits limits,
-            ProgressListener listener) {
+    private static Score runSequential(Config config, String[] openings, ProgressListener listener) {
         int[] score = { 0, 0, 0 };
         for (int i = 0; i < openings.length; i++) {
-            add(score, playOpeningPair(openings[i], config, limits));
+            add(score, playOpeningPair(openings[i], config, i, listener));
             listener.onProgress(i + 1, openings.length, new Score(score[0], score[1], score[2]));
         }
         return new Score(score[0], score[1], score[2]);
@@ -430,17 +908,17 @@ public final class Gauntlet {
      *
      * @param config gauntlet configuration
      * @param openings opening FENs
-     * @param limits per-move search limits
      * @param listener progress listener
      * @return aggregate score
      */
-    private static Score runParallel(Config config, String[] openings, Limits limits,
-            ProgressListener listener) {
+    private static Score runParallel(Config config, String[] openings, ProgressListener listener) {
         ExecutorService pool = Executors.newFixedThreadPool(Math.min(config.workers(), openings.length));
         try {
             List<Future<OpeningResult>> futures = new ArrayList<>(openings.length);
-            for (String opening : openings) {
-                futures.add(pool.submit(() -> playOpeningPair(opening, config, limits)));
+            for (int i = 0; i < openings.length; i++) {
+                final int openingIndex = i;
+                final String opening = openings[i];
+                futures.add(pool.submit(() -> playOpeningPair(opening, config, openingIndex, listener)));
             }
             int[] score = { 0, 0, 0 };
             for (int i = 0; i < futures.size(); i++) {
@@ -463,14 +941,16 @@ public final class Gauntlet {
      *
      * @param opening opening FEN
      * @param config gauntlet configuration
-     * @param limits per-move search limits
+     * @param openingIndex zero-based opening index, for stable game numbering
+     * @param listener progress listener notified of each completed game
      * @return two-game result for the opening
      */
-    private static OpeningResult playOpeningPair(String opening, Config config, Limits limits) {
+    private static OpeningResult playOpeningPair(String opening, Config config, int openingIndex,
+            ProgressListener listener) {
         // Play each opening from both colors so a result is not just one
         // deterministic game counted twice.
-        Outcome first = playGame(opening, true, config, limits);
-        Outcome second = playGame(opening, false, config, limits);
+        Outcome first = playGame(opening, true, config, openingIndex * 2, listener);
+        Outcome second = playGame(opening, false, config, openingIndex * 2 + 1, listener);
         return new OpeningResult(first, second);
     }
 
@@ -543,53 +1023,103 @@ public final class Gauntlet {
      * @param fen opening FEN
      * @param candidateIsWhite whether the candidate plays white this game
      * @param config gauntlet configuration
-     * @param limits per-move search limits
+     * @param gameIndex zero-based game index, for stable numbering
+     * @param listener progress listener notified when the game completes
      * @return game outcome from the candidate's perspective
      */
-    private static Outcome playGame(String fen, boolean candidateIsWhite, Config config, Limits limits) {
+    private static Outcome playGame(String fen, boolean candidateIsWhite, Config config, int gameIndex,
+            ProgressListener listener) {
         Position position = new Position(fen);
-        GameSearcher candidate = searcher(config.searchA(), evaluator(config.evalA()), config.featuresA(),
-                config.threadsA(), config.cpuctA(), config.fpuA(), config.checkPriorA(),
-                config.capturePenaltyA(), config.captureWinScaleA());
-        GameSearcher baseline = searcher(config.searchB(), evaluator(config.evalB()), config.featuresB(),
-                config.threadsB(), config.cpuctB(), config.fpuB(), config.checkPriorB(),
-                config.capturePenaltyB(), config.captureWinScaleB());
-        Map<Long, Integer> seen = new HashMap<>();
-        List<Long> history = new ArrayList<>();
+        GameSearcher candidate = sideSearcher(config, true);
+        GameSearcher baseline = sideSearcher(config, false);
+        Limits limitsA = config.limitsA();
+        Limits limitsB = config.limitsB();
+        List<String> moves = new ArrayList<>();
+        Outcome outcome;
         try {
-            countPosition(seen, position);
-            for (int ply = 0; ply < config.maxPlies(); ply++) {
-                MoveList legal = position.legalMoves();
-                if (legal.isEmpty()) {
-                    // Checkmate or stalemate; the side to move has no reply.
-                    if (position.inCheck()) {
-                        boolean whiteMated = position.isWhiteToMove();
-                        return whiteMated == candidateIsWhite ? Outcome.LOSS : Outcome.WIN;
-                    }
-                    return Outcome.DRAW;
-                }
-                if (position.isInsufficientMaterial()
-                        || position.halfMoveClock() >= 100
-                        || seen.getOrDefault(position.signatureCore(), 0) >= 3) {
-                    return Outcome.DRAW;
-                }
-                boolean candidateToMove = position.isWhiteToMove() == candidateIsWhite;
-                GameSearcher engine = candidateToMove ? candidate : baseline;
-                Result result = engine.search(position, limits, historyArray(history));
-                short move = result.bestMove();
-                if (move == Move.NO_MOVE || !isLegal(legal, move)) {
-                    // Defensive: a stuck engine forfeits.
-                    return candidateToMove ? Outcome.LOSS : Outcome.WIN;
-                }
-                history.add(position.signatureCore());
-                position.play(move);
-                countPosition(seen, position);
-            }
-            return Outcome.DRAW;
+            outcome = playMoves(position, candidate, baseline, candidateIsWhite, limitsA, limitsB,
+                    config.maxPlies(), moves);
         } finally {
             candidate.close();
             baseline.close();
         }
+        listener.onGame(new GameRecord(gameIndex, candidateIsWhite, outcome.label(), fen, moves));
+        return outcome;
+    }
+
+    /**
+     * Builds the searcher for one side, using an external UCI engine when one is
+     * configured for that side and the built-in searcher otherwise.
+     *
+     * @param config gauntlet configuration
+     * @param candidate true for the candidate (A) side, false for baseline (B)
+     * @return per-side searcher
+     */
+    private static GameSearcher sideSearcher(Config config, boolean candidate) {
+        if (candidate && config.usesEngineA()) {
+            return new UciSearcher(config.engineA(), config.threadsA(), config.hashA(), config.optionsA());
+        }
+        if (!candidate && config.usesEngineB()) {
+            return new UciSearcher(config.engineB(), config.threadsB(), config.hashB(), config.optionsB());
+        }
+        return candidate
+                ? searcher(config.searchA(), evaluator(config.evalA()), config.featuresA(),
+                        config.threadsA(), config.cpuctA(), config.fpuA(), config.checkPriorA(),
+                        config.capturePenaltyA(), config.captureWinScaleA())
+                : searcher(config.searchB(), evaluator(config.evalB()), config.featuresB(),
+                        config.threadsB(), config.cpuctB(), config.fpuB(), config.checkPriorB(),
+                        config.capturePenaltyB(), config.captureWinScaleB());
+    }
+
+    /**
+     * Plays a game out from a position, appending each played move (UCI) and
+     * returning the candidate-perspective outcome.
+     *
+     * @param position mutable game position, advanced in place
+     * @param candidate candidate searcher
+     * @param baseline baseline searcher
+     * @param candidateIsWhite whether the candidate plays White
+     * @param limitsA candidate per-move limits
+     * @param limitsB baseline per-move limits
+     * @param maxPlies draw-adjudication ply cap
+     * @param moves output list of played moves in UCI notation
+     * @return game outcome from the candidate's perspective
+     */
+    private static Outcome playMoves(Position position, GameSearcher candidate, GameSearcher baseline,
+            boolean candidateIsWhite, Limits limitsA, Limits limitsB, int maxPlies, List<String> moves) {
+        Map<Long, Integer> seen = new HashMap<>();
+        List<Long> history = new ArrayList<>();
+        countPosition(seen, position);
+        for (int ply = 0; ply < maxPlies; ply++) {
+            MoveList legal = position.legalMoves();
+            if (legal.isEmpty()) {
+                // Checkmate or stalemate; the side to move has no reply.
+                if (position.inCheck()) {
+                    boolean whiteMated = position.isWhiteToMove();
+                    return whiteMated == candidateIsWhite ? Outcome.LOSS : Outcome.WIN;
+                }
+                return Outcome.DRAW;
+            }
+            if (position.isInsufficientMaterial()
+                    || position.halfMoveClock() >= 100
+                    || seen.getOrDefault(position.signatureCore(), 0) >= 3) {
+                return Outcome.DRAW;
+            }
+            boolean candidateToMove = position.isWhiteToMove() == candidateIsWhite;
+            GameSearcher engine = candidateToMove ? candidate : baseline;
+            Limits limits = candidateToMove ? limitsA : limitsB;
+            Result result = engine.search(position, limits, historyArray(history));
+            short move = result.bestMove();
+            if (move == Move.NO_MOVE || !isLegal(legal, move)) {
+                // Defensive: a stuck engine forfeits.
+                return candidateToMove ? Outcome.LOSS : Outcome.WIN;
+            }
+            moves.add(Move.toString(move));
+            history.add(position.signatureCore());
+            position.play(move);
+            countPosition(seen, position);
+        }
+        return Outcome.DRAW;
     }
 
     /**

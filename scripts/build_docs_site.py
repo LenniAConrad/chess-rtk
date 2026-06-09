@@ -61,6 +61,7 @@ NAVIGATION: list[tuple[str, list[tuple[str, str]]]] = [
         [
             ("command-cheatsheet.md", "Cheatsheet"),
             ("command-reference.md", "Command Reference"),
+            ("cli-command-guide.md", "Command Guide"),
             ("example-commands.md", "Example Commands"),
             ("configuration.md", "Configuration"),
             ("outputs-and-logs.md", "Outputs & Logs"),
@@ -70,6 +71,7 @@ NAVIGATION: list[tuple[str, list[tuple[str, str]]]] = [
         "Desktop Workbench",
         [
             ("workbench.md", "Workbench"),
+            ("workbench-design-guide.md", "Design Guide"),
         ],
     ),
     (

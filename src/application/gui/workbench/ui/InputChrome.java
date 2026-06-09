@@ -46,6 +46,12 @@ final class InputChrome {
             InputChrome.class.getName() + ".inputEnabledListener";
 
     /**
+     * Client-property key storing whether the control holds an invalid value.
+     */
+    private static final String INVALID_PROPERTY =
+            InputChrome.class.getName() + ".inputInvalid";
+
+    /**
      * Prevents instantiation.
      */
     private InputChrome() {
@@ -61,7 +67,24 @@ final class InputChrome {
      * @return input border
      */
     static Border border(boolean focused, boolean hovered, boolean compact) {
-        Color lineColor = focused ? Theme.INPUT_FOCUS : hovered ? Theme.ACCENT_HOVER : Theme.INPUT_BORDER;
+        return border(focused, hovered, compact, false);
+    }
+
+    /**
+     * Builds an input border for the current interaction state, optionally
+     * flagged as holding an invalid value.
+     *
+     * @param focused whether the control has focus
+     * @param hovered whether the pointer is over the control
+     * @param compact true for compact toolbar controls
+     * @param invalid true when the current value fails validation
+     * @return input border
+     */
+    static Border border(boolean focused, boolean hovered, boolean compact, boolean invalid) {
+        // An invalid value overrides the focus/hover/resting colours so the
+        // error reads the same whether or not the field is being edited.
+        Color lineColor = invalid ? Theme.STATUS_ERROR_BORDER
+                : focused ? Theme.INPUT_FOCUS : hovered ? Theme.ACCENT_HOVER : Theme.INPUT_BORDER;
         // Rounded outline (RADIUS) so inputs match buttons, cards, and chips.
         Border line = new RoundedInputBorder(lineColor);
         Border inner = compact ? Theme.pad(4, 8, 4, 8) : Theme.pad(7, 9, 7, 9);
@@ -159,6 +182,24 @@ final class InputChrome {
     }
 
     /**
+     * Marks an input control as holding an invalid value (or clears the mark),
+     * switching its border to the error colour. The state is stored as a client
+     * property so {@link #updateBorder} re-applies it after every focus, hover,
+     * or theme refresh instead of being clobbered by the resting border.
+     *
+     * @param component input-like component
+     * @param invalid whether the current value is invalid
+     */
+    static void setInvalid(JComponent component, boolean invalid) {
+        if (Boolean.valueOf(invalid).equals(component.getClientProperty(INVALID_PROPERTY))) {
+            return;
+        }
+        component.putClientProperty(INVALID_PROPERTY, Boolean.valueOf(invalid));
+        updateBorder(component);
+        component.repaint();
+    }
+
+    /**
      * Refreshes one input control's border from its current state.
      *
      * @param component input-like component
@@ -166,6 +207,7 @@ final class InputChrome {
     private static void updateBorder(JComponent component) {
         boolean compact = Boolean.TRUE.equals(component.getClientProperty(COMPACT_PROPERTY));
         boolean hovered = Boolean.TRUE.equals(component.getClientProperty(HOVER_PROPERTY));
-        component.setBorder(border(component.isFocusOwner(), hovered, compact));
+        boolean invalid = Boolean.TRUE.equals(component.getClientProperty(INVALID_PROPERTY));
+        component.setBorder(border(component.isFocusOwner(), hovered, compact, invalid));
     }
 }

@@ -70,12 +70,14 @@
 <section class="nav-section"><h2>Commands</h2>
 <a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
 <a class="active" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="cli-command-guide.html" data-title="command guide">Command Guide</a>
 <a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
 <a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
 </section>
 <section class="nav-section"><h2>Desktop Workbench</h2>
 <a class="" href="workbench.html" data-title="workbench">Workbench</a>
+<a class="" href="workbench-design-guide.html" data-title="design guide">Design Guide</a>
 </section>
 <section class="nav-section"><h2>Engines &amp; Models</h2>
 <a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
@@ -108,6 +110,7 @@
         <h1 id="command-reference">Command reference</h1>
 <p>One command-line interface drives every feature of ChessRTK (&quot;crtk&quot;), and one chess core sits underneath all of it. A FEN that validates in <code>fen validate</code> parses the same way in <code>move list</code>, <code>engine perft</code>, the workbench, and every dataset exporter — same parser, same move generator, same notation, so the same input always yields the same output. This page lists every area, subcommand, and option, grouped so you can find a command, copy its example, and trust the result to reproduce on the next machine.</p>
 <p>Invocations follow <code>crtk &lt;area&gt; &lt;action&gt; [options] [args]</code>. From a build tree rather than the installed launcher, that becomes <code>java -jar crtk.jar &lt;area&gt; &lt;action&gt; ...</code> or <code>java -cp out application.Main &lt;area&gt; &lt;action&gt; ...</code>. For anything this page leaves vague, <code>crtk help --full</code> prints the authoritative spec, and per-command help is either <code>crtk help &lt;area&gt; &lt;action&gt;</code> or <code>crtk &lt;area&gt; &lt;action&gt; --help</code>.</p>
+<p>Adding or changing commands? Use the <a href="cli-command-guide.html">CLI Command Guide</a> for implementation, help, docs, and regression requirements.</p>
 <h2 id="command-style-and-global-conventions">Command style and global conventions</h2>
 <p>The grammar is noun-verb: an <em>area</em> (the noun, such as <code>engine</code> or <code>record</code>) followed by an <em>action</em> (the verb, such as <code>bestmove</code> or <code>export</code>). A few areas add a second noun level, as in <code>record export plain</code> or <code>record dataset npy</code>. In scripts, spell out the full grouped form — it survives renames and reads clearly six months later.</p>
 <ul>

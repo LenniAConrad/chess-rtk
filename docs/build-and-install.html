@@ -70,12 +70,14 @@
 <section class="nav-section"><h2>Commands</h2>
 <a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
 <a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="cli-command-guide.html" data-title="command guide">Command Guide</a>
 <a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
 <a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
 </section>
 <section class="nav-section"><h2>Desktop Workbench</h2>
 <a class="" href="workbench.html" data-title="workbench">Workbench</a>
+<a class="" href="workbench-design-guide.html" data-title="design guide">Design Guide</a>
 </section>
 <section class="nav-section"><h2>Engines &amp; Models</h2>
 <a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
@@ -215,7 +217,7 @@ crtk help --full</code></pre>
 <li>installs a <code>ChessRTK Workbench</code> desktop entry that launches the Swing workbench (<code>crtk workbench</code>) without opening a terminal</li>
 <li>optionally builds the CUDA, ROCm/HIP, and oneAPI JNI backends when their vendor toolchains are present</li>
 </ul>
-<p>Any <code>models/*.bin</code>, <code>models/*.pb.gz</code>, and <code>models/*.nnue</code> files it downloads are local artifacts, and git ignores them.</p>
+<p>Any <code>models/*.bin</code>, <code>models/*.pb.gz</code>, and <code>models/*.nnue</code> files it downloads are local artifacts, and git ignores them. If a <code>crtk</code> command already exists on <code>PATH</code> and already points at this checkout, the installer reuses it and only replaces the Java build (<code>out/</code> and <code>crtk.jar</code>). That update path does not need sudo unless you also choose a package install, a native toolchain install, or a launcher/desktop rewrite.</p>
 <p>Run the installer, then verify:</p>
 <pre><code class="language-bash">./install.sh
 crtk help</code></pre>
@@ -254,6 +256,10 @@ crtk help</code></pre>
 <td>Skip installing the <code>/usr/local/bin/crtk</code> launcher</td>
 </tr>
 <tr>
+<td><code>--force-launcher</code></td>
+<td>Rewrite the command launcher even when an existing <code>crtk</code> command already points at this checkout</td>
+</tr>
+<tr>
 <td><code>--no-desktop</code> (alias <code>--no-app-launcher</code>)</td>
 <td>Skip the desktop app entry</td>
 </tr>
@@ -277,6 +283,7 @@ crtk help</code></pre>
 <p>Notes:</p>
 <ul>
 <li><code>scripts/update.sh</code> refuses to pull when the worktree has local changes, so an in-progress edit is never clobbered.</li>
+<li>When the installed <code>crtk</code> command already targets this checkout, <code>scripts/update.sh --no-pull --no-models --no-cuda --no-rocm --no-oneapi</code> rebuilds the jar behind that command without reinstalling the launcher.</li>
 <li>Anything it doesn&#x27;t recognize passes straight through to <code>./install.sh</code> — for example <code>./scripts/update.sh --no-cuda</code>.</li>
 </ul>
 <h2 id="uninstall">Uninstall</h2>

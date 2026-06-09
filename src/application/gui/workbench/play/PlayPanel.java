@@ -342,8 +342,11 @@ public final class PlayPanel extends JPanel {
      * @param elo approximate strength
      * @param search search algorithm
      * @param network evaluation network
+     * @param deterministic whether the preset should force arg-max play
+     * @param openingBook whether the preset should use the ECO book
      */
-    private record Bot(String name, int elo, int colorRgb, Opponent.Search search, Opponent.Network network) {
+    private record Bot(String name, int elo, int colorRgb, Opponent.Search search, Opponent.Network network,
+            boolean deterministic, boolean openingBook) {
     }
 
     /**
@@ -358,17 +361,16 @@ public final class PlayPanel extends JPanel {
 
     /**
      * Prebuilt opponents, weakest to strongest. Each one uses alpha-beta with
-     * classical evaluation; strength is varied through Elo-derived budget and
-     * sampling only. The Custom section still exposes the other search/network
-     * backends for engine experiments.
+     * classical evaluation. The lowest presets leave the opening book off so they
+     * cannot inherit theory-strength moves from hidden Custom settings.
      */
     private static final List<Bot> BOTS = List.of(
-            new Bot("Rookie", 800, 0x7A6FF0, PRESET_SEARCH, PRESET_NETWORK),
-            new Bot("Casual", 1200, 0x2BA7A2, PRESET_SEARCH, PRESET_NETWORK),
-            new Bot("Club", 1600, 0x4F8DD3, PRESET_SEARCH, PRESET_NETWORK),
-            new Bot("Expert", 2000, 0xC07A2D, PRESET_SEARCH, PRESET_NETWORK),
-            new Bot("Master", 2400, 0xB64E62, PRESET_SEARCH, PRESET_NETWORK),
-            new Bot("Maximum", 2800, 0x5E64C8, PRESET_SEARCH, PRESET_NETWORK));
+            new Bot("Rookie", 600, 0x7A6FF0, PRESET_SEARCH, PRESET_NETWORK, false, false),
+            new Bot("Casual", 1200, 0x2BA7A2, PRESET_SEARCH, PRESET_NETWORK, false, false),
+            new Bot("Club", 1600, 0x4F8DD3, PRESET_SEARCH, PRESET_NETWORK, false, true),
+            new Bot("Expert", 2000, 0xC07A2D, PRESET_SEARCH, PRESET_NETWORK, false, true),
+            new Bot("Master", 2400, 0xB64E62, PRESET_SEARCH, PRESET_NETWORK, false, true),
+            new Bot("Maximum", 2800, 0x5E64C8, PRESET_SEARCH, PRESET_NETWORK, true, true));
 
     /**
      * Creates the play panel.
@@ -1246,6 +1248,9 @@ public final class PlayPanel extends JPanel {
             searchChips.setSelectedIndex(bot.search().ordinal());
             networkChips.setSelectedIndex(bot.network().ordinal());
             eloSlider.setValue(bot.elo());
+            deterministicToggle.setSelected(bot.deterministic());
+            openingBookToggle.setSelected(bot.openingBook());
+            session.setBookEnabled(bot.openingBook());
         } finally {
             applyingBot = false;
         }
@@ -1255,6 +1260,8 @@ public final class PlayPanel extends JPanel {
         PlayPrefs.setElo(bot.elo());
         PlayPrefs.setSearch(bot.search());
         PlayPrefs.setNetwork(bot.network());
+        PlayPrefs.setDeterministic(bot.deterministic());
+        PlayPrefs.setOpeningBook(bot.openingBook());
         refreshPlayUi();
         summaryChanged.run();
     }
@@ -1280,16 +1287,8 @@ public final class PlayPanel extends JPanel {
         Opponent.Network network = PlayPrefs.network();
         for (int i = 0; i < BOTS.size(); i++) {
             Bot bot = BOTS.get(i);
-            if (bot.elo() == elo && bot.search() == search && bot.network() == network) {
-                botButtons.get(i).setSelected(true);
-                setCustomVisible(false);
-                updateNetworkNote();
-                return;
-            }
-        }
-        for (int i = 0; i < BOTS.size(); i++) {
-            Bot bot = BOTS.get(i);
-            if (bot.elo() == elo && isLegacyPresetBackend(bot, search, network)) {
+            if (isCurrentPresetSelection(bot, elo, search, network)
+                    || isLegacyPresetSelection(bot, elo, search, network)) {
                 botButtons.get(i).setSelected(true);
                 applyBot(bot);
                 return;
@@ -1320,6 +1319,38 @@ public final class PlayPanel extends JPanel {
                     search == Opponent.Search.MCTS && network == Opponent.Network.OTIS;
             default -> false;
         };
+    }
+
+    /**
+     * Returns whether persisted values describe the preset in the current schema.
+     *
+     * @param bot preset candidate
+     * @param elo saved Elo
+     * @param search saved search backend
+     * @param network saved evaluation backend
+     * @return true when the saved values match this preset exactly
+     */
+    private static boolean isCurrentPresetSelection(Bot bot, int elo,
+            Opponent.Search search, Opponent.Network network) {
+        return bot.elo() == elo && bot.search() == search && bot.network() == network;
+    }
+
+    /**
+     * Recognizes older saved preset selections so the user lands back on the named
+     * bot after preset strength/defaults change.
+     *
+     * @param bot preset candidate
+     * @param elo saved Elo
+     * @param search saved search backend
+     * @param network saved evaluation backend
+     * @return true when the saved values should migrate to this preset
+     */
+    private static boolean isLegacyPresetSelection(Bot bot, int elo,
+            Opponent.Search search, Opponent.Network network) {
+        if ("Rookie".equals(bot.name())) {
+            return elo == 800 && search == PRESET_SEARCH && network == PRESET_NETWORK;
+        }
+        return bot.elo() == elo && isLegacyPresetBackend(bot, search, network);
     }
 
     /**

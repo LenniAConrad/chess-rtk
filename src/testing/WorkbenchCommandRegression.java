@@ -203,24 +203,43 @@ final class WorkbenchCommandRegression {
                 "alpha-beta",
                 "classical",
                 "nnue",
-                "2500",
                 "12",
                 "77",
                 "120",
                 "2",
                 "1",
-                "3");
+                "3",
+                "/usr/bin/stockfish",
+                "",
+                "256",
+                "",
+                "SyzygyPath=/tb",
+                "",
+                "200ms",
+                "4000");
         List<String> command = EngineGauntletPanel.buildCommand(config);
         assertEquals("engine", command.get(0), "gauntlet command targets the engine area");
         assertEquals("gauntlet", command.get(1), "gauntlet command targets the gauntlet action");
         assertEquals("mcts", valueAfterFlag(command, "--searchA"), "gauntlet candidate search");
         assertEquals("alpha-beta", valueAfterFlag(command, "--searchB"), "gauntlet baseline search");
         assertEquals("nnue", valueAfterFlag(command, "--evalB"), "gauntlet baseline evaluator");
-        assertEquals("2500", valueAfterFlag(command, "--nodes"), "gauntlet node budget");
+        assertFalse(command.contains("--nodes"), "shared node budget is replaced by per-side budgets");
         assertEquals("12", valueAfterFlag(command, "--openings"), "gauntlet opening count");
         assertEquals("77", valueAfterFlag(command, "--seed"), "gauntlet seed");
         assertEquals("2", valueAfterFlag(command, "--workers"), "gauntlet worker count");
         assertEquals("3", valueAfterFlag(command, "--threadsB"), "gauntlet baseline threads");
+        assertEquals("/usr/bin/stockfish", valueAfterFlag(command, "--engineA"),
+                "gauntlet candidate external UCI engine");
+        assertEquals("256", valueAfterFlag(command, "--hashA"), "gauntlet candidate engine hash");
+        assertEquals("SyzygyPath=/tb", valueAfterFlag(command, "--optionsA"),
+                "gauntlet candidate engine UCI options");
+        assertFalse(command.contains("--engineB"), "blank baseline engine adds no flag");
+        assertFalse(command.contains("--hashB"), "blank baseline hash adds no flag");
+        assertEquals("200", valueAfterFlag(command, "--movetimeA"),
+                "gauntlet candidate ms-suffixed budget maps to movetime");
+        assertEquals("4000", valueAfterFlag(command, "--nodesB"),
+                "gauntlet baseline numeric budget maps to nodes");
+        assertTrue(command.contains("--stream"), "gauntlet GUI always streams per-game records");
     }
 
     /**

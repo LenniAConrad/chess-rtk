@@ -5,6 +5,7 @@ import application.gui.workbench.command.CommandTemplates.CommandTemplate;
 import application.gui.workbench.command.CommandTemplates.TemplateContext;
 import application.gui.workbench.command.CommandTemplates.ValueSource;
 import application.gui.workbench.ui.ChipGroup;
+import application.gui.workbench.ui.FieldValidator;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.Ui;
@@ -1243,6 +1244,10 @@ public final class CommandForm extends JPanel {
                 && !isValidFen(field.value)) {
             return "Not a valid FEN";
         }
+        String typeProblem = typeProblem(field.option, field.value);
+        if (typeProblem != null) {
+            return typeProblem;
+        }
         if (field.option.splitValue()) {
             try {
                 CommandLine.split(field.value);
@@ -1251,6 +1256,38 @@ public final class CommandForm extends JPanel {
             }
         }
         return null;
+    }
+
+    /**
+     * Reusable whole-number check for integer-valued options.
+     */
+    private static final FieldValidator.Check POSITIVE_INTEGER =
+            FieldValidator.wholeNumber(1, Long.MAX_VALUE, true);
+
+    /**
+     * Reusable check for duration-valued options ({@code 500ms}, {@code 2s}).
+     */
+    private static final FieldValidator.Check DURATION_VALUE =
+            FieldValidator.numberWithOptionalUnit(true, "ms", "s", "m", "h");
+
+    /**
+     * Returns a type error when a numeric or duration option value is not the
+     * kind of value its flag expects, or null. Blank is accepted; a missing
+     * required value is reported separately by the readiness check.
+     *
+     * @param option option metadata
+     * @param value current value
+     * @return type error message, or null
+     */
+    private static String typeProblem(CommandOption option, String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return switch (option.source()) {
+            case DEPTH, MULTIPV, THREADS, NODES, HASH -> POSITIVE_INTEGER.problem(value);
+            case DURATION -> DURATION_VALUE.problem(value);
+            default -> null;
+        };
     }
 
     /**

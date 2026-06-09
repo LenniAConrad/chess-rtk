@@ -14,6 +14,7 @@ import static application.gui.workbench.ui.Ui.transparentPanel;
 
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.board.BoardPanel;
+import application.gui.workbench.ui.FieldValidator;
 import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.HoldButton;
 import application.gui.workbench.ui.Spinner;
@@ -572,6 +573,9 @@ public final class DatasetPanel extends JPanel {
         rowLimitField.setColumns(10);
         rowLimitField.setToolTipText("Maximum rows to scan");
         rowLimitField.setPreferredSize(new Dimension(120, Theme.CONTROL_HEIGHT));
+        // Analysis rejects a blank or out-of-range row limit, so flag those too.
+        FieldValidator.attach(rowLimitField,
+                FieldValidator.groupedWholeNumber(MIN_ROW_LIMIT, MAX_ROW_LIMIT, false));
         controls.add(label("row limit"));
         controls.add(rowLimitField);
 

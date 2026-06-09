@@ -57,6 +57,8 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.TableCellRenderer;
 
 import application.gui.workbench.board.BoardPanel;
+import application.gui.workbench.board.BoardExporter;
+import application.gui.workbench.board.BoardMarkup;
 import application.gui.workbench.board.BoardMarkupTool;
 import application.gui.workbench.draw.DrawPanel;
 import application.gui.workbench.layout.LazyPanel;
@@ -68,6 +70,7 @@ import application.gui.workbench.dataset.DatasetChart;
 import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.ChipGroup;
 import application.gui.workbench.ui.EvalBar;
+import application.gui.workbench.ui.FieldValidator;
 import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.SettingsChipRow;
 import application.gui.workbench.ui.HoldButton;
@@ -191,7 +194,97 @@ final class WorkbenchUiRegression {
         testPieceSetsRenderDistinctly();
         testConsoleStatusLinesRenderBadges();
         testEvalBarDrawsScoreLabel();
+        testNumericFieldValidatorFlagsBadInput();
         WorkbenchUiEditorRegression.run();
+    }
+
+    /**
+     * Verifies that {@link FieldValidator} flags non-numeric input on a styled
+     * field — switching it to the error border and an explanatory tooltip — and
+     * clears the warning once a usable value (or blank default) is restored.
+     */
+    private static void testNumericFieldValidatorFlagsBadInput() {
+        Theme.setMode(Theme.Mode.LIGHT);
+        JTextField field = new JTextField("3000");
+        field.setToolTipText("Nodes per move");
+        Theme.field(field);
+        FieldValidator validator = FieldValidator.attach(field,
+                FieldValidator.wholeNumber(1, Long.MAX_VALUE, true));
+        assertTrue(validator.valid(), "whole-number field accepts plain digits");
+        assertEquals("Nodes per move", field.getToolTipText(),
+                "valid field keeps its resting tooltip");
+
+        field.setText("160numbererrr");
+        assertFalse(validator.valid(), "letters in a number field are rejected");
+        assertTrue(validator.problem() != null && !validator.problem().isBlank(),
+                "invalid field reports a reason");
+        assertEquals(validator.problem(), field.getToolTipText(),
+                "invalid field explains itself through its tooltip");
+        assertColor(themeColor("STATUS_ERROR_BORDER"), inputBorderLineColor(field),
+                "invalid field paints the error border colour");
+
+        field.setText("");
+        assertTrue(validator.valid(), "blank is accepted as use-the-default");
+        assertEquals("Nodes per move", field.getToolTipText(),
+                "cleared field restores its resting tooltip");
+
+        field.setText("0");
+        assertFalse(validator.valid(), "a value below the minimum is rejected");
+
+        field.setText("-5");
+        assertFalse(validator.valid(), "a negative value in a non-negative field is rejected");
+
+        field.setText("99999999999999999999");
+        assertFalse(validator.valid(), "a value too large for a long is rejected");
+
+        JTextField grouped = new JTextField("50,000");
+        Theme.field(grouped);
+        FieldValidator groupedValidator = FieldValidator.attach(grouped,
+                FieldValidator.groupedWholeNumber(100, 1_000_000, true));
+        assertTrue(groupedValidator.valid(), "grouped digits with separators are accepted");
+        grouped.setText("5");
+        assertFalse(groupedValidator.valid(), "an out-of-range grouped number is rejected");
+
+        JTextField disabled = new JTextField("nonsense");
+        Theme.field(disabled);
+        disabled.setEnabled(false);
+        FieldValidator disabledValidator = FieldValidator.attach(disabled,
+                FieldValidator.wholeNumber(1, Long.MAX_VALUE, false));
+        assertTrue(disabledValidator.valid(), "a disabled field is never flagged");
+
+        JTextField duration = new JTextField("1s");
+        Theme.field(duration);
+        FieldValidator durationValidator = FieldValidator.attach(duration,
+                FieldValidator.numberWithOptionalUnit(true, "ms", "s", "m", "h"));
+        assertTrue(durationValidator.valid(), "a duration with a unit suffix is accepted");
+        duration.setText("500ms");
+        assertTrue(durationValidator.valid(), "the longer 'ms' suffix wins over 'm'");
+        duration.setText("200");
+        assertTrue(durationValidator.valid(), "a plain number with no unit is accepted");
+        duration.setText("200msx");
+        assertFalse(durationValidator.valid(), "trailing junk after a unit is rejected");
+        duration.setText("");
+        assertTrue(durationValidator.valid(), "a blank unit field falls back to its default");
+    }
+
+    /**
+     * Reads the painted outline colour of a styled input control's border.
+     *
+     * @param component styled input control
+     * @return rounded-input border line colour
+     */
+    private static Color inputBorderLineColor(JComponent component) {
+        javax.swing.border.Border border = component.getBorder();
+        if (border instanceof javax.swing.border.CompoundBorder compound) {
+            border = compound.getOutsideBorder();
+        }
+        try {
+            java.lang.reflect.Field line = border.getClass().getDeclaredField("line");
+            line.setAccessible(true);
+            return (Color) line.get(border);
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError("cannot read input border colour", ex);
+        }
     }
 
     /**
@@ -2377,18 +2470,75 @@ final class WorkbenchUiRegression {
     private static void testDrawPanelBuildsAnnotationControls() {
         BoardPanel board = new BoardPanel();
         DrawPanel panel = new DrawPanel(board, new JPanel());
+        assertTrue(componentTreeHasLabelText(panel, "Target"),
+                "draw panel exposes color target picker");
         assertTrue(componentTreeHasLabelText(panel, "Shape"),
                 "draw panel exposes shape picker");
+        assertTrue(componentTreeHasLabelText(panel, "Glyph"),
+                "draw panel exposes glyph picker");
         assertTrue(componentTreeHasLabelText(panel, "Opacity"),
                 "draw panel exposes opacity control");
         assertTrue(componentTreeHasLabelText(panel, "Width"),
                 "draw panel exposes arrow width control");
-        assertTrue(componentTreeHasLabelText(panel, "Annotation List"),
+        assertTrue(componentTreeHasLabelText(panel, "Border"),
+                "draw panel exposes border thickness control");
+        assertTrue(componentTreeHasLabelText(panel, "Rounded corners"),
+                "draw panel exposes rectangle corner style control");
+        assertTrue(componentTreeHasLabelText(panel, "Details"),
+                "draw panel exposes annotation detail visibility control");
+        JList<?> annotationList = (JList<?>) field(panel, "annotationList");
+        assertTrue(annotationList.getCellRenderer().getClass().getName().contains("AnnotationRenderer"),
+                "draw panel uses a themed annotation row renderer");
+        assertTrue(annotationList.getFixedCellHeight() >= Theme.TABLE_ROW_HEIGHT,
+                "draw panel annotation rows keep a stable Workbench row height");
+        assertFalse(componentTreeHasLabelText(panel, "Red"),
+                "draw panel keeps redundant RGB sliders out of the rail");
+        assertFalse(componentTreeHasLabelText(panel, "Hue"),
+                "draw panel keeps redundant HSV sliders out of the rail");
+        assertTrue(componentTreeHasLabelText(panel, "Hex"),
+                "draw panel exposes direct hexadecimal color entry");
+        assertTrue(componentTreeHasLabelText(panel, "ARGB"),
+                "draw panel exposes direct ARGB color entry");
+        assertFalse(componentTreeHasTooltip(panel, "Current stroke preview."),
+                "draw panel does not include the removed stroke preview card");
+        assertTrue(componentTreeHasLabelText(panel, "Annotations"),
                 "draw panel exposes annotation history");
         assertTrue(componentTreeHasLabelText(panel, "Export"),
                 "draw panel exposes grouped export controls");
-        assertTrue(board.directAnnotationBrush().matches(MarkupBrush.defaultBrush()),
-                "draw panel starts with the default preset annotation brush");
+        assertEquals(MarkupBrush.DEFAULT_GLYPH, board.directAnnotationBrush().glyph(),
+                "draw panel starts with the default glyph annotation");
+        assertEquals(Integer.valueOf(MarkupBrush.DEFAULT_BORDER_WIDTH),
+                Integer.valueOf(board.directAnnotationBrush().displayBorderWidth()),
+                "draw panel starts with the default border width");
+        assertFalse(board.directAnnotationBrush().displayRoundedRectangle(),
+                "draw panel starts with square rectangle corners");
+        AbstractButton roundedToggle = (AbstractButton) field(panel, "roundedRectangleToggle");
+        roundedToggle.doClick();
+        assertTrue(board.directAnnotationBrush().displayRoundedRectangle(),
+                "draw panel rounded-corner toggle updates the active brush");
+        roundedToggle.doClick();
+        assertTrue(panel.workspaceContext().contains("0 arrows"),
+                "draw panel starts with detailed workspace context");
+        AbstractButton detailsToggle = (AbstractButton) field(panel, "detailsToggle");
+        detailsToggle.doClick();
+        assertTrue(panel.workspaceContext().contains("0 annotations"),
+                "draw panel compact context shows total annotation count");
+        assertFalse(panel.workspaceContext().contains("0 arrows"),
+                "draw panel compact context hides per-shape counts");
+        JTextField hexField = (JTextField) field(panel, "hexField");
+        JTextField argbField = (JTextField) field(panel, "argbField");
+        hexField.setText("#80445566");
+        hexField.postActionEvent();
+        assertEquals(new Color(0x44, 0x55, 0x66, 0x80), board.directAnnotationBrush().displayColor(),
+                "draw panel hexadecimal entry updates fill color and alpha");
+        argbField.setText("96, 17, 34, 51");
+        argbField.postActionEvent();
+        assertEquals(new Color(17, 34, 51, 96), board.directAnnotationBrush().displayColor(),
+                "draw panel ARGB entry updates fill color and alpha");
+        assertEquals(Theme.BOARD_LIGHT, board.boardLightColor(),
+                "draw panel starts with theme light square color");
+        assertEquals(Theme.BOARD_DARK, board.boardDarkColor(),
+                "draw panel starts with theme dark square color");
     }
 
     /**
@@ -2418,16 +2568,68 @@ final class WorkbenchUiRegression {
         dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, d4, MouseEvent.BUTTON1);
         assertEquals(Integer.valueOf(2), Integer.valueOf(board.markupCount()),
                 "circle draw mode adds a circle annotation");
+        assertTrue(board.boardMarkups().get(1).isCircle(), "second draw annotation is a circle");
+
+        board.setMarkupTool(BoardMarkupTool.RECTANGLE);
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0x21, 0x9E, 0x3C, 212),
+                new Color(245, 245, 245, 212), 12, MarkupBrush.DEFAULT_BORDER_WIDTH,
+                MarkupBrush.DEFAULT_GLYPH, true));
+        Point c5 = squareCenter(board, (byte) 26);
+        Point e3 = squareCenter(board, (byte) 44);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, c5, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_DRAGGED, MouseEvent.BUTTON1_DOWN_MASK, e3, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, e3, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(3), Integer.valueOf(board.markupCount()),
+                "rectangle draw mode adds a filled rectangle annotation");
+        BoardMarkup rectangle = board.boardMarkups().get(2);
+        assertTrue(rectangle.isRectangle(), "third draw annotation is a rectangle");
+        assertTrue(rectangle.brush().displayRoundedRectangle(),
+                "rectangle draw mode stores selected rounded-corner style");
+
+        board.setMarkupTool(BoardMarkupTool.GLYPH);
+        Point f6 = squareCenter(board, (byte) 21);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, f6, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, f6, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(4), Integer.valueOf(board.markupCount()),
+                "glyph draw mode adds a glyph annotation");
+        BoardMarkup glyph = board.boardMarkups().get(3);
+        assertTrue(glyph.isGlyph(), "fourth draw annotation is a glyph");
+        assertEquals(MarkupBrush.DEFAULT_GLYPH, glyph.brush().glyph(), "glyph annotation stores selected glyph");
+
+        board.setBoardColors(new Color(0xDDEEFF), new Color(0x335577));
+        assertEquals(new Color(0xDDEEFF), board.boardLightColor(), "custom light board color applies");
+        assertEquals(new Color(0x335577), board.boardDarkColor(), "custom dark board color applies");
+        board.setShowSpecialMoveHints(true);
+        String svg = BoardExporter.toSvg(board, 512);
+        assertTrue(svg.contains("#ddeeff"), "SVG export includes custom light board color");
+        assertTrue(svg.contains("#335577"), "SVG export includes custom dark board color");
+        assertTrue(svg.contains("#787878"), "SVG export includes special move hint arrow fill");
+        int rectangleMarkup = svg.indexOf("fill=\"#219e3c\"");
+        int firstPiece = svg.indexOf("<g transform=");
+        assertTrue(rectangleMarkup >= 0 && firstPiece >= 0 && rectangleMarkup < firstPiece,
+                "SVG export paints rectangle annotations beneath pieces");
+        String rectangleElement = svg.substring(svg.lastIndexOf("<rect", rectangleMarkup),
+                svg.indexOf("/>", rectangleMarkup) + 2);
+        assertTrue(rectangleElement.contains("rx=\"") && rectangleElement.contains("ry=\""),
+                "SVG export preserves rounded rectangle corners");
+        int glyphText = svg.indexOf(">!!</text>");
+        int glyphCircle = svg.lastIndexOf("<circle", glyphText);
+        int glyphRect = svg.lastIndexOf("<rect", glyphText);
+        assertTrue(glyphText >= 0 && glyphCircle > glyphRect,
+                "SVG export paints glyph badges as circles");
+        String glyphCircleElement = svg.substring(glyphCircle, svg.indexOf("/>", glyphCircle) + 2);
+        assertTrue(glyphCircleElement.contains("cx=\"370\"") && glyphCircleElement.contains("cy=\"146\""),
+                "SVG export centers glyph badges in the top-right quadrant of the square");
         assertTrue(board.canUndoMarkupEdit(), "draw annotations can be undone");
         board.undoMarkupEdit();
-        assertEquals(Integer.valueOf(1), Integer.valueOf(board.markupCount()),
+        assertEquals(Integer.valueOf(3), Integer.valueOf(board.markupCount()),
                 "undo removes the latest draw annotation");
         assertTrue(board.canRedoMarkupEdit(), "draw annotations can be redone");
         board.redoMarkupEdit();
-        assertEquals(Integer.valueOf(2), Integer.valueOf(board.markupCount()),
+        assertEquals(Integer.valueOf(4), Integer.valueOf(board.markupCount()),
                 "redo restores the latest draw annotation");
         board.removeMarkup(0);
-        assertEquals(Integer.valueOf(1), Integer.valueOf(board.markupCount()),
+        assertEquals(Integer.valueOf(3), Integer.valueOf(board.markupCount()),
                 "delete selected support removes one annotation");
         board.clearUserMarkup();
         assertEquals(Integer.valueOf(0), Integer.valueOf(board.markupCount()),

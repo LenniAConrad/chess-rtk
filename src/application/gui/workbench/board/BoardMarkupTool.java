@@ -15,7 +15,17 @@ public enum BoardMarkupTool {
     /**
      * Draw a circle on the origin square.
      */
-    CIRCLE("Circle");
+    CIRCLE("Circle"),
+
+    /**
+     * Draw a filled rectangular region between two board squares.
+     */
+    RECTANGLE("Rectangle"),
+
+    /**
+     * Place a chess annotation glyph on one board square.
+     */
+    GLYPH("Glyph");
 
     /**
      * Tool labels in picker order.

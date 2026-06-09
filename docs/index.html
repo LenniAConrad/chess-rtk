@@ -142,6 +142,11 @@ crtk workbench</code></pre>
 <td><code>crtk move list --startpos</code></td>
 </tr>
 <tr>
+<td>Add a CLI command</td>
+<td><a href="cli-command-guide.html">CLI Command Guide</a></td>
+<td><code>java -cp out testing.CLICommandRegressionTest</code></td>
+</tr>
+<tr>
 <td>Validate move generation</td>
 <td><a href="quality-and-testing.html">Quality and Testing</a></td>
 <td><code>crtk engine perft-suite --depth 6 --threads 4</code></td>
@@ -166,6 +171,11 @@ crtk workbench</code></pre>
 <td><a href="workbench.html">Workbench</a></td>
 <td><code>crtk workbench</code></td>
 </tr>
+<tr>
+<td>Design Workbench UI</td>
+<td><a href="workbench-design-guide.html">Workbench Design Guide</a></td>
+<td><code>java -Djava.awt.headless=true -cp out testing.WorkbenchRegressionTest</code></td>
+</tr>
 </tbody></table></div>
 <h2 id="documentation-map">Documentation Map</h2>
 <div class="table-wrap"><table>
@@ -179,7 +189,7 @@ crtk workbench</code></pre>
 </tr>
 <tr>
 <td>Commands</td>
-<td><a href="command-cheatsheet.html">Command Cheatsheet</a>, <a href="command-reference.html">Command Reference</a>, <a href="example-commands.html">Example Commands</a></td>
+<td><a href="command-cheatsheet.html">Command Cheatsheet</a>, <a href="command-reference.html">Command Reference</a>, <a href="cli-command-guide.html">CLI Command Guide</a>, <a href="example-commands.html">Example Commands</a></td>
 </tr>
 <tr>
 <td>Workflows</td>
@@ -191,7 +201,7 @@ crtk workbench</code></pre>
 </tr>
 <tr>
 <td>Project</td>
-<td><a href="architecture.html">Architecture</a>, <a href="quality-and-testing.html">Quality and Testing</a>, <a href="development-notes.html">Development Notes</a>, <a href="releasing.html">Releasing</a></td>
+<td><a href="architecture.html">Architecture</a>, <a href="quality-and-testing.html">Quality and Testing</a>, <a href="development-notes.html">Development Notes</a>, <a href="workbench-design-guide.html">Workbench Design Guide</a>, <a href="releasing.html">Releasing</a></td>
 </tr>
 </tbody></table></div>
 <p>For bug reports, start with <a href="troubleshooting.html">Troubleshooting</a>. Include the command, input FEN or file, Java version, operating system, and engine protocol TOML when an external engine is involved.</p>

@@ -16,6 +16,7 @@ import application.gui.workbench.game.TablebasePanel;
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.session.LogPanel;
 import application.gui.workbench.command.Console;
+import application.gui.workbench.ui.FieldValidator;
 import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.WrappingFlowLayout;
 import application.gui.workbench.ui.HoldButton;
@@ -940,6 +941,8 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                 .addDocumentListener(changeListener(this::syncDurationFromAnalysis));
         analysisDepthSpinner.setToolTipText("Maximum search depth for built-in search and command previews");
         analysisDurationField.setToolTipText("Maximum external-engine time, e.g. 1s or 500ms");
+        FieldValidator.attach(analysisDurationField,
+                FieldValidator.numberWithOptionalUnit(true, "ms", "s", "m", "h"));
         analysisMultipvSpinner.setToolTipText("Number of principal variations for external analysis");
         analysisThreadsSpinner.setToolTipText("Thread count for supported commands");
 
@@ -1491,6 +1494,11 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         engineNodesField.setColumns(10);
         engineHashField.setColumns(7);
         styleFields(engineProtocolField, engineNodesField, engineHashField);
+        engineNodesField.setToolTipText("Optional node limit per move");
+        engineHashField.setToolTipText("Optional engine hash size in MB");
+        // Both are optional positive integers (blank leaves the limit unset).
+        FieldValidator.attach(engineNodesField, FieldValidator.wholeNumber(1, Long.MAX_VALUE, true));
+        FieldValidator.attach(engineHashField, FieldValidator.wholeNumber(1, Long.MAX_VALUE, true));
 
         JPanel protocol = settingsGroupPanel();
         GridBagConstraints protocolC = constraints();

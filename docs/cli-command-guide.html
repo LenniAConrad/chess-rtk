@@ -1,0 +1,671 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CLI Command Guide | ChessRTK</title>
+  <meta name="description" content="The deterministic chess research toolkit — CLI Command Guide.">
+  <link rel="icon" href="assets/logo/crtk-logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      var key = "crtk-theme";
+      var isTheme = function (value) { return value === "light" || value === "dark"; };
+      var urlTheme = "";
+      var stored = "";
+      try { urlTheme = new URLSearchParams(window.location.search).get("theme"); } catch (e) {}
+      try { stored = localStorage.getItem(key); } catch (e) {}
+      var theme = isTheme(urlTheme) ? urlTheme : (isTheme(stored) ? stored : "");
+      if (!theme) {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      if (isTheme(urlTheme)) {
+        try { localStorage.setItem(key, urlTheme); } catch (e) {}
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body class="is-doc">
+
+  <header class="topnav">
+    <div class="topnav-inner">
+      <a class="topnav-brand" href="index.html">
+        <img src="assets/logo/crtk-logo.svg" alt="" width="32" height="32">
+        <span>ChessRTK</span>
+      </a>
+      <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="topnav-links">
+        <a class="" href="getting-started.html">Get started</a>
+        <a class="" href="command-reference.html">Commands</a>
+        <a class="" href="workbench.html">Workbench</a>
+        <a class="" href="wiki-index.html">Docs</a>
+        <a class="" href="chessrtk-manual.pdf">Manual</a>
+        <a class="topnav-gh" href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="doc-shell">
+    <aside class="sidebar" id="sidebar">
+      <label class="search-label" for="doc-search">Search the docs</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search pages..." autocomplete="off">
+      <div id="search-results" class="search-results" hidden></div>
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="overview">Overview</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>Commands</h2>
+<a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="active" href="cli-command-guide.html" data-title="command guide">Command Guide</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+</section>
+<section class="nav-section"><h2>Desktop Workbench</h2>
+<a class="" href="workbench.html" data-title="workbench">Workbench</a>
+<a class="" href="workbench-design-guide.html" data-title="design guide">Design Guide</a>
+</section>
+<section class="nav-section"><h2>Engines &amp; Models</h2>
+<a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
+<a class="" href="lc0.html" data-title="lc0 networks">LC0 Networks</a>
+<a class="" href="gpu.html" data-title="gpu acceleration">GPU Acceleration</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
+<a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="ai-agents.html" data-title="ai agents &amp; automation">AI Agents &amp; Automation</a>
+</section>
+<section class="nav-section"><h2>Project</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="support.html" data-title="support">Support</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <main class="doc-main">
+      <article class="content">
+        <p class="content-kicker">Commands</p>
+        <h1 id="cli-command-guide">CLI Command Guide</h1>
+<p>This guide explains how to add or change a ChessRTK CLI command. The CLI is not a loose argument parser. It is a deterministic noun-then-verb command surface backed by one shared chess core, central command metadata, built-in help, regression tests, and generated documentation.</p>
+<p>Use this guide whenever you add a new command, rename a command, add a flag, change output, or expose a workflow through the Workbench command builder.</p>
+<h2 id="command-design-rules">Command Design Rules</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Rule</th>
+<th>Requirement</th>
+</tr></thead><tbody>
+<tr>
+<td>Shape</td>
+<td>Commands are <code>crtk &lt;area&gt; &lt;action&gt; [options] [args]</code>.</td>
+</tr>
+<tr>
+<td>Names</td>
+<td>Use canonical noun/action tokens from <code>application.cli.Constants</code> when a token is reused.</td>
+</tr>
+<tr>
+<td>Areas</td>
+<td>Add a new area only for a durable domain. Prefer adding an action to <code>fen</code>, <code>move</code>, <code>engine</code>, <code>record</code>, <code>puzzle</code>, <code>book</code>, <code>position</code>, <code>batch</code>, or <code>config</code>.</td>
+</tr>
+<tr>
+<td>Flags</td>
+<td>Use named flags for structured values: <code>--fen</code>, <code>--input</code>, <code>--output</code>, <code>--format</code>, <code>--max-nodes</code>, <code>--max-duration</code>.</td>
+</tr>
+<tr>
+<td>Positionals</td>
+<td>Use positionals only when they are natural command arguments, such as a move token or short move line.</td>
+</tr>
+<tr>
+<td>Outputs</td>
+<td>Keep stdout stable and parseable. Put diagnostics on stderr through the command boundary.</td>
+</tr>
+<tr>
+<td>Determinism</td>
+<td>No wall-clock-dependent output, hidden random defaults, unstable ordering, or unbounded engine work.</td>
+</tr>
+<tr>
+<td>Core logic</td>
+<td>Route legality, FEN, SAN, UCI, Chess960, tagging, and move application through <code>chess.core</code> and existing helpers.</td>
+</tr>
+<tr>
+<td>Help</td>
+<td><code>crtk help &lt;area&gt; &lt;action&gt;</code> is the ground-truth user surface. Every flag must appear there.</td>
+</tr>
+<tr>
+<td>Tests</td>
+<td>Every command needs regression coverage for success, failure, help, and machine-readable output when supported.</td>
+</tr>
+</tbody></table></div>
+<p>Never reintroduce legacy single-word commands like <code>moves</code>, <code>bestmove</code>, <code>eval-static</code>, <code>pgn-to-fens</code>, <code>mine-puzzles</code>, <code>record-to-csv</code>, or <code>stats-tags</code>. If an alias is unavoidable, make it a compatibility alias that resolves to the canonical command and prints canonical help.</p>
+<h2 id="source-files">Source Files</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Need</th>
+<th>File</th>
+</tr></thead><tbody>
+<tr>
+<td>CLI entry point and dispatch</td>
+<td><code>src/application/Main.java</code></td>
+</tr>
+<tr>
+<td>Command tree, aliases, examples, related commands</td>
+<td><code>src/application/cli/CliRegistry.java</code></td>
+</tr>
+<tr>
+<td>Command metadata node</td>
+<td><code>src/application/cli/CliCommand.java</code></td>
+</tr>
+<tr>
+<td>Shared tokens and flag names</td>
+<td><code>src/application/cli/Constants.java</code></td>
+</tr>
+<tr>
+<td>Argument parser</td>
+<td><code>src/utility/Argv.java</code></td>
+</tr>
+<tr>
+<td>Shared command helpers</td>
+<td><code>src/application/cli/command/CommandSupport.java</code></td>
+</tr>
+<tr>
+<td>User-facing failures</td>
+<td><code>src/application/cli/command/CommandFailure.java</code></td>
+</tr>
+<tr>
+<td>Built-in help text and option blocks</td>
+<td><code>src/application/cli/command/HelpCommand.java</code></td>
+</tr>
+<tr>
+<td>Command implementations</td>
+<td><code>src/application/cli/command/</code></td>
+</tr>
+<tr>
+<td>Book command implementations</td>
+<td><code>src/application/cli/command/book/</code></td>
+</tr>
+<tr>
+<td>CLI regression tests</td>
+<td><code>src/testing/CLICommandRegressionTest.java</code></td>
+</tr>
+<tr>
+<td>Docs source</td>
+<td><code>wiki/command-reference.md</code>, <code>wiki/example-commands.md</code>, <code>wiki/command-cheatsheet.md</code></td>
+</tr>
+</tbody></table></div>
+<p>Common helper classes:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Helper</th>
+<th>Use</th>
+</tr></thead><tbody>
+<tr>
+<td><code>CommandSupport.resolveFenArgument(...)</code></td>
+<td>Resolve <code>--fen</code>, <code>--startpos</code>, <code>--randompos</code>, or positional FEN text.</td>
+</tr>
+<tr>
+<td><code>CommandSupport.resolvePositionArgument(...)</code></td>
+<td>Resolve and parse one position.</td>
+</tr>
+<tr>
+<td><code>CommandSupport.resolveFenInputs(...)</code></td>
+<td>Resolve either <code>--input</code> or one FEN string.</td>
+</tr>
+<tr>
+<td><code>CommandSupport.resolveOutputMode(...)</code></td>
+<td>Handle mutually-exclusive <code>--json</code> / <code>--jsonl</code>.</td>
+</tr>
+<tr>
+<td><code>CommandSupport.resolveDefaultEnabledFlag(...)</code></td>
+<td>Handle default-on flags with <code>--flag</code> and <code>--no-flag</code>.</td>
+</tr>
+<tr>
+<td><code>EngineOps</code>, <code>EvalOps</code>, <code>ConfigOps</code></td>
+<td>Reuse engine, evaluator, and config plumbing.</td>
+</tr>
+<tr>
+<td><code>PathOps</code></td>
+<td>Create output paths, local temp files, and safe dump paths.</td>
+</tr>
+<tr>
+<td><code>PgnOps</code>, <code>RecordIO</code></td>
+<td>Reuse PGN and record I/O helpers.</td>
+</tr>
+<tr>
+<td><code>Format</code></td>
+<td>Reuse CLI formatting for moves, evals, WDL, backend labels, and PVs.</td>
+</tr>
+<tr>
+<td><code>Validation</code></td>
+<td>Reuse validation helpers instead of scattering range checks.</td>
+</tr>
+<tr>
+<td><code>utility.Json</code></td>
+<td>Emit JSON/JSONL without adding dependencies.</td>
+</tr>
+</tbody></table></div>
+<h2 id="implementation-process">Implementation Process</h2>
+<ol>
+<li><strong>Name the command.</strong> Pick the canonical area/action path and decide whether it belongs under an existing group.</li>
+<li><strong>Define flags and output.</strong> Write down required inputs, optional flags, defaults, output format, failure modes, and whether JSON/JSONL is supported.</li>
+<li><strong>Add constants if reused.</strong> Put shared command tokens and option names in <code>Constants.java</code>.</li>
+<li><strong>Write the command handler.</strong> Add or update a focused class under <code>src/application/cli/command/</code>.</li>
+<li><strong>Register the command.</strong> Add a <code>CliCommand.leaf(...)</code> or group entry in <code>CliRegistry.java</code> with usage, about text, detail help key, examples, and related commands.</li>
+<li><strong>Add the help block.</strong> Add a marker and option section in <code>HelpCommand.java</code>; map the command&#x27;s <code>detailHelpKey(...)</code> to that marker.</li>
+<li><strong>Update docs.</strong> Update <code>wiki/command-reference.md</code>; update examples/cheatsheet/config docs when the command affects those surfaces.</li>
+<li><strong>Expose through Workbench if useful.</strong> Make sure command forms can discover or represent it when the command is user-facing.</li>
+<li><strong>Add tests.</strong> Extend <code>CLICommandRegressionTest</code> or a more focused regression class.</li>
+<li><strong>Run verification.</strong> Compile, run CLI tests, run docs if docs changed, then run the recommended suite before publishing broad changes.</li>
+</ol>
+<h2 id="handler-pattern">Handler Pattern</h2>
+<p>Command handlers are static methods that accept <code>Argv</code> and return by printing to stdout or throwing a failure. They do not call <code>System.exit</code>.</p>
+<pre><code class="language-java">package application.cli.command;
+
+import application.cli.command.CommandSupport.OutputMode;
+import chess.core.Position;
+import utility.Argv;
+import utility.Json;
+
+/**
+ * Example command implementation.
+ */
+public final class ExampleCommand {
+
+    private ExampleCommand() {
+        // utility
+    }
+
+    public static void runExample(Argv a) {
+        boolean verbose = a.flag(&quot;--verbose&quot;);
+        OutputMode output = CommandSupport.resolveOutputMode(a, &quot;fen example&quot;);
+        Position position = CommandSupport.resolvePositionArgument(a, &quot;fen example&quot;, true, verbose);
+
+        String value = position.toString();
+        String json = &quot;{\&quot;fen\&quot;:\&quot;&quot; + Json.esc(value) + &quot;\&quot;}&quot;;
+        if (output == OutputMode.JSON) {
+            System.out.println(json);
+            return;
+        }
+        if (output == OutputMode.JSONL) {
+            System.out.println(json);
+            return;
+        }
+        System.out.println(value);
+    }
+}</code></pre>
+<p>Parsing rules:</p>
+<ul>
+<li>Call typed <code>Argv</code> accessors once for every flag you support.</li>
+<li>Call <code>positionals()</code> before <code>ensureConsumed()</code> only if the command accepts positional arguments.</li>
+<li>Read all non-position flags before <code>CommandSupport.resolveFenArgument(...)</code> or <code>CommandSupport.resolvePositionArgument(...)</code>; those helpers consume position input and call <code>ensureConsumed()</code>.</li>
+<li>Make sure <code>ensureConsumed()</code> runs after parsing. Call it yourself unless a shared resolver already did it.</li>
+<li>Reject mutually-exclusive inputs before doing engine/model/file work.</li>
+<li>Prefer <code>CommandFailure</code> for command-specific failures with a clear command label and exit code.</li>
+<li>Let <code>IllegalArgumentException</code> handle simple parser failures from <code>Argv</code>; <code>Main</code> maps it to exit code <code>2</code>.</li>
+</ul>
+<p>Default-on flag pattern:</p>
+<pre><code class="language-java">boolean analyze = CommandSupport.resolveDefaultEnabledFlag(a, &quot;puzzle tags&quot;, &quot;--analyze&quot;);</code></pre>
+<p>This accepts <code>--analyze</code> and <code>--no-analyze</code>, defaults to enabled, and rejects contradictory repeats.</p>
+<h2 id="registry-pattern">Registry Pattern</h2>
+<p>Register every executable command in <code>CliRegistry.java</code>. The registry controls dispatch, summary help, contextual help, aliases, examples, related commands, and command form discovery.</p>
+<pre><code class="language-java">fen.add(CliCommand.leaf(&quot;example&quot;, &quot;Print a deterministic example for a FEN&quot;,
+        ExampleCommand::runExample)
+        .detailHelpKey(&quot;fen example&quot;)
+        .usage(&quot;[options]&quot;)
+        .about(&quot;Resolve one position and print a deterministic example value.&quot;)
+        .example(&quot;crtk fen example --startpos&quot;)
+        .example(&quot;crtk fen example --fen \&quot;&lt;FEN&gt;\&quot; --json&quot;)
+        .related(&quot;fen print&quot;)
+        .related(&quot;move list&quot;));</code></pre>
+<p>Registry rules:</p>
+<ul>
+<li>The leaf name is the canonical action token.</li>
+<li><code>summary</code> is one short sentence fragment for grouped help.</li>
+<li><code>usage(...)</code> is only the tail after the command path.</li>
+<li><code>about(...)</code> explains the command in one or two direct sentences.</li>
+<li><code>detailHelpKey(...)</code> must match the help marker mapping in <code>HelpCommand</code>.</li>
+<li><code>example(...)</code> entries must be copy-pasteable and deterministic.</li>
+<li><code>related(...)</code> entries are command paths without the <code>crtk</code> prefix.</li>
+<li>Use aliases sparingly and only under the same parent. Aliases are for compatibility, not new naming.</li>
+</ul>
+<h2 id="help-block-pattern">Help Block Pattern</h2>
+<p>For each command with options, update <code>HelpCommand.java</code>.</p>
+<ol>
+<li>Add a marker constant:</li>
+</ol>
+<pre><code class="language-java">private static final String FEN_EXAMPLE_OPTIONS_MARKER = &quot;fen example options:&quot;;</code></pre>
+<ol>
+<li>Add it to <code>HELP_MARKERS</code>:</li>
+</ol>
+<pre><code class="language-java">Map.entry(&quot;fen example&quot;, FEN_EXAMPLE_OPTIONS_MARKER),</code></pre>
+<ol>
+<li>Add a section to <code>HELP_FULL_TEXT</code>:</li>
+</ol>
+<pre><code class="language-text">fen example options:
+  --fen FEN                  Position to inspect
+  --startpos                 Use the standard starting position
+  --randompos                Use a deterministic random playable sample
+  --json                     Emit one JSON object
+  --jsonl                    Emit one JSON object per row
+  --verbose                  Include debug details for parse failures</code></pre>
+<p>Help block rules:</p>
+<ul>
+<li>The marker line must exactly match the mapped marker string.</li>
+<li>Option rows use stable spacing and short descriptions.</li>
+<li>The help block must list every public flag and short alias.</li>
+<li>If the command supports JSON/JSONL, say so.</li>
+<li>If a command has aliases, contextual help should still show the canonical command path.</li>
+<li>Run <code>crtk help &lt;area&gt; &lt;action&gt;</code> after the change and read it as a user would.</li>
+</ul>
+<h2 id="input-rules">Input Rules</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Input type</th>
+<th>Preferred API</th>
+<th>Rule</th>
+</tr></thead><tbody>
+<tr>
+<td>One FEN</td>
+<td><code>CommandSupport.resolveFenArgument(...)</code></td>
+<td>Accept <code>--fen</code>, <code>--startpos</code>, <code>--randompos</code>, and optional positional FEN only when the command convention allows it.</td>
+</tr>
+<tr>
+<td>Parsed position</td>
+<td><code>CommandSupport.resolvePositionArgument(...)</code></td>
+<td>Parse once, fail early, and pass <code>Position</code> through the shared core.</td>
+</tr>
+<tr>
+<td>Many FENs</td>
+<td><code>CommandSupport.resolveFenInputs(...)</code></td>
+<td>Accept either <code>--input</code> or one FEN, not both.</td>
+</tr>
+<tr>
+<td>File path</td>
+<td><code>a.path(...)</code> / <code>a.pathRequired(...)</code></td>
+<td>Use <code>PathOps.ensureParentDir(...)</code> before writing.</td>
+</tr>
+<tr>
+<td>Duration</td>
+<td><code>a.duration(...)</code></td>
+<td>Accept <code>500ms</code>, <code>60s</code>, <code>2m</code>, <code>1h</code>, or milliseconds.</td>
+</tr>
+<tr>
+<td>Repeated values</td>
+<td><code>a.strings(...)</code></td>
+<td>Preserve order; document whether repeated flags are allowed.</td>
+</tr>
+<tr>
+<td>Free-form tail</td>
+<td><code>a.positionals()</code></td>
+<td>Require <code>--</code> when a value could look like a flag.</td>
+</tr>
+</tbody></table></div>
+<p>Do not parse FENs, SAN, UCI, PGN, TOML, JSON, paths, or durations by hand when a shared parser exists.</p>
+<h2 id="output-rules">Output Rules</h2>
+<p>Text output:</p>
+<ul>
+<li>Keep line order stable.</li>
+<li>Keep columns and separators stable.</li>
+<li>Prefer tabs for simple machine-readable text rows.</li>
+<li>Do not print progress or warnings to stdout if stdout is the data stream.</li>
+<li>Include enough context for a human to understand the result without hidden state.</li>
+</ul>
+<p>JSON/JSONL output:</p>
+<ul>
+<li>Use <code>utility.Json</code>.</li>
+<li>Keep field names lowercase, stable, and explicit.</li>
+<li>Use JSON for one object or summary; use JSONL for rows.</li>
+<li>Do not mix human prose with JSON stdout.</li>
+<li>Add regression assertions for important fields, not just substring smoke tests.</li>
+</ul>
+<p>Errors:</p>
+<ul>
+<li>Use <code>CommandFailure</code> for domain failures: invalid combination, missing input, unreadable file, unsupported format.</li>
+<li>Use exit code <code>2</code> for usage/input failures unless an existing command family uses a more specific code.</li>
+<li>Keep stderr concise. Include <code>--verbose</code> only when stack traces or internal details are useful.</li>
+</ul>
+<h2 id="determinism-checklist">Determinism Checklist</h2>
+<p>Before shipping a command, verify:</p>
+<ul>
+<li>Same input and flags produce the same stdout.</li>
+<li>Row ordering is sorted or follows core deterministic order.</li>
+<li>Engine work is bounded by nodes, depth, duration, or explicit user budget.</li>
+<li>Random sampling is explicit, seeded, or named as random in the command.</li>
+<li>Output paths are deterministic or user-provided.</li>
+<li>JSON field order is stable enough for regression tests.</li>
+<li>No wall-clock timestamp appears unless the user requested a run log or artifact metadata.</li>
+<li>Optional engines/models report availability honestly and fail or fall back consistently.</li>
+</ul>
+<h2 id="workbench-command-forms">Workbench Command Forms</h2>
+<p>The Workbench command builder mirrors the CLI. A new command should be easy to discover from the GUI when it is user-facing.</p>
+<p>Check these files when a command should appear in forms:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>File</th>
+<th>Why</th>
+</tr></thead><tbody>
+<tr>
+<td><code>src/application/gui/workbench/command/CommandTemplates.java</code></td>
+<td>Command templates and generated forms.</td>
+</tr>
+<tr>
+<td><code>src/application/gui/workbench/command/CommandForm.java</code></td>
+<td>Required fields, optional flags, validation, and preview behavior.</td>
+</tr>
+<tr>
+<td><code>src/application/gui/workbench/command/CommandRunner.java</code></td>
+<td>Running command text and collecting output.</td>
+</tr>
+<tr>
+<td><code>src/testing/WorkbenchCommandRegression.java</code></td>
+<td>Command-form regression coverage.</td>
+</tr>
+</tbody></table></div>
+<p>The generated command preview must be the exact runnable command. Do not add UI-only defaults that the CLI cannot reproduce.</p>
+<h2 id="regression-tests">Regression Tests</h2>
+<p>Use <code>TestSupport.runMain(...)</code> for successful command checks and <code>TestSupport.runMainExpectFailure(...)</code> for failures.</p>
+<pre><code class="language-java">private static void testFenExampleCommand() {
+    String text = TestSupport.runMain(&quot;fen&quot;, &quot;example&quot;, &quot;--startpos&quot;).strip();
+    assertTrue(text.contains(&quot; w &quot;), &quot;fen example prints a FEN-like value&quot;);
+
+    String json = TestSupport.runMain(&quot;fen&quot;, &quot;example&quot;, &quot;--startpos&quot;, &quot;--json&quot;).strip();
+    assertTrue(json.contains(&quot;\&quot;fen\&quot;&quot;), &quot;fen example json includes fen field&quot;);
+
+    TestSupport.FailureResult failure = TestSupport.runMainExpectFailure(
+            &quot;fen&quot;, &quot;example&quot;, &quot;--json&quot;, &quot;--jsonl&quot;);
+    assertTrue(failure.stderr().contains(&quot;use either --json or --jsonl&quot;),
+            &quot;fen example rejects conflicting output modes&quot;);
+}</code></pre>
+<p>Minimum coverage:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Case</th>
+<th>What to test</th>
+</tr></thead><tbody>
+<tr>
+<td>Routing</td>
+<td><code>crtk &lt;area&gt; &lt;action&gt;</code> reaches the handler.</td>
+</tr>
+<tr>
+<td>Help</td>
+<td><code>crtk help &lt;area&gt; &lt;action&gt;</code> lists the command and new flags.</td>
+</tr>
+<tr>
+<td>Success</td>
+<td>A simple deterministic invocation returns exact or strongly asserted output.</td>
+</tr>
+<tr>
+<td>Failure</td>
+<td>Missing input, bad value, and mutually-exclusive flags fail cleanly.</td>
+</tr>
+<tr>
+<td>JSON/JSONL</td>
+<td>Machine-readable output is valid and stable when supported.</td>
+</tr>
+<tr>
+<td>Unknown flags</td>
+<td><code>ensureConsumed()</code> rejects stale options.</td>
+</tr>
+<tr>
+<td>Aliases</td>
+<td>Alias routes to the same command only when compatibility requires it.</td>
+</tr>
+<tr>
+<td>Docs-sensitive commands</td>
+<td>Command appears in command reference/examples when user-facing.</td>
+</tr>
+</tbody></table></div>
+<h2 id="verification-commands">Verification Commands</h2>
+<p>Compile:</p>
+<pre><code class="language-bash">find src -name &#x27;*.java&#x27; | sort &gt; /tmp/crtk-srcs.txt
+javac --release 17 -d out @/tmp/crtk-srcs.txt</code></pre>
+<p>Run focused CLI tests:</p>
+<pre><code class="language-bash">java -cp out testing.CLICommandRegressionTest
+./scripts/run_regression_suite.sh cli</code></pre>
+<p>Check the new command manually:</p>
+<pre><code class="language-bash">java -cp out application.Main help &lt;area&gt; &lt;action&gt;
+java -cp out application.Main &lt;area&gt; &lt;action&gt; --help
+java -cp out application.Main &lt;area&gt; &lt;action&gt; [options]
+java -cp out application.Main &lt;area&gt; &lt;action&gt; [bad-options]</code></pre>
+<p>Regenerate docs after wiki changes:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh docs
+git diff --check</code></pre>
+<p>Before publishing a broad CLI change:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh recommended</code></pre>
+<h2 id="review-checklist">Review Checklist</h2>
+<p>A CLI command change is ready only if every answer is clear:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Question</th>
+<th>Pass condition</th>
+</tr></thead><tbody>
+<tr>
+<td>What is the canonical path?</td>
+<td>It is <code>crtk &lt;area&gt; &lt;action&gt;</code> and not a legacy single-word command.</td>
+</tr>
+<tr>
+<td>Where is it registered?</td>
+<td><code>CliRegistry</code> has the group/leaf metadata, examples, detail help key, and related commands.</td>
+</tr>
+<tr>
+<td>How are args parsed?</td>
+<td><code>Argv</code> typed accessors and shared helpers are used; <code>ensureConsumed()</code> is called.</td>
+</tr>
+<tr>
+<td>What core code does it use?</td>
+<td>Rules, notation, engine, records, config, and paths go through shared APIs.</td>
+</tr>
+<tr>
+<td>How does it fail?</td>
+<td>Bad input throws <code>CommandFailure</code> or parser errors before expensive work.</td>
+</tr>
+<tr>
+<td>What does stdout mean?</td>
+<td>Text/JSON/JSONL shapes are stable and free of diagnostics.</td>
+</tr>
+<tr>
+<td>Is work bounded?</td>
+<td>Search, mining, export, and batch work have explicit limits or user-provided budgets.</td>
+</tr>
+<tr>
+<td>Is help current?</td>
+<td><code>crtk help &lt;area&gt; &lt;action&gt;</code> lists all flags and useful examples.</td>
+</tr>
+<tr>
+<td>Are docs current?</td>
+<td>Command reference and examples are updated when user-facing behavior changed.</td>
+</tr>
+<tr>
+<td>Is it tested?</td>
+<td>Success, failure, help, routing, and machine-readable output are covered.</td>
+</tr>
+</tbody></table></div>
+<h2 id="related-pages">Related Pages</h2>
+<ul>
+<li><a href="command-reference.html">Command Reference</a> - every current command, action, and flag.</li>
+<li><a href="command-cheatsheet.html">Command Cheatsheet</a> - common commands by task.</li>
+<li><a href="example-commands.html">Example Commands</a> - end-to-end command recipes.</li>
+<li><a href="architecture.html">Architecture</a> - how the CLI sits over the shared core.</li>
+<li><a href="development-notes.html">Development Notes</a> - broader contributor conventions.</li>
+<li><a href="quality-and-testing.html">Quality and Testing</a> - regression suite details.</li>
+</ul>
+      </article>
+      <aside class="toc"><h2>On this page</h2>
+<a class="toc-h2" href="#command-design-rules">Command Design Rules</a>
+<a class="toc-h2" href="#source-files">Source Files</a>
+<a class="toc-h2" href="#implementation-process">Implementation Process</a>
+<a class="toc-h2" href="#handler-pattern">Handler Pattern</a>
+<a class="toc-h2" href="#registry-pattern">Registry Pattern</a>
+<a class="toc-h2" href="#help-block-pattern">Help Block Pattern</a>
+<a class="toc-h2" href="#input-rules">Input Rules</a>
+<a class="toc-h2" href="#output-rules">Output Rules</a>
+<a class="toc-h2" href="#determinism-checklist">Determinism Checklist</a>
+<a class="toc-h2" href="#workbench-command-forms">Workbench Command Forms</a>
+<a class="toc-h2" href="#regression-tests">Regression Tests</a>
+<a class="toc-h2" href="#verification-commands">Verification Commands</a>
+<a class="toc-h2" href="#review-checklist">Review Checklist</a>
+<a class="toc-h2" href="#related-pages">Related Pages</a></aside>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a class="footer-logo" href="index.html">
+          <img src="assets/logo/crtk-logo.svg" alt="" width="40" height="40">
+          <span>ChessRTK</span>
+        </a>
+        <p>The deterministic chess research toolkit. Free, open-source, and built on one shared Java chess core.</p>
+        <p class="footer-license">Licensed under GPL-3.0-only.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col"><h3>Documentation</h3><ul>
+          <li><a href="getting-started.html">Getting Started</a></li>
+          <li><a href="command-reference.html">Command Reference</a></li>
+          <li><a href="configuration.html">Configuration</a></li>
+          <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          <li><a href="chessrtk-manual.pdf">Manual (PDF)</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Workflows</h3><ul>
+          <li><a href="mining.html">Puzzle Mining</a></li>
+          <li><a href="datasets.html">ML Datasets</a></li>
+          <li><a href="piece-tags.html">Tagging</a></li>
+          <li><a href="book-publishing.html">Book Publishing</a></li>
+          <li><a href="ai-agents.html">AI Agents</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Project</h3><ul>
+          <li><a href="architecture.html">Architecture</a></li>
+          <li><a href="quality-and-testing.html">Quality &amp; Testing</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk/issues" target="_blank" rel="noopener">Issues</a></li>
+        </ul></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; ChessRTK contributors &middot; GPL-3.0-only</span>
+      <span>Documentation generated from the repository <a href="wiki-index.html">wiki</a>.</span>
+    </div>
+  </footer>
+
+</body>
+</html>

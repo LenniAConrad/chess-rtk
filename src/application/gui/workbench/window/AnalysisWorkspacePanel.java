@@ -7,6 +7,7 @@ import application.gui.workbench.game.MovesModel;
 import application.gui.workbench.game.SanRenderer;
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.ui.EvalBar;
+import application.gui.workbench.ui.FieldValidator;
 import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.Theme;
 import chess.core.Move;
@@ -232,6 +233,9 @@ final class AnalysisWorkspacePanel extends JPanel {
         GridBagConstraints c = constraints();
         grid(panel, Theme.section("Analysis"), c, 0, 0, 4, 1);
         styleFields(fenField, durationField);
+        durationField.setToolTipText("Maximum analysis time, e.g. 1s or 500ms");
+        FieldValidator.attach(durationField,
+                FieldValidator.numberWithOptionalUnit(true, "ms", "s", "m", "h"));
         styleSpinners(multipvSpinner);
         Theme.foreground(statusLabel, Theme.ForegroundRole.MUTED);
         fenField.addActionListener(event -> loadFen(fenField.getText()));

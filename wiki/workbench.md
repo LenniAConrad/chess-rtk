@@ -158,6 +158,7 @@ The Console streams command output with terminal-style progress handling, so a r
 
 ## Related pages
 
+- [Workbench Design Guide](workbench-design-guide.md) - visual direction and contributor rules for Workbench UI changes.
 - [Getting Started](getting-started.md) — install, configure, and run your first commands.
 - [Command Reference](command-reference.md) — every area and action the command forms mirror.
 - [In-house engine](in-house-engine.md) — the alpha-beta and MCTS search behind Play and `engine builtin`.

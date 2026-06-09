@@ -70,12 +70,14 @@
 <section class="nav-section"><h2>Commands</h2>
 <a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
 <a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="cli-command-guide.html" data-title="command guide">Command Guide</a>
 <a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
 <a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
 </section>
 <section class="nav-section"><h2>Desktop Workbench</h2>
 <a class="" href="workbench.html" data-title="workbench">Workbench</a>
+<a class="" href="workbench-design-guide.html" data-title="design guide">Design Guide</a>
 </section>
 <section class="nav-section"><h2>Engines &amp; Models</h2>
 <a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
@@ -168,6 +170,7 @@
 <li><code>application.cli.CliRegistry</code> maps each area/action to a <code>CliCommand</code> implementation under <code>application.cli.command</code>. One class per command (<code>AnalyzeCommand</code>, <code>PerftCommand</code>, <code>Chess960Command</code>, and so on) keeps the dispatch table flat and each command testable in isolation.</li>
 <li><code>application.cli.Constants</code> holds the canonical command tokens. The plumbing every command shares — engine setup, eval setup, record I/O, FEN/PGN parsing, output formatting, validation — lives in sibling classes like <code>EngineOps</code>, <code>EvalOps</code>, <code>RecordIO</code>, <code>PgnOps</code>, and <code>Format</code>, so a new command rarely has to reinvent any of it.</li>
 <li><code>application.gui.workbench</code> is the Swing Workbench launched by <code>workbench</code> (alias <code>gui</code>): board view, play-vs-engine, command forms, batch jobs, dataset tools, logs, publishing previews, puzzles, and neural-net visualizers.</li>
+<li>Workbench UI changes should follow the <a href="workbench-design-guide.html">Workbench Design Guide</a>: use <code>Theme</code>, <code>Ui</code>, shared layout primitives, and focused Workbench regressions instead of local styling copies.</li>
 </ul>
 <h3 id="src-chess-the-shared-core-and-everything-built-on-it"><code>src/chess/</code> — the shared core and everything built on it</h3>
 <ul>
@@ -279,6 +282,7 @@ bash scripts/run_regression_suite.sh engine       # engine / NN / GPU perft test
 <pre><code class="language-bash">for f in assets/diagrams/*.dot; do dot -Tpng &quot;$f&quot; -o &quot;${f%.dot}.png&quot;; done</code></pre>
 <p>Reach for <code>neato</code> only if you write a graph that wants a spring or radial layout; everything currently checked in is a directed-graph layout, so <code>dot</code> is the right tool. Reference a rendered diagram from Markdown by its assets path, for example <code>![Pipeline overview](../assets/diagrams/crtk-pipeline-overview.png)</code>.</p>
 <h2 id="adding-or-changing-a-cli-command">Adding or changing a CLI command</h2>
+<p>Use the <a href="cli-command-guide.html">CLI Command Guide</a> for the full process, code patterns, help-block rules, docs updates, and regression commands. The short version is:</p>
 <ol>
 <li>Add or update a <code>CliCommand</code> implementation under <code>src/application/cli/command/</code> (book/puzzle commands live in the <code>book</code> subpackage).</li>
 <li>Register the area/action in <code>application.cli.CliRegistry</code>, using the canonical tokens from <code>application.cli.Constants</code>.</li>
@@ -297,7 +301,7 @@ bash scripts/run_regression_suite.sh engine       # engine / NN / GPU perft test
 <li><strong>Compile clean at <code>--release 17</code>.</strong> Fix the source that produces a warning rather than reaching for a broad suppression, and trust a clean command-line compile over a transient IDE marker.</li>
 <li><strong>Help text is ground truth.</strong> Every flag you expose must show up in <code>crtk help</code>; the docs and AI-agent integrations quote it verbatim, so a stale help string becomes a wrong document elsewhere.</li>
 </ul>
-<p>Related: <a href="architecture.html">Architecture</a>, <a href="build-and-install.html">Build &amp; Install</a>, <a href="quality-and-testing.html">Quality &amp; Testing</a>, <a href="command-reference.html">Command Reference</a>.</p>
+<p>Related: <a href="architecture.html">Architecture</a>, <a href="build-and-install.html">Build &amp; Install</a>, <a href="quality-and-testing.html">Quality &amp; Testing</a>, <a href="command-reference.html">Command Reference</a>, <a href="cli-command-guide.html">CLI Command Guide</a>.</p>
       </article>
       <aside class="toc"><h2>On this page</h2>
 <a class="toc-h2" href="#prerequisites">Prerequisites</a>

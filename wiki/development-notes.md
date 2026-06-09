@@ -32,6 +32,7 @@ For end-user workflows see [Getting Started](getting-started.md) and the [Comman
 - `application.cli.CliRegistry` maps each area/action to a `CliCommand` implementation under `application.cli.command`. One class per command (`AnalyzeCommand`, `PerftCommand`, `Chess960Command`, and so on) keeps the dispatch table flat and each command testable in isolation.
 - `application.cli.Constants` holds the canonical command tokens. The plumbing every command shares — engine setup, eval setup, record I/O, FEN/PGN parsing, output formatting, validation — lives in sibling classes like `EngineOps`, `EvalOps`, `RecordIO`, `PgnOps`, and `Format`, so a new command rarely has to reinvent any of it.
 - `application.gui.workbench` is the Swing Workbench launched by `workbench` (alias `gui`): board view, play-vs-engine, command forms, batch jobs, dataset tools, logs, publishing previews, puzzles, and neural-net visualizers.
+- Workbench UI changes should follow the [Workbench Design Guide](workbench-design-guide.md): use `Theme`, `Ui`, shared layout primitives, and focused Workbench regressions instead of local styling copies.
 
 ### `src/chess/` — the shared core and everything built on it
 
@@ -150,6 +151,8 @@ Reach for `neato` only if you write a graph that wants a spring or radial layout
 
 ## Adding or changing a CLI command
 
+Use the [CLI Command Guide](cli-command-guide.md) for the full process, code patterns, help-block rules, docs updates, and regression commands. The short version is:
+
 1. Add or update a `CliCommand` implementation under `src/application/cli/command/` (book/puzzle commands live in the `book` subpackage).
 2. Register the area/action in `application.cli.CliRegistry`, using the canonical tokens from `application.cli.Constants`.
 3. Reuse the shared plumbing — `EngineOps`, `EvalOps`, `RecordIO`, `PgnOps`, `Format`, `Validation` — rather than re-parsing FENs or re-spawning engines inline.
@@ -168,4 +171,4 @@ Names are noun-then-verb, everywhere: `move list`, `move uci`, `engine bestmove`
 - **Compile clean at `--release 17`.** Fix the source that produces a warning rather than reaching for a broad suppression, and trust a clean command-line compile over a transient IDE marker.
 - **Help text is ground truth.** Every flag you expose must show up in `crtk help`; the docs and AI-agent integrations quote it verbatim, so a stale help string becomes a wrong document elsewhere.
 
-Related: [Architecture](architecture.md), [Build & Install](build-and-install.md), [Quality & Testing](quality-and-testing.md), [Command Reference](command-reference.md).
+Related: [Architecture](architecture.md), [Build & Install](build-and-install.md), [Quality & Testing](quality-and-testing.md), [Command Reference](command-reference.md), [CLI Command Guide](cli-command-guide.md).

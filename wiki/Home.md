@@ -31,20 +31,22 @@ Need the full setup path? Read [Getting Started](getting-started.md), [Build & I
 | --- | --- | --- |
 | Install and verify | [Getting Started](getting-started.md) | `crtk doctor` |
 | Learn the CLI shape | [Command Cheatsheet](command-cheatsheet.md) | `crtk move list --startpos` |
+| Add a CLI command | [CLI Command Guide](cli-command-guide.md) | `java -cp out testing.CLICommandRegressionTest` |
 | Validate move generation | [Quality and Testing](quality-and-testing.md) | `crtk engine perft-suite --depth 6 --threads 4` |
 | Configure Stockfish or LC0 | [Configuration](configuration.md) | `crtk engine bestmove --fen "<FEN>"` |
 | Mine tactical puzzles | [Puzzle Mining](mining.md) | `crtk puzzle mine --random-count 50 --output dump/` |
 | Publish books or diagrams | [Book Publishing](book-publishing.md) | `crtk book render -i books/puzzles.toml --check` |
 | Use the desktop app | [Workbench](workbench.md) | `crtk workbench` |
+| Design Workbench UI | [Workbench Design Guide](workbench-design-guide.md) | `java -Djava.awt.headless=true -cp out testing.WorkbenchRegressionTest` |
 
 ## Documentation Map
 
 | Section | Pages |
 | --- | --- |
 | Setup | [Getting Started](getting-started.md), [Build & Install](build-and-install.md), [Configuration](configuration.md), [Troubleshooting](troubleshooting.md) |
-| Commands | [Command Cheatsheet](command-cheatsheet.md), [Command Reference](command-reference.md), [Example Commands](example-commands.md) |
+| Commands | [Command Cheatsheet](command-cheatsheet.md), [Command Reference](command-reference.md), [CLI Command Guide](cli-command-guide.md), [Example Commands](example-commands.md) |
 | Workflows | [Puzzle Mining](mining.md), [Filter DSL](filter-dsl.md), [Datasets](datasets.md), [Book Publishing](book-publishing.md), [Tags](piece-tags.md) |
 | Engines | [In-House Engine](in-house-engine.md), [LC0](lc0.md), [GPU Acceleration](gpu.md), [T5 Text](t5.md) |
-| Project | [Architecture](architecture.md), [Quality and Testing](quality-and-testing.md), [Development Notes](development-notes.md), [Releasing](releasing.md) |
+| Project | [Architecture](architecture.md), [Quality and Testing](quality-and-testing.md), [Development Notes](development-notes.md), [Workbench Design Guide](workbench-design-guide.md), [Releasing](releasing.md) |
 
 For bug reports, start with [Troubleshooting](troubleshooting.md). Include the command, input FEN or file, Java version, operating system, and engine protocol TOML when an external engine is involved.

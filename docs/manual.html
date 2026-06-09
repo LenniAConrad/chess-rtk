@@ -427,10 +427,12 @@ blockquote p:last-child {
 <li><a href="#chapter-troubleshooting">Troubleshooting</a></li></ol></section>
 <section><h2>Commands</h2><ol><li><a href="#chapter-command-cheatsheet">Cheatsheet</a></li>
 <li><a href="#chapter-command-reference">Command Reference</a></li>
+<li><a href="#chapter-cli-command-guide">Command Guide</a></li>
 <li><a href="#chapter-example-commands">Example Commands</a></li>
 <li><a href="#chapter-configuration">Configuration</a></li>
 <li><a href="#chapter-outputs-and-logs">Outputs &amp; Logs</a></li></ol></section>
-<section><h2>Desktop Workbench</h2><ol><li><a href="#chapter-workbench">Workbench</a></li></ol></section>
+<section><h2>Desktop Workbench</h2><ol><li><a href="#chapter-workbench">Workbench</a></li>
+<li><a href="#chapter-workbench-design-guide">Design Guide</a></li></ol></section>
 <section><h2>Engines &amp; Models</h2><ol><li><a href="#chapter-in-house-engine">Built-in Engine</a></li>
 <li><a href="#chapter-lc0">LC0 Networks</a></li>
 <li><a href="#chapter-gpu">GPU Acceleration</a></li>
@@ -493,6 +495,11 @@ crtk workbench</code></pre>
 <td><code>crtk move list --startpos</code></td>
 </tr>
 <tr>
+<td>Add a CLI command</td>
+<td><a href="#chapter-cli-command-guide">CLI Command Guide</a></td>
+<td><code>java -cp out testing.CLICommandRegressionTest</code></td>
+</tr>
+<tr>
 <td>Validate move generation</td>
 <td><a href="#chapter-quality-and-testing">Quality and Testing</a></td>
 <td><code>crtk engine perft-suite --depth 6 --threads 4</code></td>
@@ -517,6 +524,11 @@ crtk workbench</code></pre>
 <td><a href="#chapter-workbench">Workbench</a></td>
 <td><code>crtk workbench</code></td>
 </tr>
+<tr>
+<td>Design Workbench UI</td>
+<td><a href="#chapter-workbench-design-guide">Workbench Design Guide</a></td>
+<td><code>java -Djava.awt.headless=true -cp out testing.WorkbenchRegressionTest</code></td>
+</tr>
 </tbody></table></div>
 <h2 id="chapter-home-documentation-map">Documentation Map</h2>
 <div class="table-wrap"><table>
@@ -530,7 +542,7 @@ crtk workbench</code></pre>
 </tr>
 <tr>
 <td>Commands</td>
-<td><a href="#chapter-command-cheatsheet">Command Cheatsheet</a>, <a href="#chapter-command-reference">Command Reference</a>, <a href="#chapter-example-commands">Example Commands</a></td>
+<td><a href="#chapter-command-cheatsheet">Command Cheatsheet</a>, <a href="#chapter-command-reference">Command Reference</a>, <a href="#chapter-cli-command-guide">CLI Command Guide</a>, <a href="#chapter-example-commands">Example Commands</a></td>
 </tr>
 <tr>
 <td>Workflows</td>
@@ -542,7 +554,7 @@ crtk workbench</code></pre>
 </tr>
 <tr>
 <td>Project</td>
-<td><a href="#chapter-architecture">Architecture</a>, <a href="#chapter-quality-and-testing">Quality and Testing</a>, <a href="#chapter-development-notes">Development Notes</a>, <a href="#chapter-releasing">Releasing</a></td>
+<td><a href="#chapter-architecture">Architecture</a>, <a href="#chapter-quality-and-testing">Quality and Testing</a>, <a href="#chapter-development-notes">Development Notes</a>, <a href="#chapter-workbench-design-guide">Workbench Design Guide</a>, <a href="#chapter-releasing">Releasing</a></td>
 </tr>
 </tbody></table></div>
 <p>For bug reports, start with <a href="#chapter-troubleshooting">Troubleshooting</a>. Include the command, input FEN or file, Java version, operating system, and engine protocol TOML when an external engine is involved.</p>
@@ -788,7 +800,7 @@ crtk help --full</code></pre>
 <li>installs a <code>ChessRTK Workbench</code> desktop entry that launches the Swing workbench (<code>crtk workbench</code>) without opening a terminal</li>
 <li>optionally builds the CUDA, ROCm/HIP, and oneAPI JNI backends when their vendor toolchains are present</li>
 </ul>
-<p>Any <code>models/*.bin</code>, <code>models/*.pb.gz</code>, and <code>models/*.nnue</code> files it downloads are local artifacts, and git ignores them.</p>
+<p>Any <code>models/*.bin</code>, <code>models/*.pb.gz</code>, and <code>models/*.nnue</code> files it downloads are local artifacts, and git ignores them. If a <code>crtk</code> command already exists on <code>PATH</code> and already points at this checkout, the installer reuses it and only replaces the Java build (<code>out/</code> and <code>crtk.jar</code>). That update path does not need sudo unless you also choose a package install, a native toolchain install, or a launcher/desktop rewrite.</p>
 <p>Run the installer, then verify:</p>
 <pre><code class="language-bash">./install.sh
 crtk help</code></pre>
@@ -827,6 +839,10 @@ crtk help</code></pre>
 <td>Skip installing the <code>/usr/local/bin/crtk</code> launcher</td>
 </tr>
 <tr>
+<td><code>--force-launcher</code></td>
+<td>Rewrite the command launcher even when an existing <code>crtk</code> command already points at this checkout</td>
+</tr>
+<tr>
 <td><code>--no-desktop</code> (alias <code>--no-app-launcher</code>)</td>
 <td>Skip the desktop app entry</td>
 </tr>
@@ -850,6 +866,7 @@ crtk help</code></pre>
 <p>Notes:</p>
 <ul>
 <li><code>scripts/update.sh</code> refuses to pull when the worktree has local changes, so an in-progress edit is never clobbered.</li>
+<li>When the installed <code>crtk</code> command already targets this checkout, <code>scripts/update.sh --no-pull --no-models --no-cuda --no-rocm --no-oneapi</code> rebuilds the jar behind that command without reinstalling the launcher.</li>
 <li>Anything it doesn&#x27;t recognize passes straight through to <code>./install.sh</code> — for example <code>./scripts/update.sh --no-cuda</code>.</li>
 </ul>
 <h2 id="chapter-build-and-install-uninstall">Uninstall</h2>
@@ -1784,6 +1801,7 @@ crtk engine perft-suite --depth 5                   # movegen correctness regres
   <div class="chapter-body">
     <p>One command-line interface drives every feature of ChessRTK (&quot;crtk&quot;), and one chess core sits underneath all of it. A FEN that validates in <code>fen validate</code> parses the same way in <code>move list</code>, <code>engine perft</code>, the workbench, and every dataset exporter — same parser, same move generator, same notation, so the same input always yields the same output. This page lists every area, subcommand, and option, grouped so you can find a command, copy its example, and trust the result to reproduce on the next machine.</p>
 <p>Invocations follow <code>crtk &lt;area&gt; &lt;action&gt; [options] [args]</code>. From a build tree rather than the installed launcher, that becomes <code>java -jar crtk.jar &lt;area&gt; &lt;action&gt; ...</code> or <code>java -cp out application.Main &lt;area&gt; &lt;action&gt; ...</code>. For anything this page leaves vague, <code>crtk help --full</code> prints the authoritative spec, and per-command help is either <code>crtk help &lt;area&gt; &lt;action&gt;</code> or <code>crtk &lt;area&gt; &lt;action&gt; --help</code>.</p>
+<p>Adding or changing commands? Use the <a href="#chapter-cli-command-guide">CLI Command Guide</a> for implementation, help, docs, and regression requirements.</p>
 <h2 id="chapter-command-reference-command-style-and-global-conventions">Command style and global conventions</h2>
 <p>The grammar is noun-verb: an <em>area</em> (the noun, such as <code>engine</code> or <code>record</code>) followed by an <em>action</em> (the verb, such as <code>bestmove</code> or <code>export</code>). A few areas add a second noun level, as in <code>record export plain</code> or <code>record dataset npy</code>. In scripts, spell out the full grouped form — it survives renames and reads clearly six months later.</p>
 <ul>
@@ -4720,6 +4738,514 @@ crtk version --json</code></pre>
 
 <section class="chapter">
   <p class="chapter-kicker">Commands · Chapter 9</p>
+  <h1 id="chapter-cli-command-guide">Command Guide</h1>
+  <div class="chapter-body">
+    <p>This guide explains how to add or change a ChessRTK CLI command. The CLI is not a loose argument parser. It is a deterministic noun-then-verb command surface backed by one shared chess core, central command metadata, built-in help, regression tests, and generated documentation.</p>
+<p>Use this guide whenever you add a new command, rename a command, add a flag, change output, or expose a workflow through the Workbench command builder.</p>
+<h2 id="chapter-cli-command-guide-command-design-rules">Command Design Rules</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Rule</th>
+<th>Requirement</th>
+</tr></thead><tbody>
+<tr>
+<td>Shape</td>
+<td>Commands are <code>crtk &lt;area&gt; &lt;action&gt; [options] [args]</code>.</td>
+</tr>
+<tr>
+<td>Names</td>
+<td>Use canonical noun/action tokens from <code>application.cli.Constants</code> when a token is reused.</td>
+</tr>
+<tr>
+<td>Areas</td>
+<td>Add a new area only for a durable domain. Prefer adding an action to <code>fen</code>, <code>move</code>, <code>engine</code>, <code>record</code>, <code>puzzle</code>, <code>book</code>, <code>position</code>, <code>batch</code>, or <code>config</code>.</td>
+</tr>
+<tr>
+<td>Flags</td>
+<td>Use named flags for structured values: <code>--fen</code>, <code>--input</code>, <code>--output</code>, <code>--format</code>, <code>--max-nodes</code>, <code>--max-duration</code>.</td>
+</tr>
+<tr>
+<td>Positionals</td>
+<td>Use positionals only when they are natural command arguments, such as a move token or short move line.</td>
+</tr>
+<tr>
+<td>Outputs</td>
+<td>Keep stdout stable and parseable. Put diagnostics on stderr through the command boundary.</td>
+</tr>
+<tr>
+<td>Determinism</td>
+<td>No wall-clock-dependent output, hidden random defaults, unstable ordering, or unbounded engine work.</td>
+</tr>
+<tr>
+<td>Core logic</td>
+<td>Route legality, FEN, SAN, UCI, Chess960, tagging, and move application through <code>chess.core</code> and existing helpers.</td>
+</tr>
+<tr>
+<td>Help</td>
+<td><code>crtk help &lt;area&gt; &lt;action&gt;</code> is the ground-truth user surface. Every flag must appear there.</td>
+</tr>
+<tr>
+<td>Tests</td>
+<td>Every command needs regression coverage for success, failure, help, and machine-readable output when supported.</td>
+</tr>
+</tbody></table></div>
+<p>Never reintroduce legacy single-word commands like <code>moves</code>, <code>bestmove</code>, <code>eval-static</code>, <code>pgn-to-fens</code>, <code>mine-puzzles</code>, <code>record-to-csv</code>, or <code>stats-tags</code>. If an alias is unavoidable, make it a compatibility alias that resolves to the canonical command and prints canonical help.</p>
+<h2 id="chapter-cli-command-guide-source-files">Source Files</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Need</th>
+<th>File</th>
+</tr></thead><tbody>
+<tr>
+<td>CLI entry point and dispatch</td>
+<td><code>src/application/Main.java</code></td>
+</tr>
+<tr>
+<td>Command tree, aliases, examples, related commands</td>
+<td><code>src/application/cli/CliRegistry.java</code></td>
+</tr>
+<tr>
+<td>Command metadata node</td>
+<td><code>src/application/cli/CliCommand.java</code></td>
+</tr>
+<tr>
+<td>Shared tokens and flag names</td>
+<td><code>src/application/cli/Constants.java</code></td>
+</tr>
+<tr>
+<td>Argument parser</td>
+<td><code>src/utility/Argv.java</code></td>
+</tr>
+<tr>
+<td>Shared command helpers</td>
+<td><code>src/application/cli/command/CommandSupport.java</code></td>
+</tr>
+<tr>
+<td>User-facing failures</td>
+<td><code>src/application/cli/command/CommandFailure.java</code></td>
+</tr>
+<tr>
+<td>Built-in help text and option blocks</td>
+<td><code>src/application/cli/command/HelpCommand.java</code></td>
+</tr>
+<tr>
+<td>Command implementations</td>
+<td><code>src/application/cli/command/</code></td>
+</tr>
+<tr>
+<td>Book command implementations</td>
+<td><code>src/application/cli/command/book/</code></td>
+</tr>
+<tr>
+<td>CLI regression tests</td>
+<td><code>src/testing/CLICommandRegressionTest.java</code></td>
+</tr>
+<tr>
+<td>Docs source</td>
+<td><code>wiki/command-reference.md</code>, <code>wiki/example-commands.md</code>, <code>wiki/command-cheatsheet.md</code></td>
+</tr>
+</tbody></table></div>
+<p>Common helper classes:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Helper</th>
+<th>Use</th>
+</tr></thead><tbody>
+<tr>
+<td><code>CommandSupport.resolveFenArgument(...)</code></td>
+<td>Resolve <code>--fen</code>, <code>--startpos</code>, <code>--randompos</code>, or positional FEN text.</td>
+</tr>
+<tr>
+<td><code>CommandSupport.resolvePositionArgument(...)</code></td>
+<td>Resolve and parse one position.</td>
+</tr>
+<tr>
+<td><code>CommandSupport.resolveFenInputs(...)</code></td>
+<td>Resolve either <code>--input</code> or one FEN string.</td>
+</tr>
+<tr>
+<td><code>CommandSupport.resolveOutputMode(...)</code></td>
+<td>Handle mutually-exclusive <code>--json</code> / <code>--jsonl</code>.</td>
+</tr>
+<tr>
+<td><code>CommandSupport.resolveDefaultEnabledFlag(...)</code></td>
+<td>Handle default-on flags with <code>--flag</code> and <code>--no-flag</code>.</td>
+</tr>
+<tr>
+<td><code>EngineOps</code>, <code>EvalOps</code>, <code>ConfigOps</code></td>
+<td>Reuse engine, evaluator, and config plumbing.</td>
+</tr>
+<tr>
+<td><code>PathOps</code></td>
+<td>Create output paths, local temp files, and safe dump paths.</td>
+</tr>
+<tr>
+<td><code>PgnOps</code>, <code>RecordIO</code></td>
+<td>Reuse PGN and record I/O helpers.</td>
+</tr>
+<tr>
+<td><code>Format</code></td>
+<td>Reuse CLI formatting for moves, evals, WDL, backend labels, and PVs.</td>
+</tr>
+<tr>
+<td><code>Validation</code></td>
+<td>Reuse validation helpers instead of scattering range checks.</td>
+</tr>
+<tr>
+<td><code>utility.Json</code></td>
+<td>Emit JSON/JSONL without adding dependencies.</td>
+</tr>
+</tbody></table></div>
+<h2 id="chapter-cli-command-guide-implementation-process">Implementation Process</h2>
+<ol>
+<li><strong>Name the command.</strong> Pick the canonical area/action path and decide whether it belongs under an existing group.</li>
+<li><strong>Define flags and output.</strong> Write down required inputs, optional flags, defaults, output format, failure modes, and whether JSON/JSONL is supported.</li>
+<li><strong>Add constants if reused.</strong> Put shared command tokens and option names in <code>Constants.java</code>.</li>
+<li><strong>Write the command handler.</strong> Add or update a focused class under <code>src/application/cli/command/</code>.</li>
+<li><strong>Register the command.</strong> Add a <code>CliCommand.leaf(...)</code> or group entry in <code>CliRegistry.java</code> with usage, about text, detail help key, examples, and related commands.</li>
+<li><strong>Add the help block.</strong> Add a marker and option section in <code>HelpCommand.java</code>; map the command&#x27;s <code>detailHelpKey(...)</code> to that marker.</li>
+<li><strong>Update docs.</strong> Update <code>wiki/command-reference.md</code>; update examples/cheatsheet/config docs when the command affects those surfaces.</li>
+<li><strong>Expose through Workbench if useful.</strong> Make sure command forms can discover or represent it when the command is user-facing.</li>
+<li><strong>Add tests.</strong> Extend <code>CLICommandRegressionTest</code> or a more focused regression class.</li>
+<li><strong>Run verification.</strong> Compile, run CLI tests, run docs if docs changed, then run the recommended suite before publishing broad changes.</li>
+</ol>
+<h2 id="chapter-cli-command-guide-handler-pattern">Handler Pattern</h2>
+<p>Command handlers are static methods that accept <code>Argv</code> and return by printing to stdout or throwing a failure. They do not call <code>System.exit</code>.</p>
+<pre><code class="language-java">package application.cli.command;
+
+import application.cli.command.CommandSupport.OutputMode;
+import chess.core.Position;
+import utility.Argv;
+import utility.Json;
+
+/**
+ * Example command implementation.
+ */
+public final class ExampleCommand {
+
+    private ExampleCommand() {
+        // utility
+    }
+
+    public static void runExample(Argv a) {
+        boolean verbose = a.flag(&quot;--verbose&quot;);
+        OutputMode output = CommandSupport.resolveOutputMode(a, &quot;fen example&quot;);
+        Position position = CommandSupport.resolvePositionArgument(a, &quot;fen example&quot;, true, verbose);
+
+        String value = position.toString();
+        String json = &quot;{\&quot;fen\&quot;:\&quot;&quot; + Json.esc(value) + &quot;\&quot;}&quot;;
+        if (output == OutputMode.JSON) {
+            System.out.println(json);
+            return;
+        }
+        if (output == OutputMode.JSONL) {
+            System.out.println(json);
+            return;
+        }
+        System.out.println(value);
+    }
+}</code></pre>
+<p>Parsing rules:</p>
+<ul>
+<li>Call typed <code>Argv</code> accessors once for every flag you support.</li>
+<li>Call <code>positionals()</code> before <code>ensureConsumed()</code> only if the command accepts positional arguments.</li>
+<li>Read all non-position flags before <code>CommandSupport.resolveFenArgument(...)</code> or <code>CommandSupport.resolvePositionArgument(...)</code>; those helpers consume position input and call <code>ensureConsumed()</code>.</li>
+<li>Make sure <code>ensureConsumed()</code> runs after parsing. Call it yourself unless a shared resolver already did it.</li>
+<li>Reject mutually-exclusive inputs before doing engine/model/file work.</li>
+<li>Prefer <code>CommandFailure</code> for command-specific failures with a clear command label and exit code.</li>
+<li>Let <code>IllegalArgumentException</code> handle simple parser failures from <code>Argv</code>; <code>Main</code> maps it to exit code <code>2</code>.</li>
+</ul>
+<p>Default-on flag pattern:</p>
+<pre><code class="language-java">boolean analyze = CommandSupport.resolveDefaultEnabledFlag(a, &quot;puzzle tags&quot;, &quot;--analyze&quot;);</code></pre>
+<p>This accepts <code>--analyze</code> and <code>--no-analyze</code>, defaults to enabled, and rejects contradictory repeats.</p>
+<h2 id="chapter-cli-command-guide-registry-pattern">Registry Pattern</h2>
+<p>Register every executable command in <code>CliRegistry.java</code>. The registry controls dispatch, summary help, contextual help, aliases, examples, related commands, and command form discovery.</p>
+<pre><code class="language-java">fen.add(CliCommand.leaf(&quot;example&quot;, &quot;Print a deterministic example for a FEN&quot;,
+        ExampleCommand::runExample)
+        .detailHelpKey(&quot;fen example&quot;)
+        .usage(&quot;[options]&quot;)
+        .about(&quot;Resolve one position and print a deterministic example value.&quot;)
+        .example(&quot;crtk fen example --startpos&quot;)
+        .example(&quot;crtk fen example --fen \&quot;&lt;FEN&gt;\&quot; --json&quot;)
+        .related(&quot;fen print&quot;)
+        .related(&quot;move list&quot;));</code></pre>
+<p>Registry rules:</p>
+<ul>
+<li>The leaf name is the canonical action token.</li>
+<li><code>summary</code> is one short sentence fragment for grouped help.</li>
+<li><code>usage(...)</code> is only the tail after the command path.</li>
+<li><code>about(...)</code> explains the command in one or two direct sentences.</li>
+<li><code>detailHelpKey(...)</code> must match the help marker mapping in <code>HelpCommand</code>.</li>
+<li><code>example(...)</code> entries must be copy-pasteable and deterministic.</li>
+<li><code>related(...)</code> entries are command paths without the <code>crtk</code> prefix.</li>
+<li>Use aliases sparingly and only under the same parent. Aliases are for compatibility, not new naming.</li>
+</ul>
+<h2 id="chapter-cli-command-guide-help-block-pattern">Help Block Pattern</h2>
+<p>For each command with options, update <code>HelpCommand.java</code>.</p>
+<ol>
+<li>Add a marker constant:</li>
+</ol>
+<pre><code class="language-java">private static final String FEN_EXAMPLE_OPTIONS_MARKER = &quot;fen example options:&quot;;</code></pre>
+<ol>
+<li>Add it to <code>HELP_MARKERS</code>:</li>
+</ol>
+<pre><code class="language-java">Map.entry(&quot;fen example&quot;, FEN_EXAMPLE_OPTIONS_MARKER),</code></pre>
+<ol>
+<li>Add a section to <code>HELP_FULL_TEXT</code>:</li>
+</ol>
+<pre><code class="language-text">fen example options:
+  --fen FEN                  Position to inspect
+  --startpos                 Use the standard starting position
+  --randompos                Use a deterministic random playable sample
+  --json                     Emit one JSON object
+  --jsonl                    Emit one JSON object per row
+  --verbose                  Include debug details for parse failures</code></pre>
+<p>Help block rules:</p>
+<ul>
+<li>The marker line must exactly match the mapped marker string.</li>
+<li>Option rows use stable spacing and short descriptions.</li>
+<li>The help block must list every public flag and short alias.</li>
+<li>If the command supports JSON/JSONL, say so.</li>
+<li>If a command has aliases, contextual help should still show the canonical command path.</li>
+<li>Run <code>crtk help &lt;area&gt; &lt;action&gt;</code> after the change and read it as a user would.</li>
+</ul>
+<h2 id="chapter-cli-command-guide-input-rules">Input Rules</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Input type</th>
+<th>Preferred API</th>
+<th>Rule</th>
+</tr></thead><tbody>
+<tr>
+<td>One FEN</td>
+<td><code>CommandSupport.resolveFenArgument(...)</code></td>
+<td>Accept <code>--fen</code>, <code>--startpos</code>, <code>--randompos</code>, and optional positional FEN only when the command convention allows it.</td>
+</tr>
+<tr>
+<td>Parsed position</td>
+<td><code>CommandSupport.resolvePositionArgument(...)</code></td>
+<td>Parse once, fail early, and pass <code>Position</code> through the shared core.</td>
+</tr>
+<tr>
+<td>Many FENs</td>
+<td><code>CommandSupport.resolveFenInputs(...)</code></td>
+<td>Accept either <code>--input</code> or one FEN, not both.</td>
+</tr>
+<tr>
+<td>File path</td>
+<td><code>a.path(...)</code> / <code>a.pathRequired(...)</code></td>
+<td>Use <code>PathOps.ensureParentDir(...)</code> before writing.</td>
+</tr>
+<tr>
+<td>Duration</td>
+<td><code>a.duration(...)</code></td>
+<td>Accept <code>500ms</code>, <code>60s</code>, <code>2m</code>, <code>1h</code>, or milliseconds.</td>
+</tr>
+<tr>
+<td>Repeated values</td>
+<td><code>a.strings(...)</code></td>
+<td>Preserve order; document whether repeated flags are allowed.</td>
+</tr>
+<tr>
+<td>Free-form tail</td>
+<td><code>a.positionals()</code></td>
+<td>Require <code>--</code> when a value could look like a flag.</td>
+</tr>
+</tbody></table></div>
+<p>Do not parse FENs, SAN, UCI, PGN, TOML, JSON, paths, or durations by hand when a shared parser exists.</p>
+<h2 id="chapter-cli-command-guide-output-rules">Output Rules</h2>
+<p>Text output:</p>
+<ul>
+<li>Keep line order stable.</li>
+<li>Keep columns and separators stable.</li>
+<li>Prefer tabs for simple machine-readable text rows.</li>
+<li>Do not print progress or warnings to stdout if stdout is the data stream.</li>
+<li>Include enough context for a human to understand the result without hidden state.</li>
+</ul>
+<p>JSON/JSONL output:</p>
+<ul>
+<li>Use <code>utility.Json</code>.</li>
+<li>Keep field names lowercase, stable, and explicit.</li>
+<li>Use JSON for one object or summary; use JSONL for rows.</li>
+<li>Do not mix human prose with JSON stdout.</li>
+<li>Add regression assertions for important fields, not just substring smoke tests.</li>
+</ul>
+<p>Errors:</p>
+<ul>
+<li>Use <code>CommandFailure</code> for domain failures: invalid combination, missing input, unreadable file, unsupported format.</li>
+<li>Use exit code <code>2</code> for usage/input failures unless an existing command family uses a more specific code.</li>
+<li>Keep stderr concise. Include <code>--verbose</code> only when stack traces or internal details are useful.</li>
+</ul>
+<h2 id="chapter-cli-command-guide-determinism-checklist">Determinism Checklist</h2>
+<p>Before shipping a command, verify:</p>
+<ul>
+<li>Same input and flags produce the same stdout.</li>
+<li>Row ordering is sorted or follows core deterministic order.</li>
+<li>Engine work is bounded by nodes, depth, duration, or explicit user budget.</li>
+<li>Random sampling is explicit, seeded, or named as random in the command.</li>
+<li>Output paths are deterministic or user-provided.</li>
+<li>JSON field order is stable enough for regression tests.</li>
+<li>No wall-clock timestamp appears unless the user requested a run log or artifact metadata.</li>
+<li>Optional engines/models report availability honestly and fail or fall back consistently.</li>
+</ul>
+<h2 id="chapter-cli-command-guide-workbench-command-forms">Workbench Command Forms</h2>
+<p>The Workbench command builder mirrors the CLI. A new command should be easy to discover from the GUI when it is user-facing.</p>
+<p>Check these files when a command should appear in forms:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>File</th>
+<th>Why</th>
+</tr></thead><tbody>
+<tr>
+<td><code>src/application/gui/workbench/command/CommandTemplates.java</code></td>
+<td>Command templates and generated forms.</td>
+</tr>
+<tr>
+<td><code>src/application/gui/workbench/command/CommandForm.java</code></td>
+<td>Required fields, optional flags, validation, and preview behavior.</td>
+</tr>
+<tr>
+<td><code>src/application/gui/workbench/command/CommandRunner.java</code></td>
+<td>Running command text and collecting output.</td>
+</tr>
+<tr>
+<td><code>src/testing/WorkbenchCommandRegression.java</code></td>
+<td>Command-form regression coverage.</td>
+</tr>
+</tbody></table></div>
+<p>The generated command preview must be the exact runnable command. Do not add UI-only defaults that the CLI cannot reproduce.</p>
+<h2 id="chapter-cli-command-guide-regression-tests">Regression Tests</h2>
+<p>Use <code>TestSupport.runMain(...)</code> for successful command checks and <code>TestSupport.runMainExpectFailure(...)</code> for failures.</p>
+<pre><code class="language-java">private static void testFenExampleCommand() {
+    String text = TestSupport.runMain(&quot;fen&quot;, &quot;example&quot;, &quot;--startpos&quot;).strip();
+    assertTrue(text.contains(&quot; w &quot;), &quot;fen example prints a FEN-like value&quot;);
+
+    String json = TestSupport.runMain(&quot;fen&quot;, &quot;example&quot;, &quot;--startpos&quot;, &quot;--json&quot;).strip();
+    assertTrue(json.contains(&quot;\&quot;fen\&quot;&quot;), &quot;fen example json includes fen field&quot;);
+
+    TestSupport.FailureResult failure = TestSupport.runMainExpectFailure(
+            &quot;fen&quot;, &quot;example&quot;, &quot;--json&quot;, &quot;--jsonl&quot;);
+    assertTrue(failure.stderr().contains(&quot;use either --json or --jsonl&quot;),
+            &quot;fen example rejects conflicting output modes&quot;);
+}</code></pre>
+<p>Minimum coverage:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Case</th>
+<th>What to test</th>
+</tr></thead><tbody>
+<tr>
+<td>Routing</td>
+<td><code>crtk &lt;area&gt; &lt;action&gt;</code> reaches the handler.</td>
+</tr>
+<tr>
+<td>Help</td>
+<td><code>crtk help &lt;area&gt; &lt;action&gt;</code> lists the command and new flags.</td>
+</tr>
+<tr>
+<td>Success</td>
+<td>A simple deterministic invocation returns exact or strongly asserted output.</td>
+</tr>
+<tr>
+<td>Failure</td>
+<td>Missing input, bad value, and mutually-exclusive flags fail cleanly.</td>
+</tr>
+<tr>
+<td>JSON/JSONL</td>
+<td>Machine-readable output is valid and stable when supported.</td>
+</tr>
+<tr>
+<td>Unknown flags</td>
+<td><code>ensureConsumed()</code> rejects stale options.</td>
+</tr>
+<tr>
+<td>Aliases</td>
+<td>Alias routes to the same command only when compatibility requires it.</td>
+</tr>
+<tr>
+<td>Docs-sensitive commands</td>
+<td>Command appears in command reference/examples when user-facing.</td>
+</tr>
+</tbody></table></div>
+<h2 id="chapter-cli-command-guide-verification-commands">Verification Commands</h2>
+<p>Compile:</p>
+<pre><code class="language-bash">find src -name &#x27;*.java&#x27; | sort &gt; /tmp/crtk-srcs.txt
+javac --release 17 -d out @/tmp/crtk-srcs.txt</code></pre>
+<p>Run focused CLI tests:</p>
+<pre><code class="language-bash">java -cp out testing.CLICommandRegressionTest
+./scripts/run_regression_suite.sh cli</code></pre>
+<p>Check the new command manually:</p>
+<pre><code class="language-bash">java -cp out application.Main help &lt;area&gt; &lt;action&gt;
+java -cp out application.Main &lt;area&gt; &lt;action&gt; --help
+java -cp out application.Main &lt;area&gt; &lt;action&gt; [options]
+java -cp out application.Main &lt;area&gt; &lt;action&gt; [bad-options]</code></pre>
+<p>Regenerate docs after wiki changes:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh docs
+git diff --check</code></pre>
+<p>Before publishing a broad CLI change:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh recommended</code></pre>
+<h2 id="chapter-cli-command-guide-review-checklist">Review Checklist</h2>
+<p>A CLI command change is ready only if every answer is clear:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Question</th>
+<th>Pass condition</th>
+</tr></thead><tbody>
+<tr>
+<td>What is the canonical path?</td>
+<td>It is <code>crtk &lt;area&gt; &lt;action&gt;</code> and not a legacy single-word command.</td>
+</tr>
+<tr>
+<td>Where is it registered?</td>
+<td><code>CliRegistry</code> has the group/leaf metadata, examples, detail help key, and related commands.</td>
+</tr>
+<tr>
+<td>How are args parsed?</td>
+<td><code>Argv</code> typed accessors and shared helpers are used; <code>ensureConsumed()</code> is called.</td>
+</tr>
+<tr>
+<td>What core code does it use?</td>
+<td>Rules, notation, engine, records, config, and paths go through shared APIs.</td>
+</tr>
+<tr>
+<td>How does it fail?</td>
+<td>Bad input throws <code>CommandFailure</code> or parser errors before expensive work.</td>
+</tr>
+<tr>
+<td>What does stdout mean?</td>
+<td>Text/JSON/JSONL shapes are stable and free of diagnostics.</td>
+</tr>
+<tr>
+<td>Is work bounded?</td>
+<td>Search, mining, export, and batch work have explicit limits or user-provided budgets.</td>
+</tr>
+<tr>
+<td>Is help current?</td>
+<td><code>crtk help &lt;area&gt; &lt;action&gt;</code> lists all flags and useful examples.</td>
+</tr>
+<tr>
+<td>Are docs current?</td>
+<td>Command reference and examples are updated when user-facing behavior changed.</td>
+</tr>
+<tr>
+<td>Is it tested?</td>
+<td>Success, failure, help, routing, and machine-readable output are covered.</td>
+</tr>
+</tbody></table></div>
+<h2 id="chapter-cli-command-guide-related-pages">Related Pages</h2>
+<ul>
+<li><a href="#chapter-command-reference">Command Reference</a> - every current command, action, and flag.</li>
+<li><a href="#chapter-command-cheatsheet">Command Cheatsheet</a> - common commands by task.</li>
+<li><a href="#chapter-example-commands">Example Commands</a> - end-to-end command recipes.</li>
+<li><a href="#chapter-architecture">Architecture</a> - how the CLI sits over the shared core.</li>
+<li><a href="#chapter-development-notes">Development Notes</a> - broader contributor conventions.</li>
+<li><a href="#chapter-quality-and-testing">Quality and Testing</a> - regression suite details.</li>
+</ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <p class="chapter-kicker">Commands · Chapter 10</p>
   <h1 id="chapter-example-commands">Example Commands</h1>
   <div class="chapter-body">
     <p>Every recipe below is something you can paste into a terminal and watch run to completion: study one position, verify the move generator, mine puzzles from a PGN, export training datasets, publish a puzzle book, run batch analysis. They lean on a single shared chess core, so move generation, FEN/SAN/UCI handling, and tagging behave the same whether the call comes from the CLI, a batch script, or the desktop <a href="#chapter-workbench">Workbench</a>. Same inputs and flags, same output — which is what makes these recipes worth saving and rerunning.</p>
@@ -4816,7 +5342,7 @@ book collection -i dump/pgn.puzzles.json -o books/tactics.book.toml --pdf-output
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Commands · Chapter 10</p>
+  <p class="chapter-kicker">Commands · Chapter 11</p>
   <h1 id="chapter-configuration">Configuration</h1>
   <div class="chapter-body">
     <p>Most of crtk needs no configuration at all. FEN handling, <code>move list</code>, SAN/UCI conversion, <code>engine perft</code>, <code>engine perft-suite</code>, <code>fen tags</code> without <code>--analyze</code>, <code>engine static</code>, <code>engine mate</code>, the built-in search (<code>engine builtin</code>), and the Workbench Play tab run entirely in-process — no external program, no model file, nothing to set up. Configuration enters the picture only at the edges: when you drive an external UCI engine (Stockfish/LC0), load a neural-network evaluator, ask for T5 natural-language summaries, want opening tags, or tune puzzle mining. Settings live in plain TOML files under <code>config/</code> and weight files under <code>models/</code>. This page documents each of them, how a value is resolved when several sources disagree, and how to confirm a setup with <code>config show</code>, <code>config validate</code>, and <code>doctor</code>.</p>
@@ -5208,7 +5734,7 @@ Warnings:
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Commands · Chapter 11</p>
+  <p class="chapter-kicker">Commands · Chapter 12</p>
   <h1 id="chapter-outputs-and-logs">Outputs &amp; Logs</h1>
   <div class="chapter-body">
     <p>Nothing crtk prints needs to be scraped. That is the whole design: a default text form a human can read, a machine-readable <strong>JSON</strong> or <strong>JSONL</strong> form one flag away, file artifacts that land in a predictable place under <code>dump/</code>, and a documented <strong>exit code</strong> at the end of every run that a script can branch on. Treat this page as the contract behind those promises — what the formats are, how <code>--format</code> / <code>--json</code> / <code>--jsonl</code> pick between them, what each exit code means, where the session cache and logs live, and what <code>clean</code> reclaims. Determinism is what makes it worth the trouble: the same command on the same inputs returns the same bytes, so the output is safe to diff, pipe, and commit.</p>
@@ -5444,14 +5970,15 @@ crtk clean --verbose   # print a stack trace if cleanup fails</code></pre>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Desktop Workbench · Chapter 12</p>
+  <p class="chapter-kicker">Desktop Workbench · Chapter 13</p>
   <h1 id="chapter-workbench">Workbench</h1>
   <div class="chapter-body">
     <p>The Workbench is the same chess core as the CLI, with a board in front of it. There is no second engine, no second evaluator, no parallel implementation that drifts out of sync — a position you analyze in the GUI, a command you assemble in a form, and a dataset you inspect in a panel all resolve through the code path you would hit from a shell. Reach for the Workbench when a task wants a live board, a preview pane, or a command you&#x27;d rather click together than memorize. Reach for the <a href="#chapter-command-reference">CLI</a> when you want scripting, CI, stable text output, or a batch run that doesn&#x27;t need a human watching it.</p>
 <h2 id="chapter-workbench-what-you-can-do">What you can do</h2>
 <ul>
-<li>Analyze positions and PGNs on an interactive board with legal-move overlays, deterministic tags, and ECO lookup.</li>
-<li>Play full games against an in-process opponent (alpha-beta or MCTS) backed by the classical, NNUE, LC0 CNN, or OTIS evaluator.</li>
+<li>Analyze positions and PGNs on an interactive board with legal-move overlays, deterministic tags, an ECO opening tree, post-game review, endgame tablebase status, and study authoring.</li>
+<li>Play full games against in-process alpha-beta/classical preset opponents, with Custom controls for MCTS and neural-evaluator experiments.</li>
+<li>Run deterministic built-in engine gauntlets from the Engine surface.</li>
 <li>Build any <code>crtk</code> command as a guided form, with validation and a live preview of the exact command text.</li>
 <li>Run batch jobs over FEN lists and command scripts, then watch progress and collect artifacts.</li>
 <li>Load, validate, and chart exported datasets and records.</li>
@@ -5499,11 +6026,11 @@ crtk workbench --flip</code></pre>
 </tr>
 <tr>
 <td>Analyze</td>
-<td>Interactive board, PGN navigation, legal moves, tags, ECO, board editor, and engine controls</td>
+<td>Interactive board, PGN navigation, legal moves, tags, ECO tree, post-game review, study authoring, endgame tablebase status, board editor, and engine controls</td>
 </tr>
 <tr>
 <td>Play</td>
-<td>Human-vs-engine games against an in-process alpha-beta or MCTS opponent</td>
+<td>Human-vs-engine games against in-process alpha-beta/classical preset opponents</td>
 </tr>
 <tr>
 <td>Commands</td>
@@ -5543,11 +6070,49 @@ crtk workbench --flip</code></pre>
 </tr>
 </tbody></table></div>
 <h2 id="chapter-workbench-analysis-and-pgn-board">Analysis and PGN board</h2>
-<p>Analyze is where you land. The board sits in the middle, surrounded by everything you&#x27;d want pointed at a position: move navigation, the legal-move list, deterministic tags, ECO opening lookup, a board editor for arbitrary setups, and panels for both the in-process search and the external analysis engine. Load a PGN and you step through the game from the same view.</p>
+<p>Analyze is where you land. The board sits in the middle, surrounded by everything you&#x27;d want pointed at a position: move navigation, the legal-move list, deterministic tags, an ECO opening tree, deterministic post-game review with retry jumps, study TOML authoring from the current line, endgame tablebase-hit status, a board editor for arbitrary setups, and panels for both the in-process search and the external analysis engine. Load a PGN and you step through the game from the same view.</p>
 <p><img src="assets/screenshots/workbench-analysis.png" alt="Workbench analysis board" loading="eager" decoding="sync"></p>
 <p>The board sees the world the way the CLI does: identical move generation, identical FEN/SAN/UCI handling, identical Chess960 support. The tags on the board are the ones <code>fen tags</code> produces, down to the bit. Live analysis drives your configured external UCI engine — Stockfish or LC0 — the same way <code>engine analyze</code> does, MultiPV included.</p>
+<p>The PGN explorer doubles as a lightweight database workspace. It indexes player/opening/result metadata, filters games reaching the current board position, removes exact duplicates, copies selected games, and can copy a prep report for the visible games or named player query.</p>
+<p>The Engine surface includes a Gauntlet mode for reproducible built-in engine self-play. It builds the exact <code>testing.SelfPlayGauntlet</code> JVM command, runs it in a child process, and streams W-D-L/Elo output into the panel.</p>
+<h3 id="chapter-workbench-where-to-find-the-new-analysis-tools">Where to find the new analysis tools</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Tool</th>
+<th>Path</th>
+</tr></thead><tbody>
+<tr>
+<td>Opening tree</td>
+<td>Analyze -&gt; Board -&gt; Tools -&gt; Opening Tree, or the side rail ECO tab</td>
+</tr>
+<tr>
+<td>Post-game review and retry</td>
+<td>Analyze -&gt; Board -&gt; Tools -&gt; Review, or Analyze -&gt; Game -&gt; Study / Review / Database -&gt; Review Game</td>
+</tr>
+<tr>
+<td>PGN database workspace</td>
+<td>Analyze -&gt; Board -&gt; PGN Database, or Analyze -&gt; Game -&gt; Study / Review / Database -&gt; PGN Database</td>
+</tr>
+<tr>
+<td>Player prep report</td>
+<td>PGN Database -&gt; Prep Report after loading/searching PGNs</td>
+</tr>
+<tr>
+<td>Engine gauntlet manager</td>
+<td>Analyze -&gt; Board -&gt; Tools -&gt; Gauntlet, or Engine -&gt; Gauntlet</td>
+</tr>
+<tr>
+<td>Endgame/tablebase panel</td>
+<td>Analyze -&gt; Board -&gt; Tools -&gt; Endgame, or the side rail Endgame tab</td>
+</tr>
+<tr>
+<td>Study/repertoire authoring</td>
+<td>Analyze -&gt; Board -&gt; Tools -&gt; Study, or Analyze -&gt; Game -&gt; Study / Review / Database -&gt; Author Study</td>
+</tr>
+</tbody></table></div>
+<p>The command palette also exposes the same workflows by name: Opening tree, Review game, Author study, Endgame tablebase, PGN database, Player prep report, and Open engine gauntlet.</p>
 <h2 id="chapter-workbench-play-vs-engine">Play vs engine</h2>
-<p>Play runs a full human-versus-engine game from the start position, the current board, or a pasted FEN. Two selectors, chosen independently:</p>
+<p>Play runs a full human-versus-engine game from the start position, the current board, or a pasted FEN. The named preset bots all use alpha-beta search with the always-available classical evaluator; their Elo changes adjust the search budget and move sampling, not the backend. Choose Custom to expose the two backend selectors:</p>
 <ul>
 <li><strong>Search</strong> chooses the move-picking algorithm: <code>Alpha-Beta</code> or <code>MCTS</code>.</li>
 <li><strong>Network</strong> chooses the leaf evaluator: <code>Classical</code>, <code>NNUE</code>, <code>CNN</code> (LC0), or <code>OTIS</code>.</li>
@@ -5611,6 +6176,7 @@ crtk workbench --flip</code></pre>
 </ul>
 <h2 id="chapter-workbench-related-pages">Related pages</h2>
 <ul>
+<li><a href="#chapter-workbench-design-guide">Workbench Design Guide</a> - visual direction and contributor rules for Workbench UI changes.</li>
 <li><a href="#chapter-getting-started">Getting Started</a> — install, configure, and run your first commands.</li>
 <li><a href="#chapter-command-reference">Command Reference</a> — every area and action the command forms mirror.</li>
 <li><a href="#chapter-in-house-engine">In-house engine</a> — the alpha-beta and MCTS search behind Play and <code>engine builtin</code>.</li>
@@ -5621,7 +6187,2724 @@ crtk workbench --flip</code></pre>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Engines &amp; Models · Chapter 13</p>
+  <p class="chapter-kicker">Desktop Workbench · Chapter 14</p>
+  <h1 id="chapter-workbench-design-guide">Design Guide</h1>
+  <div class="chapter-body">
+    <p>The ChessRTK Workbench is a dense desktop research tool, not a landing page and not a decorative demo. Design new UI as VS Code on macOS applied to chess tooling: compact editor chrome, clear hierarchy, quiet surfaces, high information density, and a small amount of restrained frosted-glass influence only where it improves orientation. The goal is that a researcher can scan a position, command, dataset, or engine run quickly and trust that the GUI is showing the same deterministic system as the CLI.</p>
+<p>This page is the standard for Workbench UI changes. It covers visual direction, layout, controls, copy, accessibility, and verification.</p>
+<h2 id="chapter-workbench-design-guide-core-principles">Core Principles</h2>
+<ul>
+<li><strong>Use the shared chess core.</strong> UI affordances may be visual, but legality, FEN, SAN, UCI, tags, engine settings, and command text still come from the same code paths the CLI uses.</li>
+<li><strong>Use VS Code for structure.</strong> Major Workbench areas behave like editor groups, sidebars, panels, command palette entries, and contextual status surfaces.</li>
+<li><strong>Use Apple for finish.</strong> Controls should feel deliberate, legible, consistent, and platform-familiar: clear hierarchy, logical toolbar grouping, useful search, restrained materials, and accessible states.</li>
+<li><strong>Design for repeated work.</strong> Prioritize scanning, comparison, low friction, and predictable controls over explanation-heavy screens.</li>
+<li><strong>Keep surfaces calm.</strong> The app should feel like an editor/workbench: flat panes, clear dividers, compact toolbars, and cards only for real grouped content.</li>
+<li><strong>Centralize styling.</strong> Add palette, spacing, typography, and control styling through the shared Workbench UI layer instead of local ad hoc painting.</li>
+<li><strong>Make states obvious.</strong> Hover, focus, disabled, selected, error, running, complete, and missing states must be visible in both light and dark modes.</li>
+<li><strong>Keep output deterministic.</strong> UI previews, command builders, exports, and generated artifacts must not depend on wall-clock noise or hidden random choices.</li>
+</ul>
+<h2 id="chapter-workbench-design-guide-uniformity-contract">Uniformity Contract</h2>
+<p>Every Workbench change must satisfy these rules before it is considered finished.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Area</th>
+<th>Non-negotiable rule</th>
+</tr></thead><tbody>
+<tr>
+<td>Screen shape</td>
+<td>Every major surface uses the same structure: optional tab strip, <code>WorkspaceHeader</code>, optional toolbar band, main body, optional side rail, optional bottom panel.</td>
+</tr>
+<tr>
+<td>Styling</td>
+<td>All color, font, spacing, radius, border, control, and scroll styling comes from <code>Theme</code>, <code>Ui</code>, or a shared Workbench primitive.</td>
+</tr>
+<tr>
+<td>Controls</td>
+<td>Buttons, fields, combos, spinners, sliders, toggles, tables, tabs, scroll panes, badges, and empty states use shared factories/stylers.</td>
+</tr>
+<tr>
+<td>Alignment</td>
+<td>Forms use fixed label lanes. Toolbars use leading/center/trailing grouping. Side rails use one consistent width lane.</td>
+</tr>
+<tr>
+<td>Density</td>
+<td>Dense editor layout is the default. Use spacing to clarify groups, not to create large decorative gaps.</td>
+</tr>
+<tr>
+<td>Hierarchy</td>
+<td>The main content is visually dominant; controls, metadata, and captions are secondary.</td>
+</tr>
+<tr>
+<td>Actions</td>
+<td>One primary action per local scope. Destructive actions are isolated. Export/copy/open actions stay trailing.</td>
+</tr>
+<tr>
+<td>States</td>
+<td>Resting, hover, focus, selected, disabled, loading, error, missing, and complete states are all designed and tested.</td>
+</tr>
+<tr>
+<td>Responsiveness</td>
+<td>Narrow windows must not overlap or clip critical text; long text elides or wraps according to the rules below.</td>
+</tr>
+<tr>
+<td>Verification</td>
+<td>UI code changes need headless Workbench regression plus visual inspection or screenshots for affected surfaces.</td>
+</tr>
+</tbody></table></div>
+<p>Do not ship a panel that looks &quot;close enough&quot; but uses local colors, raw Swing control styling, arbitrary spacing, or a new layout language.</p>
+<h2 id="chapter-workbench-design-guide-reference-model">Reference Model</h2>
+<p>The Workbench should not copy VS Code or macOS pixel-for-pixel. It should translate their useful rules into ChessRTK&#x27;s Java Swing implementation.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Reference</th>
+<th>What to copy</th>
+<th>What not to copy</th>
+</tr></thead><tbody>
+<tr>
+<td>VS Code workbench</td>
+<td>Editor groups, compact tabs, split panes, command palette, sidebars, bottom panels, contextual status, dense data surfaces</td>
+<td>Extension marketplace clutter, too many contributed views, webview-like landing pages</td>
+</tr>
+<tr>
+<td>Apple HIG</td>
+<td>Visual hierarchy, consistency, readable controls, logical toolbar item grouping, useful search fields, clear button roles, restrained material/depth</td>
+<td>Large consumer-app whitespace, oversized rounded controls, ornamental glass, platform-specific gestures Swing cannot support</td>
+</tr>
+<tr>
+<td>ChessRTK</td>
+<td>Board-first chess work, deterministic command previews, research density, CLI parity, in-process engine honesty</td>
+<td>A second rules model, fake engine claims, UI-only behavior that cannot reproduce from the CLI</td>
+</tr>
+</tbody></table></div>
+<p>Use this decision rule:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Question</th>
+<th>Answer</th>
+</tr></thead><tbody>
+<tr>
+<td>Where does this feature live?</td>
+<td>Choose the closest VS Code container: editor tab, side rail, panel, command palette, context menu, or status surface.</td>
+</tr>
+<tr>
+<td>How should the controls feel?</td>
+<td>Use Apple-style hierarchy: grouped toolbar items, stable control sizes, clear labels/tooltips, restrained accent color, visible focus.</td>
+</tr>
+<tr>
+<td>How much chrome should it have?</td>
+<td>Use VS Code density first; add Apple-like depth only for floating chrome, dialogs, popovers, and transient overlays.</td>
+</tr>
+<tr>
+<td>How much text should it show?</td>
+<td>Use Apple clarity: short labels, useful placeholder text, precise validation. Avoid visible tutorials inside task surfaces.</td>
+</tr>
+</tbody></table></div>
+<h2 id="chapter-workbench-design-guide-workbench-north-star">Workbench North Star</h2>
+<p>The Workbench should feel like one integrated chess research instrument. It is not a loose collection of Swing panels. It is not a chess website, an IDE clone, or a neural-network demo. It is an editor-style desktop tool where the user can move from position, to command, to run, to artifact, to explanation without losing context.</p>
+<p>At first glance the app should look like this:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Layer</th>
+<th>Visual target</th>
+</tr></thead><tbody>
+<tr>
+<td>Shell</td>
+<td>A compact VS Code-like editor frame with clear tabs, split groups, command palette access, and a quiet status strip.</td>
+</tr>
+<tr>
+<td>Workspace</td>
+<td>One full-screen task surface at a time: Dashboard, Board, Engine Lab, Run, Datasets, or Publish.</td>
+</tr>
+<tr>
+<td>Center</td>
+<td>The real artifact: board, graph, table, command builder, dataset chart, or publication preview.</td>
+</tr>
+<tr>
+<td>Inspector rail</td>
+<td>A 320 to 380 px right rail for controls, current selection, mode settings, and secondary lists.</td>
+</tr>
+<tr>
+<td>Output</td>
+<td>Runs, logs, progress, and artifacts appear in persistent output surfaces instead of modal interruptions.</td>
+</tr>
+<tr>
+<td>Finish</td>
+<td>Apple-like clarity: restrained controls, readable text, exact states, and no decorative layout noise.</td>
+</tr>
+</tbody></table></div>
+<p>The most important visual rule is that the content owns the screen. Chess boards should look like boards, datasets should look like analytics, runs should look like executable command records, and publishing should look like previewing a real artifact. Chrome should help the user orient, not compete with the work.</p>
+<h2 id="chapter-workbench-design-guide-target-information-architecture">Target Information Architecture</h2>
+<p>The ideal Workbench has six top-level surfaces. Current implementation may keep transitional tabs while migration is in progress, but new design work should place features in these homes.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Surface</th>
+<th>Primary object</th>
+<th>Contains</th>
+<th>Center of screen</th>
+<th>Inspector / secondary area</th>
+</tr></thead><tbody>
+<tr>
+<td><code>Dashboard</code></td>
+<td>Session state</td>
+<td>Health, current position, recent runs, artifacts, runtime status, quick links</td>
+<td>Live summary grid and recent activity</td>
+<td>None by default; cards deep-link to surfaces</td>
+</tr>
+<tr>
+<td><code>Board</code></td>
+<td>Chess position/game</td>
+<td>Analyze, Play, Solve, Relations, Draw, board editor, study/review/ECO/endgame tools</td>
+<td>One shared <code>BoardStage</code> with eval bar and overlays</td>
+<td>Mode inspector for moves, engine, puzzle, play, relations, draw, tags, ECO</td>
+</tr>
+<tr>
+<td><code>Engine Lab</code></td>
+<td>Evaluation/search</td>
+<td>Network visualizer, MCTS/PUCT search, tree graph, gauntlet</td>
+<td>Shared position view, engine charts, search tree, root move table</td>
+<td>Backend/model controls, selected node/tensor details, run controls</td>
+</tr>
+<tr>
+<td><code>Run</code></td>
+<td>Executable command</td>
+<td>Command builder, batch, console/REPL, output, logs</td>
+<td>Command form and command result cards</td>
+<td>Validation, run options, filters, selected output details</td>
+</tr>
+<tr>
+<td><code>Datasets</code></td>
+<td>Data artifact</td>
+<td>Loaded exports, tensor summaries, label distributions, charts, samples, issues</td>
+<td>KPI cards, charts, dense tables</td>
+<td>Load/options/details if needed</td>
+</tr>
+<tr>
+<td><code>Publish</code></td>
+<td>Rendered artifact</td>
+<td>Diagram/book/study/collection/cover preview and render configuration</td>
+<td>Live publication preview</td>
+<td>Manifest fields, validation, render/export controls</td>
+</tr>
+</tbody></table></div>
+<p>Surface rules:</p>
+<ul>
+<li>Do not add a top-level tab when the feature is a mode of an existing surface.</li>
+<li><code>Analyze</code>, <code>Play</code>, <code>Solve</code>, <code>Relations</code>, <code>Draw</code>, and <code>Board Editor</code> are Board modes.</li>
+<li><code>Network</code>, <code>MCTS</code>, <code>Tree</code>, and <code>Gauntlet</code> are Engine Lab modes.</li>
+<li><code>Commands</code>, <code>Batch</code>, <code>Console</code>, and <code>Logs</code> are Run modes or Run/output companion views.</li>
+<li><code>Datasets</code> and <code>Publish</code> stay top-level because their primary artifacts are not positions or command output.</li>
+<li><code>Dashboard</code> is the only global state surface. It should launch work, not duplicate full workflows.</li>
+<li>Command palette entries may preserve old names like <code>Open Play</code> or <code>Open Logs</code>, but they should route to the right surface and mode.</li>
+</ul>
+<p>When a feature seems to need a new tab, name its primary object first. If the object is a position, engine/search state, command run, dataset, publication, or session status, it belongs in one of the six surfaces above.</p>
+<h2 id="chapter-workbench-design-guide-primary-object-model">Primary Object Model</h2>
+<p>Every screen must make one primary object obvious. This prevents the app from becoming a stack of unrelated forms.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Object</th>
+<th>Header context</th>
+<th>Main representation</th>
+<th>Common actions</th>
+</tr></thead><tbody>
+<tr>
+<td>Position</td>
+<td>FEN summary, side to move, source, game ply</td>
+<td>Board, legal moves, overlays, tags, ECO, engine lines</td>
+<td>Load PGN/FEN, copy FEN, analyze, play, solve, export</td>
+</tr>
+<tr>
+<td>Engine/search state</td>
+<td>Backend, model, running state, nodes, nps, selected move</td>
+<td>KPI strip, root move table, tree, tensor/activation views</td>
+<td>Start, stop, pause, snapshot, export, copy command</td>
+</tr>
+<tr>
+<td>Command run</td>
+<td>Area/action, validity, exit state, artifact path</td>
+<td>Command form, command preview, output cards, logs</td>
+<td>Run, stop, copy command, open artifact</td>
+</tr>
+<tr>
+<td>Dataset</td>
+<td>File/path, rows, shape, labels, issue count</td>
+<td>Summary cards, charts, sample/issue tables</td>
+<td>Load, scan, filter, export</td>
+</tr>
+<tr>
+<td>Publication</td>
+<td>Task, source manifest, render state, output path</td>
+<td>Live preview page/artboard</td>
+<td>Render, check, export, open</td>
+</tr>
+<tr>
+<td>Session</td>
+<td>Active position, recent jobs, health, artifacts</td>
+<td>Dashboard cards and status badges</td>
+<td>Open surface, refresh, open folder</td>
+</tr>
+</tbody></table></div>
+<p>The <code>WorkspaceHeader</code> should always answer: what object am I looking at, what state is it in, and what is the next primary action?</p>
+<h2 id="chapter-workbench-design-guide-what-each-surface-should-look-like">What Each Surface Should Look Like</h2>
+<p>Use these visual targets when adapting the current implementation.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Surface</th>
+<th>Ideal composition</th>
+</tr></thead><tbody>
+<tr>
+<td>Dashboard</td>
+<td>A calm operational overview. Top row has current position, active jobs, runtime/model health, and recent artifacts. Cards are compact, live, and clickable. No hero banner, no large welcome text.</td>
+</tr>
+<tr>
+<td>Board</td>
+<td>A large square board dominates the center-left. The right rail is a mode inspector with <code>Analyze</code>, <code>Play</code>, <code>Solve</code>, <code>Relations</code>, and <code>Draw</code>. Switching modes preserves the board and position whenever possible.</td>
+</tr>
+<tr>
+<td>Engine Lab</td>
+<td>Looks like a lab bench for one position. Put a small position/board context beside search and neural evidence. Show KPI strip, root moves, tree/trace/atlas views, and selected-node details. Fill empty MCTS/search states with useful root rows or setup actions, not a giant blank area.</td>
+</tr>
+<tr>
+<td>Run</td>
+<td>Looks like a command workbench. The user builds exact <code>crtk</code> commands, sees validation before execution, and gets persistent result cards with command text, exit code, time, output preview, and artifact links.</td>
+</tr>
+<tr>
+<td>Datasets</td>
+<td>Looks like analytics. KPI cards and distribution charts come first, then dense sample/issue tables. The surface should reveal skew, missing labels, bad rows, and shape problems quickly.</td>
+</tr>
+<tr>
+<td>Publish</td>
+<td>Looks like previewing a real page. The preview/artboard owns the center; controls sit in a rail or compact top band. Render status and generated command/output belong in Run/output, not a private terminal block.</td>
+</tr>
+<tr>
+<td>Console/Logs during migration</td>
+<td>If still top-level, style them as Run/output surfaces: dense, searchable, artifact-aware, and not visually separate from command execution.</td>
+</tr>
+</tbody></table></div>
+<p>Perfect Workbench screens should pass this test: if the user sees a screenshot without reading the tab name, they should immediately know whether they are working with a board, engine search, command run, dataset, publication, or session dashboard.</p>
+<h2 id="chapter-workbench-design-guide-content-driven-layout-rules">Content-Driven Layout Rules</h2>
+<p>Different content types deserve different layouts, but the visual language stays the same.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Content type</th>
+<th>Layout rule</th>
+</tr></thead><tbody>
+<tr>
+<td>Board work</td>
+<td>Board is largest and square; rail supports it; eval/move/history/overlays stay attached to the position.</td>
+</tr>
+<tr>
+<td>Engine search</td>
+<td>Show live progress near the graph/table; selected search nodes drive detail panes; best-line arrows may annotate the board.</td>
+</tr>
+<tr>
+<td>Neural visualization</td>
+<td>Use semantic activation colors, labeled regions, legends, and inspectable hit regions; avoid decorative diagrams with fake precision.</td>
+</tr>
+<tr>
+<td>Command forms</td>
+<td>Required fields first, optional flags collapsed or grouped, exact command preview always visible.</td>
+</tr>
+<tr>
+<td>Batch work</td>
+<td>Treat every row as part of a command run; progress and output go to shared result/log surfaces.</td>
+</tr>
+<tr>
+<td>Dataset analytics</td>
+<td>Summary before detail, charts before raw rows only when they explain the table, filters near the data they filter.</td>
+</tr>
+<tr>
+<td>Publishing preview</td>
+<td>Preview first, controls second; page/artboard proportions are stable; export status is visible but quiet.</td>
+</tr>
+<tr>
+<td>Logs/output</td>
+<td>Searchable, timestamped, artifact-linked, monospace where command-like, and never hidden behind modal alerts.</td>
+</tr>
+</tbody></table></div>
+<p>Do not force every surface into a card grid. The grid is right for dashboards and analytics; a board, command builder, graph, console, and publication preview each need their own central artifact shape.</p>
+<h2 id="chapter-workbench-design-guide-vs-code-structure-rules">VS Code Structure Rules</h2>
+<p>Treat the Workbench shell like a code editor around chess/research content.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>VS Code concept</th>
+<th>ChessRTK translation</th>
+<th>Rule</th>
+</tr></thead><tbody>
+<tr>
+<td>Activity Bar / View Container</td>
+<td>Top-level Workbench modes and registered views</td>
+<td>Add a new top-level area only for a durable workflow, not for one command.</td>
+</tr>
+<tr>
+<td>Primary/Secondary Sidebar</td>
+<td>Side rails beside a board, table, graph, or preview</td>
+<td>Group related views; keep 3 to 5 visible side-rail sections on normal screens.</td>
+</tr>
+<tr>
+<td>Editor Area</td>
+<td>Dashboard, Board, Engine Lab, Run, Datasets, Publish</td>
+<td>The primary task owns the center; tabs and splits preserve context.</td>
+</tr>
+<tr>
+<td>Editor Groups</td>
+<td>Split Workbench panes</td>
+<td>Splits compare or parallelize work; do not use splits for decorative layout.</td>
+</tr>
+<tr>
+<td>Panel</td>
+<td>Console, Logs, artifacts, run output</td>
+<td>Put long-running output and diagnostics in panel/log surfaces, not blocking dialogs.</td>
+</tr>
+<tr>
+<td>Status Bar</td>
+<td>Badges, run state, model state, current FEN context</td>
+<td>Show contextual state near the affected surface; keep it terse and nonblocking.</td>
+</tr>
+<tr>
+<td>Command Palette</td>
+<td>Workbench command palette and command forms</td>
+<td>Use category-prefixed, clear command names; no emojis or cute names.</td>
+</tr>
+<tr>
+<td>View Toolbar</td>
+<td>Local toolbar bands and icon buttons</td>
+<td>Actions must apply to the current view, not silently to a different tab.</td>
+</tr>
+<tr>
+<td>Context Menu</td>
+<td>Right-click tab/table/board actions</td>
+<td>Use for local, discoverable secondary actions only; primary actions stay visible.</td>
+</tr>
+</tbody></table></div>
+<p>New Workbench UI must name which container it belongs to. If the answer is unclear, the feature is probably not ready for UI.</p>
+<h2 id="chapter-workbench-design-guide-apple-interaction-rules">Apple Interaction Rules</h2>
+<p>Use Apple design as the behavior and polish layer.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Apple principle</th>
+<th>Workbench rule</th>
+</tr></thead><tbody>
+<tr>
+<td>Hierarchy</td>
+<td>Content is primary, controls are secondary, metadata is muted, destructive actions are visually isolated.</td>
+</tr>
+<tr>
+<td>Harmony</td>
+<td>Use consistent radius, spacing, icon weight, and control height; avoid mixing unrelated visual languages in one panel.</td>
+</tr>
+<tr>
+<td>Consistency</td>
+<td>The same action must appear in the same position and style across panels.</td>
+</tr>
+<tr>
+<td>Adaptability</td>
+<td>Toolbars and forms must survive narrower windows through wrapping rows, elision, overflow menus, or side-rail collapse.</td>
+</tr>
+<tr>
+<td>Legibility</td>
+<td>Use the shared font stack and minimum readable sizes; never shrink text to solve layout.</td>
+</tr>
+<tr>
+<td>Color discipline</td>
+<td>Use color to communicate state or action. Do not use the same accent for unrelated meanings.</td>
+</tr>
+<tr>
+<td>Material/depth</td>
+<td>Use glass/highlight only for floating chrome; permanent task panes stay opaque and readable.</td>
+</tr>
+<tr>
+<td>Search behavior</td>
+<td>Search fields need specific placeholder text and should filter while typing when the data set is local.</td>
+</tr>
+<tr>
+<td>Button behavior</td>
+<td>Buttons in the same group should share height, padding, and visual family; image/icon buttons need tooltips.</td>
+</tr>
+<tr>
+<td>Toolbar grouping</td>
+<td>Leading area orients, center changes mode, trailing area holds persistent actions/search.</td>
+</tr>
+</tbody></table></div>
+<h2 id="chapter-workbench-design-guide-visual-identity">Visual Identity</h2>
+<p>The target is VS Code on macOS, with the existing ChessRTK board and research surfaces layered into that shell.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Design area</th>
+<th>Standard</th>
+</tr></thead><tbody>
+<tr>
+<td>Shell</td>
+<td>VS Code-style compact editor tabs, split groups, hairline separators, opaque editor surfaces</td>
+</tr>
+<tr>
+<td>Palette</td>
+<td>VS Code Visual Studio neutrals with macOS-style blue action accents</td>
+</tr>
+<tr>
+<td>Density</td>
+<td>VS Code dense by default, with comfort controlled through <code>Theme.Density</code></td>
+</tr>
+<tr>
+<td>Surfaces</td>
+<td>Flat top-level panes; Apple-like raised cards only for grouped static content</td>
+</tr>
+<tr>
+<td>Glass</td>
+<td>Restrained Apple-like material cues on backdrop, dialogs, command palette, popovers, and other floating chrome</td>
+</tr>
+<tr>
+<td>Chess board</td>
+<td>Chessboard.js-like tan board and lichess-like interaction feedback</td>
+</tr>
+<tr>
+<td>Typography</td>
+<td>Apple-style legibility through shared UI fonts; monospace only for code, commands, logs, tensors, and source text</td>
+</tr>
+</tbody></table></div>
+<p>Do not introduce a one-off theme, gradient-heavy panel, oversized hero section, decorative orb/blob background, or marketing-card layout inside the Workbench.</p>
+<h2 id="chapter-workbench-design-guide-harmony-rules">Harmony Rules</h2>
+<p>Harmony means the user should feel that every tab belongs to the same application, even when the task changes from playing chess to inspecting tensors.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Rule</th>
+<th>Implementation</th>
+</tr></thead><tbody>
+<tr>
+<td>Same structure</td>
+<td>Every major tab follows the canonical surface layout.</td>
+</tr>
+<tr>
+<td>Same vocabulary</td>
+<td>Reuse the same labels for the same action: <code>Run</code>, <code>Stop</code>, <code>Refresh</code>, <code>Copy</code>, <code>Export</code>, <code>Load</code>, <code>Reset</code>.</td>
+</tr>
+<tr>
+<td>Same action placement</td>
+<td>Primary actions trailing; mode/navigation leading; filters near content; destructive actions isolated.</td>
+</tr>
+<tr>
+<td>Same control height</td>
+<td>Buttons, inputs, combos, spinners, and icon buttons align to <code>CONTROL_HEIGHT</code>.</td>
+</tr>
+<tr>
+<td>Same label lanes</td>
+<td>Similar side rails use the same label width in a panel family.</td>
+</tr>
+<tr>
+<td>Same surfaces</td>
+<td>Top-level panes are opaque; cards are only grouped content; glass is only floating chrome.</td>
+</tr>
+<tr>
+<td>Same state colors</td>
+<td>Success/warning/error/info/missing/stale mean the same thing everywhere.</td>
+</tr>
+<tr>
+<td>Same typography</td>
+<td>Titles, section labels, captions, metadata, command text, and table text use the documented font roles.</td>
+</tr>
+<tr>
+<td>Same verification</td>
+<td>Every visual change gets light/dark and narrow/wide checks.</td>
+</tr>
+</tbody></table></div>
+<p>If two panels solve the same UI problem differently, prefer the existing shared primitive. If no shared primitive fits, create one and migrate both panels to it.</p>
+<h2 id="chapter-workbench-design-guide-banned-patterns-and-required-alternatives">Banned Patterns And Required Alternatives</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Do not</th>
+<th>Use instead</th>
+</tr></thead><tbody>
+<tr>
+<td>Raw <code>new JButton(...)</code> with local colors/borders</td>
+<td><code>Ui.button(...)</code>, <code>Ui.ghostButton(...)</code>, <code>Ui.destructiveButton(...)</code>, <code>Ui.iconButton(...)</code></td>
+</tr>
+<tr>
+<td>Raw <code>JScrollPane</code> styling</td>
+<td><code>Ui.scroll(...)</code> or <code>Ui.styleScrollPane(...)</code></td>
+</tr>
+<tr>
+<td>Local color constants for theme roles</td>
+<td><code>Theme</code> tokens, adding light and dark variants when needed</td>
+</tr>
+<tr>
+<td>Local font creation</td>
+<td><code>Theme.font(...)</code>, <code>Theme.mono(...)</code>, <code>Theme.consoleMono(...)</code></td>
+</tr>
+<tr>
+<td>Full page wrapped in a card</td>
+<td><code>SurfacePanel</code> root with flat sections</td>
+</tr>
+<tr>
+<td>Card inside card</td>
+<td>Section header, hairline, or collapsible group</td>
+</tr>
+<tr>
+<td>Large rounded decorative container</td>
+<td>Flat panel, toolbar band, or real card with purpose</td>
+</tr>
+<tr>
+<td>Gradient/orb/blob decoration</td>
+<td>Quiet <code>BackdropPanel</code> or no decoration</td>
+</tr>
+<tr>
+<td>Visible tutorial paragraphs in task screens</td>
+<td>Tooltip, concise caption, or empty-state hint</td>
+</tr>
+<tr>
+<td>Ambiguous button text like <code>OK</code> for domain actions</td>
+<td>Specific action label like <code>Apply FEN</code>, <code>Run</code>, <code>Load PGN</code></td>
+</tr>
+<tr>
+<td>Hidden primary action only in context menu</td>
+<td>Visible button plus optional context-menu duplicate</td>
+</tr>
+<tr>
+<td>Toolbar with unrelated controls in one row</td>
+<td>Leading/center/trailing grouped toolbar with separators</td>
+</tr>
+<tr>
+<td>Search placeholder <code>search</code></td>
+<td>Specific placeholder: <code>search games</code>, <code>filter flags</code>, <code>filter logs</code></td>
+</tr>
+<tr>
+<td>Error shown only in console</td>
+<td>Field border/status near the failed input plus console detail if needed</td>
+</tr>
+<tr>
+<td>Layout fixed for one window size</td>
+<td>Responsive behavior for narrow, normal, and wide widths</td>
+</tr>
+<tr>
+<td>UI-only chess rules or notation logic</td>
+<td>Shared <code>chess.core</code> / CLI-backed model</td>
+</tr>
+</tbody></table></div>
+<h2 id="chapter-workbench-design-guide-source-of-truth">Source Of Truth</h2>
+<p>Use these files before creating a new primitive.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Need</th>
+<th>Use</th>
+</tr></thead><tbody>
+<tr>
+<td>Palette, spacing, fonts, radius, control dimensions</td>
+<td><code>src/application/gui/workbench/ui/Theme.java</code></td>
+</tr>
+<tr>
+<td>Public UI factories</td>
+<td><code>src/application/gui/workbench/ui/Ui.java</code></td>
+</tr>
+<tr>
+<td>Opaque top-level panes</td>
+<td><code>src/application/gui/workbench/ui/SurfacePanel.java</code></td>
+</tr>
+<tr>
+<td>Root window backdrop</td>
+<td><code>src/application/gui/workbench/ui/BackdropPanel.java</code></td>
+</tr>
+<tr>
+<td>Static raised content cards</td>
+<td><code>src/application/gui/workbench/ui/Card.java</code> through <code>Ui.card(...)</code></td>
+</tr>
+<tr>
+<td>Workspace top band</td>
+<td><code>Ui.workspaceHeader(...)</code> / <code>WorkspaceHeader</code></td>
+</tr>
+<tr>
+<td>Section headings</td>
+<td><code>Ui.sectionHeader(...)</code> / <code>SectionHeader</code></td>
+</tr>
+<tr>
+<td>Toolbar bands and rows</td>
+<td><code>Ui.styleToolbarBand(...)</code>, <code>Ui.controlRow(...)</code>, <code>Ui.toolbarSeparator(...)</code></td>
+</tr>
+<tr>
+<td>Forms and inputs</td>
+<td><code>Ui.fieldRow(...)</code>, <code>Ui.labelControlRow(...)</code>, <code>Ui.optionGroup(...)</code>, <code>Ui.styleFields(...)</code>, <code>Ui.placeholder(...)</code></td>
+</tr>
+<tr>
+<td>Buttons</td>
+<td><code>Ui.button(...)</code>, <code>Ui.ghostButton(...)</code>, <code>Ui.destructiveButton(...)</code>, <code>Ui.iconButton(...)</code></td>
+</tr>
+<tr>
+<td>Tables</td>
+<td><code>Ui.setColumnWidth(...)</code> and shared table styling through the component tree</td>
+</tr>
+<tr>
+<td>Empty states</td>
+<td><code>Ui.emptyState(...)</code> or <code>Ui.paintEmptyState(...)</code></td>
+</tr>
+<tr>
+<td>Chessboard geometry and marks</td>
+<td><code>src/application/gui/workbench/board/BoardStyle.java</code></td>
+</tr>
+<tr>
+<td>Editor tab shell</td>
+<td><code>src/application/gui/workbench/layout/EditorSplitArea.java</code> and siblings</td>
+</tr>
+</tbody></table></div>
+<p>If a panel needs custom painting, it should still consume <code>Theme</code> tokens and shared helpers. Local color literals are acceptable only for domain colors that are not theme roles, such as fixed annotation brush colors, and those should be documented by the owning class.</p>
+<h2 id="chapter-workbench-design-guide-spacing-and-sizing">Spacing And Sizing</h2>
+<p>Use the spacing scale in <code>Theme</code>. Do not invent new spacing constants in feature panels unless a custom-painted surface has a real geometry need.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Token</th>
+<th>Pixels</th>
+<th>Use</th>
+</tr></thead><tbody>
+<tr>
+<td><code>SPACE_XS</code></td>
+<td class="numeric">4</td>
+<td>Tight gaps inside controls, table/header trim, small row separation</td>
+</tr>
+<tr>
+<td><code>SPACE_SM</code></td>
+<td class="numeric">8</td>
+<td>Label-to-control gaps, compact row gaps, toolbar group internals</td>
+</tr>
+<tr>
+<td><code>SPACE_MD</code></td>
+<td class="numeric">12</td>
+<td>Panel padding, card padding, default content gaps</td>
+</tr>
+<tr>
+<td><code>SPACE_LG</code></td>
+<td class="numeric">16</td>
+<td>Section separation, toolbar group separation, header action gap</td>
+</tr>
+<tr>
+<td><code>SPACE_XL</code></td>
+<td class="numeric">24</td>
+<td>Major page bands and report section breaks</td>
+</tr>
+<tr>
+<td><code>RADIUS</code></td>
+<td class="numeric">7</td>
+<td>Controls, cells, and compact surface corners</td>
+</tr>
+<tr>
+<td><code>CONTROL_HEIGHT</code></td>
+<td class="numeric">32</td>
+<td>Buttons, combos, compact spinners, icon-button height</td>
+</tr>
+<tr>
+<td><code>CONTROL_HEIGHT_TALL</code></td>
+<td class="numeric">40</td>
+<td>Larger text inputs or primary modal controls</td>
+</tr>
+<tr>
+<td><code>TABLE_ROW_HEIGHT</code></td>
+<td class="numeric">28</td>
+<td>Dense data rows</td>
+</tr>
+<tr>
+<td><code>CONTENT_MAX_WIDTH</code></td>
+<td class="numeric">1440</td>
+<td>Wide report/content cap</td>
+</tr>
+</tbody></table></div>
+<p>Common component widths:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Component</th>
+<th>Width</th>
+</tr></thead><tbody>
+<tr>
+<td>Compact side-rail label</td>
+<td>68 to 92 px</td>
+</tr>
+<tr>
+<td>Standard form label</td>
+<td>110 to 140 px</td>
+</tr>
+<tr>
+<td>Draw/Play style label</td>
+<td>78 px</td>
+</tr>
+<tr>
+<td>Relation controls label</td>
+<td>92 px</td>
+</tr>
+<tr>
+<td>Small option group control</td>
+<td>120 px</td>
+</tr>
+<tr>
+<td>Command-form lead column</td>
+<td>248 px</td>
+</tr>
+<tr>
+<td>Command-form value column</td>
+<td>280 px</td>
+</tr>
+<tr>
+<td>Long FEN/value field</td>
+<td>520 px</td>
+</tr>
+<tr>
+<td>Board side rail</td>
+<td>320 to 380 px, usually 360 px</td>
+</tr>
+<tr>
+<td>Dashboard summary card column</td>
+<td>minimum 300 px</td>
+</tr>
+<tr>
+<td>Larger dashboard/detail card column</td>
+<td>minimum 420 px</td>
+</tr>
+<tr>
+<td>Icon-only button</td>
+<td>34 px wide by <code>CONTROL_HEIGHT</code> high</td>
+</tr>
+</tbody></table></div>
+<p>If a label is wider than the chosen label lane, do not let it push the control column. Shorten the label, use a tooltip, or use <code>Ui.elide(...)</code> in custom painting.</p>
+<h2 id="chapter-workbench-design-guide-layout">Layout</h2>
+<p>Workbench screens are task surfaces. A good surface has one clear job, a compact header, a predictable toolbar, and content that can scan without horizontal wandering. Use this order from top to bottom:</p>
+<ol>
+<li>Optional <code>WorkspaceHeader</code>: title and location on the leading side, live context in the middle, primary actions on the trailing side.</li>
+<li>Optional toolbar band: navigation/mode controls leading, scoped controls centered, persistent actions/search trailing.</li>
+<li>Main body: primary work area in the center, secondary details in a side rail, status/logs at the bottom only when they are persistent.</li>
+<li>Empty/loading/error state inside the content area, not as a separate page shell.</li>
+</ol>
+<ul>
+<li>Use <code>SurfacePanel</code> or <code>Ui.panel(...)</code> for top-level editor content.</li>
+<li>Use <code>WorkspaceHeader</code> for the primary title, live context, and main actions.</li>
+<li>Use <code>SectionHeader</code> for local content groups that need a title, short detail, and trailing status/control.</li>
+<li>Use <code>Ui.styleToolbarBand(...)</code> for toolbar strips directly under tabs or mode switchers.</li>
+<li>Use <code>Ui.centeredViewport(...)</code> for report-like content with a readable maximum width.</li>
+<li>Use <code>Ui.contentGrid(...)</code> for dashboards or responsive collections of independent cards.</li>
+<li>Keep form controls top-aligned with <code>Ui.addVerticalFiller(...)</code> when a form panel stretches.</li>
+<li>Pin fixed-format elements with stable sizes: boards, tabs, icon buttons, table rows, eval bars, charts, and counters should not resize when labels or states change.</li>
+</ul>
+<p>Avoid nested cards, page sections styled as cards, and rounded containers around every row. Use whitespace, hairlines, and section headers first.</p>
+<h3 id="chapter-workbench-design-guide-canonical-surface-layout">Canonical Surface Layout</h3>
+<p>Every major Workbench surface or mode should fit one of these two layouts.</p>
+<p>Layout A: editor surface with optional side rail</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Region</th>
+<th>Swing position</th>
+<th>Required</th>
+<th>Contents</th>
+<th>Resize behavior</th>
+</tr></thead><tbody>
+<tr>
+<td>Root</td>
+<td><code>SurfacePanel(new BorderLayout(...))</code></td>
+<td>Yes</td>
+<td>Owns one complete Workbench surface</td>
+<td>Fills editor host</td>
+</tr>
+<tr>
+<td>Header</td>
+<td><code>BorderLayout.NORTH</code> inside root or wrapper</td>
+<td>Usually</td>
+<td><code>WorkspaceHeader</code> with title, context, actions</td>
+<td>Fixed height, context elides</td>
+</tr>
+<tr>
+<td>Toolbar</td>
+<td>Below header in a stacked north panel</td>
+<td>Optional</td>
+<td>Mode, search/filter, view controls, scoped actions</td>
+<td>One row if possible; wraps only through shared flow rows</td>
+</tr>
+<tr>
+<td>Body</td>
+<td><code>BorderLayout.CENTER</code></td>
+<td>Yes</td>
+<td>Primary work area</td>
+<td>Grows and shrinks first</td>
+</tr>
+<tr>
+<td>Side rail</td>
+<td><code>BorderLayout.EAST</code> or split secondary</td>
+<td>Optional</td>
+<td>Inspectors, settings, move list, local controls</td>
+<td>320 to 380 px preferred, collapsible when narrow</td>
+</tr>
+<tr>
+<td>Bottom panel</td>
+<td><code>BorderLayout.SOUTH</code> or separate Workbench panel</td>
+<td>Optional</td>
+<td>Logs, run output, artifact list</td>
+<td>Height-capped and scrollable</td>
+</tr>
+<tr>
+<td>Floating layer</td>
+<td><code>JLayeredPane</code> / modal overlay</td>
+<td>Optional</td>
+<td>Command palette, dialogs, toasts</td>
+<td>Does not change base layout</td>
+</tr>
+</tbody></table></div>
+<p>Layout B: dashboard/report surface</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Region</th>
+<th>Swing position</th>
+<th>Required</th>
+<th>Contents</th>
+<th>Resize behavior</th>
+</tr></thead><tbody>
+<tr>
+<td>Root</td>
+<td><code>SurfacePanel(new BorderLayout(...))</code></td>
+<td>Yes</td>
+<td>Whole report/dashboard</td>
+<td>Fills editor host</td>
+</tr>
+<tr>
+<td>Header</td>
+<td><code>BorderLayout.NORTH</code></td>
+<td>Yes</td>
+<td><code>WorkspaceHeader</code></td>
+<td>Fixed height</td>
+</tr>
+<tr>
+<td>Scroll body</td>
+<td><code>BorderLayout.CENTER</code></td>
+<td>Yes</td>
+<td><code>Ui.scroll(Ui.centeredViewport(...))</code> or <code>Ui.contentGrid(...)</code></td>
+<td>Scrolls vertically</td>
+</tr>
+<tr>
+<td>Cards/grid</td>
+<td>Inside scroll body</td>
+<td>Optional</td>
+<td>Summary cards, charts, previews</td>
+<td>Reflows by min column width</td>
+</tr>
+<tr>
+<td>Tables</td>
+<td>Inside scroll body or main body</td>
+<td>Optional</td>
+<td>Dense records/details</td>
+<td>Fill width; important columns pinned</td>
+</tr>
+</tbody></table></div>
+<p>Use Layout A for Board, Engine Lab, Run, Publish, and the inspector modes inside them. Use Layout B for Dashboard, report-like publishing summaries, dataset overviews, and static diagnostics.</p>
+<h3 id="chapter-workbench-design-guide-region-rules">Region Rules</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Region</th>
+<th>Must do</th>
+<th>Must not do</th>
+</tr></thead><tbody>
+<tr>
+<td>Header</td>
+<td>Show stable title, changing context, and local primary actions</td>
+<td>Contain long help text, filters, or dense settings</td>
+</tr>
+<tr>
+<td>Toolbar</td>
+<td>Hold controls that affect the current view</td>
+<td>Become a second header or a paragraph row</td>
+</tr>
+<tr>
+<td>Body</td>
+<td>Show the main artifact: board, table, graph, preview, console, or form</td>
+<td>Compete with side rail for attention</td>
+</tr>
+<tr>
+<td>Side rail</td>
+<td>Support the body with controls, inspectors, and secondary lists</td>
+<td>Become the only place to understand the screen</td>
+</tr>
+<tr>
+<td>Bottom panel</td>
+<td>Show persistent output/logs</td>
+<td>Replace validation or local status that belongs near a field</td>
+</tr>
+<tr>
+<td>Floating layer</td>
+<td>Ask focused questions or show transient feedback</td>
+<td>Host permanent workflow content</td>
+</tr>
+</tbody></table></div>
+<h3 id="chapter-workbench-design-guide-resizing-rules">Resizing Rules</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Width class</th>
+<th>Behavior</th>
+</tr></thead><tbody>
+<tr>
+<td>Narrow, below 1000 px</td>
+<td>Side rails collapse, move to tabs, or become vertically stacked below the main body. Toolbars keep essential actions and elide context.</td>
+</tr>
+<tr>
+<td>Normal, 1000 to 1600 px</td>
+<td>Default layout: main body plus 320 to 380 px side rail. Toolbar remains one row.</td>
+</tr>
+<tr>
+<td>Wide, above 1600 px</td>
+<td>Main body can grow; report content may cap at <code>CONTENT_MAX_WIDTH</code>; side rail does not grow beyond its useful width.</td>
+</tr>
+</tbody></table></div>
+<p>If a wide window makes a table, graph, or form harder to scan, cap or center the content. If a narrow window clips buttons, remove secondary text, move actions into overflow, or stack the side rail. Do not shrink fonts.</p>
+<h3 id="chapter-workbench-design-guide-workbench-chrome-anatomy">Workbench Chrome Anatomy</h3>
+<p>Every screen should be easy to identify from its chrome alone.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Chrome zone</th>
+<th>Inspired by</th>
+<th>Contents</th>
+<th>Hard rule</th>
+</tr></thead><tbody>
+<tr>
+<td>Editor tab strip</td>
+<td>VS Code editor tabs</td>
+<td>Tab name, close affordance, split/overflow controls</td>
+<td>Tab names are nouns; state does not live in the tab label unless it is essential.</td>
+</tr>
+<tr>
+<td>Workspace header</td>
+<td>Apple title/toolbar grouping</td>
+<td>Title, one-line context, primary actions</td>
+<td>Title is stable; context changes with selected FEN/job/model.</td>
+</tr>
+<tr>
+<td>Toolbar band</td>
+<td>VS Code view toolbar + Apple toolbar groups</td>
+<td>Mode switcher, filters, search, view actions</td>
+<td>One visual row when possible; group by function and frequency.</td>
+</tr>
+<tr>
+<td>Side rail</td>
+<td>VS Code sidebar</td>
+<td>Controls, inspectors, move lists, settings for the center view</td>
+<td>Side rail supports the center; it is not a second main screen.</td>
+</tr>
+<tr>
+<td>Bottom panel</td>
+<td>VS Code panel/status area</td>
+<td>Logs, console output, run artifacts</td>
+<td>Long-running output goes here, not in modal alerts.</td>
+</tr>
+<tr>
+<td>Floating chrome</td>
+<td>Apple popover/sheet feel</td>
+<td>Command palette, dialogs, confirmation, toasts</td>
+<td>Raised/frosted cues allowed; content panes stay opaque.</td>
+</tr>
+</tbody></table></div>
+<h3 id="chapter-workbench-design-guide-toolbar-placement">Toolbar Placement</h3>
+<p>Use Apple-style leading/center/trailing grouping inside VS Code-like toolbar density.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Position</th>
+<th>Put here</th>
+<th>Examples</th>
+</tr></thead><tbody>
+<tr>
+<td>Leading</td>
+<td>Navigation, mode identity, local back/forward, sidebar toggles</td>
+<td>Analyze mode switcher, board transport, visible section selector</td>
+</tr>
+<tr>
+<td>Center</td>
+<td>Current-view controls that change representation</td>
+<td>Table filters, graph depth, draw tool mode, tree layout controls</td>
+</tr>
+<tr>
+<td>Trailing</td>
+<td>Persistent actions, search, inspectors, overflow/more</td>
+<td>Run, Copy command, Export, Open folder, Search, More</td>
+</tr>
+</tbody></table></div>
+<p>Search placement:</p>
+<ul>
+<li>Global or cross-view search belongs on the trailing side of the header/toolbar.</li>
+<li>Local list/table filtering belongs directly above or beside the list it filters.</li>
+<li>Search placeholders must name the searched content: <code>filter flags</code>, <code>search games</code>, <code>filter jobs</code>, not plain <code>search</code>.</li>
+<li>If the dataset is local and small enough, filter while typing.</li>
+<li>If search starts an expensive operation, debounce it and show a running state.</li>
+</ul>
+<h3 id="chapter-workbench-design-guide-screen-recipes">Screen Recipes</h3>
+<p>Use these layouts as defaults.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Surface type</th>
+<th>Layout</th>
+</tr></thead><tbody>
+<tr>
+<td>Board workspace</td>
+<td>One shared board stage in <code>CENTER</code>, eval bar attached to the board, 320 to 380 px right inspector rail, <code>SplitPaneStyler</code> divider around 0.65 to 0.70</td>
+</tr>
+<tr>
+<td>Board analysis mode</td>
+<td>Board remains stable; legal moves, engine controls, tags, ECO, review, study, endgame, and editor tools live in rail sections or local tabs</td>
+</tr>
+<tr>
+<td>Board play mode</td>
+<td>Board and move history remain dominant; opponent/settings controls sit in compact side groups, not across the board</td>
+</tr>
+<tr>
+<td>Engine Lab</td>
+<td>Search/evaluator evidence owns the center; backend/model controls and selected-node/tensor details sit in the rail</td>
+</tr>
+<tr>
+<td>Run workspace</td>
+<td>Template/command selection first, required inputs above optional flags, exact command preview visible, run/copy actions grouped together</td>
+</tr>
+<tr>
+<td>Dashboard</td>
+<td><code>WorkspaceHeader</code>, then <code>Ui.contentGrid(300)</code> for summaries and <code>Ui.contentGrid(420)</code> for larger detail cards</td>
+</tr>
+<tr>
+<td>Datasets</td>
+<td>Header and load actions on top, summary cards before charts/tables, tables fill the remaining vertical space</td>
+</tr>
+<tr>
+<td>Publish</td>
+<td>Source/task controls in a side or top panel, preview takes the main area, render actions stay near preview status</td>
+</tr>
+<tr>
+<td>Relations mode</td>
+<td>Board/graph visualization centered, channel and opacity controls in a right rail with fixed label widths</td>
+</tr>
+<tr>
+<td>Logs/console mode</td>
+<td>Header actions right, scrollable log body center, status badges inline with rows</td>
+</tr>
+<tr>
+<td>Modal/dialog</td>
+<td>Floating chrome, max-width content, primary action bottom right, cancel/close adjacent or top right depending on dialog type</td>
+</tr>
+</tbody></table></div>
+<h3 id="chapter-workbench-design-guide-surface-home-rules">Surface Home Rules</h3>
+<p>Use this table before creating, moving, or renaming a view.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Feature or mode</th>
+<th>Target home</th>
+<th>Rule</th>
+</tr></thead><tbody>
+<tr>
+<td>Analyze</td>
+<td><code>Board</code></td>
+<td>Position-first rail mode over the shared board.</td>
+</tr>
+<tr>
+<td>Play</td>
+<td><code>Board</code></td>
+<td>Human-vs-engine mode over the shared board, with Play owning input while active.</td>
+</tr>
+<tr>
+<td>Solve/Puzzles</td>
+<td><code>Board</code></td>
+<td>Puzzle mode; may keep an independent puzzle board only when puzzle progression requires it.</td>
+</tr>
+<tr>
+<td>Relations</td>
+<td><code>Board</code></td>
+<td>Read-only tactical overlay mode over the shared board.</td>
+</tr>
+<tr>
+<td>Draw</td>
+<td><code>Board</code></td>
+<td>Annotation/export mode over the shared board.</td>
+</tr>
+<tr>
+<td>Board editor</td>
+<td><code>Board</code></td>
+<td>Setup/editor section in Analyze or a Board mode, not a separate top-level surface.</td>
+</tr>
+<tr>
+<td>Network</td>
+<td><code>Engine Lab</code></td>
+<td>Evaluator/model visualization mode.</td>
+</tr>
+<tr>
+<td>MCTS/Search Tree</td>
+<td><code>Engine Lab</code></td>
+<td>Search mode with root moves, tree, selected node, and backend controls.</td>
+</tr>
+<tr>
+<td>Gauntlet</td>
+<td><code>Engine Lab</code></td>
+<td>Engine comparison mode with reproducible command/status output.</td>
+</tr>
+<tr>
+<td>Commands</td>
+<td><code>Run</code></td>
+<td>Build mode for exact <code>crtk</code> commands.</td>
+</tr>
+<tr>
+<td>Batch</td>
+<td><code>Run</code></td>
+<td>Batch mode for repeated command runs over positions/scripts.</td>
+</tr>
+<tr>
+<td>Console</td>
+<td><code>Run</code></td>
+<td>Output/REPL mode or first-class output companion during migration.</td>
+</tr>
+<tr>
+<td>Logs</td>
+<td><code>Run</code> plus <code>Dashboard</code></td>
+<td>Output/log browser and recent-run dashboard card.</td>
+</tr>
+<tr>
+<td>Datasets</td>
+<td><code>Datasets</code></td>
+<td>Top-level analytics surface.</td>
+</tr>
+<tr>
+<td>Publish</td>
+<td><code>Publish</code></td>
+<td>Top-level preview/render surface.</td>
+</tr>
+</tbody></table></div>
+<h3 id="chapter-workbench-design-guide-surface-and-mode-blueprints">Surface And Mode Blueprints</h3>
+<p>Use these as the target shape when adapting current Workbench implementation. Rows that belong to <code>Board</code>, <code>Engine Lab</code>, or <code>Run</code> are modes or inspector states, not necessarily top-level tabs.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Surface/mode</th>
+<th>Header title</th>
+<th>Header context</th>
+<th>Leading toolbar</th>
+<th>Center/body</th>
+<th>Side rail</th>
+<th>Trailing actions</th>
+</tr></thead><tbody>
+<tr>
+<td>Dashboard</td>
+<td><code>Dashboard</code></td>
+<td>Session health, recent artifact count, active jobs</td>
+<td>None unless mode switch needed</td>
+<td>Summary grid, recent jobs, artifacts</td>
+<td>None by default</td>
+<td>Refresh, open session folder</td>
+</tr>
+<tr>
+<td>Analyze</td>
+<td><code>Analyze</code></td>
+<td>Current FEN summary, side to move, active source</td>
+<td>Board transport, analysis mode</td>
+<td>Board stage with eval bar</td>
+<td>Moves, engine, ECO, tags, review/study tools</td>
+<td>Load PGN, copy FEN, export board</td>
+</tr>
+<tr>
+<td>Board editor</td>
+<td><code>Board Editor</code> or section within Analyze</td>
+<td>Edited FEN validity</td>
+<td>Piece/setup mode</td>
+<td>Board stage</td>
+<td>Piece palette, side to move, castling, en passant</td>
+<td>Apply, copy FEN, reset</td>
+</tr>
+<tr>
+<td>Play</td>
+<td><code>Play</code></td>
+<td>Opponent preset, side, current result/status</td>
+<td>New game/start source</td>
+<td>Board stage and move history</td>
+<td>Opponent, strength, custom backend, game controls</td>
+<td>New game, resign, copy PGN</td>
+</tr>
+<tr>
+<td>Draw</td>
+<td><code>Draw</code></td>
+<td>Markup count and selected tool</td>
+<td>Tool mode, undo/redo</td>
+<td>Board stage</td>
+<td>Shape, brush, color, opacity, target controls</td>
+<td>Clear, export, copy</td>
+</tr>
+<tr>
+<td>Commands</td>
+<td><code>Commands</code></td>
+<td>Selected command and validity</td>
+<td>Area/action selection</td>
+<td>Required inputs, optional flags, command preview</td>
+<td>Optional command help/details if needed</td>
+<td>Run, copy command, clear</td>
+</tr>
+<tr>
+<td>Batch</td>
+<td><code>Batch</code></td>
+<td>Row count, valid rows, active job</td>
+<td>Source mode</td>
+<td>Position/script editor and result table</td>
+<td>Validation, run options</td>
+<td>Run, stop, import, export</td>
+</tr>
+<tr>
+<td>Console</td>
+<td><code>Console</code></td>
+<td>Active run or idle status</td>
+<td>None</td>
+<td>Scrollable terminal-style output</td>
+<td>None unless filters are needed</td>
+<td>Copy, clear, open log</td>
+</tr>
+<tr>
+<td>Logs</td>
+<td><code>Logs</code></td>
+<td>Selected log, job count</td>
+<td>Filter/search</td>
+<td>Log table and selected log output</td>
+<td>Artifact details if useful</td>
+<td>Refresh, open folder, copy path, clean</td>
+</tr>
+<tr>
+<td>Datasets</td>
+<td><code>Datasets</code></td>
+<td>Loaded file, row count, shape</td>
+<td>Dataset mode</td>
+<td>Summary cards, charts, tables</td>
+<td>Load/options/details when useful</td>
+<td>Load, refresh, export/copy</td>
+</tr>
+<tr>
+<td>Publish</td>
+<td><code>Publish</code></td>
+<td>Selected task and output state</td>
+<td>Task/source selection</td>
+<td>Preview canvas</td>
+<td>Manifest/task fields, validation</td>
+<td>Render, check, export/open</td>
+</tr>
+<tr>
+<td>Puzzles</td>
+<td><code>Puzzles</code></td>
+<td>Loaded puzzle set, index, solve state</td>
+<td>Puzzle navigation</td>
+<td>Board stage and solution line</td>
+<td>Puzzle metadata, tags, reveal controls</td>
+<td>Load, reveal, next, copy</td>
+</tr>
+<tr>
+<td>Network</td>
+<td><code>Engine Lab</code></td>
+<td>Model, backend, position/inference state</td>
+<td>Network/view mode</td>
+<td>Visualization canvas, activation boards/charts</td>
+<td>Model/runtime/options</td>
+<td>Load, refresh, export</td>
+</tr>
+<tr>
+<td>Relations</td>
+<td><code>Relations</code></td>
+<td>Current FEN, enabled channel count</td>
+<td>Sync/source mode</td>
+<td>Board/graph visualization</td>
+<td>Channel toggles, opacity, max arrows</td>
+<td>Sync, copy, export</td>
+</tr>
+<tr>
+<td>MCTS</td>
+<td><code>Search Tree</code></td>
+<td>Search status, nodes, root move</td>
+<td>Search mode/depth</td>
+<td>Tree graph/table and root rows</td>
+<td>Backend, weights, selected node details</td>
+<td>Start, stop, snapshot, export</td>
+</tr>
+<tr>
+<td>Gauntlet</td>
+<td><code>Gauntlet</code></td>
+<td>Candidate/baseline, games, WDL/Elo</td>
+<td>Setup/run mode</td>
+<td>Game list, summary table, selected game board</td>
+<td>Engine configs, budgets, filters</td>
+<td>Start, stop, copy command, open artifacts</td>
+</tr>
+<tr>
+<td>Settings</td>
+<td><code>Settings</code></td>
+<td>Active preference group</td>
+<td>Group selector</td>
+<td>Form sections</td>
+<td>None unless preview needed</td>
+<td>Apply, reset, close</td>
+</tr>
+</tbody></table></div>
+<p>Uniform adaptation rule: if a current view cannot be described by this table, first decide whether it belongs in the center body, side rail, toolbar, bottom panel, floating layer, or one of the six target surfaces. Do not add new chrome until that decision is made.</p>
+<h3 id="chapter-workbench-design-guide-shell-skeleton">Shell Skeleton</h3>
+<p>Use <code>BorderLayout</code> for top-level screens. Put the header and toolbar in <code>NORTH</code>, the working canvas in <code>CENTER</code>, and avoid absolute positioning.</p>
+<pre><code class="language-java">SurfacePanel root = new SurfacePanel(new BorderLayout(0, Theme.SPACE_MD));
+WorkspaceHeader header = Ui.workspaceHeader(&quot;Datasets&quot;, contextText, actions);
+root.add(header, BorderLayout.NORTH);
+
+JPanel body = Ui.transparentPanel(new BorderLayout(Theme.SPACE_MD, Theme.SPACE_MD));
+body.add(mainContent, BorderLayout.CENTER);
+body.add(sideRail, BorderLayout.EAST);
+root.add(body, BorderLayout.CENTER);</code></pre>
+<h3 id="chapter-workbench-design-guide-toolbar-recipe">Toolbar Recipe</h3>
+<p>Toolbar bands are horizontal and single purpose. Put navigation/mode controls on the leading side, view-shaping controls in the center when needed, and actions/search on the trailing side. Separate unrelated control groups with <code>Ui.toolbarSeparator()</code>.</p>
+<pre><code class="language-java">JPanel toolbar = Ui.transparentPanel(new BorderLayout());
+toolbar.add(Ui.controlRow(FlowLayout.LEFT, modeSwitch, backButton, forwardButton), BorderLayout.WEST);
+toolbar.add(Ui.controlRow(FlowLayout.CENTER, depthSlider, Ui.toolbarSeparator(), filterChips), BorderLayout.CENTER);
+toolbar.add(Ui.controlRow(FlowLayout.RIGHT, searchField, refreshButton, exportButton), BorderLayout.EAST);
+Ui.styleToolbarBand(toolbar, Theme.pad(Theme.SPACE_SM, Theme.SPACE_MD, Theme.SPACE_SM, Theme.SPACE_MD));</code></pre>
+<p>Do not place long explanatory text in a toolbar. If the user needs context, put it in the <code>WorkspaceHeader</code> context string or in a section caption.</p>
+<h3 id="chapter-workbench-design-guide-form-recipe">Form Recipe</h3>
+<p>Use fixed label lanes so controls line up. Required fields go first, optional controls go below, and destructive actions stay out of the main run/apply action row.</p>
+<pre><code class="language-java">JPanel form = Ui.transparentPanel(new GridBagLayout());
+GridBagConstraints c = Ui.constraints();
+Ui.grid(form, Ui.fieldRow(&quot;FEN&quot;, fenField, 120), c, 0, 0, 2, 1);
+Ui.grid(form, Ui.fieldRow(&quot;Time&quot;, durationField, 120), c, 0, 1, 1, 1);
+Ui.grid(form, Ui.fieldRow(&quot;Lines&quot;, multipvSpinner, 120), c, 1, 1, 1, 1);
+Ui.grid(form, Ui.controlRow(FlowLayout.RIGHT, runButton, copyButton), c, 0, 2, 2, 1);
+Ui.addVerticalFiller(form, c, 3, 2);</code></pre>
+<p>For narrow side rails, prefer <code>Ui.labelControlRow(&quot;Search&quot;, control, 78)</code> or another fixed lane from the spacing table. For full command forms, keep the larger command-form columns so every row starts at the same x coordinate.</p>
+<h3 id="chapter-workbench-design-guide-side-rail-recipe">Side Rail Recipe</h3>
+<p>Side rails are compact inspectors. They should feel like a VS Code sidebar with Apple-style form discipline.</p>
+<pre><code class="language-java">SurfacePanel rail = new SurfacePanel(new BorderLayout(0, Theme.SPACE_MD));
+rail.setPreferredSize(new Dimension(360, 520));
+
+JPanel sections = Ui.transparentPanel(new GridLayout(0, 1, 0, Theme.SPACE_MD));
+sections.add(Ui.titled(&quot;Engine&quot;, engineControls));
+sections.add(Ui.titled(&quot;Moves&quot;, Ui.scroll(movesTable)));
+sections.add(Ui.collapsible(&quot;Advanced&quot;, advancedControls, false));
+
+rail.add(Ui.scroll(Ui.fillViewport(sections)), BorderLayout.CENTER);
+rail.add(Ui.controlRow(FlowLayout.RIGHT, applyButton), BorderLayout.SOUTH);</code></pre>
+<p>Side rail content order:</p>
+<ol>
+<li>Status or mode summary, only if the header context is not enough.</li>
+<li>Required controls.</li>
+<li>Current selection details or list.</li>
+<li>Optional/advanced controls in a collapsible section.</li>
+<li>Local action row, trailing aligned.</li>
+</ol>
+<h3 id="chapter-workbench-design-guide-table-recipe">Table Recipe</h3>
+<p>Tables are for exact comparison. They should be dense, stable, and readable.</p>
+<pre><code class="language-java">JTable table = new JTable(model);
+Ui.styleComponentTree(table);
+table.setRowSelectionAllowed(true);
+table.setColumnSelectionAllowed(false);
+Ui.setColumnWidth(table.getColumnModel(), 0, 80);
+Ui.setColumnWidth(table.getColumnModel(), 1, 180);
+JScrollPane scroller = Ui.scroll(table);</code></pre>
+<p>Table rules:</p>
+<ul>
+<li>Row height is <code>Theme.TABLE_ROW_HEIGHT</code>.</li>
+<li>Header text is short and muted.</li>
+<li>Numeric columns align consistently within a table.</li>
+<li>Important columns have preferred widths.</li>
+<li>Status is a badge or short text, not a paragraph.</li>
+<li>Empty table content uses <code>Ui.emptyState(...)</code>, not a blank white box.</li>
+<li>Sorting/filtering controls sit immediately above the table.</li>
+</ul>
+<h3 id="chapter-workbench-design-guide-empty-loading-and-error-recipe">Empty, Loading, And Error Recipe</h3>
+<p>Every surface must define these states:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>State</th>
+<th>Layout</th>
+<th>Copy</th>
+<th>Actions</th>
+</tr></thead><tbody>
+<tr>
+<td>Empty</td>
+<td>Centered in the content area or compact inside side rail</td>
+<td><code>No dataset loaded</code>, <code>No log selected</code>, <code>No search yet</code></td>
+<td>One clear next action when useful</td>
+</tr>
+<tr>
+<td>Loading</td>
+<td>Same footprint as the eventual content when possible</td>
+<td><code>Loading model</code>, <code>Running search</code>, <code>Rendering preview</code></td>
+<td>Stop/cancel only if supported</td>
+</tr>
+<tr>
+<td>Error</td>
+<td>Near the failed control or content</td>
+<td>Specific path/FEN/command failure</td>
+<td>Retry, browse, reset, or copy error</td>
+</tr>
+<tr>
+<td>Missing optional dependency</td>
+<td>Status badge plus compact explanation</td>
+<td><code>Missing model</code>, <code>Stockfish unavailable</code></td>
+<td>Configure, browse, or fall back</td>
+</tr>
+<tr>
+<td>Disabled</td>
+<td>Control remains visible and readable</td>
+<td>Tooltip explains why unavailable</td>
+<td>No hidden state</td>
+</tr>
+</tbody></table></div>
+<p>Do not replace a whole screen with an error page unless the entire screen cannot function.</p>
+<h2 id="chapter-workbench-design-guide-surfaces-and-elevation">Surfaces And Elevation</h2>
+<p>Top-level work areas are flat and opaque. That keeps repainting clean, makes the app feel like an editor, and avoids muddy text over translucent content.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Surface</th>
+<th>Use it for</th>
+<th>Avoid</th>
+</tr></thead><tbody>
+<tr>
+<td><code>SurfacePanel</code></td>
+<td>Main editor regions, side rails, mode content</td>
+<td>Rounded panels, shadows, transparent panes</td>
+</tr>
+<tr>
+<td>Toolbar band</td>
+<td>Tab-local controls and mode switchers</td>
+<td>Floating card toolbars</td>
+</tr>
+<tr>
+<td><code>Ui.card(...)</code></td>
+<td>Setup forms, chart panels, summaries, grouped static content</td>
+<td>Wrapping full pages or placing cards inside cards</td>
+</tr>
+<tr>
+<td>Backdrop wash</td>
+<td>Window edge/background treatment</td>
+<td>Visible decorative gradients in content</td>
+</tr>
+<tr>
+<td>Floating chrome</td>
+<td>Command palette, modal overlays, dialogs, popovers, toasts</td>
+<td>Permanent content sections</td>
+</tr>
+</tbody></table></div>
+<p>The frosted-glass idea is a restraint, not a theme. Use <code>Theme.GLASS_HIGHLIGHT</code>, backdrop colors, and existing floating primitives rather than painting translucent panels over live content.</p>
+<p>Surface styling rules:</p>
+<ul>
+<li>Main editor surfaces use <code>Theme.PANEL_SOLID</code>, not translucent fills.</li>
+<li>Side rails use the same surface family as the main pane, separated by a hairline or split divider.</li>
+<li>Cards sit one elevation above the page and must have a clear grouping purpose.</li>
+<li>Floating chrome may use <code>Theme.GLASS_HIGHLIGHT</code>, soft borders, and shadow, but must keep text over an opaque or solid-blended surface.</li>
+<li>Shadows should be shallow and functional. If the element is not movable, modal, or floating, it probably does not need a shadow.</li>
+<li>Border radius stays close to <code>Theme.RADIUS</code>; do not introduce large pill/card radii just for decoration.</li>
+</ul>
+<h2 id="chapter-workbench-design-guide-color-and-theme">Color And Theme</h2>
+<p>All visual roles should be theme tokens. Update both <code>applyLightPalette</code> and <code>applyDarkPalette</code> when adding a token, and refresh tests that pin palette behavior.</p>
+<p>Important token groups:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Role</th>
+<th>Tokens</th>
+</tr></thead><tbody>
+<tr>
+<td>Backgrounds</td>
+<td><code>BG</code>, <code>PANEL</code>, <code>PANEL_SOLID</code>, <code>ELEVATED</code>, <code>ELEVATED_SOLID</code>, <code>CARD</code></td>
+</tr>
+<tr>
+<td>Lines and text</td>
+<td><code>LINE</code>, <code>TEXT</code>, <code>MUTED</code>, foreground roles</td>
+</tr>
+<tr>
+<td>Actions</td>
+<td><code>ACCENT</code>, <code>ACCENT_HOVER</code>, <code>ACCENT_PRESSED</code>, button variant tokens</td>
+</tr>
+<tr>
+<td>Inputs</td>
+<td><code>INPUT</code>, <code>INPUT_BORDER</code>, <code>INPUT_FOCUS</code>, <code>FOCUS_RING</code>, <code>TEXT_SELECTION</code></td>
+</tr>
+<tr>
+<td>Status</td>
+<td><code>STATUS_SUCCESS_*</code>, <code>STATUS_WARNING_*</code>, <code>STATUS_ERROR_*</code>, <code>STATUS_INFO_*</code></td>
+</tr>
+<tr>
+<td>Board</td>
+<td><code>BOARD_LIGHT</code>, <code>BOARD_DARK</code>, <code>BOARD_HIGHLIGHT</code>, <code>LEGAL_TARGET</code>, <code>BOARD_ARROW</code></td>
+</tr>
+<tr>
+<td>Network</td>
+<td><code>NN_POSITIVE</code>, <code>NN_NEGATIVE</code>, <code>NN_POLICY</code>, <code>NN_VALUE</code>, <code>NN_NEUTRAL</code></td>
+</tr>
+</tbody></table></div>
+<p>Do not hard-code a light-only or dark-only value in a panel. If the value represents a reusable role, add or reuse a token.</p>
+<p>Color behavior:</p>
+<ul>
+<li>VS Code neutral surfaces carry most of the interface; Apple-style blue is for primary actions, focus, and selected interactive state.</li>
+<li>Use semantic status colors only for status: success, warning, error, info, ready, running, complete, missing, stale.</li>
+<li>Do not use accent blue for passive headings, decorative lines, or noninteractive illustrations.</li>
+<li>Board and annotation colors are domain colors; they must remain visually distinct from status colors.</li>
+<li>In custom painting, always test light and dark mode because alpha over dark surfaces changes perceived contrast.</li>
+</ul>
+<h2 id="chapter-workbench-design-guide-typography-and-density">Typography And Density</h2>
+<p>Use <code>Theme.font(...)</code>, <code>Theme.mono(...)</code>, or <code>Theme.consoleMono(...)</code>. Do not construct arbitrary fonts in feature panels.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Text role</th>
+<th>Token</th>
+</tr></thead><tbody>
+<tr>
+<td>Page title</td>
+<td><code>FONT_PAGE_TITLE</code></td>
+</tr>
+<tr>
+<td>Section title</td>
+<td><code>FONT_SECTION_TITLE</code></td>
+</tr>
+<tr>
+<td>Body/control text</td>
+<td><code>FONT_BODY</code>, <code>FONT_CONTROL</code></td>
+</tr>
+<tr>
+<td>Dense table text</td>
+<td><code>FONT_DENSE_TABLE</code></td>
+</tr>
+<tr>
+<td>Caption and metadata</td>
+<td><code>FONT_CAPTION</code>, <code>FONT_METADATA</code></td>
+</tr>
+<tr>
+<td>Code, commands, logs</td>
+<td><code>FONT_MONO</code>, <code>consoleMono(...)</code></td>
+</tr>
+</tbody></table></div>
+<p>Keep headings proportional to their container. A compact panel should not use hero-size type. Let <code>Theme.Density</code> scale fonts globally; do not scale text with viewport width.</p>
+<p>Text hierarchy:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Role</th>
+<th>Placement</th>
+<th>Rule</th>
+</tr></thead><tbody>
+<tr>
+<td>Page title</td>
+<td>Workspace header only</td>
+<td>Stable noun, usually one or two words</td>
+</tr>
+<tr>
+<td>Context</td>
+<td>Workspace header center</td>
+<td>One line, elided, tooltip contains full value</td>
+</tr>
+<tr>
+<td>Section title</td>
+<td>Above grouped content</td>
+<td>Short noun phrase, no punctuation</td>
+</tr>
+<tr>
+<td>Caption</td>
+<td>Under/next to a control group</td>
+<td>One line explaining ambiguity only</td>
+</tr>
+<tr>
+<td>Metadata</td>
+<td>Tables, badges, timestamps, model names</td>
+<td>Muted, compact, scannable</td>
+</tr>
+<tr>
+<td>Command/code</td>
+<td>Command previews, logs, FEN, JSON, tensors</td>
+<td>Monospace, selectable/copyable where useful</td>
+</tr>
+</tbody></table></div>
+<h2 id="chapter-workbench-design-guide-controls">Controls</h2>
+<p>Controls should look and behave the same across panels.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Task</th>
+<th>Preferred control</th>
+</tr></thead><tbody>
+<tr>
+<td>Main action</td>
+<td><code>Ui.button(text, Theme.ButtonVariant.PRIMARY, listener)</code></td>
+</tr>
+<tr>
+<td>Standard action</td>
+<td><code>Ui.button(text, Theme.ButtonVariant.SECONDARY, listener)</code></td>
+</tr>
+<tr>
+<td>Low-emphasis action</td>
+<td><code>Ui.ghostButton(...)</code></td>
+</tr>
+<tr>
+<td>Destructive action</td>
+<td><code>Ui.destructiveButton(...)</code></td>
+</tr>
+<tr>
+<td>Icon-only utility</td>
+<td><code>Ui.iconButton(label, listener)</code></td>
+</tr>
+<tr>
+<td>Two or more modes</td>
+<td><code>Ui.segmentedControl(...)</code></td>
+</tr>
+<tr>
+<td>Binary setting</td>
+<td><code>ToggleBox</code>, styled checkbox, or settings chip row</td>
+</tr>
+<tr>
+<td>Numeric value</td>
+<td>styled spinner, slider, or validated text field</td>
+</tr>
+<tr>
+<td>Option set</td>
+<td>styled combo box or popup menu</td>
+</tr>
+<tr>
+<td>Section collapse</td>
+<td><code>Ui.collapsible(...)</code></td>
+</tr>
+<tr>
+<td>Loading/progress</td>
+<td>shared progress bar, status badge, toast, or loading overlay</td>
+</tr>
+</tbody></table></div>
+<p>Icon-only buttons must have a tooltip and accessible name. Text buttons should be reserved for clear commands. Do not create raw Swing controls unless you immediately pass them through the shared styling helpers.</p>
+<h2 id="chapter-workbench-design-guide-vs-code-and-apple-component-translation">VS Code And Apple Component Translation</h2>
+<p>Use this table when choosing or styling a component.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Workbench element</th>
+<th>VS Code role</th>
+<th>Apple styling behavior</th>
+<th>Implementation</th>
+</tr></thead><tbody>
+<tr>
+<td>Major tab</td>
+<td>Editor tab</td>
+<td>Compact, label-first, close affordance only when useful</td>
+<td><code>EditorSplitArea</code>, <code>EditorTab</code></td>
+</tr>
+<tr>
+<td>Split pane</td>
+<td>Editor group split</td>
+<td>Divider is functional and quiet</td>
+<td><code>SplitPaneStyler</code></td>
+</tr>
+<tr>
+<td>Side rail</td>
+<td>Sidebar/view container</td>
+<td>Related controls grouped, 3 to 5 sections max before tabs/collapsible groups</td>
+<td><code>SurfacePanel</code>, <code>Ui.titled(...)</code>, <code>Ui.collapsible(...)</code></td>
+</tr>
+<tr>
+<td>Bottom logs</td>
+<td>Panel</td>
+<td>Output is scrollable, persistent, and nonmodal</td>
+<td><code>Console</code>, <code>LogPanel</code>, <code>Ui.scroll(...)</code></td>
+</tr>
+<tr>
+<td>Command palette</td>
+<td>Command palette / quick pick</td>
+<td>Searchable, category names clear, keyboard-friendly</td>
+<td><code>CommandPalette</code></td>
+</tr>
+<tr>
+<td>Toolbar icon</td>
+<td>View/editor toolbar action</td>
+<td>Symbol or short text, tooltip required, grouped by function</td>
+<td><code>Ui.iconButton(...)</code>, <code>Ui.button(...)</code></td>
+</tr>
+<tr>
+<td>Search/filter</td>
+<td>Quick pick/search field</td>
+<td>Specific placeholder, live filtering where cheap</td>
+<td>Styled <code>JTextField</code>, <code>Ui.placeholder(...)</code></td>
+</tr>
+<tr>
+<td>Inspector/control group</td>
+<td>Sidebar view</td>
+<td>Label lane fixed, controls aligned, captions sparse</td>
+<td><code>Ui.labelControlRow(...)</code>, <code>Ui.fieldRow(...)</code></td>
+</tr>
+<tr>
+<td>Status</td>
+<td>Status bar item / notification</td>
+<td>Terse, semantic, near affected content</td>
+<td><code>StatusBadge</code>, <code>Toast</code></td>
+</tr>
+<tr>
+<td>Dialog</td>
+<td>Modal/sheet</td>
+<td>Focused task, primary action trailing, destructive isolated</td>
+<td><code>Ui.showConfirmDialog(...)</code>, <code>ModalOverlay</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="chapter-workbench-design-guide-element-styling-rules">Element Styling Rules</h2>
+<p>This table is the default styling contract for common UI elements.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Element</th>
+<th>Layout</th>
+<th>Style</th>
+<th>Behavior</th>
+</tr></thead><tbody>
+<tr>
+<td>Workspace header</td>
+<td>Full width, top of surface</td>
+<td><code>PANEL_SOLID</code>, bottom <code>LINE</code>, title + eliding context + right actions</td>
+<td>Context text gets tooltip with full value</td>
+</tr>
+<tr>
+<td>Toolbar band</td>
+<td>Directly below tab/header</td>
+<td>Opaque <code>PANEL_SOLID</code>, bottom hairline, <code>SPACE_SM</code>/<code>SPACE_MD</code> padding</td>
+<td>One row, no wrapping paragraphs</td>
+</tr>
+<tr>
+<td>Section header</td>
+<td>Above a local group</td>
+<td>Bold section title, muted one-line detail, trailing status/control</td>
+<td>Detail text should fit one line</td>
+</tr>
+<tr>
+<td>Card</td>
+<td>Inside content grid or grouped static area</td>
+<td><code>Ui.card(...)</code>, raised <code>CARD</code>, <code>CARD_BORDER</code>, shared radius</td>
+<td>No nested cards; no full-page card wrappers</td>
+</tr>
+<tr>
+<td>Text button</td>
+<td>In action rows/header actions</td>
+<td><code>AppButton</code> via <code>Ui.button(...)</code>, variant by hierarchy</td>
+<td>One primary per local scope</td>
+</tr>
+<tr>
+<td>Icon button</td>
+<td>Toolbars, transport, small utilities</td>
+<td><code>Ui.iconButton(...)</code>, 34 x 32, no visible text</td>
+<td>Tooltip and accessible name required</td>
+</tr>
+<tr>
+<td>Text field</td>
+<td>Forms/search/filter/FEN input</td>
+<td><code>Ui.styleFields(...)</code>, <code>INPUT</code>, focus ring, placeholder if useful</td>
+<td>Validate live when invalid input can block Run</td>
+</tr>
+<tr>
+<td>Text area</td>
+<td>Logs, scripts, multiline positions</td>
+<td><code>Ui.styleAreas(...)</code>, monospace when code-like</td>
+<td>Keep line wrapping intentional</td>
+</tr>
+<tr>
+<td>Combo box</td>
+<td>Option set with many choices</td>
+<td><code>Ui.styleCombo(...)</code></td>
+<td>Use direct choices; avoid a combo inside a combo-like chip</td>
+</tr>
+<tr>
+<td>Spinner</td>
+<td>Numeric bounded values</td>
+<td><code>Ui.styleSpinner(...)</code> or integer variant</td>
+<td>Set min/max/step in the model</td>
+</tr>
+<tr>
+<td>Slider</td>
+<td>Opacity, strength, visual scale</td>
+<td><code>Ui.styleSlider(...)</code>, labelled with fixed lane</td>
+<td>Pair with numeric/readable value when precision matters</td>
+</tr>
+<tr>
+<td>Checkbox/toggle</td>
+<td>Binary setting</td>
+<td><code>ToggleBox</code> or <code>Ui.styleCheckBox(...)</code></td>
+<td>Label names the on/off behavior</td>
+</tr>
+<tr>
+<td>Segmented switcher</td>
+<td>Small mode set</td>
+<td><code>Ui.segmentedControl(...)</code></td>
+<td>Best for 2 to 5 mutually-exclusive modes</td>
+</tr>
+<tr>
+<td>Table</td>
+<td>Dense records, moves, jobs</td>
+<td>Shared table styling, row height 28, hidden grid, hover row</td>
+<td>Pin important column widths</td>
+</tr>
+<tr>
+<td>Scroll pane</td>
+<td>Any scrollable body</td>
+<td><code>Ui.scroll(...)</code>; matching viewport surface when embedded</td>
+<td>Avoid raw scrollbars and mismatched viewport fills</td>
+</tr>
+<tr>
+<td>Empty state</td>
+<td>No data, no result, no selection</td>
+<td><code>Ui.emptyState(...)</code> or <code>Ui.paintEmptyState(...)</code></td>
+<td>Short title, one-line hint, optional action row</td>
+</tr>
+<tr>
+<td>Status badge</td>
+<td>Job/model/config state</td>
+<td>Semantic status tokens</td>
+<td>Reserve width if text changes often</td>
+</tr>
+<tr>
+<td>Toast</td>
+<td>Transient confirmation or warning</td>
+<td>Bottom-right toast layer</td>
+<td>Do not use for persistent errors</td>
+</tr>
+<tr>
+<td>Modal overlay</td>
+<td>Blocking choice or focused dialog</td>
+<td>Floating layer with styled confirm/error content</td>
+<td>Keep primary action bottom right</td>
+</tr>
+<tr>
+<td>Split pane</td>
+<td>Board/detail or editor split</td>
+<td><code>SplitPaneStyler</code></td>
+<td>Divider should not dominate content</td>
+</tr>
+<tr>
+<td>Tabbed pane</td>
+<td>Local tabs inside a surface</td>
+<td><code>Ui.tabbedPane()</code> / <code>Ui.styleTabs(...)</code></td>
+<td>Use scrollable single row for many tabs</td>
+</tr>
+</tbody></table></div>
+<p>Side-rail rules:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Rule</th>
+<th>Detail</th>
+</tr></thead><tbody>
+<tr>
+<td>Width</td>
+<td>Prefer 320 to 380 px; 360 px is the normal board-work default.</td>
+</tr>
+<tr>
+<td>Sections</td>
+<td>Keep 3 to 5 visible sections; collapse advanced groups.</td>
+</tr>
+<tr>
+<td>Labels</td>
+<td>Use 68 to 92 px fixed lanes for compact controls.</td>
+</tr>
+<tr>
+<td>Tables</td>
+<td>Let tables fill available height; pin important columns.</td>
+</tr>
+<tr>
+<td>Actions</td>
+<td>Keep primary side-rail action at top or bottom right of its local group.</td>
+</tr>
+<tr>
+<td>Empty state</td>
+<td>Show a compact empty state inside the rail, not in the board center.</td>
+</tr>
+</tbody></table></div>
+<p>Button hierarchy:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Variant</th>
+<th>Use</th>
+<th>Do not use for</th>
+</tr></thead><tbody>
+<tr>
+<td>Primary</td>
+<td>Run, Apply, Load, Start, Export when it is the main action</td>
+<td>Multiple same-weight actions in one row</td>
+</tr>
+<tr>
+<td>Secondary</td>
+<td>Copy, Refresh, Browse, Import, Save as supporting actions</td>
+<td>Destructive changes</td>
+</tr>
+<tr>
+<td>Ghost</td>
+<td>Low-emphasis navigation, reveal, optional utility</td>
+<td>Primary task completion</td>
+</tr>
+<tr>
+<td>Destructive</td>
+<td>Stop, Clear, Delete, Resign, Reset dangerous state</td>
+<td>Normal cancel/close</td>
+</tr>
+</tbody></table></div>
+<p>Control placement:</p>
+<ul>
+<li>Primary actions go right in the <code>WorkspaceHeader</code>, right in a toolbar, or bottom right in dialogs.</li>
+<li>Mode selectors go left because they change what the surface is.</li>
+<li>Filters/search fields go left after mode selectors.</li>
+<li>Export/copy/open-folder actions go right.</li>
+<li>Destructive actions go after a separator or in a clearly named danger group.</li>
+<li>Status badges sit near the thing they describe, not in a remote footer.</li>
+<li>Validation messages live on the field tooltip/status, not as paragraphs above the form.</li>
+</ul>
+<h2 id="chapter-workbench-design-guide-state-styling-matrix">State Styling Matrix</h2>
+<p>Every reusable component must implement these states consistently.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>State</th>
+<th>Visual treatment</th>
+<th>Interaction rule</th>
+</tr></thead><tbody>
+<tr>
+<td>Resting</td>
+<td>Neutral surface, readable text, no excess border emphasis</td>
+<td>Ready for normal interaction</td>
+</tr>
+<tr>
+<td>Hover</td>
+<td>Slight fill or border change, never layout shift</td>
+<td>Pointer only; do not change value</td>
+</tr>
+<tr>
+<td>Focus</td>
+<td><code>FOCUS_RING</code> or themed focus border visible in light/dark</td>
+<td>Keyboard users can see current target</td>
+</tr>
+<tr>
+<td>Pressed</td>
+<td>Button/control uses pressed token briefly</td>
+<td>Action fires once</td>
+</tr>
+<tr>
+<td>Selected</td>
+<td>Selection fill or accent underline, text remains readable</td>
+<td>Current mode/tab/row is unambiguous</td>
+</tr>
+<tr>
+<td>Disabled</td>
+<td>Muted text, disabled background/border, tooltip explains reason when non-obvious</td>
+<td>Cannot receive action but remains legible</td>
+</tr>
+<tr>
+<td>Loading</td>
+<td>Progress indicator, spinner, animated badge, or busy text</td>
+<td>Long tasks do not freeze UI</td>
+</tr>
+<tr>
+<td>Error</td>
+<td>Error border/status token near failing input/content</td>
+<td>User can identify exact failed field/path/command</td>
+</tr>
+<tr>
+<td>Warning</td>
+<td>Warning badge/text, not red</td>
+<td>Warns without blocking unless action would be unsafe</td>
+</tr>
+<tr>
+<td>Success/complete</td>
+<td>Success badge or transient toast</td>
+<td>Does not permanently dominate the surface</td>
+</tr>
+<tr>
+<td>Missing</td>
+<td>Warning/missing badge plus fallback path</td>
+<td>Shows whether fallback is active</td>
+</tr>
+<tr>
+<td>Stale</td>
+<td>Warning/stale badge near old result</td>
+<td>User can refresh or rerun</td>
+</tr>
+</tbody></table></div>
+<p>State implementation rules:</p>
+<ul>
+<li>State changes must not resize controls.</li>
+<li>State text that changes often must reserve width or elide.</li>
+<li>Disabled icon buttons keep their icon but mute it.</li>
+<li>Focus and hover must survive theme refresh.</li>
+<li>Selection and focus can coexist; selection shows value, focus shows keyboard target.</li>
+<li>A red/error style is reserved for invalid input or destructive failure, not &quot;current danger mode&quot; decoration.</li>
+</ul>
+<h2 id="chapter-workbench-design-guide-responsive-and-overflow-rules">Responsive And Overflow Rules</h2>
+<p>The Workbench must remain usable at laptop widths and large desktop widths.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Problem</th>
+<th>Required response</th>
+</tr></thead><tbody>
+<tr>
+<td>Header context is too long</td>
+<td>Elide in the header and put full text in tooltip.</td>
+</tr>
+<tr>
+<td>Toolbar actions do not fit</td>
+<td>Keep primary and search visible; move secondary actions into overflow or context menu.</td>
+</tr>
+<tr>
+<td>Side rail crowds the board</td>
+<td>Collapse side rail into tabs or move below body.</td>
+</tr>
+<tr>
+<td>Form row does not fit</td>
+<td>Stack fields vertically but keep label lanes aligned within each group.</td>
+</tr>
+<tr>
+<td>Table columns overflow</td>
+<td>Pin important columns; let low-priority columns elide or scroll.</td>
+</tr>
+<tr>
+<td>Chart labels overlap</td>
+<td>Reserve label lane, elide labels, or show details in tooltip.</td>
+</tr>
+<tr>
+<td>Button text clips</td>
+<td>Shorten label or switch to icon button with tooltip; do not shrink font.</td>
+</tr>
+<tr>
+<td>Dialog is too tall</td>
+<td>Make body scroll, keep action row fixed.</td>
+</tr>
+</tbody></table></div>
+<p>Minimum visual checks:</p>
+<ul>
+<li>1000 px wide light mode.</li>
+<li>1000 px wide dark mode.</li>
+<li>1600 px wide light mode.</li>
+<li>1600 px wide dark mode.</li>
+<li>At least one empty state.</li>
+<li>At least one invalid/error state.</li>
+<li>At least one disabled state.</li>
+</ul>
+<h2 id="chapter-workbench-design-guide-forms-and-command-builders">Forms And Command Builders</h2>
+<p>Command UI mirrors the CLI. The command preview is not decorative; it is the exact runnable command users can copy or execute.</p>
+<ul>
+<li>Keep command order noun-then-verb.</li>
+<li>Prefer named flags and explicit defaults over hidden state.</li>
+<li>Validate before running and explain invalid values through field state and tooltip.</li>
+<li>Disable stale mutually-exclusive options rather than leaving contradictory selections active.</li>
+<li>Use direct selector choices for simple formats instead of nested controls.</li>
+<li>Keep generated command text stable and quote arguments deterministically.</li>
+<li>Use <code>FieldValidator</code> for numeric inputs, ranges, and optional units.</li>
+</ul>
+<p>When a form exposes engine or model behavior, be honest about fallback and fidelity. Do not imply bit-exact LC0/BT4 parity.</p>
+<p>Command palette and menu rules:</p>
+<ul>
+<li>Command names use <code>Category: Action</code> when they appear in a global palette.</li>
+<li>Names start with verbs for actions: <code>Analyze: Run</code>, <code>Board: Export SVG</code>, <code>Game: Load PGN</code>.</li>
+<li>Names start with nouns for views: <code>Open Search Tree</code>, <code>Open Engine Lab</code>, <code>Open Logs</code>.</li>
+<li>Do not use emoji, jokes, or internal codenames in command names.</li>
+<li>Do not override common keyboard shortcuts without a Workbench-wide reason.</li>
+<li>Context menus repeat local secondary actions; they do not hide the only way to run a primary action.</li>
+<li>Any toolbar command that matters should also be reachable from a menu, command palette, or visible form action.</li>
+</ul>
+<h2 id="chapter-workbench-design-guide-board-and-chess-interaction">Board And Chess Interaction</h2>
+<p>The board is the most important visual surface in the app. It should be quiet, immediate, and familiar to chess users.</p>
+<ul>
+<li>Use <code>BoardStyle</code> for square geometry, board colors, highlights, legal targets, arrows, and shared painting.</li>
+<li>Keep board input close to lichess behavior: drag pieces, right-drag arrows, right-click circles, and clear legal-move feedback.</li>
+<li>Do not add instructional tooltips over normal board play.</li>
+<li>Do not steal arrow keys from text fields, tables, lists, combos, or spinners.</li>
+<li>Keep board overlays layered predictably: coordinates, highlights, drag state, premove state, arrows, markup, and pieces should not fight each other.</li>
+<li>Use shared board rendering/export helpers so screen output, PNG, and SVG stay visually aligned.</li>
+</ul>
+<p>Any change that touches board geometry, input, overlays, or export needs visual verification plus <code>WorkbenchBoardRegression</code> through the aggregate Workbench regression test.</p>
+<p>Board layout rules:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Element</th>
+<th>Placement</th>
+<th>Rule</th>
+</tr></thead><tbody>
+<tr>
+<td>Board</td>
+<td>Center of the primary area</td>
+<td>Keep square, stable, and larger than any adjacent inspector.</td>
+</tr>
+<tr>
+<td>Eval bar</td>
+<td>Attached to board edge</td>
+<td>Does not steal focus or resize the board unexpectedly.</td>
+</tr>
+<tr>
+<td>Move list</td>
+<td>Right rail or adjacent table</td>
+<td>Dense rows, SAN readable, current move highlighted.</td>
+</tr>
+<tr>
+<td>Engine controls</td>
+<td>Side rail or toolbar</td>
+<td>Budget controls use fixed labels and validated values.</td>
+</tr>
+<tr>
+<td>Board editor</td>
+<td>Side rail plus board interaction</td>
+<td>Direct editing state is explicit and easy to exit.</td>
+</tr>
+<tr>
+<td>Draw tools</td>
+<td>Side rail controls, board interaction center</td>
+<td>Tool mode visible; color/opacity controls use fixed label lanes.</td>
+</tr>
+<tr>
+<td>Export actions</td>
+<td>Header/toolbar trailing side</td>
+<td>Exported screen, PNG, and SVG should match the same board styling.</td>
+</tr>
+</tbody></table></div>
+<h2 id="chapter-workbench-design-guide-data-charts-and-network-views">Data, Charts, And Network Views</h2>
+<p>Research views should be information-dense without becoming unreadable.</p>
+<ul>
+<li>Tables should use compact row heights, hidden grid lines, hover state, sortable headers, and stable column widths.</li>
+<li>Charts should clear their own background and show shared empty states when no data exists.</li>
+<li>Network visualizations should use semantic positive/negative/policy/value colors, not arbitrary gradients.</li>
+<li>Use monospace text for tensor names, command snippets, logs, and code-like data.</li>
+<li>Prefer readable legends and labels over decorative color volume.</li>
+</ul>
+<p>If labels can overflow, use <code>Ui.elide(...)</code>, fixed label lanes, reserved badge widths, or a tooltip with the full text.</p>
+<p>Data layout rules:</p>
+<ul>
+<li>Put summary cards above detailed tables only when they change how the table is interpreted.</li>
+<li>Use tables for comparison and exact values; use charts for shape, distribution, or trend.</li>
+<li>Put filters directly above the table/chart they affect.</li>
+<li>Put export/copy actions on the trailing side of the toolbar or section header.</li>
+<li>Use status badges for model/runtime availability; use toasts only for transient confirmations.</li>
+<li>When a neural view has no model, show explicit missing-model state and the configured path when useful.</li>
+<li>Do not create decorative neural diagrams that imply unavailable inference detail.</li>
+</ul>
+<h2 id="chapter-workbench-design-guide-copy">Copy</h2>
+<p>Workbench copy should be short and operational.</p>
+<ul>
+<li>Use top-level titles like <code>Dashboard</code>, <code>Board</code>, <code>Engine Lab</code>, <code>Run</code>, <code>Datasets</code>, and <code>Publish</code>.</li>
+<li>Use mode titles like <code>Analyze</code>, <code>Play</code>, <code>Solve</code>, <code>Relations</code>, <code>Draw</code>, <code>Search</code>, <code>Tree</code>, <code>Gauntlet</code>, <code>Build</code>, and <code>Logs</code>.</li>
+<li>Use action labels that name the command: <code>Run</code>, <code>Load PGN</code>, <code>Copy command</code>, <code>Export SVG</code>, <code>Reset</code>, <code>Stop</code>.</li>
+<li>Use captions only where they reduce ambiguity in a form or status surface.</li>
+<li>Avoid visible paragraphs explaining how the UI works when the affordance can carry the job.</li>
+<li>Use tooltips for compact icon controls and precise validation messages.</li>
+<li>Report missing optional models or engines as explicit availability states, not soft placeholders.</li>
+</ul>
+<p>For user-facing engine/network text, keep neural-network honesty: ChessRTK evaluators are usable research evaluators, not bit-exact upstream LC0/BT4 implementations.</p>
+<p>Copy style:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>UI text</th>
+<th>Standard</th>
+</tr></thead><tbody>
+<tr>
+<td>Button</td>
+<td>Verb or verb phrase: <code>Run</code>, <code>Load PGN</code>, <code>Copy command</code></td>
+</tr>
+<tr>
+<td>Toggle/checkbox</td>
+<td>State as a noun phrase: <code>Show coordinates</code>, <code>Use animations</code></td>
+</tr>
+<tr>
+<td>Field label</td>
+<td>Short noun: <code>FEN</code>, <code>Time</code>, <code>Lines</code>, <code>Threads</code></td>
+</tr>
+<tr>
+<td>Placeholder</td>
+<td>Specific input hint: <code>paste FEN</code>, <code>filter flags</code>, <code>search games</code></td>
+</tr>
+<tr>
+<td>Tooltip</td>
+<td>One sentence naming action and shortcut if relevant</td>
+</tr>
+<tr>
+<td>Empty title</td>
+<td>State, not instruction: <code>No dataset loaded</code></td>
+</tr>
+<tr>
+<td>Empty hint</td>
+<td>One concrete next step</td>
+</tr>
+<tr>
+<td>Error</td>
+<td>What failed and what input/path caused it</td>
+</tr>
+<tr>
+<td>Badge</td>
+<td>One or two words: <code>Ready</code>, <code>Running</code>, <code>Missing</code>, <code>Stale</code></td>
+</tr>
+</tbody></table></div>
+<p>Icon and symbol rules:</p>
+<ul>
+<li>Use shared icon/button primitives; do not hand-paint a symbol unless no shared primitive exists.</li>
+<li>Prefer familiar symbols for back, close, search, copy, export, open, refresh, stop, and settings.</li>
+<li>Icon-only controls require tooltip and accessible name.</li>
+<li>Do not put a text label inside a rounded rectangle when a standard icon button is clearer.</li>
+<li>Keep icon stroke/fill weight visually consistent with the rest of the toolbar.</li>
+<li>Do not use color alone to distinguish icons; selected/disabled/hover states need shape, opacity, or background change too.</li>
+</ul>
+<h2 id="chapter-workbench-design-guide-accessibility-and-interaction">Accessibility And Interaction</h2>
+<p>Every control should be reachable, legible, and understandable without relying on color alone.</p>
+<ul>
+<li>Keep text contrast passing in both light and dark modes.</li>
+<li>Ensure disabled controls remain readable and visibly disabled.</li>
+<li>Give icon-only buttons accessible names and tooltips.</li>
+<li>Preserve keyboard behavior for editor tabs, forms, and board navigation.</li>
+<li>Do not let long labels push action buttons offscreen.</li>
+<li>Reserve stable dimensions for controls whose text changes at runtime.</li>
+<li>Show focus rings for keyboard users.</li>
+<li>Keep modal overlays, command palette, toasts, and popups on the correct <code>Theme.Z_*</code> layer.</li>
+<li>Ensure search/filter fields expose their purpose through placeholder and accessible name.</li>
+<li>Prefer live validation for local forms; never launch a command with known-invalid inputs.</li>
+<li>Keep pointer targets at least <code>CONTROL_HEIGHT</code> high unless the component is table text.</li>
+<li>Keep hover/focus feedback subtle but present, matching VS Code density and Apple clarity.</li>
+</ul>
+<h2 id="chapter-workbench-design-guide-implementation-audit-targets">Implementation Audit Targets</h2>
+<p>Use this section when adapting the current Workbench. Search first, classify every hit, then replace local styling with the shared primitive unless an allowed exception applies.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Search target</th>
+<th>Why it matters</th>
+<th>Preferred fix</th>
+<th>Allowed exception</th>
+</tr></thead><tbody>
+<tr>
+<td><code>new JButton</code></td>
+<td>Raw buttons drift in height, padding, color, focus, tooltip, and disabled behavior</td>
+<td>Use <code>Ui.button(...)</code>, <code>Ui.ghostButton(...)</code>, <code>Ui.destructiveButton(...)</code>, or <code>Ui.iconButton(...)</code></td>
+<td>Shared button primitives and scrollbar arrow-button internals</td>
+</tr>
+<tr>
+<td><code>Ui.button</code> with one-symbol labels</td>
+<td>Transport and toolbar controls look like text buttons instead of icon controls</td>
+<td>Use <code>Ui.iconButton(...)</code> or add a shared transport-button primitive with tooltip and accessible name</td>
+<td>Math signs in numeric steppers only when the control is explicitly a stepper</td>
+</tr>
+<tr>
+<td><code>new JScrollPane</code></td>
+<td>Scrollbars and viewport fills drift between panels</td>
+<td>Use <code>Ui.scroll(...)</code> or immediately call <code>Ui.styleScrollPane(...)</code></td>
+<td>Custom scroll panes inside shared UI primitives</td>
+</tr>
+<tr>
+<td><code>new Color</code> outside <code>Theme</code>, <code>BoardStyle</code>, or visualization helpers</td>
+<td>Theme roles become local and usually break either light or dark mode</td>
+<td>Add or reuse a <code>Theme</code> token and update both palettes</td>
+<td>Domain colors: board squares, annotation swatches, tensor heatmaps, fixed export colors</td>
+</tr>
+<tr>
+<td><code>setFont</code> outside painting/rendering code</td>
+<td>Typography drifts and density changes stop working</td>
+<td>Use <code>Theme.font(...)</code>, <code>Theme.mono(...)</code>, or shared stylers</td>
+<td><code>Graphics</code> painting that already uses <code>Theme</code> fonts or renderer code restoring host font</td>
+</tr>
+<tr>
+<td><code>setBorder</code> with <code>BorderFactory</code> in feature panels</td>
+<td>Padding, radius, and line color become inconsistent</td>
+<td>Use <code>Theme.pad(...)</code>, <code>Theme.lineBorder(...)</code>, <code>Ui.card(...)</code>, or shared section primitives</td>
+<td>Custom painter borders and shared UI primitive internals</td>
+</tr>
+<tr>
+<td><code>setPreferredSize</code> in layouts</td>
+<td>Panels become fixed to one viewport and clip on narrow windows</td>
+<td>Use layout constraints, min/max sizes, split weights, or responsive collapse</td>
+<td>Fixed-format elements: board, icon button, side rail, table row, chart legend, badge</td>
+</tr>
+<tr>
+<td>Missing <code>setToolTipText</code> on icon controls</td>
+<td>Compact controls become inaccessible and ambiguous</td>
+<td>Add one-sentence tooltip and accessible name</td>
+<td>Text buttons whose visible label fully names the action</td>
+</tr>
+<tr>
+<td>Missing accessible name on search, icon, and custom-painted controls</td>
+<td>Keyboard/screen-reader behavior cannot explain the control</td>
+<td>Set <code>getAccessibleContext().setAccessibleName(...)</code></td>
+<td>Plain labels directly associated with simple text fields</td>
+</tr>
+<tr>
+<td><code>FlowLayout.LEFT</code> action rows with many controls</td>
+<td>Toolbars lose leading/center/trailing hierarchy</td>
+<td>Split into toolbar groups with <code>BorderLayout</code> and separators</td>
+<td>Small local rows inside a form section</td>
+</tr>
+<tr>
+<td>Top-level <code>JPanel</code> roots</td>
+<td>Main surfaces miss shell styling and theme refresh behavior</td>
+<td>Use <code>SurfacePanel</code> or a shared root primitive</td>
+<td>Lightweight child groups inside an already styled surface</td>
+</tr>
+<tr>
+<td>Local empty-state labels</td>
+<td>Empty/error/loading states get different copy and spacing</td>
+<td>Use <code>Ui.emptyState(...)</code> or <code>Ui.paintEmptyState(...)</code></td>
+<td>Tiny table cell placeholders</td>
+</tr>
+</tbody></table></div>
+<p>Recommended audit commands:</p>
+<pre><code class="language-bash">rg -n &quot;new JButton|new JScrollPane|new Color\\(|setFont\\(|setBorder\\(|setPreferredSize\\(&quot; src/application/gui/workbench
+rg -n &quot;setToolTipText\\(|setAccessibleName&quot; src/application/gui/workbench
+rg -n &quot;Ui\\.button\\(\&quot;[^A-Za-z0-9\&quot;]&quot; src/application/gui/workbench
+rg -n &quot;FlowLayout\\.LEFT|FlowLayout\\.RIGHT|new JPanel\\(&quot; src/application/gui/workbench</code></pre>
+<p>These commands find queues for review, not automatic failures. A hit is acceptable only when it matches the exception column or lives inside a shared primitive that is centralizing the behavior.</p>
+<h3 id="chapter-workbench-design-guide-exception-policy">Exception Policy</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Exception</th>
+<th>Required proof</th>
+</tr></thead><tbody>
+<tr>
+<td>Domain color</td>
+<td>The color represents chess, annotation, tensor, export, or measured visualization data, not a reusable UI role.</td>
+</tr>
+<tr>
+<td>Custom painting</td>
+<td>The painter consumes <code>Theme</code> or <code>BoardStyle</code> tokens and restores graphics state.</td>
+</tr>
+<tr>
+<td>Fixed size</td>
+<td>The component has a fixed-format reason and the surrounding layout still works at narrow and wide widths.</td>
+</tr>
+<tr>
+<td>Shared primitive internals</td>
+<td>The code lives in <code>ui</code>, <code>layout</code>, or <code>board</code> infrastructure and exists to style many callers.</td>
+</tr>
+<tr>
+<td>Generated or platform Swing behavior</td>
+<td>Replacing it would reduce correctness or native behavior; document why near the code if non-obvious.</td>
+</tr>
+</tbody></table></div>
+<h2 id="chapter-workbench-design-guide-visual-qa-targets">Visual QA Targets</h2>
+<p>When adapting the current Workbench, inspect the failure-prone layers directly. A surface is not visually done until these cases have been checked for the affected tab.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Area</th>
+<th>What to inspect</th>
+<th>Pass condition</th>
+</tr></thead><tbody>
+<tr>
+<td>Editor shell</td>
+<td>Tabs, split dividers, header, toolbar, side rail, bottom panel</td>
+<td>Same spacing, line weight, and surface color across tabs</td>
+</tr>
+<tr>
+<td>Overlays</td>
+<td>Modal layer, command palette, popovers, tooltips, toasts</td>
+<td>Correct z-order, readable surface, no hidden base controls receiving accidental focus</td>
+</tr>
+<tr>
+<td>Board layers</td>
+<td>Coordinates, highlights, legal targets, arrows, drag preview, pieces</td>
+<td>Layers do not overlap incoherently and exported images match on-screen styling</td>
+</tr>
+<tr>
+<td>Dense tables</td>
+<td>Header, hover, selection, disabled rows, empty rows</td>
+<td>Row height stable, important columns pinned, long text elides or tooltips</td>
+</tr>
+<tr>
+<td>Forms</td>
+<td>Required fields, optional fields, validation, disabled controls</td>
+<td>Label lanes align and errors appear near the failed input</td>
+</tr>
+<tr>
+<td>Toolbars</td>
+<td>Leading, center, trailing groups, overflow, search</td>
+<td>Primary action and search remain findable at narrow width</td>
+</tr>
+<tr>
+<td>Floating feedback</td>
+<td>Toasts, progress, missing dependency badges, stale state badges</td>
+<td>Status is close to the affected content and does not permanently dominate</td>
+</tr>
+<tr>
+<td>Theme switch</td>
+<td>Light to dark and dark to light refresh</td>
+<td>No stale colors, mismatched scroll panes, unreadable text, or missing focus rings</td>
+</tr>
+<tr>
+<td>Resize</td>
+<td>1000 px and 1600 px wide windows</td>
+<td>No clipped button text, overlapping labels, or side rail crowding</td>
+</tr>
+<tr>
+<td>Keyboard</td>
+<td>Tab order, focus rings, escape/enter in dialogs, search focus</td>
+<td>Keyboard target is visible and shortcuts do not steal input from fields</td>
+</tr>
+</tbody></table></div>
+<p>For custom painting, also inspect one empty state, one selected state, one hover/focus state, and one disabled or missing-data state. These states catch most visual drift before it spreads to other tabs.</p>
+<h2 id="chapter-workbench-design-guide-preview-and-component-inspection-commands">Preview And Component Inspection Commands</h2>
+<p>Use these commands while changing Workbench UI. They are meant to make layout, styling, and component-tree drift visible before a full manual review.</p>
+<h3 id="chapter-workbench-design-guide-java-entry-points">Java Entry Points</h3>
+<p>These are the Java classes behind the preview and inspection scripts.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Need</th>
+<th>Java class</th>
+<th>Normal command</th>
+</tr></thead><tbody>
+<tr>
+<td>Full focused Workbench UI regression</td>
+<td><code>testing.WorkbenchRegressionTest</code></td>
+<td><code>java -Djava.awt.headless=true -cp out testing.WorkbenchRegressionTest</code></td>
+</tr>
+<tr>
+<td>Theme/control/editor-shell checks</td>
+<td><code>testing.WorkbenchUiRegression</code></td>
+<td>Called by <code>WorkbenchRegressionTest</code></td>
+</tr>
+<tr>
+<td>Board/rendering/input checks</td>
+<td><code>testing.WorkbenchBoardRegression</code></td>
+<td>Called by <code>WorkbenchRegressionTest</code></td>
+</tr>
+<tr>
+<td>Headless panel screenshots</td>
+<td><code>testing.WorkbenchShots</code></td>
+<td><code>scripts/workbench_shots.sh --panel draw --themes LIGHT,DARK --dump-components</code></td>
+</tr>
+<tr>
+<td>Deterministic sample panel factories</td>
+<td><code>testing.WorkbenchShotPanels</code></td>
+<td>Used by <code>WorkbenchShots</code>; add new screenshot fixtures here</td>
+</tr>
+<tr>
+<td>Text dump of Swing component tree</td>
+<td><code>testing.WorkbenchComponentDebug</code></td>
+<td>Used by <code>WorkbenchShots --dump-components</code></td>
+</tr>
+<tr>
+<td>Component counts and class summary</td>
+<td><code>testing.WorkbenchComponentStats</code></td>
+<td>Used by <code>WorkbenchComponentDebug</code></td>
+</tr>
+<tr>
+<td>Live real-window preview</td>
+<td><code>testing.WorkbenchPreviewLauncher</code></td>
+<td><code>scripts/launch_workbench_preview.sh --panel draw --dump-components</code></td>
+</tr>
+<tr>
+<td>Real-window PNG capture</td>
+<td><code>testing.WorkbenchRobotCapture</code></td>
+<td><code>scripts/capture_workbench_preview.sh --panel draw --dump-components</code></td>
+</tr>
+</tbody></table></div>
+<p>Direct Java commands after compiling:</p>
+<pre><code class="language-bash">find src -name &#x27;*.java&#x27; | sort &gt; /tmp/crtk-srcs.txt
+javac --release 17 -d out @/tmp/crtk-srcs.txt
+
+java -Djava.awt.headless=true -cp out testing.WorkbenchRegressionTest
+java -Djava.awt.headless=true -cp out testing.WorkbenchShots artifacts/workbench-shots 1600 draw LIGHT,DARK artifacts/workbench-shots/components
+java -Djava.awt.headless=true -cp out testing.WorkbenchShots artifacts/workbench-shots 1000 dashboard,draw,commands LIGHT,DARK artifacts/workbench-shots/components</code></pre>
+<p>Inside a focused regression or screenshot fixture under <code>src/testing</code>, use <code>WorkbenchComponentDebug</code> when you need to inspect a component that is not yet covered by <code>WorkbenchShots</code>:</p>
+<pre><code class="language-java">JComponent panel = WorkbenchShotPanels.draw();
+panel.setSize(1600, 900);
+WorkbenchComponentDebug.write(panel, &quot;draw_manual&quot;,
+        Path.of(&quot;artifacts/workbench-shots/components/draw_manual.components.txt&quot;));</code></pre>
+<p>Use that snippet only from the <code>testing</code> package. <code>WorkbenchShotPanels</code> is a test fixture holder, not production UI code.</p>
+<h3 id="chapter-workbench-design-guide-fast-ui-regression">Fast UI Regression</h3>
+<p>Run this after any Workbench UI code change:</p>
+<pre><code class="language-bash">find src -name &#x27;*.java&#x27; | sort &gt; /tmp/crtk-srcs.txt
+javac --release 17 -d out @/tmp/crtk-srcs.txt
+java -Djava.awt.headless=true -cp out testing.WorkbenchRegressionTest
+git diff --check</code></pre>
+<p>Run the full recommended gate before publishing broad UI changes:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh recommended</code></pre>
+<h3 id="chapter-workbench-design-guide-headless-screenshot-checks">Headless Screenshot Checks</h3>
+<p>List the panels that the deterministic screenshot tool can render:</p>
+<pre><code class="language-bash">scripts/workbench_shots.sh --list-panels</code></pre>
+<p>Render the affected panel in both themes:</p>
+<pre><code class="language-bash">scripts/workbench_shots.sh --panel draw --themes LIGHT,DARK --width 1600 --dump-components</code></pre>
+<p>Render a narrow layout and a normal layout for the same panel:</p>
+<pre><code class="language-bash">scripts/workbench_shots.sh --panel draw --themes LIGHT,DARK --width 1000 --out artifacts/workbench-shots/draw-1000 --dump-components
+scripts/workbench_shots.sh --panel draw --themes LIGHT,DARK --width 1600 --out artifacts/workbench-shots/draw-1600 --dump-components</code></pre>
+<p>Render several panels that are likely affected by a shared primitive:</p>
+<pre><code class="language-bash">scripts/workbench_shots.sh --panels dashboard,analyze,draw,commands,logs --themes LIGHT,DARK --width 1600 --dump-components</code></pre>
+<p>Open or inspect the generated PNG files in <code>artifacts/workbench-shots</code>. Screenshots should be checked for clipping, overlaps, mismatched scrollpane backgrounds, stale light/dark colors, unstable side rails, and missing empty/error/disabled states.</p>
+<h3 id="chapter-workbench-design-guide-component-dump-checks">Component Dump Checks</h3>
+<p>When <code>--dump-components</code> is used, the screenshot tool writes text dumps under <code>artifacts/workbench-shots/components</code>. These dumps show class names, bounds, preferred sizes, opacity, fonts, backgrounds, borders, tooltips, accessible names, and button text.</p>
+<p>Inspect one dump directly:</p>
+<pre><code class="language-bash">sed -n &#x27;1,180p&#x27; artifacts/workbench-shots/components/draw_LIGHT.components.txt</code></pre>
+<p>Search dumps for common UI drift:</p>
+<pre><code class="language-bash">rg -n &quot;class=.*JButton|class=.*JScrollPane|tooltip=&lt;null&gt;|accessibleName=&lt;null&gt;&quot; artifacts/workbench-shots/components
+rg -n &quot;preferred=|minimum=|maximum=|bounds:&quot; artifacts/workbench-shots/components/draw_LIGHT.components.txt
+rg -n &quot;background=|foreground=|font=|border=|ui=&quot; artifacts/workbench-shots/components/draw_LIGHT.components.txt</code></pre>
+<p>Use component dumps to answer concrete questions:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Question</th>
+<th>What to inspect</th>
+</tr></thead><tbody>
+<tr>
+<td>Is a button using the shared style?</td>
+<td>Button class, UI class, font, border, height, tooltip, accessible name</td>
+</tr>
+<tr>
+<td>Is a side rail too wide?</td>
+<td>Root and side-rail bounds and preferred width</td>
+</tr>
+<tr>
+<td>Is a label pushing controls offscreen?</td>
+<td>Label bounds, preferred width, and neighboring control x positions</td>
+</tr>
+<tr>
+<td>Is a scroll pane mismatched?</td>
+<td><code>JScrollPane</code>, <code>JViewport</code>, background, opacity, border, and UI class</td>
+</tr>
+<tr>
+<td>Did theme refresh leave stale colors?</td>
+<td>Compare light and dark dump backgrounds, foregrounds, borders, and UI classes</td>
+</tr>
+</tbody></table></div>
+<h3 id="chapter-workbench-design-guide-live-preview">Live Preview</h3>
+<p>Launch the real Swing Workbench with isolated preview preferences:</p>
+<pre><code class="language-bash">scripts/launch_workbench_preview.sh --panel draw --width 1500 --height 950 --dump-components</code></pre>
+<p>Stop the preview:</p>
+<pre><code class="language-bash">kill &quot;$(cat artifacts/workbench-live/workbench.pid)&quot;</code></pre>
+<p>Capture the real Workbench window to a PNG. This uses <code>xvfb-run</code> automatically when no display is available and <code>xvfb-run</code> exists:</p>
+<pre><code class="language-bash">scripts/capture_workbench_preview.sh --panel draw --width 1000 --height 760 --out artifacts/workbench-live/draw-1000.png --dump-components</code></pre>
+<p>Use the live preview for behavior that the offscreen renderer cannot fully prove: modal overlays, command palette focus, toasts, lazy tabs, window resizing, popup menus, keyboard traversal, and drag/drop.</p>
+<h3 id="chapter-workbench-design-guide-adding-a-new-screenshot-target">Adding A New Screenshot Target</h3>
+<p>If a new component or tab cannot be seen through an existing screenshot target, add a focused target instead of relying on manual clicking.</p>
+<ol>
+<li>Add a static factory in <code>src/testing/WorkbenchShotPanels.java</code> that builds the component with deterministic sample data.</li>
+<li>Add a <code>shootIfEnabled(...)</code> call in <code>src/testing/WorkbenchShots.java</code> with a stable panel name, width, height, and factory.</li>
+<li>Add the panel name to <code>KNOWN_PANELS</code> in <code>scripts/workbench_shots.sh</code>.</li>
+<li>Render it with <code>scripts/workbench_shots.sh --panel &lt;name&gt; --themes LIGHT,DARK --dump-components</code>.</li>
+<li>Add or update a focused regression if the component exposes behavior that can drift.</li>
+</ol>
+<p>Keep screenshot fixtures deterministic: no wall-clock labels, random IDs, local machine paths, network calls, model weights, or hidden user preferences.</p>
+<h2 id="chapter-workbench-design-guide-current-workbench-migration-process">Current Workbench Migration Process</h2>
+<p>When adapting an existing panel to this guide, use this process. Do not redesign the whole app in one commit.</p>
+<ol>
+<li><strong>Classify the panel.</strong> Write down its container type: editor surface, side rail, bottom panel, floating dialog, command palette, or status surface.</li>
+<li><strong>Choose the home surface.</strong> Match it to the closest row in <a href="#chapter-workbench-design-guide-target-information-architecture">Target Information Architecture</a> and <a href="#chapter-workbench-design-guide-surface-home-rules">Surface Home Rules</a>.</li>
+<li><strong>Choose the blueprint.</strong> Match it to the closest row in <a href="#chapter-workbench-design-guide-surface-and-mode-blueprints">Surface And Mode Blueprints</a>.</li>
+<li><strong>Normalize root layout.</strong> Convert top-level layout to <code>SurfacePanel</code> plus <code>BorderLayout</code>, <code>WorkspaceHeader</code>, optional toolbar band, body, and optional side rail.</li>
+<li><strong>Normalize toolbar.</strong> Move controls to leading/center/trailing groups. Remove explanatory text from the toolbar.</li>
+<li><strong>Normalize controls.</strong> Replace raw Swing styling with <code>Ui</code> factories/stylers. Add tooltips and accessible names to icon buttons.</li>
+<li><strong>Normalize forms.</strong> Apply fixed label lanes, validated fields, grouped actions, and clear disabled states.</li>
+<li><strong>Normalize tables.</strong> Apply shared table styling, pinned columns, hover rows, compact row height, and empty states.</li>
+<li><strong>Normalize states.</strong> Add empty, loading, error, missing, disabled, and stale states where relevant.</li>
+<li><strong>Normalize copy.</strong> Shorten labels, remove visible instruction paragraphs, move details into tooltips/captions/status.</li>
+<li><strong>Normalize screenshots.</strong> Render or inspect light/dark and narrow/wide layouts.</li>
+<li><strong>Add regression.</strong> Pin the behavior or structure that should not drift again.</li>
+</ol>
+<p>Recommended migration order:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Order</th>
+<th>Scope</th>
+<th>Why</th>
+</tr></thead><tbody>
+<tr>
+<td class="numeric">1</td>
+<td>Shared primitives: <code>Theme</code>, <code>Ui</code>, <code>SurfacePanel</code>, toolbar helpers, table styling</td>
+<td>Gives every later screen the same language.</td>
+</tr>
+<tr>
+<td class="numeric">2</td>
+<td>Editor shell and tab controls</td>
+<td>Affects every screen and establishes VS Code structure.</td>
+</tr>
+<tr>
+<td class="numeric">3</td>
+<td>Board surface: Analyze, Play, Solve, Relations, Draw, Board Editor</td>
+<td>Board-first workflows are the visual anchor of the app.</td>
+</tr>
+<tr>
+<td class="numeric">4</td>
+<td>Run surface: Build, Batch, Console, Logs/output</td>
+<td>CLI parity, validation, and output consistency should converge early.</td>
+</tr>
+<tr>
+<td class="numeric">5</td>
+<td>Engine Lab: Evaluator, Search, Tree, Gauntlet</td>
+<td>Engine workflows need clear state, budget, model honesty, and result layout.</td>
+</tr>
+<tr>
+<td class="numeric">6</td>
+<td>Datasets and Publish</td>
+<td>These are distinct artifact surfaces with strong existing content shape.</td>
+</tr>
+<tr>
+<td class="numeric">7</td>
+<td>Dashboard live links and recent-run/artifact cards</td>
+<td>The dashboard becomes useful once surfaces and output states are normalized.</td>
+</tr>
+</tbody></table></div>
+<h2 id="chapter-workbench-design-guide-code-review-acceptance-criteria">Code Review Acceptance Criteria</h2>
+<p>A Workbench UI PR is acceptable only if it answers these questions clearly.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Question</th>
+<th>Pass condition</th>
+</tr></thead><tbody>
+<tr>
+<td>Which primary object does this serve?</td>
+<td>Position, engine/search state, command run, dataset, publication, or session status is named.</td>
+</tr>
+<tr>
+<td>Which target surface owns it?</td>
+<td>Dashboard, Board, Engine Lab, Run, Datasets, or Publish is the clear home.</td>
+</tr>
+<tr>
+<td>Which VS Code container does this use?</td>
+<td>The implementation maps to editor, side rail, panel, command palette, context menu, status, or floating chrome.</td>
+</tr>
+<tr>
+<td>Which Apple behavior rule applies?</td>
+<td>Toolbar grouping, button hierarchy, search placement, color meaning, accessibility, or material/depth is explicit.</td>
+</tr>
+<tr>
+<td>Are shared primitives used?</td>
+<td>No local copies of button styling, scroll styling, table styling, or color palettes.</td>
+</tr>
+<tr>
+<td>Is the layout stable?</td>
+<td>Narrow/wide and light/dark views do not clip, overlap, or shift unexpectedly.</td>
+</tr>
+<tr>
+<td>Are states complete?</td>
+<td>Empty/loading/error/disabled/missing states are visible and understandable.</td>
+</tr>
+<tr>
+<td>Is copy operational?</td>
+<td>Labels are short; no visible tutorial prose in the task surface.</td>
+</tr>
+<tr>
+<td>Are actions placed consistently?</td>
+<td>Primary actions trailing, modes leading, destructive isolated, search/filter near target.</td>
+</tr>
+<tr>
+<td>Is behavior deterministic?</td>
+<td>Command previews, exports, and generated outputs are stable.</td>
+</tr>
+<tr>
+<td>Is it tested?</td>
+<td>Focused regression plus visual check for any custom rendering or layout-sensitive change.</td>
+</tr>
+</tbody></table></div>
+<h2 id="chapter-workbench-design-guide-implementation-checklist">Implementation Checklist</h2>
+<p>Before editing a panel:</p>
+<ol>
+<li>Identify the user job and the primary state the surface must show.</li>
+<li>Name the primary object: position, engine/search state, command run, dataset, publication, or session status.</li>
+<li>Name the target surface: Dashboard, Board, Engine Lab, Run, Datasets, or Publish.</li>
+<li>Name the VS Code container it belongs to: editor, side rail, panel, command palette, status, context menu, or floating chrome.</li>
+<li>Apply the Apple behavior layer: hierarchy, grouped controls, search placement, consistent buttons, legible text, and accessible focus.</li>
+<li>Choose the existing primitive from <code>Ui</code>, <code>Theme</code>, <code>BoardStyle</code>, or the layout package.</li>
+<li>Add a new primitive only if multiple panels will reuse it or the behavior is complex enough to centralize.</li>
+<li>Test both light and dark modes.</li>
+<li>Test narrow and wide window widths.</li>
+<li>Verify empty, loading, error, disabled, and success states.</li>
+<li>Verify keyboard and tooltip behavior.</li>
+<li>Add or update a focused regression when the behavior is stable enough to pin.</li>
+</ol>
+<p>During code review, reject changes that introduce local styling copies, duplicate board geometry, hidden command defaults, nested card layouts, emoji/cute command names, decorative glass, or unverified custom painting.</p>
+<h2 id="chapter-workbench-design-guide-verification">Verification</h2>
+<p>For docs-only changes to this guide, run:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh docs</code></pre>
+<p>For UI code changes, run at least:</p>
+<pre><code class="language-bash">javac --release 17 -d out $(find src -name &quot;*.java&quot;)
+java -Djava.awt.headless=true -cp out testing.WorkbenchRegressionTest
+git diff --check</code></pre>
+<p>For board or rendering changes, add visual verification. Launch the app, use the affected workflow, and capture or inspect both light and dark appearances. The offscreen screenshot helper can render focused panels for comparison:</p>
+<pre><code class="language-bash">scripts/workbench_shots.sh --panel draw --themes LIGHT,DARK</code></pre>
+<p>Before publishing shared Workbench changes, run:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh recommended</code></pre>
+<h2 id="chapter-workbench-design-guide-external-design-references">External Design References</h2>
+<p>Use these as inspiration, then translate them through ChessRTK&#x27;s Swing primitives and deterministic workflow constraints.</p>
+<ul>
+<li><a href="https://code.visualstudio.com/api/ux-guidelines/overview">VS Code UX Guidelines</a> - workbench containers, editor area, sidebars, panels, status bar, command palette, and view toolbars.</li>
+<li><a href="https://code.visualstudio.com/api/ux-guidelines/command-palette">VS Code Command Palette</a> - clear command names, categories, keyboard shortcuts, and no emoji command names.</li>
+<li><a href="https://code.visualstudio.com/api/ux-guidelines/sidebars">VS Code Sidebars</a> - grouped views, descriptive names, and avoiding excessive view containers.</li>
+<li><a href="https://code.visualstudio.com/api/ux-guidelines/status-bar">VS Code Status Bar</a> - contextual workspace and active-view status.</li>
+<li><a href="https://developer.apple.com/design/human-interface-guidelines">Apple Human Interface Guidelines</a> - hierarchy, harmony, consistency, and platform-familiar interaction.</li>
+<li><a href="https://developer.apple.com/design/human-interface-guidelines/toolbars">Apple Toolbars</a> - leading/center/trailing toolbar grouping, deliberate item choice, search/actions placement, and overflow behavior.</li>
+<li><a href="https://developer.apple.com/design/human-interface-guidelines/color">Apple Color</a> - consistent color meaning, status communication, and appearance-mode adaptation.</li>
+<li><a href="https://developer.apple.com/design/human-interface-guidelines/search-fields">Apple Search Fields</a> - useful placeholder text, live filtering, scope controls, and search placement.</li>
+<li><a href="https://developer.apple.com/design/human-interface-guidelines/typography">Apple Typography</a> - legibility and hierarchy through type.</li>
+<li><a href="https://developer.apple.com/design/human-interface-guidelines/buttons">Apple Buttons</a> - consistent button sizing, clear labels, hover tooltips, and image-button restraint.</li>
+</ul>
+<h2 id="chapter-workbench-design-guide-related-pages">Related Pages</h2>
+<ul>
+<li><a href="#chapter-workbench">Desktop Workbench</a> - user-facing Workbench walkthrough.</li>
+<li><a href="#chapter-development-notes">Development Notes</a> - source layout, build, and contributor conventions.</li>
+<li><a href="#chapter-quality-and-testing">Quality and Testing</a> - regression suite and docs target.</li>
+<li><a href="#chapter-architecture">Architecture</a> - one shared core behind CLI and GUI.</li>
+</ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <p class="chapter-kicker">Engines &amp; Models · Chapter 15</p>
   <h1 id="chapter-in-house-engine">Built-in Engine</h1>
   <div class="chapter-body">
     <p>Everything here runs inside the same process that issued the command — no UCI subprocess to spawn, no socket to configure, no background engine to outlive its job. The core built-in command (<code>engine builtin</code> / <code>engine java</code>) now defaults to deterministic alpha-beta for the classical and NNUE evaluators, while LC0 CNN and OTIS still default to the PUCT-style MCTS search that can use their policy priors. Around it sit a standalone exhaustive forced-mate prover (<code>engine mate</code>), one-shot position evaluation (<code>engine eval</code> / <code>engine static</code>), an opponent-threat analyzer (<code>engine threats</code>), and a move-generator benchmark (<code>engine benchmark</code>). All of them share crtk&#x27;s one chess core, return the same answer for the same inputs and budget, and stop only where you tell them to — via explicit <code>--depth</code>, <code>--nodes</code>, and <code>--max-duration</code> limits. That combination is what makes it pleasant in scripts, CI, and research you need to reproduce.</p>
@@ -5914,7 +9197,7 @@ crtk engine benchmark --fen &quot;&lt;FEN&gt;&quot; --depth 4 --json</code></pre
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Engines &amp; Models · Chapter 14</p>
+  <p class="chapter-kicker">Engines &amp; Models · Chapter 16</p>
   <h1 id="chapter-lc0">LC0 Networks</h1>
   <div class="chapter-body">
     <p>There are two ways to put a Leela Chess Zero network to work here, and they answer different questions. Run upstream <code>lc0</code> as an <strong>external UCI engine</strong> against its own <code>.pb.gz</code> weights when you want LC0 itself, exactly. Or use the <strong>built-in Java LC0 CNN evaluator</strong>, which loads compact ChessRTK <code>.bin</code> weights and runs policy/value inference in-process on the CPU or an optional native GPU backend. The in-process evaluator sits on the same deterministic chess core as everything else, so the position you score (<code>engine eval --lc0</code>), search (<code>engine builtin --lc0</code>), visualize in the Workbench, or export as training tensors (<code>record dataset lc0</code>) is one and the same object. The catch worth stating up front: these are honest, usable evaluators, <strong>not</strong> bit-exact reproductions of upstream LC0. The transformer (BT4) path is more experimental still. When fidelity is the point, run real <code>lc0</code>.</p>
@@ -6095,7 +9378,7 @@ java -jar crtk.jar puzzle mine --input seeds.txt --output dump/lc0.json --engine
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Engines &amp; Models · Chapter 15</p>
+  <p class="chapter-kicker">Engines &amp; Models · Chapter 17</p>
   <h1 id="chapter-gpu">GPU Acceleration</h1>
   <div class="chapter-body">
     <p>Everything in crtk runs on the CPU, and most of it stays there. GPU acceleration is an <strong>optional</strong> add-on aimed at the two workloads that actually saturate a device: <strong>perft</strong> move-enumeration and <strong>OTIS / LC0 neural-network inference</strong>. It ships as native JNI shared libraries — CUDA for NVIDIA, ROCm for AMD, oneAPI for Intel — loaded at runtime if they happen to be on the path. When a backend is missing or refuses to initialize, crtk <strong>falls back to the CPU</strong> without comment and returns the same answer. You opt in deliberately: <code>--gpu</code> for perft, a backend property for the evaluators. The device only ever sees the heavy batches.</p>
@@ -6354,7 +9637,7 @@ cmake --build native/oneapi/build -j</code></pre>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Engines &amp; Models · Chapter 16</p>
+  <p class="chapter-kicker">Engines &amp; Models · Chapter 18</p>
   <h1 id="chapter-t5">T5 Text</h1>
   <div class="chapter-body">
     <p>Tags tell you what is on the board; they don&#x27;t read like a human talking about it. The T5 path closes that last gap. Give it a position or a whole puzzle line, and crtk pulls tags — material balance, king safety, the tactical motif that matters — from the <a href="#chapter-architecture">one shared chess core</a>, wraps them in a fixed prompt, and runs a sequence-to-sequence T5 model end to end to return two to four sentences of commentary. The whole runtime is self-contained, dependency-free, and runs in-process. Decoding runs on the CPU, with optional CUDA / ROCm / oneAPI backends that fall back to CPU automatically. It works, but it is a research feature — read <a href="#chapter-t5-status-and-quality">Status and quality</a> before you trust the prose.</p>
@@ -6639,7 +9922,7 @@ crtk puzzle text --fen &quot;&lt;FEN&gt;&quot; --model models/t5.bin --include-f
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Workflows · Chapter 17</p>
+  <p class="chapter-kicker">Workflows · Chapter 19</p>
   <h1 id="chapter-mining">Puzzle Mining</h1>
   <div class="chapter-body">
     <p>Mining is how a heap of positions becomes a labeled corpus of tactical and defensive puzzles. The <code>puzzle mine</code> command feeds seed positions to a pool of UCI engines, runs each candidate through a set of Filter DSL <strong>gates</strong>, and writes two parallel record files: the accepted puzzles and the rejected non-puzzles. Keeping both sides is deliberate. One run yields ready-to-use material for study books <em>and</em> the balanced positive/negative split a classifier wants. Nothing about the process is magic — you choose the seeds, the per-position node and time budgets, and the exact gate definitions, then read the result back with <code>record stats</code> and <code>record tag-stats</code>. Same inputs, same corpus.</p>
@@ -6833,7 +10116,7 @@ crtk record dataset classifier \
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Workflows · Chapter 18</p>
+  <p class="chapter-kicker">Workflows · Chapter 20</p>
   <h1 id="chapter-filter-dsl">Filter DSL</h1>
   <div class="chapter-body">
     <p>Engine analysis is a firehose of numbers — depth, nodes, evaluations, win/draw/loss estimates across several lines. The Filter DSL is how you ask a sharp question of that data and get back a single <code>true</code> or <code>false</code>. A filter is a tree of boolean checks over a position&#x27;s principal variations (PVs), joined by a logical gate. The same machinery decides which analyzed positions become puzzles, picks rows out of <code>.record</code> files when you export or split them, and labels rows for ML datasets. It lives in <code>chess.uci.Filter</code>, round-trips through parse and serialize without loss, and is deterministic to the bit: identical filter, identical analysis, identical verdict.</p>
@@ -7140,7 +10423,7 @@ leaf[gate=OR;eval&lt;0;leaf[break=2;eval&gt;-300]];</code></pre>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Workflows · Chapter 19</p>
+  <p class="chapter-kicker">Workflows · Chapter 21</p>
   <h1 id="chapter-datasets">ML Datasets</h1>
   <div class="chapter-body">
     <p>The hard part of building a training set is rarely the math — it&#x27;s trusting that the planes you feed the model are the ones you think you&#x27;re feeding it. <code>record dataset</code> and <code>record export</code> close that gap. They read <code>.record</code> JSON (or the <code>*.puzzles.json</code> / <code>*.nonpuzzles.json</code> from <a href="#chapter-mining">puzzle mining</a>) and write NumPy <code>.npy</code> tensors, JSONL label streams, and JSON metadata, with no Python and no external toolchain in the way. The writers run on the same chess core as the CLI and Workbench, so a position&#x27;s planes, labels, and tags are identical to what those tools display — there is no second encoding to drift out of sync. What follows: what each export emits, the layouts that are fixed, the inputs each command expects, and two pipelines run end to end.</p>
@@ -7352,7 +10635,7 @@ crtk record dataset lc0 \
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Workflows · Chapter 20</p>
+  <p class="chapter-kicker">Workflows · Chapter 22</p>
   <h1 id="chapter-piece-tags">Tagging</h1>
   <div class="chapter-body">
     <p>A position holds a lot of truths at once — who moves, who&#x27;s up material, where the pawns lock, whether the king is exposed, what tactic is hanging in the air. <strong>Tags</strong> are how ChessRTK names each of those truths as a single structured string, so a position becomes a stream of facts you can sort, count, and reason over instead of a board you have to re-read. The same schema feeds three consumers: the <a href="#chapter-filter-dsl">Filter DSL</a> that gates puzzle mining, the dataset exporters, and the T5 summaries. Every tag traces back to one chess core and a fixed set of deterministic taggers, so the same FEN always produces the same tags. That is the property that makes them worth filtering on, diffing, and handing to an LLM as grounded evidence — the strings don&#x27;t drift under you.</p>
@@ -7530,7 +10813,7 @@ crtk record tag-stats -i dump/run.puzzles.json --top 50</code></pre>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Workflows · Chapter 21</p>
+  <p class="chapter-kicker">Workflows · Chapter 23</p>
   <h1 id="chapter-tag-reference">Tag Reference</h1>
   <div class="chapter-body">
     <p>A tag is crtk&#x27;s answer to a recurring problem: how do you let a language model talk about a chess position without letting it hallucinate the moves? You don&#x27;t hand it prose. You hand it facts. A tag such as <code>MATERIAL: balance=white_up_exchange</code> or <code>TACTIC: motif=fork side=white move=e4c5</code> is a short, parseable string that states only what is verifiably true of the board, derived from the same chess core that generates moves, converts FEN/SAN/UCI, and runs perft. Feed the tagger the same FEN twice and you get the same tags in the same canonical order, every time. This page is the catalogue: every family, every field, every value, so you — or a model downstream — can quote them without guessing. Tags come out of <code>fen tags</code> and <code>puzzle tags</code>, get summarized by <code>record tag-stats</code>, and feed both the classical <code>position describe</code> pipeline and the optional T5 summaries behind <code>fen text</code> / <code>puzzle text</code>.</p>
@@ -8155,7 +11438,7 @@ CHECKMATE: pattern=smothered_mate -&gt; CHECKMATE:pattern:smothered_mate</code><
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Workflows · Chapter 22</p>
+  <p class="chapter-kicker">Workflows · Chapter 24</p>
   <h1 id="chapter-book-publishing">Book Publishing</h1>
   <div class="chapter-body">
     <p>Most chess-book pipelines bolt SAN rendering onto a TeX stack and hope the two agree. The <code>book</code> area skips that entirely: it writes print-ready books, covers, and diagram sheets straight to native vector PDF, with no LaTeX, no TeX distribution, and nothing to install beyond the runtime. Feed it a JSON or TOML manifest (or a <code>.record</code> dump) and it emits a finished PDF through the same chess core that backs every other command, so the SAN, the diagrams, and the figurine notation are the ones you already trust. Five subcommands span the path from raw material to a press-ready product. <code>book collection</code> turns a record dump into a dense puzzle book, <code>book study</code> renders deeply annotated studies, <code>book render</code> typesets a manifest into the interior, <code>book cover</code> builds the matching wraparound, and <code>book pdf</code> cuts quick diagram sheets. Each one takes a <code>--check</code> dry run that validates geometry, FENs, and solution moves before a single byte hits disk.</p>
@@ -8669,7 +11952,7 @@ java -Djava.awt.headless=true -cp out testing.PuzzleCollectionCommandRegressionT
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Workflows · Chapter 23</p>
+  <p class="chapter-kicker">Workflows · Chapter 25</p>
   <h1 id="chapter-ai-agents">AI Agents &amp; Automation</h1>
   <div class="chapter-body">
     <p>A program driving <code>crtk</code> should never have to guess. Every command is a noun-verb invocation (<code>crtk move list</code>, <code>crtk engine bestmove</code>, <code>crtk fen validate</code>) that takes its inputs through named flags, writes a stable line-based or JSON/JSONL shape to stdout, and exits with a code that means what it says. One chess core handles legality, notation, and search for the entire toolkit, so the FEN/SAN/UCI semantics an agent learns from one command hold everywhere else. What follows: where the machine-readable contracts live, how to keep a run from going open-ended, and how to push a whole plan through in a single process.</p>
@@ -8906,7 +12189,7 @@ crtk record export training-jsonl -i dump/puzzles.json -o training/run.jsonl --m
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Project · Chapter 24</p>
+  <p class="chapter-kicker">Project · Chapter 26</p>
   <h1 id="chapter-architecture">Architecture</h1>
   <div class="chapter-body">
     <p>Most chess tools accrete a second, third, and fourth notion of &quot;what is legal&quot; as they grow, and then spend their lives reconciling them. ChessRTK (&quot;crtk&quot;) refuses to. There is <strong>one shared chess core</strong>, and every part of the tool asks it the same questions. A FEN that is legal for <code>move list</code> is legal in exactly the same way for <code>engine perft</code>, <code>fen tags</code>, <code>record dataset npy</code>, <code>book render</code>, and the Swing <code>workbench</code>. Notation, search, evaluation, tagging, datasets, rendering, publishing — all of it sits on the single <code>chess.core</code> model of the board and the rules. That is why two commands never quietly disagree. This page maps the layers, names the real packages, and follows a command from a CLI flag down to its output.</p>
@@ -9058,7 +12341,7 @@ crtk record export training-jsonl -i dump/puzzles.json -o training/run.jsonl --m
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Project · Chapter 25</p>
+  <p class="chapter-kicker">Project · Chapter 27</p>
   <h1 id="chapter-quality-and-testing">Quality &amp; Testing</h1>
   <div class="chapter-body">
     <p>Because everything in crtk routes through one chess core — legal move generation, make/undo, attack detection, FEN/SAN/UCI conversion, Chess960, perft — a single regression suite can guard parsing, engine analysis, datasets, rendering, and PDF publishing in one pass. Correctness isn&#x27;t a phase here; it&#x27;s the product. The suite is a plain Bash script with named targets: <code>./scripts/run_regression_suite.sh &lt;target&gt;</code>. Each target is deterministic and builds with <code>javac --release 17</code> (no Maven, no Gradle). The same script drives your laptop and GitHub Actions, which is the whole point — a green local run is the same checks that gate CI, so it means a green CI run.</p>
@@ -9267,7 +12550,7 @@ crtk doctor --strict</code></pre>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Project · Chapter 26</p>
+  <p class="chapter-kicker">Project · Chapter 28</p>
   <h1 id="chapter-development-notes">Development Notes</h1>
   <div class="chapter-body">
     <p>One rule shapes everything in this codebase: there is exactly one chess core, and everyone uses it. Commands, the desktop Workbench, the puzzle miner, the dataset exporters — all of them route legality, FEN/SAN/UCI, and Chess960 through the same code, so the same input produces the same output every time. Protecting that property is the thing to keep in mind as you read the rest of this page, which covers the repository layout, the build (and the one compiler flag you cannot skip), the regression suite, regenerating the docs site and manual PDF, re-rendering the diagrams, and the conventions the source follows.</p>
@@ -9332,6 +12615,7 @@ crtk doctor --strict</code></pre>
 <li><code>application.cli.CliRegistry</code> maps each area/action to a <code>CliCommand</code> implementation under <code>application.cli.command</code>. One class per command (<code>AnalyzeCommand</code>, <code>PerftCommand</code>, <code>Chess960Command</code>, and so on) keeps the dispatch table flat and each command testable in isolation.</li>
 <li><code>application.cli.Constants</code> holds the canonical command tokens. The plumbing every command shares — engine setup, eval setup, record I/O, FEN/PGN parsing, output formatting, validation — lives in sibling classes like <code>EngineOps</code>, <code>EvalOps</code>, <code>RecordIO</code>, <code>PgnOps</code>, and <code>Format</code>, so a new command rarely has to reinvent any of it.</li>
 <li><code>application.gui.workbench</code> is the Swing Workbench launched by <code>workbench</code> (alias <code>gui</code>): board view, play-vs-engine, command forms, batch jobs, dataset tools, logs, publishing previews, puzzles, and neural-net visualizers.</li>
+<li>Workbench UI changes should follow the <a href="#chapter-workbench-design-guide">Workbench Design Guide</a>: use <code>Theme</code>, <code>Ui</code>, shared layout primitives, and focused Workbench regressions instead of local styling copies.</li>
 </ul>
 <h3 id="chapter-development-notes-src-chess-the-shared-core-and-everything-built-on-it"><code>src/chess/</code> — the shared core and everything built on it</h3>
 <ul>
@@ -9443,6 +12727,7 @@ bash scripts/run_regression_suite.sh engine       # engine / NN / GPU perft test
 <pre><code class="language-bash">for f in assets/diagrams/*.dot; do dot -Tpng &quot;$f&quot; -o &quot;${f%.dot}.png&quot;; done</code></pre>
 <p>Reach for <code>neato</code> only if you write a graph that wants a spring or radial layout; everything currently checked in is a directed-graph layout, so <code>dot</code> is the right tool. Reference a rendered diagram from Markdown by its assets path, for example <code>![Pipeline overview](../assets/diagrams/crtk-pipeline-overview.png)</code>.</p>
 <h2 id="chapter-development-notes-adding-or-changing-a-cli-command">Adding or changing a CLI command</h2>
+<p>Use the <a href="#chapter-cli-command-guide">CLI Command Guide</a> for the full process, code patterns, help-block rules, docs updates, and regression commands. The short version is:</p>
 <ol>
 <li>Add or update a <code>CliCommand</code> implementation under <code>src/application/cli/command/</code> (book/puzzle commands live in the <code>book</code> subpackage).</li>
 <li>Register the area/action in <code>application.cli.CliRegistry</code>, using the canonical tokens from <code>application.cli.Constants</code>.</li>
@@ -9461,12 +12746,12 @@ bash scripts/run_regression_suite.sh engine       # engine / NN / GPU perft test
 <li><strong>Compile clean at <code>--release 17</code>.</strong> Fix the source that produces a warning rather than reaching for a broad suppression, and trust a clean command-line compile over a transient IDE marker.</li>
 <li><strong>Help text is ground truth.</strong> Every flag you expose must show up in <code>crtk help</code>; the docs and AI-agent integrations quote it verbatim, so a stale help string becomes a wrong document elsewhere.</li>
 </ul>
-<p>Related: <a href="#chapter-architecture">Architecture</a>, <a href="#chapter-build-and-install">Build &amp; Install</a>, <a href="#chapter-quality-and-testing">Quality &amp; Testing</a>, <a href="#chapter-command-reference">Command Reference</a>.</p>
+<p>Related: <a href="#chapter-architecture">Architecture</a>, <a href="#chapter-build-and-install">Build &amp; Install</a>, <a href="#chapter-quality-and-testing">Quality &amp; Testing</a>, <a href="#chapter-command-reference">Command Reference</a>, <a href="#chapter-cli-command-guide">CLI Command Guide</a>.</p>
   </div>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Project · Chapter 27</p>
+  <p class="chapter-kicker">Project · Chapter 29</p>
   <h1 id="chapter-releasing">Releasing</h1>
   <div class="chapter-body">
     <p>A release is one runnable jar, a thin launcher, and — if you want the GPU — a native library beside it. There is <strong>no Maven or Gradle</strong>: <code>javac --release 17</code>, <code>jar</code>, and CMake produce every artifact, full stop. That austerity is the point. The same sources through the same three tools yield the same <code>crtk</code> binary, which is what lets the packager ship checksums and mean them.</p>
@@ -9694,7 +12979,7 @@ jar --create --file crtk.jar --main-class application.Main -C out .</code></pre>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Project · Chapter 28</p>
+  <p class="chapter-kicker">Project · Chapter 30</p>
   <h1 id="chapter-glossary">Glossary</h1>
   <div class="chapter-body">
     <p>Chess research has its own dense vocabulary, and crtk borrows freely from all of it: the notations players use to write moves, the algorithms engines use to choose them, the network pieces that score positions, and a handful of formats crtk invented for itself. Because everything sits on one shared core, a term means the same thing at the CLI, in a batch script, and in the Workbench. The definitions below are deliberately terse. When one term deserves a chapter, the cross-link points to it.</p>
@@ -9796,7 +13081,7 @@ jar --create --file crtk.jar --main-class application.Main -C out .</code></pre>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Project · Chapter 29</p>
+  <p class="chapter-kicker">Project · Chapter 31</p>
   <h1 id="chapter-support">Support</h1>
   <div class="chapter-body">
     <p>When crtk misbehaves, the good news is that it almost always misbehaves the same way twice. Determinism means a problem reproduces from one command plus its input, so a report that hands a maintainer that command rarely needs a follow-up. The self-checks below resolve the usual suspects — runtime version, config, protocol TOML, engine path, movegen — on their own, which is why they come before the issue tracker.</p>
@@ -9940,7 +13225,7 @@ crtk fen text --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Project · Chapter 30</p>
+  <p class="chapter-kicker">Project · Chapter 32</p>
   <h1 id="chapter-readme">Wiki Index</h1>
   <div class="chapter-body">
     <p>Everything in ChessRTK (&quot;crtk&quot;) runs through one chess core. A single legal move generator, one make/undo, one attack detector, one FEN/SAN/UCI/Chess960 codepath — and every command above it inherits the same answers. That is what makes the noun-verb CLI (<code>move list</code>, <code>engine bestmove</code>, <code>puzzle mine</code>) agree with the search, the tagger, the datasets, and the GUI down to the last bit. On top of the core sit external UCI analysis (Stockfish, LC0), built-in alpha-beta/MCTS search with a forced-mate prover, classical/NNUE/LC0/OTIS evaluators, position and tactic tagging, optional T5 summaries, puzzle mining driven by a Filter DSL, ML dataset export, native PDF publishing with no LaTeX, optional GPU backends for perft and OTIS, and a Swing desktop Workbench. This page is the index. Pick a section and follow the one-line descriptions to the page that goes deeper.</p>
@@ -9966,6 +13251,7 @@ crtk fen text --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 <h2 id="chapter-readme-commands">Commands</h2>
 <ul>
 <li><a href="#chapter-command-reference">Command reference</a> - the full grouped CLI surface, areas, actions, and options.</li>
+<li><a href="#chapter-cli-command-guide">CLI command guide</a> - contributor guide for adding commands, flags, help, docs, and regression tests.</li>
 <li><a href="#chapter-command-cheatsheet">Command cheatsheet</a> - common tasks mapped to exact commands.</li>
 <li><a href="#chapter-example-commands">Example commands</a> - copy-pasteable command recipes.</li>
 <li><a href="#chapter-glossary">Glossary</a> - defined terms used across the toolkit and wiki.</li>
@@ -9973,6 +13259,7 @@ crtk fen text --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 <h2 id="chapter-readme-workbench">Workbench</h2>
 <ul>
 <li><a href="#chapter-workbench">Desktop workbench</a> - the native Swing GUI: board, play-vs-engine, command forms, batch jobs, datasets, logs, publishing previews, puzzles, and neural-net visualizers. Launch it with <code>workbench</code> (alias <code>gui</code>).</li>
+<li><a href="#chapter-workbench-design-guide">Workbench design guide</a> - visual direction, layout rules, shared UI primitives, copy, accessibility, and verification for Workbench contributors.</li>
 </ul>
 <h2 id="chapter-readme-engines-models">Engines &amp; Models</h2>
 <ul>
@@ -9997,6 +13284,7 @@ crtk fen text --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 <li><a href="#chapter-quality-and-testing">Quality and testing</a> - regression suites, perft validation, and determinism checks.</li>
 <li><a href="#chapter-outputs-and-logs">Outputs and logs</a> - where artifacts land and how session cache/logs work (<code>clean</code>).</li>
 <li><a href="#chapter-development-notes">Development notes</a> - internals, conventions, and contributor notes.</li>
+<li><a href="#chapter-cli-command-guide">CLI command guide</a> - exact implementation workflow for new CLI commands.</li>
 <li><a href="#chapter-releasing">Releasing</a> - how releases are cut and versioned.</li>
 </ul>
 <h2 id="chapter-readme-command-areas-at-a-glance">Command Areas At A Glance</h2>
@@ -10098,14 +13386,14 @@ java -cp out application.Main engine builtin --startpos --depth 3 --format summa
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Reference · Chapter 31</p>
+  <p class="chapter-kicker">Reference · Chapter 33</p>
   <h1 id="chapter-engine-strength-tuning">Engine Strength Tuning — What Worked, What Didn&#x27;t</h1>
   <div class="chapter-body">
     <p>A running log of attempts to make the in-house <code>AlphaBeta</code> engine stronger, with the measured outcome of each. The point is to <strong>not relearn the same lessons</strong>: which techniques paid off, which didn&#x27;t, and — more importantly — the <em>methodology and gotchas</em> that decide whether a measurement can be trusted at all.</p>
 <p>The one rule that produced everything below: <strong>measure with self-play, never assert.</strong> Several textbook techniques that &quot;should&quot; help measured neutral or negative here; several that looked neutral at first were just under-sampled. Ship a change only when a gauntlet says it&#x27;s non-negative.</p>
 <h2 id="chapter-engine-strength-tuning-how-to-measure-the-harnesses">How to measure (the harnesses)</h2>
 <ul>
-<li><strong><code>src/testing/SelfPlayGauntlet.java</code></strong> — in-process A/B. Plays candidate vs baseline from a set of openings, <strong>each opening from both colors</strong> (so identical engines score exactly 50.0% — verified), at an <strong>equal fixed budget</strong> (<code>--nodes N</code> or <code>--movetime MS</code>). Prints W-D-L + a point Elo. Flags: <code>--a/--b CSV|all|none</code> (feature sets), <code>--threadsA/--threadsB</code>, <code>--eval classical|nnue</code>, <code>--openings N</code> (seeded reproducible generation), <code>--seed S</code>.</li>
+<li><strong><code>src/testing/SelfPlayGauntlet.java</code></strong> — in-process A/B. Plays candidate vs baseline from a set of openings, <strong>each opening from both colors</strong> (so identical engines score exactly 50.0% — verified), at an <strong>equal fixed budget</strong> (<code>--nodes N</code> or <code>--movetime MS</code>). Prints W-D-L + a point Elo. Flags: <code>--a/--b CSV|all|none</code> (feature sets), <code>--threadsA/--threadsB</code>, <code>--workers N</code> (parallel opening-pair workers), <code>--eval classical|nnue</code>, <code>--openings N</code> (seeded reproducible generation), <code>--seed S</code>.</li>
 <li><strong><code>src/testing/NnueBench.java</code></strong> — NNUE correctness + speed. Prints a <strong>golden</strong> centipawn vector (must be byte-identical across builds → no eval change), a <strong>parity</strong> walk (incremental search-state eval == full eval at every make/undo node), a <strong>concurrent parity</strong> (8 threads, proves thread-safety), and an <strong>nps</strong> benchmark.</li>
 <li><strong><code>AlphaBeta.Feature</code></strong> enum + the 3-arg constructor let each technique be toggled independently, so the gauntlet can A/B one change in isolation, in one process.</li>
 </ul>
@@ -10113,7 +13401,7 @@ java -cp out application.Main engine builtin --startpos --depth 3 --format summa
 <pre><code class="language-bash">OUT=/tmp/crtk-ab &amp;&amp; rm -rf &quot;$OUT&quot; &amp;&amp; mkdir -p &quot;$OUT&quot;
 javac --release 17 -d &quot;$OUT&quot; $(find src -name &#x27;*.java&#x27;)
 java -cp &quot;$OUT&quot; testing.SelfPlayGauntlet --a SEE_PRUNING,SEARCH_REPETITION --b none \
-  --eval classical --nodes 5000 --openings 150</code></pre>
+  --eval classical --nodes 5000 --openings 150 --workers 8</code></pre>
 <h2 id="chapter-engine-strength-tuning-what-worked-shipped">What worked (shipped)</h2>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -10157,12 +13445,17 @@ java -cp &quot;$OUT&quot; testing.SelfPlayGauntlet --a SEE_PRUNING,SEARCH_REPETI
 <td>Alpha-beta now checks root mate-in-one directly, runs the bounded mate prover on forcing roots before spending heuristic search nodes, detects mate-in-one at the low-budget root fallback, detects mate-in-one at the quiescence horizon, and searches first-ply quiet checks in quiescence. Short proven mates return exact <code>#N</code> scores instead of static centipawns.</td>
 </tr>
 <tr>
-<td><strong>Tear-tolerant transposition table</strong></td>
-<td>correctness (clean SMP)</td>
-<td>Pack each entry&#x27;s depth/score/flag/move into one <code>long</code>; store the signature XOR-ed with it; validate via <code>(key ^ data) == signature</code>. A reader catching a concurrent (SMP) store mid-write fails the check and misses instead of returning a corrupt score.</td>
+<td><strong>Mate-score TT normalization + mate-distance pruning</strong></td>
+<td>tactical correctness / pruning</td>
+<td>Mate scores are stored in the transposition table relative to the stored position and converted back at probe ply, so reused entries preserve the correct mate distance. With that normalization in place, internal mate scores can also be stored and reused safely instead of being dropped. Main and quiescence search clamp impossible mate-distance windows before searching. Stockfish-style idea, implemented in the local alpha-beta frame.</td>
+</tr>
+<tr>
+<td><strong>Tear-tolerant, depth-preserving transposition table</strong></td>
+<td>correctness / TT quality</td>
+<td>Pack each entry&#x27;s depth/score/flag/move into one <code>long</code>; store the signature XOR-ed with it; validate via <code>(key ^ data) == signature</code>. A reader catching a concurrent (SMP) store mid-write fails the check and misses instead of returning a corrupt score. Same-generation replacement now also preserves deeper entries from shallower overwrites, including same-position rewrites.</td>
 </tr>
 </tbody></table></div>
-<p>The shipped alpha-beta default feature set is <code>{SEE_PRUNING, SEARCH_REPETITION, LMR_TABLE, IMPROVING, CONT_HISTORY, CHECK_EXTENSION, IIR}</code>. CLI searches stay single-threaded by default for reproducibility, but <code>engine builtin --threads N</code> opts into Lazy SMP; Workbench Max also enables Lazy SMP. Features that measured neutral or negative remain off by default behind <code>AlphaBeta.Feature</code>.</p>
+<p>The shipped alpha-beta default feature set is <code>{SEE_PRUNING, SEARCH_REPETITION, LMR_TABLE, IMPROVING, CONT_HISTORY, CHECK_EXTENSION, IIR}</code>. CLI searches stay single-threaded by default for reproducibility, but <code>engine builtin --threads N</code> opts into Lazy SMP; <code>engine builtin --max-strength</code> selects the time-bound alpha-beta profile and automatic Lazy SMP thread count used by the Workbench Max setting. Features that measured neutral or negative remain off by default behind <code>AlphaBeta.Feature</code>.</p>
 <h2 id="chapter-engine-strength-tuning-what-did-not-work-rejected-kept-as-off-by-default-toggles">What did NOT work (rejected — kept as off-by-default toggles)</h2>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -10187,8 +13480,8 @@ java -cp &quot;$OUT&quot; testing.SelfPlayGauntlet --a SEE_PRUNING,SEARCH_REPETI
 </tr>
 <tr>
 <td><strong>History malus / gravity</strong></td>
-<td>+6 over 600 games (neutral); rechecked at +3 over 300 games</td>
-<td>Bonus-to-cutoff + malus-to-tried-quiets with decay. No measurable effect at this engine&#x27;s depths.</td>
+<td>+6 over 600 games (neutral); rechecked at +3 over 300 games; current default stack recheck <strong>−24</strong> over 100 games</td>
+<td>Bonus-to-cutoff + malus-to-tried-quiets with decay. No measurable effect at this engine&#x27;s depths, and the current default stack did not benefit.</td>
 </tr>
 <tr>
 <td><strong>SEE-based bad-capture LMR</strong></td>
@@ -10196,9 +13489,39 @@ java -cp &quot;$OUT&quot; testing.SelfPlayGauntlet --a SEE_PRUNING,SEARCH_REPETI
 <td>Reducing SEE-losing captures (instead of searching them full-depth). Within noise.</td>
 </tr>
 <tr>
+<td><strong>Capture history</strong></td>
+<td>+47 over 60 games, then −2 on a 200-game confirmation and −3 on a 100-game tie-breaker; positive-only variant −23 over 60 games; 50k-node recheck <strong>−3</strong> over 120 games</td>
+<td>Stockfish-inspired capture ordering table keyed by moving piece, target square, and captured piece type. Kept behind <code>AlphaBeta.Feature.CAPTURE_HISTORY</code>; independent confirmations did not support enabling it by default.</td>
+</tr>
+<tr>
 <td><strong>Main-search quiet-check ordering</strong></td>
 <td>−13 at 220 games (stopped early)</td>
 <td>A bonus for quiet checking moves looked plausible after quiet-check quiescence, but the longer run turned negative before the full sample. Kept off.</td>
+</tr>
+<tr>
+<td><strong>ProbCut tactical pre-search</strong></td>
+<td>+6 over 60 games, +2 over 200 games, then −10 on an independent 100-game seed; combined 300 games ≈ −2; 50k-node recheck <strong>−12</strong> over 120 games</td>
+<td>Stockfish-inspired beta-plus-margin tactical pre-search, independently implemented behind <code>AlphaBeta.Feature.PROBCUT</code>. The safe constants were neutral; a more aggressive depth-4/margin-180 variant measured <strong>−47</strong> over 60 games. Keep off until deeper/faster settings justify remeasurement.</td>
+</tr>
+<tr>
+<td><strong>Root score ordering</strong></td>
+<td>+20 over 120 games, then <strong>−41</strong> on an independent 120-game confirmation</td>
+<td>Previous-depth root scores can order non-PV root moves on the next depth (<code>AlphaBeta.Feature.ROOT_SCORE_ORDERING</code>), but the confirmation seed rejected enabling it by default.</td>
+</tr>
+<tr>
+<td><strong>Correction history recheck</strong></td>
+<td><strong>−53</strong> over 60 games</td>
+<td>Static-eval correction history is still available as <code>CORRECTION_HISTORY</code>, but the classical fixed-node recheck with the current default stack was clearly negative.</td>
+</tr>
+<tr>
+<td><strong>Singular extensions recheck</strong></td>
+<td>−6 over 60 games</td>
+<td>The TT-move singular-extension verifier was neutral-negative and slower at this budget, so it remains off.</td>
+</tr>
+<tr>
+<td><strong>Razoring recheck</strong></td>
+<td><strong>−29</strong> over 60 games</td>
+<td>Shallow fail-low razoring did not pair well with the current default stack at 20k fixed nodes.</td>
 </tr>
 </tbody></table></div>
 <p>These remain in the code behind <code>AlphaBeta.Feature</code> so they can be re-measured (e.g. after a future depth increase) without reimplementing them.</p>
@@ -10221,8 +13544,10 @@ java -cp &quot;$OUT&quot; testing.SelfPlayGauntlet --a SEE_PRUNING,SEARCH_REPETI
 <h2 id="chapter-engine-strength-tuning-environment-tooling-gotchas">Environment / tooling gotchas</h2>
 <ul>
 <li><strong>The IDE clobbers <code>out/</code>.</strong> The VS Code <code>redhat.java</code> (Eclipse JDT) language server auto-builds the project on every file edit and intermittently rewrites/empties <code>out/</code>, causing flaky <code>ClassNotFoundException</code> mid-run. <strong>Compile and run from a private dir</strong> (<code>/tmp/crtk-…</code>) the IDE doesn&#x27;t manage. (The running workbench GUI from <code>crtk.jar</code> can also hold the tree.)</li>
-<li><strong>Don&#x27;t run two fixed-time gauntlets at once.</strong> Their threads contend for cores and skew each other&#x27;s wall-clock — fine for fixed-<em>nodes</em> (deterministic), wrong for fixed-<em>time</em>.</li>
+<li><strong>Use game-level workers for fixed-node gauntlets.</strong> <code>SelfPlayGauntlet --workers N</code> runs independent opening pairs concurrently and collects them in opening order, so fixed-node results stay deterministic while using more cores. Keep <code>--threadsA 1 --threadsB 1</code> for these screens unless you are explicitly measuring Lazy SMP.</li>
+<li><strong>Don&#x27;t parallelize fixed-time gauntlets casually.</strong> Multiple workers contend for cores and skew wall-clock budgets. For Lazy SMP strength tests, prefer <code>--movetime</code> with <code>--threadsA/--threadsB</code> and <code>--workers 1</code>.</li>
 <li><strong>Build with <code>javac --release 17</code>.</strong> Bare JDK-21 emits false errors; the project targets 17. The Java Vector API (<code>jdk.incubator.vector</code>) is <strong>not</strong> available under the stock <code>--release 17</code> launch, so SIMD NNUE is out without a build/launch change.</li>
+<li><strong>Allocation cleanups are not Elo claims.</strong> Reusing a scratch <code>Position.State</code> for checking-move probes and per-ply move-order score rows removes hot-path allocation, but fixed-node tests cannot show speed gains directly. Verify output stability (for example same-engine fixed-node self-play at 50.0%) and use longer fixed-time gauntlets before calling it Elo.</li>
 <li><strong>Determinism is a feature here.</strong> Anything non-deterministic (Lazy SMP, sampling) is gated so the CLI, tests, and lower Play strengths stay reproducible.</li>
 </ul>
 <h2 id="chapter-engine-strength-tuning-open-levers-not-yet-attempted-risk-noted">Open levers (not yet attempted — risk noted)</h2>

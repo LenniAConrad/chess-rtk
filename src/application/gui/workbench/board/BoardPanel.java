@@ -112,16 +112,6 @@ public final class BoardPanel extends JPanel {
     private static final AlphaComposite DRAG_ALPHA = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f);
 
     /**
-     * Opacity for the markup currently being drawn.
-     */
-    private static final double MARKUP_CURRENT_OPACITY = 0.9;
-
-    /**
-     * Opacity for a pending erase markup.
-     */
-    private static final double MARKUP_PENDING_ERASE_OPACITY = 0.6;
-
-    /**
      * Maximum number of annotation history entries retained for undo/redo.
      */
     private static final int MARKUP_HISTORY_LIMIT = 64;
@@ -192,6 +182,11 @@ public final class BoardPanel extends JPanel {
     private final BoardArrowPainter arrowPainter = new BoardArrowPainter();
 
     /**
+     * Painter for user board markups.
+     */
+    private final BoardMarkupPainter markupPainter = new BoardMarkupPainter();
+
+    /**
      * Cached legal move list for the current position.
      */
     private MoveList cachedLegalMoves;
@@ -200,7 +195,12 @@ public final class BoardPanel extends JPanel {
      * Board overlay visibility toggles.
      */
     private boolean showNotation = true, showLegalMovePreview = true,
-            showLastMoveHighlight = true, showSuggestedMoveArrow = true;
+            showLastMoveHighlight = true, showSuggestedMoveArrow = true, showSpecialMoveHints;
+
+    /**
+     * Optional user-selected board square colors.
+     */
+    private Color boardLightColor, boardDarkColor;
 
     /**
      * Move, snap, flip, and wrong-move marker animation state.
@@ -715,6 +715,70 @@ public final class BoardPanel extends JPanel {
      */
     public boolean isShowSuggestedMoveArrow() {
         return showSuggestedMoveArrow;
+    }
+
+    /**
+     * Sets whether castling-right and en-passant hint arrows are painted.
+     *
+     * @param show true to show special-move hints
+     */
+    public void setShowSpecialMoveHints(boolean show) {
+        if (show == showSpecialMoveHints) {
+            return;
+        }
+        showSpecialMoveHints = show;
+        repaint();
+    }
+
+    /**
+     * Returns whether castling-right and en-passant hint arrows are painted.
+     *
+     * @return true when special-move hints are painted
+     */
+    public boolean isShowSpecialMoveHints() {
+        return showSpecialMoveHints;
+    }
+
+    /**
+     * Sets custom board square colors.
+     *
+     * @param light light-square color
+     * @param dark dark-square color
+     */
+    public void setBoardColors(Color light, Color dark) {
+        Color nextLight = light == null ? null : opaqueColor(light);
+        Color nextDark = dark == null ? null : opaqueColor(dark);
+        if (Objects.equals(boardLightColor, nextLight) && Objects.equals(boardDarkColor, nextDark)) {
+            return;
+        }
+        boardLightColor = nextLight;
+        boardDarkColor = nextDark;
+        repaint();
+    }
+
+    /**
+     * Restores theme board square colors.
+     */
+    public void resetBoardColors() {
+        setBoardColors(null, null);
+    }
+
+    /**
+     * Returns the active light-square color.
+     *
+     * @return light-square color
+     */
+    public Color boardLightColor() {
+        return boardLightColor == null ? Theme.BOARD_LIGHT : boardLightColor;
+    }
+
+    /**
+     * Returns the active dark-square color.
+     *
+     * @return dark-square color
+     */
+    public Color boardDarkColor() {
+        return boardDarkColor == null ? Theme.BOARD_DARK : boardDarkColor;
     }
 
     /**
@@ -1245,6 +1309,7 @@ public final class BoardPanel extends JPanel {
                 drawSelection(copy, board);
                 drawCheckHighlight(copy, board);
                 drawPremove(copy, board);
+                markupPainter.drawBackgroundMarkups(copy, board, whiteDown, markupInput);
             }
             drawPieces(copy, board);
             if (!setupEditMode) {
@@ -1252,7 +1317,10 @@ public final class BoardPanel extends JPanel {
                 drawAnimatedMove(copy, board);
                 drawSnapAnimation(copy, board);
                 drawSuggestedMove(copy, board);
-                drawBoardMarkups(copy, board);
+                if (showSpecialMoveHints) {
+                    markupPainter.drawSpecialMoveHints(copy, board, whiteDown, position);
+                }
+                markupPainter.drawForegroundMarkups(copy, board, whiteDown, markupInput);
             }
             if (!setupEditMode) {
                 drawWrongMoveMarker(copy, board);
@@ -1298,59 +1366,8 @@ public final class BoardPanel extends JPanel {
             }
         }
     }
-    private void drawBoardMarkups(Graphics2D g, Rectangle board) {
-        if (markupInput.isEmpty()) {
-            return;
-        }
-        int pendingEraseIndex = markupInput.pendingEraseIndex();
-        List<BoardMarkup> boardMarkups = markupInput.markups();
-        for (int i = 0; i < boardMarkups.size(); i++) {
-            double opacity = i == pendingEraseIndex ? MARKUP_PENDING_ERASE_OPACITY : 1.0;
-            drawBoardMarkup(g, board, boardMarkups.get(i), opacity);
-        }
-        BoardMarkup currentMarkup = markupInput.currentMarkup();
-        if (currentMarkup != null && pendingEraseIndex < 0) {
-            drawBoardMarkup(g, board, currentMarkup, MARKUP_CURRENT_OPACITY);
-        }
-    }
-    private void drawBoardMarkup(Graphics2D g, Rectangle board, BoardMarkup markup, double opacity) {
-        Color savedColor = g.getColor();
-        try {
-            g.setColor(markupColor(markup.brush().displayColor(), opacity));
-            if (markup.isCircle()) {
-                drawMarkupCircle(g, squareBounds(board, markup.from()), markup.brush());
-            } else {
-                drawMarkupArrow(g, board, markup);
-            }
-        } finally {
-            g.setColor(savedColor);
-        }
-    }
-    private static void drawMarkupCircle(Graphics2D g, Rectangle bounds, MarkupBrush brush) {
-        Stroke savedStroke = g.getStroke();
-        try {
-            int cell = bounds.width;
-            float strokeWidth = Math.max(3f, (float) cell * 4f / 64f);
-            int diameter = Math.max(8, Math.round(cell - strokeWidth));
-            g.setStroke(new BasicStroke(strokeWidth));
-            g.drawOval(
-                    bounds.x + Math.round(strokeWidth / 2f),
-                    bounds.y + Math.round(strokeWidth / 2f),
-                    diameter,
-                    diameter);
-        } finally {
-            g.setStroke(savedStroke);
-        }
-    }
-    private void drawMarkupArrow(Graphics2D g, Rectangle board, BoardMarkup markup) {
-        int cell = Math.max(1, board.width / 8);
-        float lineWidth = Math.max(5f, cell * markup.brush().lineWidth() / 64f);
-        double gap = cell * BoardStyle.ARROW_PIECE_GAP_FRACTION;
-        arrowPainter.draw(g, center(board, markup.from()), center(board, markup.to()), lineWidth, gap);
-    }
-    private static Color markupColor(Color color, double opacity) {
-        int alpha = (int) Math.round(color.getAlpha() * Math.max(0.0, Math.min(1.0, opacity)));
-        return Theme.withAlpha(color, alpha);
+    private static Color opaqueColor(Color color) {
+        return new Color(color.getRed(), color.getGreen(), color.getBlue());
     }
     private void drawSnapAnimation(Graphics2D g, Rectangle board) {
         SnapAnimation snap = animationState.snapAnimation();
@@ -1370,7 +1387,7 @@ public final class BoardPanel extends JPanel {
                 board.width + BoardStyle.BORDER_WIDTH * 2, board.height + BoardStyle.BORDER_WIDTH * 2);
     }
     private void drawBoardTexture(Graphics2D g, Rectangle board) {
-        BufferedImage texture = imageCache.boardTexture(board.width);
+        BufferedImage texture = imageCache.boardTexture(board.width, boardLightColor(), boardDarkColor());
         Rectangle clip = g.getClipBounds();
         if (clip == null) {
             g.drawImage(texture, board.x, board.y, null);
@@ -1394,14 +1411,14 @@ public final class BoardPanel extends JPanel {
      * @return cached texture
      */
     BufferedImage boardTexture(int size) {
-        return imageCache.boardTexture(size);
+        return imageCache.boardTexture(size, boardLightColor(), boardDarkColor());
     }
 
     private void drawCoordinates(Graphics2D g, Rectangle board) {
         if (!showNotation) {
             return;
         }
-        BoardStyle.drawInsideCoordinates(g, board, whiteDown, 14);
+        BoardStyle.drawInsideCoordinates(g, board, whiteDown, 14, boardLightColor(), boardDarkColor());
     }
     private void drawMoveHighlights(Graphics2D g, Rectangle board) {
         if (!showLastMoveHighlight || lastMove == Move.NO_MOVE) {
@@ -2463,6 +2480,9 @@ public final class BoardPanel extends JPanel {
                 : position == null ? new byte[64] : position.getBoard().clone();
         return new BoardExportSnapshot(
                 pieces,
+                setupEditMode || position == null ? null : position.copy(),
+                boardLightColor(),
+                boardDarkColor(),
                 whiteDown,
                 lastMove,
                 suggestedMove,
@@ -2475,7 +2495,8 @@ public final class BoardPanel extends JPanel {
                 showNotation,
                 showLegalMovePreview,
                 showLastMoveHighlight,
-                showSuggestedMoveArrow);
+                showSuggestedMoveArrow,
+                showSpecialMoveHints);
     }
     private byte[] selectedCaptureTargets() {
         byte[] selectedLegalTargets = pieceInput.selectedLegalTargets();

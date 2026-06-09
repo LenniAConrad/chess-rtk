@@ -7,6 +7,7 @@ import application.gui.workbench.game.FenInput;
 import application.gui.workbench.game.GameModel;
 import application.gui.workbench.publish.PublishSampleData.SampleItem;
 import application.gui.workbench.layout.SplitPaneStyler;
+import application.gui.workbench.ui.FieldValidator;
 import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.Theme;
@@ -625,6 +626,26 @@ public final class PublishingPanel {
     }
 
     /**
+     * Installs live type validation on the numeric publishing fields. Each field
+     * marks itself with an error border and an explanatory tooltip the moment
+     * its text stops being the expected kind of number. Blank is accepted
+     * throughout, since every field falls back to a built-in default. A disabled
+     * field (one the current task ignores) never reports an error.
+     */
+    private void installNumericFieldValidation() {
+        FieldValidator.Check positiveInteger = FieldValidator.wholeNumber(1, Long.MAX_VALUE, true);
+        FieldValidator.attach(publishLimitField, positiveInteger);
+        FieldValidator.attach(publishPagesField, positiveInteger);
+        FieldValidator.attach(publishDiagramsPerRowField, positiveInteger);
+        FieldValidator.attach(publishBoardPixelsField, positiveInteger);
+        FieldValidator.attach(publishTableFrequencyField, positiveInteger);
+        FieldValidator.attach(publishPuzzleRowsField, positiveInteger);
+        FieldValidator.attach(publishPuzzleColumnsField, positiveInteger);
+        FieldValidator.attach(publishMarginField,
+                FieldValidator.decimal(0, Double.POSITIVE_INFINITY, true));
+    }
+
+    /**
      * Creates the publishing and report tab.
      *
      * @return publish tab
@@ -688,6 +709,7 @@ public final class PublishingPanel {
                 publishWatermarkIdField);
         styleAreas(publishCommandField, publishImprintArea, publishDedicationArea, publishIntroductionArea,
                 publishHowToReadArea, publishBlurbArea, publishLinkArea, publishAfterwordArea);
+        installNumericFieldValidation();
         configurePublishingArea(publishCommandField, false);
         configurePublishingArea(publishImprintArea, true);
         configurePublishingArea(publishDedicationArea, true);

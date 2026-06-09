@@ -52,6 +52,61 @@ public final class EngineGauntletCommand {
     private static final String OPT_MOVETIME = "--movetime";
 
     /**
+     * Candidate per-move node-budget override flag.
+     */
+    private static final String OPT_NODES_A = "--nodesA";
+
+    /**
+     * Baseline per-move node-budget override flag.
+     */
+    private static final String OPT_NODES_B = "--nodesB";
+
+    /**
+     * Candidate per-move time-budget override flag (milliseconds).
+     */
+    private static final String OPT_MOVETIME_A = "--movetimeA";
+
+    /**
+     * Baseline per-move time-budget override flag (milliseconds).
+     */
+    private static final String OPT_MOVETIME_B = "--movetimeB";
+
+    /**
+     * Candidate external UCI engine command flag.
+     */
+    private static final String OPT_ENGINE_A = "--engineA";
+
+    /**
+     * Baseline external UCI engine command flag.
+     */
+    private static final String OPT_ENGINE_B = "--engineB";
+
+    /**
+     * Candidate external UCI engine hash-size flag (MB).
+     */
+    private static final String OPT_HASH_A = "--hashA";
+
+    /**
+     * Baseline external UCI engine hash-size flag (MB).
+     */
+    private static final String OPT_HASH_B = "--hashB";
+
+    /**
+     * Candidate external UCI engine extra-options flag.
+     */
+    private static final String OPT_OPTIONS_A = "--optionsA";
+
+    /**
+     * Baseline external UCI engine extra-options flag.
+     */
+    private static final String OPT_OPTIONS_B = "--optionsB";
+
+    /**
+     * Per-game machine-readable streaming flag.
+     */
+    private static final String OPT_STREAM = "--stream";
+
+    /**
      * Shared evaluator flag.
      */
     private static final String OPT_EVAL = "--eval";
@@ -216,6 +271,7 @@ public final class EngineGauntletCommand {
     public static void runGauntlet(Argv a) {
         String cmd = "engine gauntlet";
         boolean json = a.flag(OPT_JSON);
+        boolean stream = a.flag(OPT_STREAM);
         Config config = parseConfig(a, cmd);
         a.ensureConsumed();
 
@@ -224,6 +280,11 @@ public final class EngineGauntletCommand {
             printHeader(config, openings.length);
         }
         Gauntlet.ProgressListener listener = json ? jsonListener() : textListener(openings.length);
+        if (stream) {
+            // Keep JSON stdout pure by routing per-game records to stderr in JSON
+            // mode; in text mode they share stdout where the workbench reads them.
+            listener = streamListener(listener, json ? System.err : System.out);
+        }
         Score score = Gauntlet.run(config, openings, listener);
         if (json) {
             System.out.println(toJson(config, openings.length, score));
@@ -244,6 +305,16 @@ public final class EngineGauntletCommand {
         Set<AlphaBeta.Feature> featuresB = Gauntlet.parseFeatures(orDefault(a.string(OPT_FEATURES_B), "none"));
         long nodes = a.lngOr(DEFAULT_NODES, OPT_NODES);
         long movetime = a.lngOr(0L, OPT_MOVETIME);
+        long nodesA = Math.max(0L, a.lngOr(0L, OPT_NODES_A));
+        long nodesB = Math.max(0L, a.lngOr(0L, OPT_NODES_B));
+        long movetimeA = Math.max(0L, a.lngOr(0L, OPT_MOVETIME_A));
+        long movetimeB = Math.max(0L, a.lngOr(0L, OPT_MOVETIME_B));
+        String engineA = orDefault(a.string(OPT_ENGINE_A), "");
+        String engineB = orDefault(a.string(OPT_ENGINE_B), "");
+        int hashA = Math.max(0, a.integerOr(0, OPT_HASH_A));
+        int hashB = Math.max(0, a.integerOr(0, OPT_HASH_B));
+        String optionsA = orDefault(a.string(OPT_OPTIONS_A), "");
+        String optionsB = orDefault(a.string(OPT_OPTIONS_B), "");
         String eval = orDefault(a.string(OPT_EVAL), "classical");
         String evalA = orDefault(a.string(OPT_EVAL_A), eval);
         String evalB = orDefault(a.string(OPT_EVAL_B), eval);
@@ -279,6 +350,7 @@ public final class EngineGauntletCommand {
         }
 
         return new Config(featuresA, featuresB, searchA, searchB, evalA, evalB, nodes, movetime,
+                nodesA, nodesB, movetimeA, movetimeB, engineA, engineB, hashA, hashB, optionsA, optionsB,
                 cpuctA, cpuctB, fpuA, fpuB, checkPriorA, checkPriorB, capturePenaltyA, capturePenaltyB,
                 captureWinScaleA, captureWinScaleB, maxPlies, openingCount, seed, threadsA, threadsB, workers);
     }
@@ -331,6 +403,62 @@ public final class EngineGauntletCommand {
             @Override
             public void onNote(String message) {
                 System.out.println("  (" + message + ")");
+            }
+        };
+    }
+
+    /**
+     * Wraps a progress listener so each completed game is also emitted as a
+     * single tab-separated, machine-readable line for live workbench rendering.
+     *
+     * <p>
+     * The line format is {@code GAME\t<index>\t<W|B>\t<result>\t<openingFen>\t
+     * <uci moves space-joined>}. The FEN contains spaces but never tabs, so the
+     * fields are unambiguous. {@link java.io.PrintStream#println} is atomic per
+     * call, so concurrent worker-thread games never interleave a line.
+     * </p>
+     *
+     * @param base wrapped progress listener
+     * @param out destination stream for game records
+     * @return delegating listener that also streams game records
+     */
+    private static Gauntlet.ProgressListener streamListener(Gauntlet.ProgressListener base,
+            java.io.PrintStream out) {
+        return new Gauntlet.ProgressListener() {
+            /**
+             * Forwards a progress update.
+             *
+             * @param completed completed opening pairs
+             * @param total total opening pairs
+             * @param running running score
+             */
+            @Override
+            public void onProgress(int completed, int total, Score running) {
+                base.onProgress(completed, total, running);
+            }
+
+            /**
+             * Forwards an informational note.
+             *
+             * @param message note text
+             */
+            @Override
+            public void onNote(String message) {
+                base.onNote(message);
+            }
+
+            /**
+             * Streams one completed game as a tab-separated record.
+             *
+             * @param record completed game record
+             */
+            @Override
+            public void onGame(Gauntlet.GameRecord record) {
+                out.println("GAME\t" + record.index()
+                        + "\t" + (record.candidateWhite() ? "W" : "B")
+                        + "\t" + record.result()
+                        + "\t" + record.openingFen()
+                        + "\t" + String.join(" ", record.moves()));
             }
         };
     }

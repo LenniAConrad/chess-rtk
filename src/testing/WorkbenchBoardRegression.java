@@ -998,7 +998,8 @@ final class WorkbenchBoardRegression {
 
     /**
      * Verifies board coordinates are painted just above the board squares so
-     * highlights, pieces, arrows, and exported SVG overlays cover the labels.
+     * highlights, background rectangles, pieces, arrows, and exported SVG
+     * overlays cover the labels.
      */
     private static void testBoardCoordinatesPaintBelowOverlays() {
         String panel = readWorkbenchSource("board/BoardPanel.java");
@@ -1006,24 +1007,28 @@ final class WorkbenchBoardRegression {
                 "board coordinates draw after board texture");
         assertSourceOrder(panel, "drawCoordinates(copy, board);", "drawSquareHighlights(copy, board);",
                 "square highlights paint over board coordinates");
+        assertSourceOrder(panel, "drawCoordinates(copy, board);", "markupPainter.drawBackgroundMarkups(copy, board",
+                "rectangle annotations paint over board coordinates");
+        assertSourceOrder(panel, "markupPainter.drawBackgroundMarkups(copy, board", "drawPieces(copy, board);",
+                "pieces paint over rectangle annotations");
         assertSourceOrder(panel, "drawCoordinates(copy, board);", "drawPieces(copy, board);",
                 "pieces paint over board coordinates");
         assertSourceOrder(panel, "drawCoordinates(copy, board);", "drawSuggestedMove(copy, board);",
                 "suggested arrows paint over board coordinates");
-        assertSourceOrder(panel, "drawCoordinates(copy, board);", "drawBoardMarkups(copy, board);",
+        assertSourceOrder(panel, "drawCoordinates(copy, board);", "markupPainter.drawForegroundMarkups(copy, board",
                 "user arrows and circles paint over board coordinates");
 
         String exporter = readWorkbenchSource("board/BoardExporter.java");
-        assertSourceOrder(exporter, "BoardStyle.drawBoardSurface(g, board, false);",
+        assertSourceOrder(exporter, "BoardStyle.drawBoardSurface(g, board, false,",
                 "BoardStyle.drawInsideCoordinates(g, board",
                 "raster export coordinates draw after board surface");
         assertSourceOrder(exporter, "BoardStyle.drawInsideCoordinates(g, board",
                 "paintRasterHighlights(snapshot, g, board);",
                 "raster export highlights paint over coordinates");
-        assertSourceOrder(exporter, "appendSquares(svg, board);",
-                "appendCoordinates(svg, board, snapshot.whiteDown());",
+        assertSourceOrder(exporter, "appendSquares(snapshot, svg, board);",
+                "appendCoordinates(snapshot, svg, board, snapshot.whiteDown());",
                 "svg export coordinates are low in DOM");
-        assertSourceOrder(exporter, "appendCoordinates(svg, board, snapshot.whiteDown());",
+        assertSourceOrder(exporter, "appendCoordinates(snapshot, svg, board, snapshot.whiteDown());",
                 "appendSvgHighlights(snapshot, svg, board);",
                 "svg export highlights are above coordinates in DOM");
     }

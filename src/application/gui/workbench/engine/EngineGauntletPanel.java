@@ -3,6 +3,7 @@ package application.gui.workbench.engine;
 import application.gui.workbench.command.CommandRunner;
 import application.gui.workbench.command.CommandRunner.RunningCommand;
 import application.gui.workbench.ui.CardGrid;
+import application.gui.workbench.ui.FieldValidator;
 import application.gui.workbench.ui.HoldButton;
 import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.Theme;
@@ -15,7 +16,6 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.GridLayout;
 import java.awt.RenderingHints;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -70,6 +70,18 @@ public final class EngineGauntletPanel extends JPanel {
     private static final List<String> COMMAND_PATH = List.of("engine", "gauntlet");
 
     /**
+     * Engine-source labels for the per-side mode selector.
+     */
+    private static final String MODE_BUILTIN = "Built-in";
+    private static final String MODE_UCI = "External (UCI)";
+
+    /**
+     * Budget-unit labels for the per-side budget selector.
+     */
+    private static final String BUDGET_NODES = "Nodes";
+    private static final String BUDGET_TIME = "Time (ms)";
+
+    /**
      * Clipboard helper.
      */
     private final transient Consumer<String> copyText;
@@ -91,13 +103,41 @@ public final class EngineGauntletPanel extends JPanel {
      */
     private final JTextField featuresA = field("all");
     private final JTextField featuresB = field("none");
-    private final JTextField nodes = field("3000");
     private final JTextField openings = field("8");
     private final JTextField seed = field("20260531");
     private final JTextField maxPlies = field("160");
     private final JTextField workers = field("1");
     private final JTextField threadsA = field("1");
     private final JTextField threadsB = field("1");
+
+    /**
+     * Per-side engine source: the built-in searcher or an external UCI engine.
+     */
+    private final JComboBox<String> engineModeA = combo(MODE_BUILTIN, MODE_UCI);
+    private final JComboBox<String> engineModeB = combo(MODE_BUILTIN, MODE_UCI);
+
+    /**
+     * External UCI engine commands, used when a side's mode is External.
+     */
+    private final JTextField engineA = field("");
+    private final JTextField engineB = field("");
+
+    /**
+     * Per-side external UCI engine hash size (MB) and extra {@code name=value}
+     * options, used when a side's mode is External.
+     */
+    private final JTextField hashA = field("");
+    private final JTextField hashB = field("");
+    private final JTextField optionsA = field("");
+    private final JTextField optionsB = field("");
+
+    /**
+     * Per-side per-move budget: a unit (nodes or time) and a value.
+     */
+    private final JComboBox<String> budgetTypeA = combo(BUDGET_NODES, BUDGET_TIME);
+    private final JComboBox<String> budgetTypeB = combo(BUDGET_NODES, BUDGET_TIME);
+    private final JTextField budgetValueA = field("3000");
+    private final JTextField budgetValueB = field("3000");
 
     /**
      * Command and process output views.
@@ -121,13 +161,6 @@ public final class EngineGauntletPanel extends JPanel {
     private final StatusBadge statusBadge = new StatusBadge();
 
     /**
-     * Candidate/baseline validation badges.
-     */
-    private final StatusBadge candidateBadge = new StatusBadge();
-    private final StatusBadge baselineBadge = new StatusBadge();
-    private final StatusBadge settingsBadge = new StatusBadge();
-
-    /**
      * Result metric cards.
      */
     private final MetricCard scoreMetric = new MetricCard("Score");
@@ -142,6 +175,16 @@ public final class EngineGauntletPanel extends JPanel {
      */
     private final ResultDistributionChart distributionChart = new ResultDistributionChart();
     private final CumulativeScoreChart cumulativeChart = new CumulativeScoreChart();
+
+    /**
+     * Live gallery of finished games, replayable on click.
+     */
+    private final GauntletGameBrowser gamesBrowser = new GauntletGameBrowser();
+
+    /**
+     * Game indices already added to the gallery, for incremental parsing.
+     */
+    private final java.util.Set<Integer> seenGameIndices = new java.util.HashSet<>();
 
     /**
      * Raw output collapsible section.
@@ -177,6 +220,42 @@ public final class EngineGauntletPanel extends JPanel {
     private ResultSummary lastResult = ResultSummary.empty();
 
     /**
+     * Live candidate-perspective tally accumulated from the per-game stream while
+     * a gauntlet runs, so the result cards and chart update game by game.
+     */
+    private int liveWins;
+    private int liveDraws;
+    private int liveLosses;
+
+    /**
+     * Total games the active run will play, for the live "played of total" view.
+     */
+    private int runGames;
+
+    /**
+     * Start time of the active run, for the live duration readout.
+     */
+    private long runStartNanos;
+
+    /**
+     * One-second ticker that keeps the duration and live metrics current between
+     * games while a gauntlet runs.
+     */
+    private transient javax.swing.Timer liveTimer;
+
+    /**
+     * Type validators for the numeric run-settings fields. The gauntlet refuses
+     * to launch while any of them holds a non-numeric value, since the bad text
+     * would only fail later inside the child CLI process.
+     */
+    private final List<FieldValidator> numericValidators = new ArrayList<>();
+
+    /**
+     * True while a gauntlet command is running.
+     */
+    private boolean runActive;
+
+    /**
      * Creates a gauntlet panel.
      *
      * @param copyText clipboard callback
@@ -203,14 +282,46 @@ public final class EngineGauntletPanel extends JPanel {
         addOption(command, "--searchB", config.searchB());
         addOption(command, "--evalA", config.evalA());
         addOption(command, "--evalB", config.evalB());
-        addOption(command, "--nodes", config.nodes());
         addOption(command, "--openings", config.openings());
         addOption(command, "--seed", config.seed());
         addOption(command, "--maxplies", config.maxPlies());
         addOption(command, "--workers", config.workers());
         addOption(command, "--threadsA", config.threadsA());
         addOption(command, "--threadsB", config.threadsB());
+        addOption(command, "--engineA", config.engineA());
+        addOption(command, "--engineB", config.engineB());
+        addOption(command, "--hashA", config.hashA());
+        addOption(command, "--hashB", config.hashB());
+        addOption(command, "--optionsA", config.optionsA());
+        addOption(command, "--optionsB", config.optionsB());
+        addBudget(command, "A", config.budgetA());
+        addBudget(command, "B", config.budgetB());
+        // The workbench always streams per-game records so the live gallery can
+        // render and replay each game; this keeps preview and execution identical.
+        command.add("--stream");
         return List.copyOf(command);
+    }
+
+    /**
+     * Appends a per-side budget override flag, choosing a time or node budget
+     * from the field value. A trailing {@code ms} (e.g. {@code 200ms}) selects a
+     * time budget; a plain number selects a node budget. Blank adds nothing.
+     *
+     * @param command command argv
+     * @param side side suffix ({@code A} or {@code B})
+     * @param value raw budget field value
+     */
+    private static void addBudget(List<String> command, String side, String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        String trimmed = value.trim().toLowerCase(Locale.ROOT);
+        if (trimmed.endsWith("ms")) {
+            String millis = trimmed.substring(0, trimmed.length() - 2).trim();
+            addOption(command, "--movetime" + side, millis);
+        } else {
+            addOption(command, "--nodes" + side, trimmed);
+        }
     }
 
     /**
@@ -222,8 +333,9 @@ public final class EngineGauntletPanel extends JPanel {
         getAccessibleContext().setAccessibleName("Engine gauntlet panel");
         getAccessibleContext().setAccessibleDescription(
                 "Builds and runs deterministic self-play gauntlets for built-in engines.");
-        styleCombos(searchA, searchB, evalA, evalB);
-        styleFields(featuresA, featuresB, nodes, openings, seed, maxPlies, workers, threadsA, threadsB);
+        styleCombos(searchA, searchB, evalA, evalB, engineModeA, engineModeB, budgetTypeA, budgetTypeB);
+        styleFields(featuresA, featuresB, openings, seed, maxPlies, workers, threadsA, threadsB,
+                engineA, engineB, hashA, hashB, optionsA, optionsB, budgetValueA, budgetValueB);
         styleAreas(commandArea, outputArea);
         applyAccessibleNames();
 
@@ -238,11 +350,9 @@ public final class EngineGauntletPanel extends JPanel {
         runAgainButton.setEnabled(false);
         saveResultButton.setEnabled(false);
         statusBadge.notRun("not run");
-        candidateBadge.ready("valid");
-        baselineBadge.ready("valid");
-        settingsBadge.ready("ready");
 
         installPreviewRefresh();
+        installFieldValidation();
         workspaceHeader.setActions(createHeaderActions());
         add(workspaceHeader, BorderLayout.NORTH);
         add(createExperimentBody(), BorderLayout.CENTER);
@@ -261,13 +371,24 @@ public final class EngineGauntletPanel extends JPanel {
         evalB.getAccessibleContext().setAccessibleName("Baseline evaluator");
         featuresA.getAccessibleContext().setAccessibleName("Candidate features");
         featuresB.getAccessibleContext().setAccessibleName("Baseline features");
-        nodes.getAccessibleContext().setAccessibleName("Nodes per move");
         openings.getAccessibleContext().setAccessibleName("Opening count");
         seed.getAccessibleContext().setAccessibleName("Opening seed");
         maxPlies.getAccessibleContext().setAccessibleName("Maximum plies");
         workers.getAccessibleContext().setAccessibleName("Worker count");
         threadsA.getAccessibleContext().setAccessibleName("Candidate threads");
         threadsB.getAccessibleContext().setAccessibleName("Baseline threads");
+        engineModeA.getAccessibleContext().setAccessibleName("Candidate engine source");
+        engineModeB.getAccessibleContext().setAccessibleName("Baseline engine source");
+        engineA.getAccessibleContext().setAccessibleName("Candidate external UCI engine command");
+        engineB.getAccessibleContext().setAccessibleName("Baseline external UCI engine command");
+        hashA.getAccessibleContext().setAccessibleName("Candidate engine hash size in MB");
+        hashB.getAccessibleContext().setAccessibleName("Baseline engine hash size in MB");
+        optionsA.getAccessibleContext().setAccessibleName("Candidate engine UCI options");
+        optionsB.getAccessibleContext().setAccessibleName("Baseline engine UCI options");
+        budgetTypeA.getAccessibleContext().setAccessibleName("Candidate budget unit");
+        budgetTypeB.getAccessibleContext().setAccessibleName("Baseline budget unit");
+        budgetValueA.getAccessibleContext().setAccessibleName("Candidate per-move budget value");
+        budgetValueB.getAccessibleContext().setAccessibleName("Baseline per-move budget value");
         commandArea.getAccessibleContext().setAccessibleName("Gauntlet command preview");
         outputArea.getAccessibleContext().setAccessibleName("Gauntlet output");
     }
@@ -299,8 +420,8 @@ public final class EngineGauntletPanel extends JPanel {
         page.setBorder(Theme.pad(Theme.SPACE_MD));
 
         CardGrid setup = new CardGrid(260, Theme.SPACE_MD);
-        setup.add(createEngineConfigCard("Candidate A", searchA, evalA, featuresA, candidateBadge));
-        setup.add(createEngineConfigCard("Baseline B", searchB, evalB, featuresB, baselineBadge));
+        setup.add(createEngineConfigCard("Candidate A", true));
+        setup.add(createEngineConfigCard("Baseline B", false));
         setup.add(createRunSettingsCard());
         page.add(setup, BorderLayout.NORTH);
 
@@ -312,26 +433,189 @@ public final class EngineGauntletPanel extends JPanel {
     }
 
     /**
-     * Creates candidate/baseline configuration card.
+     * Creates a candidate/baseline configuration card. The Engine selector
+     * chooses between the built-in searcher and an external UCI engine, and the
+     * card body re-lays itself to show only the rows that apply to the chosen
+     * mode, so the built-in-versus-external choice is explicit. External mode
+     * exposes the engine command (with Browse and Test), Threads, Hash, and
+     * extra UCI options.
      *
      * @param title card title
-     * @param search search selector
-     * @param eval evaluator selector
-     * @param features feature field
-     * @param badge validation badge
+     * @param candidate true for the candidate (A) side, false for baseline (B)
      * @return card
      */
-    private JComponent createEngineConfigCard(String title, JComboBox<String> search, JComboBox<String> eval,
-            JTextField features, StatusBadge badge) {
+    private JComponent createEngineConfigCard(String title, boolean candidate) {
+        JComboBox<String> mode = candidate ? engineModeA : engineModeB;
+        JComboBox<String> search = candidate ? searchA : searchB;
+        JComboBox<String> eval = candidate ? evalA : evalB;
+        JTextField features = candidate ? featuresA : featuresB;
+        JTextField engine = candidate ? engineA : engineB;
+        JTextField threads = candidate ? threadsA : threadsB;
+        JTextField hash = candidate ? hashA : hashB;
+        JTextField options = candidate ? optionsA : optionsB;
+        JComboBox<String> budgetType = candidate ? budgetTypeA : budgetTypeB;
+        JTextField budgetValue = candidate ? budgetValueA : budgetValueB;
+
         JPanel body = transparentPanel(new java.awt.GridBagLayout());
+        // Build the per-side persistent sub-controls once so re-laying the card
+        // on a mode change never stacks duplicate listeners.
+        JLabel network = networkLabel(eval);
+        JComponent commandRow = uciCommandControl(engine);
+        JComponent budgetRow = budgetControl(budgetType, budgetValue);
+        Runnable relayout = () -> {
+            fillEngineCard(body, mode, search, eval, features, commandRow, threads, hash, options,
+                    budgetRow, network);
+            body.revalidate();
+            body.repaint();
+        };
+        mode.addActionListener(event -> {
+            relayout.run();
+            refreshCommandPreview();
+        });
+        relayout.run();
+        return card(title, body);
+    }
+
+    /**
+     * Lays out an engine card for its current mode, showing the built-in rows or
+     * the external-engine rows but not both.
+     *
+     * @param body card body, cleared and repopulated
+     * @param mode engine-source selector
+     * @param search built-in search selector
+     * @param eval built-in evaluator selector
+     * @param features built-in feature field
+     * @param commandRow external engine command row (field + Browse + Test)
+     * @param threads per-side thread field
+     * @param hash external engine hash-size field
+     * @param options external engine extra-options field
+     * @param budgetRow shared budget-unit + value row
+     * @param network shared network summary label
+     */
+    private static void fillEngineCard(JPanel body, JComboBox<String> mode, JComboBox<String> search,
+            JComboBox<String> eval, JTextField features, JComponent commandRow, JTextField threads,
+            JTextField hash, JTextField options, JComponent budgetRow, JLabel network) {
+        body.removeAll();
         java.awt.GridBagConstraints c = constraints();
         int row = 0;
-        row = detailControl(body, c, "Search", search, row);
-        row = detailControl(body, c, "Eval", eval, row);
-        row = detailControl(body, c, "Features", features, row);
-        row = detailValue(body, c, "Network", networkLabel(eval), row);
-        detailComponent(body, c, "Status", badge, row);
-        return card(title, body);
+        row = detailControl(body, c, "Engine", mode, row);
+        if (isExternal(mode)) {
+            row = detailControl(body, c, "UCI command", commandRow, row);
+            row = detailControl(body, c, "Threads", threads, row);
+            row = detailControl(body, c, "Hash (MB)", hash, row);
+            row = detailControl(body, c, "Options", options, row);
+            detailControl(body, c, "Budget", budgetRow, row);
+        } else {
+            row = detailControl(body, c, "Search", search, row);
+            row = detailControl(body, c, "Eval", eval, row);
+            row = detailControl(body, c, "Features", features, row);
+            row = detailControl(body, c, "Threads", threads, row);
+            row = detailControl(body, c, "Budget", budgetRow, row);
+            detailValue(body, c, "Network", network, row);
+        }
+    }
+
+    /**
+     * Builds the UCI command row: the command field with Browse and Test
+     * buttons, so picking and verifying an external engine is a one-click step.
+     *
+     * @param engine engine command field
+     * @return command control
+     */
+    private JComponent uciCommandControl(JTextField engine) {
+        JPanel row = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        JPanel buttons = transparentPanel(new FlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
+        buttons.add(Ui.button("Browse…", false, event -> browseEngine(engine)));
+        buttons.add(Ui.button("Test", false, event -> testEngine(engine)));
+        row.add(engine, BorderLayout.CENTER);
+        row.add(buttons, BorderLayout.EAST);
+        return row;
+    }
+
+    /**
+     * Opens a file picker to choose an external UCI engine binary.
+     *
+     * @param engine engine command field to populate
+     */
+    private void browseEngine(JTextField engine) {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Select UCI engine");
+        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            engine.setText(chooser.getSelectedFile().getAbsolutePath());
+            refreshCommandPreview();
+        }
+    }
+
+    /**
+     * Tests an external UCI engine by performing the handshake off the event
+     * thread and reporting the engine's name or the failure reason.
+     *
+     * @param engine engine command field
+     */
+    private void testEngine(JTextField engine) {
+        String command = engine.getText() == null ? "" : engine.getText().trim();
+        if (command.isEmpty()) {
+            statusBadge.warning("enter an engine command");
+            statusLabel.setText("Enter a UCI engine command to test.");
+            return;
+        }
+        statusBadge.running("testing engine…");
+        statusLabel.setText("Testing UCI engine…");
+        new javax.swing.SwingWorker<String, Void>() {
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            protected String doInBackground() throws Exception {
+                return chess.engine.Gauntlet.uciEngineName(command);
+            }
+
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            protected void done() {
+                try {
+                    String name = get();
+                    statusBadge.complete("engine ok");
+                    statusLabel.setText("UCI engine OK: " + name);
+                } catch (java.util.concurrent.ExecutionException ex) {
+                    Throwable cause = ex.getCause() == null ? ex : ex.getCause();
+                    statusBadge.error("engine test failed");
+                    statusLabel.setText("UCI engine test failed: " + cause.getMessage());
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }.execute();
+    }
+
+    /**
+     * Builds the budget row: a unit selector ({@link #BUDGET_NODES} or
+     * {@link #BUDGET_TIME}) beside its value field, so the unit is always
+     * explicit.
+     *
+     * @param budgetType budget-unit selector
+     * @param budgetValue budget-value field
+     * @return budget control
+     */
+    private JComponent budgetControl(JComboBox<String> budgetType, JTextField budgetValue) {
+        JPanel row = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        budgetType.setPreferredSize(new Dimension(110, Theme.CONTROL_HEIGHT));
+        budgetType.addActionListener(event -> refreshCommandPreview());
+        row.add(budgetType, BorderLayout.WEST);
+        row.add(budgetValue, BorderLayout.CENTER);
+        return row;
+    }
+
+    /**
+     * Returns whether an engine-mode selector is set to the external engine.
+     *
+     * @param mode engine-source selector
+     * @return true when external (UCI) is selected
+     */
+    private static boolean isExternal(JComboBox<String> mode) {
+        return MODE_UCI.equals(selected(mode));
     }
 
     /**
@@ -344,13 +628,10 @@ public final class EngineGauntletPanel extends JPanel {
         java.awt.GridBagConstraints c = constraints();
         int row = 0;
         // Two columns keep this card's height close to the Candidate/Baseline
-        // cards beside it, so the setup row no longer leaves a dead gap below
-        // the shorter cards.
-        row = settingsPair(body, c, "Nodes", nodes, "Openings", openings, row);
-        row = settingsPair(body, c, "Seed", seed, "Max plies", maxPlies, row);
-        row = settingsPair(body, c, "Workers", workers, "Threads A", threadsA, row);
-        row = settingsPair(body, c, "Threads B", threadsB, null, null, row);
-        detailComponent(body, c, "Status", settingsBadge, row);
+        // cards beside it. Per-move budget and threads now live per side, so
+        // they are no longer duplicated here.
+        row = settingsPair(body, c, "Openings", openings, "Seed", seed, row);
+        settingsPair(body, c, "Max plies", maxPlies, "Workers", workers, row);
         return card("Run Settings", body);
     }
 
@@ -433,7 +714,8 @@ public final class EngineGauntletPanel extends JPanel {
         rawSection = Ui.collapsible("Command / Raw Output", raw, false);
 
         JPanel lower = transparentPanel(new BorderLayout(0, Theme.SPACE_MD));
-        lower.add(charts, BorderLayout.CENTER);
+        lower.add(charts, BorderLayout.NORTH);
+        lower.add(card("Games", gamesBrowser), BorderLayout.CENTER);
         lower.add(rawSection, BorderLayout.SOUTH);
         return lower;
     }
@@ -442,10 +724,13 @@ public final class EngineGauntletPanel extends JPanel {
      * Installs command-preview refresh listeners.
      */
     private void installPreviewRefresh() {
-        for (JTextField field : List.of(featuresA, featuresB, nodes, openings, seed, maxPlies,
-                workers, threadsA, threadsB)) {
+        for (JTextField field : List.of(featuresA, featuresB, openings, seed, maxPlies,
+                workers, threadsA, threadsB, engineA, engineB, hashA, hashB, optionsA, optionsB,
+                budgetValueA, budgetValueB)) {
             onTextChange(this::refreshCommandPreview, field);
         }
+        // engineMode and budgetType combos refresh through their own listeners
+        // (mode re-lays the card; budgetType lives in budgetControl).
         for (JComboBox<String> combo : List.of(searchA, searchB, evalA, evalB)) {
             combo.addActionListener(event -> refreshCommandPreview());
         }
@@ -476,16 +761,62 @@ public final class EngineGauntletPanel extends JPanel {
         if (running != null && running.isRunning()) {
             return;
         }
+        if (!numericFieldsValid()) {
+            return;
+        }
         List<String> command = buildCommand(currentConfig());
         outputBuffer.setLength(0);
         progress.clear();
-        lastResult = ResultSummary.running(gamesFromConfig(currentConfig()));
+        seenGameIndices.clear();
+        gamesBrowser.clear();
+        liveWins = 0;
+        liveDraws = 0;
+        liveLosses = 0;
+        runGames = gamesFromConfig(currentConfig());
+        runStartNanos = System.nanoTime();
+        lastResult = ResultSummary.running(runGames);
         outputArea.setText("$ " + CommandRunner.displayCommand(command) + System.lineSeparator());
         outputBuffer.append(outputArea.getText());
         updateResultView(lastResult, progress);
         setRunning(true);
         Ui.setCollapsibleExpanded(rawSection, true);
+        startLiveTimer();
         running = CommandRunner.run(command, null, this::appendOutput, this::onCompleted, this::onFailed);
+    }
+
+    /**
+     * Starts the one-second ticker that refreshes the live metrics (chiefly the
+     * elapsed duration) between games while a gauntlet runs.
+     */
+    private void startLiveTimer() {
+        stopLiveTimer();
+        liveTimer = new javax.swing.Timer(1000, event -> {
+            if (running != null && running.isRunning()) {
+                lastResult = liveSummary();
+                updateResultView(lastResult, progress);
+            }
+        });
+        liveTimer.start();
+    }
+
+    /**
+     * Stops the live ticker if it is running.
+     */
+    private void stopLiveTimer() {
+        if (liveTimer != null) {
+            liveTimer.stop();
+            liveTimer = null;
+        }
+    }
+
+    /**
+     * Builds a live result summary from the running per-game tally.
+     *
+     * @return live summary
+     */
+    private ResultSummary liveSummary() {
+        long millis = (System.nanoTime() - runStartNanos) / 1_000_000L;
+        return ResultSummary.live(liveWins, liveDraws, liveLosses, runGames, millis);
     }
 
     /**
@@ -497,8 +828,56 @@ public final class EngineGauntletPanel extends JPanel {
         outputBuffer.append(chunk);
         outputArea.append(chunk);
         outputArea.setCaretPosition(outputArea.getDocument().getLength());
-        parseProgress(outputBuffer.toString());
+        parseGames(outputBuffer.toString());
         updateResultView(lastResult, progress);
+    }
+
+    /**
+     * Parses any newly completed {@code GAME} stream lines: adds each game's
+     * thumbnail to the live gallery, folds its result into the running tally, and
+     * appends a running-score point so the cards and cumulative chart advance
+     * game by game. De-duplicates by game index so re-scanned lines never count
+     * twice.
+     *
+     * @param output accumulated raw output
+     */
+    private void parseGames(String output) {
+        boolean added = false;
+        int from = 0;
+        while (true) {
+            int newline = output.indexOf('\n', from);
+            if (newline < 0) {
+                break;
+            }
+            String line = output.substring(from, newline);
+            from = newline + 1;
+            if (!line.startsWith("GAME\t")) {
+                continue;
+            }
+            GauntletGameBrowser.Game game = GauntletGameBrowser.Game.parse(line);
+            if (game != null && seenGameIndices.add(game.index())) {
+                gamesBrowser.addGame(game);
+                tallyGame(game.result());
+                progress.add(new ProgressPoint(liveWins, liveDraws, liveLosses));
+                added = true;
+            }
+        }
+        if (added) {
+            lastResult = liveSummary();
+        }
+    }
+
+    /**
+     * Folds one game result into the running candidate-perspective tally.
+     *
+     * @param result {@code win}, {@code draw}, or {@code loss}
+     */
+    private void tallyGame(String result) {
+        switch (result) {
+            case "win" -> liveWins++;
+            case "loss" -> liveLosses++;
+            default -> liveDraws++;
+        }
     }
 
     /**
@@ -507,6 +886,7 @@ public final class EngineGauntletPanel extends JPanel {
      * @param result command result
      */
     private void onCompleted(CommandRunner.CommandResult result) {
+        stopLiveTimer();
         setRunning(false);
         lastResult = parseResult(result.output(), result.exitCode(), result.millis());
         updateResultView(lastResult, progress);
@@ -526,6 +906,7 @@ public final class EngineGauntletPanel extends JPanel {
      * @param error failure cause
      */
     private void onFailed(Exception error) {
+        stopLiveTimer();
         setRunning(false);
         if (error instanceof CancellationException) {
             statusLabel.setText("Gauntlet stopped");
@@ -544,6 +925,7 @@ public final class EngineGauntletPanel extends JPanel {
      * Stops the active gauntlet command.
      */
     private void stopGauntlet() {
+        stopLiveTimer();
         if (running != null) {
             running.cancel();
         }
@@ -558,8 +940,7 @@ public final class EngineGauntletPanel extends JPanel {
      * @param active true while active
      */
     private void setRunning(boolean active) {
-        runButton.setEnabled(!active);
-        runAgainButton.setEnabled(!active && lastResult.games() > 0);
+        this.runActive = active;
         saveResultButton.setEnabled(!active && outputBuffer.length() > 0);
         stopButton.setEnabled(active);
         stopButton.setVisible(active);
@@ -567,16 +948,72 @@ public final class EngineGauntletPanel extends JPanel {
         if (active) {
             statusBadge.running("running");
         }
+        refreshRunEnabled();
         refreshExperimentCards();
+    }
+
+    /**
+     * Installs live type validation on the numeric run-settings fields. Each
+     * field flashes an error border and an explanatory tooltip the moment its
+     * text stops being a whole number, and the change re-evaluates whether the
+     * gauntlet can launch.
+     */
+    private void installFieldValidation() {
+        addNumberValidator(openings, 1);
+        addNumberValidator(seed, 0);
+        addNumberValidator(maxPlies, 1);
+        addNumberValidator(workers, 1);
+        addNumberValidator(threadsA, 1);
+        addNumberValidator(threadsB, 1);
+        // The budget unit is chosen by a combo, so the value is a plain number
+        // (nodes, or milliseconds when the unit is Time).
+        addNumberValidator(budgetValueA, 1);
+        addNumberValidator(budgetValueB, 1);
+        // Hash is an optional MB count; blank means the engine's own default.
+        addNumberValidator(hashA, 1);
+        addNumberValidator(hashB, 1);
+    }
+
+    /**
+     * Attaches a whole-number validator to one field. Blank is accepted because
+     * each field falls back to a built-in default when left empty.
+     *
+     * @param field numeric field
+     * @param min smallest accepted value
+     */
+    private void addNumberValidator(JTextField field, long min) {
+        numericValidators.add(FieldValidator.attach(field,
+                FieldValidator.wholeNumber(min, Long.MAX_VALUE, true),
+                this::refreshRunEnabled));
+    }
+
+    /**
+     * Returns whether every numeric run-settings field holds a usable value.
+     *
+     * @return true when all numeric fields are valid
+     */
+    private boolean numericFieldsValid() {
+        for (FieldValidator validator : numericValidators) {
+            if (!validator.valid()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Enables the run controls only when the settings are valid and idle.
+     */
+    private void refreshRunEnabled() {
+        boolean valid = numericFieldsValid();
+        runButton.setEnabled(valid && !runActive);
+        runAgainButton.setEnabled(valid && !runActive && lastResult.games() > 0);
     }
 
     /**
      * Updates static experiment cards and header context.
      */
     private void refreshExperimentCards() {
-        candidateBadge.ready(selected(searchA) + " / " + selected(evalA));
-        baselineBadge.ready(selected(searchB) + " / " + selected(evalB));
-        settingsBadge.ready(gamesFromConfig(currentConfig()) + " games");
         workspaceHeader.setContext(contextText());
         repaint();
     }
@@ -675,10 +1112,16 @@ public final class EngineGauntletPanel extends JPanel {
         return switch (key) {
             case "Eval" -> "Evaluator backend: classical terms or NNUE neural evaluation.";
             case "Features" -> "Alpha-beta feature set used by the candidate or baseline.";
-            case "Nodes" -> "Fixed search-node budget per move.";
+            case "Engine" -> "Engine source for this side: the built-in searcher or an external UCI engine.";
+            case "UCI command" -> "Command that launches the external UCI engine, e.g. /usr/bin/stockfish. "
+                    + "Use Browse to pick it and Test to verify it responds.";
+            case "Threads" -> "Threads for this side — built-in search threads, or the engine's Threads option for UCI.";
+            case "Hash (MB)" -> "Transposition-table size sent to the UCI engine. Blank uses its default.";
+            case "Options" -> "Extra UCI options as name=value, separated by ';' (e.g. SyzygyPath=/tb; UCI_Elo=2200).";
             case "Max plies" -> "Maximum half-moves before draw adjudication.";
             case "Workers" -> "Parallel opening-pair workers.";
             case "Threads A", "Threads B" -> "Search threads assigned to each side.";
+            case "Budget" -> "Per-move budget for this side. Pick Nodes or Time (ms), then enter the amount.";
             default -> null;
         };
     }
@@ -746,23 +1189,6 @@ public final class EngineGauntletPanel extends JPanel {
         String state = running != null && running.isRunning() ? "Running"
                 : lastResult.complete() ? "Complete" : "Ready";
         return "Candidate A vs Baseline B · " + gamesFromConfig(config) + " games · " + state;
-    }
-
-    /**
-     * Parses running W-D-L snapshots from raw output.
-     *
-     * @param output raw output
-     */
-    private void parseProgress(String output) {
-        Pattern pattern = Pattern.compile("running W-D-L = (\\d+)-(\\d+)-(\\d+)");
-        Matcher matcher = pattern.matcher(output == null ? "" : output);
-        progress.clear();
-        while (matcher.find()) {
-            progress.add(new ProgressPoint(
-                    Integer.parseInt(matcher.group(1)),
-                    Integer.parseInt(matcher.group(2)),
-                    Integer.parseInt(matcher.group(3))));
-        }
     }
 
     /**
@@ -946,6 +1372,43 @@ public final class EngineGauntletPanel extends JPanel {
         }
 
         /**
+         * Live, in-progress summary built from the running per-game tally. The
+         * {@code games} field carries the run's expected total so the Games card
+         * can show "played of total".
+         *
+         * @param wins candidate wins so far
+         * @param draws draws so far
+         * @param losses candidate losses so far
+         * @param expectedGames total games the run will play
+         * @param millis elapsed wall-clock time
+         * @return live summary
+         */
+        static ResultSummary live(int wins, int draws, int losses, int expectedGames, long millis) {
+            int played = wins + draws + losses;
+            Double scorePercent = played == 0 ? null : (wins + 0.5d * draws) / played * 100.0d;
+            return new ResultSummary(false, wins, draws, losses, expectedGames, scorePercent,
+                    liveElo(wins, draws, losses), "-", millis);
+        }
+
+        /**
+         * Returns the live point Elo string for a partial tally, or {@code "-"}
+         * when it is not yet defined (no wins or no losses).
+         *
+         * @param wins candidate wins
+         * @param draws draws
+         * @param losses candidate losses
+         * @return point Elo string, or {@code "-"}
+         */
+        private static String liveElo(int wins, int draws, int losses) {
+            int played = wins + draws + losses;
+            if (played == 0 || wins == 0 || losses == 0) {
+                return "-";
+            }
+            double p = (wins + 0.5d * draws) / played;
+            return String.format(Locale.ROOT, "%+.0f", eloOf(p) + 0.0d);
+        }
+
+        /**
          * Returns copy with error text.
          *
          * @param value error value
@@ -970,7 +1433,19 @@ public final class EngineGauntletPanel extends JPanel {
          * @return detail
          */
         String scoreDetail() {
-            return complete ? "candidate perspective" : "run a gauntlet";
+            if (complete) {
+                return "candidate perspective";
+            }
+            return played() > 0 ? "candidate view · running" : "run a gauntlet";
+        }
+
+        /**
+         * Returns the number of games played so far.
+         *
+         * @return played game count
+         */
+        private int played() {
+            return wins + draws + losses;
         }
 
         /**
@@ -988,25 +1463,96 @@ public final class EngineGauntletPanel extends JPanel {
          * @return detail
          */
         String wdlDetail() {
-            return complete ? "wins / draws / losses" : "not complete";
+            if (complete) {
+                return "wins / draws / losses";
+            }
+            return played() > 0 ? "so far · wins / draws / losses" : "not complete";
         }
 
         /**
-         * Elo value.
+         * Elo value, with a 95% error margin when one is defined.
          *
          * @return value
          */
         String eloText() {
-            return elo == null || elo.isBlank() ? "-" : elo;
+            if (elo == null || elo.isBlank()) {
+                return "-";
+            }
+            Double margin = eloMargin();
+            return margin == null ? elo : elo + " ± " + Math.round(margin);
         }
 
         /**
-         * Elo detail.
+         * Elo detail. Reports the confidence basis so it is clear that more
+         * games tighten the interval.
          *
          * @return detail
          */
         String eloDetail() {
-            return "point estimate";
+            Double margin = eloMargin();
+            return margin == null ? "point estimate" : "95% interval · " + played() + " games";
+        }
+
+        /**
+         * Returns the symmetric 95% Elo error margin for the match result, or
+         * {@code null} when it is undefined (no result, or an all-win/all-loss
+         * score whose Elo estimate is already infinite).
+         *
+         * <p>
+         * The margin shrinks as the game count grows, so a longer gauntlet
+         * yields a more precise strength estimate.
+         * </p>
+         *
+         * @return Elo error margin, or {@code null}
+         */
+        Double eloMargin() {
+            int n = played();
+            if (n <= 0 || wins <= 0 || losses <= 0) {
+                return null;
+            }
+            double p = (wins + 0.5d * draws) / n;
+            if (p <= 0.0d || p >= 1.0d) {
+                return null;
+            }
+            // Per-game score variance over the {1, 0.5, 0} outcomes, then the
+            // standard error of the mean score across the n games.
+            double variance = (wins * square(1.0d - p) + draws * square(0.5d - p) + losses * square(p)) / n;
+            double standardError = Math.sqrt(variance / n);
+            double z = 1.959964d; // two-sided 95%
+            double low = clampProbability(p - z * standardError);
+            double high = clampProbability(p + z * standardError);
+            return (eloOf(high) - eloOf(low)) / 2.0d;
+        }
+
+        /**
+         * Returns the logistic Elo difference for a score fraction.
+         *
+         * @param fraction score fraction in {@code (0, 1)}
+         * @return Elo difference
+         */
+        private static double eloOf(double fraction) {
+            return -400.0d * Math.log10(1.0d / fraction - 1.0d);
+        }
+
+        /**
+         * Clamps a probability away from the open-interval endpoints so the Elo
+         * conversion stays finite.
+         *
+         * @param value raw probability
+         * @return clamped probability
+         */
+        private static double clampProbability(double value) {
+            return Math.min(0.999999d, Math.max(0.000001d, value));
+        }
+
+        /**
+         * Returns the square of a value.
+         *
+         * @param value input
+         * @return value squared
+         */
+        private static double square(double value) {
+            return value * value;
         }
 
         /**
@@ -1015,6 +1561,9 @@ public final class EngineGauntletPanel extends JPanel {
          * @return value
          */
         String gamesText() {
+            if (!complete && played() > 0) {
+                return Integer.toString(played());
+            }
             return games <= 0 ? "-" : Integer.toString(games);
         }
 
@@ -1024,7 +1573,10 @@ public final class EngineGauntletPanel extends JPanel {
          * @return detail
          */
         String gamesDetail() {
-            return complete ? "completed games" : "configured games";
+            if (complete) {
+                return "completed games";
+            }
+            return played() > 0 ? "of " + games + " · running" : "configured games";
         }
 
         /**
@@ -1042,7 +1594,10 @@ public final class EngineGauntletPanel extends JPanel {
          * @return detail
          */
         String errorsDetail() {
-            return complete ? "process status" : "unavailable until run";
+            if (complete) {
+                return "process status";
+            }
+            return played() > 0 ? "running" : "unavailable until run";
         }
 
         /**
@@ -1192,22 +1747,30 @@ public final class EngineGauntletPanel extends JPanel {
             Graphics2D g = (Graphics2D) graphics.create();
             try {
                 g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                if (!result.complete() || result.games() <= 0) {
+                // Show the distribution over the games played so far, so the bar
+                // fills in live as a gauntlet runs rather than waiting for the end.
+                int played = result.wins() + result.draws() + result.losses();
+                if (played <= 0) {
                     Ui.paintEmptyState(g, new java.awt.Rectangle(0, 0, getWidth(), getHeight()),
-                            "No result yet", "Run a gauntlet to see win/draw/loss distribution.");
+                            "No result yet", "Win/draw/loss distribution fills in as games finish.");
                     return;
                 }
                 int x = Theme.SPACE_MD;
                 int y = getHeight() / 2 - 14;
                 int w = Math.max(1, getWidth() - Theme.SPACE_MD * 2);
                 int h = 28;
-                int games = Math.max(1, result.games());
-                int winW = Math.round(w * result.wins() / (float) games);
-                int drawW = Math.round(w * result.draws() / (float) games);
+                int winW = Math.round(w * result.wins() / (float) played);
+                int drawW = Math.round(w * result.draws() / (float) played);
                 int lossW = Math.max(0, w - winW - drawW);
+                // Clip the whole bar to a single rounded rectangle so only the
+                // outer left and right corners are rounded; the interior segment
+                // boundaries stay square.
+                java.awt.Shape oldClip = g.getClip();
+                g.clip(new java.awt.geom.RoundRectangle2D.Float(x, y, w, h, Theme.RADIUS, Theme.RADIUS));
                 paintSegment(g, x, y, winW, h, Theme.STATUS_SUCCESS_BORDER);
                 paintSegment(g, x + winW, y, drawW, h, Theme.STATUS_WARNING_BORDER);
                 paintSegment(g, x + winW + drawW, y, lossW, h, Theme.STATUS_ERROR_BORDER);
+                g.setClip(oldClip);
                 g.setFont(Theme.font(11, Font.BOLD));
                 g.setColor(Theme.TEXT);
                 g.drawString("wins " + result.wins() + "   draws " + result.draws()
@@ -1232,7 +1795,7 @@ public final class EngineGauntletPanel extends JPanel {
                 return;
             }
             g.setColor(color);
-            g.fillRoundRect(x, y, w, h, Theme.RADIUS, Theme.RADIUS);
+            g.fillRect(x, y, w, h);
         }
     }
 
@@ -1279,7 +1842,7 @@ public final class EngineGauntletPanel extends JPanel {
                 g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 if (points.isEmpty()) {
                     Ui.paintEmptyState(g, new java.awt.Rectangle(0, 0, getWidth(), getHeight()),
-                            "No running score", "Running W-D-L snapshots appear during a gauntlet.");
+                            "No games yet", "The candidate's running score plots here as each game finishes.");
                     return;
                 }
                 int left = Theme.SPACE_LG;
@@ -1337,13 +1900,58 @@ public final class EngineGauntletPanel extends JPanel {
                 selected(searchB),
                 selected(evalA),
                 selected(evalB),
-                text(nodes, "3000"),
                 text(openings, "8"),
                 text(seed, "20260531"),
                 text(maxPlies, "160"),
                 text(workers, "1"),
                 text(threadsA, "1"),
-                text(threadsB, "1"));
+                text(threadsB, "1"),
+                externalOnly(engineModeA, engineA),
+                externalOnly(engineModeB, engineB),
+                externalOnly(engineModeA, hashA),
+                externalOnly(engineModeB, hashB),
+                externalOnly(engineModeA, optionsA),
+                externalOnly(engineModeB, optionsB),
+                budgetText(budgetTypeA, budgetValueA),
+                budgetText(budgetTypeB, budgetValueB));
+    }
+
+    /**
+     * Returns a field's text only when the side is in External mode, so
+     * external-engine settings never leak into a built-in run.
+     *
+     * @param mode engine-source selector
+     * @param field external-only field
+     * @return field text when external, otherwise empty
+     */
+    private static String externalOnly(JComboBox<String> mode, JTextField field) {
+        return isExternal(mode) ? optional(field) : "";
+    }
+
+    /**
+     * Returns the per-side budget string, encoding a time budget with an
+     * {@code ms} suffix and a node budget as a plain number.
+     *
+     * @param type budget-unit selector
+     * @param value budget-value field
+     * @return budget string
+     */
+    private static String budgetText(JComboBox<String> type, JTextField value) {
+        String amount = text(value, "3000");
+        return BUDGET_TIME.equals(selected(type)) ? amount + "ms" : amount;
+    }
+
+    /**
+     * Returns trimmed field text, or an empty string when blank. Unlike
+     * {@link #text(JTextField, String)} this never substitutes a default, so an
+     * optional control left blank stays blank.
+     *
+     * @param field source field
+     * @return trimmed text, or empty
+     */
+    private static String optional(JTextField field) {
+        String value = field.getText();
+        return value == null ? "" : value.trim();
     }
 
     /**
@@ -1417,13 +2025,20 @@ public final class EngineGauntletPanel extends JPanel {
      * @param searchB baseline search
      * @param evalA candidate evaluator
      * @param evalB baseline evaluator
-     * @param nodes fixed nodes per move
      * @param openings seeded opening count
      * @param seed opening seed
      * @param maxPlies draw-adjudication ply cap
      * @param workers opening-pair workers
      * @param threadsA candidate threads
      * @param threadsB baseline threads
+     * @param engineA candidate external UCI engine command, or empty
+     * @param engineB baseline external UCI engine command, or empty
+     * @param hashA candidate external engine hash size (MB), or empty
+     * @param hashB baseline external engine hash size (MB), or empty
+     * @param optionsA candidate external engine extra UCI options, or empty
+     * @param optionsB baseline external engine extra UCI options, or empty
+     * @param budgetA candidate per-move budget override, or empty
+     * @param budgetB baseline per-move budget override, or empty
      */
     public record GauntletConfig(
             String featuresA,
@@ -1432,12 +2047,19 @@ public final class EngineGauntletPanel extends JPanel {
             String searchB,
             String evalA,
             String evalB,
-            String nodes,
             String openings,
             String seed,
             String maxPlies,
             String workers,
             String threadsA,
-            String threadsB) {
+            String threadsB,
+            String engineA,
+            String engineB,
+            String hashA,
+            String hashB,
+            String optionsA,
+            String optionsB,
+            String budgetA,
+            String budgetB) {
     }
 }

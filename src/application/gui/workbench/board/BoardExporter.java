@@ -9,6 +9,8 @@ import chess.images.assets.Shapes;
 import chess.images.assets.shape.SvgShapes;
 import java.awt.BasicStroke;
 import java.awt.Color;
+import java.awt.Font;
+import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -52,6 +54,21 @@ public final class BoardExporter {
      * Suggested-move export arrow opacity.
      */
     private static final int SUGGESTED_ARROW_ALPHA = BoardStyle.BOARD_ARROW_OPACITY;
+
+    /**
+     * Horizontal glyph-circle center within the target square.
+     */
+    private static final double GLYPH_CENTER_X_FRACTION = 0.75;
+
+    /**
+     * Vertical glyph-circle center within the target square.
+     */
+    private static final double GLYPH_CENTER_Y_FRACTION = 0.25;
+
+    /**
+     * Glyph-circle diameter relative to the target square.
+     */
+    private static final double GLYPH_DIAMETER_FRACTION = 0.50;
 
     /**
      * Prevents instantiation.
@@ -147,13 +164,15 @@ public final class BoardExporter {
     private static void paintRaster(BoardExportSnapshot snapshot, Graphics2D g, Rectangle board, int border) {
         g.setColor(Theme.BOARD_EDGE);
         g.fillRect(board.x - border, board.y - border, board.width + border * 2, board.height + border * 2);
-        BoardStyle.drawBoardSurface(g, board, false);
+        BoardStyle.drawBoardSurface(g, board, false, snapshot.boardLightColor(), snapshot.boardDarkColor());
         if (snapshot.showNotation()) {
-            BoardStyle.drawInsideCoordinates(g, board, snapshot.whiteDown(), Math.max(12, board.width / 44));
+            BoardStyle.drawInsideCoordinates(g, board, snapshot.whiteDown(), Math.max(12, board.width / 44),
+                    snapshot.boardLightColor(), snapshot.boardDarkColor());
         }
         paintRasterHighlights(snapshot, g, board);
+        paintRasterBackgroundAnnotations(snapshot, g, board);
         paintRasterPieces(snapshot, g, board);
-        paintRasterAnnotations(snapshot, g, board);
+        paintRasterForegroundAnnotations(snapshot, g, board);
     }
 
     /**
@@ -216,13 +235,29 @@ public final class BoardExporter {
     }
 
     /**
-     * Paints suggested and user annotations into the raster export.
+     * Paints under-piece user annotations into the raster export.
      *
      * @param snapshot board state
      * @param g graphics context
      * @param board board rectangle
      */
-    private static void paintRasterAnnotations(BoardExportSnapshot snapshot, Graphics2D g, Rectangle board) {
+    private static void paintRasterBackgroundAnnotations(BoardExportSnapshot snapshot, Graphics2D g, Rectangle board) {
+        BoardArrowPainter arrows = new BoardArrowPainter();
+        for (BoardMarkup markup : snapshot.boardMarkups()) {
+            if (markup.isRectangle()) {
+                paintRasterMarkup(snapshot, g, board, arrows, markup);
+            }
+        }
+    }
+
+    /**
+     * Paints suggested and foreground user annotations into the raster export.
+     *
+     * @param snapshot board state
+     * @param g graphics context
+     * @param board board rectangle
+     */
+    private static void paintRasterForegroundAnnotations(BoardExportSnapshot snapshot, Graphics2D g, Rectangle board) {
         BoardArrowPainter arrows = new BoardArrowPainter();
         if (snapshot.showSuggestedMoveArrow() && snapshot.suggestedMove() != Move.NO_MOVE) {
             g.setColor(Theme.withAlpha(Theme.BOARD_ARROW, SUGGESTED_ARROW_ALPHA));
@@ -232,17 +267,73 @@ public final class BoardExporter {
                     Math.max(8f, board.width / 80f),
                     board.width / 8.0 * BoardStyle.ARROW_PIECE_GAP_FRACTION);
         }
+        if (snapshot.showSpecialMoveHints()) {
+            paintRasterSpecialMoveHints(snapshot, g, board, arrows);
+        }
         for (BoardMarkup markup : snapshot.boardMarkups()) {
-            g.setColor(markup.brush().displayColor());
-            if (markup.isCircle()) {
-                paintRasterCircle(g, BoardGeometry.squareBounds(board, markup.from(), snapshot.whiteDown()), markup.brush());
-            } else {
-                arrows.draw(g,
-                        BoardGeometry.center(board, markup.from(), snapshot.whiteDown()),
-                        BoardGeometry.center(board, markup.to(), snapshot.whiteDown()),
-                        Math.max(5f, board.width / 8f * markup.brush().lineWidth() / 64f),
-                        board.width / 8.0 * BoardStyle.ARROW_PIECE_GAP_FRACTION);
+            if (!markup.isRectangle()) {
+                paintRasterMarkup(snapshot, g, board, arrows, markup);
             }
+        }
+    }
+
+    /**
+     * Paints special-move hint arrows.
+     *
+     * @param snapshot board state
+     * @param g graphics context
+     * @param board board rectangle
+     * @param arrows arrow painter
+     */
+    private static void paintRasterSpecialMoveHints(BoardExportSnapshot snapshot, Graphics2D g, Rectangle board,
+            BoardArrowPainter arrows) {
+        int cell = Math.max(1, board.width / 8);
+        float lineWidth = Math.max(5f, board.width / 80f);
+        double gap = cell * BoardStyle.ARROW_PIECE_GAP_FRACTION;
+        Color savedColor = g.getColor();
+        try {
+            g.setColor(BoardStyle.SPECIAL_MOVE_HINT_FILL);
+            for (Short arrow : BoardSpecialMoveHints.arrows(snapshot.position())) {
+                short move = arrow.shortValue();
+                arrows.draw(g,
+                        BoardGeometry.center(board, Move.getFromIndex(move), snapshot.whiteDown()),
+                        BoardGeometry.center(board, Move.getToIndex(move), snapshot.whiteDown()),
+                        lineWidth,
+                        gap,
+                        BoardStyle.SPECIAL_MOVE_HINT_BORDER);
+            }
+        } finally {
+            g.setColor(savedColor);
+        }
+    }
+
+    /**
+     * Paints one user markup annotation.
+     *
+     * @param snapshot board state
+     * @param g graphics context
+     * @param board board rectangle
+     * @param arrows arrow painter
+     * @param markup markup
+     */
+    private static void paintRasterMarkup(BoardExportSnapshot snapshot, Graphics2D g, Rectangle board,
+            BoardArrowPainter arrows, BoardMarkup markup) {
+        if (markup.isCircle()) {
+            paintRasterCircle(g, BoardGeometry.squareBounds(board, markup.from(), snapshot.whiteDown()), markup.brush());
+        } else if (markup.isRectangle()) {
+            paintRasterRectangle(g, rectangleBounds(board, markup, snapshot.whiteDown()), markup.brush(), board.width / 8);
+        } else if (markup.isGlyph()) {
+            paintRasterGlyph(g, BoardGeometry.squareBounds(board, markup.from(), snapshot.whiteDown()), markup.brush());
+        } else if (markup.isArrow()) {
+            g.setColor(markup.brush().displayColor());
+            arrows.draw(g,
+                    BoardGeometry.center(board, markup.from(), snapshot.whiteDown()),
+                    BoardGeometry.center(board, markup.to(), snapshot.whiteDown()),
+                    Math.max(5f, board.width / 8f * markup.brush().lineWidth() / 64f),
+                    board.width / 8.0 * BoardStyle.ARROW_PIECE_GAP_FRACTION,
+                    markup.brush().displayBorderColor(),
+                    (float) arrowBorderWidth(Math.max(5f, board.width / 8f * markup.brush().lineWidth() / 64f),
+                            markup.brush()));
         }
     }
 
@@ -256,13 +347,99 @@ public final class BoardExporter {
     private static void paintRasterCircle(Graphics2D g, Rectangle bounds, MarkupBrush brush) {
         Stroke savedStroke = g.getStroke();
         try {
-            float strokeWidth = Math.max(3f, bounds.width * brush.lineWidth() / 160f);
-            g.setStroke(new BasicStroke(strokeWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            float strokeWidth = annotationBorderWidth(bounds.width, brush);
+            Color fill = brush.displayColor();
+            g.setColor(Theme.withAlpha(fill, Math.round(fill.getAlpha() * 0.28f)));
             int inset = Math.round(strokeWidth / 2f);
-            g.drawOval(bounds.x + inset, bounds.y + inset,
+            g.fillOval(bounds.x + inset, bounds.y + inset,
                     Math.max(1, bounds.width - inset * 2), Math.max(1, bounds.height - inset * 2));
+            Color border = brush.displayBorderColor();
+            if (strokeWidth > 0f && border.getAlpha() > 0) {
+                g.setColor(border);
+                g.setStroke(new BasicStroke(strokeWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g.drawOval(bounds.x + inset, bounds.y + inset,
+                        Math.max(1, bounds.width - inset * 2), Math.max(1, bounds.height - inset * 2));
+            }
         } finally {
             g.setStroke(savedStroke);
+        }
+    }
+
+    /**
+     * Paints one filled rectangle markup.
+     *
+     * @param g graphics context
+     * @param bounds rectangle bounds
+     * @param brush annotation brush
+     * @param cell board cell size
+     */
+    private static void paintRasterRectangle(Graphics2D g, Rectangle bounds, MarkupBrush brush, int cell) {
+        Stroke savedStroke = g.getStroke();
+        try {
+            float strokeWidth = annotationBorderWidth(cell, brush);
+            boolean rounded = brush.displayRoundedRectangle();
+            int arc = rectangleCornerArc(cell);
+            g.setColor(brush.displayColor());
+            if (rounded) {
+                g.fillRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, arc, arc);
+            } else {
+                g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+            }
+            Color border = brush.displayBorderColor();
+            if (strokeWidth > 0f && border.getAlpha() > 0) {
+                g.setColor(border);
+                g.setStroke(new BasicStroke(strokeWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int inset = Math.round(strokeWidth / 2f);
+                int width = Math.max(1, bounds.width - inset * 2);
+                int height = Math.max(1, bounds.height - inset * 2);
+                if (rounded) {
+                    int insetArc = Math.max(1, arc - inset * 2);
+                    g.drawRoundRect(bounds.x + inset, bounds.y + inset, width, height, insetArc, insetArc);
+                } else {
+                    g.drawRect(bounds.x + inset, bounds.y + inset, width, height);
+                }
+            }
+        } finally {
+            g.setStroke(savedStroke);
+        }
+    }
+
+    /**
+     * Paints one glyph markup.
+     *
+     * @param g graphics context
+     * @param bounds square bounds
+     * @param brush annotation brush
+     */
+    private static void paintRasterGlyph(Graphics2D g, Rectangle bounds, MarkupBrush brush) {
+        Font savedFont = g.getFont();
+        Stroke savedStroke = g.getStroke();
+        try {
+            int cell = Math.min(bounds.width, bounds.height);
+            String glyph = brush.glyph();
+            Font font = Theme.font(Math.max(12, Math.round(cell * 0.34f)), Font.BOLD);
+            g.setFont(font);
+            FontMetrics metrics = g.getFontMetrics();
+            float borderWidth = glyphBorderWidth(cell, brush);
+            int diameter = glyphDiameter(cell, borderWidth);
+            int centerX = glyphCenterX(bounds);
+            int centerY = glyphCenterY(bounds);
+            int x = Math.round(centerX - diameter / 2f);
+            int y = Math.round(centerY - diameter / 2f);
+            g.setColor(brush.displayColor());
+            g.fillOval(x, y, diameter, diameter);
+            Color border = brush.displayBorderColor();
+            if (borderWidth > 0f && border.getAlpha() > 0) {
+                g.setColor(border);
+                g.setStroke(new BasicStroke(borderWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g.drawOval(x, y, diameter, diameter);
+            }
+            g.setColor(border);
+            g.drawString(glyph, centerX - metrics.stringWidth(glyph) / 2,
+                    centerY + (metrics.getAscent() - metrics.getDescent()) / 2);
+        } finally {
+            g.setStroke(savedStroke);
+            g.setFont(savedFont);
         }
     }
 
@@ -277,13 +454,14 @@ public final class BoardExporter {
     private static void appendBoardSvg(BoardExportSnapshot snapshot, StringBuilder svg, Rectangle board, int border) {
         appendRect(svg, board.x - border, board.y - border, board.width + border * 2,
                 board.height + border * 2, Theme.BOARD_EDGE);
-        appendSquares(svg, board);
+        appendSquares(snapshot, svg, board);
         if (snapshot.showNotation()) {
-            appendCoordinates(svg, board, snapshot.whiteDown());
+            appendCoordinates(snapshot, svg, board, snapshot.whiteDown());
         }
         appendSvgHighlights(snapshot, svg, board);
+        appendSvgBackgroundAnnotations(snapshot, svg, board);
         appendSvgPieces(snapshot, svg, board);
-        appendSvgAnnotations(snapshot, svg, board);
+        appendSvgForegroundAnnotations(snapshot, svg, board);
     }
 
     /**
@@ -292,12 +470,13 @@ public final class BoardExporter {
      * @param svg destination builder
      * @param board board rectangle
      */
-    private static void appendSquares(StringBuilder svg, Rectangle board) {
+    private static void appendSquares(BoardExportSnapshot snapshot, StringBuilder svg, Rectangle board) {
         svg.append("  <g shape-rendering=\"crispEdges\">\n");
         for (int row = 0; row < 8; row++) {
             for (int col = 0; col < 8; col++) {
                 Rectangle cell = BoardStyle.cellBounds(board, row, col);
-                appendRect(svg, cell.x, cell.y, cell.width, cell.height, BoardStyle.squareColor(row, col));
+                appendRect(svg, cell.x, cell.y, cell.width, cell.height,
+                        BoardStyle.squareColor(row, col, snapshot.boardLightColor(), snapshot.boardDarkColor()));
             }
         }
         svg.append("  </g>\n");
@@ -417,13 +596,31 @@ public final class BoardExporter {
     }
 
     /**
-     * Appends suggested and user annotations.
+     * Appends under-piece user annotations.
      *
      * @param snapshot board state
      * @param svg destination builder
      * @param board board rectangle
      */
-    private static void appendSvgAnnotations(BoardExportSnapshot snapshot, StringBuilder svg, Rectangle board) {
+    private static void appendSvgBackgroundAnnotations(BoardExportSnapshot snapshot, StringBuilder svg,
+            Rectangle board) {
+        for (BoardMarkup markup : snapshot.boardMarkups()) {
+            if (markup.isRectangle()) {
+                appendRectangleMarkup(svg, rectangleBounds(board, markup, snapshot.whiteDown()), markup.brush(),
+                        board.width / 8);
+            }
+        }
+    }
+
+    /**
+     * Appends suggested and foreground user annotations.
+     *
+     * @param snapshot board state
+     * @param svg destination builder
+     * @param board board rectangle
+     */
+    private static void appendSvgForegroundAnnotations(BoardExportSnapshot snapshot, StringBuilder svg,
+            Rectangle board) {
         if (snapshot.showSuggestedMoveArrow() && snapshot.suggestedMove() != Move.NO_MOVE) {
             appendArrow(svg,
                     BoardGeometry.center(board, Move.getFromIndex(snapshot.suggestedMove()), snapshot.whiteDown()),
@@ -432,18 +629,48 @@ public final class BoardExporter {
                     board.width / 8.0 * BoardStyle.ARROW_PIECE_GAP_FRACTION,
                     Theme.withAlpha(Theme.BOARD_ARROW, SUGGESTED_ARROW_ALPHA));
         }
+        if (snapshot.showSpecialMoveHints()) {
+            appendSvgSpecialMoveHints(snapshot, svg, board);
+        }
         for (BoardMarkup markup : snapshot.boardMarkups()) {
-            Color color = markup.brush().displayColor();
             if (markup.isCircle()) {
-                appendCircleMarkup(svg, BoardGeometry.squareBounds(board, markup.from(), snapshot.whiteDown()), markup.brush(), color);
-            } else {
+                appendCircleMarkup(svg, BoardGeometry.squareBounds(board, markup.from(), snapshot.whiteDown()), markup.brush());
+            } else if (markup.isGlyph()) {
+                appendGlyphMarkup(svg, BoardGeometry.squareBounds(board, markup.from(), snapshot.whiteDown()),
+                        markup.brush());
+            } else if (markup.isArrow()) {
                 appendArrow(svg,
                         BoardGeometry.center(board, markup.from(), snapshot.whiteDown()),
                         BoardGeometry.center(board, markup.to(), snapshot.whiteDown()),
                         Math.max(5.0, board.width / 8.0 * markup.brush().lineWidth() / 64.0),
                         board.width / 8.0 * BoardStyle.ARROW_PIECE_GAP_FRACTION,
-                        color);
+                        markup.brush().displayColor(),
+                        markup.brush().displayBorderColor(),
+                        arrowBorderWidth(Math.max(5.0, board.width / 8.0 * markup.brush().lineWidth() / 64.0),
+                                markup.brush()));
             }
+        }
+    }
+
+    /**
+     * Appends special-move hint arrows.
+     *
+     * @param snapshot board state
+     * @param svg destination builder
+     * @param board board rectangle
+     */
+    private static void appendSvgSpecialMoveHints(BoardExportSnapshot snapshot, StringBuilder svg, Rectangle board) {
+        double lineWidth = Math.max(5.0, board.width / 80.0);
+        double gap = board.width / 8.0 * BoardStyle.ARROW_PIECE_GAP_FRACTION;
+        for (Short arrow : BoardSpecialMoveHints.arrows(snapshot.position())) {
+            short move = arrow.shortValue();
+            appendArrow(svg,
+                    BoardGeometry.center(board, Move.getFromIndex(move), snapshot.whiteDown()),
+                    BoardGeometry.center(board, Move.getToIndex(move), snapshot.whiteDown()),
+                    lineWidth,
+                    gap,
+                    BoardStyle.SPECIAL_MOVE_HINT_FILL,
+                    BoardStyle.SPECIAL_MOVE_HINT_BORDER);
         }
     }
 
@@ -460,6 +687,39 @@ public final class BoardExporter {
      */
     private static void appendArrow(StringBuilder svg, Point from, Point to,
             double lineWidth, double gap, Color color) {
+        appendArrow(svg, from, to, lineWidth, gap, color, null);
+    }
+
+    /**
+     * Appends one filled arrow polygon with an optional border.
+     *
+     * @param svg destination builder
+     * @param from origin point
+     * @param to target point
+     * @param lineWidth line width
+     * @param gap endpoint gap
+     * @param color fill color
+     * @param borderColor border color, or null
+     */
+    private static void appendArrow(StringBuilder svg, Point from, Point to,
+            double lineWidth, double gap, Color color, Color borderColor) {
+        appendArrow(svg, from, to, lineWidth, gap, color, borderColor, Math.max(1.5, lineWidth * 0.16));
+    }
+
+    /**
+     * Appends one filled arrow polygon with an optional border.
+     *
+     * @param svg destination builder
+     * @param from origin point
+     * @param to target point
+     * @param lineWidth line width
+     * @param gap endpoint gap
+     * @param color fill color
+     * @param borderColor border color, or null
+     * @param borderWidth border width
+     */
+    private static void appendArrow(StringBuilder svg, Point from, Point to,
+            double lineWidth, double gap, Color color, Color borderColor, double borderWidth) {
         double distance = from.distance(to);
         if (distance < 2.0) {
             return;
@@ -505,6 +765,12 @@ public final class BoardExporter {
                 .append(format(startY - py * halfWidth))
                 .append(" Z\" fill=\"").append(colorCss(color)).append("\"");
         appendOpacity(svg, color);
+        if (borderColor != null && borderColor.getAlpha() > 0 && borderWidth > 0.0) {
+            svg.append(" stroke=\"").append(colorCss(borderColor)).append("\"");
+            appendStrokeOpacity(svg, borderColor);
+            svg.append(" stroke-width=\"").append(format(borderWidth)).append("\"")
+                    .append(" stroke-linejoin=\"round\" stroke-linecap=\"round\"");
+        }
         svg.append("/>\n");
     }
 
@@ -516,14 +782,199 @@ public final class BoardExporter {
      * @param brush annotation brush
      * @param color stroke color
      */
-    private static void appendCircleMarkup(StringBuilder svg, Rectangle bounds, MarkupBrush brush, Color color) {
-        double strokeWidth = Math.max(3.0, bounds.width * brush.lineWidth() / 160.0);
+    private static void appendCircleMarkup(StringBuilder svg, Rectangle bounds, MarkupBrush brush) {
+        Color fill = brush.displayColor();
+        Color circleFill = Theme.withAlpha(fill, Math.round(fill.getAlpha() * 0.28f));
+        Color border = brush.displayBorderColor();
+        double strokeWidth = annotationBorderWidth(bounds.width, brush);
         double radius = Math.max(4.0, (Math.min(bounds.width, bounds.height) - strokeWidth) / 2.0);
         svg.append("  <circle cx=\"").append(format(bounds.getCenterX())).append("\" cy=\"")
                 .append(format(bounds.getCenterY())).append("\" r=\"").append(format(radius))
-                .append("\" fill=\"none\" stroke=\"").append(colorCss(color)).append("\"");
-        appendStrokeOpacity(svg, color);
-        svg.append(" stroke-width=\"").append(format(strokeWidth)).append("\"/>\n");
+                .append("\" fill=\"").append(colorCss(circleFill)).append("\"");
+        appendOpacity(svg, circleFill);
+        if (border.getAlpha() > 0 && strokeWidth > 0.0) {
+            svg.append(" stroke=\"").append(colorCss(border)).append("\"");
+            appendStrokeOpacity(svg, border);
+            svg.append(" stroke-width=\"").append(format(strokeWidth)).append('"');
+        }
+        svg.append("/>\n");
+    }
+
+    /**
+     * Returns the visual bounds covered by a rectangle markup.
+     *
+     * @param board board bounds
+     * @param markup rectangle markup
+     * @param whiteDown true when white is at the bottom
+     * @return rectangle bounds
+     */
+    private static Rectangle rectangleBounds(Rectangle board, BoardMarkup markup, boolean whiteDown) {
+        Rectangle first = BoardGeometry.squareBounds(board, markup.from(), whiteDown);
+        Rectangle second = BoardGeometry.squareBounds(board, markup.to(), whiteDown);
+        return first.union(second);
+    }
+
+    /**
+     * Appends one filled rectangle markup.
+     *
+     * @param svg destination builder
+     * @param bounds rectangle bounds
+     * @param brush annotation brush
+     * @param cell board cell size
+     */
+    private static void appendRectangleMarkup(StringBuilder svg, Rectangle bounds, MarkupBrush brush, int cell) {
+        Color fill = brush.displayColor();
+        Color border = brush.displayBorderColor();
+        double strokeWidth = annotationBorderWidth(cell, brush);
+        svg.append("  <rect x=\"").append(format(bounds.x)).append("\" y=\"").append(format(bounds.y))
+                .append("\" width=\"").append(format(bounds.width)).append("\" height=\"")
+                .append(format(bounds.height)).append("\"");
+        if (brush.displayRoundedRectangle()) {
+            svg.append(" rx=\"").append(format(rectangleCornerRadius(cell))).append("\"")
+                    .append(" ry=\"").append(format(rectangleCornerRadius(cell))).append("\"");
+        }
+        svg.append(" fill=\"").append(colorCss(fill)).append("\"");
+        appendOpacity(svg, fill);
+        if (border.getAlpha() > 0 && strokeWidth > 0.0) {
+            svg.append(" stroke=\"").append(colorCss(border)).append("\"");
+            appendStrokeOpacity(svg, border);
+            svg.append(" stroke-width=\"").append(format(strokeWidth)).append("\"");
+        }
+        svg.append("/>\n");
+    }
+
+    /**
+     * Appends one glyph markup.
+     *
+     * @param svg destination builder
+     * @param bounds square bounds
+     * @param brush annotation brush
+     */
+    private static void appendGlyphMarkup(StringBuilder svg, Rectangle bounds, MarkupBrush brush) {
+        int cell = Math.min(bounds.width, bounds.height);
+        String glyph = brush.glyph();
+        double fontSize = Math.max(12.0, cell * 0.34);
+        Color fill = brush.displayColor();
+        Color border = brush.displayBorderColor();
+        double strokeWidth = glyphBorderWidth(cell, brush);
+        double cx = glyphCenterX(bounds);
+        double cy = glyphCenterY(bounds);
+        double radius = glyphRadius(cell, strokeWidth);
+        svg.append("  <circle cx=\"").append(format(cx)).append("\" cy=\"").append(format(cy))
+                .append("\" r=\"").append(format(radius))
+                .append("\" fill=\"").append(colorCss(fill)).append("\"");
+        appendOpacity(svg, fill);
+        if (border.getAlpha() > 0 && strokeWidth > 0.0) {
+            svg.append(" stroke=\"").append(colorCss(border)).append("\"");
+            appendStrokeOpacity(svg, border);
+            svg.append(" stroke-width=\"").append(format(strokeWidth)).append("\"");
+        }
+        svg.append("/>\n");
+        svg.append("  <text x=\"").append(format(cx)).append("\" y=\"")
+                .append(format(cy)).append("\" fill=\"").append(colorCss(border)).append("\"");
+        appendOpacity(svg, border);
+        svg.append(" font-family=\"Inter, Segoe UI, sans-serif\" font-size=\"")
+                .append(format(fontSize))
+                .append("\" font-weight=\"700\" text-anchor=\"middle\" dominant-baseline=\"central\">")
+                .append(escape(glyph)).append("</text>\n");
+    }
+
+    /**
+     * Scales a brush border width to one board square.
+     *
+     * @param cell board cell size
+     * @param brush annotation brush
+     * @return scaled border width
+     */
+    private static float annotationBorderWidth(int cell, MarkupBrush brush) {
+        int width = brush.displayBorderWidth();
+        return width <= 0 ? 0f : Math.max(1f, cell * width / 64f);
+    }
+
+    /**
+     * Returns the rectangle corner arc diameter for rounded annotations.
+     *
+     * @param cell board cell size
+     * @return corner arc diameter
+     */
+    private static int rectangleCornerArc(int cell) {
+        return Math.max(6, Math.round(cell * 0.22f));
+    }
+
+    /**
+     * Returns the SVG rectangle corner radius for rounded annotations.
+     *
+     * @param cell board cell size
+     * @return corner radius
+     */
+    private static double rectangleCornerRadius(int cell) {
+        return rectangleCornerArc(cell) / 2.0;
+    }
+
+    /**
+     * Scales a brush border width for compact glyph badges.
+     *
+     * @param cell board cell size
+     * @param brush annotation brush
+     * @return scaled glyph border width
+     */
+    private static float glyphBorderWidth(int cell, MarkupBrush brush) {
+        int width = brush.displayBorderWidth();
+        return width <= 0 ? 0f : Math.max(1f, cell * width / 192f);
+    }
+
+    /**
+     * Returns the horizontal glyph circle center.
+     *
+     * @param bounds square bounds
+     * @return center x
+     */
+    private static int glyphCenterX(Rectangle bounds) {
+        return bounds.x + Math.round((float) (bounds.width * GLYPH_CENTER_X_FRACTION));
+    }
+
+    /**
+     * Returns the vertical glyph circle center.
+     *
+     * @param bounds square bounds
+     * @return center y
+     */
+    private static int glyphCenterY(Rectangle bounds) {
+        return bounds.y + Math.round((float) (bounds.height * GLYPH_CENTER_Y_FRACTION));
+    }
+
+    /**
+     * Returns a glyph circle diameter that keeps the outline inside the square.
+     *
+     * @param cell board cell size
+     * @param borderWidth scaled border width
+     * @return circle diameter
+     */
+    private static int glyphDiameter(int cell, float borderWidth) {
+        return Math.max(1, Math.round((float) (cell * GLYPH_DIAMETER_FRACTION - borderWidth)));
+    }
+
+    /**
+     * Returns a glyph circle radius that keeps the outline inside the square.
+     *
+     * @param cell board cell size
+     * @param borderWidth scaled border width
+     * @return circle radius
+     */
+    private static double glyphRadius(int cell, double borderWidth) {
+        return Math.max(0.5, cell * GLYPH_DIAMETER_FRACTION / 2.0 - borderWidth / 2.0);
+    }
+
+    /**
+     * Scales a brush border width for arrow silhouettes.
+     *
+     * @param lineWidth arrow line width
+     * @param brush annotation brush
+     * @return scaled arrow border width
+     */
+    private static double arrowBorderWidth(double lineWidth, MarkupBrush brush) {
+        int width = brush.displayBorderWidth();
+        return width <= 0 ? 0.0 : Math.max(1.0, lineWidth * width / 25.0);
     }
 
     /**
@@ -533,7 +984,8 @@ public final class BoardExporter {
      * @param board board rectangle
      * @param whiteDown board orientation
      */
-    private static void appendCoordinates(StringBuilder svg, Rectangle board, boolean whiteDown) {
+    private static void appendCoordinates(BoardExportSnapshot snapshot, StringBuilder svg, Rectangle board,
+            boolean whiteDown) {
         int fontSize = Math.max(12, board.width / 44);
         int fileInlinePad = Math.max(2, Math.round(fontSize / 4.5f));
         int fileBlockPad = Math.max(1, Math.round(fontSize / 14.0f));
@@ -552,11 +1004,11 @@ public final class BoardExporter {
             appendText(svg, fileText,
                     fileCell.x + fileCell.width - fileInlinePad - fontSize * 0.7,
                     fileCell.y + fileCell.height - fileBlockPad - fontSize * 0.22,
-                    coordinateColor(7, i));
+                    coordinateColor(7, i, snapshot.boardLightColor(), snapshot.boardDarkColor()));
             appendText(svg, rankText,
                     rankCell.x + rankInlinePad,
                     rankCell.y + rankBlockPad + fontSize,
-                    coordinateColor(i, 0));
+                    coordinateColor(i, 0, snapshot.boardLightColor(), snapshot.boardDarkColor()));
         }
         svg.append("  </g>\n");
     }
@@ -695,8 +1147,8 @@ public final class BoardExporter {
      * @param col visual column
      * @return coordinate text color
      */
-    private static Color coordinateColor(int row, int col) {
-        return ((row + col) & 1) == 0 ? Theme.BOARD_DARK : Theme.BOARD_LIGHT;
+    private static Color coordinateColor(int row, int col, Color light, Color dark) {
+        return ((row + col) & 1) == 0 ? dark : light;
     }
 
     /**

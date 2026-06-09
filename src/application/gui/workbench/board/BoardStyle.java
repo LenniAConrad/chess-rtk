@@ -37,6 +37,16 @@ public final class BoardStyle {
     public static final double ARROW_PIECE_GAP_FRACTION = 0.25;
 
     /**
+     * Fill color for automatic castling-right and en-passant hint arrows.
+     */
+    public static final Color SPECIAL_MOVE_HINT_FILL = new Color(120, 120, 120, 153);
+
+    /**
+     * Border color for automatic castling-right and en-passant hint arrows.
+     */
+    public static final Color SPECIAL_MOVE_HINT_BORDER = new Color(0, 0, 0, 0);
+
+    /**
      * Prevents instantiation.
      */
     private BoardStyle() {
@@ -52,6 +62,21 @@ public final class BoardStyle {
      */
     public static Color squareColor(int row, int col) {
         return ((row + col) & 1) == 0 ? Theme.BOARD_LIGHT : Theme.BOARD_DARK;
+    }
+
+    /**
+     * Returns the square color for a visual board cell with custom colors.
+     *
+     * @param row visual row
+     * @param col visual column
+     * @param light light-square color
+     * @param dark dark-square color
+     * @return board square color
+     */
+    public static Color squareColor(int row, int col, Color light, Color dark) {
+        Color lightColor = light == null ? Theme.BOARD_LIGHT : light;
+        Color darkColor = dark == null ? Theme.BOARD_DARK : dark;
+        return ((row + col) & 1) == 0 ? lightColor : darkColor;
     }
 
     /**
@@ -113,13 +138,26 @@ public final class BoardStyle {
      * @param drawBorder true to draw the board edge inside the rectangle
      */
     public static void drawBoardSurface(Graphics2D g, Rectangle board, boolean drawBorder) {
+        drawBoardSurface(g, board, drawBorder, Theme.BOARD_LIGHT, Theme.BOARD_DARK);
+    }
+
+    /**
+     * Paints the chessboard surface with custom square colors.
+     *
+     * @param g graphics context
+     * @param board board rectangle
+     * @param drawBorder true to draw the board edge inside the rectangle
+     * @param light light-square color
+     * @param dark dark-square color
+     */
+    public static void drawBoardSurface(Graphics2D g, Rectangle board, boolean drawBorder, Color light, Color dark) {
         Color savedColor = g.getColor();
         Stroke savedStroke = g.getStroke();
         try {
             for (int row = 0; row < 8; row++) {
                 for (int col = 0; col < 8; col++) {
                     Rectangle cell = cellBounds(board, row, col);
-                    g.setColor(squareColor(row, col));
+                    g.setColor(squareColor(row, col, light, dark));
                     g.fillRect(cell.x, cell.y, cell.width, cell.height);
                 }
             }
@@ -280,6 +318,21 @@ public final class BoardStyle {
      * @param fontSize coordinate font size
      */
     public static void drawInsideCoordinates(Graphics2D g, Rectangle board, boolean whiteDown, int fontSize) {
+        drawInsideCoordinates(g, board, whiteDown, fontSize, Theme.BOARD_LIGHT, Theme.BOARD_DARK);
+    }
+
+    /**
+     * Draws chessboard.js-style coordinates inside custom-colored squares.
+     *
+     * @param g graphics context
+     * @param board board rectangle
+     * @param whiteDown whether white is rendered at the bottom
+     * @param fontSize coordinate font size
+     * @param light light-square color
+     * @param dark dark-square color
+     */
+    public static void drawInsideCoordinates(Graphics2D g, Rectangle board, boolean whiteDown, int fontSize,
+            Color light, Color dark) {
         int size = Math.max(7, fontSize);
         g.setFont(Theme.font(size, java.awt.Font.PLAIN));
         FontMetrics metrics = g.getFontMetrics();
@@ -297,11 +350,11 @@ public final class BoardStyle {
             drawCoordinateString(g, fileText,
                     fileCell.x + fileCell.width - metrics.stringWidth(fileText) - fileInlinePad,
                     fileCell.y + fileCell.height - fileBlockPad - metrics.getDescent(),
-                    squareColor(7, i));
+                    squareColor(7, i, light, dark), light, dark);
             drawCoordinateString(g, rankText,
                     rankCell.x + rankInlinePad,
                     rankCell.y + rankBlockPad + metrics.getAscent(),
-                    squareColor(i, 0));
+                    squareColor(i, 0, light, dark), light, dark);
         }
     }
 
@@ -315,9 +368,25 @@ public final class BoardStyle {
      * @param squareColor square color behind the label
      */
     private static void drawCoordinateString(Graphics2D g, String text, int x, int baseline, Color squareColor) {
+        drawCoordinateString(g, text, x, baseline, squareColor, Theme.BOARD_LIGHT, Theme.BOARD_DARK);
+    }
+
+    /**
+     * Draws one coordinate label directly on the square without a halo.
+     *
+     * @param g graphics context
+     * @param text coordinate label text
+     * @param x x coordinate
+     * @param baseline text baseline
+     * @param squareColor square color behind the label
+     * @param light light-square color
+     * @param dark dark-square color
+     */
+    private static void drawCoordinateString(Graphics2D g, String text, int x, int baseline, Color squareColor,
+            Color light, Color dark) {
         Color savedColor = g.getColor();
         try {
-            g.setColor(coordinateTextColor(squareColor));
+            g.setColor(coordinateTextColor(squareColor, light, dark));
             g.drawString(text, x, baseline);
         } finally {
             g.setColor(savedColor);
@@ -334,6 +403,37 @@ public final class BoardStyle {
      * @return coordinate label color
      */
     private static Color coordinateTextColor(Color squareColor) {
-        return Theme.BOARD_DARK.equals(squareColor) ? Theme.COORD_ON_DARK : Theme.COORD_ON_LIGHT;
+        return coordinateTextColor(squareColor, Theme.BOARD_LIGHT, Theme.BOARD_DARK);
+    }
+
+    /**
+     * Returns the coordinate label color paired to the board square colour.
+     *
+     * @param squareColor square color behind the label
+     * @param light light-square color
+     * @param dark dark-square color
+     * @return coordinate label color
+     */
+    private static Color coordinateTextColor(Color squareColor, Color light, Color dark) {
+        Color lightColor = light == null ? Theme.BOARD_LIGHT : light;
+        Color darkColor = dark == null ? Theme.BOARD_DARK : dark;
+        if (sameRgb(squareColor, darkColor)) {
+            return lightColor;
+        }
+        return darkColor;
+    }
+
+    /**
+     * Returns whether two colors share RGB channels.
+     *
+     * @param first first color
+     * @param second second color
+     * @return true when RGB channels match
+     */
+    private static boolean sameRgb(Color first, Color second) {
+        return first != null && second != null
+                && first.getRed() == second.getRed()
+                && first.getGreen() == second.getGreen()
+                && first.getBlue() == second.getBlue();
     }
 }

@@ -70,12 +70,14 @@
 <section class="nav-section"><h2>Commands</h2>
 <a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
 <a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="cli-command-guide.html" data-title="command guide">Command Guide</a>
 <a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
 <a class="" href="configuration.html" data-title="configuration">Configuration</a>
 <a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
 </section>
 <section class="nav-section"><h2>Desktop Workbench</h2>
 <a class="" href="workbench.html" data-title="workbench">Workbench</a>
+<a class="" href="workbench-design-guide.html" data-title="design guide">Design Guide</a>
 </section>
 <section class="nav-section"><h2>Engines &amp; Models</h2>
 <a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
@@ -172,7 +174,7 @@ java -cp &quot;$OUT&quot; testing.SelfPlayGauntlet --a SEE_PRUNING,SEARCH_REPETI
 <td>Pack each entry&#x27;s depth/score/flag/move into one <code>long</code>; store the signature XOR-ed with it; validate via <code>(key ^ data) == signature</code>. A reader catching a concurrent (SMP) store mid-write fails the check and misses instead of returning a corrupt score. Same-generation replacement now also preserves deeper entries from shallower overwrites, including same-position rewrites.</td>
 </tr>
 </tbody></table></div>
-<p>The shipped alpha-beta default feature set is <code>{SEE_PRUNING, SEARCH_REPETITION, LMR_TABLE, IMPROVING, CONT_HISTORY, CHECK_EXTENSION, IIR}</code>. CLI searches stay single-threaded by default for reproducibility, but <code>engine builtin --threads N</code> opts into Lazy SMP; Workbench Max also enables Lazy SMP. Features that measured neutral or negative remain off by default behind <code>AlphaBeta.Feature</code>.</p>
+<p>The shipped alpha-beta default feature set is <code>{SEE_PRUNING, SEARCH_REPETITION, LMR_TABLE, IMPROVING, CONT_HISTORY, CHECK_EXTENSION, IIR}</code>. CLI searches stay single-threaded by default for reproducibility, but <code>engine builtin --threads N</code> opts into Lazy SMP; <code>engine builtin --max-strength</code> selects the time-bound alpha-beta profile and automatic Lazy SMP thread count used by the Workbench Max setting. Features that measured neutral or negative remain off by default behind <code>AlphaBeta.Feature</code>.</p>
 <h2 id="what-did-not-work-rejected-kept-as-off-by-default-toggles">What did NOT work (rejected — kept as off-by-default toggles)</h2>
 <div class="table-wrap"><table>
 <thead><tr>

@@ -27,6 +27,7 @@ The same content reaches you three ways, depending on whether you want to browse
 ## Commands
 
 - [Command reference](command-reference.md) - the full grouped CLI surface, areas, actions, and options.
+- [CLI command guide](cli-command-guide.md) - contributor guide for adding commands, flags, help, docs, and regression tests.
 - [Command cheatsheet](command-cheatsheet.md) - common tasks mapped to exact commands.
 - [Example commands](example-commands.md) - copy-pasteable command recipes.
 - [Glossary](glossary.md) - defined terms used across the toolkit and wiki.
@@ -34,6 +35,7 @@ The same content reaches you three ways, depending on whether you want to browse
 ## Workbench
 
 - [Desktop workbench](workbench.md) - the native Swing GUI: board, play-vs-engine, command forms, batch jobs, datasets, logs, publishing previews, puzzles, and neural-net visualizers. Launch it with `workbench` (alias `gui`).
+- [Workbench design guide](workbench-design-guide.md) - visual direction, layout rules, shared UI primitives, copy, accessibility, and verification for Workbench contributors.
 
 ## Engines & Models
 
@@ -58,6 +60,7 @@ The same content reaches you three ways, depending on whether you want to browse
 - [Quality and testing](quality-and-testing.md) - regression suites, perft validation, and determinism checks.
 - [Outputs and logs](outputs-and-logs.md) - where artifacts land and how session cache/logs work (`clean`).
 - [Development notes](development-notes.md) - internals, conventions, and contributor notes.
+- [CLI command guide](cli-command-guide.md) - exact implementation workflow for new CLI commands.
 - [Releasing](releasing.md) - how releases are cut and versioned.
 
 ## Command Areas At A Glance
