@@ -127,47 +127,47 @@ public record Wdl(
     /**
      * Knight midgame mobility score by reachable safe targets.
      */
-    private static int[] KNIGHT_MOBILITY_CP = { -17, -8, 0, 4, 1, 9, 8, 13, 14 };
+    private static int[] KNIGHT_MOBILITY_CP = { -17, -8, 2, 4, 9, 13, 10, 13, 14 };
 
     /**
      * Knight endgame mobility score by reachable safe targets.
      */
-    private static int[] KNIGHT_MOBILITY_EG_CP = { -24, -16, -8, -2, 4, 9, 15, 14, 13 };
+    private static int[] KNIGHT_MOBILITY_EG_CP = { -24, -18, -8, -2, 6, 9, 17, 10, 9 };
 
     /**
      * Bishop midgame mobility score by reachable safe targets.
      */
-    private static int[] BISHOP_MOBILITY_CP = { -14, -4, 1, 14, 11, 14, 12, 22, 25, 27, 30, 32, 34, 35 };
+    private static int[] BISHOP_MOBILITY_CP = { -16, -4, 1, 12, 11, 10, 16, 20, 23, 27, 30, 32, 34, 35 };
 
     /**
      * Bishop endgame mobility score by reachable safe targets.
      */
-    private static int[] BISHOP_MOBILITY_EG_CP = { -18, -10, 0, 8, 15, 20, 24, 30, 34, 35, 39, 40, 42, 44 };
+    private static int[] BISHOP_MOBILITY_EG_CP = { -18, -10, 0, 6, 13, 22, 26, 28, 34, 37, 39, 40, 42, 44 };
 
     /**
      * Rook midgame mobility score by reachable safe targets.
      */
-    private static int[] ROOK_MOBILITY_CP = { -16, -9, -6, -2, 8, 8, 16, 15, 20, 20, 23, 26, 28, 32, 31 };
+    private static int[] ROOK_MOBILITY_CP = { -16, -9, -2, 2, 6, 10, 12, 15, 18, 18, 23, 26, 28, 32, 31 };
 
     /**
      * Rook endgame mobility score by reachable safe targets.
      */
-    private static int[] ROOK_MOBILITY_EG_CP = { -23, -9, -3, 7, 15, 25, 30, 40, 41, 45, 49, 50, 55, 59, 57 };
+    private static int[] ROOK_MOBILITY_EG_CP = { -23, -9, -3, 7, 15, 27, 28, 40, 41, 45, 49, 50, 53, 59, 55 };
 
     /**
      * Queen midgame mobility score by reachable safe targets.
      */
-    private static int[] QUEEN_MOBILITY_CP = { -8, -4, -1, 0, 3, 2, 10, 8, 14, 12, 16, 22, 19, 22, 23, 22, 24, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34 };
+    private static int[] QUEEN_MOBILITY_CP = { -8, -4, -1, 0, 3, 4, 8, 8, 14, 12, 18, 22, 19, 22, 23, 22, 24, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34 };
 
     /**
      * Queen endgame mobility score by reachable safe targets.
      */
-    private static int[] QUEEN_MOBILITY_EG_CP = { -12, -8, -4, 0, 5, 10, 14, 18, 22, 26, 30, 34, 37, 41, 43, 46, 49, 52, 55, 58, 61, 64, 66, 68, 70, 72, 74, 76 };
+    private static int[] QUEEN_MOBILITY_EG_CP = { -12, -8, -4, 0, 5, 10, 14, 18, 22, 26, 30, 34, 39, 41, 43, 46, 49, 52, 55, 58, 61, 64, 66, 68, 70, 72, 74, 76 };
 
     /**
      * Midgame weight assigned to attackers of the enemy king zone.
      */
-    static int[] KING_ATTACK_WEIGHT = { 0, -2, 10, 6, 12, 18, 0 };
+    static int[] KING_ATTACK_WEIGHT = { 0, -2, 10, 8, 12, 18, 0 };
 
     /**
      * Evaluation material values by piece type, indexed by the absolute piece
@@ -180,7 +180,7 @@ public record Wdl(
      * exchange evaluation and move ordering rely on. Units: centipawns.
      * </p>
      */
-    static int[] MATERIAL = { 0, 60, 308, 321, 484, 918, 0 };
+    static int[] MATERIAL = { 0, 60, 308, 317, 484, 926, 0 };
 
     /**
      * King-zone pressure coefficients (tunable): per-attacker-squared weight,
@@ -219,7 +219,7 @@ public record Wdl(
     /**
      * Endgame hanging-piece threat weight.
      */
-    static int THREAT_HANGING_EG = 20;
+    static int THREAT_HANGING_EG = 24;
 
     /**
      * Midgame weight per restricted enemy square.
@@ -229,12 +229,12 @@ public record Wdl(
     /**
      * Midgame safe-pawn-threat weight.
      */
-    static int THREAT_SAFE_PAWN_MG = 36;
+    static int THREAT_SAFE_PAWN_MG = 40;
 
     /**
      * Endgame safe-pawn-threat weight.
      */
-    static int THREAT_SAFE_PAWN_EG = 28;
+    static int THREAT_SAFE_PAWN_EG = 30;
 
     /**
      * Midgame pawn-push-threat weight.
@@ -244,12 +244,12 @@ public record Wdl(
     /**
      * Endgame pawn-push-threat weight.
      */
-    static int THREAT_PAWN_PUSH_EG = 10;
+    static int THREAT_PAWN_PUSH_EG = 8;
 
     /**
      * Midgame weight for a safe knight attack on the enemy queen.
      */
-    static int THREAT_QUEEN_KNIGHT_MG = 12;
+    static int THREAT_QUEEN_KNIGHT_MG = 8;
 
     /**
      * Endgame weight for a safe knight attack on the enemy queen.
@@ -264,7 +264,7 @@ public record Wdl(
     /**
      * Endgame weight for safe slider pressure on the enemy queen.
      */
-    static int THREAT_QUEEN_SLIDER_EG = 8;
+    static int THREAT_QUEEN_SLIDER_EG = 4;
 
     /**
      * Center four files, used for space and flank scoring.
@@ -291,7 +291,7 @@ public record Wdl(
     /**
      * Knight midgame outpost bonus.
      */
-    static int KNIGHT_OUTPOST_CP = 25;
+    static int KNIGHT_OUTPOST_CP = 29;
 
     /**
      * Bishop midgame outpost bonus.
@@ -343,12 +343,12 @@ public record Wdl(
      */
     private static int[] PAWN_PST = {
             0, 0, 0, 0, 0, 0, 0, 0,
-            12, 15, 15, 14, 14, 13, 14, 12,
-            13, 13, 16, 19, 16, 12, 12, 12,
-            0, 17, 12, 2, 2, 4, 10, 9,
-            -5, 1, 2, -1, 3, -1, 6, -1,
-            9, -6, 7, 1, 6, 8, 4, 2,
-            7, 1, 1, -8, 0, 2, 0, 1,
+            12, 17, 15, 14, 14, 15, 16, 12,
+            13, 13, 20, 15, 16, 12, 16, 20,
+            6, 17, 10, 2, 0, 0, 10, 17,
+            -3, 1, -2, -7, -1, -11, 2, 1,
+            -5, -6, 13, 1, 4, 2, 4, -10,
+            15, 3, -1, -2, 0, 14, 8, -1,
             0, 0, 0, 0, 0, 0, 0, 0
     };
 
@@ -360,14 +360,14 @@ public record Wdl(
      * </p>
      */
     private static int[] KNIGHT_PST = {
-            -42, -25, -15, -10, -10, -15, -25, -40,
+            -44, -25, -15, -10, -10, -15, -25, -40,
             -25, -10, 1, 5, 5, 0, -10, -25,
-            -15, 0, 8, 15, 15, 10, 0, -15,
-            -10, 10, 13, 22, 24, 15, 1, -8,
-            -11, 5, 15, 22, 20, 17, 3, -8,
-            -17, -1, 1, 9, 15, -4, 2, -7,
-            -25, -10, -1, 9, 5, 6, -10, -25,
-            -40, -25, -15, -11, -10, -15, -19, -40
+            -15, 0, 8, 15, 17, 8, 0, -15,
+            -10, 12, 15, 20, 24, 15, 1, -8,
+            -13, 3, 15, 20, 22, 19, 3, -8,
+            -23, -1, 1, 9, 17, 0, -2, -11,
+            -25, -10, 1, 7, 5, 6, -10, -25,
+            -40, -21, -15, -11, -10, -13, -17, -40
     };
 
     /**
@@ -379,13 +379,13 @@ public record Wdl(
      */
     private static int[] BISHOP_PST = {
             -16, -10, -10, -10, -10, -10, -10, -15,
-            -10, -2, 0, 0, 0, 0, 0, -10,
-            -10, 0, 5, 8, 8, 6, 0, -10,
-            -10, 6, 7, 10, 10, 10, 7, -10,
-            -12, 1, 14, 12, 12, 9, 3, -9,
-            -10, -2, 3, 12, 0, 9, -2, -8,
-            -10, 4, -2, 4, 10, 0, 8, -10,
-            -15, -10, -12, -10, -10, -5, -10, -15
+            -10, -2, 2, 0, 0, 0, -2, -10,
+            -10, 0, 3, 8, 8, 6, 0, -8,
+            -10, 6, 9, 10, 12, 10, 7, -10,
+            -10, 1, 14, 12, 12, 3, 1, -11,
+            -10, -2, 7, 10, -4, 9, 0, -8,
+            -10, 2, -2, 0, 8, -2, 14, -10,
+            -15, -10, -12, -10, -10, -9, -10, -15
     };
 
     /**
@@ -396,14 +396,14 @@ public record Wdl(
      * </p>
      */
     private static int[] ROOK_PST = {
-            5, 5, 5, 8, 8, 5, 5, 5,
-            1, 1, -1, 4, 4, 0, 2, 1,
-            -2, -3, -2, 1, 1, -1, -4, -4,
-            -4, -6, -4, -2, -2, -4, -5, -6,
-            -6, -6, -5, -3, -2, -4, -6, -6,
-            -2, -6, -2, -2, 0, -4, -4, -4,
-            -8, -1, -2, 1, 2, -4, 0, 0,
-            -5, 7, 0, 12, 7, 9, 4, -7
+            5, 5, 5, 8, 8, 5, 5, 7,
+            1, 1, -1, 2, 4, 2, 2, -1,
+            0, -1, 0, 3, 1, 1, -4, -2,
+            -2, -6, -4, -2, -2, -2, -5, -6,
+            -6, -6, -3, -5, -2, -4, -6, -6,
+            -4, -6, -4, -4, 0, -4, -6, 0,
+            -6, 1, -2, -1, 0, -2, 0, 0,
+            -9, 7, 0, 8, 7, 9, 0, -7
     };
 
     /**
@@ -417,11 +417,11 @@ public record Wdl(
             -10, -8, -6, -4, -4, -6, -8, -10,
             -9, -4, -1, -1, -1, -2, -4, -7,
             -6, -2, 0, 1, 1, 0, -2, -6,
-            -4, -1, 1, 2, 2, 1, -1, -4,
-            1, -1, 3, 0, 2, 1, 1, -5,
-            -6, 0, 0, 1, 1, 0, -2, -6,
-            -8, -2, 1, -3, -3, -1, -4, -8,
-            -10, -7, -4, -8, -4, -6, -8, -10
+            -4, -1, 1, 0, 2, 1, -1, -4,
+            3, -1, 3, 0, 2, 1, 1, -5,
+            -6, 0, 0, 1, 3, 2, -2, -8,
+            -8, -6, 3, -1, -1, -1, -4, -8,
+            -10, -7, -4, -10, -6, -4, -8, -10
     };
 
     /**
@@ -439,8 +439,8 @@ public record Wdl(
             -10, -10, -15, -20, -20, -15, -10, -10,
             -15, -15, -20, -25, -25, -20, -15, -15,
             -20, -20, -25, -30, -29, -25, -19, -20,
-            -25, -25, -30, -37, -33, -28, -25, -25,
-            -30, -30, -35, -44, -56, -34, -24, -29
+            -25, -25, -30, -39, -35, -32, -29, -25,
+            -30, -30, -31, -44, -60, -32, -18, -29
     };
 
     /**
@@ -454,12 +454,12 @@ public record Wdl(
     private static int[] KING_PST_ENDGAME = {
             -10, -5, 0, 5, 5, 0, -5, -10,
             -5, 0, 5, 10, 10, 5, 0, -5,
-            0, 5, 10, 15, 15, 10, 5, 0,
+            0, 5, 12, 15, 15, 10, 5, 0,
             5, 10, 15, 19, 20, 16, 10, 5,
-            5, 10, 14, 20, 19, 15, 10, 5,
-            0, 5, 10, 14, 16, 12, 6, 1,
-            -7, 0, 6, 9, 9, 9, 0, -3,
-            -9, -7, -2, 2, -1, -7, -3, -10
+            5, 10, 16, 22, 21, 15, 8, 5,
+            0, 5, 10, 16, 18, 12, 6, 1,
+            -7, 0, 6, 9, 9, 11, -2, -3,
+            -9, -7, -2, 0, -1, -7, -7, -14
     };
 
     static {
