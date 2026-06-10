@@ -562,7 +562,20 @@ public final class BuiltInEngineCommand {
 		if (otis) {
 			return Kind.OTIS;
 		}
-		return Kind.CLASSICAL;
+		return defaultEvaluator();
+	}
+
+	/**
+	 * Default evaluator when the caller selects none: the stronger NNUE evaluator
+	 * when its net is installed, otherwise the always-available classical
+	 * evaluator. The interactive GUI play opponent intentionally keeps the
+	 * classical default (calibrated, fast); every other built-in engine
+	 * invocation prefers NNUE.
+	 *
+	 * @return preferred default evaluator kind
+	 */
+	private static Kind defaultEvaluator() {
+		return Files.isRegularFile(chess.nn.nnue.Model.DEFAULT_WEIGHTS) ? Kind.NNUE : Kind.CLASSICAL;
 	}
 
 	/**
