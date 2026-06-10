@@ -222,9 +222,9 @@ public final class EngineGauntletCommand {
     private static final long DEFAULT_NODES = 5_000L;
 
     /**
-     * Default MCTS exploration constant.
+     * Default MCTS exploration constant; matches {@code Mcts.DEFAULT_CPUCT}.
      */
-    private static final double DEFAULT_CPUCT = 2.8;
+    private static final double DEFAULT_CPUCT = 2.0;
 
     /**
      * Default MCTS first-play-urgency reduction.

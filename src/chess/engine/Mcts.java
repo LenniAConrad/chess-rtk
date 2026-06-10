@@ -42,12 +42,16 @@ public final class Mcts implements AutoCloseable {
      * Default PUCT exploration constant.
      *
      * <p>
-     * Classical MCTS self-play still favors more root exploration than the older
-     * 1.4 value, but a 2026-06 fixed-node sweep found that 2.8 was stronger than
-     * 3.2: at 800 nodes per move it scored +92 =25 -75 over 192 games.
+     * Classical MCTS self-play favors less exploration than earlier values. An
+     * initial coarse sweep preferred 2.8 over 3.2; a later finer fixed-node sweep
+     * (classical evaluator, fixed nodes) found the optimum is lower still, around
+     * 2.0: versus 2.8 it scored +147 Elo at 2500 nodes/move and +92 at 8000, while
+     * 1.5 scored +112, 1.0 scored +80, and 4.0 scored -143. 2.0 is also closer to
+     * the conventional value used by neural-network MCTS engines than 2.8 was, so
+     * it should not hurt the (CPU-untunable) LC0/BT4 backends.
      * </p>
      */
-    private static final double DEFAULT_CPUCT = 2.8;
+    private static final double DEFAULT_CPUCT = 2.0;
 
     /**
      * Default first-play urgency reduction for unvisited children.
