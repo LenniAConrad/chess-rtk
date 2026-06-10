@@ -89,7 +89,7 @@ public record Wdl(
      * Units: centipawns.
      * </p>
      */
-    private static int TEMPO_CP = 16;
+    private static int TEMPO_CP = 17;
 
     /**
      * Penalty for being in check (applied to the side in check).
@@ -107,7 +107,7 @@ public record Wdl(
      * Units: centipawns (applied from White perspective).
      * </p>
      */
-    private static int BISHOP_PAIR_CP = 42;
+    private static int BISHOP_PAIR_CP = 44;
 
     /**
      * Attack-table slot containing all piece attacks for one side.
@@ -127,47 +127,47 @@ public record Wdl(
     /**
      * Knight midgame mobility score by reachable safe targets.
      */
-    private static int[] KNIGHT_MOBILITY_CP = { -18, -12, -2, -2, -1, 7, 10, 13, 15 };
+    private static int[] KNIGHT_MOBILITY_CP = { -17, -8, 0, 4, 1, 9, 8, 13, 14 };
 
     /**
      * Knight endgame mobility score by reachable safe targets.
      */
-    private static int[] KNIGHT_MOBILITY_EG_CP = { -24, -16, -8, -2, 4, 9, 13, 16, 18 };
+    private static int[] KNIGHT_MOBILITY_EG_CP = { -24, -16, -8, -2, 4, 9, 15, 14, 13 };
 
     /**
      * Bishop midgame mobility score by reachable safe targets.
      */
-    private static int[] BISHOP_MOBILITY_CP = { -14, -8, -2, 8, 13, 18, 14, 22, 25, 28, 30, 32, 34, 35 };
+    private static int[] BISHOP_MOBILITY_CP = { -14, -4, 1, 14, 11, 14, 12, 22, 25, 27, 30, 32, 34, 35 };
 
     /**
      * Bishop endgame mobility score by reachable safe targets.
      */
-    private static int[] BISHOP_MOBILITY_EG_CP = { -18, -10, -2, 5, 15, 21, 23, 28, 32, 35, 38, 40, 42, 44 };
+    private static int[] BISHOP_MOBILITY_EG_CP = { -18, -10, 0, 8, 15, 20, 24, 30, 34, 35, 39, 40, 42, 44 };
 
     /**
      * Rook midgame mobility score by reachable safe targets.
      */
-    private static int[] ROOK_MOBILITY_CP = { -16, -7, -2, 2, 10, 6, 18, 17, 20, 22, 24, 26, 28, 30, 31 };
+    private static int[] ROOK_MOBILITY_CP = { -16, -9, -6, -2, 8, 8, 16, 15, 20, 20, 23, 26, 28, 32, 31 };
 
     /**
      * Rook endgame mobility score by reachable safe targets.
      */
-    private static int[] ROOK_MOBILITY_EG_CP = { -22, -9, -1, 7, 15, 23, 30, 40, 41, 45, 49, 52, 55, 57, 59 };
+    private static int[] ROOK_MOBILITY_EG_CP = { -23, -9, -3, 7, 15, 25, 30, 40, 41, 45, 49, 50, 55, 59, 57 };
 
     /**
      * Queen midgame mobility score by reachable safe targets.
      */
-    private static int[] QUEEN_MOBILITY_CP = { -8, -5, -2, 0, 3, 2, 8, 10, 12, 14, 16, 22, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34 };
+    private static int[] QUEEN_MOBILITY_CP = { -8, -4, -1, 0, 3, 2, 10, 8, 14, 12, 16, 22, 19, 22, 23, 22, 24, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34 };
 
     /**
      * Queen endgame mobility score by reachable safe targets.
      */
-    private static int[] QUEEN_MOBILITY_EG_CP = { -12, -8, -4, 0, 5, 10, 14, 18, 22, 26, 30, 34, 37, 40, 43, 46, 49, 52, 55, 58, 61, 64, 66, 68, 70, 72, 74, 76 };
+    private static int[] QUEEN_MOBILITY_EG_CP = { -12, -8, -4, 0, 5, 10, 14, 18, 22, 26, 30, 34, 37, 41, 43, 46, 49, 52, 55, 58, 61, 64, 66, 68, 70, 72, 74, 76 };
 
     /**
      * Midgame weight assigned to attackers of the enemy king zone.
      */
-    static int[] KING_ATTACK_WEIGHT = { 0, 0, 11, 5, 13, 18, 0 };
+    static int[] KING_ATTACK_WEIGHT = { 0, -2, 10, 6, 12, 18, 0 };
 
     /**
      * Evaluation material values by piece type, indexed by the absolute piece
@@ -180,7 +180,91 @@ public record Wdl(
      * exchange evaluation and move ordering rely on. Units: centipawns.
      * </p>
      */
-    static int[] MATERIAL = { 0, 60, 300, 308, 500, 908, 0 };
+    static int[] MATERIAL = { 0, 60, 308, 321, 484, 918, 0 };
+
+    /**
+     * King-zone pressure coefficients (tunable): per-attacker-squared weight,
+     * king-square attack weight, weak-zone-square weight, flank-defender relief,
+     * and the bonus for an open (pawnless) king flank. Units: pressure points.
+     */
+    static int KS_ATTACKERS_SQ = 3;
+
+    /**
+     * King-zone weight per square the attackers reach adjacent to the king.
+     */
+    static int KS_KING_ATTACKS = 12;
+
+    /**
+     * King-zone weight per weak square inside the king ring.
+     */
+    static int KS_WEAK_ZONE = 9;
+
+    /**
+     * King-zone relief per defended flank square.
+     */
+    static int KS_FLANK_DEFENSE = 5;
+
+    /**
+     * King-zone bonus when the king's flank has no pawns of either color.
+     */
+    static int KS_PAWNLESS_FLANK = 18;
+
+    /**
+     * Threat coefficients (tunable), midgame/endgame: hanging piece, restricted
+     * square, safe pawn push-to-attack, pawn-push threat, and safe knight/slider
+     * attacks on the enemy queen. Units: centipawns.
+     */
+    static int THREAT_HANGING_MG = 22;
+
+    /**
+     * Endgame hanging-piece threat weight.
+     */
+    static int THREAT_HANGING_EG = 20;
+
+    /**
+     * Midgame weight per restricted enemy square.
+     */
+    static int THREAT_RESTRICTED = 4;
+
+    /**
+     * Midgame safe-pawn-threat weight.
+     */
+    static int THREAT_SAFE_PAWN_MG = 36;
+
+    /**
+     * Endgame safe-pawn-threat weight.
+     */
+    static int THREAT_SAFE_PAWN_EG = 28;
+
+    /**
+     * Midgame pawn-push-threat weight.
+     */
+    static int THREAT_PAWN_PUSH_MG = 13;
+
+    /**
+     * Endgame pawn-push-threat weight.
+     */
+    static int THREAT_PAWN_PUSH_EG = 10;
+
+    /**
+     * Midgame weight for a safe knight attack on the enemy queen.
+     */
+    static int THREAT_QUEEN_KNIGHT_MG = 12;
+
+    /**
+     * Endgame weight for a safe knight attack on the enemy queen.
+     */
+    static int THREAT_QUEEN_KNIGHT_EG = 7;
+
+    /**
+     * Midgame weight for safe slider pressure on the enemy queen.
+     */
+    static int THREAT_QUEEN_SLIDER_MG = 15;
+
+    /**
+     * Endgame weight for safe slider pressure on the enemy queen.
+     */
+    static int THREAT_QUEEN_SLIDER_EG = 8;
 
     /**
      * Center four files, used for space and flank scoring.
@@ -207,12 +291,12 @@ public record Wdl(
     /**
      * Knight midgame outpost bonus.
      */
-    static int KNIGHT_OUTPOST_CP = 22;
+    static int KNIGHT_OUTPOST_CP = 25;
 
     /**
      * Bishop midgame outpost bonus.
      */
-    static int BISHOP_OUTPOST_CP = 12;
+    static int BISHOP_OUTPOST_CP = 16;
 
     /**
      * Bitboard mask for one square-color complex.
@@ -259,12 +343,12 @@ public record Wdl(
      */
     private static int[] PAWN_PST = {
             0, 0, 0, 0, 0, 0, 0, 0,
-            10, 12, 12, 14, 14, 12, 12, 10,
-            12, 10, 12, 16, 16, 12, 10, 12,
-            6, 12, 14, 14, 10, 6, 8, 6,
-            0, 6, 4, 0, 8, 4, 2, 4,
-            14, 4, 6, 4, 0, 6, 4, 2,
-            0, 0, -4, -10, -6, 4, 4, -4,
+            12, 15, 15, 14, 14, 13, 14, 12,
+            13, 13, 16, 19, 16, 12, 12, 12,
+            0, 17, 12, 2, 2, 4, 10, 9,
+            -5, 1, 2, -1, 3, -1, 6, -1,
+            9, -6, 7, 1, 6, 8, 4, 2,
+            7, 1, 1, -8, 0, 2, 0, 1,
             0, 0, 0, 0, 0, 0, 0, 0
     };
 
@@ -276,14 +360,14 @@ public record Wdl(
      * </p>
      */
     private static int[] KNIGHT_PST = {
-            -40, -25, -15, -10, -10, -15, -25, -40,
-            -25, -10, 0, 5, 5, 0, -10, -25,
-            -15, 0, 10, 15, 15, 10, 0, -15,
-            -10, 5, 15, 20, 20, 15, 5, -10,
-            -10, 5, 15, 20, 20, 15, 5, -10,
-            -15, 0, 6, 11, 15, 6, 0, -11,
-            -25, -10, 0, 5, 5, 4, -10, -25,
-            -40, -29, -15, -10, -10, -15, -21, -40
+            -42, -25, -15, -10, -10, -15, -25, -40,
+            -25, -10, 1, 5, 5, 0, -10, -25,
+            -15, 0, 8, 15, 15, 10, 0, -15,
+            -10, 10, 13, 22, 24, 15, 1, -8,
+            -11, 5, 15, 22, 20, 17, 3, -8,
+            -17, -1, 1, 9, 15, -4, 2, -7,
+            -25, -10, -1, 9, 5, 6, -10, -25,
+            -40, -25, -15, -11, -10, -15, -19, -40
     };
 
     /**
@@ -294,14 +378,14 @@ public record Wdl(
      * </p>
      */
     private static int[] BISHOP_PST = {
-            -15, -10, -10, -10, -10, -10, -10, -15,
-            -10, 0, 0, 0, 0, 0, 0, -10,
-            -10, 0, 5, 8, 8, 5, 0, -10,
-            -10, 3, 8, 12, 12, 8, 7, -10,
-            -10, 3, 12, 12, 12, 8, 3, -10,
-            -14, 0, 5, 8, 4, 5, 0, -10,
-            -10, 0, 0, 4, 4, 0, 0, -10,
-            -15, -10, -10, -10, -10, 2, -10, -15
+            -16, -10, -10, -10, -10, -10, -10, -15,
+            -10, -2, 0, 0, 0, 0, 0, -10,
+            -10, 0, 5, 8, 8, 6, 0, -10,
+            -10, 6, 7, 10, 10, 10, 7, -10,
+            -12, 1, 14, 12, 12, 9, 3, -9,
+            -10, -2, 3, 12, 0, 9, -2, -8,
+            -10, 4, -2, 4, 10, 0, 8, -10,
+            -15, -10, -12, -10, -10, -5, -10, -15
     };
 
     /**
@@ -313,13 +397,13 @@ public record Wdl(
      */
     private static int[] ROOK_PST = {
             5, 5, 5, 8, 8, 5, 5, 5,
-            0, 0, 0, 4, 4, 0, 0, 0,
-            -4, -4, -2, 0, 0, -2, -4, -4,
-            -6, -6, -4, -2, -2, -4, -6, -6,
-            -6, -6, -4, -2, -2, -4, -6, -6,
-            -4, -4, -2, 0, 0, -2, -4, -4,
-            -4, 0, 0, 4, 4, 0, 0, 0,
-            -3, 5, 5, 12, 8, 5, 5, 1
+            1, 1, -1, 4, 4, 0, 2, 1,
+            -2, -3, -2, 1, 1, -1, -4, -4,
+            -4, -6, -4, -2, -2, -4, -5, -6,
+            -6, -6, -5, -3, -2, -4, -6, -6,
+            -2, -6, -2, -2, 0, -4, -4, -4,
+            -8, -1, -2, 1, 2, -4, 0, 0,
+            -5, 7, 0, 12, 7, 9, 4, -7
     };
 
     /**
@@ -331,13 +415,13 @@ public record Wdl(
      */
     private static int[] QUEEN_PST = {
             -10, -8, -6, -4, -4, -6, -8, -10,
-            -8, -4, -2, -1, -1, -2, -4, -8,
+            -9, -4, -1, -1, -1, -2, -4, -7,
             -6, -2, 0, 1, 1, 0, -2, -6,
             -4, -1, 1, 2, 2, 1, -1, -4,
-            0, -1, 1, 2, 2, 1, -1, -4,
-            -6, -2, 0, 1, 1, 0, -2, -6,
-            -8, -4, -2, -1, -5, -2, -4, -8,
-            -10, -8, -6, -4, -4, -6, -8, -10
+            1, -1, 3, 0, 2, 1, 1, -5,
+            -6, 0, 0, 1, 1, 0, -2, -6,
+            -8, -2, 1, -3, -3, -1, -4, -8,
+            -10, -7, -4, -8, -4, -6, -8, -10
     };
 
     /**
@@ -354,9 +438,9 @@ public record Wdl(
             0, 0, -10, -15, -15, -10, 0, 0,
             -10, -10, -15, -20, -20, -15, -10, -10,
             -15, -15, -20, -25, -25, -20, -15, -15,
-            -20, -20, -25, -30, -30, -25, -20, -20,
-            -25, -25, -30, -35, -31, -30, -25, -25,
-            -30, -30, -35, -44, -48, -35, -30, -30
+            -20, -20, -25, -30, -29, -25, -19, -20,
+            -25, -25, -30, -37, -33, -28, -25, -25,
+            -30, -30, -35, -44, -56, -34, -24, -29
     };
 
     /**
@@ -371,11 +455,11 @@ public record Wdl(
             -10, -5, 0, 5, 5, 0, -5, -10,
             -5, 0, 5, 10, 10, 5, 0, -5,
             0, 5, 10, 15, 15, 10, 5, 0,
-            5, 10, 15, 20, 20, 15, 10, 5,
-            5, 10, 15, 20, 20, 15, 10, 5,
-            0, 5, 10, 15, 15, 10, 5, 0,
-            -5, 0, 5, 10, 10, 5, 0, -5,
-            -10, -5, 0, 1, 1, -4, -5, -10
+            5, 10, 15, 19, 20, 16, 10, 5,
+            5, 10, 14, 20, 19, 15, 10, 5,
+            0, 5, 10, 14, 16, 12, 6, 1,
+            -7, 0, 6, 9, 9, 9, 0, -3,
+            -9, -7, -2, 2, -1, -7, -3, -10
     };
 
     static {
@@ -1131,14 +1215,14 @@ public record Wdl(
                 + Long.bitCount(attacks.attackedBy2[them] & flank);
         int flankDefense = Long.bitCount(attacks.attackedBy[us][ALL_ATTACKS] & flank);
         int pressure = weight
-                + attackers * attackers * 4
-                + 12 * attacks.kingAttacksCount[them]
-                + 9 * Long.bitCount(attacks.kingZone[us] & weak)
+                + attackers * attackers * KS_ATTACKERS_SQ
+                + KS_KING_ATTACKS * attacks.kingAttacksCount[them]
+                + KS_WEAK_ZONE * Long.bitCount(attacks.kingZone[us] & weak)
                 + flankAttack * flankAttack / 2
                 + Math.max(0, attacks.mobilityMg[them] - attacks.mobilityMg[us]) / 2
-                - flankDefense * 3;
+                - flankDefense * KS_FLANK_DEFENSE;
         if (((pos.pieces(Position.WHITE_PAWN) | pos.pieces(Position.BLACK_PAWN)) & flank) == 0L) {
-            pressure += 18;
+            pressure += KS_PAWNLESS_FLANK;
         }
         return attackers == 1 ? pressure / 2 : pressure;
     }
@@ -1357,18 +1441,18 @@ public record Wdl(
 
         long hanging = weak & (~attacks.attackedBy[them][ALL_ATTACKS] | attacks.attackedBy2[us]);
         int hangingCount = Long.bitCount(hanging);
-        mg += hangingCount * 22;
-        eg += hangingCount * 14;
+        mg += hangingCount * THREAT_HANGING_MG;
+        eg += hangingCount * THREAT_HANGING_EG;
 
         long restricted = attacks.attackedBy[them][ALL_ATTACKS]
                 & ~stronglyProtected
                 & attacks.attackedBy[us][ALL_ATTACKS];
-        mg += Long.bitCount(restricted) * 4;
+        mg += Long.bitCount(restricted) * THREAT_RESTRICTED;
 
         long safe = ~attacks.attackedBy[them][ALL_ATTACKS] | attacks.attackedBy[us][ALL_ATTACKS];
         long safePawnThreats = attacks.attackedBy[us][Piece.PAWN] & nonPawnEnemies & safe;
-        mg += Long.bitCount(safePawnThreats) * 32;
-        eg += Long.bitCount(safePawnThreats) * 26;
+        mg += Long.bitCount(safePawnThreats) * THREAT_SAFE_PAWN_MG;
+        eg += Long.bitCount(safePawnThreats) * THREAT_SAFE_PAWN_EG;
 
         long pushedPawns = pawnPushMask(white, pos.pieces(white ? Position.WHITE_PAWN : Position.BLACK_PAWN),
                 ~pos.occupancy());
@@ -1376,8 +1460,8 @@ public record Wdl(
                 & nonPawnEnemies
                 & ~attacks.attackedBy[them][Piece.PAWN]
                 & safe;
-        mg += Long.bitCount(pawnPushThreats) * 18;
-        eg += Long.bitCount(pawnPushThreats) * 16;
+        mg += Long.bitCount(pawnPushThreats) * THREAT_PAWN_PUSH_MG;
+        eg += Long.bitCount(pawnPushThreats) * THREAT_PAWN_PUSH_EG;
 
         long enemyQueens = pos.pieces(white ? Position.BLACK_QUEEN : Position.WHITE_QUEEN);
         if (enemyQueens != 0L) {
@@ -1385,15 +1469,15 @@ public record Wdl(
             long safeQueenAttackers = attacks.attackedBy[us][Piece.KNIGHT]
                     & MoveGenerator.knightAttacks(queen)
                     & safe;
-            mg += Long.bitCount(safeQueenAttackers) * 16;
-            eg += Long.bitCount(safeQueenAttackers) * 10;
+            mg += Long.bitCount(safeQueenAttackers) * THREAT_QUEEN_KNIGHT_MG;
+            eg += Long.bitCount(safeQueenAttackers) * THREAT_QUEEN_KNIGHT_EG;
             long sliderAttackers = (attacks.attackedBy[us][Piece.BISHOP]
                     & MoveGenerator.bishopAttacks(queen, pos.occupancy()))
                     | (attacks.attackedBy[us][Piece.ROOK]
                             & MoveGenerator.rookAttacks(queen, pos.occupancy()));
             int sliderPressure = Long.bitCount(sliderAttackers & attacks.attackedBy2[us] & safe);
-            mg += sliderPressure * 18;
-            eg += sliderPressure * 12;
+            mg += sliderPressure * THREAT_QUEEN_SLIDER_MG;
+            eg += sliderPressure * THREAT_QUEEN_SLIDER_EG;
         }
         return blend(mg, eg, phase);
     }

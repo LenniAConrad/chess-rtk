@@ -891,7 +891,7 @@ public final class CLICommandRegressionTest {
 				"position describe brief golden");
 		assertEquals(
 				"White is to move in the opening, and the position is dead level. The static evaluation of "
-						+ "+0.2 for White and a WDL of 247/538/215 amount to next to nothing; this is as balanced "
+						+ "+0.2 for White and a WDL of 249/537/214 amount to next to nothing; this is as balanced "
 						+ "as a position gets. The natural course is to develop with Nc3, with Nf3 and d4 as "
 						+ "alternatives.",
 				TestSupport.runMain("position", "describe", FEN_OPTION, START_FEN, "--detail", "normal").strip(),
