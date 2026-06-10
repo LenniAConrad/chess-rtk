@@ -24,6 +24,7 @@ import chess.core.Move;
 import chess.core.MoveList;
 import chess.core.Position;
 import chess.engine.AlphaBeta;
+import chess.engine.AlphaBetaUci;
 import chess.engine.Limits;
 import chess.engine.Mcts;
 import chess.engine.MctsUci;
@@ -217,6 +218,7 @@ public final class BuiltInEngineRegressionTest {
 		testAlphaBetaCliSearch();
 		testMaxStrengthCliDefaults();
 		testBuiltInUciLoop();
+		testAlphaBetaUciLoop();
 		testNnueCliEvaluator();
 		testSharedLibraryExplicitPathParsing();
 		System.out.println("BuiltInEngineRegressionTest: all checks passed");
@@ -834,12 +836,8 @@ public final class BuiltInEngineRegressionTest {
 		assertTrue(uciInfo.contains("bestmove "), "alpha-beta emits bestmove");
 		assertTrue(uciInfo.contains(" pv "), "alpha-beta streams a principal variation");
 
-		FailureResult uciReject = TestSupport.runMainExpectFailure(
-				ENGINE_COMMAND, BUILTIN_COMMAND, "--uci", "--search", "alpha-beta");
-		assertEquals(2, uciReject.exitCode(), "alpha-beta + --uci is rejected");
-		assertTrue(uciReject.stderr().contains("--uci") && uciReject.stderr().contains("--search"),
-				"alpha-beta + --uci rejection names both options");
-
+		// Alpha-beta now drives a UCI loop too (see testAlphaBetaUciLoop); only
+		// an unknown --search value is rejected.
 		FailureResult bogus = TestSupport.runMainExpectFailure(
 				ENGINE_COMMAND, BUILTIN_COMMAND, FEN_OPTION, SIMPLE_FEN, "--search", "bogus");
 		assertEquals(2, bogus.exitCode(), "unknown --search value is rejected");
@@ -977,6 +975,50 @@ public final class BuiltInEngineRegressionTest {
 		String repetitionOutput = repetitionBytes.toString(StandardCharsets.UTF_8);
 		assertTrue(repetitionOutput.contains("info depth 0 score cp 0 nodes 0"),
 				"MCTS UCI root repetition draw");
+	}
+
+	/**
+	 * Verifies the built-in alpha-beta engine speaks the essential UCI loop, so it
+	 * can be plugged into a UCI frontend or pitted against another build through
+	 * the self-play gauntlet's external-engine support.
+	 *
+	 * @throws IOException if the test reader fails
+	 */
+	private static void testAlphaBetaUciLoop() throws IOException {
+		String input = String.join(System.lineSeparator(),
+				"uci",
+				"setoption name Threads value 2",
+				"isready",
+				"ucinewgame",
+				"position startpos moves e2e4 e7e5",
+				"go depth 6",
+				"quit",
+				"");
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+		try (AlphaBeta searcher = new AlphaBeta();
+				PrintStream out = new PrintStream(bytes, true, StandardCharsets.UTF_8)) {
+			AlphaBetaUci.run(new StringReader(input), out, searcher);
+		}
+		String output = bytes.toString(StandardCharsets.UTF_8);
+		assertTrue(output.contains("id name ChessRTK AlphaBeta"), "alpha-beta UCI id name");
+		assertTrue(output.contains("option name Threads"), "alpha-beta UCI Threads option");
+		assertTrue(output.contains("uciok"), "alpha-beta UCI uciok");
+		assertTrue(output.contains("readyok"), "alpha-beta UCI readyok");
+		assertTrue(output.contains("info depth "), "alpha-beta UCI streams info");
+		assertTrue(output.contains("bestmove "), "alpha-beta UCI bestmove");
+
+		String nodeInput = String.join(System.lineSeparator(),
+				"position fen " + MATE_IN_ONE_FEN,
+				"go nodes 20000",
+				"quit",
+				"");
+		ByteArrayOutputStream nodeBytes = new ByteArrayOutputStream();
+		try (AlphaBeta searcher = new AlphaBeta();
+				PrintStream out = new PrintStream(nodeBytes, true, StandardCharsets.UTF_8)) {
+			AlphaBetaUci.run(new StringReader(nodeInput), out, searcher);
+		}
+		assertTrue(nodeBytes.toString(StandardCharsets.UTF_8).contains("bestmove "),
+				"alpha-beta UCI node-limited bestmove");
 	}
 
 	/**

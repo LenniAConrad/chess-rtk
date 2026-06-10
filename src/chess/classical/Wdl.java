@@ -89,7 +89,7 @@ public record Wdl(
      * Units: centipawns.
      * </p>
      */
-    private static final int TEMPO_CP = 8;
+    private static int TEMPO_CP = 16;
 
     /**
      * Penalty for being in check (applied to the side in check).
@@ -98,7 +98,7 @@ public record Wdl(
      * Units: centipawns.
      * </p>
      */
-    private static final int IN_CHECK_CP = 35;
+    private static int IN_CHECK_CP = 35;
 
     /**
      * Bishop pair bonus.
@@ -107,7 +107,7 @@ public record Wdl(
      * Units: centipawns (applied from White perspective).
      * </p>
      */
-    private static final int BISHOP_PAIR_CP = 30;
+    private static int BISHOP_PAIR_CP = 42;
 
     /**
      * Attack-table slot containing all piece attacks for one side.
@@ -127,53 +127,60 @@ public record Wdl(
     /**
      * Knight midgame mobility score by reachable safe targets.
      */
-    private static final int[] KNIGHT_MOBILITY_CP = { -18, -12, -6, -2, 3, 7, 10, 13, 15 };
+    private static int[] KNIGHT_MOBILITY_CP = { -18, -12, -2, -2, -1, 7, 10, 13, 15 };
 
     /**
      * Knight endgame mobility score by reachable safe targets.
      */
-    private static final int[] KNIGHT_MOBILITY_EG_CP = { -24, -16, -8, -2, 4, 9, 13, 16, 18 };
+    private static int[] KNIGHT_MOBILITY_EG_CP = { -24, -16, -8, -2, 4, 9, 13, 16, 18 };
 
     /**
      * Bishop midgame mobility score by reachable safe targets.
      */
-    private static final int[] BISHOP_MOBILITY_CP = { -14, -8, -2, 4, 9, 14, 18, 22, 25, 28, 30, 32, 34, 35 };
+    private static int[] BISHOP_MOBILITY_CP = { -14, -8, -2, 8, 13, 18, 14, 22, 25, 28, 30, 32, 34, 35 };
 
     /**
      * Bishop endgame mobility score by reachable safe targets.
      */
-    private static final int[] BISHOP_MOBILITY_EG_CP = { -18, -10, -2, 5, 11, 17, 23, 28, 32, 35, 38, 40, 42, 44 };
+    private static int[] BISHOP_MOBILITY_EG_CP = { -18, -10, -2, 5, 15, 21, 23, 28, 32, 35, 38, 40, 42, 44 };
 
     /**
      * Rook midgame mobility score by reachable safe targets.
      */
-    private static final int[] ROOK_MOBILITY_CP = { -12, -7, -2, 2, 6, 10, 14, 17, 20, 22, 24, 26, 28, 30, 31 };
+    private static int[] ROOK_MOBILITY_CP = { -16, -7, -2, 2, 10, 6, 18, 17, 20, 22, 24, 26, 28, 30, 31 };
 
     /**
      * Rook endgame mobility score by reachable safe targets.
      */
-    private static final int[] ROOK_MOBILITY_EG_CP = { -18, -9, -1, 7, 15, 23, 30, 36, 41, 45, 49, 52, 55, 57, 59 };
+    private static int[] ROOK_MOBILITY_EG_CP = { -22, -9, -1, 7, 15, 23, 30, 40, 41, 45, 49, 52, 55, 57, 59 };
 
     /**
      * Queen midgame mobility score by reachable safe targets.
      */
-    private static final int[] QUEEN_MOBILITY_CP = {
-            -8, -5, -2, 0, 3, 6, 8, 10, 12, 14, 16, 18, 19, 20, 21, 22,
-            23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34
-    };
+    private static int[] QUEEN_MOBILITY_CP = { -8, -5, -2, 0, 3, 2, 8, 10, 12, 14, 16, 22, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34 };
 
     /**
      * Queen endgame mobility score by reachable safe targets.
      */
-    private static final int[] QUEEN_MOBILITY_EG_CP = {
-            -12, -8, -4, 0, 5, 10, 14, 18, 22, 26, 30, 34, 37, 40, 43, 46,
-            49, 52, 55, 58, 61, 64, 66, 68, 70, 72, 74, 76
-    };
+    private static int[] QUEEN_MOBILITY_EG_CP = { -12, -8, -4, 0, 5, 10, 14, 18, 22, 26, 30, 34, 37, 40, 43, 46, 49, 52, 55, 58, 61, 64, 66, 68, 70, 72, 74, 76 };
 
     /**
      * Midgame weight assigned to attackers of the enemy king zone.
      */
-    static final int[] KING_ATTACK_WEIGHT = { 0, 0, 11, 9, 13, 18, 0 };
+    static int[] KING_ATTACK_WEIGHT = { 0, 0, 11, 5, 13, 18, 0 };
+
+    /**
+     * Evaluation material values by piece type, indexed by the absolute piece
+     * code ({@code 1==pawn} ... {@code 5==queen}; index 0 and 6 unused).
+     *
+     * <p>
+     * Seeded from {@link Piece} so the default evaluation is unchanged, but kept
+     * as a separate, tunable copy: the evaluation's material weights are an
+     * independent tuning target from the {@link Piece} values that static
+     * exchange evaluation and move ordering rely on. Units: centipawns.
+     * </p>
+     */
+    static int[] MATERIAL = { 0, 60, 300, 308, 500, 908, 0 };
 
     /**
      * Center four files, used for space and flank scoring.
@@ -200,12 +207,12 @@ public record Wdl(
     /**
      * Knight midgame outpost bonus.
      */
-    static final int KNIGHT_OUTPOST_CP = 22;
+    static int KNIGHT_OUTPOST_CP = 22;
 
     /**
      * Bishop midgame outpost bonus.
      */
-    static final int BISHOP_OUTPOST_CP = 12;
+    static int BISHOP_OUTPOST_CP = 12;
 
     /**
      * Bitboard mask for one square-color complex.
@@ -250,14 +257,14 @@ public record Wdl(
      * Units: centipawns.
      * </p>
      */
-    private static final int[] PAWN_PST = {
+    private static int[] PAWN_PST = {
             0, 0, 0, 0, 0, 0, 0, 0,
             10, 12, 12, 14, 14, 12, 12, 10,
-            8, 10, 12, 16, 16, 12, 10, 8,
-            6, 8, 10, 14, 14, 10, 8, 6,
-            4, 6, 8, 12, 12, 8, 6, 4,
-            2, 4, 6, 8, 8, 6, 4, 2,
-            0, 0, 0, -6, -6, 0, 0, 0,
+            12, 10, 12, 16, 16, 12, 10, 12,
+            6, 12, 14, 14, 10, 6, 8, 6,
+            0, 6, 4, 0, 8, 4, 2, 4,
+            14, 4, 6, 4, 0, 6, 4, 2,
+            0, 0, -4, -10, -6, 4, 4, -4,
             0, 0, 0, 0, 0, 0, 0, 0
     };
 
@@ -268,15 +275,15 @@ public record Wdl(
      * Units: centipawns.
      * </p>
      */
-    private static final int[] KNIGHT_PST = {
+    private static int[] KNIGHT_PST = {
             -40, -25, -15, -10, -10, -15, -25, -40,
             -25, -10, 0, 5, 5, 0, -10, -25,
             -15, 0, 10, 15, 15, 10, 0, -15,
             -10, 5, 15, 20, 20, 15, 5, -10,
             -10, 5, 15, 20, 20, 15, 5, -10,
-            -15, 0, 10, 15, 15, 10, 0, -15,
-            -25, -10, 0, 5, 5, 0, -10, -25,
-            -40, -25, -15, -10, -10, -15, -25, -40
+            -15, 0, 6, 11, 15, 6, 0, -11,
+            -25, -10, 0, 5, 5, 4, -10, -25,
+            -40, -29, -15, -10, -10, -15, -21, -40
     };
 
     /**
@@ -286,15 +293,15 @@ public record Wdl(
      * Units: centipawns.
      * </p>
      */
-    private static final int[] BISHOP_PST = {
+    private static int[] BISHOP_PST = {
             -15, -10, -10, -10, -10, -10, -10, -15,
             -10, 0, 0, 0, 0, 0, 0, -10,
             -10, 0, 5, 8, 8, 5, 0, -10,
-            -10, 3, 8, 12, 12, 8, 3, -10,
-            -10, 3, 8, 12, 12, 8, 3, -10,
-            -10, 0, 5, 8, 8, 5, 0, -10,
-            -10, 0, 0, 0, 0, 0, 0, -10,
-            -15, -10, -10, -10, -10, -10, -10, -15
+            -10, 3, 8, 12, 12, 8, 7, -10,
+            -10, 3, 12, 12, 12, 8, 3, -10,
+            -14, 0, 5, 8, 4, 5, 0, -10,
+            -10, 0, 0, 4, 4, 0, 0, -10,
+            -15, -10, -10, -10, -10, 2, -10, -15
     };
 
     /**
@@ -304,15 +311,15 @@ public record Wdl(
      * Units: centipawns.
      * </p>
      */
-    private static final int[] ROOK_PST = {
+    private static int[] ROOK_PST = {
             5, 5, 5, 8, 8, 5, 5, 5,
             0, 0, 0, 4, 4, 0, 0, 0,
             -4, -4, -2, 0, 0, -2, -4, -4,
             -6, -6, -4, -2, -2, -4, -6, -6,
             -6, -6, -4, -2, -2, -4, -6, -6,
             -4, -4, -2, 0, 0, -2, -4, -4,
-            0, 0, 0, 4, 4, 0, 0, 0,
-            5, 5, 5, 8, 8, 5, 5, 5
+            -4, 0, 0, 4, 4, 0, 0, 0,
+            -3, 5, 5, 12, 8, 5, 5, 1
     };
 
     /**
@@ -322,14 +329,14 @@ public record Wdl(
      * Units: centipawns.
      * </p>
      */
-    private static final int[] QUEEN_PST = {
+    private static int[] QUEEN_PST = {
             -10, -8, -6, -4, -4, -6, -8, -10,
             -8, -4, -2, -1, -1, -2, -4, -8,
             -6, -2, 0, 1, 1, 0, -2, -6,
             -4, -1, 1, 2, 2, 1, -1, -4,
-            -4, -1, 1, 2, 2, 1, -1, -4,
+            0, -1, 1, 2, 2, 1, -1, -4,
             -6, -2, 0, 1, 1, 0, -2, -6,
-            -8, -4, -2, -1, -1, -2, -4, -8,
+            -8, -4, -2, -1, -5, -2, -4, -8,
             -10, -8, -6, -4, -4, -6, -8, -10
     };
 
@@ -341,15 +348,15 @@ public record Wdl(
      * {@link #KING_PST_ENDGAME} using the phase factor.
      * </p>
      */
-    private static final int[] KING_PST_OPENING = {
+    private static int[] KING_PST_OPENING = {
             20, 25, 10, 0, 0, 10, 25, 20,
             10, 10, 0, -8, -8, 0, 10, 10,
             0, 0, -10, -15, -15, -10, 0, 0,
             -10, -10, -15, -20, -20, -15, -10, -10,
             -15, -15, -20, -25, -25, -20, -15, -15,
             -20, -20, -25, -30, -30, -25, -20, -20,
-            -25, -25, -30, -35, -35, -30, -25, -25,
-            -30, -30, -35, -40, -40, -35, -30, -30
+            -25, -25, -30, -35, -31, -30, -25, -25,
+            -30, -30, -35, -44, -48, -35, -30, -30
     };
 
     /**
@@ -360,7 +367,7 @@ public record Wdl(
      * {@link #KING_PST_OPENING} using the phase factor.
      * </p>
      */
-    private static final int[] KING_PST_ENDGAME = {
+    private static int[] KING_PST_ENDGAME = {
             -10, -5, 0, 5, 5, 0, -5, -10,
             -5, 0, 5, 10, 10, 5, 0, -5,
             0, 5, 10, 15, 15, 10, 5, 0,
@@ -368,8 +375,15 @@ public record Wdl(
             5, 10, 15, 20, 20, 15, 10, 5,
             0, 5, 10, 15, 15, 10, 5, 0,
             -5, 0, 5, 10, 10, 5, 0, -5,
-            -10, -5, 0, 5, 5, 0, -5, -10
+            -10, -5, 0, 1, 1, -4, -5, -10
     };
+
+    static {
+        // Apply a tuned weight set named by -Dcrtk.evalweights, if present. Runs
+        // after every weight field above is initialised; with no override the
+        // declared defaults stand, so the evaluation is unchanged.
+        EvalWeights.applyStartupOverrides();
+    }
 
     /**
      * Enforces the record invariants for WDL probabilities.
@@ -728,7 +742,7 @@ public record Wdl(
      * @param white whether the piece belongs to White
      */
     private static void applyMaterial(EvalScan scan, byte piece, boolean white) {
-        int value = Piece.getValue(piece);
+        int value = MATERIAL[Math.abs(piece)];
         if (white) {
             scan.whiteMaterial += value;
         } else {

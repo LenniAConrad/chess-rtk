@@ -34,6 +34,7 @@ import application.console.Bar;
 import chess.core.Move;
 import chess.core.Position;
 import chess.engine.AlphaBeta;
+import chess.engine.AlphaBetaUci;
 import chess.engine.Limits;
 import chess.engine.Mcts;
 import chess.engine.MctsUci;
@@ -345,9 +346,11 @@ public final class BuiltInEngineCommand {
 		Options opts = parseOptions(a);
 		try (Searcher searcher = createSearcher(opts)) {
 			if (opts.uciLoop()) {
-				// --uci is rejected for alpha-beta at parse time, so this is
-				// always an MctsSearcher; MctsUci.run is MCTS-specific.
-				MctsUci.run(System.in, System.out, ((MctsSearcher) searcher).mcts());
+				if (searcher instanceof AlphaBetaSearcher alphaBeta) {
+					AlphaBetaUci.run(System.in, System.out, alphaBeta.engine());
+				} else {
+					MctsUci.run(System.in, System.out, ((MctsSearcher) searcher).mcts());
+				}
 				return;
 			}
 			List<String> fens = CommandSupport.resolveFenInputs(CMD_BUILTIN, opts.input(), opts.fen());
@@ -429,9 +432,6 @@ public final class BuiltInEngineCommand {
 		long maxDuration = CommandSupport.optionalDurationMs(durationOpt, defaultDuration);
 		String fen;
 		if (uciLoop) {
-			if (search == SearchKind.ALPHA_BETA) {
-				throw new CommandFailure(CMD_BUILTIN + ": " + OPT_UCI + " requires " + OPT_SEARCH + " mcts", 2);
-			}
 			if (input != null) {
 				throw new CommandFailure(CMD_BUILTIN + ": " + OPT_UCI + " cannot be combined with " + OPT_INPUT, 2);
 			}
@@ -575,10 +575,11 @@ public final class BuiltInEngineCommand {
 	private static Searcher createSearcher(Options opts) throws IOException {
 		if (opts.search() == SearchKind.ALPHA_BETA) {
 			// Alpha-beta drives any CentipawnEvaluator (classical/NNUE strongest;
-			// LC0/OTIS run per-leaf with no batching, so they are slow here). A
-			// per-invocation table — the CLI searches one position per run, so a
-			// persistent TT would only add memory with no cross-search reuse.
-			AlphaBetaSearcher searcher = new AlphaBetaSearcher(new AlphaBeta(createEvaluator(opts), false));
+			// LC0/OTIS run per-leaf with no batching, so they are slow here). The
+			// one-shot CLI searches a single position per run, so a per-invocation
+			// table suffices; the UCI loop plays a whole game move by move, so it
+			// keeps one persistent table to carry search knowledge across moves.
+			AlphaBetaSearcher searcher = new AlphaBetaSearcher(new AlphaBeta(createEvaluator(opts), opts.uciLoop()));
 			searcher.setThreads(opts.threads());
 			return searcher;
 		}

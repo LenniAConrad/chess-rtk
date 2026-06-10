@@ -891,7 +891,7 @@ public final class CLICommandRegressionTest {
 				"position describe brief golden");
 		assertEquals(
 				"White is to move in the opening, and the position is dead level. The static evaluation of "
-						+ "+0.1 for White and a WDL of 244/529/227 amount to next to nothing; this is as balanced "
+						+ "+0.2 for White and a WDL of 247/538/215 amount to next to nothing; this is as balanced "
 						+ "as a position gets. The natural course is to develop with Nc3, with Nf3 and d4 as "
 						+ "alternatives.",
 				TestSupport.runMain("position", "describe", FEN_OPTION, START_FEN, "--detail", "normal").strip(),
@@ -899,7 +899,7 @@ public final class CLICommandRegressionTest {
 		assertEquals(
 				"White is to move in a bare king-and-king endgame. The material is level and, with too little "
 						+ "left to force a checkmate, the result is not in doubt. The evaluation reads a nominal "
-						+ "+0.1 for White, but the WDL of 0/1000/0 tells the true story: a dead draw in which "
+						+ "+0.2 for White, but the WDL of 0/1000/0 tells the true story: a dead draw in which "
 						+ "neither side can make progress. The king can only shuffle - Kb2, Ka2 and Kb1 - and "
 						+ "none of it matters. The point has long since been split.",
 				TestSupport.runMain("position", "describe", FEN_OPTION, SIMPLE_FEN, "--detail", "full",
