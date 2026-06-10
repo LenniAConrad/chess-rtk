@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Set;
 
 import chess.core.Move;
+import chess.core.MoveGenerator;
 import chess.core.MoveList;
 import chess.core.Piece;
 import chess.core.Position;
@@ -373,7 +374,24 @@ public final class AlphaBeta implements AutoCloseable {
          * Inspired by the correction-history idea used in modern engines such as
          * Stockfish; this is an independent reimplementation.
          */
-        CORRECTION_HISTORY
+        CORRECTION_HISTORY,
+
+        /**
+         * Staged move generation at non-check nodes: the transposition move is
+         * validated standalone and searched before anything is generated, then
+         * pseudo-legal tacticals (SEE-losing captures deferred to the end),
+         * killers, and pseudo-legal quiets are generated and legality-checked
+         * lazily per stage. A transposition-move or early-capture cutoff skips
+         * quiet generation, quiet scoring, and the full-list sort entirely.
+         * In-check nodes keep the eager fully-legal evasion path. The stage
+         * order is fixed (captures/promotions, then killers in slot order, then
+         * quiets, then losing captures), unlike the eager scorer's global sort
+         * where accumulated history or evaluator priors can interleave a hot
+         * killer above weak captures or a hot quiet above a cold killer, so
+         * search trees differ from the eager path; measured at fixed move time
+         * the staged order plus the lazy work was worth about +13 Elo.
+         */
+        STAGED_PICKER
     }
 
     /**
@@ -1305,6 +1323,13 @@ public final class AlphaBeta implements AutoCloseable {
         }
 
         if (legalMoves == null) {
+            if (context.stagedPicker()) {
+                // The staged picker generates lazily inside the move loop and
+                // detects stalemate from its emission count, so this non-check
+                // node skips up-front generation entirely (a null move list
+                // routes the node to the staged search path).
+                return NegamaxSetup.search(false, null, alpha, staticEval, key, entry);
+            }
             legalMoves = context.legalMoves(position, false);
         }
         if (legalMoves.isEmpty()) {
@@ -1334,6 +1359,11 @@ public final class AlphaBeta implements AutoCloseable {
             int ply,
             boolean pvNode,
             NegamaxSetup setup) {
+        if (setup.legalMoves() == null) {
+            // Staged picker: prepareNegamax skipped up-front generation for this
+            // non-check node, so moves are generated lazily stage by stage.
+            return searchNegamaxMovesStaged(context, position, depth, beta, ply, pvNode, setup);
+        }
         short ttMove = setup.entry() == null ? Move.NO_MOVE : Transposition.moveOf(setup.entry().data);
         // Copy the legal moves into a stable array NOW, before singularExtension's
         // verification search regenerates the shared move-gen scratch underneath
@@ -1399,6 +1429,94 @@ public final class AlphaBeta implements AutoCloseable {
         // bound on the (corrected) static eval: exact, a fail-high above it, or a
         // fail-low below it. Skipped in check, in a verification search, and for
         // mate scores (handled inside updateCorrection).
+        if (excluded == Move.NO_MOVE && !setup.inCheck() && setup.staticEval() != NO_SCORE
+                && (flag == TT_EXACT
+                        || (flag == TT_LOWER && searchState.bestScore > setup.staticEval())
+                        || (flag == TT_UPPER && searchState.bestScore < setup.staticEval()))) {
+            context.updateCorrection(position, setup.staticEval(), searchState.bestScore);
+        }
+        return searchState.bestScore;
+    }
+
+    /**
+     * Searches the moves of one prepared non-check negamax node through the
+     * staged move picker. The picker validates and yields the transposition
+     * move before generating anything, then generates, orders, and
+     * legality-checks tacticals, killers, quiets, and deferred SEE-losing
+     * captures lazily, so a cutoff in an early stage skips all later-stage
+     * generation and scoring work. Per-move handling is shared with the eager
+     * path via {@link #searchNodeMove}, so pruning, reductions, and heuristic
+     * updates behave identically per move; the emitted move SET is exactly the
+     * legal move set (regression-verified), while the emission ORDER follows
+     * the fixed stage tiers rather than the eager global sort, so the searched
+     * trees legitimately differ.
+     *
+     * <p>
+     * Because no up-front legal list exists, stalemate is detected from the
+     * picker's emission count: a non-check node whose picker yields nothing has
+     * no legal moves. A singular-verification node whose only legal move is the
+     * excluded one returns its fail-low best score instead, matching the eager
+     * loop's behaviour.
+     * </p>
+     *
+     * @param context search context
+     * @param position mutable current position
+     * @param depth remaining depth
+     * @param beta beta bound
+     * @param ply current ply from root
+     * @param pvNode true when this node lies on the principal variation
+     * @param setup prepared node setup with no move list
+     * @return best score found for the node
+     */
+    private static int searchNegamaxMovesStaged(
+            SearchContext context,
+            Position position,
+            int depth,
+            int beta,
+            int ply,
+            boolean pvNode,
+            NegamaxSetup setup) {
+        short ttMove = setup.entry() == null ? Move.NO_MOVE : Transposition.moveOf(setup.entry().data);
+        Position.State state = context.state(ply);
+        NegamaxSearchState searchState = new NegamaxSearchState(setup.alpha());
+        boolean improving = context.improving(ply, setup.staticEval());
+        boolean buffering = context.historyMalus() || context.contHistory();
+        short[] triedQuiets = buffering ? context.triedQuietsBuffer(ply) : null;
+        int[] triedContIdx = context.contHistory() ? context.triedContIdxBuffer(ply) : null;
+        int[] triedCount = { 0 };
+        short[] triedCaptures = context.captureHistory() ? context.triedCapturesBuffer(ply) : null;
+        int[] triedCaptureCount = { 0 };
+        // The singular probe runs before the picker exists: its same-ply
+        // verification search regenerates the shared move scratch, which the
+        // picker must not be holding at that point.
+        int ttMoveExtension = singularExtension(context, position, setup, ttMove, depth, beta, ply);
+        short excluded = context.excluded(ply);
+        StagedMovePicker picker = new StagedMovePicker(context, position, ply, ttMove, excluded);
+        int emitted = 0;
+        for (short move = picker.next(); move != Move.NO_MOVE; move = picker.next()) {
+            emitted++;
+            if (searchNodeMove(context, position, state, depth, beta, ply, pvNode, setup,
+                    move, ttMove, ttMoveExtension, improving, searchState, triedQuiets, triedContIdx, triedCount,
+                    triedCaptures, triedCaptureCount)) {
+                break;
+            }
+        }
+        if (emitted == 0) {
+            // No legal move at a non-check node is stalemate, except in a
+            // verification search whose only legal move is the excluded one;
+            // that node fails low exactly like the eager loop does.
+            return excluded == Move.NO_MOVE ? terminalScore(position, ply) : searchState.bestScore;
+        }
+        byte flag = transpositionFlag(searchState.bestScore, searchState.originalAlpha, beta);
+        if (excluded == Move.NO_MOVE) {
+            context.transpositions.store(
+                    setup.key(),
+                    depth,
+                    scoreToTransposition(searchState.bestScore, ply),
+                    flag,
+                    searchState.bestMove,
+                    context.generation);
+        }
         if (excluded == Move.NO_MOVE && !setup.inCheck() && setup.staticEval() != NO_SCORE
                 && (flag == TT_EXACT
                         || (flag == TT_LOWER && searchState.bestScore > setup.staticEval())
@@ -2667,6 +2785,63 @@ public final class AlphaBeta implements AutoCloseable {
     }
 
     /**
+     * Scores one tactical move for the staged picker's tactical stage:
+     * MVV-LVA plus capture history for captures and en passant, plus the
+     * promotion tier. Mirrors the capture/promotion arms of
+     * {@link #moveOrderScore} without the SEE good/bad split, because the
+     * picker runs SEE lazily at emission time and defers losing captures
+     * instead of down-scoring them.
+     *
+     * @param position parent position
+     * @param move tactical move
+     * @param context search context
+     * @return ordering score
+     */
+    private static int tacticalOrderScore(Position position, short move, SearchContext context) {
+        int from = Move.getFromIndex(move);
+        int to = Move.getToIndex(move);
+        byte moving = position.pieceAt(from);
+        byte victim = position.pieceAt(to);
+        int score = 0;
+        if (victim != Piece.EMPTY && Piece.isWhite(victim) != position.isWhiteToMove()) {
+            score += ORDER_CAPTURE + Piece.getValue(victim) * 10 - Piece.getValue(moving)
+                    + context.captureHistoryScore(position, move);
+        } else if (isEnPassantCapture(position, moving, from, to)) {
+            score += ORDER_CAPTURE + Piece.VALUE_PAWN * 10 - Piece.getValue(moving)
+                    + context.captureHistoryScore(position, move);
+        }
+        int promotion = Move.getPromotion(move);
+        if (promotion != 0) {
+            score += ORDER_PROMOTION + promotionValue(promotion);
+        }
+        return score;
+    }
+
+    /**
+     * Scores one quiet move for the staged picker's quiet stage: history and
+     * continuation history, plus the quiet-check bonus when check ordering is
+     * enabled. Mirrors the quiet arm of {@link #moveOrderScore} without the
+     * killer branch, because killers are emitted by their own earlier stage.
+     *
+     * @param position parent position
+     * @param move quiet move
+     * @param context search context
+     * @param ply current ply
+     * @return ordering score
+     */
+    private static int quietOrderScore(Position position, short move, SearchContext context, int ply) {
+        int score = 0;
+        if (context.checkOrdering() && givesCheck(position, move, context.checkState())) {
+            score += ORDER_MAIN_QUIET_CHECK;
+        }
+        score += context.historyScore(move);
+        if (context.contHistory()) {
+            score += context.contHistScore(ply, contTargetIndex(position, move));
+        }
+        return score;
+    }
+
+    /**
      * Maps a piece byte code to a dense 0..11 index (white pawn..king = 0..5,
      * black pawn..king = 6..11) for continuation-history keys. Empty maps to -1.
      *
@@ -2948,6 +3123,46 @@ public final class AlphaBeta implements AutoCloseable {
     }
 
     /**
+     * Walks the staged move picker over one position and returns every move it
+     * emits, in emission order. Verification-only entry point: regression
+     * tests assert that the emitted set equals the legal move set under
+     * arbitrary transposition-move and killer injections, which is the
+     * correctness contract of the picker's pseudo-legal generation plus lazy
+     * legality validation. Not used by the search itself.
+     *
+     * @param position position to emit for; must not be in check
+     * @param ttMove transposition move to inject, possibly arbitrary bits
+     * @param killer0 primary killer to inject, possibly arbitrary bits
+     * @param killer1 secondary killer to inject, possibly arbitrary bits
+     * @return emitted moves in emission order
+     */
+    public static short[] stagedMoveEmission(Position position, short ttMove, short killer0, short killer1) {
+        if (position.inCheck()) {
+            throw new IllegalArgumentException("staged picker emission requires a non-check position");
+        }
+        Position root = position.copy();
+        try (SearchContext context = new SearchContext(
+                System.currentTimeMillis(),
+                new Limits(2, 0L, 0L),
+                new Classical(),
+                root,
+                new TranspositionTable(1024),
+                0,
+                // SEE pruning is enabled so the emission walk also exercises
+                // the bad-capture deferral stage, not just the direct path.
+                EnumSet.of(Feature.STAGED_PICKER, Feature.SEE_PRUNING))) {
+            context.killers[0][0] = killer0;
+            context.killers[0][1] = killer1;
+            StagedMovePicker picker = new StagedMovePicker(context, root, 0, ttMove, Move.NO_MOVE);
+            MoveList emitted = new MoveList();
+            for (short move = picker.next(); move != Move.NO_MOVE; move = picker.next()) {
+                emitted.add(move);
+            }
+            return emitted.toArray();
+        }
+    }
+
+    /**
      * Releases evaluator resources.
      */
     @Override
@@ -3042,6 +3257,295 @@ public final class AlphaBeta implements AutoCloseable {
         }
     }
 
+
+    /**
+     * Lazy staged move generator for one non-check negamax node.
+     *
+     * <p>
+     * Stages, in emission order: validated transposition move (no generation),
+     * pseudo-legal tacticals ordered by MVV-LVA/promotion/capture-history with
+     * SEE-losing captures deferred, killer moves, pseudo-legal quiets ordered by
+     * history (plus evaluator priors), and finally the deferred losing captures.
+     * Legality is established lazily per emitted move via the same
+     * pin/king fast path and play/undo fallback the eager generator uses, so the
+     * emitted move set is exactly the legal move set. The picker reads the
+     * board between emissions, so callers must restore the position (make/undo)
+     * before each {@link #next()} call; killer slots are captured at
+     * construction because same-ply verification searches run before the picker
+     * exists.
+     * </p>
+     */
+    private static final class StagedMovePicker {
+
+        /**
+         * Stage constant: validated transposition move.
+         */
+        private static final int STAGE_TT = 0;
+
+        /**
+         * Stage constant: generate and order tactical moves.
+         */
+        private static final int STAGE_GEN_TACTICALS = 1;
+
+        /**
+         * Stage constant: emit ordered tactical moves.
+         */
+        private static final int STAGE_TACTICALS = 2;
+
+        /**
+         * Stage constant: emit killer moves.
+         */
+        private static final int STAGE_KILLERS = 3;
+
+        /**
+         * Stage constant: generate and order quiet moves.
+         */
+        private static final int STAGE_GEN_QUIETS = 4;
+
+        /**
+         * Stage constant: emit ordered quiet moves.
+         */
+        private static final int STAGE_QUIETS = 5;
+
+        /**
+         * Stage constant: emit deferred SEE-losing captures.
+         */
+        private static final int STAGE_BAD_CAPTURES = 6;
+
+        /**
+         * Stage constant: exhausted.
+         */
+        private static final int STAGE_DONE = 7;
+
+        /**
+         * Owning search context, for scratch buffers and ordering tables.
+         */
+        private final SearchContext context;
+
+        /**
+         * Node position; mutated transiently by legality probes only.
+         */
+        private final Position position;
+
+        /**
+         * Node ply, for per-ply scratch and history keys.
+         */
+        private final int ply;
+
+        /**
+         * Transposition move to try first, or {@link Move#NO_MOVE}.
+         */
+        private final short ttMove;
+
+        /**
+         * Excluded move of a singular verification search, or {@link Move#NO_MOVE}.
+         */
+        private final short excluded;
+
+        /**
+         * Primary killer slot captured at construction.
+         */
+        private final short killer0;
+
+        /**
+         * Secondary killer slot captured at construction.
+         */
+        private final short killer1;
+
+        /**
+         * Side to move at the node.
+         */
+        private final boolean white;
+
+        /**
+         * Absolutely pinned friendly pieces, for the legality fast path.
+         */
+        private final long pinned;
+
+        /**
+         * Friendly king square, for the legality fast path.
+         */
+        private final int king;
+
+        /**
+         * En-passant target square, for the legality fast path.
+         */
+        private final int enPassant;
+
+        /**
+         * Deferred SEE-losing captures, backed by per-ply context scratch.
+         */
+        private final short[] badCaptures;
+
+        /**
+         * Number of deferred SEE-losing captures.
+         */
+        private int badCount;
+
+        /**
+         * Current stage.
+         */
+        private int stage = STAGE_TT;
+
+        /**
+         * Sorted move array of the current generation stage.
+         */
+        private short[] moves;
+
+        /**
+         * Emission cursor into {@link #moves} or {@link #badCaptures}.
+         */
+        private int index;
+
+        /**
+         * Next killer slot to consider.
+         */
+        private int killerSlot;
+
+        /**
+         * Creates a picker for one non-check node.
+         *
+         * @param context search context
+         * @param position node position, not in check
+         * @param ply current ply from root
+         * @param ttMove transposition move, possibly arbitrary bits
+         * @param excluded excluded move of a verification search, or
+         *        {@link Move#NO_MOVE}
+         */
+        private StagedMovePicker(SearchContext context, Position position, int ply, short ttMove, short excluded) {
+            this.context = context;
+            this.position = position;
+            this.ply = ply;
+            this.ttMove = ttMove;
+            this.excluded = excluded;
+            this.killer0 = context.killer(ply, 0);
+            this.killer1 = context.killer(ply, 1);
+            this.white = position.isWhiteToMove();
+            this.pinned = MoveGenerator.pinnedPieces(position, white);
+            this.king = position.kingSquare(white);
+            this.enPassant = position.enPassantSquare();
+            this.badCaptures = context.pickerBadCaptures(ply);
+        }
+
+        /**
+         * Yields the next legal move, advancing stages as each one empties.
+         *
+         * @return next legal move, or {@link Move#NO_MOVE} when exhausted
+         */
+        private short next() {
+            while (true) {
+                switch (stage) {
+                    case STAGE_TT -> {
+                        stage = STAGE_GEN_TACTICALS;
+                        if (ttMove != Move.NO_MOVE && ttMove != excluded
+                                && MoveGenerator.isPseudoLegal(position, ttMove)
+                                && isLegal(ttMove)) {
+                            return ttMove;
+                        }
+                    }
+                    case STAGE_GEN_TACTICALS -> {
+                        moves = context.pseudoTacticals(position).toArray();
+                        int[] scores = context.scoreBuffer(ply, moves.length);
+                        for (int i = 0; i < moves.length; i++) {
+                            scores[i] = tacticalOrderScore(position, moves[i], context);
+                        }
+                        // Evaluator priors apply per stage (a no-op for the
+                        // classical evaluator, which boosts quiets only, but it
+                        // keeps policy-backed evaluators' capture priors).
+                        context.scoreMoves(position, moves, scores);
+                        insertionSortDescending(moves, scores, moves.length);
+                        index = 0;
+                        stage = STAGE_TACTICALS;
+                    }
+                    case STAGE_TACTICALS -> {
+                        while (index < moves.length) {
+                            short move = moves[index++];
+                            if (move == ttMove || move == excluded || !isLegal(move)) {
+                                continue;
+                            }
+                            if (context.seePruning() && isLosingCapture(position, move)) {
+                                badCaptures[badCount++] = move;
+                                continue;
+                            }
+                            return move;
+                        }
+                        stage = STAGE_KILLERS;
+                    }
+                    case STAGE_KILLERS -> {
+                        while (killerSlot < 2) {
+                            short killer = killerSlot == 0 ? killer0 : killer1;
+                            killerSlot++;
+                            if (killer == Move.NO_MOVE || killer == ttMove || killer == excluded
+                                    || (killerSlot == 2 && killer == killer0)
+                                    || isTacticalMove(position, killer)
+                                    || !MoveGenerator.isPseudoLegal(position, killer)
+                                    || !isLegal(killer)) {
+                                continue;
+                            }
+                            return killer;
+                        }
+                        stage = STAGE_GEN_QUIETS;
+                    }
+                    case STAGE_GEN_QUIETS -> {
+                        moves = context.pseudoQuiets(position).toArray();
+                        int[] scores = context.scoreBuffer(ply, moves.length);
+                        for (int i = 0; i < moves.length; i++) {
+                            short move = moves[i];
+                            // Moves already emitted (or excluded) are skipped at
+                            // emission by identity; park them last unscored so
+                            // they pay no history reads or check probes.
+                            scores[i] = move == ttMove || move == excluded || move == killer0 || move == killer1
+                                    ? Integer.MIN_VALUE
+                                    : quietOrderScore(position, move, context, ply);
+                        }
+                        context.scoreMoves(position, moves, scores);
+                        insertionSortDescending(moves, scores, moves.length);
+                        index = 0;
+                        stage = STAGE_QUIETS;
+                    }
+                    case STAGE_QUIETS -> {
+                        while (index < moves.length) {
+                            short move = moves[index++];
+                            if (move == ttMove || move == excluded || move == killer0 || move == killer1
+                                    || !isLegal(move)) {
+                                continue;
+                            }
+                            return move;
+                        }
+                        index = 0;
+                        stage = STAGE_BAD_CAPTURES;
+                    }
+                    case STAGE_BAD_CAPTURES -> {
+                        if (index < badCount) {
+                            return badCaptures[index++];
+                        }
+                        stage = STAGE_DONE;
+                    }
+                    default -> {
+                        return Move.NO_MOVE;
+                    }
+                }
+            }
+        }
+
+        /**
+         * Tests full legality of a pseudo-legal move at this non-check node,
+         * mirroring the eager generator's filtering: the pin/king fast path
+         * first, then a transient play/undo king-safety check.
+         *
+         * @param move pseudo-legal move to test
+         * @return true when the move is legal
+         */
+        private boolean isLegal(short move) {
+            if (MoveGenerator.isUsuallyLegal(position, move, pinned, king, enPassant)) {
+                return true;
+            }
+            position.play(move, context.genState);
+            boolean legal = !MoveGenerator.isKingAttacked(position, white);
+            position.undo(move, context.genState);
+            return legal;
+        }
+    }
 
     /**
      * Mutable negamax move-search state.
@@ -3202,6 +3706,17 @@ public final class AlphaBeta implements AutoCloseable {
          * Whether static-eval correction history is enabled.
          */
         private final boolean correctionHistory;
+
+        /**
+         * Whether the staged move picker drives non-check nodes.
+         */
+        private final boolean stagedPicker;
+
+        /**
+         * Per-ply buffers holding SEE-losing captures the staged picker deferred
+         * past the quiet stage. Only allocated when {@link #stagedPicker} is set.
+         */
+        private final short[][] pickerBadCaptures;
 
         /**
          * Static-eval correction table keyed by pawn-and-king structure plus side to
@@ -3422,6 +3937,7 @@ public final class AlphaBeta implements AutoCloseable {
             this.razoring = features.contains(Feature.RAZORING);
             this.singularExt = features.contains(Feature.SINGULAR_EXT);
             this.correctionHistory = features.contains(Feature.CORRECTION_HISTORY);
+            this.stagedPicker = features.contains(Feature.STAGED_PICKER);
             this.correction = correctionHistory ? new int[CORRECTION_ENTRIES] : null;
             // Check and singular extensions can both deepen the main search beyond
             // the nominal depth, so when either is enabled reserve a full extra
@@ -3453,6 +3969,7 @@ public final class AlphaBeta implements AutoCloseable {
             this.contHist2 = contHistory ? new short[CONT_PIECE_SQUARES * CONT_PIECE_SQUARES] : null;
             this.captureHist = captureHistory ? new short[CAPTURE_HISTORY_BUCKETS] : null;
             this.triedCaptures = captureHistory ? new short[searchPlies][MAX_TRIED_CAPTURES] : null;
+            this.pickerBadCaptures = stagedPicker ? new short[searchPlies][MOVE_SCORE_BUFFER_SIZE] : null;
             this.excluded = singularExt ? new short[searchPlies] : null;
             for (int i = 0; i < searchPlies; i++) {
                 states[i] = new Position.State();
@@ -3672,6 +4189,63 @@ public final class AlphaBeta implements AutoCloseable {
          */
         private boolean singularExt() {
             return singularExt;
+        }
+
+        /**
+         * Returns whether the staged move picker drives non-check nodes.
+         *
+         * @return true when staged move picking is active
+         */
+        private boolean stagedPicker() {
+            return stagedPicker;
+        }
+
+        /**
+         * Returns the staged picker's deferred bad-capture buffer for a ply.
+         *
+         * @param ply current search ply
+         * @return caller-owned buffer slot
+         */
+        private short[] pickerBadCaptures(int ply) {
+            return pickerBadCaptures[ply];
+        }
+
+        /**
+         * Returns one killer slot for a ply, or {@link Move#NO_MOVE} when the
+         * ply is past the killer table.
+         *
+         * @param ply ply whose killer slot should be read
+         * @param slot killer slot, 0 or 1
+         * @return stored killer move or {@link Move#NO_MOVE}
+         */
+        private short killer(int ply, int slot) {
+            return ply < killers.length ? killers[ply][slot] : Move.NO_MOVE;
+        }
+
+        /**
+         * Generates pseudo-legal tactical moves into the shared scratch list.
+         * Valid only until the next generation in this context; callers copy the
+         * list out before any recursion.
+         *
+         * @param position position to generate for
+         * @return the shared scratch list, filled
+         */
+        private MoveList pseudoTacticals(Position position) {
+            MoveGenerator.generatePseudoLegalTacticals(position, genPseudo);
+            return genPseudo;
+        }
+
+        /**
+         * Generates pseudo-legal quiet moves into the shared scratch list.
+         * Valid only until the next generation in this context; callers copy the
+         * list out before any recursion.
+         *
+         * @param position position to generate for
+         * @return the shared scratch list, filled
+         */
+        private MoveList pseudoQuiets(Position position) {
+            MoveGenerator.generatePseudoLegalQuiets(position, genPseudo);
+            return genPseudo;
         }
 
         /**

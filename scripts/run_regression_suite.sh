@@ -127,6 +127,7 @@ run_cli() {
 run_engine() {
   ensure_compiled
   run_test testing.BuiltInEngineRegressionTest
+  run_test testing.StagedPickerRegressionTest
   run_test testing.PuzzleDifficultyRegressionTest
   run_test testing.BT4RegressionTest
   run_test testing.T5RegressionTest

@@ -360,6 +360,98 @@ public final class MoveGenerator {
     }
 
     /**
+     * Generates pseudo-legal quiet moves only: non-promoting pawn pushes, quiet
+     * piece moves, and castling. This is the exact complement of
+     * {@link #generatePseudoLegalTacticals} within {@link #generatePseudoLegalMoves}:
+     * the two lists are disjoint and their union is the full pseudo-legal list,
+     * with bit-identical move encodings. Built for a staged move picker that
+     * defers quiet generation until the tactical stages are exhausted.
+     *
+     * @param position position
+     * @param moves cleared and filled with pseudo-legal quiet moves
+     */
+    public static void generatePseudoLegalQuiets(Position position, MoveList moves) {
+        moves.clear();
+        boolean white = position.isWhiteToMove();
+        long occupancy = position.occupancy();
+        long empty = ~occupancy;
+        if (white) {
+            addWhitePawnQuiets(position, moves);
+            addQuietTargets(position, moves, Position.WHITE_KNIGHT, KNIGHT_ATTACKS, empty, occupancy, 0);
+            addQuietTargets(position, moves, Position.WHITE_BISHOP, null, empty, occupancy, 1);
+            addQuietTargets(position, moves, Position.WHITE_ROOK, null, empty, occupancy, 2);
+            addQuietTargets(position, moves, Position.WHITE_QUEEN, null, empty, occupancy, 3);
+            addQuietTargets(position, moves, Position.WHITE_KING, KING_ATTACKS, empty, occupancy, 0);
+            addWhiteCastles(position, moves);
+        } else {
+            addBlackPawnQuiets(position, moves);
+            addQuietTargets(position, moves, Position.BLACK_KNIGHT, KNIGHT_ATTACKS, empty, occupancy, 0);
+            addQuietTargets(position, moves, Position.BLACK_BISHOP, null, empty, occupancy, 1);
+            addQuietTargets(position, moves, Position.BLACK_ROOK, null, empty, occupancy, 2);
+            addQuietTargets(position, moves, Position.BLACK_QUEEN, null, empty, occupancy, 3);
+            addQuietTargets(position, moves, Position.BLACK_KING, KING_ATTACKS, empty, occupancy, 0);
+            addBlackCastles(position, moves);
+        }
+    }
+
+    /**
+     * Adds quiet moves for one piece type by intersecting its attacks with the
+     * empty-square mask, mirroring {@link #addCaptureTargets} exactly.
+     *
+     * @param position position
+     * @param moves target list
+     * @param pieceIndex moving piece index
+     * @param attackTable precomputed attack table for non-sliders, else null
+     * @param empty empty-square mask
+     * @param occupancy full occupancy for slider attacks
+     * @param sliderType 0 = table lookup, 1 = bishop, 2 = rook, 3 = queen
+     */
+    private static void addQuietTargets(Position position, MoveList moves, int pieceIndex,
+            long[] attackTable, long empty, long occupancy, int sliderType) {
+        long pieces = position.pieces(pieceIndex);
+        while (pieces != 0L) {
+            int from = Long.numberOfTrailingZeros(pieces);
+            pieces &= pieces - 1L;
+            long attacks = switch (sliderType) {
+                case 1 -> bishopAttacks(from, occupancy);
+                case 2 -> rookAttacks(from, occupancy);
+                case 3 -> bishopAttacks(from, occupancy) | rookAttacks(from, occupancy);
+                default -> attackTable[from];
+            };
+            addTargets(moves, from, attacks & empty);
+        }
+    }
+
+    /**
+     * Adds pseudo-legal quiet White pawn moves: non-promoting single pushes and
+     * double pushes, mirroring the quiet lines of {@link #addWhitePawnMoves}.
+     *
+     * @param position position
+     * @param moves target list
+     */
+    private static void addWhitePawnQuiets(Position position, MoveList moves) {
+        long pawns = position.pieces(Position.WHITE_PAWN);
+        long empty = ~position.occupancy();
+        long single = (pawns >>> 8) & empty;
+        addPawnTargets(moves, single & ~Bits.RANK_8, 8, true);
+        addPawnTargets(moves, ((single & Bits.RANK_3) >>> 8) & empty, 16, true);
+    }
+
+    /**
+     * Adds pseudo-legal quiet Black pawn moves (see {@link #addWhitePawnQuiets}).
+     *
+     * @param position position
+     * @param moves target list
+     */
+    private static void addBlackPawnQuiets(Position position, MoveList moves) {
+        long pawns = position.pieces(Position.BLACK_PAWN);
+        long empty = ~position.occupancy();
+        long single = (pawns << 8) & empty;
+        addPawnTargets(moves, single & ~Bits.RANK_1, -8, false);
+        addPawnTargets(moves, ((single & Bits.RANK_6) << 8) & empty, -16, false);
+    }
+
+    /**
      * Runs node-only perft from a position.
      *
      * <p>
@@ -769,6 +861,117 @@ public final class MoveGenerator {
         return (moving == Position.WHITE_PAWN || moving == Position.BLACK_PAWN)
                 && to == position.enPassantSquare()
                 && position.pieceIndexAt(to) < 0;
+    }
+
+    /**
+     * Tests whether an encoded move would be generated by
+     * {@link #generatePseudoLegalMoves} in this position, without generating the
+     * move list. Built for validating a transposition-table move before a staged
+     * move picker has generated anything: a stale or key-colliding entry can
+     * encode an arbitrary 16-bit value, and playing an ungeneratable move would
+     * corrupt the board.
+     *
+     * <p>
+     * The predicate mirrors the generator exactly, including the enemy-king
+     * capture exclusion, the guarded en-passant mask, and full castling
+     * validation (castles are only pseudo-legal when actually legal, exactly as
+     * generated). Pseudo-legality does not imply full legality: the move may
+     * still leave the moving side's king attacked.
+     * </p>
+     *
+     * @param position position to test in
+     * @param move encoded candidate move, possibly arbitrary
+     * @return true when the generator would emit this exact encoding
+     */
+    public static boolean isPseudoLegal(Position position, short move) {
+        if (!PositionMoveSupport.isEncodedMove(move)) {
+            return false;
+        }
+        int from = move & 0x3F;
+        int to = (move >>> 6) & 0x3F;
+        int promotion = (move >>> 12) & 0x7;
+        boolean white = position.isWhiteToMove();
+        if ((position.occupancy(white) & (1L << from)) == 0L) {
+            return false;
+        }
+        int moving = position.pieceIndexAt(from);
+        if (moving == Position.WHITE_PAWN || moving == Position.BLACK_PAWN) {
+            return isPseudoLegalPawn(position, white, from, to, promotion);
+        }
+        if (promotion != 0) {
+            return false;
+        }
+        long occupancy = position.occupancy();
+        long attacks = switch (moving) {
+            case Position.WHITE_KNIGHT, Position.BLACK_KNIGHT -> KNIGHT_ATTACKS[from];
+            case Position.WHITE_BISHOP, Position.BLACK_BISHOP -> bishopAttacks(from, occupancy);
+            case Position.WHITE_ROOK, Position.BLACK_ROOK -> rookAttacks(from, occupancy);
+            case Position.WHITE_QUEEN, Position.BLACK_QUEEN ->
+                    bishopAttacks(from, occupancy) | rookAttacks(from, occupancy);
+            default -> KING_ATTACKS[from];
+        };
+        long own = position.occupancy(white);
+        long enemyKing = position.pieces(white ? Position.BLACK_KING : Position.WHITE_KING);
+        if ((attacks & ~own & ~enemyKing & (1L << to)) != 0L) {
+            return true;
+        }
+        if (moving == Position.WHITE_KING || moving == Position.BLACK_KING) {
+            return move == castleMove(position, white,
+                    white ? Position.WHITE_KINGSIDE : Position.BLACK_KINGSIDE)
+                    || move == castleMove(position, white,
+                            white ? Position.WHITE_QUEENSIDE : Position.BLACK_QUEENSIDE);
+        }
+        return false;
+    }
+
+    /**
+     * Pawn arm of {@link #isPseudoLegal}, mirroring the push, double-push,
+     * capture, en-passant, and promotion-expansion rules of
+     * {@link #addWhitePawnMoves}/{@link #addBlackPawnMoves} for a single pawn.
+     *
+     * @param position position to test in
+     * @param white true when the pawn is White
+     * @param from origin square holding the pawn
+     * @param to target square
+     * @param promotion promotion code from the encoded move
+     * @return true when the generator would emit this pawn move
+     */
+    private static boolean isPseudoLegalPawn(Position position, boolean white, int from, int to, int promotion) {
+        boolean promotionRank = white ? to < 8 : to >= 56;
+        if (promotionRank != (promotion != 0)) {
+            return false;
+        }
+        long empty = ~position.occupancy();
+        long toBit = 1L << to;
+        int file = from & 7;
+        if (white) {
+            if (to == from - 8) {
+                return (toBit & empty) != 0L;
+            }
+            if (to == from - 16) {
+                long step = 1L << (from - 8);
+                return (step & empty & Bits.RANK_3) != 0L && (toBit & empty) != 0L;
+            }
+            if ((to == from - 9 && file != 0) || (to == from - 7 && file != 7)) {
+                long capturable = (position.blackOccupancy() & ~position.pieces(Position.BLACK_KING))
+                        | enPassantMask(position, true);
+                return (toBit & capturable) != 0L;
+            }
+            return false;
+        }
+        if (to == from + 8) {
+            return (toBit & empty) != 0L;
+        }
+        if (to == from + 16) {
+            long step = 1L << (from + 8);
+            return (step & empty & Bits.RANK_6) != 0L && (toBit & empty) != 0L;
+        }
+        if ((to == from + 7 && file != 0) || (to == from + 9 && file != 7)) {
+            long capturable = (position.whiteOccupancy() & ~position.pieces(Position.WHITE_KING))
+                    | enPassantMask(position, false);
+            return (toBit & capturable) != 0L;
+        }
+        return false;
     }
 
     /**
@@ -1229,8 +1432,26 @@ public final class MoveGenerator {
      * @param right castling right to test
      */
     private static void addCastle(Position position, MoveList moves, boolean white, int right) {
+        short castle = castleMove(position, white, right);
+        if (castle != Move.NO_MOVE) {
+            moves.addFast(castle);
+        }
+    }
+
+    /**
+     * Builds the encoded castling move for one right when castling is legal,
+     * validating rights, piece placement, geometry, empty path, and king-path
+     * safety. Single source of truth for both move generation and the
+     * {@link #isPseudoLegal} membership test.
+     *
+     * @param position position to inspect
+     * @param white true for White
+     * @param right castling right to test
+     * @return encoded castle move, or {@link Move#NO_MOVE} when unavailable
+     */
+    private static short castleMove(Position position, boolean white, int right) {
         if (!position.canCastle(right)) {
-            return;
+            return Move.NO_MOVE;
         }
         int kingFrom = position.kingSquare(white);
         int rookFrom = position.castlingRookSquare(right);
@@ -1242,7 +1463,7 @@ public final class MoveGenerator {
                 || position.pieceAt(rookFrom) != (white ? Piece.WHITE_ROOK : Piece.BLACK_ROOK)
                 || !validCastleGeometry(white, right, kingFrom, rookFrom)
                 || isSquareAttacked(position, kingFrom, !white)) {
-            return;
+            return Move.NO_MOVE;
         }
 
         long occupancy = position.occupancy();
@@ -1250,9 +1471,9 @@ public final class MoveGenerator {
                 & ~(1L << kingFrom)
                 & ~(1L << rookFrom);
         if ((occupancy & emptyMask) != 0L || !safeKingCastlePath(position, kingFrom, kingTo, !white)) {
-            return;
+            return Move.NO_MOVE;
         }
-        moves.addFast(move(kingFrom, position.castlingMoveTarget(right)));
+        return move(kingFrom, position.castlingMoveTarget(right));
     }
 
     /**
