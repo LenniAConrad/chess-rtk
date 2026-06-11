@@ -627,6 +627,11 @@ public final class UpstreamNetwork implements AutoCloseable {
         private final Architecture.Scratch scratch;
 
         /**
+         * Reusable nonzero-lane index buffer for sparse FC0 propagation.
+         */
+        private final int[] nonZero;
+
+        /**
          * Creates incremental state rooted at one position.
          *
          * @param root root position
@@ -636,6 +641,7 @@ public final class UpstreamNetwork implements AutoCloseable {
             this.buffers = new SmallSearchSlot[searchPlies];
             this.active = new SmallSearchSlot[searchPlies];
             this.scratch = layerStacks[0].newScratch();
+            this.nonZero = new int[transformer.transformedDimensions];
             for (int ply = 0; ply < searchPlies; ply++) {
                 buffers[ply] = new SmallSearchSlot(transformer.transformedDimensions);
             }
@@ -679,7 +685,7 @@ public final class UpstreamNetwork implements AutoCloseable {
 	         */
 	        @Override
 	        public int evaluate(Position position, int ply) {
-	            return evaluateSmall(active[ply], position, scratch);
+	            return evaluateSmall(active[ply], position, nonZero, scratch);
         }
 
         /**
@@ -763,6 +769,21 @@ public final class UpstreamNetwork implements AutoCloseable {
         private final int[][] threatPsqtAccumulation;
 
         /**
+         * Reusable Stockfish-order board buffer, refilled each evaluation.
+         */
+        private final int[] boardBuffer;
+
+        /**
+         * Reusable active-threat feature list, refilled each evaluation.
+         */
+        private final UpstreamFeatures.IntList threatFeatures;
+
+        /**
+         * Reusable nonzero-lane index buffer for sparse FC0 propagation.
+         */
+        private final int[] nonZero;
+
+        /**
          * Creates incremental BIG-net state rooted at one position.
          *
          * @param root root position
@@ -774,6 +795,9 @@ public final class UpstreamNetwork implements AutoCloseable {
             this.scratch = layerStacks[0].newScratch();
             this.threatAccumulation = new int[2][transformer.transformedDimensions];
             this.threatPsqtAccumulation = new int[2][LAYER_STACKS];
+            this.boardBuffer = new int[UpstreamFeatures.SQUARE_NB];
+            this.threatFeatures = new UpstreamFeatures.IntList(128);
+            this.nonZero = new int[transformer.transformedDimensions];
             for (int ply = 0; ply < searchPlies; ply++) {
                 buffers[ply] = new SmallSearchSlot(transformer.transformedDimensions);
             }
@@ -817,7 +841,7 @@ public final class UpstreamNetwork implements AutoCloseable {
          */
         @Override
         public int evaluate(Position position, int ply) {
-            return evaluateBig(active[ply], position, threatAccumulation, threatPsqtAccumulation, scratch);
+            return evaluateBig(this, active[ply], position);
         }
 
         /**
@@ -869,39 +893,40 @@ public final class UpstreamNetwork implements AutoCloseable {
      * Evaluates one position from an incremental BIG-net slot: PSQ accumulators
      * are incremental, threat accumulators are rebuilt here. Combines PSQ and
      * threats exactly as {@link FeatureTransformer#transform}, so the result is
-     * bit-identical to a full rebuild.
+     * bit-identical to a full rebuild. All working buffers live in the search
+     * state, so a search-time evaluation performs no steady-state allocation
+     * (the threat list grows at most a few times early on, then stabilizes).
      *
+     * @param state owning search state with reusable buffers
      * @param slot active PSQ slot
      * @param position current position
-     * @param threatAccumulation reusable per-perspective threat accumulators
-     * @param threatPsqtAccumulation reusable per-perspective threat PSQT accumulators
-     * @param scratch dense-layer workspace
      * @return centipawns from the side-to-move perspective
      */
-    private int evaluateBig(
-            SmallSearchSlot slot,
-            Position position,
-            int[][] threatAccumulation,
-            int[][] threatPsqtAccumulation,
-            Architecture.Scratch scratch) {
-        int[] board = UpstreamFeatures.board(position);
+    private int evaluateBig(BigSearchState state, SmallSearchSlot slot, Position position) {
+        int[] board = state.boardBuffer;
+        UpstreamFeatures.fillBoard(position, board);
         int bucket = bucket(UpstreamFeatures.pieceCount(board));
         int stm = UpstreamFeatures.sideToMove(position);
         int opponent = stm ^ 1;
-        transformer.accumulateThreatFeatures(board, stm, threatAccumulation[stm], threatPsqtAccumulation[stm]);
+        int[][] threatAccumulation = state.threatAccumulation;
+        int[][] threatPsqtAccumulation = state.threatPsqtAccumulation;
         transformer.accumulateThreatFeatures(
-                board, opponent, threatAccumulation[opponent], threatPsqtAccumulation[opponent]);
+                board, stm, state.threatFeatures, threatAccumulation[stm], threatPsqtAccumulation[stm]);
+        transformer.accumulateThreatFeatures(
+                board, opponent, state.threatFeatures, threatAccumulation[opponent], threatPsqtAccumulation[opponent]);
 
         int psqt = slot.psqtAccumulation[stm][bucket] - slot.psqtAccumulation[opponent][bucket];
         psqt = (psqt + threatPsqtAccumulation[stm][bucket] - threatPsqtAccumulation[opponent][bucket]) / 2;
 
         int half = transformer.transformedDimensions / 2;
         int smallClamp = variant.scaleSmallTransformer ? 254 : 255;
-        transformer.writePerspectiveFeatures(
-                slot.transformed, 0, slot.psqAccumulation[stm], threatAccumulation[stm], half, smallClamp);
-        transformer.writePerspectiveFeatures(
-                slot.transformed, half, slot.psqAccumulation[opponent], threatAccumulation[opponent], half, smallClamp);
-        int positional = layerStacks[bucket].propagate(slot.transformed, scratch);
+        int nonZeroCount = transformer.writePerspectiveFeaturesCollect(
+                slot.transformed, 0, slot.psqAccumulation[stm], threatAccumulation[stm], half, smallClamp,
+                state.nonZero, 0);
+        nonZeroCount = transformer.writePerspectiveFeaturesCollect(
+                slot.transformed, half, slot.psqAccumulation[opponent], threatAccumulation[opponent], half, smallClamp,
+                state.nonZero, nonZeroCount);
+        int positional = layerStacks[bucket].propagate(slot.transformed, state.nonZero, nonZeroCount, state.scratch);
         return (psqt / OUTPUT_SCALE) + (positional / OUTPUT_SCALE);
     }
 
@@ -997,10 +1022,11 @@ public final class UpstreamNetwork implements AutoCloseable {
      *
      * @param slot active slot
      * @param position current position
+     * @param nonZero reusable nonzero-lane index buffer
+     * @param scratch dense-layer workspace
      * @return centipawns from the side-to-move perspective
-     * @param scratch scratch value
      */
-    private int evaluateSmall(SmallSearchSlot slot, Position position, Architecture.Scratch scratch) {
+    private int evaluateSmall(SmallSearchSlot slot, Position position, int[] nonZero, Architecture.Scratch scratch) {
         int bucket = bucket(position.countTotalPieces());
         int stm = UpstreamFeatures.sideToMove(position);
         int opponent = stm ^ 1;
@@ -1008,21 +1034,25 @@ public final class UpstreamNetwork implements AutoCloseable {
 
         int half = transformer.transformedDimensions / 2;
         int smallClamp = variant.scaleSmallTransformer ? 254 : 255;
-        transformer.writePerspectiveFeatures(
+        int nonZeroCount = transformer.writePerspectiveFeaturesCollect(
                 slot.transformed,
                 0,
                 slot.psqAccumulation[stm],
                 null,
                 half,
-                smallClamp);
-        transformer.writePerspectiveFeatures(
+                smallClamp,
+                nonZero,
+                0);
+        nonZeroCount = transformer.writePerspectiveFeaturesCollect(
                 slot.transformed,
                 half,
                 slot.psqAccumulation[opponent],
                 null,
                 half,
-                smallClamp);
-        int positional = layerStacks[bucket].propagate(slot.transformed, scratch);
+                smallClamp,
+                nonZero,
+                nonZeroCount);
+        int positional = layerStacks[bucket].propagate(slot.transformed, nonZero, nonZeroCount, scratch);
         return (psqt / OUTPUT_SCALE) + (positional / OUTPUT_SCALE);
     }
 

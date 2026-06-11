@@ -180,6 +180,18 @@ final class UpstreamFeatures {
             });
 
     /**
+     * Precomputed knight pseudo targets per square, in {@link #pseudoTargets}
+     * order, so the per-evaluation threat scan never rebuilds or sorts them.
+     */
+    private static final int[][] KNIGHT_TARGETS = buildLeaperTargets(KNIGHT);
+
+    /**
+     * Precomputed king pseudo targets per square, in {@link #pseudoTargets}
+     * order.
+     */
+    private static final int[][] KING_TARGETS = buildLeaperTargets(KING);
+
+    /**
      * Prevents instantiation.
      */
     private UpstreamFeatures() {
@@ -203,13 +215,26 @@ final class UpstreamFeatures {
      * @return 64-entry board
      */
     static int[] board(Position position) {
-        byte[] source = position.getBoard();
         int[] out = new int[SQUARE_NB];
-        for (int index = 0; index < source.length; index++) {
-            int square = squareFromPositionIndex(index);
-            out[square] = encodedPiece(source[index]);
-        }
+        fillBoard(position, out);
         return out;
+    }
+
+    /**
+     * Fills a caller-owned 64-entry board with Stockfish piece codes in
+     * Stockfish square order, so per-node evaluation can reuse one buffer
+     * instead of allocating. Reads squares through
+     * {@link Position#pieceAt(int)} rather than the defensive
+     * {@link Position#getBoard()} copy, keeping this path allocation-free.
+     *
+     * @param position source position
+     * @param out 64-entry destination board; every entry is overwritten
+     */
+    static void fillBoard(Position position, int[] out) {
+        for (int index = 0; index < SQUARE_NB; index++) {
+            int square = squareFromPositionIndex(index);
+            out[square] = encodedPiece(position.pieceAt(index));
+        }
     }
 
     /**
@@ -261,9 +286,26 @@ final class UpstreamFeatures {
      * @return active indices
      */
     static int[] activeThreats(int[] board, int perspective, UpstreamNetwork.Variant variant) {
+        IntList active = new IntList(128);
+        collectThreats(board, perspective, variant, active);
+        return active.toArray();
+    }
+
+    /**
+     * Collects active FullThreats indices into a caller-owned reusable list,
+     * emitting exactly the indices {@link #activeThreats} would in the same
+     * order, without any per-call allocation.
+     *
+     * @param board Stockfish-order board
+     * @param perspective perspective color
+     * @param variant Stockfish NNUE variant
+     * @param active output list; cleared before features are appended
+     */
+    static void collectThreats(int[] board, int perspective, UpstreamNetwork.Variant variant, IntList active) {
         ThreatTables tables = threatTables(variant);
         int kingSquare = kingSquare(board, perspective);
-        IntList active = new IntList(128);
+        active.clear();
+        ThreatContext context = new ThreatContext(perspective, 0, 0, kingSquare, tables, active);
 
         for (int colorSelector = WHITE; colorSelector <= BLACK; colorSelector++) {
             int color = perspective ^ colorSelector;
@@ -273,12 +315,12 @@ final class UpstreamFeatures {
                     if (board[from] != attacker) {
                         continue;
                     }
-                    appendThreatsFrom(board, new ThreatContext(perspective, attacker, from, kingSquare, tables, active));
+                    context.attacker = attacker;
+                    context.from = from;
+                    appendThreatsFrom(board, context);
                 }
             }
         }
-
-        return active.toArray();
     }
 
     /**
@@ -449,7 +491,8 @@ final class UpstreamFeatures {
             return;
         }
         if (type == KNIGHT || type == KING) {
-            for (int to : pseudoTargets(type, colorOf(ctx.attacker), ctx.from)) {
+            int[] targets = type == KNIGHT ? KNIGHT_TARGETS[ctx.from] : KING_TARGETS[ctx.from];
+            for (int to : targets) {
                 appendThreatIfOccupied(board, ctx, to);
             }
             return;
@@ -624,6 +667,21 @@ final class UpstreamFeatures {
         int[] out = new int[SQUARE_NB];
         for (int square = 0; square < SQUARE_NB; square++) {
             out[square] = file(square) < 4 ? leftValue : rightValue;
+        }
+        return out;
+    }
+
+    /**
+     * Precomputes color-independent leaper pseudo targets for every square.
+     *
+     * @param pieceType {@link #KNIGHT} or {@link #KING}
+     * @return per-square sorted target squares, identical to
+     *         {@link #pseudoTargets}
+     */
+    private static int[][] buildLeaperTargets(int pieceType) {
+        int[][] out = new int[SQUARE_NB][];
+        for (int from = 0; from < SQUARE_NB; from++) {
+            out[from] = pseudoTargets(pieceType, WHITE, from);
         }
         return out;
     }
@@ -911,14 +969,16 @@ final class UpstreamFeatures {
         private final int perspective;
 
         /**
-         * Attacking piece.
+         * Attacking piece. Mutable so one context can be reused across the
+         * attacker scan of a single {@link #collectThreats} call.
          */
-        private final int attacker;
+        private int attacker;
 
         /**
-         * Attacker square.
+         * Attacker square. Mutable for the same reuse reason as
+         * {@link #attacker}.
          */
-        private final int from;
+        private int from;
 
         /**
          * Perspective king square.
@@ -977,9 +1037,9 @@ final class UpstreamFeatures {
     }
 
     /**
-     * Small growable int list.
+     * Small growable int list, reusable across calls via {@link #clear()}.
      */
-    private static final class IntList {
+    static final class IntList {
 
         /**
          * Backing array.
@@ -1010,6 +1070,32 @@ final class UpstreamFeatures {
                 values = Arrays.copyOf(values, values.length * 2);
             }
             values[size++] = value;
+        }
+
+        /**
+         * Resets the list to empty without releasing the backing array.
+         */
+        void clear() {
+            size = 0;
+        }
+
+        /**
+         * Returns the number of stored values.
+         *
+         * @return value count
+         */
+        int size() {
+            return size;
+        }
+
+        /**
+         * Returns the backing array; only the first {@link #size()} entries are
+         * valid.
+         *
+         * @return backing array
+         */
+        int[] array() {
+            return values;
         }
 
         /**

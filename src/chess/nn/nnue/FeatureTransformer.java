@@ -204,7 +204,7 @@ final class FeatureTransformer {
             return;
         }
         int[] threatFeatures = UpstreamFeatures.activeThreats(board, perspective, layout.variant);
-        addByteFeatures(threatAccumulation, threatPsqtAccumulation, threatFeatures, threatWeights, threatPsqtWeights);
+        setByteFeatures(threatAccumulation, threatPsqtAccumulation, threatFeatures, threatFeatures.length);
     }
 
     /**
@@ -233,10 +233,29 @@ final class FeatureTransformer {
             int perspective,
             int[] threatAccumulation,
             int[] threatPsqtAccumulation) {
-        Arrays.fill(threatAccumulation, 0);
-        Arrays.fill(threatPsqtAccumulation, 0);
         int[] threatFeatures = UpstreamFeatures.activeThreats(board, perspective, layout.variant);
-        addByteFeatures(threatAccumulation, threatPsqtAccumulation, threatFeatures, threatWeights, threatPsqtWeights);
+        setByteFeatures(threatAccumulation, threatPsqtAccumulation, threatFeatures, threatFeatures.length);
+    }
+
+    /**
+     * Rebuilds the threat accumulators for one perspective using a reusable
+     * feature list, avoiding all per-call allocation. Semantically identical to
+     * {@link #accumulateThreatFeatures(int[], int, int[], int[])}.
+     *
+     * @param board Stockfish-order board
+     * @param perspective perspective color
+     * @param features reusable feature list (cleared and refilled here)
+     * @param threatAccumulation hidden threat accumulator (overwritten)
+     * @param threatPsqtAccumulation threat PSQT accumulator (overwritten)
+     */
+    void accumulateThreatFeatures(
+            int[] board,
+            int perspective,
+            UpstreamFeatures.IntList features,
+            int[] threatAccumulation,
+            int[] threatPsqtAccumulation) {
+        UpstreamFeatures.collectThreats(board, perspective, layout.variant, features);
+        setByteFeatures(threatAccumulation, threatPsqtAccumulation, features.array(), features.size());
     }
 
     /**
@@ -271,6 +290,51 @@ final class FeatureTransformer {
     }
 
     /**
+     * Writes transformed features for one perspective half while appending the
+     * indices of nonzero output lanes, so the dense layers can propagate only
+     * active lanes. Output values are identical to
+     * {@link #writePerspectiveFeatures(int[], int, int[], int[], int, int)}.
+     *
+     * @param transformed output feature vector
+     * @param offset destination half offset
+     * @param psqAccumulation PSQ accumulator
+     * @param threatAccumulation threat accumulator, or {@code null}
+     * @param half half-width of the transformed vector
+     * @param smallClamp clamp value for small networks without threats
+     * @param nonZero output index buffer, at least {@code offset + half} long
+     * @param nonZeroCount number of indices already in {@code nonZero}
+     * @return updated nonzero index count
+     */
+    int writePerspectiveFeaturesCollect(
+            int[] transformed,
+            int offset,
+            int[] psqAccumulation,
+            int[] threatAccumulation,
+            int half,
+            int smallClamp,
+            int[] nonZero,
+            int nonZeroCount) {
+        int count = nonZeroCount;
+        for (int j = 0; j < half; j++) {
+            int sum0 = psqAccumulation[j];
+            int sum1 = psqAccumulation[j + half];
+            if (threatAccumulation != null) {
+                sum0 = Numbers.clamp(sum0 + threatAccumulation[j], 0, 255);
+                sum1 = Numbers.clamp(sum1 + threatAccumulation[j + half], 0, 255);
+            } else {
+                sum0 = Numbers.clamp(sum0, 0, smallClamp);
+                sum1 = Numbers.clamp(sum1, 0, smallClamp);
+            }
+            int value = (sum0 * sum1) / 512;
+            transformed[offset + j] = value;
+            if (value != 0) {
+                nonZero[count++] = offset + j;
+            }
+        }
+        return count;
+    }
+
+    /**
      * Adds short-valued feature weights.
      *
      * @param accumulation hidden accumulator
@@ -285,12 +349,26 @@ final class FeatureTransformer {
             int[] features,
             short[] weights,
             int[] psqt) {
-        for (int feature : features) {
-            int weightBase = feature * transformedDimensions;
-            for (int i = 0; i < transformedDimensions; i++) {
+        int dims = transformedDimensions;
+        int pair = 0;
+        for (; pair + 1 < features.length; pair += 2) {
+            int firstBase = features[pair] * dims;
+            int secondBase = features[pair + 1] * dims;
+            for (int i = 0; i < dims; i++) {
+                accumulation[i] += weights[firstBase + i] + weights[secondBase + i];
+            }
+            int firstPsqt = features[pair] * LAYER_STACKS;
+            int secondPsqt = features[pair + 1] * LAYER_STACKS;
+            for (int i = 0; i < LAYER_STACKS; i++) {
+                psqtAccumulation[i] += psqt[firstPsqt + i] + psqt[secondPsqt + i];
+            }
+        }
+        if (pair < features.length) {
+            int weightBase = features[pair] * dims;
+            for (int i = 0; i < dims; i++) {
                 accumulation[i] += weights[weightBase + i];
             }
-            int psqtBase = feature * LAYER_STACKS;
+            int psqtBase = features[pair] * LAYER_STACKS;
             for (int i = 0; i < LAYER_STACKS; i++) {
                 psqtAccumulation[i] += psqt[psqtBase + i];
             }
@@ -298,26 +376,57 @@ final class FeatureTransformer {
     }
 
     /**
-     * Adds byte-valued threat feature weights.
+     * Overwrites the threat accumulators with the sum of byte-valued threat
+     * feature weights. The first feature row is assigned (replacing a separate
+     * zero-fill pass) and remaining rows are added pairwise to halve
+     * accumulator read/write traffic; integer addition keeps the result
+     * bit-identical to a sequential sum.
      *
-     * @param accumulation hidden accumulator
-     * @param psqtAccumulation PSQT accumulator
-     * @param features active feature list
-     * @param weights feature weights
-     * @param psqt PSQT weights
+     * @param accumulation hidden accumulator; fully overwritten
+     * @param psqtAccumulation PSQT accumulator; fully overwritten
+     * @param features active feature values
+     * @param count number of valid entries in {@code features}
      */
-    private void addByteFeatures(
+    private void setByteFeatures(
             int[] accumulation,
             int[] psqtAccumulation,
             int[] features,
-            byte[] weights,
-            int[] psqt) {
-        for (int feature : features) {
-            int weightBase = feature * transformedDimensions;
-            for (int i = 0; i < transformedDimensions; i++) {
+            int count) {
+        int dims = transformedDimensions;
+        byte[] weights = threatWeights;
+        int[] psqt = threatPsqtWeights;
+        if (count == 0) {
+            Arrays.fill(accumulation, 0);
+            Arrays.fill(psqtAccumulation, 0);
+            return;
+        }
+        int firstBase = features[0] * dims;
+        for (int i = 0; i < dims; i++) {
+            accumulation[i] = weights[firstBase + i];
+        }
+        int firstPsqt = features[0] * LAYER_STACKS;
+        for (int i = 0; i < LAYER_STACKS; i++) {
+            psqtAccumulation[i] = psqt[firstPsqt + i];
+        }
+        int pair = 1;
+        for (; pair + 1 < count; pair += 2) {
+            int leftBase = features[pair] * dims;
+            int rightBase = features[pair + 1] * dims;
+            for (int i = 0; i < dims; i++) {
+                accumulation[i] += weights[leftBase + i] + weights[rightBase + i];
+            }
+            int leftPsqt = features[pair] * LAYER_STACKS;
+            int rightPsqt = features[pair + 1] * LAYER_STACKS;
+            for (int i = 0; i < LAYER_STACKS; i++) {
+                psqtAccumulation[i] += psqt[leftPsqt + i] + psqt[rightPsqt + i];
+            }
+        }
+        if (pair < count) {
+            int weightBase = features[pair] * dims;
+            for (int i = 0; i < dims; i++) {
                 accumulation[i] += weights[weightBase + i];
             }
-            int psqtBase = feature * LAYER_STACKS;
+            int psqtBase = features[pair] * LAYER_STACKS;
             for (int i = 0; i < LAYER_STACKS; i++) {
                 psqtAccumulation[i] += psqt[psqtBase + i];
             }

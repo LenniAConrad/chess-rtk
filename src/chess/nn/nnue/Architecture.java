@@ -100,6 +100,32 @@ final class Architecture {
      */
     int propagate(int[] transformedFeatures, Scratch scratch) {
         fc0.forwardInto(transformedFeatures, scratch.fc0Out);
+        return propagateTail(scratch);
+    }
+
+    /**
+     * Propagates transformed features using only their nonzero lanes for the
+     * wide first layer; bit-identical to
+     * {@link #propagate(int[], Scratch)}.
+     *
+     * @param transformedFeatures transformed features
+     * @param nonZero ascending indices of nonzero transformed lanes
+     * @param nonZeroCount number of valid indices in {@code nonZero}
+     * @param scratch reusable dense-layer workspace
+     * @return scaled Stockfish positional output
+     */
+    int propagate(int[] transformedFeatures, int[] nonZero, int nonZeroCount, Scratch scratch) {
+        fc0.forwardSparseInto(transformedFeatures, nonZero, nonZeroCount, scratch.fc0Out);
+        return propagateTail(scratch);
+    }
+
+    /**
+     * Runs the activation and remaining dense layers after FC0.
+     *
+     * @param scratch workspace with {@code fc0Out} already populated
+     * @return scaled Stockfish positional output
+     */
+    private int propagateTail(Scratch scratch) {
         for (int i = 0; i < layout.l2; i++) {
             int value = scratch.fc0Out[i];
             scratch.fc1Input[i] = sqrClippedRelu(value);
