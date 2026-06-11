@@ -6,20 +6,35 @@ package chess.engine;
  *
  * <p>
  * This cache avoids repeatedly invoking expensive neural evaluators on the
- * same signed position during one search.
+ * same signed position during one search. Keys and scores live in primitive
+ * parallel arrays, so lookups touch two flat words instead of chasing an
+ * entry object, and filling a bucket allocates nothing.
  * </p>
  */
 final class EvalCache {
 
     /**
-     * Direct-addressed evaluation buckets.
+     * Sentinel returned by {@link #get(long)} for a miss. Static evaluators
+     * return bounded centipawn scores, so this value can never be a real
+     * cached score.
      */
-    final EvalEntry[] entries;
+    static final int MISS = Integer.MIN_VALUE;
 
     /**
-     * Bit mask used to map mixed signatures into the entry array.
+     * Cached position signatures; {@code 0} marks an empty bucket, so a
+     * position whose signature is exactly zero is simply never cached.
      */
-    final int mask;
+    private final long[] keys;
+
+    /**
+     * Cached centipawn scores, parallel to {@link #keys}.
+     */
+    private final int[] scores;
+
+    /**
+     * Bit mask used to map mixed signatures into the arrays.
+     */
+    private final int mask;
 
     /**
      * Creates a direct-mapped evaluation cache.
@@ -31,7 +46,8 @@ final class EvalCache {
         if (Integer.bitCount(size) != 1) {
             throw new IllegalArgumentException("size must be power of two");
         }
-        this.entries = new EvalEntry[size];
+        this.keys = new long[size];
+        this.scores = new int[size];
         this.mask = size - 1;
     }
 
@@ -39,12 +55,12 @@ final class EvalCache {
      * Reads a cached score.
      *
      * @param key position signature to look up
-     * @return cached entry, or null when the bucket is empty or holds another
-     *         signature
+     * @return cached centipawn score, or {@link #MISS} when the bucket is
+     *         empty or holds another signature
      */
-    EvalEntry get(long key) {
-        EvalEntry entry = entries[index(key)];
-        return entry != null && entry.key == key ? entry : null;
+    int get(long key) {
+        int index = index(key);
+        return keys[index] == key && key != 0L ? scores[index] : MISS;
     }
 
     /**
@@ -55,13 +71,8 @@ final class EvalCache {
      */
     void put(long key, int score) {
         int index = index(key);
-        EvalEntry entry = entries[index];
-        if (entry == null) {
-            entry = new EvalEntry();
-            entries[index] = entry;
-        }
-        entry.key = key;
-        entry.score = score;
+        keys[index] = key;
+        scores[index] = score;
     }
 
     /**

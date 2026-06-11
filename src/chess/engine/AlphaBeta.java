@@ -4010,9 +4010,9 @@ public final class AlphaBeta implements AutoCloseable {
          */
         private int evaluate(Position position, int ply) {
             long key = position.signature();
-            EvalEntry cached = evalCache.get(key);
-            if (cached != null) {
-                return cached.score;
+            int cached = evalCache.get(key);
+            if (cached != EvalCache.MISS) {
+                return cached;
             }
             int score = incrementalState == null
                     ? evaluator.evaluate(position)
