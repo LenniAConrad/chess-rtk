@@ -30,6 +30,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Deterministic self-play A/B gauntlet engine for the built-in searchers.
@@ -144,6 +145,20 @@ public final class Gauntlet {
          * @param record completed game record
          */
         default void onGame(GameRecord record) {
+            // optional
+        }
+
+        /**
+         * Reports the updated SPRT state after an opening pair has been folded
+         * into the pentanomial statistics. Only invoked when SPRT stopping is
+         * enabled, in opening order from the same thread as
+         * {@link #onProgress}.
+         *
+         * @param completed completed opening pairs counted so far
+         * @param total scheduled opening pairs (the hard cap)
+         * @param snapshot immutable SPRT state snapshot
+         */
+        default void onSprt(int completed, int total, Sprt.Snapshot snapshot) {
             // optional
         }
     }
@@ -267,6 +282,9 @@ public final class Gauntlet {
      * @param threadsA candidate search threads
      * @param threadsB baseline search threads
      * @param workers concurrent opening-pair workers
+     * @param sprt whether pentanomial SPRT early stopping is enabled
+     * @param sprtElo0 SPRT H0 hypothesis Elo (ignored unless {@code sprt})
+     * @param sprtElo1 SPRT H1 hypothesis Elo (ignored unless {@code sprt})
      */
     public record Config(
             Set<AlphaBeta.Feature> featuresA,
@@ -302,7 +320,10 @@ public final class Gauntlet {
             long seed,
             int threadsA,
             int threadsB,
-            int workers) {
+            int workers,
+            boolean sprt,
+            double sprtElo0,
+            double sprtElo1) {
 
         /**
          * Returns the shared per-move search limits implied by this configuration.
@@ -436,6 +457,30 @@ public final class Gauntlet {
      * @param second candidate-as-Black result
      */
     private record OpeningResult(Outcome first, Outcome second) {
+
+        /**
+         * Returns the candidate's pair score in half points ({@code 0..4}),
+         * which is also the pentanomial category index for this pair.
+         *
+         * @return candidate pair score in half points
+         */
+        int halfPoints() {
+            return Sprt.pairCategory(points(first), points(second));
+        }
+
+        /**
+         * Returns one game's candidate score in half points.
+         *
+         * @param outcome game outcome
+         * @return {@code 2} for a win, {@code 1} for a draw, {@code 0} for a loss
+         */
+        private static int points(Outcome outcome) {
+            return switch (outcome) {
+                case WIN -> 2;
+                case DRAW -> 1;
+                case LOSS -> 0;
+            };
+        }
     }
 
     /**
@@ -829,6 +874,16 @@ public final class Gauntlet {
     private static final int STARTING_MATERIAL = 7_800;
 
     /**
+     * SPRT type-I error rate (probability of falsely accepting H1).
+     */
+    public static final double SPRT_ALPHA = 0.05;
+
+    /**
+     * SPRT type-II error rate (probability of falsely accepting H0).
+     */
+    public static final double SPRT_BETA = 0.05;
+
+    /**
      * Prevents instantiation.
      */
     private Gauntlet() {
@@ -864,6 +919,14 @@ public final class Gauntlet {
     /**
      * Runs the gauntlet over the supplied openings.
      *
+     * <p>
+     * When {@link Config#sprt()} is enabled the run may stop before exhausting
+     * the openings: completed opening pairs feed a pentanomial {@link Sprt}
+     * and the run stops scheduling new pairs once a stopping bound is crossed,
+     * while the opening count remains a hard cap. The evolving SPRT state is
+     * reported through {@link ProgressListener#onSprt}.
+     * </p>
+     *
      * @param config gauntlet configuration
      * @param openings opening FENs (see {@link #openings(Config)})
      * @param listener progress listener, or {@code null} for none
@@ -880,24 +943,34 @@ public final class Gauntlet {
         if (!config.evalB().equalsIgnoreCase(config.evalA())) {
             probeEvaluator(config.evalB(), sink);
         }
+        Sprt sprt = config.sprt()
+                ? new Sprt(config.sprtElo0(), config.sprtElo1(), SPRT_ALPHA, SPRT_BETA)
+                : null;
         return config.workers() == 1
-                ? runSequential(config, openings, sink)
-                : runParallel(config, openings, sink);
+                ? runSequential(config, openings, sink, sprt)
+                : runParallel(config, openings, sink, sprt);
     }
 
     /**
-     * Runs opening pairs one at a time.
+     * Runs opening pairs one at a time, stopping at the first crossed SPRT
+     * bound when SPRT stopping is enabled.
      *
      * @param config gauntlet configuration
      * @param openings opening FENs
      * @param listener progress listener
+     * @param sprt SPRT tracker, or {@code null} when disabled
      * @return aggregate score
      */
-    private static Score runSequential(Config config, String[] openings, ProgressListener listener) {
+    private static Score runSequential(Config config, String[] openings, ProgressListener listener,
+            Sprt sprt) {
         int[] score = { 0, 0, 0 };
         for (int i = 0; i < openings.length; i++) {
-            add(score, playOpeningPair(openings[i], config, i, listener));
+            OpeningResult result = playOpeningPair(openings[i], config, i, listener);
+            add(score, result);
             listener.onProgress(i + 1, openings.length, new Score(score[0], score[1], score[2]));
+            if (updateSprt(sprt, result, i + 1, openings.length, listener)) {
+                break;
+            }
         }
         return new Score(score[0], score[1], score[2]);
     }
@@ -906,24 +979,47 @@ public final class Gauntlet {
      * Runs opening pairs concurrently, collecting futures in opening order so the
      * progress stream remains deterministic.
      *
+     * <p>
+     * A pair only enters the score and the pentanomial statistics once both of
+     * its games are complete (each submitted task plays the full pair). When an
+     * SPRT bound is crossed, the shared stop flag prevents not-yet-started
+     * pairs from playing, while pairs already in flight finish and are still
+     * counted; the SPRT decision itself is latched at the first crossing.
+     * </p>
+     *
      * @param config gauntlet configuration
      * @param openings opening FENs
      * @param listener progress listener
+     * @param sprt SPRT tracker, or {@code null} when disabled
      * @return aggregate score
      */
-    private static Score runParallel(Config config, String[] openings, ProgressListener listener) {
+    private static Score runParallel(Config config, String[] openings, ProgressListener listener,
+            Sprt sprt) {
         ExecutorService pool = Executors.newFixedThreadPool(Math.min(config.workers(), openings.length));
+        AtomicBoolean stop = new AtomicBoolean(false);
         try {
             List<Future<OpeningResult>> futures = new ArrayList<>(openings.length);
             for (int i = 0; i < openings.length; i++) {
                 final int openingIndex = i;
                 final String opening = openings[i];
-                futures.add(pool.submit(() -> playOpeningPair(opening, config, openingIndex, listener)));
+                futures.add(pool.submit(() -> stop.get()
+                        ? null
+                        : playOpeningPair(opening, config, openingIndex, listener)));
             }
             int[] score = { 0, 0, 0 };
+            int completed = 0;
             for (int i = 0; i < futures.size(); i++) {
-                add(score, futures.get(i).get());
-                listener.onProgress(i + 1, openings.length, new Score(score[0], score[1], score[2]));
+                OpeningResult result = futures.get(i).get();
+                if (result == null) {
+                    // Skipped: an SPRT bound was crossed before this pair started.
+                    continue;
+                }
+                completed++;
+                add(score, result);
+                listener.onProgress(completed, openings.length, new Score(score[0], score[1], score[2]));
+                if (updateSprt(sprt, result, completed, openings.length, listener)) {
+                    stop.set(true);
+                }
             }
             return new Score(score[0], score[1], score[2]);
         } catch (InterruptedException ex) {
@@ -934,6 +1030,27 @@ public final class Gauntlet {
         } finally {
             pool.shutdownNow();
         }
+    }
+
+    /**
+     * Folds one completed opening pair into the SPRT statistics and reports the
+     * updated state.
+     *
+     * @param sprt SPRT tracker, or {@code null} when disabled
+     * @param result completed opening-pair result
+     * @param completed completed opening pairs counted so far
+     * @param total scheduled opening pairs
+     * @param listener progress listener
+     * @return true when a stopping bound has been crossed
+     */
+    private static boolean updateSprt(Sprt sprt, OpeningResult result, int completed, int total,
+            ProgressListener listener) {
+        if (sprt == null) {
+            return false;
+        }
+        sprt.addPair(result.halfPoints());
+        listener.onSprt(completed, total, sprt.snapshot());
+        return sprt.status() != Sprt.Status.CONTINUE;
     }
 
     /**
@@ -1237,13 +1354,36 @@ public final class Gauntlet {
      * @param listener progress listener
      */
     private static void probeEvaluator(String eval, ProgressListener listener) {
-        if ("nnue".equalsIgnoreCase(eval)) {
+        String nnuePath = nnuePath(eval);
+        if (nnuePath != null) {
             try {
-                new Nnue(Path.of(NNUE_PATH));
+                new Nnue(Path.of(nnuePath)).close();
             } catch (RuntimeException | java.io.IOException ex) {
                 listener.onNote("nnue unavailable: " + ex.getMessage() + " - using classical");
             }
         }
+    }
+
+    /**
+     * Resolves an evaluator name to an NNUE weights path.
+     *
+     * <p>
+     * Plain {@code nnue} selects the bundled default network, while
+     * {@code nnue:<path>} selects an explicit weights file so A/B runs can
+     * compare different networks.
+     * </p>
+     *
+     * @param eval evaluator name
+     * @return weights path, or {@code null} for non-NNUE evaluators
+     */
+    private static String nnuePath(String eval) {
+        if ("nnue".equalsIgnoreCase(eval)) {
+            return NNUE_PATH;
+        }
+        if (eval.regionMatches(true, 0, "nnue:", 0, "nnue:".length())) {
+            return eval.substring("nnue:".length());
+        }
+        return null;
     }
 
     /**
@@ -1253,9 +1393,10 @@ public final class Gauntlet {
      * @return evaluator instance
      */
     private static CentipawnEvaluator evaluator(String eval) {
-        if ("nnue".equalsIgnoreCase(eval)) {
+        String nnuePath = nnuePath(eval);
+        if (nnuePath != null) {
             try {
-                return new Nnue(Path.of(NNUE_PATH));
+                return new Nnue(Path.of(nnuePath));
             } catch (RuntimeException | java.io.IOException ex) {
                 // Reported once via probeEvaluator; fall back silently per game.
                 return new Classical();

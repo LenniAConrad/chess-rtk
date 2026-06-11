@@ -1649,6 +1649,8 @@ public final class HelpCommand {
 			  --movetime MS               Fixed time budget per move in ms (overrides --nodes)
 			  --openings N                Seeded-random opening count; 0 uses the curated set (default: 0)
 			  --seed N                    Opening RNG seed for reproducibility (default: 20260531)
+			  --sprt ELO0:ELO1            Pentanomial SPRT early stop of H0 elo<=ELO0 vs H1 elo>=ELO1
+			                              (alpha=beta=0.05); --openings stays the hard cap
 			  --maxplies N                Adjudicate a draw past this many plies (default: 240)
 			  --workers N                 Opening pairs to play concurrently (default: 1)
 			  --threadsA|--threadsB N     Per-side search threads (default: 1)

@@ -9,6 +9,7 @@ import chess.engine.Gauntlet;
 import chess.engine.Gauntlet.Config;
 import chess.engine.Gauntlet.Score;
 import chess.engine.Gauntlet.SearchKind;
+import chess.engine.Sprt;
 import java.util.EnumSet;
 import java.util.Locale;
 import java.util.Set;
@@ -24,6 +25,17 @@ import utility.Argv;
  * and reports the candidate-perspective score plus a point Elo estimate. The
  * run is deterministic for a given seed, so the same flags reproduce the same
  * result. Pass {@code --json} for a single machine-readable summary object.
+ * With {@code --sprt ELO0:ELO1} the run additionally performs a pentanomial
+ * sequential probability ratio test over opening pairs and stops early once a
+ * stopping bound is crossed, with {@code --openings} as the hard cap.
+ * </p>
+ *
+ * <p>
+ * One determinism caveat: combining {@code --sprt} with {@code --workers}
+ * above one keeps the accept/reject decision reproducible (pairs are folded
+ * in opening order), but how many in-flight pairs finish after the crossing
+ * depends on thread scheduling, so the reported totals, pentanomial counts,
+ * final LLR, and Elo estimates may vary between identical runs.
  * </p>
  *
  * @since 2026
@@ -217,6 +229,11 @@ public final class EngineGauntletCommand {
     private static final String OPT_WORKERS = "--workers";
 
     /**
+     * SPRT early-stopping flag ({@code --sprt ELO0:ELO1}).
+     */
+    private static final String OPT_SPRT = "--sprt";
+
+    /**
      * Default node budget per move.
      */
     private static final long DEFAULT_NODES = 5_000L;
@@ -280,16 +297,27 @@ public final class EngineGauntletCommand {
             printHeader(config, openings.length);
         }
         Gauntlet.ProgressListener listener = json ? jsonListener() : textListener(openings.length);
+        SprtListener sprtListener = null;
+        if (config.sprt()) {
+            // Keep JSON stdout pure: per-pair SPRT progress lines only print in
+            // text mode, but the final snapshot is captured for both renderers.
+            sprtListener = new SprtListener(listener, !json);
+            listener = sprtListener;
+        }
         if (stream) {
             // Keep JSON stdout pure by routing per-game records to stderr in JSON
             // mode; in text mode they share stdout where the workbench reads them.
             listener = streamListener(listener, json ? System.err : System.out);
         }
         Score score = Gauntlet.run(config, openings, listener);
+        Sprt.Snapshot sprtFinal = sprtListener == null ? null : sprtListener.last(config);
         if (json) {
-            System.out.println(toJson(config, openings.length, score));
+            System.out.println(toJson(config, openings.length, score, sprtFinal));
         } else {
             printReport(score);
+            if (sprtFinal != null) {
+                printSprtVerdict(config, score, sprtFinal);
+            }
         }
     }
 
@@ -337,6 +365,17 @@ public final class EngineGauntletCommand {
         int threadsA = a.integerOr(1, OPT_THREADS_A);
         int threadsB = a.integerOr(1, OPT_THREADS_B);
         int workers = a.integerOr(1, OPT_WORKERS);
+        String sprtSpec = a.string(OPT_SPRT);
+        boolean sprt = sprtSpec != null;
+        double sprtElo0 = 0.0;
+        double sprtElo1 = 0.0;
+        if (sprt) {
+            // An explicitly present but blank value (e.g. --sprt= from an unset
+            // shell variable) must fail loudly, not silently disable SPRT.
+            double[] bounds = parseSprtBounds(sprtSpec.trim(), cmd);
+            sprtElo0 = bounds[0];
+            sprtElo1 = bounds[1];
+        }
 
         requirePositive(cmd, OPT_MAX_PLIES, maxPlies);
         requireNonNegative(cmd, OPT_OPENINGS, openingCount);
@@ -352,7 +391,33 @@ public final class EngineGauntletCommand {
         return new Config(featuresA, featuresB, searchA, searchB, evalA, evalB, nodes, movetime,
                 nodesA, nodesB, movetimeA, movetimeB, engineA, engineB, hashA, hashB, optionsA, optionsB,
                 cpuctA, cpuctB, fpuA, fpuB, checkPriorA, checkPriorB, capturePenaltyA, capturePenaltyB,
-                captureWinScaleA, captureWinScaleB, maxPlies, openingCount, seed, threadsA, threadsB, workers);
+                captureWinScaleA, captureWinScaleB, maxPlies, openingCount, seed, threadsA, threadsB, workers,
+                sprt, sprtElo0, sprtElo1);
+    }
+
+    /**
+     * Parses the {@code --sprt ELO0:ELO1} hypothesis bounds.
+     *
+     * @param spec flag value, for example {@code 0:5}
+     * @param cmd command label for diagnostics
+     * @return two-element {@code {elo0, elo1}} array with {@code elo1 > elo0}
+     */
+    private static double[] parseSprtBounds(String spec, String cmd) {
+        int colon = spec.indexOf(':');
+        if (colon > 0 && colon < spec.length() - 1) {
+            try {
+                double elo0 = Double.parseDouble(spec.substring(0, colon).trim());
+                double elo1 = Double.parseDouble(spec.substring(colon + 1).trim());
+                if (Double.isFinite(elo0) && Double.isFinite(elo1) && elo1 > elo0) {
+                    return new double[] { elo0, elo1 };
+                }
+            } catch (NumberFormatException ignored) {
+                // Fall through to the shared diagnostic below.
+            }
+        }
+        throw new CommandFailure(cmd + ": " + OPT_SPRT + " expects ELO0:ELO1 with ELO1 > ELO0"
+                + " (for example 0:5; write " + OPT_SPRT + "=-2:3 for a negative ELO0), got '"
+                + spec + "'", 2);
     }
 
     /**
@@ -460,7 +525,120 @@ public final class EngineGauntletCommand {
                         + "\t" + record.openingFen()
                         + "\t" + String.join(" ", record.moves()));
             }
+
+            /**
+             * Forwards an SPRT state update.
+             *
+             * @param completed completed opening pairs
+             * @param total total opening pairs
+             * @param snapshot SPRT state snapshot
+             */
+            @Override
+            public void onSprt(int completed, int total, Sprt.Snapshot snapshot) {
+                base.onSprt(completed, total, snapshot);
+            }
         };
+    }
+
+    /**
+     * Listener decorator that renders per-pair SPRT progress lines and captures
+     * the most recent SPRT snapshot for the final verdict.
+     */
+    private static final class SprtListener implements Gauntlet.ProgressListener {
+
+        /**
+         * Wrapped base listener.
+         */
+        private final Gauntlet.ProgressListener base;
+
+        /**
+         * Whether to print a progress line for every counted pair.
+         */
+        private final boolean printProgress;
+
+        /**
+         * Most recent SPRT snapshot, or {@code null} before the first pair.
+         */
+        private Sprt.Snapshot last;
+
+        /**
+         * Creates the decorator.
+         *
+         * @param base wrapped listener
+         * @param printProgress whether to print per-pair SPRT progress lines
+         */
+        SprtListener(Gauntlet.ProgressListener base, boolean printProgress) {
+            this.base = base;
+            this.printProgress = printProgress;
+        }
+
+        /**
+         * Forwards a progress update.
+         *
+         * @param completed completed opening pairs
+         * @param total total opening pairs
+         * @param running running score
+         */
+        @Override
+        public void onProgress(int completed, int total, Score running) {
+            base.onProgress(completed, total, running);
+        }
+
+        /**
+         * Forwards an informational note.
+         *
+         * @param message note text
+         */
+        @Override
+        public void onNote(String message) {
+            base.onNote(message);
+        }
+
+        /**
+         * Forwards a completed game record.
+         *
+         * @param record completed game record
+         */
+        @Override
+        public void onGame(Gauntlet.GameRecord record) {
+            base.onGame(record);
+        }
+
+        /**
+         * Captures the snapshot and renders one SPRT progress line.
+         *
+         * @param completed completed opening pairs
+         * @param total scheduled opening pairs
+         * @param snapshot SPRT state snapshot
+         */
+        @Override
+        public void onSprt(int completed, int total, Sprt.Snapshot snapshot) {
+            last = snapshot;
+            if (printProgress) {
+                System.out.printf(Locale.ROOT,
+                        "  SPRT [%3d/%3d]  LLR %+.3f  bounds (%.3f, %.3f)"
+                                + "  pentanomial [%d, %d, %d, %d, %d]  elo %+.1f%n",
+                        completed, total, snapshot.llr(), snapshot.lowerBound(), snapshot.upperBound(),
+                        snapshot.losses(), snapshot.halfLosses(), snapshot.evens(), snapshot.halfWins(),
+                        // Add 0.0 to normalize a negative-zero estimate to "+0.0".
+                        snapshot.wins(), snapshot.elo() + 0.0);
+            }
+        }
+
+        /**
+         * Returns the most recent SPRT snapshot, falling back to an empty
+         * pristine snapshot when no opening pair completed.
+         *
+         * @param config gauntlet configuration supplying the hypothesis Elos
+         * @return final SPRT snapshot, never {@code null}
+         */
+        Sprt.Snapshot last(Config config) {
+            if (last != null) {
+                return last;
+            }
+            return new Sprt(config.sprtElo0(), config.sprtElo1(),
+                    Gauntlet.SPRT_ALPHA, Gauntlet.SPRT_BETA).snapshot();
+        }
     }
 
     /**
@@ -505,6 +683,53 @@ public final class EngineGauntletCommand {
                 + "  threadsA=" + config.threadsA() + " threadsB=" + config.threadsB()
                 + "  workers=" + config.workers()
                 + "  openings=" + openings + "  games=" + (openings * 2));
+        if (config.sprt()) {
+            System.out.printf(Locale.ROOT,
+                    "  SPRT: H0 elo<=%s vs H1 elo>=%s  alpha=%.2f beta=%.2f"
+                            + "  bounds (%.3f, %.3f)  cap %d pairs%n",
+                    formatElo(config.sprtElo0()), formatElo(config.sprtElo1()),
+                    Gauntlet.SPRT_ALPHA, Gauntlet.SPRT_BETA,
+                    Sprt.lowerBound(Gauntlet.SPRT_ALPHA, Gauntlet.SPRT_BETA),
+                    Sprt.upperBound(Gauntlet.SPRT_ALPHA, Gauntlet.SPRT_BETA),
+                    openings);
+        }
+    }
+
+    /**
+     * Prints the final SPRT verdict line.
+     *
+     * @param config gauntlet configuration
+     * @param score aggregate score over all played games
+     * @param snapshot final SPRT snapshot
+     */
+    private static void printSprtVerdict(Config config, Score score, Sprt.Snapshot snapshot) {
+        // Decided verdicts report the LLR latched at the bound crossing;
+        // in-flight pairs counted after the decision can pull the final LLR
+        // back inside the bounds, which would contradict the verdict text.
+        String verdict = switch (snapshot.status()) {
+            case ACCEPT_H1 -> String.format(Locale.ROOT,
+                    "H1 accepted (elo >= %s): LLR %.3f reached upper bound %.3f",
+                    formatElo(config.sprtElo1()), snapshot.decisionLlr(), snapshot.upperBound());
+            case ACCEPT_H0 -> String.format(Locale.ROOT,
+                    "H0 accepted (elo <= %s): LLR %.3f reached lower bound %.3f",
+                    formatElo(config.sprtElo0()), snapshot.decisionLlr(), snapshot.lowerBound());
+            case CONTINUE -> String.format(Locale.ROOT,
+                    "inconclusive at the opening cap: LLR %.3f inside (%.3f, %.3f)",
+                    snapshot.llr(), snapshot.lowerBound(), snapshot.upperBound());
+        };
+        System.out.printf(Locale.ROOT, "SPRT: %s after %d games%n", verdict, score.games());
+    }
+
+    /**
+     * Formats a hypothesis Elo without trailing zeros.
+     *
+     * @param elo hypothesis Elo
+     * @return compact decimal text
+     */
+    private static String formatElo(double elo) {
+        return elo == Math.rint(elo)
+                ? String.format(Locale.ROOT, "%.0f", elo)
+                : Double.toString(elo);
     }
 
     /**
@@ -531,9 +756,10 @@ public final class EngineGauntletCommand {
      * @param config gauntlet configuration
      * @param openings resolved opening count
      * @param score aggregate score
+     * @param sprt final SPRT snapshot, or {@code null} when SPRT was disabled
      * @return JSON summary
      */
-    private static String toJson(Config config, int openings, Score score) {
+    private static String toJson(Config config, int openings, Score score, Sprt.Snapshot sprt) {
         StringBuilder out = new StringBuilder(256);
         out.append('{');
         out.append("\"candidate\":").append(sideJson(config.searchA(), config.evalA(), config.featuresA()));
@@ -550,8 +776,38 @@ public final class EngineGauntletCommand {
         } else {
             out.append("null");
         }
+        if (sprt != null) {
+            out.append(",\"sprt\":").append(sprtJson(config, sprt));
+        }
         out.append('}');
         return out.toString();
+    }
+
+    /**
+     * Renders the final SPRT state as a JSON object.
+     *
+     * @param config gauntlet configuration supplying the hypothesis Elos
+     * @param sprt final SPRT snapshot
+     * @return JSON object
+     */
+    private static String sprtJson(Config config, Sprt.Snapshot sprt) {
+        String status = switch (sprt.status()) {
+            case ACCEPT_H1 -> "accept_h1";
+            case ACCEPT_H0 -> "accept_h0";
+            case CONTINUE -> "inconclusive";
+        };
+        String decisionLlr = Double.isNaN(sprt.decisionLlr())
+                ? ""
+                : String.format(Locale.ROOT, ",\"decisionLlr\":%.6f", sprt.decisionLlr());
+        return String.format(Locale.ROOT,
+                "{\"elo0\":%s,\"elo1\":%s,\"alpha\":%.2f,\"beta\":%.2f,\"llr\":%.6f%s"
+                        + ",\"lowerBound\":%.6f,\"upperBound\":%.6f"
+                        + ",\"pentanomial\":[%d,%d,%d,%d,%d],\"eloEstimate\":%.2f,\"status\":%s}",
+                formatElo(config.sprtElo0()), formatElo(config.sprtElo1()),
+                Gauntlet.SPRT_ALPHA, Gauntlet.SPRT_BETA, sprt.llr(), decisionLlr,
+                sprt.lowerBound(), sprt.upperBound(),
+                sprt.losses(), sprt.halfLosses(), sprt.evens(), sprt.halfWins(), sprt.wins(),
+                sprt.elo() + 0.0, CommandSupport.jsonString(status));
     }
 
     /**
