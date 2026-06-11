@@ -583,9 +583,9 @@ public final class UpstreamNetwork implements AutoCloseable {
      * Opens optional per-search incremental state.
      *
      * <p>
-     * This currently supports Stockfish small nets, which are the default
-     * HalfKAv2_hm-style nets without threat features. Big nets still fall back to
-     * full rebuild evaluation.
+     * Small nets keep their HalfKAv2_hm accumulators incremental; big nets
+     * additionally maintain incremental FullThreats accumulators with exact
+     * per-move instance deltas.
      * </p>
      *
      * @param root root position at ply 0
@@ -600,7 +600,6 @@ public final class UpstreamNetwork implements AutoCloseable {
             throw new IllegalArgumentException("searchPlies must be positive");
         }
         if (size != Size.SMALL) {
-            // BIG nets keep PSQ (HalfKA) incremental and rebuild threats per node.
             return transformer.useThreats() ? new BigSearchState(root, searchPlies) : null;
         }
         return new SmallSearchState(root, searchPlies);
@@ -643,7 +642,7 @@ public final class UpstreamNetwork implements AutoCloseable {
             this.scratch = layerStacks[0].newScratch();
             this.nonZero = new int[transformer.transformedDimensions];
             for (int ply = 0; ply < searchPlies; ply++) {
-                buffers[ply] = new SmallSearchSlot(transformer.transformedDimensions);
+                buffers[ply] = new SmallSearchSlot(transformer.transformedDimensions, false);
             }
             refreshSmallSlot(buffers[0], root);
             active[0] = buffers[0];
@@ -735,10 +734,12 @@ public final class UpstreamNetwork implements AutoCloseable {
 
     /**
      * Per-search incremental state for the BIG nets (threats present). Keeps the
-     * HalfKA PSQ accumulators incremental exactly like {@link SmallSearchState},
-     * but rebuilds the threat accumulators from scratch each evaluation, because
-     * threat features depend non-locally on board occupancy and are not cleanly
-     * incremental. The combined PSQ+threat result is bit-identical to a full
+     * HalfKA PSQ accumulators incremental exactly like {@link SmallSearchState}
+     * and additionally maintains the FullThreats accumulators incrementally:
+     * each move applies the exact set of changed threat instances, while an
+     * own-king move that flips the threat orientation invalidates that
+     * perspective until the next evaluation refreshes it from the board. The
+     * combined PSQ+threat result is bit-identical to a full
      * {@link FeatureTransformer#transform} rebuild (verified by parity tests).
      */
     private final class BigSearchState implements Model.SearchState {
@@ -759,22 +760,12 @@ public final class UpstreamNetwork implements AutoCloseable {
         private final Architecture.Scratch scratch;
 
         /**
-         * Reusable per-perspective threat accumulators, rebuilt each evaluation.
-         */
-        private final int[][] threatAccumulation;
-
-        /**
-         * Reusable per-perspective threat PSQT accumulators.
-         */
-        private final int[][] threatPsqtAccumulation;
-
-        /**
-         * Reusable Stockfish-order board buffer, refilled each evaluation.
+         * Reusable Stockfish-order board buffer, refilled per move/evaluation.
          */
         private final int[] boardBuffer;
 
         /**
-         * Reusable active-threat feature list, refilled each evaluation.
+         * Reusable active-threat feature list, used by validity refreshes.
          */
         private final UpstreamFeatures.IntList threatFeatures;
 
@@ -782,6 +773,11 @@ public final class UpstreamNetwork implements AutoCloseable {
          * Reusable nonzero-lane index buffer for sparse FC0 propagation.
          */
         private final int[] nonZero;
+
+        /**
+         * Reusable threat-delta working buffers for incremental updates.
+         */
+        private final UpstreamFeatures.ThreatDeltaBuffers deltaBuffers;
 
         /**
          * Creates incremental BIG-net state rooted at one position.
@@ -793,20 +789,28 @@ public final class UpstreamNetwork implements AutoCloseable {
             this.buffers = new SmallSearchSlot[searchPlies];
             this.active = new SmallSearchSlot[searchPlies];
             this.scratch = layerStacks[0].newScratch();
-            this.threatAccumulation = new int[2][transformer.transformedDimensions];
-            this.threatPsqtAccumulation = new int[2][LAYER_STACKS];
             this.boardBuffer = new int[UpstreamFeatures.SQUARE_NB];
             this.threatFeatures = new UpstreamFeatures.IntList(128);
             this.nonZero = new int[transformer.transformedDimensions];
+            this.deltaBuffers = new UpstreamFeatures.ThreatDeltaBuffers();
             for (int ply = 0; ply < searchPlies; ply++) {
-                buffers[ply] = new SmallSearchSlot(transformer.transformedDimensions);
+                buffers[ply] = new SmallSearchSlot(transformer.transformedDimensions, true);
             }
             refreshSmallSlot(buffers[0], root);
+            UpstreamFeatures.fillBoard(root, boardBuffer);
+            for (int perspective = UpstreamFeatures.WHITE; perspective <= UpstreamFeatures.BLACK; perspective++) {
+                transformer.accumulateThreatFeatures(boardBuffer, perspective, threatFeatures,
+                        buffers[0].threatAccumulation[perspective], buffers[0].threatPsqtAccumulation[perspective]);
+                buffers[0].threatValid[perspective] = true;
+            }
             active[0] = buffers[0];
         }
 
         /**
-         * Updates the child PSQ slot incrementally after a normal move.
+         * Updates the child slot incrementally after a normal move: PSQ
+         * deltas per perspective, then exact threat-instance deltas (or a
+         * validity drop for a perspective whose own-king move flipped the
+         * threat orientation).
          *
          * @param position child position after the move
          * @param move encoded move that was played
@@ -820,6 +824,192 @@ public final class UpstreamNetwork implements AutoCloseable {
             active[ply] = child;
             updateBigPerspective(child, position, move, state, UpstreamFeatures.WHITE);
             updateBigPerspective(child, position, move, state, UpstreamFeatures.BLACK);
+            updateThreats(child, position, move, state);
+        }
+
+        /**
+         * Maintains the slot's incremental threat accumulators after a move.
+         *
+         * @param slot child slot (already copied from the parent)
+         * @param position child position after the move
+         * @param move encoded move that was played
+         * @param state undo state filled by the move application
+         */
+        private void updateThreats(SmallSearchSlot slot, Position position, short move, Position.State state) {
+            int moving = state.movingPiece();
+            if (moving == Position.WHITE_KING || moving == Position.BLACK_KING) {
+                // Threat indices depend on the own king square only through the
+                // file-half orientation; a crossing invalidates that perspective.
+                int from = UpstreamFeatures.squareFromPositionIndex(Move.getFromIndex(move));
+                int to = UpstreamFeatures.squareFromPositionIndex(state.actualToSquare());
+                if (UpstreamFeatures.threatOrientation(from) != UpstreamFeatures.threatOrientation(to)) {
+                    slot.threatValid[moving == Position.WHITE_KING
+                            ? UpstreamFeatures.WHITE
+                            : UpstreamFeatures.BLACK] = false;
+                }
+            }
+            if (!slot.threatValid[UpstreamFeatures.WHITE] && !slot.threatValid[UpstreamFeatures.BLACK]) {
+                return;
+            }
+            UpstreamFeatures.fillBoard(position, boardBuffer);
+            UpstreamFeatures.ThreatDeltaBuffers buf = deltaBuffers;
+            buf.reset();
+            registerChangedSquares(buf, move, state);
+            UpstreamFeatures.collectMoveThreatDeltas(boardBuffer, buf);
+            for (int perspective = UpstreamFeatures.WHITE; perspective <= UpstreamFeatures.BLACK; perspective++) {
+                if (!slot.threatValid[perspective]) {
+                    continue;
+                }
+                int kingSquare = UpstreamFeatures.squareFromPositionIndex(
+                        position.kingSquare(perspective == UpstreamFeatures.WHITE));
+                applyThreatDeltas(slot, perspective, kingSquare, buf);
+            }
+        }
+
+        /**
+         * Registers the net occupancy transitions of one move into the delta
+         * buffers. Pre-move occupants are assigned in last-wins order
+         * (captured piece, castling rook, then the mover), which resolves
+         * Chess960 overlaps such as the king castling onto its own square or
+         * the rook landing on the king's origin.
+         *
+         * @param buf delta buffers to fill
+         * @param move encoded move
+         * @param state undo state filled by the move application
+         */
+        private void registerChangedSquares(UpstreamFeatures.ThreatDeltaBuffers buf, short move,
+                Position.State state) {
+            int[] squares = buf.changedSquares;
+            int[] before = buf.beforePieces;
+            int count = 0;
+            count = addCandidate(squares, count, UpstreamFeatures.squareFromPositionIndex(Move.getFromIndex(move)));
+            count = addCandidate(squares, count, UpstreamFeatures.squareFromPositionIndex(state.actualToSquare()));
+            if (state.capture()) {
+                count = addCandidate(squares, count,
+                        UpstreamFeatures.squareFromPositionIndex(state.capturedSquare()));
+            }
+            if (state.castle()) {
+                count = addCandidate(squares, count,
+                        UpstreamFeatures.squareFromPositionIndex(state.rookFromSquare()));
+                count = addCandidate(squares, count,
+                        UpstreamFeatures.squareFromPositionIndex(state.rookToSquare()));
+            }
+            for (int i = 0; i < count; i++) {
+                before[i] = 0;
+            }
+            if (state.capture()) {
+                setCandidate(squares, before, count,
+                        UpstreamFeatures.squareFromPositionIndex(state.capturedSquare()),
+                        stockfishPiece(state.capturedPiece()));
+            }
+            if (state.castle()) {
+                setCandidate(squares, before, count,
+                        UpstreamFeatures.squareFromPositionIndex(state.rookFromSquare()),
+                        stockfishPiece(state.rookPiece()));
+            }
+            setCandidate(squares, before, count,
+                    UpstreamFeatures.squareFromPositionIndex(Move.getFromIndex(move)),
+                    stockfishPiece(state.movingPiece()));
+            // Compact to net transitions only; addChange drops unchanged squares.
+            int total = count;
+            buf.changedCount = 0;
+            for (int i = 0; i < total; i++) {
+                buf.addChange(squares[i], before[i], boardBuffer[squares[i]]);
+            }
+        }
+
+        /**
+         * Appends a candidate square once.
+         *
+         * @param squares candidate square array
+         * @param count current candidate count
+         * @param square square to append
+         * @return updated count
+         */
+        private int addCandidate(int[] squares, int count, int square) {
+            for (int i = 0; i < count; i++) {
+                if (squares[i] == square) {
+                    return count;
+                }
+            }
+            squares[count] = square;
+            return count + 1;
+        }
+
+        /**
+         * Assigns one candidate's pre-move occupant.
+         *
+         * @param squares candidate square array
+         * @param before pre-move occupant array
+         * @param count candidate count
+         * @param square candidate square
+         * @param piece pre-move Stockfish piece code
+         */
+        private void setCandidate(int[] squares, int[] before, int count, int square, int piece) {
+            for (int i = 0; i < count; i++) {
+                if (squares[i] == square) {
+                    before[i] = piece;
+                    return;
+                }
+            }
+        }
+
+        /**
+         * Applies the packed remove/add instance lists to one perspective's
+         * threat accumulators.
+         *
+         * @param slot slot to update
+         * @param perspective Stockfish color id
+         * @param kingSquare perspective king square in Stockfish order
+         * @param buf buffers holding the instance lists
+         */
+        private void applyThreatDeltas(SmallSearchSlot slot, int perspective, int kingSquare,
+                UpstreamFeatures.ThreatDeltaBuffers buf) {
+            int dimensions = transformer.layout.threatDimensions();
+            int[] removes = buf.removes.array();
+            int removeCount = buf.removes.size();
+            for (int i = 0; i < removeCount; i++) {
+                int feature = UpstreamFeatures.packedThreatIndex(perspective, removes[i], kingSquare, variant);
+                if (feature < dimensions) {
+                    addThreatFeature(slot, perspective, feature, -1);
+                }
+            }
+            int[] adds = buf.adds.array();
+            int addCount = buf.adds.size();
+            for (int i = 0; i < addCount; i++) {
+                int feature = UpstreamFeatures.packedThreatIndex(perspective, adds[i], kingSquare, variant);
+                if (feature < dimensions) {
+                    addThreatFeature(slot, perspective, feature, 1);
+                }
+            }
+        }
+
+        /**
+         * Adds or removes one threat feature row.
+         *
+         * @param slot slot to update
+         * @param perspective Stockfish color id
+         * @param feature threat feature index
+         * @param sign {@code +1} to add, {@code -1} to remove
+         */
+        private void addThreatFeature(SmallSearchSlot slot, int perspective, int feature, int sign) {
+            byte[] weights = transformer.threatWeights;
+            int[] accumulation = slot.threatAccumulation[perspective];
+            int base = feature * transformer.transformedDimensions;
+            if (sign > 0) {
+                for (int i = 0; i < accumulation.length; i++) {
+                    accumulation[i] += weights[base + i];
+                }
+            } else {
+                for (int i = 0; i < accumulation.length; i++) {
+                    accumulation[i] -= weights[base + i];
+                }
+            }
+            int[] psqt = slot.threatPsqtAccumulation[perspective];
+            int psqtBase = feature * LAYER_STACKS;
+            for (int bucket = 0; bucket < LAYER_STACKS; bucket++) {
+                psqt[bucket] += sign * transformer.threatPsqtWeights[psqtBase + bucket];
+            }
         }
 
         /**
@@ -833,7 +1023,8 @@ public final class UpstreamNetwork implements AutoCloseable {
         }
 
         /**
-         * Evaluates the active BIG-net slot, rebuilding threats for this node.
+         * Evaluates the active BIG-net slot, refreshing any perspective whose
+         * threat accumulator was invalidated by an orientation flip.
          *
          * @param position current position
          * @param ply current ply from the root
@@ -846,7 +1037,8 @@ public final class UpstreamNetwork implements AutoCloseable {
 
         /**
          * Updates one perspective's PSQ accumulator after a move (mirrors
-         * {@link SmallSearchState}'s logic; threats are not part of the slot).
+         * {@link SmallSearchState}'s logic; threat deltas are applied
+         * separately by {@link #updateThreats}).
          *
          * @param slot child slot
          * @param position child position
@@ -890,30 +1082,38 @@ public final class UpstreamNetwork implements AutoCloseable {
     }
 
     /**
-     * Evaluates one position from an incremental BIG-net slot: PSQ accumulators
-     * are incremental, threat accumulators are rebuilt here. Combines PSQ and
-     * threats exactly as {@link FeatureTransformer#transform}, so the result is
-     * bit-identical to a full rebuild. All working buffers live in the search
-     * state, so a search-time evaluation performs no steady-state allocation
-     * (the threat list grows at most a few times early on, then stabilizes).
+     * Evaluates one position from an incremental BIG-net slot: both the PSQ
+     * and threat accumulators are maintained incrementally at make time, with
+     * a per-perspective from-scratch threat refresh when an own-king move
+     * flipped the threat orientation. Combines PSQ and threats exactly as
+     * {@link FeatureTransformer#transform}, so the result is bit-identical to
+     * a full rebuild. All working buffers live in the search state, so a
+     * search-time evaluation performs no steady-state allocation.
      *
      * @param state owning search state with reusable buffers
-     * @param slot active PSQ slot
+     * @param slot active slot
      * @param position current position
      * @return centipawns from the side-to-move perspective
      */
     private int evaluateBig(BigSearchState state, SmallSearchSlot slot, Position position) {
-        int[] board = state.boardBuffer;
-        UpstreamFeatures.fillBoard(position, board);
-        int bucket = bucket(UpstreamFeatures.pieceCount(board));
+        boolean boardFilled = false;
+        for (int perspective = UpstreamFeatures.WHITE; perspective <= UpstreamFeatures.BLACK; perspective++) {
+            if (slot.threatValid[perspective]) {
+                continue;
+            }
+            if (!boardFilled) {
+                UpstreamFeatures.fillBoard(position, state.boardBuffer);
+                boardFilled = true;
+            }
+            transformer.accumulateThreatFeatures(state.boardBuffer, perspective, state.threatFeatures,
+                    slot.threatAccumulation[perspective], slot.threatPsqtAccumulation[perspective]);
+            slot.threatValid[perspective] = true;
+        }
+        int bucket = bucket(position.countTotalPieces());
         int stm = UpstreamFeatures.sideToMove(position);
         int opponent = stm ^ 1;
-        int[][] threatAccumulation = state.threatAccumulation;
-        int[][] threatPsqtAccumulation = state.threatPsqtAccumulation;
-        transformer.accumulateThreatFeatures(
-                board, stm, state.threatFeatures, threatAccumulation[stm], threatPsqtAccumulation[stm]);
-        transformer.accumulateThreatFeatures(
-                board, opponent, state.threatFeatures, threatAccumulation[opponent], threatPsqtAccumulation[opponent]);
+        int[][] threatAccumulation = slot.threatAccumulation;
+        int[][] threatPsqtAccumulation = slot.threatPsqtAccumulation;
 
         int psqt = slot.psqtAccumulation[stm][bucket] - slot.psqtAccumulation[opponent][bucket];
         psqt = (psqt + threatPsqtAccumulation[stm][bucket] - threatPsqtAccumulation[opponent][bucket]) / 2;
@@ -931,7 +1131,19 @@ public final class UpstreamNetwork implements AutoCloseable {
     }
 
     /**
-     * Mutable small-net accumulator slot.
+     * Maps an internal piece index to a Stockfish piece code.
+     *
+     * @param pieceIndex internal piece index
+     * @return Stockfish piece code, or {@code 0}
+     */
+    private static int stockfishPiece(int pieceIndex) {
+        return UpstreamFeatures.encodedPiece(pieceCode(pieceIndex));
+    }
+
+    /**
+     * Mutable accumulator slot shared by the small-net and big-net search
+     * states. Big-net slots additionally carry per-perspective incremental
+     * threat accumulators with validity flags.
      */
     private static final class SmallSearchSlot {
 
@@ -951,14 +1163,37 @@ public final class UpstreamNetwork implements AutoCloseable {
         private final int[] transformed;
 
         /**
+         * Incremental threat accumulators indexed by perspective, or
+         * {@code null} for small nets without threat features.
+         */
+        private final int[][] threatAccumulation;
+
+        /**
+         * Incremental threat PSQT accumulators indexed by perspective, or
+         * {@code null} for small nets.
+         */
+        private final int[][] threatPsqtAccumulation;
+
+        /**
+         * Per-perspective validity of the incremental threat accumulators; an
+         * own-king orientation flip invalidates one perspective until the next
+         * evaluation refreshes it from the board.
+         */
+        private final boolean[] threatValid;
+
+        /**
          * Creates a slot.
          *
          * @param transformedDimensions transformed feature width
+         * @param withThreats true to carry incremental threat accumulators
          */
-        private SmallSearchSlot(int transformedDimensions) {
+        private SmallSearchSlot(int transformedDimensions, boolean withThreats) {
             this.psqAccumulation = new int[2][transformedDimensions];
             this.psqtAccumulation = new int[2][LAYER_STACKS];
             this.transformed = new int[transformedDimensions];
+            this.threatAccumulation = withThreats ? new int[2][transformedDimensions] : null;
+            this.threatPsqtAccumulation = withThreats ? new int[2][LAYER_STACKS] : null;
+            this.threatValid = withThreats ? new boolean[2] : null;
         }
 
         /**
@@ -972,6 +1207,17 @@ public final class UpstreamNetwork implements AutoCloseable {
                         psqAccumulation[perspective], 0, psqAccumulation[perspective].length);
                 System.arraycopy(other.psqtAccumulation[perspective], 0,
                         psqtAccumulation[perspective], 0, LAYER_STACKS);
+                if (threatAccumulation != null) {
+                    threatValid[perspective] = other.threatValid[perspective];
+                    // An invalid perspective's arrays are fully overwritten by
+                    // the next refresh, so copying them would be wasted work.
+                    if (threatValid[perspective]) {
+                        System.arraycopy(other.threatAccumulation[perspective], 0,
+                                threatAccumulation[perspective], 0, threatAccumulation[perspective].length);
+                        System.arraycopy(other.threatPsqtAccumulation[perspective], 0,
+                                threatPsqtAccumulation[perspective], 0, LAYER_STACKS);
+                    }
+                }
             }
         }
     }

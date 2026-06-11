@@ -54,6 +54,20 @@ public final class NnueBench {
         "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
         "8/P6k/8/8/8/8/6Kp/8 w - - 0 1",
         "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1",
+        // Kings on the d/e file boundary: random king marches repeatedly flip
+        // the FullThreats orientation (per-perspective threat refresh path).
+        "8/4k3/8/2p3p1/2P3P1/8/4K3/8 w - - 0 1",
+        // En-passant-rich: facing pawn chains where double pushes create
+        // immediate EP captures (capturedSquare differs from the to-square).
+        "k7/2p1p1p1/8/1P1P1P2/p1p1p3/8/1P1P1P2/K7 w - - 0 1",
+        // Promotion-heavy: both sides promote within the walk depth.
+        "8/PPP2k2/8/8/8/8/3K1ppp/8 w - - 0 1",
+        // Slider-dense middlegame: long see-through rays crossing move squares.
+        "1r2r1k1/1bq2pp1/4p3/3nN3/2B5/1Q6/5PP1/3RR1K1 w - - 0 1",
+        // Chess960 castling rights: overlap shapes (king castling in place,
+        // rook landing on the king's origin) only exist in 960.
+        "4k3/8/8/8/8/8/8/RK5R w HA - 0 1",
+        "k7/8/8/8/8/8/8/5KR1 w G - 0 1",
     };
 
     /**

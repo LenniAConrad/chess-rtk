@@ -324,6 +324,517 @@ final class UpstreamFeatures {
     }
 
     /**
+     * Reusable working storage for {@link #collectMoveThreatDeltas}, owned by
+     * one search state so delta extraction allocates nothing per move.
+     */
+    static final class ThreatDeltaBuffers {
+
+        /**
+         * Maximum number of squares whose occupancy one move can change
+         * (from, king target, captured square, rook origin, rook target).
+         */
+        static final int MAX_CHANGED = 5;
+
+        /**
+         * Stockfish squares whose occupancy changed, deduplicated.
+         */
+        final int[] changedSquares = new int[MAX_CHANGED];
+
+        /**
+         * Pre-move occupants parallel to {@link #changedSquares}.
+         */
+        final int[] beforePieces = new int[MAX_CHANGED];
+
+        /**
+         * Number of valid changed-square entries.
+         */
+        int changedCount;
+
+        /**
+         * Packed threat instances active before the move but not after.
+         */
+        final IntList removes = new IntList(64);
+
+        /**
+         * Packed threat instances active after the move but not before.
+         */
+        final IntList adds = new IntList(64);
+
+        /**
+         * Bitset over (square, direction) pairs marking slider rays already
+         * re-walked, so overlapping changed squares process each ray once.
+         */
+        final long[] sliderSeen = new long[8];
+
+        /**
+         * Registers one changed square, skipping unchanged occupants.
+         *
+         * @param square Stockfish square
+         * @param before pre-move Stockfish piece code, or {@code 0}
+         * @param after post-move Stockfish piece code, or {@code 0}
+         */
+        void addChange(int square, int before, int after) {
+            if (before == after) {
+                return;
+            }
+            for (int i = 0; i < changedCount; i++) {
+                if (changedSquares[i] == square) {
+                    return;
+                }
+            }
+            changedSquares[changedCount] = square;
+            beforePieces[changedCount] = before;
+            changedCount++;
+        }
+
+        /**
+         * Clears all per-move state.
+         */
+        void reset() {
+            changedCount = 0;
+            removes.clear();
+            adds.clear();
+            Arrays.fill(sliderSeen, 0L);
+        }
+    }
+
+    /**
+     * Packs one threat instance into an int for delta bookkeeping.
+     *
+     * @param from attacker square
+     * @param to target square
+     * @param attacker attacker Stockfish piece code (4 bits)
+     * @param victim victim Stockfish piece code (4 bits)
+     * @return packed instance
+     */
+    private static int packInstance(int from, int to, int attacker, int victim) {
+        return from | (to << 6) | (attacker << 12) | (victim << 16);
+    }
+
+    /**
+     * Collects the exact set of threat instances that differ between the
+     * pre-move board and {@code board} (the post-move board), as packed
+     * remove/add lists in {@code buf}. The caller registers the changed
+     * squares (with pre-move occupants) via
+     * {@link ThreatDeltaBuffers#addChange} before calling.
+     *
+     * <p>
+     * Every emitted remove is active on the pre-move board and every add on
+     * the post-move board; after internal deduplication and cross-list
+     * cancellation the two lists are exactly the symmetric difference of the
+     * active instance sets, so applying them to a threat accumulator is
+     * bit-identical to a full rebuild (integer addition commutes).
+     * </p>
+     *
+     * @param board post-move Stockfish-order board
+     * @param buf working buffers with changed squares pre-registered
+     */
+    static void collectMoveThreatDeltas(int[] board, ThreatDeltaBuffers buf) {
+        for (int i = 0; i < buf.changedCount; i++) {
+            int square = buf.changedSquares[i];
+            int before = buf.beforePieces[i];
+            int after = board[square];
+            // (a) victim role: attackers of the square on each board.
+            if (before != 0) {
+                appendAttackersOf(square, before, board, buf, true, buf.removes);
+            }
+            if (after != 0) {
+                appendAttackersOf(square, after, board, buf, false, buf.adds);
+            }
+            // (b) attacker role: full emission by each occupant on its board.
+            if (before != 0 && typeOf(before) != KING) {
+                emitThreatsBy(before, square, board, buf, true, buf.removes);
+            }
+            if (after != 0 && typeOf(after) != KING) {
+                emitThreatsBy(after, square, board, buf, false, buf.adds);
+            }
+            // (c) sliders elsewhere whose ray crosses this square: re-walk the
+            // whole ray from the slider on both boards.
+            appendSliderRewalks(square, board, buf);
+        }
+        cancelCommonInstances(buf);
+    }
+
+    /**
+     * Reads a pre-move occupant through the changed-square overrides.
+     *
+     * @param square Stockfish square
+     * @param board post-move board
+     * @param buf buffers holding the overrides
+     * @return pre-move Stockfish piece code, or {@code 0}
+     */
+    private static int pieceBefore(int square, int[] board, ThreatDeltaBuffers buf) {
+        for (int i = 0; i < buf.changedCount; i++) {
+            if (buf.changedSquares[i] == square) {
+                return buf.beforePieces[i];
+            }
+        }
+        return board[square];
+    }
+
+    /**
+     * Returns whether a square is one of the registered changed squares.
+     *
+     * @param square Stockfish square
+     * @param buf buffers holding the changed squares
+     * @return true when changed
+     */
+    private static boolean isChangedSquare(int square, ThreatDeltaBuffers buf) {
+        for (int i = 0; i < buf.changedCount; i++) {
+            if (buf.changedSquares[i] == square) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Appends all threat instances whose victim sits on {@code square},
+     * mirroring the emission rules exactly: pawn diagonal captures, the
+     * pawn push-block threat (only when the victim is a pawn), knight
+     * leaps, and slider first-blocker rays. Kings never attack.
+     *
+     * @param square victim square
+     * @param victim victim piece on the relevant board
+     * @param board post-move board
+     * @param buf buffers (supply the pre-move view)
+     * @param before true to evaluate on the pre-move board
+     * @param out packed-instance sink
+     */
+    private static void appendAttackersOf(
+            int square,
+            int victim,
+            int[] board,
+            ThreatDeltaBuffers buf,
+            boolean before,
+            IntList out) {
+        int file = file(square);
+        int rank = rank(square);
+        for (int color = WHITE; color <= BLACK; color++) {
+            int pawn = makePiece(color, PAWN);
+            int behindRank = rank - (color == WHITE ? 1 : -1);
+            if (behindRank >= 0 && behindRank < 8) {
+                if (file > 0 && occupant(square(file - 1, behindRank), board, buf, before) == pawn) {
+                    out.add(packInstance(square(file - 1, behindRank), square, pawn, victim));
+                }
+                if (file < 7 && occupant(square(file + 1, behindRank), board, buf, before) == pawn) {
+                    out.add(packInstance(square(file + 1, behindRank), square, pawn, victim));
+                }
+                if (typeOf(victim) == PAWN
+                        && occupant(square(file, behindRank), board, buf, before) == pawn) {
+                    out.add(packInstance(square(file, behindRank), square, pawn, victim));
+                }
+            }
+        }
+        for (int target : KNIGHT_TARGETS[square]) {
+            int piece = occupant(target, board, buf, before);
+            if (piece != 0 && typeOf(piece) == KNIGHT) {
+                out.add(packInstance(target, square, piece, victim));
+            }
+        }
+        for (int direction = 0; direction < QUEEN_DIRECTIONS.length; direction++) {
+            int attacker = firstPieceFrom(square, direction, board, buf, before);
+            if (attacker == -1) {
+                continue;
+            }
+            int piece = occupant(attacker, board, buf, before);
+            if (slidesAlong(piece, direction)) {
+                out.add(packInstance(attacker, square, piece, victim));
+            }
+        }
+    }
+
+    /**
+     * Appends all threat instances emitted by one non-king piece, mirroring
+     * {@link #appendThreatsFrom} against a board view.
+     *
+     * @param piece attacker piece
+     * @param from attacker square
+     * @param board post-move board
+     * @param buf buffers (supply the pre-move view)
+     * @param before true to evaluate on the pre-move board
+     * @param out packed-instance sink
+     */
+    private static void emitThreatsBy(
+            int piece,
+            int from,
+            int[] board,
+            ThreatDeltaBuffers buf,
+            boolean before,
+            IntList out) {
+        int type = typeOf(piece);
+        if (type == PAWN) {
+            int color = colorOf(piece);
+            int nextRank = rank(from) + (color == WHITE ? 1 : -1);
+            if (nextRank < 0 || nextRank >= 8) {
+                return;
+            }
+            int file = file(from);
+            if (file > 0) {
+                int victim = occupant(square(file - 1, nextRank), board, buf, before);
+                if (victim != 0) {
+                    out.add(packInstance(from, square(file - 1, nextRank), piece, victim));
+                }
+            }
+            if (file < 7) {
+                int victim = occupant(square(file + 1, nextRank), board, buf, before);
+                if (victim != 0) {
+                    out.add(packInstance(from, square(file + 1, nextRank), piece, victim));
+                }
+            }
+            int pushVictim = occupant(square(file, nextRank), board, buf, before);
+            if (typeOf(pushVictim) == PAWN) {
+                out.add(packInstance(from, square(file, nextRank), piece, pushVictim));
+            }
+            return;
+        }
+        if (type == KNIGHT) {
+            for (int target : KNIGHT_TARGETS[from]) {
+                int victim = occupant(target, board, buf, before);
+                if (victim != 0) {
+                    out.add(packInstance(from, target, piece, victim));
+                }
+            }
+            return;
+        }
+        for (int direction = 0; direction < QUEEN_DIRECTIONS.length; direction++) {
+            if (!slidesAlong(piece, direction)) {
+                continue;
+            }
+            int target = firstPieceFrom(from, direction, board, buf, before);
+            if (target != -1) {
+                out.add(packInstance(from, target, piece, occupant(target, board, buf, before)));
+            }
+        }
+    }
+
+    /**
+     * Re-walks every slider ray that crosses one changed square: for each
+     * slider found by reverse scan on either board (and itself not on a
+     * changed square), removes its pre-move first-blocker instance and adds
+     * its post-move one. Walking the full ray from the slider on each board
+     * makes the result immune to multiple changed squares on one ray.
+     *
+     * @param square changed square the rays cross
+     * @param board post-move board
+     * @param buf buffers
+     */
+    private static void appendSliderRewalks(int square, int[] board, ThreatDeltaBuffers buf) {
+        for (int direction = 0; direction < QUEEN_DIRECTIONS.length; direction++) {
+            scanForSlider(square, direction, board, buf, true);
+            scanForSlider(square, direction, board, buf, false);
+        }
+    }
+
+    /**
+     * Finds the first piece from a changed square along one direction on one
+     * board and, when it is an unmoved slider aimed back at the square,
+     * re-walks its whole ray on both boards.
+     *
+     * @param square changed square
+     * @param direction outgoing scan direction index
+     * @param board post-move board
+     * @param buf buffers
+     * @param before true to scan the pre-move view
+     */
+    private static void scanForSlider(int square, int direction, int[] board, ThreatDeltaBuffers buf,
+            boolean before) {
+        int sliderSquare = firstPieceFrom(square, direction, board, buf, before);
+        if (sliderSquare == -1 || isChangedSquare(sliderSquare, buf)) {
+            return;
+        }
+        int piece = board[sliderSquare];
+        int towardSquare = OPPOSITE_DIRECTION[direction];
+        if (!slidesAlong(piece, towardSquare)) {
+            return;
+        }
+        int seenKey = sliderSquare * QUEEN_DIRECTIONS.length + towardSquare;
+        if ((buf.sliderSeen[seenKey >>> 6] & (1L << (seenKey & 63))) != 0) {
+            return;
+        }
+        buf.sliderSeen[seenKey >>> 6] |= 1L << (seenKey & 63);
+        int beforeTarget = firstPieceFrom(sliderSquare, towardSquare, board, buf, true);
+        if (beforeTarget != -1) {
+            buf.removes.add(packInstance(sliderSquare, beforeTarget, piece,
+                    occupant(beforeTarget, board, buf, true)));
+        }
+        int afterTarget = firstPieceFrom(sliderSquare, towardSquare, board, buf, false);
+        if (afterTarget != -1) {
+            buf.adds.add(packInstance(sliderSquare, afterTarget, piece,
+                    occupant(afterTarget, board, buf, false)));
+        }
+    }
+
+    /**
+     * Opposite ray direction indexes into {@link #QUEEN_DIRECTIONS}.
+     */
+    private static final int[] OPPOSITE_DIRECTION = buildOppositeDirections();
+
+    /**
+     * Builds the opposite-direction lookup table.
+     *
+     * @return per-direction opposite indexes
+     */
+    private static int[] buildOppositeDirections() {
+        int[] out = new int[QUEEN_DIRECTIONS.length];
+        for (int direction = 0; direction < QUEEN_DIRECTIONS.length; direction++) {
+            int[] d = QUEEN_DIRECTIONS[direction];
+            for (int i = 0; i < QUEEN_DIRECTIONS.length; i++) {
+                if (QUEEN_DIRECTIONS[i][0] == -d[0] && QUEEN_DIRECTIONS[i][1] == -d[1]) {
+                    out[direction] = i;
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Returns whether a piece slides along one {@link #QUEEN_DIRECTIONS}
+     * index (bishop on diagonals, rook on straights, queen on both).
+     *
+     * @param piece Stockfish piece code
+     * @param direction direction index
+     * @return true when the piece attacks along the direction
+     */
+    private static boolean slidesAlong(int piece, int direction) {
+        int type = typeOf(piece);
+        if (type == QUEEN) {
+            return true;
+        }
+        boolean diagonal = QUEEN_DIRECTIONS[direction][0] != 0 && QUEEN_DIRECTIONS[direction][1] != 0;
+        return diagonal ? type == BISHOP : type == ROOK;
+    }
+
+    /**
+     * Walks from a square along one direction and returns the first occupied
+     * square on the requested board view, or {@code -1}.
+     *
+     * @param from origin square (excluded from the walk)
+     * @param direction direction index into {@link #QUEEN_DIRECTIONS}
+     * @param board post-move board
+     * @param buf buffers (supply the pre-move view)
+     * @param before true to read the pre-move view
+     * @return first occupied square, or {@code -1}
+     */
+    private static int firstPieceFrom(int from, int direction, int[] board, ThreatDeltaBuffers buf,
+            boolean before) {
+        int df = QUEEN_DIRECTIONS[direction][0];
+        int dr = QUEEN_DIRECTIONS[direction][1];
+        int file = file(from) + df;
+        int rank = rank(from) + dr;
+        while (onBoard(file, rank)) {
+            int square = square(file, rank);
+            if (occupant(square, board, buf, before) != 0) {
+                return square;
+            }
+            file += df;
+            rank += dr;
+        }
+        return -1;
+    }
+
+    /**
+     * Reads one square on the requested board view.
+     *
+     * @param square Stockfish square
+     * @param board post-move board
+     * @param buf buffers holding pre-move overrides
+     * @param before true for the pre-move view
+     * @return Stockfish piece code, or {@code 0}
+     */
+    private static int occupant(int square, int[] board, ThreatDeltaBuffers buf, boolean before) {
+        return before ? pieceBefore(square, board, buf) : board[square];
+    }
+
+    /**
+     * Deduplicates each packed-instance list and cancels instances present in
+     * both, leaving exactly the symmetric difference.
+     *
+     * @param buf buffers whose lists are compacted in place
+     */
+    private static void cancelCommonInstances(ThreatDeltaBuffers buf) {
+        sortUnique(buf.removes);
+        sortUnique(buf.adds);
+        int[] removes = buf.removes.array();
+        int[] adds = buf.adds.array();
+        int removeCount = buf.removes.size();
+        int addCount = buf.adds.size();
+        int r = 0;
+        int a = 0;
+        int rOut = 0;
+        int aOut = 0;
+        while (r < removeCount && a < addCount) {
+            if (removes[r] == adds[a]) {
+                r++;
+                a++;
+            } else if (removes[r] < adds[a]) {
+                removes[rOut++] = removes[r++];
+            } else {
+                adds[aOut++] = adds[a++];
+            }
+        }
+        while (r < removeCount) {
+            removes[rOut++] = removes[r++];
+        }
+        while (a < addCount) {
+            adds[aOut++] = adds[a++];
+        }
+        buf.removes.truncate(rOut);
+        buf.adds.truncate(aOut);
+    }
+
+    /**
+     * Sorts a packed-instance list and removes duplicates in place.
+     *
+     * @param list list to compact
+     */
+    private static void sortUnique(IntList list) {
+        int size = list.size();
+        if (size <= 1) {
+            return;
+        }
+        int[] values = list.array();
+        Arrays.sort(values, 0, size);
+        int out = 1;
+        for (int i = 1; i < size; i++) {
+            if (values[i] != values[out - 1]) {
+                values[out++] = values[i];
+            }
+        }
+        list.truncate(out);
+    }
+
+    /**
+     * Returns the FullThreats orientation selector for a king square. Threat
+     * feature indices depend on the king square only through this value, so a
+     * perspective's incremental threat accumulator stays valid across own-king
+     * moves that do not change it.
+     *
+     * @param kingSquare king square in Stockfish order
+     * @return orientation xor value (0 for files a-d, 7 for e-h)
+     */
+    static int threatOrientation(int kingSquare) {
+        return FULL_THREATS_ORIENT[kingSquare];
+    }
+
+    /**
+     * Maps one packed threat instance to a perspective's feature index.
+     *
+     * @param perspective perspective color
+     * @param packed packed instance
+     * @param kingSquare perspective king square (Stockfish order)
+     * @param variant Stockfish NNUE variant
+     * @return feature index, or the dimensions sentinel for excluded pairs
+     */
+    static int packedThreatIndex(int perspective, int packed, int kingSquare, UpstreamNetwork.Variant variant) {
+        int from = packed & 63;
+        int to = (packed >>> 6) & 63;
+        int attacker = (packed >>> 12) & 15;
+        int victim = (packed >>> 16) & 15;
+        return threatIndex(perspective, attacker, from, to, victim, kingSquare, threatTables(variant));
+    }
+
+    /**
      * Returns the side to move as a Stockfish color id.
      *
      * @param position position to inspect
@@ -1077,6 +1588,15 @@ final class UpstreamFeatures {
          */
         void clear() {
             size = 0;
+        }
+
+        /**
+         * Shrinks the list to a smaller size, keeping the backing array.
+         *
+         * @param newSize new size, not larger than the current size
+         */
+        void truncate(int newSize) {
+            size = newSize;
         }
 
         /**

@@ -85,6 +85,7 @@ public final class UpstreamRegressionTest {
         testCurrentSmallNetLoadAndEvaluate();
         testCurrentSmallNetCapturesWorkbenchActivations();
         testCurrentSmallNetIncrementalSearchState();
+        testCurrentBigNetIncrementalSearchState();
         System.out.println("UpstreamRegressionTest: all checks passed");
     }
 
@@ -202,6 +203,201 @@ public final class UpstreamRegressionTest {
         } finally {
             Files.deleteIfExists(temp);
         }
+    }
+
+    /**
+     * Verifies the BIG-net incremental search state (with incremental threat
+     * accumulators) against the full-rebuild prediction for every move shape:
+     * non-crossing and orientation-crossing king moves, plain capture,
+     * en passant, both castles, promotion, and a null move. The synthetic net
+     * uses dense deterministic weight patterns so any wrongly indexed threat
+     * row changes the evaluation.
+     *
+     * @throws IOException if temp-file IO fails
+     */
+    private static void testCurrentBigNetIncrementalSearchState() throws IOException {
+        byte[] net = writeSyntheticCurrentBigNet();
+        Path temp = PathOps.createLocalTempFile("crtk-upstream-nnue-big-search-test-", ".nnue");
+        try {
+            Files.write(temp, net);
+            UpstreamNetwork upstream = UpstreamNetwork.load(temp);
+            assertEquals(UpstreamNetwork.Size.BIG, upstream.size(), "synthetic big-net size");
+            assertIncrementalMove(upstream,
+                    "4k3/8/8/8/8/8/3P4/4K3 w - - 0 1",
+                    "e1f2",
+                    "big incremental non-crossing king move");
+            assertIncrementalMove(upstream,
+                    "4k3/8/8/8/8/8/3P4/4K3 w - - 0 1",
+                    "e1d1",
+                    "big incremental orientation-crossing king move");
+            assertIncrementalMove(upstream,
+                    "4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1",
+                    "e4d5",
+                    "big incremental capture");
+            assertIncrementalMove(upstream,
+                    "4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1",
+                    "e5d6",
+                    "big incremental en passant");
+            assertIncrementalMove(upstream,
+                    "4k2r/8/8/8/8/8/8/R3K2R w KQ - 0 1",
+                    "e1g1",
+                    "big incremental kingside castle");
+            assertIncrementalMove(upstream,
+                    "4k2r/8/8/8/8/8/8/R3K2R w KQ - 0 1",
+                    "e1c1",
+                    "big incremental queenside castle");
+            assertIncrementalMove(upstream,
+                    "6k1/4P3/8/8/8/8/8/4K3 w - - 0 1",
+                    "e7e8q",
+                    "big incremental promotion");
+            assertIncrementalNullMove(upstream,
+                    "4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1",
+                    "big incremental null move");
+            // Chess960 castle overlaps exercise the net-transition logic in
+            // registerChangedSquares (king castling in place, rook landing on
+            // the king's origin, adjacent king/rook swaps).
+            assertIncrementalAllMoves(upstream,
+                    "4k3/8/8/8/8/8/8/RK5R w HA - 0 1",
+                    "big incremental Chess960 corner-rook castles");
+            assertIncrementalAllMoves(upstream,
+                    "k7/8/8/8/8/8/8/5KR1 w G - 0 1",
+                    "big incremental Chess960 king-rook swap castle");
+        } finally {
+            Files.deleteIfExists(temp);
+        }
+    }
+
+    /**
+     * Plays every legal move from a position on a fresh incremental search
+     * state and asserts evaluation parity with the full rebuild for each, so
+     * special move encodings (Chess960 castles in particular) are covered
+     * without hand-writing per-move UCI strings.
+     *
+     * @param upstream network to test
+     * @param fen root FEN
+     * @param label assertion label prefix
+     */
+    private static void assertIncrementalAllMoves(
+            UpstreamNetwork upstream,
+            String fen,
+            String label) {
+        Position root = new Position(fen);
+        chess.core.MoveList legal = root.legalMoves();
+        assertPositive(legal.size(), label + " legal move count");
+        for (int i = 0; i < legal.size(); i++) {
+            short move = legal.raw(i);
+            Position position = new Position(fen);
+            Model.SearchState state = upstream.newSearchState(position, 4);
+            assertNotNull(state, label + " search state");
+            Position.State undo = new Position.State();
+            position.play(move, undo);
+            state.movePlayed(position, move, undo, 1);
+            assertEquals(upstream.predict(position).centipawns(), state.evaluate(position, 1),
+                    label + " evaluation parity for move " + Move.toString(move));
+        }
+    }
+
+    /**
+     * Writes a synthetic Stockfish current big-net file with FullThreats
+     * features and dense deterministic weight patterns.
+     *
+     * @return file bytes
+     * @throws IOException if encoding fails
+     */
+    private static byte[] writeSyntheticCurrentBigNet() throws IOException {
+        UpstreamNetwork.Variant variant = UpstreamNetwork.Variant.CURRENT;
+        UpstreamNetwork.Size size = UpstreamNetwork.Size.BIG;
+        int transformed = 1024;
+        int psqDimensions = HALF_KA_DIMENSIONS;
+        int threatDimensions = 60720;
+        int l2 = 31;
+        int l3 = 32;
+
+        short[] biases = new short[transformed];
+        for (int i = 0; i < biases.length; i++) {
+            biases[i] = (short) (40 + (i % 17));
+        }
+        byte[] threatWeights = new byte[threatDimensions * transformed];
+        for (int i = 0; i < threatWeights.length; i++) {
+            threatWeights[i] = (byte) ((i % 47) + 1);
+        }
+        short[] psqWeights = new short[psqDimensions * transformed];
+        for (int i = 0; i < psqWeights.length; i += 97) {
+            psqWeights[i] = (short) ((i % 23) - 11);
+        }
+        int[] combinedPsqt = new int[(threatDimensions + psqDimensions) * 8];
+        for (int i = 0; i < combinedPsqt.length; i += 13) {
+            combinedPsqt[i] = (i % 61) - 30;
+        }
+
+        byte[] description = "synthetic-current-big".getBytes(StandardCharsets.UTF_8);
+
+        ByteArrayOutputStream file = new ByteArrayOutputStream();
+        writeInt(file, UPSTREAM_VERSION);
+        writeInt(file, networkHash(variant, size));
+        writeInt(file, description.length);
+        file.write(description);
+
+        writeInt(file, featureHash(variant, size));
+        writeLeb(file, biases);
+        file.write(threatWeights);
+        writeLeb(file, psqWeights);
+        writeLeb(file, combinedPsqt);
+
+        for (int bucket = 0; bucket < 8; bucket++) {
+            writeInt(file, archHash(transformed, l2, l3));
+            writeAffine(file, transformed, l2 + 1, new int[l2 + 1], bigFc0Weights(transformed, l2 + 1));
+            writeAffine(file, l2 * 2, l3, new int[l3], bigFc1Weights(l2 * 2, l3));
+            writeAffine(file, l3, 1, new int[1], bigFc2Weights(l3));
+        }
+        return file.toByteArray();
+    }
+
+    /**
+     * Returns dense FC0 weights for the synthetic big net.
+     *
+     * @param input input dimensions
+     * @param output output dimensions
+     * @return padded row-major weights
+     */
+    private static byte[] bigFc0Weights(int input, int output) {
+        int padded = ((input + 31) / 32) * 32;
+        byte[] weights = new byte[output * padded];
+        for (int i = 0; i < weights.length; i += 7) {
+            weights[i] = (byte) ((i % 9) - 4);
+        }
+        return weights;
+    }
+
+    /**
+     * Returns dense FC1 weights for the synthetic big net.
+     *
+     * @param input input dimensions
+     * @param output output dimensions
+     * @return padded row-major weights
+     */
+    private static byte[] bigFc1Weights(int input, int output) {
+        int padded = ((input + 31) / 32) * 32;
+        byte[] weights = new byte[output * padded];
+        for (int i = 0; i < weights.length; i += 5) {
+            weights[i] = (byte) ((i % 7) - 3);
+        }
+        return weights;
+    }
+
+    /**
+     * Returns FC2 weights for the synthetic big net.
+     *
+     * @param input input dimensions
+     * @return padded row-major weights
+     */
+    private static byte[] bigFc2Weights(int input) {
+        int padded = ((input + 31) / 32) * 32;
+        byte[] weights = new byte[padded];
+        for (int i = 0; i < weights.length; i++) {
+            weights[i] = (byte) ((i % 5) + 1);
+        }
+        return weights;
     }
 
     /**
