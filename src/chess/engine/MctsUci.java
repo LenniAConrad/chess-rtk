@@ -80,6 +80,11 @@ public final class MctsUci {
     private boolean quit;
 
     /**
+     * Whether the one-time warmup search has run.
+     */
+    private boolean warmedUp;
+
+    /**
      * Creates a loop wrapper.
      *
      * @param searcher MCTS searcher
@@ -150,6 +155,7 @@ public final class MctsUci {
             writeLine("option name Threads type spin default 1 min 1 max " + MAX_THREADS);
             writeLine("uciok");
         } else if ("isready".equals(line)) {
+            warmUp();
             writeLine("readyok");
         } else if ("ucinewgame".equals(line)) {
             stopAndJoin();
@@ -239,6 +245,22 @@ public final class MctsUci {
             }
             target.play(move);
         }
+    }
+
+    /**
+     * Runs a short bounded search once, before the first {@code readyok}, so
+     * the JIT has compiled the hot playout and evaluation paths before the
+     * game clock starts. The warmup tree is discarded; the next position
+     * command re-roots the searcher as usual.
+     */
+    private void warmUp() {
+        if (warmedUp) {
+            return;
+        }
+        warmedUp = true;
+        searcher.search(new Position(Setup.getStandardStartFEN()),
+                new Limits(AlphaBeta.MAX_DEPTH, 5_000L, 1_500L));
+        searcher.reset();
     }
 
     /**

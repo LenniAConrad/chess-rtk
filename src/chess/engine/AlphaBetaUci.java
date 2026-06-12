@@ -86,6 +86,11 @@ public final class AlphaBetaUci {
     private boolean quit;
 
     /**
+     * Whether the one-time warmup search has run.
+     */
+    private boolean warmedUp;
+
+    /**
      * Creates a loop wrapper.
      *
      * @param searcher alpha-beta searcher
@@ -157,6 +162,7 @@ public final class AlphaBetaUci {
             writeLine("option name Threads type spin default 1 min 1 max " + MAX_THREADS);
             writeLine("uciok");
         } else if ("isready".equals(line)) {
+            warmUp();
             writeLine("readyok");
         } else if ("ucinewgame".equals(line)) {
             stopAndJoin();
@@ -173,6 +179,22 @@ public final class AlphaBetaUci {
             quit = true;
             stopAndJoin();
         }
+    }
+
+    /**
+     * Runs a short bounded search once, before the first {@code readyok}, so
+     * the JIT has compiled the hot search and evaluation paths before the
+     * game clock starts. Without this a freshly spawned engine plays its
+     * first moves interpreted, which both wastes clock time and skews
+     * external-engine measurements between builds of different code size.
+     */
+    private void warmUp() {
+        if (warmedUp) {
+            return;
+        }
+        warmedUp = true;
+        searcher.search(new Position(Setup.getStandardStartFEN()),
+                new Limits(AlphaBeta.MAX_DEPTH, 30_000L, 1_500L));
     }
 
     /**
