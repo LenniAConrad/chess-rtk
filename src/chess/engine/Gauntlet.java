@@ -37,11 +37,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * <p>
  * Pits a candidate configuration against a baseline at an equal, fixed per-move
- * budget (node count by default, or wall-clock time) so a search or evaluation
- * change's strength effect is <em>measured</em> by game results rather than
- * asserted. Both engines run in one process against a set of varied opening
- * positions, each played from both colors, and the aggregate score is returned
- * from the candidate's perspective.
+ * budget (node count by default, or wall-clock time) or on a per-game clock
+ * with increment (see {@link TimeControl}) so a search or evaluation change's
+ * strength effect is <em>measured</em> by game results rather than asserted.
+ * Both engines run in one process against a set of varied opening positions,
+ * each played from both colors, and the aggregate score is returned from the
+ * candidate's perspective.
  * </p>
  *
  * <p>
@@ -256,6 +257,10 @@ public final class Gauntlet {
      * @param nodesB baseline per-move node budget, or zero to use {@code nodes}
      * @param movetimeA candidate per-move time budget in ms, or zero to share
      * @param movetimeB baseline per-move time budget in ms, or zero to share
+     * @param tcA candidate game-clock time control, or {@link TimeControl#NONE}
+     *            for a fixed per-move budget
+     * @param tcB baseline game-clock time control, or {@link TimeControl#NONE}
+     *            for a fixed per-move budget
      * @param engineA external UCI engine command for the candidate, or blank to
      *                use the built-in searcher
      * @param engineB external UCI engine command for the baseline, or blank to
@@ -299,6 +304,8 @@ public final class Gauntlet {
             long nodesB,
             long movetimeA,
             long movetimeB,
+            TimeControl tcA,
+            TimeControl tcB,
             String engineA,
             String engineB,
             int hashA,
@@ -373,6 +380,24 @@ public final class Gauntlet {
         }
 
         /**
+         * Returns whether the candidate (A) side plays on a game clock.
+         *
+         * @return true when a candidate time control is configured
+         */
+        public boolean usesClockA() {
+            return tcA != null && tcA.enabled();
+        }
+
+        /**
+         * Returns whether the baseline (B) side plays on a game clock.
+         *
+         * @return true when a baseline time control is configured
+         */
+        public boolean usesClockB() {
+            return tcB != null && tcB.enabled();
+        }
+
+        /**
          * Returns whether the candidate side is an external UCI engine.
          *
          * @return true when an external candidate engine is configured
@@ -397,8 +422,8 @@ public final class Gauntlet {
          * @return budget description
          */
         public String budgetText() {
-            String a = sideBudgetText(movetimeA, nodesA);
-            String b = sideBudgetText(movetimeB, nodesB);
+            String a = sideBudgetText(movetimeA, nodesA, tcA);
+            String b = sideBudgetText(movetimeB, nodesB, tcB);
             return a.equals(b) ? a : "A=" + a + " B=" + b;
         }
 
@@ -407,9 +432,13 @@ public final class Gauntlet {
          *
          * @param sideMovetime per-side time budget in ms, or zero
          * @param sideNodes per-side node budget, or zero
+         * @param sideTc per-side game-clock time control, possibly disabled
          * @return per-side budget description
          */
-        private String sideBudgetText(long sideMovetime, long sideNodes) {
+        private String sideBudgetText(long sideMovetime, long sideNodes, TimeControl sideTc) {
+            if (sideTc != null && sideTc.enabled()) {
+                return "tc " + sideTc.text() + "/game";
+            }
             long resolvedMovetime = sideMovetime > 0 ? sideMovetime : movetime;
             long resolvedNodes = sideNodes > 0 ? sideNodes : nodes;
             return resolvedMovetime > 0 ? resolvedMovetime + "ms/move" : resolvedNodes + " nodes/move";
@@ -484,6 +513,19 @@ public final class Gauntlet {
     }
 
     /**
+     * Both sides' game-clock state at the moment a move search starts, in the
+     * fields an external UCI engine expects on {@code go}.
+     *
+     * @param whiteTimeMillis White's remaining time in milliseconds
+     * @param blackTimeMillis Black's remaining time in milliseconds
+     * @param whiteIncrementMillis White's per-move increment in milliseconds
+     * @param blackIncrementMillis Black's per-move increment in milliseconds
+     */
+    private record ClockState(long whiteTimeMillis, long blackTimeMillis,
+            long whiteIncrementMillis, long blackIncrementMillis) {
+    }
+
+    /**
      * Per-side searcher abstraction for self-play.
      */
     private interface GameSearcher extends AutoCloseable {
@@ -494,9 +536,11 @@ public final class Gauntlet {
          * @param position root position
          * @param limits search limits
          * @param history pre-root core-position history
+         * @param clock game-clock state when the side to move plays on a
+         *              clock, or {@code null} for a fixed per-move budget
          * @return search result
          */
-        Result search(Position position, Limits limits, long[] history);
+        Result search(Position position, Limits limits, long[] history, ClockState clock);
 
         /**
          * Releases resources.
@@ -607,10 +651,10 @@ public final class Gauntlet {
          * {@inheritDoc}
          */
         @Override
-        public Result search(Position position, Limits limits, long[] history) {
+        public Result search(Position position, Limits limits, long[] history, ClockState clock) {
             try {
                 send("position fen " + position);
-                send("go " + goArguments(limits));
+                send("go " + (clock != null ? clockArguments(clock) : goArguments(limits)));
                 return new Result(readBestMove(), 0, 0, 0L, 0L, false, NO_PV);
             } catch (IOException ex) {
                 return new Result(Move.NO_MOVE, 0, 0, 0L, 0L, true, NO_PV);
@@ -631,6 +675,20 @@ public final class Gauntlet {
                 return "nodes " + limits.maxNodes();
             }
             return "depth " + limits.depth();
+        }
+
+        /**
+         * Builds the {@code go} clock arguments so the external engine runs
+         * its own time management against the live game clocks.
+         *
+         * @param clock both sides' clock state
+         * @return {@code go} arguments
+         */
+        private static String clockArguments(ClockState clock) {
+            return "wtime " + clock.whiteTimeMillis()
+                    + " btime " + clock.blackTimeMillis()
+                    + " winc " + clock.whiteIncrementMillis()
+                    + " binc " + clock.blackIncrementMillis();
         }
 
         /**
@@ -946,9 +1004,11 @@ public final class Gauntlet {
         Sprt sprt = config.sprt()
                 ? new Sprt(config.sprtElo0(), config.sprtElo1(), SPRT_ALPHA, SPRT_BETA)
                 : null;
+        // Run-wide latch so the first time forfeit is reported exactly once.
+        AtomicBoolean timeForfeitNoted = new AtomicBoolean(false);
         return config.workers() == 1
-                ? runSequential(config, openings, sink, sprt)
-                : runParallel(config, openings, sink, sprt);
+                ? runSequential(config, openings, sink, sprt, timeForfeitNoted)
+                : runParallel(config, openings, sink, sprt, timeForfeitNoted);
     }
 
     /**
@@ -959,13 +1019,14 @@ public final class Gauntlet {
      * @param openings opening FENs
      * @param listener progress listener
      * @param sprt SPRT tracker, or {@code null} when disabled
+     * @param timeForfeitNoted run-wide first-time-forfeit note latch
      * @return aggregate score
      */
     private static Score runSequential(Config config, String[] openings, ProgressListener listener,
-            Sprt sprt) {
+            Sprt sprt, AtomicBoolean timeForfeitNoted) {
         int[] score = { 0, 0, 0 };
         for (int i = 0; i < openings.length; i++) {
-            OpeningResult result = playOpeningPair(openings[i], config, i, listener);
+            OpeningResult result = playOpeningPair(openings[i], config, i, listener, timeForfeitNoted);
             add(score, result);
             listener.onProgress(i + 1, openings.length, new Score(score[0], score[1], score[2]));
             if (updateSprt(sprt, result, i + 1, openings.length, listener)) {
@@ -991,10 +1052,11 @@ public final class Gauntlet {
      * @param openings opening FENs
      * @param listener progress listener
      * @param sprt SPRT tracker, or {@code null} when disabled
+     * @param timeForfeitNoted run-wide first-time-forfeit note latch
      * @return aggregate score
      */
     private static Score runParallel(Config config, String[] openings, ProgressListener listener,
-            Sprt sprt) {
+            Sprt sprt, AtomicBoolean timeForfeitNoted) {
         ExecutorService pool = Executors.newFixedThreadPool(Math.min(config.workers(), openings.length));
         AtomicBoolean stop = new AtomicBoolean(false);
         try {
@@ -1004,7 +1066,7 @@ public final class Gauntlet {
                 final String opening = openings[i];
                 futures.add(pool.submit(() -> stop.get()
                         ? null
-                        : playOpeningPair(opening, config, openingIndex, listener)));
+                        : playOpeningPair(opening, config, openingIndex, listener, timeForfeitNoted)));
             }
             int[] score = { 0, 0, 0 };
             int completed = 0;
@@ -1060,14 +1122,15 @@ public final class Gauntlet {
      * @param config gauntlet configuration
      * @param openingIndex zero-based opening index, for stable game numbering
      * @param listener progress listener notified of each completed game
+     * @param timeForfeitNoted run-wide first-time-forfeit note latch
      * @return two-game result for the opening
      */
     private static OpeningResult playOpeningPair(String opening, Config config, int openingIndex,
-            ProgressListener listener) {
+            ProgressListener listener, AtomicBoolean timeForfeitNoted) {
         // Play each opening from both colors so a result is not just one
         // deterministic game counted twice.
-        Outcome first = playGame(opening, true, config, openingIndex * 2, listener);
-        Outcome second = playGame(opening, false, config, openingIndex * 2 + 1, listener);
+        Outcome first = playGame(opening, true, config, openingIndex * 2, listener, timeForfeitNoted);
+        Outcome second = playGame(opening, false, config, openingIndex * 2 + 1, listener, timeForfeitNoted);
         return new OpeningResult(first, second);
     }
 
@@ -1137,25 +1200,33 @@ public final class Gauntlet {
     /**
      * Plays one game and returns its outcome from the candidate's perspective.
      *
+     * <p>
+     * Game clocks are created fresh per game and per side here, so clocked
+     * timing is independent of how opening pairs are distributed over workers.
+     * </p>
+     *
      * @param fen opening FEN
      * @param candidateIsWhite whether the candidate plays white this game
      * @param config gauntlet configuration
      * @param gameIndex zero-based game index, for stable numbering
      * @param listener progress listener notified when the game completes
+     * @param timeForfeitNoted run-wide first-time-forfeit note latch
      * @return game outcome from the candidate's perspective
      */
     private static Outcome playGame(String fen, boolean candidateIsWhite, Config config, int gameIndex,
-            ProgressListener listener) {
+            ProgressListener listener, AtomicBoolean timeForfeitNoted) {
         Position position = new Position(fen);
         GameSearcher candidate = sideSearcher(config, true);
         GameSearcher baseline = sideSearcher(config, false);
         Limits limitsA = config.limitsA();
         Limits limitsB = config.limitsB();
+        GameClock clockA = config.usesClockA() ? new GameClock(config.tcA()) : null;
+        GameClock clockB = config.usesClockB() ? new GameClock(config.tcB()) : null;
         List<String> moves = new ArrayList<>();
         Outcome outcome;
         try {
             outcome = playMoves(position, candidate, baseline, candidateIsWhite, limitsA, limitsB,
-                    config.maxPlies(), moves);
+                    clockA, clockB, config.maxPlies(), moves, listener, timeForfeitNoted);
         } finally {
             candidate.close();
             baseline.close();
@@ -1192,18 +1263,30 @@ public final class Gauntlet {
      * Plays a game out from a position, appending each played move (UCI) and
      * returning the candidate-perspective outcome.
      *
+     * <p>
+     * For a side with a game clock, each move's limits come from that clock
+     * through the shared {@link Limits#clockBudgetMillis} mapping, the elapsed
+     * wall-clock think time is deducted afterwards, and a flag fall loses the
+     * game for that side.
+     * </p>
+     *
      * @param position mutable game position, advanced in place
      * @param candidate candidate searcher
      * @param baseline baseline searcher
      * @param candidateIsWhite whether the candidate plays White
-     * @param limitsA candidate per-move limits
-     * @param limitsB baseline per-move limits
+     * @param limitsA candidate per-move limits (unused while A is on a clock)
+     * @param limitsB baseline per-move limits (unused while B is on a clock)
+     * @param clockA candidate game clock, or {@code null} for a fixed budget
+     * @param clockB baseline game clock, or {@code null} for a fixed budget
      * @param maxPlies draw-adjudication ply cap
      * @param moves output list of played moves in UCI notation
+     * @param listener progress listener, for the one-time time-forfeit note
+     * @param timeForfeitNoted run-wide first-time-forfeit note latch
      * @return game outcome from the candidate's perspective
      */
     private static Outcome playMoves(Position position, GameSearcher candidate, GameSearcher baseline,
-            boolean candidateIsWhite, Limits limitsA, Limits limitsB, int maxPlies, List<String> moves) {
+            boolean candidateIsWhite, Limits limitsA, Limits limitsB, GameClock clockA, GameClock clockB,
+            int maxPlies, List<String> moves, ProgressListener listener, AtomicBoolean timeForfeitNoted) {
         Map<Long, Integer> seen = new HashMap<>();
         List<Long> history = new ArrayList<>();
         countPosition(seen, position);
@@ -1224,8 +1307,18 @@ public final class Gauntlet {
             }
             boolean candidateToMove = position.isWhiteToMove() == candidateIsWhite;
             GameSearcher engine = candidateToMove ? candidate : baseline;
-            Limits limits = candidateToMove ? limitsA : limitsB;
-            Result result = engine.search(position, limits, historyArray(history));
+            GameClock clock = candidateToMove ? clockA : clockB;
+            Limits limits = clock != null ? clock.limits() : (candidateToMove ? limitsA : limitsB);
+            ClockState clockState = clock == null ? null : clockState(candidateIsWhite, clockA, clockB);
+            long startNanos = System.nanoTime();
+            Result result = engine.search(position, limits, historyArray(history), clockState);
+            long elapsedMillis = elapsedMillisCeil(startNanos);
+            if (clock != null && !clock.spend(elapsedMillis)) {
+                // Flag fall: the side to move loses on time, like any other
+                // decisive result.
+                noteTimeForfeit(candidateToMove, listener, timeForfeitNoted);
+                return candidateToMove ? Outcome.LOSS : Outcome.WIN;
+            }
             short move = result.bestMove();
             if (move == Move.NO_MOVE || !isLegal(legal, move)) {
                 // Defensive: a stuck engine forfeits.
@@ -1237,6 +1330,55 @@ public final class Gauntlet {
             countPosition(seen, position);
         }
         return Outcome.DRAW;
+    }
+
+    /**
+     * Builds the UCI-facing clock snapshot for the side to move. An unclocked
+     * opponent mirrors the mover's clock so external engines always receive
+     * both {@code wtime}/{@code btime} fields.
+     *
+     * @param candidateIsWhite whether the candidate plays White
+     * @param clockA candidate game clock, or {@code null}
+     * @param clockB baseline game clock, or {@code null}
+     * @return clock snapshot; only called when at least one clock exists
+     */
+    private static ClockState clockState(boolean candidateIsWhite, GameClock clockA, GameClock clockB) {
+        GameClock white = candidateIsWhite ? clockA : clockB;
+        GameClock black = candidateIsWhite ? clockB : clockA;
+        long whiteTime = white != null ? white.remainingMillis() : black.remainingMillis();
+        long blackTime = black != null ? black.remainingMillis() : white.remainingMillis();
+        long whiteIncrement = white != null ? white.incrementMillis() : black.incrementMillis();
+        long blackIncrement = black != null ? black.incrementMillis() : white.incrementMillis();
+        return new ClockState(whiteTime, blackTime, whiteIncrement, blackIncrement);
+    }
+
+    /**
+     * Returns the elapsed wall-clock time since a start mark, rounded up so a
+     * fast move still costs at least one millisecond of clock time.
+     *
+     * @param startNanos {@link System#nanoTime()} mark taken before the search
+     * @return elapsed milliseconds, rounded up
+     */
+    private static long elapsedMillisCeil(long startNanos) {
+        long nanos = Math.max(0L, System.nanoTime() - startNanos);
+        return (nanos + 999_999L) / 1_000_000L;
+    }
+
+    /**
+     * Reports the first time forfeit of a run through the listener; later
+     * forfeits stay silent so a long run is not flooded with notes.
+     *
+     * @param candidateToMove whether the candidate's flag fell
+     * @param listener progress listener
+     * @param timeForfeitNoted run-wide first-time-forfeit note latch
+     */
+    private static void noteTimeForfeit(boolean candidateToMove, ProgressListener listener,
+            AtomicBoolean timeForfeitNoted) {
+        if (timeForfeitNoted.compareAndSet(false, true)) {
+            listener.onNote("game clock flag fell for the "
+                    + (candidateToMove ? "candidate (A)" : "baseline (B)")
+                    + " - scored as a loss for that side (reported once per run)");
+        }
     }
 
     /**
@@ -1269,10 +1411,11 @@ public final class Gauntlet {
             mcts.setThreads(threads);
             return new GameSearcher() {
                 /**
-                 * Searches with the reusable MCTS tree and supplied repetition history.
+                 * Searches with the reusable MCTS tree and supplied repetition
+                 * history; clocked limits already arrive as a time budget.
                  */
                 @Override
-                public Result search(Position position, Limits limits, long[] history) {
+                public Result search(Position position, Limits limits, long[] history, ClockState clock) {
                     return mcts.searchReusable(position, limits, null, history);
                 }
 
@@ -1288,10 +1431,11 @@ public final class Gauntlet {
         AlphaBeta alphaBeta = new AlphaBeta(evaluator, true, features).setSearchThreads(threads);
         return new GameSearcher() {
             /**
-             * Searches with the alpha-beta engine.
+             * Searches with the alpha-beta engine; clocked limits already
+             * arrive as a time budget.
              */
             @Override
-            public Result search(Position position, Limits limits, long[] history) {
+            public Result search(Position position, Limits limits, long[] history, ClockState clock) {
                 return alphaBeta.search(position, limits);
             }
 

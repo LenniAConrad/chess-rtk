@@ -49,6 +49,18 @@ public record Limits(
     public static final long DEFAULT_MAX_DURATION_MILLIS = 5_000L;
 
     /**
+     * Default planning horizon, in moves, used to convert a remaining game
+     * clock into a per-move budget when no explicit {@code movestogo} is known.
+     */
+    public static final long CLOCK_MOVES_TO_GO = 30L;
+
+    /**
+     * Safety reserve in milliseconds kept on the game clock so a search that
+     * slightly overshoots its deadline does not lose on time.
+     */
+    public static final long CLOCK_RESERVE_MILLIS = 50L;
+
+    /**
      * Validates the search limits.
      *
      * @param depth maximum iterative-deepening depth in plies
@@ -76,5 +88,35 @@ public record Limits(
      */
     public static Limits defaults() {
         return new Limits(DEFAULT_DEPTH, DEFAULT_MAX_NODES, DEFAULT_MAX_DURATION_MILLIS);
+    }
+
+    /**
+     * Converts a remaining game clock into a per-move time budget.
+     *
+     * <p>
+     * This is the single shared clock-to-budget mapping ("time manager") used
+     * by the UCI loops for {@code wtime}/{@code btime}/{@code winc}/{@code binc}
+     * and by the self-play gauntlet's game-clock mode: spend an even share of
+     * the remaining time over a {@code movesToGo} horizon plus half the
+     * increment, never more than the remaining time minus the
+     * {@link #CLOCK_RESERVE_MILLIS} safety reserve, and always at least one
+     * millisecond while time remains.
+     * </p>
+     *
+     * @param remainingMillis remaining clock time in milliseconds
+     * @param incrementMillis per-move increment in milliseconds
+     * @param movesToGo planning horizon in moves (see {@link #CLOCK_MOVES_TO_GO})
+     * @return per-move budget in milliseconds, or zero when no time remains
+     */
+    public static long clockBudgetMillis(long remainingMillis, long incrementMillis, long movesToGo) {
+        if (remainingMillis <= 0L) {
+            return 0L;
+        }
+        long divisor = Math.max(1L, movesToGo);
+        long budget = Math.max(1L, remainingMillis / divisor + incrementMillis / 2L);
+        long reserveAdjusted = remainingMillis > CLOCK_RESERVE_MILLIS
+                ? remainingMillis - CLOCK_RESERVE_MILLIS
+                : 1L;
+        return Math.min(budget, reserveAdjusted);
     }
 }

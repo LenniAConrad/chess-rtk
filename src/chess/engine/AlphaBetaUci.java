@@ -350,7 +350,8 @@ public final class AlphaBetaUci {
     }
 
     /**
-     * Parses UCI clock fields into a simple per-move time budget.
+     * Parses UCI clock fields into a simple per-move time budget through the
+     * shared {@link Limits#clockBudgetMillis} time-management mapping.
      *
      * @param tokens command tokens
      * @param whiteToMove whether white is to move
@@ -361,7 +362,7 @@ public final class AlphaBetaUci {
         long btime = 0L;
         long winc = 0L;
         long binc = 0L;
-        long movestogo = 30L;
+        long movestogo = Limits.CLOCK_MOVES_TO_GO;
         for (int i = 1; i + 1 < tokens.size(); i++) {
             String key = tokens.get(i);
             String value = tokens.get(i + 1);
@@ -379,13 +380,7 @@ public final class AlphaBetaUci {
         }
         long time = whiteToMove ? wtime : btime;
         long inc = whiteToMove ? winc : binc;
-        long divisor = Math.max(1L, movestogo);
-        long budget = time > 0L ? Math.max(1L, time / divisor + inc / 2L) : 0L;
-        if (time > 0L) {
-            long reserveAdjustedTime = time > 50L ? time - 50L : 1L;
-            budget = Math.min(budget, reserveAdjustedTime);
-        }
-        return budget;
+        return Limits.clockBudgetMillis(time, inc, movestogo);
     }
 
     /**

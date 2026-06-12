@@ -10,6 +10,7 @@ import chess.engine.Gauntlet.Config;
 import chess.engine.Gauntlet.Score;
 import chess.engine.Gauntlet.SearchKind;
 import chess.engine.Sprt;
+import chess.engine.TimeControl;
 import java.util.EnumSet;
 import java.util.Locale;
 import java.util.Set;
@@ -24,7 +25,11 @@ import utility.Argv;
  * per-move budget over a set of varied openings (each played from both colors)
  * and reports the candidate-perspective score plus a point Elo estimate. The
  * run is deterministic for a given seed, so the same flags reproduce the same
- * result. Pass {@code --json} for a single machine-readable summary object.
+ * result. With {@code --tc BASE+INC} (or the {@code --tcA}/{@code --tcB}
+ * overrides) the sides instead play on a per-game clock with increment, where
+ * a flag fall loses the game; wall-clock thinking makes such runs
+ * non-deterministic. Pass {@code --json} for a single machine-readable summary
+ * object.
  * With {@code --sprt ELO0:ELO1} the run additionally performs a pentanomial
  * sequential probability ratio test over opening pairs and stops early once a
  * stopping bound is crossed, with {@code --openings} as the hard cap.
@@ -82,6 +87,21 @@ public final class EngineGauntletCommand {
      * Baseline per-move time-budget override flag (milliseconds).
      */
     private static final String OPT_MOVETIME_B = "--movetimeB";
+
+    /**
+     * Shared game-clock flag ({@code --tc BASE+INC} in seconds per game).
+     */
+    private static final String OPT_TC = "--tc";
+
+    /**
+     * Candidate game-clock override flag.
+     */
+    private static final String OPT_TC_A = "--tcA";
+
+    /**
+     * Baseline game-clock override flag.
+     */
+    private static final String OPT_TC_B = "--tcB";
 
     /**
      * Candidate external UCI engine command flag.
@@ -331,12 +351,25 @@ public final class EngineGauntletCommand {
     private static Config parseConfig(Argv a, String cmd) {
         Set<AlphaBeta.Feature> featuresA = Gauntlet.parseFeatures(orDefault(a.string(OPT_FEATURES_A), "all"));
         Set<AlphaBeta.Feature> featuresB = Gauntlet.parseFeatures(orDefault(a.string(OPT_FEATURES_B), "none"));
-        long nodes = a.lngOr(DEFAULT_NODES, OPT_NODES);
-        long movetime = a.lngOr(0L, OPT_MOVETIME);
+        // Presence-aware reads: an explicitly passed --nodes/--movetime must
+        // conflict with a game clock, while their defaults must not.
+        Long nodesValue = a.lng(OPT_NODES);
+        Long movetimeValue = a.lng(OPT_MOVETIME);
+        long nodes = nodesValue == null ? DEFAULT_NODES : nodesValue.longValue();
+        long movetime = movetimeValue == null ? 0L : movetimeValue.longValue();
         long nodesA = Math.max(0L, a.lngOr(0L, OPT_NODES_A));
         long nodesB = Math.max(0L, a.lngOr(0L, OPT_NODES_B));
         long movetimeA = Math.max(0L, a.lngOr(0L, OPT_MOVETIME_A));
         long movetimeB = Math.max(0L, a.lngOr(0L, OPT_MOVETIME_B));
+        TimeControl tcShared = parseTimeControl(a.string(OPT_TC), OPT_TC, cmd);
+        TimeControl tcA = parseTimeControl(a.string(OPT_TC_A), OPT_TC_A, cmd);
+        TimeControl tcB = parseTimeControl(a.string(OPT_TC_B), OPT_TC_B, cmd);
+        tcA = tcA != null ? tcA : (tcShared != null ? tcShared : TimeControl.NONE);
+        tcB = tcB != null ? tcB : (tcShared != null ? tcShared : TimeControl.NONE);
+        requireClockExclusive(cmd, "candidate (A)", tcA,
+                movetimeValue != null || movetimeA > 0, nodesValue != null || nodesA > 0);
+        requireClockExclusive(cmd, "baseline (B)", tcB,
+                movetimeValue != null || movetimeB > 0, nodesValue != null || nodesB > 0);
         String engineA = orDefault(a.string(OPT_ENGINE_A), "");
         String engineB = orDefault(a.string(OPT_ENGINE_B), "");
         int hashA = Math.max(0, a.integerOr(0, OPT_HASH_A));
@@ -389,10 +422,50 @@ public final class EngineGauntletCommand {
         }
 
         return new Config(featuresA, featuresB, searchA, searchB, evalA, evalB, nodes, movetime,
-                nodesA, nodesB, movetimeA, movetimeB, engineA, engineB, hashA, hashB, optionsA, optionsB,
-                cpuctA, cpuctB, fpuA, fpuB, checkPriorA, checkPriorB, capturePenaltyA, capturePenaltyB,
-                captureWinScaleA, captureWinScaleB, maxPlies, openingCount, seed, threadsA, threadsB, workers,
-                sprt, sprtElo0, sprtElo1);
+                nodesA, nodesB, movetimeA, movetimeB, tcA, tcB, engineA, engineB, hashA, hashB,
+                optionsA, optionsB, cpuctA, cpuctB, fpuA, fpuB, checkPriorA, checkPriorB,
+                capturePenaltyA, capturePenaltyB, captureWinScaleA, captureWinScaleB, maxPlies,
+                openingCount, seed, threadsA, threadsB, workers, sprt, sprtElo0, sprtElo1);
+    }
+
+    /**
+     * Parses a {@code BASE+INC} game-clock flag value.
+     *
+     * @param spec flag value, or {@code null} when absent
+     * @param option flag name, for diagnostics
+     * @param cmd command label for diagnostics
+     * @return parsed time control, or {@code null} when the flag is absent
+     */
+    private static TimeControl parseTimeControl(String spec, String option, String cmd) {
+        if (spec == null) {
+            return null;
+        }
+        try {
+            return TimeControl.parse(spec);
+        } catch (IllegalArgumentException ex) {
+            throw new CommandFailure(cmd + ": " + option + " expects BASE+INC seconds per game"
+                    + " with a positive base (for example 10+0.1), got '" + spec + "'", 2);
+        }
+    }
+
+    /**
+     * Rejects a side configured with both a game clock and an explicit fixed
+     * per-move budget, since the two budget models are mutually exclusive.
+     *
+     * @param cmd command label for diagnostics
+     * @param side human-readable side label
+     * @param tc resolved per-side time control
+     * @param movetimeSet whether a movetime applies to the side explicitly
+     * @param nodesSet whether a node budget applies to the side explicitly
+     */
+    private static void requireClockExclusive(String cmd, String side, TimeControl tc,
+            boolean movetimeSet, boolean nodesSet) {
+        if (tc.enabled() && (movetimeSet || nodesSet)) {
+            throw new CommandFailure(cmd + ": " + OPT_TC + "/" + OPT_TC_A + "/" + OPT_TC_B
+                    + " sets a game clock for the " + side + " and cannot be combined with "
+                    + (movetimeSet ? OPT_MOVETIME : OPT_NODES)
+                    + " for that side; drop one of the two budgets", 2);
+        }
     }
 
     /**

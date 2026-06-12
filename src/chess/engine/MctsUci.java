@@ -358,7 +358,8 @@ public final class MctsUci {
     }
 
     /**
-     * Parses UCI clock fields into a simple move time.
+     * Parses UCI clock fields into a simple move time through the shared
+     * {@link Limits#clockBudgetMillis} time-management mapping.
      * @param tokens token values
      * @param whiteToMove white to move value
      * @return parse time control result
@@ -368,7 +369,7 @@ public final class MctsUci {
         long btime = 0L;
         long winc = 0L;
         long binc = 0L;
-        long movestogo = 30L;
+        long movestogo = Limits.CLOCK_MOVES_TO_GO;
         for (int i = 1; i + 1 < tokens.size(); i++) {
             String key = tokens.get(i);
             String value = tokens.get(i + 1);
@@ -386,13 +387,7 @@ public final class MctsUci {
         }
         long time = whiteToMove ? wtime : btime;
         long inc = whiteToMove ? winc : binc;
-        long divisor = Math.max(1L, movestogo);
-        long budget = time > 0L ? Math.max(1L, time / divisor + inc / 2L) : 0L;
-        if (time > 0L) {
-            long reserveAdjustedTime = time > 50L ? time - 50L : 1L;
-            budget = Math.min(budget, reserveAdjustedTime);
-        }
-        return new TimeControl(budget);
+        return new TimeControl(Limits.clockBudgetMillis(time, inc, movestogo));
     }
 
     /**

@@ -1647,6 +1647,9 @@ public final class HelpCommand {
 			  --evalA|--evalB NAME        Per-side evaluator override
 			  --nodes N                   Fixed node budget per move (default: 5000)
 			  --movetime MS               Fixed time budget per move in ms (overrides --nodes)
+			  --tc BASE+INC               Game clock per side in seconds, e.g. 10+0.1; a flag fall loses
+			                              (wall-clock thinking makes results non-deterministic)
+			  --tcA|--tcB BASE+INC        Per-side game-clock override; excludes --movetime/--nodes per side
 			  --openings N                Seeded-random opening count; 0 uses the curated set (default: 0)
 			  --seed N                    Opening RNG seed for reproducibility (default: 20260531)
 			  --sprt ELO0:ELO1            Pentanomial SPRT early stop of H0 elo<=ELO0 vs H1 elo>=ELO1
