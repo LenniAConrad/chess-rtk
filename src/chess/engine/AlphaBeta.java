@@ -574,7 +574,8 @@ public final class AlphaBeta implements AutoCloseable {
                     Feature.IMPROVING,
                     Feature.CONT_HISTORY,
                     Feature.CHECK_EXTENSION,
-                    Feature.IIR);
+                    Feature.IIR,
+                    Feature.STABILITY_TIME);
 
     /**
      * Enabled search features; see {@link Feature}.
