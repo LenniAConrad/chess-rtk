@@ -341,6 +341,7 @@ public final class AlphaBetaUci {
         int depth = AlphaBeta.MAX_DEPTH;
         long nodes = 0L;
         long millis = 0L;
+        long softMillis = 0L;
         boolean infinite = false;
         for (int i = 1; i < tokens.size(); i++) {
             String token = tokens.get(i);
@@ -353,7 +354,9 @@ public final class AlphaBetaUci {
                     case "nodes" -> nodes = parsePositiveLong(value, nodes);
                     case "movetime" -> millis = parsePositiveLong(value, millis);
                     case "wtime", "btime", "winc", "binc", "movestogo" -> {
-                        millis = parseTimeControl(tokens, whiteToMove);
+                        ClockBudget clock = parseTimeControl(tokens, whiteToMove);
+                        softMillis = clock.softMillis();
+                        millis = clock.hardMillis();
                         i = tokens.size();
                     }
                     default -> {
@@ -363,23 +366,24 @@ public final class AlphaBetaUci {
             }
         }
         if (infinite) {
-            return new GoLimits(AlphaBeta.MAX_DEPTH, 0L, 0L, true);
+            return new GoLimits(AlphaBeta.MAX_DEPTH, 0L, 0L, 0L, true);
         }
         if (nodes <= 0L && millis <= 0L) {
             nodes = Math.max(256L, depth * 1024L);
         }
-        return new GoLimits(depth, nodes, millis, false);
+        return new GoLimits(depth, nodes, millis, softMillis, false);
     }
 
     /**
-     * Parses UCI clock fields into a simple per-move time budget through the
-     * shared {@link Limits#clockBudgetMillis} time-management mapping.
+     * Parses UCI clock fields into the soft/hard per-move budget pair through
+     * the shared {@link Limits#clockBudgetMillis} and
+     * {@link Limits#clockHardBudgetMillis} time-management mappings.
      *
      * @param tokens command tokens
      * @param whiteToMove whether white is to move
-     * @return per-move budget in milliseconds
+     * @return soft/hard per-move budgets in milliseconds
      */
-    private static long parseTimeControl(List<String> tokens, boolean whiteToMove) {
+    private static ClockBudget parseTimeControl(List<String> tokens, boolean whiteToMove) {
         long wtime = 0L;
         long btime = 0L;
         long winc = 0L;
@@ -402,7 +406,27 @@ public final class AlphaBetaUci {
         }
         long time = whiteToMove ? wtime : btime;
         long inc = whiteToMove ? winc : binc;
-        return Limits.clockBudgetMillis(time, inc, movestogo);
+        return new ClockBudget(
+                Limits.clockBudgetMillis(time, inc, movestogo),
+                Limits.clockHardBudgetMillis(time, inc, movestogo));
+    }
+
+    /**
+     * Soft/hard per-move clock budgets.
+     *
+     * @param softMillis soft target in milliseconds
+     * @param hardMillis hard deadline in milliseconds
+     */
+    private record ClockBudget(
+        /**
+         * Stores the soft target.
+         */
+        long softMillis,
+        /**
+         * Stores the hard deadline.
+         */
+        long hardMillis
+    ) {
     }
 
     /**
@@ -524,7 +548,7 @@ public final class AlphaBetaUci {
      * @param millis time bound in milliseconds, or zero
      * @param infinite whether the search is unbounded
      */
-    private record GoLimits(int depth, long nodes, long millis, boolean infinite) {
+    private record GoLimits(int depth, long nodes, long millis, long softMillis, boolean infinite) {
 
         /**
          * Converts UCI go limits to search limits.
@@ -536,7 +560,7 @@ public final class AlphaBetaUci {
             if (infinite) {
                 return new Limits(AlphaBeta.MAX_DEPTH, Long.MAX_VALUE, 0L);
             }
-            return new Limits(boundedDepth, nodes, millis);
+            return new Limits(boundedDepth, nodes, millis, softMillis);
         }
     }
 }

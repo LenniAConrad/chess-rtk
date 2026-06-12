@@ -12,6 +12,8 @@ package chess.engine;
  * @param depth maximum iterative-deepening depth in plies
  * @param maxNodes maximum visited search nodes, or zero for unlimited
  * @param maxDurationMillis maximum search time in milliseconds, or zero for unlimited
+ * @param softMillis soft per-move time target for clock games, or zero when
+ *        the hard budget is the only deadline
  *
  * @since 2026
  * @author Lennart A. Conrad
@@ -30,7 +32,16 @@ public record Limits(
      * Maximum wall-clock budget in milliseconds. A value of zero disables the
      * time budget.
      */
-    long maxDurationMillis
+    long maxDurationMillis,
+    /**
+     * Soft per-move target in milliseconds for clock games, always at most
+     * {@link #maxDurationMillis} when both are set. Searchers without
+     * stability-based time management treat this value as their deadline, so
+     * the pair is backward-compatible; with {@link AlphaBeta.Feature#STABILITY_TIME}
+     * the searcher modulates it by best-move stability and may run up to the
+     * hard budget. Zero disables soft timing.
+     */
+    long softMillis
 ) {
 
     /**
@@ -79,6 +90,23 @@ public record Limits(
         if (maxDurationMillis < 0L) {
             throw new IllegalArgumentException("maxDurationMillis must be non-negative");
         }
+        if (softMillis < 0L) {
+            throw new IllegalArgumentException("softMillis must be non-negative");
+        }
+        if (softMillis > 0L && maxDurationMillis > 0L && softMillis > maxDurationMillis) {
+            throw new IllegalArgumentException("softMillis must not exceed maxDurationMillis");
+        }
+    }
+
+    /**
+     * Creates limits without a soft time target.
+     *
+     * @param depth maximum iterative-deepening depth in plies
+     * @param maxNodes maximum visited-node budget, or zero for unlimited
+     * @param maxDurationMillis maximum wall-clock budget, or zero for unlimited
+     */
+    public Limits(int depth, long maxNodes, long maxDurationMillis) {
+        this(depth, maxNodes, maxDurationMillis, 0L);
     }
 
     /**
@@ -118,5 +146,33 @@ public record Limits(
                 ? remainingMillis - CLOCK_RESERVE_MILLIS
                 : 1L;
         return Math.min(budget, reserveAdjusted);
+    }
+
+    /**
+     * Converts a remaining game clock into the hard per-move deadline that
+     * pairs with {@link #clockBudgetMillis} as the soft target.
+     *
+     * <p>
+     * The hard deadline allows an unstable search to run past its soft target:
+     * four times the soft budget, but never more than a quarter of the
+     * remaining clock plus half the increment, and never into the
+     * {@link #CLOCK_RESERVE_MILLIS} safety reserve.
+     * </p>
+     *
+     * @param remainingMillis remaining clock time in milliseconds
+     * @param incrementMillis per-move increment in milliseconds
+     * @param movesToGo planning horizon in moves (see {@link #CLOCK_MOVES_TO_GO})
+     * @return hard per-move deadline in milliseconds, or zero when no time remains
+     */
+    public static long clockHardBudgetMillis(long remainingMillis, long incrementMillis, long movesToGo) {
+        long soft = clockBudgetMillis(remainingMillis, incrementMillis, movesToGo);
+        if (soft <= 0L) {
+            return 0L;
+        }
+        long quarterClock = Math.max(1L, remainingMillis / 4L + incrementMillis / 2L);
+        long reserveAdjusted = remainingMillis > CLOCK_RESERVE_MILLIS
+                ? remainingMillis - CLOCK_RESERVE_MILLIS
+                : 1L;
+        return Math.max(soft, Math.min(Math.min(soft * 4L, quarterClock), reserveAdjusted));
     }
 }

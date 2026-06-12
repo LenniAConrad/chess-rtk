@@ -139,8 +139,15 @@ public final class GameClockRegressionTest {
         Limits limits = clock.limits();
         assertEquals(AlphaBeta.MAX_DEPTH, limits.depth(), "clock limits leave depth unbounded");
         assertEquals(0L, limits.maxNodes(), "clock limits carry no node bound");
-        assertEquals(clock.budgetMillis(), limits.maxDurationMillis(),
-                "clock limits carry the budget as the time bound");
+        assertEquals(clock.budgetMillis(), limits.softMillis(),
+                "clock limits carry the budget as the soft target");
+        assertEquals(
+                Limits.clockHardBudgetMillis(clock.remainingMillis(), clock.incrementMillis(),
+                        Limits.CLOCK_MOVES_TO_GO),
+                limits.maxDurationMillis(),
+                "clock limits carry the hard deadline as the time bound");
+        assertTrue(limits.softMillis() <= limits.maxDurationMillis(),
+                "soft target never exceeds the hard deadline");
     }
 
     /**

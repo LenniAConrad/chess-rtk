@@ -391,7 +391,18 @@ public final class AlphaBeta implements AutoCloseable {
          * search trees differ from the eager path; measured at fixed move time
          * the staged order plus the lazy work was worth about +13 Elo.
          */
-        STAGED_PICKER
+        STAGED_PICKER,
+
+        /**
+         * Stability-based time management for clock games. When the limits
+         * carry a soft time budget, iterative deepening stops before starting
+         * another iteration once the elapsed time exceeds the soft budget
+         * scaled by a stability factor: searches whose best move has stayed
+         * stable for several iterations stop early, while a freshly changed
+         * best move extends the budget toward the hard deadline. Fixed
+         * per-move budgets (no soft time) are unaffected.
+         */
+        STABILITY_TIME
     }
 
     /**
@@ -885,6 +896,8 @@ public final class AlphaBeta implements AutoCloseable {
             int[] previousRootScores = features.contains(Feature.ROOT_SCORE_ORDERING)
                     ? newRootScoreTable()
                     : null;
+            boolean softStop = limits.softMillis() > 0L && features.contains(Feature.STABILITY_TIME);
+            int stableIterations = 0;
             for (int depth = 1; depth <= limits.depth(); depth++) {
                 if (threadIndex > 0 && skipIteration(threadIndex, depth)) {
                     // Helper diversification: this thread skips this depth so the
@@ -892,8 +905,17 @@ public final class AlphaBeta implements AutoCloseable {
                     // thread (index 0) never skips, so the result is unaffected.
                     continue;
                 }
+                if (softStop && depth > 1
+                        && elapsedSince(started) >= stabilityScaledSoftMillis(
+                                limits.softMillis(), stableIterations)) {
+                    // Soft stop: a stable best move releases time back to the
+                    // clock; an unstable one extends toward the hard deadline,
+                    // which still aborts mid-iteration via the context check.
+                    break;
+                }
                 try {
                     context.newIteration();
+                    short previousBest = preferred;
                     RootOutcome outcome = searchRootWithAspiration(
                             context,
                             root,
@@ -903,6 +925,7 @@ public final class AlphaBeta implements AutoCloseable {
                             best.scoreCentipawns(),
                             previousRootScores);
                     preferred = outcome.bestMove();
+                    stableIterations = outcome.bestMove() == previousBest ? stableIterations + 1 : 0;
                     best = new Result(
                             outcome.bestMove(),
                             outcome.score(),
@@ -924,6 +947,30 @@ public final class AlphaBeta implements AutoCloseable {
             }
             return best.withRuntime(context.nodes, elapsedSince(started), false);
         }
+    }
+
+    /**
+     * Scales the soft time target by best-move stability: a best move that
+     * just changed extends the target (more time to resolve the new line),
+     * while one that has survived several iterations releases time back to
+     * the clock. The hard deadline still bounds the search regardless of the
+     * returned value.
+     *
+     * @param softMillis soft per-move target in milliseconds
+     * @param stableIterations completed iterations since the best move changed
+     * @return stability-scaled soft target in milliseconds
+     */
+    static long stabilityScaledSoftMillis(long softMillis, int stableIterations) {
+        if (stableIterations == 0) {
+            return softMillis * 17L / 10L;
+        }
+        if (stableIterations >= 4) {
+            return softMillis * 11L / 20L;
+        }
+        if (stableIterations >= 2) {
+            return softMillis * 3L / 4L;
+        }
+        return softMillis;
     }
 
     /**
@@ -3917,7 +3964,15 @@ public final class AlphaBeta implements AutoCloseable {
          */
         private SearchContext(long started, Limits limits, CentipawnEvaluator evaluator, Position root,
                 TranspositionTable table, int generationStart, Set<Feature> features) {
-            this.deadline = computeDeadline(started, limits.maxDurationMillis());
+            // Without stability-based time management a soft target is simply
+            // the deadline (the pre-soft-budget behavior); with it the search
+            // may run past the soft target up to the hard budget, and the
+            // iterative-deepening loop applies the stability-scaled soft stop.
+            boolean stabilityTime = features.contains(Feature.STABILITY_TIME);
+            long hardMillis = limits.softMillis() > 0L && !stabilityTime
+                    ? limits.softMillis()
+                    : limits.maxDurationMillis();
+            this.deadline = computeDeadline(started, hardMillis);
             this.maxNodes = limits.maxNodes() == 0L ? Long.MAX_VALUE : limits.maxNodes();
             this.evaluator = evaluator;
             this.transpositions = table;

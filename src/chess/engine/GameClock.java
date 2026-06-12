@@ -88,12 +88,22 @@ public final class GameClock {
     }
 
     /**
-     * Returns search limits for the next move on this clock.
+     * Returns search limits for the next move on this clock: the soft target
+     * from {@link Limits#clockBudgetMillis} paired with the hard deadline from
+     * {@link Limits#clockHardBudgetMillis}. Searchers without stability-based
+     * time management treat the soft target as their deadline, preserving the
+     * single-budget behavior.
      *
      * @return time-bounded limits of at least one millisecond
      */
     public Limits limits() {
-        return new Limits(AlphaBeta.MAX_DEPTH, 0L, Math.max(1L, budgetMillis()));
+        long soft = budgetMillis();
+        if (soft <= 0L) {
+            return new Limits(AlphaBeta.MAX_DEPTH, 0L, 1L);
+        }
+        long hard = Math.max(soft, Limits.clockHardBudgetMillis(remainingMillis,
+                control.incrementMillis(), Limits.CLOCK_MOVES_TO_GO));
+        return new Limits(AlphaBeta.MAX_DEPTH, 0L, hard, soft);
     }
 
     /**
