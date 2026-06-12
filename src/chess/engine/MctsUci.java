@@ -320,7 +320,10 @@ public final class MctsUci {
      */
     private static GoLimits parseGo(String line, boolean whiteToMove) {
         List<String> tokens = tokens(line);
-        int depth = Limits.DEFAULT_DEPTH;
+        // Without an explicit depth token the search must not be depth-capped:
+        // the searcher stops at the depth limit, so the default is the maximum
+        // (DEFAULT_DEPTH would silently cap clock/node searches at depth 3).
+        int depth = AlphaBeta.MAX_DEPTH;
         long nodes = 0L;
         long millis = 0L;
         boolean infinite = false;
@@ -348,9 +351,9 @@ public final class MctsUci {
         if (infinite) {
             return new GoLimits(depth, Long.MAX_VALUE, 0L);
         }
-        if (nodes <= 0L && millis <= 0L) {
-            nodes = Math.max(256L, depth * 1024L);
-        }
+        // With neither nodes nor a time budget, the searcher synthesizes its
+        // own visit ceiling and the depth limit stops the search at the
+        // requested depth (see Mcts.effectiveMaxNodes and Mcts.shouldContinue).
         return new GoLimits(depth, nodes, millis);
     }
 

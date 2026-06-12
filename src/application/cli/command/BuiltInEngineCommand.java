@@ -473,7 +473,9 @@ public final class BuiltInEngineCommand {
 		if (search == SearchKind.ALPHA_BETA) {
 			return maxStrength ? MAX_STRENGTH_ALPHA_BETA_DEPTH : DEFAULT_ALPHA_BETA_DEPTH;
 		}
-		return Limits.DEFAULT_DEPTH;
+		// MCTS searches honor the depth limit as a stop condition, so the
+		// implicit depth must not cap node- or time-budgeted runs.
+		return AlphaBeta.MAX_DEPTH;
 	}
 
 	/**

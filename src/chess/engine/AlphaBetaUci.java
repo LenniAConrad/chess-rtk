@@ -314,7 +314,9 @@ public final class AlphaBetaUci {
      */
     private static GoLimits parseGo(String line, boolean whiteToMove) {
         List<String> tokens = tokens(line);
-        int depth = Limits.DEFAULT_DEPTH;
+        // Without an explicit depth token the search must not be depth-capped:
+        // DEFAULT_DEPTH here silently limited clock and node games to depth 3.
+        int depth = AlphaBeta.MAX_DEPTH;
         long nodes = 0L;
         long millis = 0L;
         boolean infinite = false;

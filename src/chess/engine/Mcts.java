@@ -207,6 +207,14 @@ public final class Mcts implements AutoCloseable {
     private int maxDepthReached;
 
     /**
+     * Depth budget of the current search: playouts stop once
+     * {@link #maxDepthReached} hits this value, so a UCI {@code go depth N}
+     * terminates at the depth it reports instead of running a synthesized
+     * visit budget past it.
+     */
+    private int depthLimit = Integer.MAX_VALUE;
+
+    /**
      * External stop flag used by UCI stop.
      */
     private volatile boolean stopRequested;
@@ -674,6 +682,7 @@ public final class Mcts implements AutoCloseable {
         searching = true;
         try {
             long started = System.currentTimeMillis();
+            depthLimit = limits.depth() > 0 ? limits.depth() : Integer.MAX_VALUE;
             setRoot(position, reuseTree, historyCoreKeys);
             Result immediate = immediateRootResult(started);
             if (immediate != null) {
@@ -779,6 +788,9 @@ public final class Mcts implements AutoCloseable {
             return false;
         }
         if (root != null && root.proof != ProofState.UNKNOWN) {
+            return false;
+        }
+        if (maxDepthReached >= depthLimit) {
             return false;
         }
         boolean visitsOk = maxNodes <= 0L || playouts < maxNodes;
