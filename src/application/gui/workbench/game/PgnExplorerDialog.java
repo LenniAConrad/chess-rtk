@@ -73,7 +73,7 @@ public final class PgnExplorerDialog extends JDialog {
      * shared constant).
      */
     private static final javax.swing.border.Border SEARCH_FIELD_PADDING =
-            BorderFactory.createEmptyBorder(0, 4, 0, 4);
+            Theme.pad(0, Theme.SPACE_XS, 0, Theme.SPACE_XS);
 
     /**
      * Builds the quick-open bar border. Rebuilt on demand (not cached) because it
@@ -83,7 +83,7 @@ public final class PgnExplorerDialog extends JDialog {
      */
     private static javax.swing.border.Border searchBarBorder() {
         return BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Theme.LINE),
+                Theme.lineBorder(Theme.LINE),
                 Theme.pad(0, 8, 0, 8));
     }
 
@@ -213,7 +213,7 @@ public final class PgnExplorerDialog extends JDialog {
         setDefaultCloseOperation(HIDE_ON_CLOSE);
         setMinimumSize(new Dimension(WIDTH, HEIGHT));
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
-        getRootPane().setBorder(BorderFactory.createLineBorder(Theme.LINE));
+        getRootPane().setBorder(Theme.lineBorder(Theme.LINE));
         setContentPane(createContent());
         installKeys();
         pack();
@@ -241,7 +241,7 @@ public final class PgnExplorerDialog extends JDialog {
      * Refreshes custom chrome after a workbench theme switch.
      */
     public void refreshTheme() {
-        getRootPane().setBorder(BorderFactory.createLineBorder(Theme.LINE));
+        getRootPane().setBorder(Theme.lineBorder(Theme.LINE));
         Theme.refreshComponentTree(this);
         if (quickOpenBar != null) {
             quickOpenBar.setBackground(Theme.INPUT);

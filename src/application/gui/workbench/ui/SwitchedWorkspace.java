@@ -21,7 +21,7 @@ import javax.swing.JPanel;
  * needs to wire something through it at startup; every other mode builds the
  * first time it is selected, preserving its state across later switches.</p>
  */
-public class SwitchedWorkspace extends JPanel {
+public class SwitchedWorkspace extends SurfacePanel {
 
     /**
      * Serialization identifier for Swing panel compatibility.
@@ -111,11 +111,9 @@ public class SwitchedWorkspace extends JPanel {
      * @param eagerMode mode to build and show immediately
      */
     public SwitchedWorkspace(String title, List<WorkspaceMode> modes, int eagerMode) {
-        super(new BorderLayout(0, Theme.SPACE_SM));
+        super(new BorderLayout(0, Theme.SPACE_SM), Theme.Surface.BACKDROP);
         requireUsableModes(modes);
         requireValidEagerMode(eagerMode, modes.size());
-        setOpaque(true);
-        setBackground(Theme.BG);
         this.workspaceTitle = title == null ? "" : title.trim();
         this.modes = List.copyOf(modes);
         this.built = new boolean[this.modes.size()];

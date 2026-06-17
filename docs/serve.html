@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Local JSON-RPC Daemon | ChessRTK</title>
+  <meta name="description" content="The deterministic chess research toolkit — Local JSON-RPC Daemon.">
+  <link rel="icon" href="assets/logo/crtk-logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      var key = "crtk-theme";
+      var isTheme = function (value) { return value === "light" || value === "dark"; };
+      var urlTheme = "";
+      var stored = "";
+      try { urlTheme = new URLSearchParams(window.location.search).get("theme"); } catch (e) {}
+      try { stored = localStorage.getItem(key); } catch (e) {}
+      var theme = isTheme(urlTheme) ? urlTheme : (isTheme(stored) ? stored : "");
+      if (!theme) {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      if (isTheme(urlTheme)) {
+        try { localStorage.setItem(key, urlTheme); } catch (e) {}
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body class="is-doc">
+
+  <header class="topnav">
+    <div class="topnav-inner">
+      <a class="topnav-brand" href="index.html">
+        <img src="assets/logo/crtk-logo.svg" alt="" width="32" height="32">
+        <span>ChessRTK</span>
+      </a>
+      <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="topnav-links">
+        <a class="" href="getting-started.html">Get started</a>
+        <a class="" href="command-reference.html">Commands</a>
+        <a class="" href="workbench.html">Workbench</a>
+        <a class="" href="wiki-index.html">Docs</a>
+        <a class="" href="chessrtk-manual.pdf">Manual</a>
+        <a class="topnav-gh" href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="doc-shell">
+    <aside class="sidebar" id="sidebar">
+      <label class="search-label" for="doc-search">Search the docs</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search pages..." autocomplete="off">
+      <div id="search-results" class="search-results" hidden></div>
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="overview">Overview</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>Commands</h2>
+<a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="cli-command-guide.html" data-title="command guide">Command Guide</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+</section>
+<section class="nav-section"><h2>Desktop Workbench</h2>
+<a class="" href="workbench.html" data-title="workbench">Workbench</a>
+<a class="" href="workbench-design-guide.html" data-title="design guide">Design Guide</a>
+</section>
+<section class="nav-section"><h2>Engines &amp; Models</h2>
+<a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
+<a class="" href="lc0.html" data-title="lc0 networks">LC0 Networks</a>
+<a class="" href="gpu.html" data-title="gpu acceleration">GPU Acceleration</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="review-to-study.html" data-title="review to study">Review To Study</a>
+<a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
+<a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="ai-agents.html" data-title="ai agents &amp; automation">AI Agents &amp; Automation</a>
+</section>
+<section class="nav-section"><h2>Project</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="support.html" data-title="support">Support</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <main class="doc-main">
+      <article class="content">
+        <p class="content-kicker">Reference</p>
+        <h1 id="local-json-rpc-daemon">Local JSON-RPC Daemon</h1>
+<p><code>crtk serve</code> starts a localhost-only HTTP wrapper around the existing command dispatcher. It is for agents, editors, and scripts that need many small <code>crtk</code> calls without paying JVM startup every time. It is not an online service, not a play server, and not a social or matchmaking endpoint.</p>
+<h2 id="start-it">Start It</h2>
+<pre><code class="language-bash">crtk serve --port 8787</code></pre>
+<p>The daemon binds <code>127.0.0.1</code> by default and refuses non-loopback addresses. Use <code>--port 0</code> when embedding or testing and let the OS choose an ephemeral port.</p>
+<pre><code class="language-bash">crtk serve --host 127.0.0.1 --port 8787 --json</code></pre>
+<h2 id="endpoints">Endpoints</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Endpoint</th>
+<th>Method</th>
+<th>Contract</th>
+</tr></thead><tbody>
+<tr>
+<td><code>/health</code></td>
+<td><code>GET</code></td>
+<td>daemon status, schema, host, and port</td>
+</tr>
+<tr>
+<td><code>/catalog</code></td>
+<td><code>GET</code></td>
+<td>the same deterministic <code>crtk help --json</code> catalog</td>
+</tr>
+<tr>
+<td><code>/rpc</code></td>
+<td><code>POST</code></td>
+<td>JSON-RPC command dispatch through <code>application.Main</code></td>
+</tr>
+</tbody></table></div>
+<p>Unknown paths return 404. There are no game-play, matchmaking, account, network-play, or remote-analysis endpoints.</p>
+<h2 id="json-rpc-run">JSON-RPC Run</h2>
+<p>Send <code>method: &quot;run&quot;</code> with <code>params.argv</code> as the exact CLI argv tokens after <code>crtk</code>.</p>
+<pre><code class="language-bash">curl -s http://127.0.0.1:8787/rpc \
+  -H &#x27;Content-Type: application/json&#x27; \
+  -d &#x27;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:1,&quot;method&quot;:&quot;run&quot;,&quot;params&quot;:{&quot;argv&quot;:[&quot;fen&quot;,&quot;validate&quot;,&quot;--fen&quot;,&quot;&lt;FEN&gt;&quot;,&quot;--json&quot;]}}&#x27;</code></pre>
+<p>The response keeps stdout and stderr separate and reports the CLI exit code.</p>
+<pre><code class="language-json">{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:1,&quot;result&quot;:{&quot;exitCode&quot;:0,&quot;stdout&quot;:&quot;...&quot;,&quot;stderr&quot;:&quot;&quot;,&quot;argv&quot;:[&quot;fen&quot;,&quot;validate&quot;,&quot;--fen&quot;,&quot;&lt;FEN&gt;&quot;,&quot;--json&quot;]}}</code></pre>
+<p>Commands still run through the normal <code>application.Main</code> path, so JSON shapes, exit codes, and diagnostics match the CLI. Because stdout and stderr are process-wide streams, the daemon serializes requests through one dispatcher thread.</p>
+<h2 id="discovery">Discovery</h2>
+<p>Fetch the catalog instead of scraping help text:</p>
+<pre><code class="language-bash">curl -s http://127.0.0.1:8787/catalog</code></pre>
+<p>That response is the same <code>crtk.cli.catalog.v1</code> object emitted by:</p>
+<pre><code class="language-bash">crtk help --json</code></pre>
+<h2 id="python-sdk">Python SDK</h2>
+<p>The Python client is generated from the command catalog. Regenerate it after a command is added, removed, or renamed:</p>
+<pre><code class="language-bash">python3 scripts/generate_python_sdk.py</code></pre>
+<p>The default output is <code>sdk/python/crtk_client.py</code>. The generator can also read a saved catalog, which is useful for tests and release checks:</p>
+<pre><code class="language-bash">crtk help --json &gt; /tmp/crtk-catalog.json
+python3 scripts/generate_python_sdk.py --catalog /tmp/crtk-catalog.json</code></pre>
+<p>Use the client against a running daemon:</p>
+<pre><code class="language-python">from crtk_client import CrtkClient
+
+fen = &quot;rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1&quot;
+client = CrtkClient(&quot;http://127.0.0.1:8787&quot;)
+result = client.fen_validate(&quot;--fen&quot;, fen, &quot;--json&quot;, check=True)
+print(result.stdout)</code></pre>
+<h2 id="safety-boundaries">Safety Boundaries</h2>
+<ul>
+<li>The server binds only loopback addresses.</li>
+<li>The daemon is off by default and exists only when <code>crtk serve</code> is running.</li>
+<li>Engine work is still bounded by the command flags you pass, such as <code>--max-nodes</code>, <code>--max-duration</code>, and <code>--multipv</code>.</li>
+<li>Nested <code>serve</code> calls are rejected through the daemon to avoid blocking the dispatcher with another long-lived server.</li>
+</ul>
+      </article>
+      <aside class="toc"><h2>On this page</h2>
+<a class="toc-h2" href="#start-it">Start It</a>
+<a class="toc-h2" href="#endpoints">Endpoints</a>
+<a class="toc-h2" href="#json-rpc-run">JSON-RPC Run</a>
+<a class="toc-h2" href="#discovery">Discovery</a>
+<a class="toc-h2" href="#python-sdk">Python SDK</a>
+<a class="toc-h2" href="#safety-boundaries">Safety Boundaries</a></aside>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a class="footer-logo" href="index.html">
+          <img src="assets/logo/crtk-logo.svg" alt="" width="40" height="40">
+          <span>ChessRTK</span>
+        </a>
+        <p>The deterministic chess research toolkit. Free, open-source, and built on one shared Java chess core.</p>
+        <p class="footer-license">Licensed under GPL-3.0-only.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col"><h3>Documentation</h3><ul>
+          <li><a href="getting-started.html">Getting Started</a></li>
+          <li><a href="command-reference.html">Command Reference</a></li>
+          <li><a href="configuration.html">Configuration</a></li>
+          <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          <li><a href="chessrtk-manual.pdf">Manual (PDF)</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Workflows</h3><ul>
+          <li><a href="mining.html">Puzzle Mining</a></li>
+          <li><a href="datasets.html">ML Datasets</a></li>
+          <li><a href="piece-tags.html">Tagging</a></li>
+          <li><a href="book-publishing.html">Book Publishing</a></li>
+          <li><a href="ai-agents.html">AI Agents</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Project</h3><ul>
+          <li><a href="architecture.html">Architecture</a></li>
+          <li><a href="quality-and-testing.html">Quality &amp; Testing</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk/issues" target="_blank" rel="noopener">Issues</a></li>
+        </ul></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; ChessRTK contributors &middot; GPL-3.0-only</span>
+      <span>Documentation generated from the repository <a href="wiki-index.html">wiki</a>.</span>
+    </div>
+  </footer>
+
+</body>
+</html>

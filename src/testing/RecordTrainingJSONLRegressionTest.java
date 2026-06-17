@@ -90,14 +90,4 @@ public final class RecordTrainingJSONLRegressionTest {
 				+ "\",\"description\":\"\",\"tags\":[],\"analysis\":[\"" + analysis + "\"]}";
 	}
 
-	/**
-	 * Handles assert contains.
-	 * @param value value
-	 * @param needle needle
-	 */
-	private static void assertContains(String value, String needle) {
-		if (!value.contains(needle)) {
-			throw new AssertionError("Expected to find " + needle + " in " + value);
-		}
-	}
 }

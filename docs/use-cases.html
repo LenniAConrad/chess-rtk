@@ -89,6 +89,7 @@
 <a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
 <a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="review-to-study.html" data-title="review to study">Review To Study</a>
 <a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
@@ -127,6 +128,11 @@
 <td>ML dataset builder</td>
 <td>Turn games and analysis into labeled tensors and JSONL</td>
 <td><code>fen pgn</code>, <code>puzzle mine</code>, <code>record dataset</code></td>
+</tr>
+<tr>
+<td>Player reviewing games</td>
+<td>Turn your PGNs into mistake rows and study units</td>
+<td><code>review game --to-study</code></td>
 </tr>
 <tr>
 <td>Puzzle-book author</td>
@@ -169,9 +175,20 @@ crtk record export training-jsonl -i dump/merged.json -o training/labels.jsonl -
 <p>Read next:</p>
 <ul>
 <li><a href="datasets.html">Datasets</a></li>
+<li><a href="review-to-study.html">Review to Study</a></li>
 <li><a href="filter-dsl.html">Filter DSL</a></li>
 <li><a href="piece-tags.html">Piece and Position Tags</a></li>
 <li><a href="outputs-and-logs.html">Outputs and Logs</a></li>
+</ul>
+<h2 id="players-reviewing-their-games">Players Reviewing Their Games</h2>
+<p>Export a PGN, run bounded review with your configured engine, and let crtk write both the per-ply verdict stream and drillable study units. The review JSONL tells you what happened on every mainline ply; the study JSONL and Record sidecar keep only mistakes and blunders that should become practice material.</p>
+<pre><code class="language-bash">crtk review game --pgn games/rapid.pgn --max-nodes 50000 --max-duration 3s --to-study</code></pre>
+<p>Read next:</p>
+<ul>
+<li><a href="review-to-study.html">Review to Study</a></li>
+<li><a href="outputs-and-logs.html">Outputs and Logs</a></li>
+<li><a href="configuration.html">Configuration</a></li>
+<li><a href="workbench.html">Desktop Workbench</a></li>
 </ul>
 <h2 id="puzzle-book-authors">Puzzle-Book Authors</h2>
 <p>Your own games are full of tactics you missed. This path digs them out, verifies and tags them, and hands you a finished PDF — interior and cover both — without a LaTeX toolchain anywhere in sight. <code>puzzle mine</code> runs bounded UCI analysis over FEN or PGN seeds and sorts the results through a Filter DSL: the keepers land in <code>*.puzzles.json</code>, the rest in <code>*.nonpuzzles.json</code> so you can audit what got rejected and why. <code>book collection</code> turns the keepers into a print-ready manifest and PDF; <code>book cover</code> produces a matching cover sized to the binding you chose.</p>
@@ -245,6 +262,7 @@ crtk version</code></pre>
 <a class="toc-h2" href="#personas-at-a-glance">Personas At A Glance</a>
 <a class="toc-h2" href="#chess-researchers">Chess Researchers</a>
 <a class="toc-h2" href="#ml-dataset-builders">ML Dataset Builders</a>
+<a class="toc-h2" href="#players-reviewing-their-games">Players Reviewing Their Games</a>
 <a class="toc-h2" href="#puzzle-book-authors">Puzzle-Book Authors</a>
 <a class="toc-h2" href="#engine-testers">Engine Testers</a>
 <a class="toc-h2" href="#ai-agent-and-automation-builders">AI-Agent And Automation Builders</a>

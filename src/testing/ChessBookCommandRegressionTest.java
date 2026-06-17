@@ -3,7 +3,6 @@ package testing;
 import application.cli.PathOps;
 import static testing.TestSupport.*;
 
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -73,7 +72,7 @@ public final class ChessBookCommandRegressionTest {
 	 */
 	private static void testJsonBookExport() throws Exception {
 		Path input = PathOps.createLocalTempFile(BOOK_RENDER_PREFIX, JSON_SUFFIX);
-		Files.writeString(input, sampleJson(16), StandardCharsets.UTF_8);
+		writeUtf8(input, sampleJson(16));
 
 		Path output = PathOps.createLocalTempFile(BOOK_RENDER_PREFIX, ".pdf");
 		BookRenderCommand.runBookRender(new Argv(new String[] {
@@ -82,9 +81,7 @@ public final class ChessBookCommandRegressionTest {
 				"--title", "CLI Book"
 		}));
 
-		byte[] bytes = Files.readAllBytes(output);
-		String text = new String(bytes, StandardCharsets.ISO_8859_1);
-		assertTrue(bytes.length > 16_000, "pdf size");
+		String text = readLatin1WithMinSize(output, 16_000, "pdf size");
 		assertTrue(text.contains("/Title (CLI Book: Command Sample)"), "title metadata");
 		assertFalse(text.contains(PDF_IMAGE_MARKER), "raster image marker");
 	}
@@ -97,7 +94,7 @@ public final class ChessBookCommandRegressionTest {
 	 */
 	private static void testTomlBookExport() throws Exception {
 		Path input = PathOps.createLocalTempFile(BOOK_RENDER_PREFIX, ".toml");
-		Files.writeString(input, sampleToml(16), StandardCharsets.UTF_8);
+		writeUtf8(input, sampleToml(16));
 
 		Path output = PathOps.createLocalTempFile(BOOK_RENDER_PREFIX, ".pdf");
 		BookRenderCommand.runBookRender(new Argv(new String[] {
@@ -105,9 +102,7 @@ public final class ChessBookCommandRegressionTest {
 				OUTPUT_OPTION, output.toString()
 		}));
 
-		byte[] bytes = Files.readAllBytes(output);
-		String text = new String(bytes, StandardCharsets.ISO_8859_1);
-		assertTrue(bytes.length > 16_000, "toml pdf size");
+		String text = readLatin1WithMinSize(output, 16_000, "toml pdf size");
 		assertTrue(text.contains("/Title (TOML Book Regression: Command Sample)"), "toml title metadata");
 		assertTrue(text.contains("Full solutions at page"), "toml solution footnote");
 		assertFalse(text.contains(PDF_IMAGE_MARKER), "toml raster image marker");
@@ -120,7 +115,7 @@ public final class ChessBookCommandRegressionTest {
 	 */
 	private static void testMetadataOverridesAndLimit() throws Exception {
 		Path input = PathOps.createLocalTempFile(BOOK_RENDER_PREFIX, JSON_SUFFIX);
-		Files.writeString(input, sampleJson(12), StandardCharsets.UTF_8);
+		writeUtf8(input, sampleJson(12));
 
 		Path output = PathOps.createLocalTempFile(BOOK_RENDER_PREFIX, ".pdf");
 		String console = captureStdout(() -> BookRenderCommand.runBookRender(new Argv(new String[] {
@@ -131,9 +126,7 @@ public final class ChessBookCommandRegressionTest {
 					"--limit", "5"
 			})));
 
-		byte[] bytes = Files.readAllBytes(output);
-		String text = new String(bytes, StandardCharsets.ISO_8859_1);
-		assertTrue(bytes.length > 10_000, "limited pdf size");
+		String text = readLatin1WithMinSize(output, 10_000, "limited pdf size");
 		assertTrue(text.contains("/Title (Art of Chess Puzzles: 400 Mate in 2 Puzzles)"), "metadata override");
 		assertTrue(text.contains("This book contains 5 generated puzzles."), "count text updated");
 		assertTrue(console.contains("wrote 5 puzzles"), "limited puzzle count");
@@ -146,7 +139,7 @@ public final class ChessBookCommandRegressionTest {
 	 */
 	private static void testCheckModeDoesNotWritePdf() throws Exception {
 		Path input = PathOps.createLocalTempFile(BOOK_RENDER_PREFIX + "check-", JSON_SUFFIX);
-		Files.writeString(input, sampleJson(6), StandardCharsets.UTF_8);
+		writeUtf8(input, sampleJson(6));
 
 		Path output = PathOps.createLocalTempDirectory("book-render-check-").resolve("book.pdf");
 		String console = captureStdout(() -> BookRenderCommand.runBookRender(new Argv(new String[] {
@@ -168,7 +161,7 @@ public final class ChessBookCommandRegressionTest {
 	 */
 	private static void testFreeWatermarkFlag() throws Exception {
 		Path input = PathOps.createLocalTempFile(BOOK_RENDER_PREFIX + "watermark-", JSON_SUFFIX);
-		Files.writeString(input, sampleJson(8), StandardCharsets.UTF_8);
+		writeUtf8(input, sampleJson(8));
 
 		Path output = PathOps.createLocalTempFile(BOOK_RENDER_PREFIX + "watermark-", ".pdf");
 		String console = captureStdout(() -> BookRenderCommand.runBookRender(new Argv(new String[] {
@@ -177,9 +170,7 @@ public final class ChessBookCommandRegressionTest {
 				"--watermark-id", "CLI-ARC-42"
 		})));
 
-		byte[] bytes = Files.readAllBytes(output);
-		String text = new String(bytes, StandardCharsets.ISO_8859_1);
-		assertTrue(bytes.length > 45_000, "watermarked pdf size");
+		String text = readLatin1WithMinSize(output, 45_000, "watermarked pdf size");
 		assertTrue(text.contains("Free electronic copy; printing, resale, and unauthorized redistribution not allowed"),
 				"watermarked subject metadata");
 		assertTrue(text.contains("Watermark ID CLI-ARC-42"), "watermarked id metadata");

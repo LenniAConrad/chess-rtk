@@ -3,8 +3,6 @@ package testing;
 import application.cli.PathOps;
 import static testing.TestSupport.*;
 
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 
 import chess.book.model.Book;
@@ -161,11 +159,8 @@ public final class BookRegressionTest {
 		Path file = PathOps.createLocalTempFile("chess-book-", ".pdf");
 		Writer.write(file, sampleBook(48));
 
-		byte[] bytes = Files.readAllBytes(file);
-		String header = new String(bytes, 0, Math.min(bytes.length, 32), StandardCharsets.ISO_8859_1);
-		String text = new String(bytes, StandardCharsets.ISO_8859_1);
-		assertTrue(header.startsWith("%PDF-1.4"), "pdf header");
-		assertTrue(bytes.length > 30_000, "pdf size");
+		String text = readLatin1WithMinSize(file, 30_000, "pdf size");
+		assertTrue(text.startsWith("%PDF-1.4"), "pdf header");
 		assertTrue(text.contains("/Producer (chess-rtk native book pdf)"), "producer metadata");
 		assertTrue(text.contains("Contents"), "toc text");
 		assertTrue(text.contains("Puzzles"), "puzzle heading");
@@ -185,9 +180,7 @@ public final class BookRegressionTest {
 		Path file = PathOps.createLocalTempFile("chess-book-long-table-", ".pdf");
 		Writer.write(file, longTableBook());
 
-		byte[] bytes = Files.readAllBytes(file);
-		String text = new String(bytes, StandardCharsets.ISO_8859_1);
-		assertTrue(bytes.length > 20_000, "long-table pdf size");
+		String text = readLatin1WithMinSize(file, 20_000, "long-table pdf size");
 		assertTrue(text.contains(LONG_TABLE_MARKER), "long-table text marker");
 		assertFalse(text.contains(PDF_IMAGE_MARKER), "long-table raster image marker");
 	}
@@ -206,9 +199,7 @@ public final class BookRegressionTest {
 		book.setElements(elements);
 		Writer.write(file, book);
 
-		byte[] bytes = Files.readAllBytes(file);
-		String text = new String(bytes, StandardCharsets.ISO_8859_1);
-		assertTrue(bytes.length > 10_000, "whitespace pdf size");
+		String text = readLatin1WithMinSize(file, 10_000, "whitespace pdf size");
 		assertTrue(text.contains("/Producer (chess-rtk native book pdf)"), "whitespace metadata");
 	}
 
@@ -223,8 +214,7 @@ public final class BookRegressionTest {
 		Book book = sampleBook(8).setHowToRead(new String[0]);
 		Writer.write(file, book);
 
-		byte[] bytes = Files.readAllBytes(file);
-		String text = new String(bytes, StandardCharsets.ISO_8859_1);
+		String text = readLatin1(file);
 		assertTrue(text.contains("Special Illustrations for Castling and En Passant"), "special-move how-to text");
 		assertTrue(text.contains("White is always at the bottom"), "board orientation text");
 		assertTrue(text.contains("a1 square"), "a1 orientation text");
@@ -260,7 +250,7 @@ public final class BookRegressionTest {
 
 		Writer.write(file, book);
 
-		String text = Files.readString(file, StandardCharsets.ISO_8859_1);
+		String text = readLatin1(file);
 		assertTrue(text.contains("1 \\(1. O-O\\)") || text.contains("1 (1. O-O)"),
 				"core SAN castling label");
 		assertFalse(text.contains(PDF_IMAGE_MARKER), "core SAN raster image marker");
@@ -276,9 +266,7 @@ public final class BookRegressionTest {
 		Path file = PathOps.createLocalTempFile("chess-book-free-watermark-", ".pdf");
 		Writer.write(file, sampleBook(8), true, "ARC-REGRESSION-42");
 
-		byte[] bytes = Files.readAllBytes(file);
-		String text = new String(bytes, StandardCharsets.ISO_8859_1);
-		assertTrue(bytes.length > 60_000, "free watermark pdf size");
+		String text = readLatin1WithMinSize(file, 60_000, "free watermark pdf size");
 		assertTrue(text.contains("Free electronic copy; printing, resale, and unauthorized redistribution not allowed"),
 				"free watermark metadata");
 		assertTrue(text.contains("Watermark ID ARC-REGRESSION-42"), "free watermark id metadata");
@@ -296,7 +284,7 @@ public final class BookRegressionTest {
 		Path file = PathOps.createLocalTempFile("chess-book-toc-links-", ".pdf");
 		Writer.write(file, sampleBook(1));
 
-		String text = java.util.Objects.requireNonNull(Files.readString(file, StandardCharsets.ISO_8859_1));
+		String text = readLatin1(file);
 		assertTrue(countOccurrences(text, PDF_LINK_MARKER) > 1, "toc link annotations");
 		assertTrue(text.contains("/S /GoTo"), "toc internal link action");
 	}
@@ -317,9 +305,7 @@ public final class BookRegressionTest {
 						"1. Numbered Item: This item checks numbered list parsing and hanging indentation." });
 		Writer.write(file, book);
 
-		byte[] bytes = Files.readAllBytes(file);
-		String text = new String(bytes, StandardCharsets.ISO_8859_1);
-		assertTrue(bytes.length > 18_000, "list pdf size");
+		String text = readLatin1WithMinSize(file, 18_000, "list pdf size");
 		assertTrue(text.contains("First Item:"), "bullet list label");
 		assertTrue(text.contains("Numbered Item:"), "numbered list label");
 		assertFalse(text.contains(PDF_IMAGE_MARKER), "list raster image marker");
@@ -341,8 +327,7 @@ public final class BookRegressionTest {
 						"If you’re interested in the “Art of Chess Puzzles” series, continue." });
 		Writer.write(file, book);
 
-		byte[] bytes = Files.readAllBytes(file);
-		String text = new String(bytes, StandardCharsets.ISO_8859_1);
+		String text = readLatin1(file);
 		assertTrue(text.contains("benchmark-can you beat the clock"), "normalized em dash text");
 		assertTrue(text.contains("you're interested"), "normalized apostrophe text");
 		assertTrue(text.contains("\"Art of Chess Puzzles\""), "normalized quote text");
@@ -364,9 +349,7 @@ public final class BookRegressionTest {
 				.setIntroduction(new String[] { "如何阅读本书", "Résumé: prüfe deine Lösung." });
 		Writer.write(file, book);
 
-		byte[] bytes = Files.readAllBytes(file);
-		String text = new String(bytes, StandardCharsets.ISO_8859_1);
-		assertTrue(bytes.length > 18_000, "i18n pdf size");
+		String text = readLatin1WithMinSize(file, 18_000, "i18n pdf size");
 		assertFalse(text.contains(PDF_IMAGE_MARKER), "i18n raster image marker");
 	}
 

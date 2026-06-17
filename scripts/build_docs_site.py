@@ -89,6 +89,7 @@ NAVIGATION: list[tuple[str, list[tuple[str, str]]]] = [
             ("mining.md", "Puzzle Mining"),
             ("filter-dsl.md", "Filter DSL"),
             ("datasets.md", "ML Datasets"),
+            ("review-to-study.md", "Review To Study"),
             ("piece-tags.md", "Tagging"),
             ("tag-reference.md", "Tag Reference"),
             ("book-publishing.md", "Book Publishing"),

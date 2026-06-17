@@ -7,6 +7,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.prefs.Preferences;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
@@ -65,25 +66,31 @@ public final class SoundService {
             new AudioFormat(SAMPLE_RATE, 16, 1, true, false);
 
     /**
-     * Maximum queued sounds before new cues are dropped. This prevents a rapid
-     * burst of UI events from building a long delayed audio tail.
+     * Maximum simultaneous sounds before new cues are dropped. This prevents a
+     * rapid burst of UI events from building a long delayed audio tail while
+     * still allowing independent cues to overlap.
      */
-    private static final int MAX_PENDING_CUES = 6;
+    private static final int MAX_SIMULTANEOUS_CUES = 6;
+
+    /**
+     * Suffix generator for daemon playback threads.
+     */
+    private static final AtomicInteger THREAD_IDS = new AtomicInteger();
 
     /**
      * Tiny playback executor. All Java Sound work happens off the Swing event
-     * dispatch thread.
+     * dispatch thread, with enough lanes for short cues to overlap.
      */
-    private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor(runnable -> {
-        Thread thread = new Thread(runnable, "crtk-workbench-sound");
+    private static final ExecutorService EXECUTOR = Executors.newFixedThreadPool(MAX_SIMULTANEOUS_CUES, runnable -> {
+        Thread thread = new Thread(runnable, "crtk-workbench-sound-" + THREAD_IDS.incrementAndGet());
         thread.setDaemon(true);
         return thread;
     });
 
     /**
-     * Queue limiter used without blocking callers.
+     * Active playback limiter used without blocking callers.
      */
-    private static final Semaphore QUEUE_LIMIT = new Semaphore(MAX_PENDING_CUES);
+    private static final Semaphore ACTIVE_LIMIT = new Semaphore(MAX_SIMULTANEOUS_CUES);
 
     /**
      * Global muted flag.
@@ -119,14 +126,14 @@ public final class SoundService {
         if (muted || percent <= MIN_VOLUME_PERCENT || GraphicsEnvironment.isHeadless()) {
             return;
         }
-        if (!QUEUE_LIMIT.tryAcquire()) {
+        if (!ACTIVE_LIMIT.tryAcquire()) {
             return;
         }
         EXECUTOR.execute(() -> {
             try {
                 playPcm(synthesize(cue, percent / 100.0));
             } finally {
-                QUEUE_LIMIT.release();
+                ACTIVE_LIMIT.release();
             }
         });
     }

@@ -89,6 +89,7 @@
 <a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
 <a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="review-to-study.html" data-title="review to study">Review To Study</a>
 <a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
@@ -231,7 +232,7 @@
 </tr>
 <tr>
 <td>Workspace</td>
-<td>One full-screen task surface at a time: Dashboard, Board, Engine Lab, Run, Datasets, or Publish.</td>
+<td>One full-screen task surface at a time: Dashboard, Board, Run, Datasets, Publish, Engine Lab, Console, or Logs today; Library joins later when the corpus surface ships.</td>
 </tr>
 <tr>
 <td>Center</td>
@@ -251,8 +252,57 @@
 </tr>
 </tbody></table></div>
 <p>The most important visual rule is that the content owns the screen. Chess boards should look like boards, datasets should look like analytics, runs should look like executable command records, and publishing should look like previewing a real artifact. Chrome should help the user orient, not compete with the work.</p>
+<h2 id="current-registered-shell">Current Registered Shell</h2>
+<p>The shipped shell currently registers eight top-level views. This is the source of truth for docs, command-palette routing, and split/duplicate behavior.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Registered view</th>
+<th>Current modes / workflows</th>
+<th>Design home</th>
+</tr></thead><tbody>
+<tr>
+<td>Dashboard</td>
+<td>Health, recent jobs, artifacts, quick links</td>
+<td>Session state</td>
+</tr>
+<tr>
+<td>Board</td>
+<td>Analyze, Play, Solve, Relations, Draw</td>
+<td>Position/game work</td>
+</tr>
+<tr>
+<td>Run</td>
+<td>Command builder and batch-style command templates</td>
+<td>Executable command work</td>
+</tr>
+<tr>
+<td>Datasets</td>
+<td>Export loaders, validation, charts, samples</td>
+<td>Data artifacts</td>
+</tr>
+<tr>
+<td>Publish</td>
+<td>Diagram, book, study, collection, cover previews</td>
+<td>Rendered artifacts</td>
+</tr>
+<tr>
+<td>Engine Lab</td>
+<td>Network, MCTS, Tree, Gauntlet</td>
+<td>Engine/search state</td>
+</tr>
+<tr>
+<td>Console</td>
+<td>Live child-process output</td>
+<td>Run/output companion</td>
+</tr>
+<tr>
+<td>Logs</td>
+<td>Persisted logs and artifacts</td>
+<td>Run/output companion</td>
+</tr>
+</tbody></table></div>
 <h2 id="target-information-architecture">Target Information Architecture</h2>
-<p>The ideal Workbench has six top-level surfaces. Current implementation may keep transitional tabs while migration is in progress, but new design work should place features in these homes.</p>
+<p>The ideal Workbench has seven top-level surfaces after the local game-corpus surface ships and output views can be treated as Run companions. Until then, new design work should still place features in the homes below instead of adding new top-level tabs.</p>
 <div class="table-wrap"><table>
 <thead><tr>
 <th>Surface</th>
@@ -274,6 +324,13 @@
 <td>Analyze, Play, Solve, Relations, Draw, board editor, study/review/ECO/endgame tools</td>
 <td>One shared <code>BoardStage</code> with eval bar and overlays</td>
 <td>Mode inspector for moves, engine, puzzle, play, relations, draw, tags, ECO</td>
+</tr>
+<tr>
+<td><code>Library</code></td>
+<td>Game corpus (local PGN store)</td>
+<td>Import, query/filter, game list, per-game metadata, dedupe/compact status; opens a selected game into Board</td>
+<td>Dense results table</td>
+<td>Selected-game metadata and a small board preview</td>
 </tr>
 <tr>
 <td><code>Engine Lab</code></td>
@@ -311,10 +368,11 @@
 <li><code>Network</code>, <code>MCTS</code>, <code>Tree</code>, and <code>Gauntlet</code> are Engine Lab modes.</li>
 <li><code>Commands</code>, <code>Batch</code>, <code>Console</code>, and <code>Logs</code> are Run modes or Run/output companion views.</li>
 <li><code>Datasets</code> and <code>Publish</code> stay top-level because their primary artifacts are not positions or command output.</li>
+<li><code>Library</code> is top-level because its primary object — a queryable game corpus (the local PGN store) — is neither a single position (<code>Board</code>) nor an ML artifact (<code>Datasets</code>); selecting a game routes it into <code>Board</code>. It is introduced for the forthcoming <code>crtk db</code>/<code>pgn</code> store and may stay behind a transitional tab until that store lands.</li>
 <li><code>Dashboard</code> is the only global state surface. It should launch work, not duplicate full workflows.</li>
 <li>Command palette entries may preserve old names like <code>Open Play</code> or <code>Open Logs</code>, but they should route to the right surface and mode.</li>
 </ul>
-<p>When a feature seems to need a new tab, name its primary object first. If the object is a position, engine/search state, command run, dataset, publication, or session status, it belongs in one of the six surfaces above.</p>
+<p>When a feature seems to need a new tab, name its primary object first. If the object is a position, game corpus, engine/search state, command run, dataset, publication, or session status, it belongs in one of the seven surfaces above.</p>
 <h2 id="primary-object-model">Primary Object Model</h2>
 <p>Every screen must make one primary object obvious. This prevents the app from becoming a stack of unrelated forms.</p>
 <div class="table-wrap"><table>
@@ -329,6 +387,12 @@
 <td>FEN summary, side to move, source, game ply</td>
 <td>Board, legal moves, overlays, tags, ECO, engine lines</td>
 <td>Load PGN/FEN, copy FEN, analyze, play, solve, export</td>
+</tr>
+<tr>
+<td>Game corpus</td>
+<td>Store path, game count, active filter/source</td>
+<td>Results table with per-game metadata</td>
+<td>Import, find, open in Board, dedupe, export, stats</td>
 </tr>
 <tr>
 <td>Engine/search state</td>
@@ -376,6 +440,10 @@
 <tr>
 <td>Board</td>
 <td>A large square board dominates the center-left. The right rail is a mode inspector with <code>Analyze</code>, <code>Play</code>, <code>Solve</code>, <code>Relations</code>, and <code>Draw</code>. Switching modes preserves the board and position whenever possible.</td>
+</tr>
+<tr>
+<td>Library</td>
+<td>Looks like a database browser. A query/filter band on top, a dense results table (event, players, result, ECO, date) filling the body, and a compact rail with the selected game&#x27;s metadata and a small board preview. Double-clicking a row opens the game in Board. No hero text; the table owns the screen.</td>
 </tr>
 <tr>
 <td>Engine Lab</td>
@@ -460,7 +528,7 @@
 </tr>
 <tr>
 <td>Editor Area</td>
-<td>Dashboard, Board, Engine Lab, Run, Datasets, Publish</td>
+<td>Dashboard, Board, Library, Engine Lab, Run, Datasets, Publish</td>
 <td>The primary task owns the center; tabs and splits preserve context.</td>
 </tr>
 <tr>
@@ -541,6 +609,77 @@
 <tr>
 <td>Toolbar grouping</td>
 <td>Leading area orients, center changes mode, trailing area holds persistent actions/search.</td>
+</tr>
+</tbody></table></div>
+<h2 id="foundational-ui-principles">Foundational UI Principles</h2>
+<p>The lecture notes add two overlapping checks that every Workbench surface should pass: the six UI basics — contrast, consistency, typography, color, visual hierarchy, and spacing — and the C-R-A-P mnemonic: contrast, repetition, alignment, and proximity. Apply them through ChessRTK&#x27;s shared primitives, not through one-off styling.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Principle</th>
+<th>Workbench rule</th>
+</tr></thead><tbody>
+<tr>
+<td>Contrast</td>
+<td>Use size, weight, color, shape, and spacing to separate primary content from secondary controls. The strongest contrast on a surface should point to the current task, selected object, primary action, or critical state.</td>
+</tr>
+<tr>
+<td>Repetition and consistency</td>
+<td>Repeat the same colors, type roles, spacing, icons, control heights, and layout patterns so users can learn the interface once and reuse that knowledge across panels.</td>
+</tr>
+<tr>
+<td>Alignment</td>
+<td>Build visible order with invisible axes: fixed label lanes, aligned table columns, shared toolbar baselines, and consistent side-rail edges. Experimental layouts may rotate or offset content only when the alignment system remains legible.</td>
+</tr>
+<tr>
+<td>Proximity</td>
+<td>Put related elements close together and separate unrelated groups with clear gaps, hairlines, or section headers. A label, input, helper text, validation message, and action should read as one group.</td>
+</tr>
+<tr>
+<td>Typography</td>
+<td>Optimize for readability first. Use the shared UI font for interface text and monospace only for commands, logs, tensors, code, and exact chess data. Use size and weight to create hierarchy, not extra typefaces.</td>
+</tr>
+<tr>
+<td>Color</td>
+<td>Color should guide navigation, priority, state, and brand feel. Pick harmonious theme-token combinations, update light and dark palettes together, and never use color as the only signal for state.</td>
+</tr>
+<tr>
+<td>Visual hierarchy</td>
+<td>Decide the scan order before styling. Larger elements, stronger weights, saturated colors, unusual alignment, proximity, and whitespace all pull attention; use them deliberately and sparingly.</td>
+</tr>
+<tr>
+<td>Spacing</td>
+<td>Treat empty space as structure. Padding defines an element&#x27;s internal comfort; margin defines relationships between elements. Dense screens still need enough spacing to make groups and hierarchy obvious.</td>
+</tr>
+</tbody></table></div>
+<p>Use this quick pass before declaring a UI slice done:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Check</th>
+<th>Question</th>
+</tr></thead><tbody>
+<tr>
+<td>Focal point</td>
+<td>Does the eye land first on the board, table, graph, command, or artifact the task is actually about?</td>
+</tr>
+<tr>
+<td>Learnability</td>
+<td>Would a control used in another Workbench panel look and behave the same here?</td>
+</tr>
+<tr>
+<td>Grouping</td>
+<td>Are related controls visually closer to each other than to unrelated controls?</td>
+</tr>
+<tr>
+<td>Reading order</td>
+<td>Do alignment, type scale, color, and whitespace create a clear top-to-bottom or left-to-right path?</td>
+</tr>
+<tr>
+<td>Color meaning</td>
+<td>Does every colored element communicate action, state, domain data, or selection?</td>
+</tr>
+<tr>
+<td>Spacing meaning</td>
+<td>Is every large gap separating groups, not just decorating the page?</td>
 </tr>
 </tbody></table></div>
 <h2 id="visual-identity">Visual Identity</h2>
@@ -713,7 +852,7 @@
 </tr>
 <tr>
 <td>Opaque top-level panes</td>
-<td><code>src/application/gui/workbench/ui/SurfacePanel.java</code></td>
+<td><code>SurfacePanel(layout)</code> / <code>SurfacePanel(layout, Theme.Surface.PANEL)</code> for document-tone surfaces (dashboards, reports, Logs); <code>SurfacePanel(layout, Theme.Surface.BACKDROP)</code> for chrome-backdrop surfaces that lay raised <code>PANEL_SOLID</code> cards on top (boards, engine workspaces, datasets, publish controls). Theme refresh rebinds the background automatically via <code>Theme.refreshComponent</code>.</td>
 </tr>
 <tr>
 <td>Root window backdrop</td>
@@ -740,8 +879,20 @@
 <td><code>Ui.fieldRow(...)</code>, <code>Ui.labelControlRow(...)</code>, <code>Ui.optionGroup(...)</code>, <code>Ui.styleFields(...)</code>, <code>Ui.placeholder(...)</code></td>
 </tr>
 <tr>
+<td>Field error/invalid state</td>
+<td><code>Ui.setInvalid(component, invalid)</code> — drives the themed invalid border via the shared <code>InputChrome</code>, so feature panels don&#x27;t hand-roll error styling</td>
+</tr>
+<tr>
+<td>Themed line borders</td>
+<td><code>Theme.lineBorder(color)</code> / <code>Theme.lineBorder(color, thickness)</code> — use instead of <code>BorderFactory.createLineBorder(...)</code> in feature panels so a theme refresh recolors the border</td>
+</tr>
+<tr>
 <td>Buttons</td>
 <td><code>Ui.button(...)</code>, <code>Ui.ghostButton(...)</code>, <code>Ui.destructiveButton(...)</code>, <code>Ui.iconButton(...)</code></td>
+</tr>
+<tr>
+<td>Transport / glyph-with-tooltip buttons</td>
+<td><code>Ui.iconButton(glyph, accessibleLabel, listener)</code> — shows the glyph as text but attaches a descriptive tooltip + accessible name. Use for <code>⏮ ◀ ▶ ⏭</code>, scrubbers, and other symbol controls whose meaning isn&#x27;t obvious.</td>
 </tr>
 <tr>
 <td>Tables</td>
@@ -1001,7 +1152,8 @@
 <td>Fill width; important columns pinned</td>
 </tr>
 </tbody></table></div>
-<p>Use Layout A for Board, Engine Lab, Run, Publish, and the inspector modes inside them. Use Layout B for Dashboard, report-like publishing summaries, dataset overviews, and static diagnostics.</p>
+<p>Use Layout A for Board, Library, Engine Lab, Run, Publish, Datasets, and the inspector modes inside them. Use Layout B for Dashboard, report-like publishing summaries, and static diagnostics.</p>
+<p>Datasets is a Layout A surface with an analytics-split body: the chart grid sits in the top half of a vertical <code>JSplitPane</code> (overview), the sample/issue tables fill the bottom half, and the dataset filter band sits above the split so it stays visible from both halves. A pure Layout B scroll body would push the tables off-screen on real datasets, so the split is intentional rather than a Layout B miss.</p>
 <h3 id="region-rules">Region Rules</h3>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -1171,7 +1323,7 @@
 </tr>
 <tr>
 <td>Datasets</td>
-<td>Header and load actions on top, summary cards before charts/tables, tables fill the remaining vertical space</td>
+<td>Header + load toolbar on top; a single dataset filter band above a vertical chart / table split; KPI/summary cards and chart grid in the top half, sample/issue tables fill the bottom half; row-action buttons trail above the tables</td>
 </tr>
 <tr>
 <td>Publish</td>
@@ -1273,6 +1425,31 @@
 <td><code>Publish</code></td>
 <td>Top-level preview/render surface.</td>
 </tr>
+<tr>
+<td>Game database</td>
+<td><code>Library</code></td>
+<td>Game-corpus browser over the local PGN store; importing and querying games. Selecting a game opens it in <code>Board</code>.</td>
+</tr>
+<tr>
+<td>Import (folder/Lichess/Chess.com)</td>
+<td><code>Library</code></td>
+<td>Fetch-only import action into the store; never an account-linking, sync, matchmaking, or social surface.</td>
+</tr>
+<tr>
+<td>Review (game)</td>
+<td><code>Board</code></td>
+<td>Engine-graded post-game review mode over the shared board; consumes the CLI-produced review artifact, never recomputes verdicts in-process.</td>
+</tr>
+<tr>
+<td>Repertoire / drill</td>
+<td><code>Board</code></td>
+<td>Spaced-repetition drill mode over the shared board; grade buttons feed the CLI scheduler.</td>
+</tr>
+<tr>
+<td>Explain</td>
+<td><code>Board</code></td>
+<td>Grounded position/why explanation mode (Facts/Prose) over the shared board.</td>
+</tr>
 </tbody></table></div>
 <h3 id="surface-and-mode-blueprints">Surface And Mode Blueprints</h3>
 <p>Use these as the target shape when adapting current Workbench implementation. Rows that belong to <code>Board</code>, <code>Engine Lab</code>, or <code>Run</code> are modes or inspector states, not necessarily top-level tabs.</p>
@@ -1294,6 +1471,15 @@
 <td>Summary grid, recent jobs, artifacts</td>
 <td>None by default</td>
 <td>Refresh, open session folder</td>
+</tr>
+<tr>
+<td>Library</td>
+<td><code>Library</code></td>
+<td>Store path, game count, active filter</td>
+<td>Source/collection selector</td>
+<td>Results table (event, players, result, ECO, date)</td>
+<td>Selected-game metadata and board preview</td>
+<td>Import, Find, Open in Board, Export</td>
 </tr>
 <tr>
 <td>Analyze</td>
@@ -1440,7 +1626,7 @@
 <td>Apply, reset, close</td>
 </tr>
 </tbody></table></div>
-<p>Uniform adaptation rule: if a current view cannot be described by this table, first decide whether it belongs in the center body, side rail, toolbar, bottom panel, floating layer, or one of the six target surfaces. Do not add new chrome until that decision is made.</p>
+<p>Uniform adaptation rule: if a current view cannot be described by this table, first decide whether it belongs in the center body, side rail, toolbar, bottom panel, floating layer, or one of the seven target surfaces. Do not add new chrome until that decision is made.</p>
 <h3 id="shell-skeleton">Shell Skeleton</h3>
 <p>Use <code>BorderLayout</code> for top-level screens. Put the header and toolbar in <code>NORTH</code>, the working canvas in <code>CENTER</code>, and avoid absolute positioning.</p>
 <pre><code class="language-java">SurfacePanel root = new SurfacePanel(new BorderLayout(0, Theme.SPACE_MD));
@@ -1584,9 +1770,28 @@ JScrollPane scroller = Ui.scroll(table);</code></pre>
 </tr>
 </tbody></table></div>
 <p>The frosted-glass idea is a restraint, not a theme. Use <code>Theme.GLASS_HIGHLIGHT</code>, backdrop colors, and existing floating primitives rather than painting translucent panels over live content.</p>
+<p><code>SurfacePanel</code> is non-final and takes an optional <code>Theme.Surface</code> role so a single primitive serves both elevations:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Role</th>
+<th>Background</th>
+<th>Use for</th>
+</tr></thead><tbody>
+<tr>
+<td><code>Theme.Surface.PANEL</code> (default)</td>
+<td><code>Theme.PANEL_SOLID</code> (document tone)</td>
+<td>Dashboards, reports, Logs, Puzzles, Network diagnostics — surfaces whose body IS the document.</td>
+</tr>
+<tr>
+<td><code>Theme.Surface.BACKDROP</code></td>
+<td><code>Theme.BG</code> (chrome backdrop)</td>
+<td>Boards, Engine Lab modes, Datasets, the Publish surface root — pages that lay raised <code>PANEL_SOLID</code> cards, rails, and inspectors on top of a darker editor backdrop.</td>
+</tr>
+</tbody></table></div>
+<p>Surface roots should extend <code>SurfacePanel</code> and call <code>super(layout)</code> or <code>super(layout, role)</code>; do not re-set opaque/background/foreground manually. Theme refresh re-resolves the background through <code>Theme.refreshComponent</code> automatically. The &quot;PANEL inside BACKDROP&quot; contrast is intentional editor structure — don&#x27;t flatten one onto the other.</p>
 <p>Surface styling rules:</p>
 <ul>
-<li>Main editor surfaces use <code>Theme.PANEL_SOLID</code>, not translucent fills.</li>
+<li>Main editor surfaces use <code>Theme.PANEL_SOLID</code> (for <code>PANEL</code>) or <code>Theme.BG</code> (for <code>BACKDROP</code>), not translucent fills.</li>
 <li>Side rails use the same surface family as the main pane, separated by a hairline or split divider.</li>
 <li>Cards sit one elevation above the page and must have a clear grouping purpose.</li>
 <li>Floating chrome may use <code>Theme.GLASS_HIGHLIGHT</code>, soft borders, and shadow, but must keep text over an opaque or solid-blended surface.</li>
@@ -2265,7 +2470,7 @@ JScrollPane scroller = Ui.scroll(table);</code></pre>
 <h2 id="copy">Copy</h2>
 <p>Workbench copy should be short and operational.</p>
 <ul>
-<li>Use top-level titles like <code>Dashboard</code>, <code>Board</code>, <code>Engine Lab</code>, <code>Run</code>, <code>Datasets</code>, and <code>Publish</code>.</li>
+<li>Use top-level titles like <code>Dashboard</code>, <code>Board</code>, <code>Library</code>, <code>Engine Lab</code>, <code>Run</code>, <code>Datasets</code>, and <code>Publish</code>.</li>
 <li>Use mode titles like <code>Analyze</code>, <code>Play</code>, <code>Solve</code>, <code>Relations</code>, <code>Draw</code>, <code>Search</code>, <code>Tree</code>, <code>Gauntlet</code>, <code>Build</code>, and <code>Logs</code>.</li>
 <li>Use action labels that name the command: <code>Run</code>, <code>Load PGN</code>, <code>Copy command</code>, <code>Export SVG</code>, <code>Reset</code>, <code>Stop</code>.</li>
 <li>Use captions only where they reduce ambiguity in a form or status surface.</li>
@@ -2360,7 +2565,7 @@ JScrollPane scroller = Ui.scroll(table);</code></pre>
 <tr>
 <td><code>Ui.button</code> with one-symbol labels</td>
 <td>Transport and toolbar controls look like text buttons instead of icon controls</td>
-<td>Use <code>Ui.iconButton(...)</code> or add a shared transport-button primitive with tooltip and accessible name</td>
+<td>For transport glyphs (<code>⏮ ◀ ▶ ⏭</code>, <code>« »</code>, etc.) where the symbol IS the affordance, use <code>Ui.iconButton(glyph, accessibleLabel, listener)</code> — keeps the glyph visible and attaches a real-word tooltip + accessible name. For other icon-only utility buttons, use <code>Ui.iconButton(label, listener)</code></td>
 <td>Math signs in numeric steppers only when the control is explicitly a stepper</td>
 </tr>
 <tr>
@@ -2384,7 +2589,7 @@ JScrollPane scroller = Ui.scroll(table);</code></pre>
 <tr>
 <td><code>setBorder</code> with <code>BorderFactory</code> in feature panels</td>
 <td>Padding, radius, and line color become inconsistent</td>
-<td>Use <code>Theme.pad(...)</code>, <code>Theme.lineBorder(...)</code>, <code>Ui.card(...)</code>, or shared section primitives</td>
+<td>Use <code>Theme.pad(...)</code>, <code>Theme.lineBorder(...)</code>, <code>Ui.card(...)</code>, or shared section primitives. For invalid-input borders specifically, drive the themed error chrome via <code>Ui.setInvalid(component, invalid)</code> instead of hand-rolling a red line border</td>
 <td>Custom painter borders and shared UI primitive internals</td>
 </tr>
 <tr>
@@ -2396,7 +2601,7 @@ JScrollPane scroller = Ui.scroll(table);</code></pre>
 <tr>
 <td>Missing <code>setToolTipText</code> on icon controls</td>
 <td>Compact controls become inaccessible and ambiguous</td>
-<td>Add one-sentence tooltip and accessible name</td>
+<td>Add a one-sentence tooltip and accessible name. Prefer building the control through <code>Ui.iconButton(glyph, accessibleLabel, listener)</code> or <code>Ui.iconButton(label, listener)</code>, which set both automatically and consistently</td>
 <td>Text buttons whose visible label fully names the action</td>
 </tr>
 <tr>
@@ -2414,7 +2619,7 @@ JScrollPane scroller = Ui.scroll(table);</code></pre>
 <tr>
 <td>Top-level <code>JPanel</code> roots</td>
 <td>Main surfaces miss shell styling and theme refresh behavior</td>
-<td>Use <code>SurfacePanel</code> or a shared root primitive</td>
+<td>Extend <code>SurfacePanel</code> and pass the appropriate <code>Theme.Surface</code> role: <code>PANEL</code> (default) for document-tone surfaces (dashboards, reports, Logs) or <code>BACKDROP</code> for chrome backdrops that lay raised cards on top (boards, engine workspaces, datasets, publish controls). Theme refresh re-binds the background automatically. Don&#x27;t re-set opaque/background/foreground manually</td>
 <td>Lightweight child groups inside an already styled surface</td>
 </tr>
 <tr>
@@ -2703,7 +2908,7 @@ rg -n &quot;background=|foreground=|font=|border=|ui=&quot; artifacts/workbench-
 </tr>
 <tr>
 <td class="numeric">5</td>
-<td>Engine Lab: Evaluator, Search, Tree, Gauntlet</td>
+<td>Engine Lab: Network, MCTS, Tree, Gauntlet</td>
 <td>Engine workflows need clear state, budget, model honesty, and result layout.</td>
 </tr>
 <tr>
@@ -2716,6 +2921,11 @@ rg -n &quot;background=|foreground=|font=|border=|ui=&quot; artifacts/workbench-
 <td>Dashboard live links and recent-run/artifact cards</td>
 <td>The dashboard becomes useful once surfaces and output states are normalized.</td>
 </tr>
+<tr>
+<td class="numeric">8</td>
+<td>Library: game-corpus browser over the local PGN store</td>
+<td>Net-new surface gated on the <code>crtk db</code>/<code>pgn</code> store (Theme A); promotes the in-memory <code>PgnExplorerModel</code> onto the core store.</td>
+</tr>
 </tbody></table></div>
 <h2 id="code-review-acceptance-criteria">Code Review Acceptance Criteria</h2>
 <p>A Workbench UI PR is acceptable only if it answers these questions clearly.</p>
@@ -2726,11 +2936,11 @@ rg -n &quot;background=|foreground=|font=|border=|ui=&quot; artifacts/workbench-
 </tr></thead><tbody>
 <tr>
 <td>Which primary object does this serve?</td>
-<td>Position, engine/search state, command run, dataset, publication, or session status is named.</td>
+<td>Position, game corpus, engine/search state, command run, dataset, publication, or session status is named.</td>
 </tr>
 <tr>
 <td>Which target surface owns it?</td>
-<td>Dashboard, Board, Engine Lab, Run, Datasets, or Publish is the clear home.</td>
+<td>Dashboard, Board, Library, Engine Lab, Run, Datasets, or Publish is the clear home.</td>
 </tr>
 <tr>
 <td>Which VS Code container does this use?</td>
@@ -2773,8 +2983,8 @@ rg -n &quot;background=|foreground=|font=|border=|ui=&quot; artifacts/workbench-
 <p>Before editing a panel:</p>
 <ol>
 <li>Identify the user job and the primary state the surface must show.</li>
-<li>Name the primary object: position, engine/search state, command run, dataset, publication, or session status.</li>
-<li>Name the target surface: Dashboard, Board, Engine Lab, Run, Datasets, or Publish.</li>
+<li>Name the primary object: position, game corpus, engine/search state, command run, dataset, publication, or session status.</li>
+<li>Name the target surface: Dashboard, Board, Library, Engine Lab, Run, Datasets, or Publish.</li>
 <li>Name the VS Code container it belongs to: editor, side rail, panel, command palette, status, context menu, or floating chrome.</li>
 <li>Apply the Apple behavior layer: hierarchy, grouped controls, search placement, consistent buttons, legible text, and accessible focus.</li>
 <li>Choose the existing primitive from <code>Ui</code>, <code>Theme</code>, <code>BoardStyle</code>, or the layout package.</li>
@@ -2824,12 +3034,14 @@ git diff --check</code></pre>
 <a class="toc-h2" href="#uniformity-contract">Uniformity Contract</a>
 <a class="toc-h2" href="#reference-model">Reference Model</a>
 <a class="toc-h2" href="#workbench-north-star">Workbench North Star</a>
+<a class="toc-h2" href="#current-registered-shell">Current Registered Shell</a>
 <a class="toc-h2" href="#target-information-architecture">Target Information Architecture</a>
 <a class="toc-h2" href="#primary-object-model">Primary Object Model</a>
 <a class="toc-h2" href="#what-each-surface-should-look-like">What Each Surface Should Look Like</a>
 <a class="toc-h2" href="#content-driven-layout-rules">Content-Driven Layout Rules</a>
 <a class="toc-h2" href="#vs-code-structure-rules">VS Code Structure Rules</a>
 <a class="toc-h2" href="#apple-interaction-rules">Apple Interaction Rules</a>
+<a class="toc-h2" href="#foundational-ui-principles">Foundational UI Principles</a>
 <a class="toc-h2" href="#visual-identity">Visual Identity</a>
 <a class="toc-h2" href="#harmony-rules">Harmony Rules</a>
 <a class="toc-h2" href="#banned-patterns-and-required-alternatives">Banned Patterns And Required Alternatives</a>
@@ -2837,9 +3049,7 @@ git diff --check</code></pre>
 <a class="toc-h2" href="#spacing-and-sizing">Spacing And Sizing</a>
 <a class="toc-h2" href="#layout">Layout</a>
 <a class="toc-h3" href="#canonical-surface-layout">Canonical Surface Layout</a>
-<a class="toc-h3" href="#region-rules">Region Rules</a>
-<a class="toc-h3" href="#resizing-rules">Resizing Rules</a>
-<a class="toc-h3" href="#workbench-chrome-anatomy">Workbench Chrome Anatomy</a></aside>
+<a class="toc-h3" href="#region-rules">Region Rules</a></aside>
     </main>
   </div>
 

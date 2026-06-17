@@ -2,6 +2,7 @@ package testing;
 
 import static testing.TestSupport.assertFalse;
 import static testing.TestSupport.assertTrue;
+import static testing.TestSupport.readUtf8;
 
 import application.gui.workbench.ui.AppIcon;
 import java.awt.Image;
@@ -90,6 +91,7 @@ public final class InstallScriptRegressionTest {
         testAppIconAssetLoadsWindowVariants();
         testWorkbenchInstallsDesktopIdentity();
         testInstallerIncludesStarPrompt();
+        testInstallerVerifiesModelWeightChecksums();
         System.out.println("InstallScriptRegressionTest: all checks passed");
     }
 
@@ -156,7 +158,7 @@ public final class InstallScriptRegressionTest {
      * Verifies the active logo generator keeps the mark distinctive.
      */
     private static void testActiveChemicalBoardGeneratorIsDistinctive() {
-        String generator = readFile(ACTIVE_APP_ICON_GENERATOR);
+        String generator = readUtf8(ACTIVE_APP_ICON_GENERATOR);
         assertTrue(generator.contains("crtk-chemical-board"), "active logo generator writes chemical-board assets");
         assertTrue(generator.contains("SOURCE_VIEWBOX_WIDTH"), "active logo generator embeds the source SVG geometry");
         assertTrue(generator.contains("source_svg_mark()"), "active logo generator draws the downloaded flask glyph");
@@ -185,7 +187,7 @@ public final class InstallScriptRegressionTest {
      * the shared board and piece resources.
      */
     private static void testOtisLatticeGeneratorUsesSharedChessAssets() {
-        String generator = readFile(OTIS_ICON_GENERATOR);
+        String generator = readUtf8(OTIS_ICON_GENERATOR);
         assertTrue(generator.contains("OUTPUT_DIR = Path(__file__).resolve().parent"),
                 "OTIS app icon generator writes into its asset directory");
         assertTrue(generator.contains("assets\" / \"embedded\" / \"board\" / \"png\" / \"board.png"),
@@ -223,9 +225,9 @@ public final class InstallScriptRegressionTest {
      * identity and taskbar icon path.
      */
     private static void testWorkbenchInstallsDesktopIdentity() {
-        String launchCommand = readFile(LAUNCH_COMMAND_SOURCE);
-        String appIcon = readFile(APP_ICON_SOURCE);
-        String window = readFile(WORKBENCH_WINDOW_SOURCE);
+        String launchCommand = readUtf8(LAUNCH_COMMAND_SOURCE);
+        String appIcon = readUtf8(APP_ICON_SOURCE);
+        String window = readUtf8(WORKBENCH_WINDOW_SOURCE);
         assertTrue(launchCommand.contains("AppIcon.installDesktopProperties();"),
                 "workbench installs desktop identity before Swing startup");
         assertTrue(appIcon.contains("public static final String DESKTOP_APP_ID = \"crtk-workbench\""),
@@ -251,26 +253,41 @@ public final class InstallScriptRegressionTest {
     }
 
     /**
+     * Verifies optional model downloads are pinned by SHA-256.
+     */
+    private static void testInstallerVerifiesModelWeightChecksums() {
+        String script = readInstallScript();
+        assertTrue(script.contains("MODEL_SHA256=("),
+                "installer declares expected model SHA-256 values");
+        assertTrue(script.contains("sha256_file()"),
+                "installer has a reusable SHA-256 helper");
+        assertTrue(script.contains("verify_model_sha256()"),
+                "installer has a model checksum verifier");
+        assertTrue(script.contains("elif ! verify_model_sha256 \"$MODEL_DIR/$file\" \"$expected_sha\"; then"),
+                "installer verifies existing model files before treating them as present");
+        assertTrue(script.contains("if ! verify_model_sha256 \"$MODEL_DIR/$file\" \"$expected_sha\"; then"),
+                "installer verifies downloaded model files before accepting them");
+        assertTrue(script.contains("verification_failed=1"),
+                "installer marks checksum mismatches as verification failures");
+        assertTrue(script.contains("if [[ $verification_failed -ne 0 ]]; then"),
+                "installer aborts after a fetched checksum mismatch");
+        assertTrue(script.contains("fcf986aea78a22de420ec0f0d1f4cf5b2b8497896aa678ff1e1bee5922fab113"),
+                "installer pins NNUE checksum");
+        assertTrue(script.contains("c4dd6b62acd3c86be3d6199a32d6119d9144f508f84c823f69881ae0bae41034"),
+                "installer pins large LC0 CNN checksum");
+        assertTrue(script.contains("b99bec1aba97e96bf03ac8e016578527b983b6653f1adf040452f86c6f3ef348"),
+                "installer pins small LC0 CNN checksum");
+        assertTrue(script.contains("e6ada9d6c4a769bfab3aa0848d82caeb809aa45f83e6c605fc58a31d21bdd618"),
+                "installer pins BT4 checksum");
+    }
+
+    /**
      * Reads the installer source.
      *
      * @return installer text
      */
     private static String readInstallScript() {
-        return readFile(INSTALL_SCRIPT);
-    }
-
-    /**
-     * Reads a UTF-8 text file.
-     *
-     * @param path file path
-     * @return file text
-     */
-    private static String readFile(Path path) {
-        try {
-            return Files.readString(path);
-        } catch (IOException ex) {
-            throw new AssertionError("could not read " + path, ex);
-        }
+        return readUtf8(INSTALL_SCRIPT);
     }
 
     /**

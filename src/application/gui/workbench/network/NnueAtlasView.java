@@ -503,22 +503,26 @@ public abstract class NnueAtlasView extends NnueViewBase {
         Rectangle board = new Rectangle(inner.x + Math.max(0, (inner.width - side) / 2),
                 boardTop, side, side);
         int offset = (slot * planes + atlasSelectedPlane) * squares;
-        boolean whiteDown = sideToMoveWhite();
-        TensorViz.drawMiniBoard(g, board);
-        paintAtlasTileDense(g, board, atlas, offset, Math.max(1e-6f, scale), false, whiteDown);
-        TensorViz.drawPositionPieces(g, board, fen, whiteDown);
-        if (selectedBoardSquare >= 0) {
-            TensorViz.drawBoardSquareRing(g, board, selectedBoardSquare, TensorViz.FOCUS, whiteDown);
-        }
-        TensorViz.drawBoardCoordinates(g, board, whiteDown);
-        hitRegions.addInspectable(board,
-                "Slot " + slot + " · " + atlasPlaneName(atlasSelectedPlane, planes),
+        float safeScale = Math.max(1e-6f, scale);
+        String planeName = atlasPlaneName(atlasSelectedPlane, planes);
+        NetworkBoardSection.Inspection inspection = new NetworkBoardSection.Inspection(
+                "Slot " + slot + " · " + planeName,
                 "Selected slot/piece-plane weight board.",
                 selectedBoardSquare >= 0
                         ? selectedSquareValue(atlas, offset, selectedBoardSquare)
                         : String.format("max |w| %.3f", scale),
                 "nnue.atlas.weights",
                 offset, squares, 0, "8x8");
+        NetworkBoardSection.BoardOverlay selectedRing = selectedBoardSquare >= 0
+                ? (gg, atlasBoard, whiteDown) -> TensorViz.drawBoardSquareRing(gg,
+                        atlasBoard, selectedBoardSquare, TensorViz.FOCUS, whiteDown)
+                : null;
+        NetworkBoardSection.paintOverlayBoard(g, hitRegions, board, fen,
+                "", null, 0.0f, -1, TensorViz.FOCUS,
+                "Selected slot/piece-plane weight board.",
+                (gg, atlasBoard, whiteDown) -> paintAtlasTileDense(gg, atlasBoard,
+                        atlas, offset, safeScale, false, whiteDown),
+                selectedRing, inspection);
 
         int footerY = board.y + board.height + 14;
         if (footerY < inner.y + inner.height - 22) {

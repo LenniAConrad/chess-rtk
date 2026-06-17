@@ -7,6 +7,7 @@ A program driving `crtk` should never have to guess. Every command is a noun-ver
 ## Why crtk Is Agent-Friendly
 
 - **Deterministic outputs.** Move ordering, FEN normalization, perft counters, and the built-in search return the same answer for the same inputs and budgets. The core paths carry no hidden clocks and no randomized defaults.
+- **Self-describing.** `crtk help --json` emits the entire command tree — paths, aliases, usage, flags, examples, and the exit-code taxonomy — as a deterministic `crtk.cli.catalog.v1` object. Discover the surface from the catalog instead of hard-coding it; `crtk help --json <area> <action>` scopes it to one subtree.
 - **Stable contracts.** Most machine-facing commands take `--json` (one object or array) or `--jsonl` (one object per line); notation commands take `--format uci|san|both`. Parse a documented shape rather than scrape prose.
 - **Explicit inputs.** Positions come in through named flags (`--fen`, `--input`, `--startpos`, `--randompos`, `--stdin`), never positional guesswork. When a free-form argument could pass for a flag, separate it with `--`.
 - **Exit codes that mean something.** Success exits `0`; a bad FEN, a missing file, or a failed command exits non-zero. Errors go to stderr, so a failing run still leaves stdout clean for the parser.
@@ -20,6 +21,8 @@ crtk doctor                 # environment + config health
 crtk config validate        # config file is well-formed
 crtk version --json         # {"name":"ChessRTK","launcher":"crtk","version":"...","java":"..."}
 crtk help                   # area list; `crtk help <area> <action>` for any command
+crtk help --json            # full machine-readable command catalog (crtk.cli.catalog.v1)
+crtk serve --port 8787      # optional localhost JSON-RPC daemon for repeated calls
 ```
 
 The smallest useful loop — is this position legal, and what can I play from it:
@@ -28,6 +31,44 @@ The smallest useful loop — is this position legal, and what can I play from it
 crtk fen validate --fen "<FEN>" --json
 crtk fen normalize --fen "<FEN>" --json
 crtk move list --fen "<FEN>" --format both
+```
+
+## Warm Process: `crtk serve`
+
+For interactive agents and editor integrations, `crtk serve` keeps one JVM warm and exposes the same command dispatcher over localhost HTTP. It binds `127.0.0.1` by default, refuses non-loopback hosts, and exposes only `/rpc`, `/catalog`, and `/health`.
+
+```bash
+crtk serve --port 8787
+```
+
+Use `/catalog` for the same command contract as `crtk help --json`:
+
+```bash
+curl -s http://127.0.0.1:8787/catalog
+```
+
+Run commands through JSON-RPC by sending the exact argv tokens after `crtk`:
+
+```bash
+curl -s http://127.0.0.1:8787/rpc \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"run","params":{"argv":["fen","validate","--fen","<FEN>","--json"]}}'
+```
+
+The result contains `exitCode`, `stdout`, `stderr`, and the argv the daemon dispatched. The stdout text is the CLI's stdout byte-for-byte, so existing JSON parsers can keep using the command-specific contracts. Requests are serialized through one dispatcher thread because the underlying CLI writes to process-wide stdout and stderr. See [Local JSON-RPC daemon](serve.md) for endpoint details and safety boundaries.
+
+Python integrations can use the generated SDK instead of hand-writing JSON-RPC
+requests:
+
+```bash
+python3 scripts/generate_python_sdk.py
+```
+
+```python
+from crtk_client import CrtkClient
+
+client = CrtkClient("http://127.0.0.1:8787")
+result = client.fen_validate("--fen", "<FEN>", "--json", check=True)
 ```
 
 ## Machine-Readable Output by Command
@@ -54,6 +95,7 @@ These are the commands worth reaching for first, paired with the contract each o
 | Static evaluation | `engine static`, `engine eval` | one evaluation per position |
 | Position diff | `position diff --fen "<L>" --other "<R>" --json` | changed state fields and board squares |
 | Position description | `position describe --format training-jsonl` | deterministic prompt/target row with features |
+| Review a PGN into study units | `review game --pgn <file> --to-study` | `crtk.review.ply.v1` JSONL plus `crtk.review.study_unit.v1` and `crtk.record.v2` sidecars |
 | Perft counters | `engine perft --depth <d>` | nodes plus detailed counters |
 | Perft regression | `engine perft-suite --depth <d>` | progress bar, then truth/calculated/match table |
 | Core benchmark | `engine benchmark --json` | one benchmark object |
@@ -181,6 +223,8 @@ crtk record export training-jsonl -i dump/puzzles.json -o training/run.jsonl --m
 
 Puzzle mining (`puzzle mine`) writes `*.puzzles.json` / `*.nonpuzzles.json` and is gated by the Filter DSL. See [Puzzle Mining](mining.md), [Datasets](datasets.md), and [Filter DSL](filter-dsl.md).
 
+Game review (`review game --to-study`) writes `*.review.jsonl`, `*.study.jsonl`, and `*.study.record.json`. The review rows keep every analyzed ply; the study rows and Record file keep drillable mistakes. See [Review to Study](review-to-study.md).
+
 ## Setup Gates for Pipelines
 
 Run these as preflight checks before the real work, at the top of a CI job or agent session:
@@ -205,5 +249,6 @@ Run these as preflight checks before the real work, at the top of a CI job or ag
 - [Command Cheatsheet](command-cheatsheet.md) — one-liners for common tasks
 - [Example Commands](example-commands.md) — copy-pasteable walkthroughs
 - [Outputs and Logs](outputs-and-logs.md) — output formats and where artifacts land
+- [Review to Study](review-to-study.md) — review JSONL and study-unit artifact contracts
 - [Configuration](configuration.md) — config keys and engine protocols
 - [Use Cases](use-cases.md) — end-to-end workflows

@@ -590,6 +590,7 @@ public final class EditorSplitArea extends JPanel {
                 rebuildStrip(paneStrip(pane), tabsForPane(pane), paneIndex(pane), pane);
             }
         }
+        updateSplitButtonState();
         panePanel(selectedPane).revalidate();
         panePanel(selectedPane).repaint();
     }
@@ -755,20 +756,30 @@ public final class EditorSplitArea extends JPanel {
         JPopupMenu menu = new JPopupMenu();
         PopupMenus.style(menu);
         boolean canSplit = canSplitTab(panelIndex);
-        menu.add(PopupMenus.item("Split Tab Right", () -> splitTabCopy(panelIndex, DROP_RIGHT), canSplit));
-        menu.add(PopupMenus.item("Split Tab Down", () -> splitTabCopy(panelIndex, DROP_BOTTOM), canSplit));
-        menu.add(PopupMenus.item("Split Tab Left", () -> splitTabCopy(panelIndex, DROP_LEFT), canSplit));
-        menu.add(PopupMenus.item("Split Tab Up", () -> splitTabCopy(panelIndex, DROP_TOP), canSplit));
+        String splitDisabled = "Open another tab or select a duplicate-capable tab to split this tab.";
+        menu.add(PopupMenus.item("Split Tab Right", "workbench.editor.tab.split.right",
+                () -> splitTabCopy(panelIndex, DROP_RIGHT), canSplit, splitDisabled));
+        menu.add(PopupMenus.item("Split Tab Down", "workbench.editor.tab.split.down",
+                () -> splitTabCopy(panelIndex, DROP_BOTTOM), canSplit, splitDisabled));
+        menu.add(PopupMenus.item("Split Tab Left", "workbench.editor.tab.split.left",
+                () -> splitTabCopy(panelIndex, DROP_LEFT), canSplit, splitDisabled));
+        menu.add(PopupMenus.item("Split Tab Up", "workbench.editor.tab.split.up",
+                () -> splitTabCopy(panelIndex, DROP_TOP), canSplit, splitDisabled));
         if (validPanel(panelIndex) && panelFactories.get(panelIndex) != null) {
-            menu.add(PopupMenus.item("Duplicate Tab", () -> duplicate(panelIndex)));
+            menu.add(PopupMenus.item("Duplicate Tab", "workbench.editor.tab.duplicate",
+                    () -> duplicate(panelIndex), true, null));
         }
-        menu.add(PopupMenus.item("Close", () -> closeTab(panelIndex)));
-        menu.add(PopupMenus.item("Close Other Tabs", () -> closeOtherTabs(panelIndex), open.size() > 1));
+        menu.add(PopupMenus.item("Close", "workbench.editor.tab.close", () -> closeTab(panelIndex), true, null));
+        menu.add(PopupMenus.item("Close Other Tabs", "workbench.editor.tab.closeOthers",
+                () -> closeOtherTabs(panelIndex), open.size() > 1,
+                "Open another tab before closing others."));
         if (open.size() < panels.size()) {
-            menu.add(PopupMenus.item("Restore Closed Tabs", () -> reopenAllTabs(pane)));
+            menu.add(PopupMenus.item("Restore Closed Tabs", "workbench.editor.tabs.restoreClosed",
+                    () -> reopenAllTabs(pane), true, null));
         }
         if (isSplitActive()) {
-            menu.add(PopupMenus.item("Collapse Editor Groups", this::collapseAndRelayout));
+            menu.add(PopupMenus.item("Collapse Editor Groups", "workbench.editor.groups.collapse",
+                    this::collapseAndRelayout, true, null));
         }
         return menu;
     }

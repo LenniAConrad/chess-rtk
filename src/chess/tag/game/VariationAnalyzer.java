@@ -1,5 +1,8 @@
 package chess.tag.game;
 
+import static chess.tag.core.Literals.LINE;
+import static chess.tag.core.Literals.VARIATION;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -254,7 +257,7 @@ public final class VariationAnalyzer {
                 int bar = descriptor.indexOf('|');
                 String motif = bar < 0 ? descriptor : descriptor.substring(0, bar);
                 String detail = bar < 0 ? "" : descriptor.substring(bar + 1).replace('|', ' ');
-                emitted.add("VARIATION: tactic_shared=" + motif + " branch_ply=" + groupPly
+                emitted.add(VARIATION + ": tactic_shared=" + motif + " branch_ply=" + groupPly
                         + " count=" + e.getValue().size() + " detail=\"" + detail + "\"");
             }
             out.addAll(emitted);
@@ -278,10 +281,10 @@ public final class VariationAnalyzer {
      * @return the descriptor, or {@code null}
      */
     private static String motifDescriptor(String line, boolean protagonistWhite) {
-        if (line == null || !line.startsWith("LINE: motif=")) {
+        if (line == null || !line.startsWith(LINE + ": motif=")) {
             return null;
         }
-        String body = line.substring("LINE: ".length());
+        String body = line.substring((LINE + ": ").length());
         String[] fields = body.split("\\s+");
         String motif = value(fields[0], "motif=");
         if (motif == null) {
@@ -484,7 +487,7 @@ public final class VariationAnalyzer {
          */
         public List<String> tags() {
             List<String> tags = new ArrayList<>();
-            tags.add("VARIATION: branch_ply=" + branchPly + " length=" + sans.size()
+            tags.add(VARIATION + ": branch_ply=" + branchPly + " length=" + sans.size()
                     + " line=\"" + String.join(" ", sans) + "\"");
             tags.addAll(lines);
             return tags;

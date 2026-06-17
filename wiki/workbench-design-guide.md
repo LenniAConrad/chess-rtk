@@ -62,7 +62,7 @@ At first glance the app should look like this:
 | Layer | Visual target |
 | --- | --- |
 | Shell | A compact VS Code-like editor frame with clear tabs, split groups, command palette access, and a quiet status strip. |
-| Workspace | One full-screen task surface at a time: Dashboard, Board, Engine Lab, Run, Datasets, or Publish. |
+| Workspace | One full-screen task surface at a time: Dashboard, Board, Run, Datasets, Publish, Engine Lab, Console, or Logs today; Library joins later when the corpus surface ships. |
 | Center | The real artifact: board, graph, table, command builder, dataset chart, or publication preview. |
 | Inspector rail | A 320 to 380 px right rail for controls, current selection, mode settings, and secondary lists. |
 | Output | Runs, logs, progress, and artifacts appear in persistent output surfaces instead of modal interruptions. |
@@ -70,14 +70,34 @@ At first glance the app should look like this:
 
 The most important visual rule is that the content owns the screen. Chess boards should look like boards, datasets should look like analytics, runs should look like executable command records, and publishing should look like previewing a real artifact. Chrome should help the user orient, not compete with the work.
 
+## Current Registered Shell
+
+The shipped shell currently registers eight top-level views. This is the source
+of truth for docs, command-palette routing, and split/duplicate behavior.
+
+| Registered view | Current modes / workflows | Design home |
+| --- | --- | --- |
+| Dashboard | Health, recent jobs, artifacts, quick links | Session state |
+| Board | Analyze, Play, Solve, Relations, Draw | Position/game work |
+| Run | Command builder and batch-style command templates | Executable command work |
+| Datasets | Export loaders, validation, charts, samples | Data artifacts |
+| Publish | Diagram, book, study, collection, cover previews | Rendered artifacts |
+| Engine Lab | Network, MCTS, Tree, Gauntlet | Engine/search state |
+| Console | Live child-process output | Run/output companion |
+| Logs | Persisted logs and artifacts | Run/output companion |
+
 ## Target Information Architecture
 
-The ideal Workbench has six top-level surfaces. Current implementation may keep transitional tabs while migration is in progress, but new design work should place features in these homes.
+The ideal Workbench has seven top-level surfaces after the local game-corpus
+surface ships and output views can be treated as Run companions. Until then, new
+design work should still place features in the homes below instead of adding new
+top-level tabs.
 
 | Surface | Primary object | Contains | Center of screen | Inspector / secondary area |
 | --- | --- | --- | --- | --- |
 | `Dashboard` | Session state | Health, current position, recent runs, artifacts, runtime status, quick links | Live summary grid and recent activity | None by default; cards deep-link to surfaces |
 | `Board` | Chess position/game | Analyze, Play, Solve, Relations, Draw, board editor, study/review/ECO/endgame tools | One shared `BoardStage` with eval bar and overlays | Mode inspector for moves, engine, puzzle, play, relations, draw, tags, ECO |
+| `Library` | Game corpus (local PGN store) | Import, query/filter, game list, per-game metadata, dedupe/compact status; opens a selected game into Board | Dense results table | Selected-game metadata and a small board preview |
 | `Engine Lab` | Evaluation/search | Network visualizer, MCTS/PUCT search, tree graph, gauntlet | Shared position view, engine charts, search tree, root move table | Backend/model controls, selected node/tensor details, run controls |
 | `Run` | Executable command | Command builder, batch, console/REPL, output, logs | Command form and command result cards | Validation, run options, filters, selected output details |
 | `Datasets` | Data artifact | Loaded exports, tensor summaries, label distributions, charts, samples, issues | KPI cards, charts, dense tables | Load/options/details if needed |
@@ -90,10 +110,11 @@ Surface rules:
 - `Network`, `MCTS`, `Tree`, and `Gauntlet` are Engine Lab modes.
 - `Commands`, `Batch`, `Console`, and `Logs` are Run modes or Run/output companion views.
 - `Datasets` and `Publish` stay top-level because their primary artifacts are not positions or command output.
+- `Library` is top-level because its primary object — a queryable game corpus (the local PGN store) — is neither a single position (`Board`) nor an ML artifact (`Datasets`); selecting a game routes it into `Board`. It is introduced for the forthcoming `crtk db`/`pgn` store and may stay behind a transitional tab until that store lands.
 - `Dashboard` is the only global state surface. It should launch work, not duplicate full workflows.
 - Command palette entries may preserve old names like `Open Play` or `Open Logs`, but they should route to the right surface and mode.
 
-When a feature seems to need a new tab, name its primary object first. If the object is a position, engine/search state, command run, dataset, publication, or session status, it belongs in one of the six surfaces above.
+When a feature seems to need a new tab, name its primary object first. If the object is a position, game corpus, engine/search state, command run, dataset, publication, or session status, it belongs in one of the seven surfaces above.
 
 ## Primary Object Model
 
@@ -102,6 +123,7 @@ Every screen must make one primary object obvious. This prevents the app from be
 | Object | Header context | Main representation | Common actions |
 | --- | --- | --- | --- |
 | Position | FEN summary, side to move, source, game ply | Board, legal moves, overlays, tags, ECO, engine lines | Load PGN/FEN, copy FEN, analyze, play, solve, export |
+| Game corpus | Store path, game count, active filter/source | Results table with per-game metadata | Import, find, open in Board, dedupe, export, stats |
 | Engine/search state | Backend, model, running state, nodes, nps, selected move | KPI strip, root move table, tree, tensor/activation views | Start, stop, pause, snapshot, export, copy command |
 | Command run | Area/action, validity, exit state, artifact path | Command form, command preview, output cards, logs | Run, stop, copy command, open artifact |
 | Dataset | File/path, rows, shape, labels, issue count | Summary cards, charts, sample/issue tables | Load, scan, filter, export |
@@ -118,6 +140,7 @@ Use these visual targets when adapting the current implementation.
 | --- | --- |
 | Dashboard | A calm operational overview. Top row has current position, active jobs, runtime/model health, and recent artifacts. Cards are compact, live, and clickable. No hero banner, no large welcome text. |
 | Board | A large square board dominates the center-left. The right rail is a mode inspector with `Analyze`, `Play`, `Solve`, `Relations`, and `Draw`. Switching modes preserves the board and position whenever possible. |
+| Library | Looks like a database browser. A query/filter band on top, a dense results table (event, players, result, ECO, date) filling the body, and a compact rail with the selected game's metadata and a small board preview. Double-clicking a row opens the game in Board. No hero text; the table owns the screen. |
 | Engine Lab | Looks like a lab bench for one position. Put a small position/board context beside search and neural evidence. Show KPI strip, root moves, tree/trace/atlas views, and selected-node details. Fill empty MCTS/search states with useful root rows or setup actions, not a giant blank area. |
 | Run | Looks like a command workbench. The user builds exact `crtk` commands, sees validation before execution, and gets persistent result cards with command text, exit code, time, output preview, and artifact links. |
 | Datasets | Looks like analytics. KPI cards and distribution charts come first, then dense sample/issue tables. The surface should reveal skew, missing labels, bad rows, and shape problems quickly. |
@@ -151,7 +174,7 @@ Treat the Workbench shell like a code editor around chess/research content.
 | --- | --- | --- |
 | Activity Bar / View Container | Top-level Workbench modes and registered views | Add a new top-level area only for a durable workflow, not for one command. |
 | Primary/Secondary Sidebar | Side rails beside a board, table, graph, or preview | Group related views; keep 3 to 5 visible side-rail sections on normal screens. |
-| Editor Area | Dashboard, Board, Engine Lab, Run, Datasets, Publish | The primary task owns the center; tabs and splits preserve context. |
+| Editor Area | Dashboard, Board, Library, Engine Lab, Run, Datasets, Publish | The primary task owns the center; tabs and splits preserve context. |
 | Editor Groups | Split Workbench panes | Splits compare or parallelize work; do not use splits for decorative layout. |
 | Panel | Console, Logs, artifacts, run output | Put long-running output and diagnostics in panel/log surfaces, not blocking dialogs. |
 | Status Bar | Badges, run state, model state, current FEN context | Show contextual state near the affected surface; keep it terse and nonblocking. |
@@ -177,6 +200,32 @@ Use Apple design as the behavior and polish layer.
 | Search behavior | Search fields need specific placeholder text and should filter while typing when the data set is local. |
 | Button behavior | Buttons in the same group should share height, padding, and visual family; image/icon buttons need tooltips. |
 | Toolbar grouping | Leading area orients, center changes mode, trailing area holds persistent actions/search. |
+
+## Foundational UI Principles
+
+The lecture notes add two overlapping checks that every Workbench surface should pass: the six UI basics — contrast, consistency, typography, color, visual hierarchy, and spacing — and the C-R-A-P mnemonic: contrast, repetition, alignment, and proximity. Apply them through ChessRTK's shared primitives, not through one-off styling.
+
+| Principle | Workbench rule |
+| --- | --- |
+| Contrast | Use size, weight, color, shape, and spacing to separate primary content from secondary controls. The strongest contrast on a surface should point to the current task, selected object, primary action, or critical state. |
+| Repetition and consistency | Repeat the same colors, type roles, spacing, icons, control heights, and layout patterns so users can learn the interface once and reuse that knowledge across panels. |
+| Alignment | Build visible order with invisible axes: fixed label lanes, aligned table columns, shared toolbar baselines, and consistent side-rail edges. Experimental layouts may rotate or offset content only when the alignment system remains legible. |
+| Proximity | Put related elements close together and separate unrelated groups with clear gaps, hairlines, or section headers. A label, input, helper text, validation message, and action should read as one group. |
+| Typography | Optimize for readability first. Use the shared UI font for interface text and monospace only for commands, logs, tensors, code, and exact chess data. Use size and weight to create hierarchy, not extra typefaces. |
+| Color | Color should guide navigation, priority, state, and brand feel. Pick harmonious theme-token combinations, update light and dark palettes together, and never use color as the only signal for state. |
+| Visual hierarchy | Decide the scan order before styling. Larger elements, stronger weights, saturated colors, unusual alignment, proximity, and whitespace all pull attention; use them deliberately and sparingly. |
+| Spacing | Treat empty space as structure. Padding defines an element's internal comfort; margin defines relationships between elements. Dense screens still need enough spacing to make groups and hierarchy obvious. |
+
+Use this quick pass before declaring a UI slice done:
+
+| Check | Question |
+| --- | --- |
+| Focal point | Does the eye land first on the board, table, graph, command, or artifact the task is actually about? |
+| Learnability | Would a control used in another Workbench panel look and behave the same here? |
+| Grouping | Are related controls visually closer to each other than to unrelated controls? |
+| Reading order | Do alignment, type scale, color, and whitespace create a clear top-to-bottom or left-to-right path? |
+| Color meaning | Does every colored element communicate action, state, domain data, or selection? |
+| Spacing meaning | Is every large gap separating groups, not just decorating the page? |
 
 ## Visual Identity
 
@@ -241,14 +290,17 @@ Use these files before creating a new primitive.
 | --- | --- |
 | Palette, spacing, fonts, radius, control dimensions | `src/application/gui/workbench/ui/Theme.java` |
 | Public UI factories | `src/application/gui/workbench/ui/Ui.java` |
-| Opaque top-level panes | `src/application/gui/workbench/ui/SurfacePanel.java` |
+| Opaque top-level panes | `SurfacePanel(layout)` / `SurfacePanel(layout, Theme.Surface.PANEL)` for document-tone surfaces (dashboards, reports, Logs); `SurfacePanel(layout, Theme.Surface.BACKDROP)` for chrome-backdrop surfaces that lay raised `PANEL_SOLID` cards on top (boards, engine workspaces, datasets, publish controls). Theme refresh rebinds the background automatically via `Theme.refreshComponent`. |
 | Root window backdrop | `src/application/gui/workbench/ui/BackdropPanel.java` |
 | Static raised content cards | `src/application/gui/workbench/ui/Card.java` through `Ui.card(...)` |
 | Workspace top band | `Ui.workspaceHeader(...)` / `WorkspaceHeader` |
 | Section headings | `Ui.sectionHeader(...)` / `SectionHeader` |
 | Toolbar bands and rows | `Ui.styleToolbarBand(...)`, `Ui.controlRow(...)`, `Ui.toolbarSeparator(...)` |
 | Forms and inputs | `Ui.fieldRow(...)`, `Ui.labelControlRow(...)`, `Ui.optionGroup(...)`, `Ui.styleFields(...)`, `Ui.placeholder(...)` |
+| Field error/invalid state | `Ui.setInvalid(component, invalid)` — drives the themed invalid border via the shared `InputChrome`, so feature panels don't hand-roll error styling |
+| Themed line borders | `Theme.lineBorder(color)` / `Theme.lineBorder(color, thickness)` — use instead of `BorderFactory.createLineBorder(...)` in feature panels so a theme refresh recolors the border |
 | Buttons | `Ui.button(...)`, `Ui.ghostButton(...)`, `Ui.destructiveButton(...)`, `Ui.iconButton(...)` |
+| Transport / glyph-with-tooltip buttons | `Ui.iconButton(glyph, accessibleLabel, listener)` — shows the glyph as text but attaches a descriptive tooltip + accessible name. Use for `⏮ ◀ ▶ ⏭`, scrubbers, and other symbol controls whose meaning isn't obvious. |
 | Tables | `Ui.setColumnWidth(...)` and shared table styling through the component tree |
 | Empty states | `Ui.emptyState(...)` or `Ui.paintEmptyState(...)` |
 | Chessboard geometry and marks | `src/application/gui/workbench/board/BoardStyle.java` |
@@ -338,7 +390,9 @@ Layout B: dashboard/report surface
 | Cards/grid | Inside scroll body | Optional | Summary cards, charts, previews | Reflows by min column width |
 | Tables | Inside scroll body or main body | Optional | Dense records/details | Fill width; important columns pinned |
 
-Use Layout A for Board, Engine Lab, Run, Publish, and the inspector modes inside them. Use Layout B for Dashboard, report-like publishing summaries, dataset overviews, and static diagnostics.
+Use Layout A for Board, Library, Engine Lab, Run, Publish, Datasets, and the inspector modes inside them. Use Layout B for Dashboard, report-like publishing summaries, and static diagnostics.
+
+Datasets is a Layout A surface with an analytics-split body: the chart grid sits in the top half of a vertical `JSplitPane` (overview), the sample/issue tables fill the bottom half, and the dataset filter band sits above the split so it stays visible from both halves. A pure Layout B scroll body would push the tables off-screen on real datasets, so the split is intentional rather than a Layout B miss.
 
 ### Region Rules
 
@@ -404,7 +458,7 @@ Use these layouts as defaults.
 | Engine Lab | Search/evaluator evidence owns the center; backend/model controls and selected-node/tensor details sit in the rail |
 | Run workspace | Template/command selection first, required inputs above optional flags, exact command preview visible, run/copy actions grouped together |
 | Dashboard | `WorkspaceHeader`, then `Ui.contentGrid(300)` for summaries and `Ui.contentGrid(420)` for larger detail cards |
-| Datasets | Header and load actions on top, summary cards before charts/tables, tables fill the remaining vertical space |
+| Datasets | Header + load toolbar on top; a single dataset filter band above a vertical chart / table split; KPI/summary cards and chart grid in the top half, sample/issue tables fill the bottom half; row-action buttons trail above the tables |
 | Publish | Source/task controls in a side or top panel, preview takes the main area, render actions stay near preview status |
 | Relations mode | Board/graph visualization centered, channel and opacity controls in a right rail with fixed label widths |
 | Logs/console mode | Header actions right, scrollable log body center, status badges inline with rows |
@@ -431,6 +485,11 @@ Use this table before creating, moving, or renaming a view.
 | Logs | `Run` plus `Dashboard` | Output/log browser and recent-run dashboard card. |
 | Datasets | `Datasets` | Top-level analytics surface. |
 | Publish | `Publish` | Top-level preview/render surface. |
+| Game database | `Library` | Game-corpus browser over the local PGN store; importing and querying games. Selecting a game opens it in `Board`. |
+| Import (folder/Lichess/Chess.com) | `Library` | Fetch-only import action into the store; never an account-linking, sync, matchmaking, or social surface. |
+| Review (game) | `Board` | Engine-graded post-game review mode over the shared board; consumes the CLI-produced review artifact, never recomputes verdicts in-process. |
+| Repertoire / drill | `Board` | Spaced-repetition drill mode over the shared board; grade buttons feed the CLI scheduler. |
+| Explain | `Board` | Grounded position/why explanation mode (Facts/Prose) over the shared board. |
 
 ### Surface And Mode Blueprints
 
@@ -439,6 +498,7 @@ Use these as the target shape when adapting current Workbench implementation. Ro
 | Surface/mode | Header title | Header context | Leading toolbar | Center/body | Side rail | Trailing actions |
 | --- | --- | --- | --- | --- | --- | --- |
 | Dashboard | `Dashboard` | Session health, recent artifact count, active jobs | None unless mode switch needed | Summary grid, recent jobs, artifacts | None by default | Refresh, open session folder |
+| Library | `Library` | Store path, game count, active filter | Source/collection selector | Results table (event, players, result, ECO, date) | Selected-game metadata and board preview | Import, Find, Open in Board, Export |
 | Analyze | `Analyze` | Current FEN summary, side to move, active source | Board transport, analysis mode | Board stage with eval bar | Moves, engine, ECO, tags, review/study tools | Load PGN, copy FEN, export board |
 | Board editor | `Board Editor` or section within Analyze | Edited FEN validity | Piece/setup mode | Board stage | Piece palette, side to move, castling, en passant | Apply, copy FEN, reset |
 | Play | `Play` | Opponent preset, side, current result/status | New game/start source | Board stage and move history | Opponent, strength, custom backend, game controls | New game, resign, copy PGN |
@@ -456,7 +516,7 @@ Use these as the target shape when adapting current Workbench implementation. Ro
 | Gauntlet | `Gauntlet` | Candidate/baseline, games, WDL/Elo | Setup/run mode | Game list, summary table, selected game board | Engine configs, budgets, filters | Start, stop, copy command, open artifacts |
 | Settings | `Settings` | Active preference group | Group selector | Form sections | None unless preview needed | Apply, reset, close |
 
-Uniform adaptation rule: if a current view cannot be described by this table, first decide whether it belongs in the center body, side rail, toolbar, bottom panel, floating layer, or one of the six target surfaces. Do not add new chrome until that decision is made.
+Uniform adaptation rule: if a current view cannot be described by this table, first decide whether it belongs in the center body, side rail, toolbar, bottom panel, floating layer, or one of the seven target surfaces. Do not add new chrome until that decision is made.
 
 ### Shell Skeleton
 
@@ -580,9 +640,18 @@ Top-level work areas are flat and opaque. That keeps repainting clean, makes the
 
 The frosted-glass idea is a restraint, not a theme. Use `Theme.GLASS_HIGHLIGHT`, backdrop colors, and existing floating primitives rather than painting translucent panels over live content.
 
+`SurfacePanel` is non-final and takes an optional `Theme.Surface` role so a single primitive serves both elevations:
+
+| Role | Background | Use for |
+| --- | --- | --- |
+| `Theme.Surface.PANEL` (default) | `Theme.PANEL_SOLID` (document tone) | Dashboards, reports, Logs, Puzzles, Network diagnostics — surfaces whose body IS the document. |
+| `Theme.Surface.BACKDROP` | `Theme.BG` (chrome backdrop) | Boards, Engine Lab modes, Datasets, the Publish surface root — pages that lay raised `PANEL_SOLID` cards, rails, and inspectors on top of a darker editor backdrop. |
+
+Surface roots should extend `SurfacePanel` and call `super(layout)` or `super(layout, role)`; do not re-set opaque/background/foreground manually. Theme refresh re-resolves the background through `Theme.refreshComponent` automatically. The "PANEL inside BACKDROP" contrast is intentional editor structure — don't flatten one onto the other.
+
 Surface styling rules:
 
-- Main editor surfaces use `Theme.PANEL_SOLID`, not translucent fills.
+- Main editor surfaces use `Theme.PANEL_SOLID` (for `PANEL`) or `Theme.BG` (for `BACKDROP`), not translucent fills.
 - Side rails use the same surface family as the main pane, separated by a hairline or split divider.
 - Cards sit one elevation above the page and must have a clear grouping purpose.
 - Floating chrome may use `Theme.GLASS_HIGHLIGHT`, soft borders, and shadow, but must keep text over an opaque or solid-blended surface.
@@ -864,7 +933,7 @@ Data layout rules:
 
 Workbench copy should be short and operational.
 
-- Use top-level titles like `Dashboard`, `Board`, `Engine Lab`, `Run`, `Datasets`, and `Publish`.
+- Use top-level titles like `Dashboard`, `Board`, `Library`, `Engine Lab`, `Run`, `Datasets`, and `Publish`.
 - Use mode titles like `Analyze`, `Play`, `Solve`, `Relations`, `Draw`, `Search`, `Tree`, `Gauntlet`, `Build`, and `Logs`.
 - Use action labels that name the command: `Run`, `Load PGN`, `Copy command`, `Export SVG`, `Reset`, `Stop`.
 - Use captions only where they reduce ambiguity in a form or status surface.
@@ -921,16 +990,16 @@ Use this section when adapting the current Workbench. Search first, classify eve
 | Search target | Why it matters | Preferred fix | Allowed exception |
 | --- | --- | --- | --- |
 | `new JButton` | Raw buttons drift in height, padding, color, focus, tooltip, and disabled behavior | Use `Ui.button(...)`, `Ui.ghostButton(...)`, `Ui.destructiveButton(...)`, or `Ui.iconButton(...)` | Shared button primitives and scrollbar arrow-button internals |
-| `Ui.button` with one-symbol labels | Transport and toolbar controls look like text buttons instead of icon controls | Use `Ui.iconButton(...)` or add a shared transport-button primitive with tooltip and accessible name | Math signs in numeric steppers only when the control is explicitly a stepper |
+| `Ui.button` with one-symbol labels | Transport and toolbar controls look like text buttons instead of icon controls | For transport glyphs (`⏮ ◀ ▶ ⏭`, `« »`, etc.) where the symbol IS the affordance, use `Ui.iconButton(glyph, accessibleLabel, listener)` — keeps the glyph visible and attaches a real-word tooltip + accessible name. For other icon-only utility buttons, use `Ui.iconButton(label, listener)` | Math signs in numeric steppers only when the control is explicitly a stepper |
 | `new JScrollPane` | Scrollbars and viewport fills drift between panels | Use `Ui.scroll(...)` or immediately call `Ui.styleScrollPane(...)` | Custom scroll panes inside shared UI primitives |
 | `new Color` outside `Theme`, `BoardStyle`, or visualization helpers | Theme roles become local and usually break either light or dark mode | Add or reuse a `Theme` token and update both palettes | Domain colors: board squares, annotation swatches, tensor heatmaps, fixed export colors |
 | `setFont` outside painting/rendering code | Typography drifts and density changes stop working | Use `Theme.font(...)`, `Theme.mono(...)`, or shared stylers | `Graphics` painting that already uses `Theme` fonts or renderer code restoring host font |
-| `setBorder` with `BorderFactory` in feature panels | Padding, radius, and line color become inconsistent | Use `Theme.pad(...)`, `Theme.lineBorder(...)`, `Ui.card(...)`, or shared section primitives | Custom painter borders and shared UI primitive internals |
+| `setBorder` with `BorderFactory` in feature panels | Padding, radius, and line color become inconsistent | Use `Theme.pad(...)`, `Theme.lineBorder(...)`, `Ui.card(...)`, or shared section primitives. For invalid-input borders specifically, drive the themed error chrome via `Ui.setInvalid(component, invalid)` instead of hand-rolling a red line border | Custom painter borders and shared UI primitive internals |
 | `setPreferredSize` in layouts | Panels become fixed to one viewport and clip on narrow windows | Use layout constraints, min/max sizes, split weights, or responsive collapse | Fixed-format elements: board, icon button, side rail, table row, chart legend, badge |
-| Missing `setToolTipText` on icon controls | Compact controls become inaccessible and ambiguous | Add one-sentence tooltip and accessible name | Text buttons whose visible label fully names the action |
+| Missing `setToolTipText` on icon controls | Compact controls become inaccessible and ambiguous | Add a one-sentence tooltip and accessible name. Prefer building the control through `Ui.iconButton(glyph, accessibleLabel, listener)` or `Ui.iconButton(label, listener)`, which set both automatically and consistently | Text buttons whose visible label fully names the action |
 | Missing accessible name on search, icon, and custom-painted controls | Keyboard/screen-reader behavior cannot explain the control | Set `getAccessibleContext().setAccessibleName(...)` | Plain labels directly associated with simple text fields |
 | `FlowLayout.LEFT` action rows with many controls | Toolbars lose leading/center/trailing hierarchy | Split into toolbar groups with `BorderLayout` and separators | Small local rows inside a form section |
-| Top-level `JPanel` roots | Main surfaces miss shell styling and theme refresh behavior | Use `SurfacePanel` or a shared root primitive | Lightweight child groups inside an already styled surface |
+| Top-level `JPanel` roots | Main surfaces miss shell styling and theme refresh behavior | Extend `SurfacePanel` and pass the appropriate `Theme.Surface` role: `PANEL` (default) for document-tone surfaces (dashboards, reports, Logs) or `BACKDROP` for chrome backdrops that lay raised cards on top (boards, engine workspaces, datasets, publish controls). Theme refresh re-binds the background automatically. Don't re-set opaque/background/foreground manually | Lightweight child groups inside an already styled surface |
 | Local empty-state labels | Empty/error/loading states get different copy and spacing | Use `Ui.emptyState(...)` or `Ui.paintEmptyState(...)` | Tiny table cell placeholders |
 
 Recommended audit commands:
@@ -1148,9 +1217,10 @@ Recommended migration order:
 | 2 | Editor shell and tab controls | Affects every screen and establishes VS Code structure. |
 | 3 | Board surface: Analyze, Play, Solve, Relations, Draw, Board Editor | Board-first workflows are the visual anchor of the app. |
 | 4 | Run surface: Build, Batch, Console, Logs/output | CLI parity, validation, and output consistency should converge early. |
-| 5 | Engine Lab: Evaluator, Search, Tree, Gauntlet | Engine workflows need clear state, budget, model honesty, and result layout. |
+| 5 | Engine Lab: Network, MCTS, Tree, Gauntlet | Engine workflows need clear state, budget, model honesty, and result layout. |
 | 6 | Datasets and Publish | These are distinct artifact surfaces with strong existing content shape. |
 | 7 | Dashboard live links and recent-run/artifact cards | The dashboard becomes useful once surfaces and output states are normalized. |
+| 8 | Library: game-corpus browser over the local PGN store | Net-new surface gated on the `crtk db`/`pgn` store (Theme A); promotes the in-memory `PgnExplorerModel` onto the core store. |
 
 ## Code Review Acceptance Criteria
 
@@ -1158,8 +1228,8 @@ A Workbench UI PR is acceptable only if it answers these questions clearly.
 
 | Question | Pass condition |
 | --- | --- |
-| Which primary object does this serve? | Position, engine/search state, command run, dataset, publication, or session status is named. |
-| Which target surface owns it? | Dashboard, Board, Engine Lab, Run, Datasets, or Publish is the clear home. |
+| Which primary object does this serve? | Position, game corpus, engine/search state, command run, dataset, publication, or session status is named. |
+| Which target surface owns it? | Dashboard, Board, Library, Engine Lab, Run, Datasets, or Publish is the clear home. |
 | Which VS Code container does this use? | The implementation maps to editor, side rail, panel, command palette, context menu, status, or floating chrome. |
 | Which Apple behavior rule applies? | Toolbar grouping, button hierarchy, search placement, color meaning, accessibility, or material/depth is explicit. |
 | Are shared primitives used? | No local copies of button styling, scroll styling, table styling, or color palettes. |
@@ -1175,8 +1245,8 @@ A Workbench UI PR is acceptable only if it answers these questions clearly.
 Before editing a panel:
 
 1. Identify the user job and the primary state the surface must show.
-2. Name the primary object: position, engine/search state, command run, dataset, publication, or session status.
-3. Name the target surface: Dashboard, Board, Engine Lab, Run, Datasets, or Publish.
+2. Name the primary object: position, game corpus, engine/search state, command run, dataset, publication, or session status.
+3. Name the target surface: Dashboard, Board, Library, Engine Lab, Run, Datasets, or Publish.
 4. Name the VS Code container it belongs to: editor, side rail, panel, command palette, status, context menu, or floating chrome.
 5. Apply the Apple behavior layer: hierarchy, grouped controls, search placement, consistent buttons, legible text, and accessible focus.
 6. Choose the existing primitive from `Ui`, `Theme`, `BoardStyle`, or the layout package.

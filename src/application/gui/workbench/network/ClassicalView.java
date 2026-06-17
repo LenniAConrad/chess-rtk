@@ -1,6 +1,5 @@
 package application.gui.workbench.network;
 
-import application.gui.workbench.board.BoardStyle;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import chess.classical.Wdl;
@@ -227,13 +226,9 @@ public final class ClassicalView extends JComponent {
      * @param board board rectangle
      */
     private void drawBoard(Graphics2D g, Rectangle board) {
-        g.setColor(Theme.MUTED);
-        g.setFont(Theme.font(10, Font.BOLD));
-        g.drawString("position", board.x, board.y - 6);
-        BoardStyle.drawBoardSurface(g, board, true);
-        boolean whiteDown = TensorViz.whiteDownForSideToMove(fen);
-        TensorViz.drawPositionPieces(g, board, fen, whiteDown);
-        TensorViz.drawBoardCoordinates(g, board, whiteDown);
+        NetworkBoardSection.paintOverlayBoard(g, null, board, fen,
+                "position", null, 0.0f, -1, TensorViz.FOCUS,
+                "Classical evaluation position");
     }
 
     /**

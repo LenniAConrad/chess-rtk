@@ -263,6 +263,30 @@ public final class ClassifierDatasetExporter {
             Options options,
             Consumer<FileProgress> fileProgress,
             LongConsumer byteProgress) throws IOException {
+        return export(recordFiles, outStem, options, fileProgress, byteProgress, null);
+    }
+
+    /**
+     * Exports one or more record files to classifier tensors and reports accepted
+     * rows to an optional row-hash sink.
+     *
+     * @param recordFiles input record files
+     * @param outStem output stem
+     * @param options export options
+     * @param fileProgress optional callback invoked after each fully consumed file
+     * @param byteProgress optional callback receiving cumulative bytes read across
+     *                     all input files
+     * @param rowHashSink optional sink receiving raw JSON for every emitted row
+     * @return export counters
+     * @throws IOException if reading or writing fails
+     */
+    public static Summary export(
+            List<Path> recordFiles,
+            Path outStem,
+            Options options,
+            Consumer<FileProgress> fileProgress,
+            LongConsumer byteProgress,
+            Consumer<String> rowHashSink) throws IOException {
         Objects.requireNonNull(recordFiles, "recordFiles");
         Objects.requireNonNull(outStem, "outStem");
         Objects.requireNonNull(options, "options");
@@ -283,7 +307,10 @@ public final class ClassifierDatasetExporter {
                 Path input = recordFiles.get(i);
                 streamRecordJson(input, objJson -> {
                     try {
-                        exportObject(objJson, options, inputsWriter, labelsWriter, stats);
+                        if (exportObject(objJson, options, inputsWriter, labelsWriter, stats)
+                                && rowHashSink != null) {
+                            rowHashSink.accept(objJson);
+                        }
                         if (stats.classCapsReached(options)) {
                             throw new StopExport();
                         }
@@ -338,9 +365,10 @@ public final class ClassifierDatasetExporter {
      * @param inputsWriter inputs writer value
      * @param labelsWriter labels writer value
      * @param stats statistics data
+     * @return true when a classifier row was written
      * @throws java.io.IOException if IOException is raised by the underlying operation
      */
-    private static void exportObject(
+    private static boolean exportObject(
             String objJson,
             Options options,
             NpyFloat32Writer inputsWriter,
@@ -353,40 +381,40 @@ public final class ClassifierDatasetExporter {
             rec = Record.fromJson(objJson);
         } catch (Exception ex) {
             stats.skippedInvalid++;
-            return;
+            return false;
         }
         if (rec == null) {
             stats.skippedInvalid++;
-            return;
+            return false;
         }
 
         Position position = rec.getPosition();
         if (position == null) {
             stats.skippedMissingPosition++;
-            return;
+            return false;
         }
 
         Analysis analysis = rec.getAnalysis();
         if (options.rowFilter() != null && (analysis == null || !options.rowFilter().apply(analysis))) {
             stats.skippedRowFilter++;
-            return;
+            return false;
         }
 
         Optional<Boolean> label = resolveLabel(objJson, rec, options);
         if (label.isEmpty()) {
             stats.skippedUnlabeled++;
-            return;
+            return false;
         }
 
         boolean positive = label.get().booleanValue();
         if (positive) {
             if (stats.positives >= options.maxPositives()) {
                 stats.skippedClassCap++;
-                return;
+                return false;
             }
         } else if (stats.negatives >= options.maxNegatives()) {
             stats.skippedClassCap++;
-            return;
+            return false;
         }
 
         float[] encoded = Encoder.encode(position);
@@ -399,6 +427,7 @@ public final class ClassifierDatasetExporter {
         } else {
             stats.negatives++;
         }
+        return true;
     }
 
     /**
@@ -646,7 +675,7 @@ public final class ClassifierDatasetExporter {
      * @param options command options
      * @return label source result
      */
-    private static String labelSource(Options options) {
+    public static String labelSource(Options options) {
         if (options.labelFilter() != null) {
             return "label-filter";
         }
@@ -661,7 +690,7 @@ public final class ClassifierDatasetExporter {
      * @param options command options
      * @return positive definition result
      */
-    private static String positiveDefinition(Options options) {
+    public static String positiveDefinition(Options options) {
         if (options.labelFilter() != null) {
             return "records matching --label-filter";
         }

@@ -8,11 +8,13 @@ Both are read-only and deterministic. They report what crtk actually resolved on
 
 - `crtk doctor` — checks the Java version, the resolved config and engine protocol files, the engine instance count, the output directory, and whether local model artifacts exist. It prints `ok`, `ok-with-warnings`, or an error, then lists each warning.
 - `crtk config validate` — validates `config/cli.config.toml` and the referenced engine protocol TOML and reports the first problem it finds.
+- `crtk doctor --json` and `crtk config show --json` — emit stable machine-readable objects for scripts, issue reports, and the Workbench setup/health surface.
 
 ```bash
 crtk doctor
 crtk config validate
 crtk config show
+crtk doctor --json
 ```
 
 A healthy machine prints something like this. Warnings — a missing optional T5 model, say — are non-fatal: `doctor` reports `ok-with-warnings` and everything else keeps working.
@@ -28,7 +30,7 @@ Warnings:
   - Missing model file for t5-model-path: /path/to/models/t5.bin
 ```
 
-In CI or scripts, `crtk doctor --strict` turns warnings into failures — it exits non-zero the moment one is present. See [Configuration](configuration.md) for what each value means and [Build and Install](build-and-install.md) for installation details.
+In CI or scripts, `crtk doctor --strict` turns warnings into failures — it exits non-zero the moment one is present. Add `--json` when the caller needs the `crtk.doctor.v1` status, warning/error arrays, and native backend matrix without scraping text. See [Configuration](configuration.md) for what each value means and [Build and Install](build-and-install.md) for installation details.
 
 ## Launcher or `PATH` issues
 

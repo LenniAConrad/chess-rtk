@@ -89,6 +89,7 @@
 <a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
 <a class="active" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="review-to-study.html" data-title="review to study">Review To Study</a>
 <a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
@@ -165,6 +166,7 @@
 <li><code>.record</code> JSON arrays from analysis pipelines.</li>
 <li>Merged, filtered, or split files produced by <code>record files</code>.</li>
 </ul>
+<p>Newly written record rows include <code>&quot;schemaVersion&quot;:&quot;crtk.record.v2&quot;</code> so later tools can distinguish the on-disk contract explicitly. Historical rows without that field are still accepted and treated as <code>crtk.record.v1</code>, so existing mining and export dumps remain readable.</p>
 <p>Look before you export. <code>record stats</code> gives you record counts and engines, <code>record tag-stats</code> shows the tag distribution (the same tags from <a href="piece-tags.html">Position &amp; Piece Tags</a>), and <code>record analysis-delta</code> surfaces positions whose evaluation never settled. A skewed class balance or a pile of unstable samples is cheap to spot here and expensive to discover three epochs into training.</p>
 <pre><code class="language-bash">crtk record stats     -i dump/run.puzzles.json
 crtk record tag-stats  -i dump/run.puzzles.json</code></pre>
@@ -305,7 +307,8 @@ crtk record dataset lc0 \
 <h2 id="reproducibility-notes">Reproducibility Notes</h2>
 <ul>
 <li>Same input file, flags, and weights, same output — every export is deterministic down to the byte. Re-running a command reproduces its tensors and labels exactly.</li>
-<li>Keep each <code>*.meta.json</code> next to its tensor files. It records the sources, filters, label policy, and value scale, which is the difference between a model run you can trace and one you can only guess at.</li>
+<li>Keep each <code>*.manifest.json</code> next to its exported artifacts. It records the exporter, CRTK version, optional git commit, command-line argv, input/output/weights SHA-256 checksums, and exporter metadata such as label policy and row counts. Legacy <code>*.meta.json</code> files still carry format-specific tensor encoding details for LC0/classifier exports.</li>
+<li>Add <code>--row-hashes</code> to <code>record dataset npy|lc0|classifier</code> and <code>record export training-jsonl|puzzle-jsonl|puzzle-elo-jsonl</code> when you need row-level auditability. It writes a sibling <code>.rowhashes.txt</code> sidecar with one <code>sha256(raw-record-json-v1)</code> digest per emitted logical row, and the manifest records and hashes that sidecar as an output artifact.</li>
 <li>The <code>.npy</code> files are portable NumPy arrays. For framework-specific shards (PyTorch <code>.pt</code>, TFRecord, and the like), load them in your training stack and re-save in the native format — crtk stays framework-agnostic on purpose rather than guessing which one you use.</li>
 </ul>
 <h2 id="related-pages">Related Pages</h2>

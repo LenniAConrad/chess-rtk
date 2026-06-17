@@ -1,0 +1,177 @@
+{
+  "$id": "crtk.review.study_unit.v1",
+  "title": "ChessRTK review study-unit JSONL row",
+  "description": "One drillable study unit emitted from a reviewed mistake row. It carries review provenance, the pre-move parent FEN, the best-line child FEN, refutation moves, grounded tags, reproducibility metadata, and deterministic difficulty.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "id",
+    "game_id",
+    "source",
+    "event",
+    "white",
+    "black",
+    "ply",
+    "move_number",
+    "color",
+    "parent_fen",
+    "position_fen",
+    "played_uci",
+    "played_san",
+    "best_uci",
+    "best_san",
+    "refutation_line",
+    "mistake_category",
+    "mistake_motif",
+    "recommended_action",
+    "severity",
+    "cp_loss",
+    "wdl_loss",
+    "difficulty",
+    "tags",
+    "repro"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "crtk.review.study_unit.v1"
+    },
+    "id": {
+      "type": "string"
+    },
+    "game_id": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "event": {
+      "type": ["string", "null"]
+    },
+    "white": {
+      "type": ["string", "null"]
+    },
+    "black": {
+      "type": ["string", "null"]
+    },
+    "ply": {
+      "type": "integer"
+    },
+    "move_number": {
+      "type": "integer"
+    },
+    "color": {
+      "type": "string",
+      "enum": ["white", "black"]
+    },
+    "parent_fen": {
+      "type": "string"
+    },
+    "position_fen": {
+      "type": "string"
+    },
+    "played_uci": {
+      "type": "string"
+    },
+    "played_san": {
+      "type": "string"
+    },
+    "best_uci": {
+      "type": "string"
+    },
+    "best_san": {
+      "type": "string"
+    },
+    "refutation_line": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "mistake_category": {
+      "type": "string",
+      "enum": ["mistake", "blunder"]
+    },
+    "mistake_motif": {
+      "type": ["string", "null"]
+    },
+    "recommended_action": {
+      "type": "string",
+      "const": "drill_puzzle"
+    },
+    "severity": {
+      "type": "number"
+    },
+    "cp_loss": {
+      "type": "integer"
+    },
+    "wdl_loss": {
+      "type": ["number", "null"]
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": ["easy", "medium", "hard"]
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "repro": {
+      "$ref": "#/$defs/Repro"
+    }
+  },
+  "$defs": {
+    "Repro": {
+      "type": "object",
+      "required": [
+        "engine",
+        "protocol_path",
+        "max_nodes",
+        "max_duration_ms",
+        "multipv",
+        "threads",
+        "hash",
+        "search_mode",
+        "crtk_version",
+        "deterministic"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "engine": {
+          "type": "string"
+        },
+        "protocol_path": {
+          "type": ["string", "null"]
+        },
+        "max_nodes": {
+          "type": "integer"
+        },
+        "max_duration_ms": {
+          "type": "integer"
+        },
+        "multipv": {
+          "type": "integer"
+        },
+        "threads": {
+          "type": "integer"
+        },
+        "hash": {
+          "type": "integer"
+        },
+        "search_mode": {
+          "type": "string",
+          "enum": ["offline", "uci"]
+        },
+        "crtk_version": {
+          "type": "string"
+        },
+        "deterministic": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

@@ -1,6 +1,8 @@
 package application.cli;
 
 import static application.cli.Constants.CMD_GUI;
+import static application.cli.Constants.CMD_REVIEW;
+import static application.cli.Constants.CMD_SERVE;
 import static application.cli.Constants.CMD_WORKBENCH;
 
 import java.util.List;
@@ -34,8 +36,19 @@ import application.cli.command.PositionCommand;
 import application.cli.command.PositionDescribeCommand;
 import application.cli.command.PuzzleTagsCommand;
 import application.cli.command.PuzzleTextCommand;
+import application.cli.command.DatasetAuditCommand;
+import application.cli.command.DatasetDiffCommand;
+import application.cli.command.DatasetVerifyCommand;
+import application.cli.command.PgnStoreCommand;
 import application.cli.command.RecordAnalysisDeltaCommand;
+import application.cli.command.RecordAuditSplitCommand;
 import application.cli.command.RecordCommands;
+import application.cli.command.RecordDedupeCommand;
+import application.cli.command.RecordSplitCommand;
+import application.cli.command.RecordValidateCommand;
+import application.cli.command.ReviewCommand;
+import application.cli.command.SchemaCommand;
+import application.cli.command.ServeCommand;
 import application.cli.command.StatsCommand;
 import application.cli.command.TagTextCommand;
 import application.cli.command.TagsCommand;
@@ -147,12 +160,26 @@ public final class CliRegistry {
 						+ "candidate configuration against a baseline at an equal per-move budget over varied "
 						+ "openings, then report the score and a point Elo estimate.")
 				.example("crtk gauntlet --a all --b none --nodes 3000 --openings 8")
-				.example("crtk gauntlet --searchA mcts --searchB alpha-beta --movetime 200 --workers 4")
+				.example("crtk gauntlet --searchA mcts --evalA cnn --searchB alpha-beta --movetime 200 --workers 4")
 				.related("engine gauntlet"));
 		root.add(positionGroup());
 		root.add(bookGroup());
 		root.add(puzzleGroup());
+		root.add(reviewGroup());
 		root.add(configGroup());
+		root.add(schemaGroup());
+		root.add(pgnGroup());
+		root.add(datasetGroup());
+		root.add(CliCommand.leaf(CMD_SERVE, "Start a localhost-only JSON-RPC daemon",
+				ServeCommand::runServe)
+				.detailHelpKey(CMD_SERVE)
+				.usage("[options]")
+				.about("Start a local HTTP JSON-RPC wrapper over the existing CLI dispatcher for agents "
+						+ "and editor integrations. The server binds only to loopback addresses and exposes "
+						+ "/rpc, /catalog, and /health.")
+				.example("crtk serve --port 8787")
+				.example("curl http://127.0.0.1:8787/catalog")
+				.related("help --json"));
 		root.add(CliCommand.leaf(CMD_WORKBENCH, "Launch the native command and analysis workbench",
                 LaunchCommand::runWorkbench)
 				.detailHelpKey(CMD_WORKBENCH)
@@ -168,7 +195,8 @@ public final class CliRegistry {
 				.usage("[options]")
 				.about("Run environment and configuration diagnostics before longer workflows.")
 				.example("crtk doctor")
-				.example("crtk doctor --strict"));
+				.example("crtk doctor --strict")
+				.example("crtk doctor --json"));
 		root.add(CliCommand.leaf("clean", "Delete session cache/logs", CleanCommand::runClean)
 				.detailHelpKey("clean")
 				.usage("[options]")
@@ -188,6 +216,35 @@ public final class CliRegistry {
 				.example("crtk version")
 				.example("crtk version --json"));
 		return root;
+	}
+
+	/**
+	 * Builds the review command group.
+	 *
+	 * @return review group
+	 */
+	private static CliCommand reviewGroup() {
+		CliCommand review = CliCommand.group(CMD_REVIEW,
+				"Review PGN games and emit study-ready JSONL")
+				.detailHelpKey(CMD_REVIEW)
+				.usage("<action> [options]")
+				.about("Deterministic game-review workflows over PGN inputs and the published "
+						+ "crtk.review.ply.v1 row contract.")
+				.example("crtk review game --pgn games.pgn --max-nodes 50000")
+				.example("crtk review game --pgn games.pgn --offline --output dump/games.review.jsonl");
+		review.add(CliCommand.leaf("game",
+				"Review PGN games as crtk.review.ply.v1 JSONL",
+				ReviewCommand::runGame)
+				.detailHelpKey("review game")
+				.usage("[options]")
+				.about("Reads PGN mainlines, runs bounded external-UCI review by default or "
+						+ "deterministic offline alpha-beta with --offline, and writes one "
+						+ "crtk.review.ply.v1 row per analyzed ply. Use --to-study to also "
+						+ "emit crtk.review.study_unit.v1 JSONL and Record JSON for drillable mistakes.")
+				.example("crtk review game --pgn games.pgn --protocol-path config/default.engine.toml --max-nodes 50000")
+				.example("crtk review game --pgn games.pgn --offline --depth 2 --max-nodes 25000")
+				.example("crtk review game --pgn games.pgn --to-study --study-output dump/games.study.jsonl"));
+		return review;
 	}
 
 	/**
@@ -297,6 +354,55 @@ public final class CliRegistry {
 				.detailHelpKey("record analysis-delta")
 				.usage("[options]")
 				.example("crtk record analysis-delta --input merged.json"));
+		records.add(CliCommand.leaf("dedupe", "Remove duplicate record rows before split/export",
+				RecordDedupeCommand::runDedupe)
+				.detailHelpKey("record dedupe")
+				.alias("dedup")
+				.usage("[options]")
+				.about("Stream a record file into a unique JSONL file using a deterministic key. "
+						+ "Default key is position-signature: canonical FEN with halfmove/fullmove "
+						+ "counters stripped. Use fen-exact to keep move counters significant or "
+						+ "row-hash to dedupe by canonical full-row JSON. Keep policy is first or "
+						+ "last; highest-depth is reserved until analysis depth extraction is pinned.")
+				.example("crtk record dedupe --input dump/run.json --output dump/unique.jsonl")
+				.example("crtk record dedup --input dump/run.json --output dump/unique.jsonl "
+						+ "--key row-hash --keep last"));
+		records.add(CliCommand.leaf("split", "Deterministic group-aware train/val/test split",
+				RecordSplitCommand::runSplit)
+				.detailHelpKey("record split")
+				.usage("[options]")
+				.about("Stream a record file into named splits using a deterministic hash of "
+						+ "(seed, group key). Group key is the canonical FEN of each record's "
+						+ "position with halfmove/fullmove counters stripped, so transpositions "
+						+ "of the same position can never straddle splits. Output is one JSONL "
+						+ "file per split plus a crtk.dataset.manifest.v1 sidecar. Use "
+						+ "--row-hashes to emit one hash per output row for audit tooling.")
+				.example("crtk record split --input dump/run.json --output dump/run "
+						+ "--split 70:15:15 --seed 1")
+				.example("crtk record split --input dump/run.json --output dump/run "
+						+ "--split 80:10:10 --seed 42 --split-by fen --row-hashes"));
+		records.add(CliCommand.leaf("audit-split", "Detect position leakage across record splits",
+				RecordAuditSplitCommand::runAuditSplit)
+				.detailHelpKey("record audit-split")
+				.usage("[options]")
+				.about("Read existing split JSONL/record files and fail if any position group "
+						+ "appears in more than one split. The default grouping is the same "
+						+ "counter-insensitive FEN identity used by `record split`, so this is the "
+						+ "read-only leakage proof for train/val/test datasets.")
+				.example("crtk record audit-split --splits dump/run.train.jsonl,dump/run.val.jsonl,dump/run.test.jsonl")
+				.example("crtk record audit-split --splits train.jsonl,val.jsonl --split-by fen"));
+		records.add(CliCommand.leaf("validate", "Fail-loud validation of a record file",
+				RecordValidateCommand::runValidate)
+				.detailHelpKey("record validate")
+				.usage("[options]")
+				.about("Walk a .record JSON or JSONL file and report every malformed record with field-"
+						+ "level diagnostics. Replaces the silent-drop tolerance of Record.fromJson for "
+						+ "CI and ingest workflows. Use --strict to stop at the first error; --max-errors "
+						+ "caps the number of issues printed in tolerant mode (default 50). Exits 3 on "
+						+ "any validation failure.")
+				.example("crtk record validate --input dump/run.json")
+				.example("crtk record validate --input dump/run.jsonl --strict")
+				.example("crtk record validate --input dump/run.json --max-errors 5"));
 		records.add(CliCommand.leaf("plain", "Alias for `record export plain`", RecordCommands::runRecordToPlain)
 				.detailHelpKey("record export plain")
 				.usage("[options]")
@@ -592,9 +698,9 @@ public final class CliRegistry {
 						+ "candidate-perspective score and a point Elo estimate. Deterministic for a given seed; "
 						+ "use `--json` for a single machine-readable summary.")
 				.example("crtk engine gauntlet --a all --b none --nodes 3000 --openings 8")
-				.example("crtk engine gauntlet --searchA mcts --searchB alpha-beta --movetime 200 --workers 4")
+				.example("crtk engine gauntlet --searchA mcts --evalA cnn --searchB alpha-beta --movetime 200 --workers 4")
 				.example("crtk engine gauntlet --engineB /usr/bin/stockfish --movetimeA 200 --movetimeB 50 --openings 20")
-				.example("crtk engine gauntlet --evalA nnue --evalB classical --openings 50 --seed 42 --json"));
+				.example("crtk engine gauntlet --evalA otis --searchA mcts --evalB classical --openings 50 --seed 42 --json"));
 		engine.add(CliCommand.leaf("search", "Run a PUCT search and print root-move statistics",
 				EngineSearchCommand::runSearch)
 				.detailHelpKey("engine search")
@@ -689,11 +795,12 @@ public final class CliRegistry {
 				.detailHelpKey("position describe")
 				.alias("text")
 				.usage("[options] [FEN]")
-				.about("Builds a shared structured position-description input and renders it with a deterministic classical generator. The T5 path is accepted for configuration checks but remains unavailable until trained weights exist.")
+				.about("Builds a shared structured position-description input and renders it with a deterministic classical generator. Use --audience for stable preset defaults, or --facts-only with JSON/JSONL for the machine-readable facts without prose. The T5 path lives on fen text and puzzle text; position describe is classical-only.")
 				.example("crtk position describe --fen \"<FEN>\" --detail normal")
 				.example("crtk position describe --input positions.txt --format jsonl")
 				.example("crtk position describe --input positions.txt --format training-jsonl")
-				.example("crtk position describe --fen \"<FEN>\" --engine t5 --model models/t5-position.bin"));
+				.example("crtk position describe --input positions.txt --format jsonl --facts-only")
+				.example("crtk position describe --fen \"<FEN>\" --audience ml"));
 		return position;
 	}
 
@@ -760,6 +867,163 @@ public final class CliRegistry {
 	}
 
 	/**
+	 * Builds the dataset (verification / audit) command group.
+	 *
+	 * @return dataset group
+	 */
+	private static CliCommand datasetGroup() {
+		CliCommand dataset = CliCommand.group("dataset",
+				"Verify and audit exported datasets via their crtk.dataset.manifest.v1 sidecars")
+				.detailHelpKey("dataset")
+				.usage("<action> [options] [args]")
+				.about("Operates on the manifest sidecars every record exporter now emits. Backs the "
+						+ "Theme I reproducibility surface: a manifest makes a claim; verify either "
+						+ "confirms it or names the exact artifact and section that drifted.")
+				.example("crtk dataset verify --input dump/run.dataset.manifest.json");
+		dataset.add(CliCommand.leaf("verify", "Re-hash every artifact referenced by a manifest",
+				DatasetVerifyCommand::runVerify)
+				.detailHelpKey("dataset verify")
+				.usage("[options]")
+				.about("Re-hashes every input/output/weights artifact recorded in the manifest. Exits "
+						+ "0 on a clean verification, 3 on drift/missing/unreadable artifacts or "
+						+ "schema breakage, 2 on argument errors. Per-artifact diagnostics print on "
+						+ "stderr; a single agent-consumable summary prints on stdout.")
+				.example("crtk dataset verify --input dump/run.dataset.manifest.json"));
+		dataset.add(CliCommand.leaf("audit", "Recursively audit every manifest under a directory",
+				DatasetAuditCommand::runAudit)
+				.detailHelpKey("dataset audit")
+				.usage("[options]")
+				.about("Walks --root for every *.manifest.json sidecar and runs the verifier over "
+						+ "each in deterministic path order. Exits 0 on a clean audit, 3 when any "
+						+ "manifest fails verification, 2 on argument errors. Per-manifest "
+						+ "diagnostics print on stderr; a single aggregate summary prints on stdout.")
+				.example("crtk dataset audit --root dump/")
+				.example("crtk dataset audit --root dump/ --limit 100"));
+		dataset.add(CliCommand.leaf("diff", "Explain why two manifests differ",
+				DatasetDiffCommand::runDiff)
+				.detailHelpKey("dataset diff")
+				.usage("[options]")
+				.about("Compares two crtk.dataset.manifest.v1 sidecars and explains where they "
+						+ "disagree across four categories: envelope (identity fields), argv, and "
+						+ "the three artifact sections. Exits 0 on every successful comparison "
+						+ "(the JSON output says whether they matched); --strict converts a "
+						+ "'they differ' comparison into exit 3 for CI scripts that want "
+						+ "failure-on-diff. Exits 3 on parse failure of either manifest, 2 on "
+						+ "argument errors.")
+				.example("crtk dataset diff --left A.manifest.json --right B.manifest.json")
+				.example("crtk dataset diff --left A.manifest.json --right B.manifest.json --strict"));
+		return dataset;
+	}
+
+	/**
+	 * Builds the pgn (local PGN game store) command group.
+	 *
+	 * @return pgn group
+	 */
+	private static CliCommand pgnGroup() {
+		CliCommand pgn = CliCommand.group("pgn",
+				"Store, query, and inspect a local PGN game corpus")
+				.detailHelpKey("pgn")
+				.usage("<action> [options] [args]")
+				.about("Local PGN game store: append-safe JSONL backing, gameId + position sidecar "
+						+ "indexes, idempotent on a deterministic canonical gameId, FEN-verified "
+						+ "lookup. Backs the Theme A study foundation.")
+				.example("crtk pgn import --input games.pgn --store dump/pgn-store")
+				.example("crtk pgn stats --store dump/pgn-store")
+				.example("crtk pgn find --fen \"<FEN>\" --store dump/pgn-store");
+		pgn.add(CliCommand.leaf("import", "Import games from a PGN file (idempotent)",
+				PgnStoreCommand::runImport)
+				.detailHelpKey("pgn import")
+				.usage("[options]")
+				.about("Import every game in a PGN file. Identity is keyed on a deterministic SHA-256 "
+						+ "of the canonical headers and mainline so a second import of the same game "
+						+ "is a no-op. Emits a JSON ingest report {file,games_parsed,imported,duplicates,malformed}.")
+				.example("crtk pgn import --input games.pgn"));
+		pgn.add(CliCommand.leaf("show", "Show one stored game by id",
+				PgnStoreCommand::runShow)
+				.detailHelpKey("pgn show")
+				.usage("[options]")
+				.about("Render one stored game. --format pgn emits a single PGN block; --format json "
+						+ "emits a single JSON object with headers, the stored PGN blob, and tombstone state.")
+				.example("crtk pgn show --gameId <id>")
+				.example("crtk pgn show --gameId <id> --format json"));
+		pgn.add(CliCommand.leaf("find", "Find games that pass through a given FEN",
+				PgnStoreCommand::runFind)
+				.detailHelpKey("pgn find")
+				.usage("[options]")
+				.about("Returns a JSON match list of stored games whose mainline contains a position "
+						+ "structurally equal to the given FEN. Internally matches by FNV-1a "
+						+ "signature, then verifies on full FEN equality before returning.")
+				.example("crtk pgn find --fen \"<FEN>\""));
+		pgn.add(CliCommand.leaf("stats", "Summarize the store",
+				PgnStoreCommand::runStats)
+				.detailHelpKey("pgn stats")
+				.usage("[options]")
+				.about("Emits a single JSON object describing the store: root, schema versions, game "
+						+ "and position observation counts, and pending tombstones.")
+				.example("crtk pgn stats"));
+		pgn.add(CliCommand.leaf("delete", "Tombstone one stored game by id (mutating)",
+				PgnStoreCommand::runDelete)
+				.detailHelpKey("pgn delete")
+				.usage("[options]")
+				.about("Tombstones a stored game so subsequent reads hide it. The bytes remain in the "
+						+ "games file until `crtk pgn compact` runs. Exits 3 when no game with the "
+						+ "given id is present in the store.")
+				.example("crtk pgn delete --gameId <id>"));
+		pgn.add(CliCommand.leaf("compact", "Drop tombstoned games and rebuild indexes (mutating)",
+				PgnStoreCommand::runCompact)
+				.detailHelpKey("pgn compact")
+				.usage("[options]")
+				.about("Physically removes every tombstoned row from games.jsonl, rebuilds the "
+						+ "gameId and position sidecar indexes, and atomically replaces the on-disk "
+						+ "files. No-op when no pending tombstones exist. Idempotent; running it "
+						+ "twice in a row is safe.")
+				.example("crtk pgn compact"));
+		return pgn;
+	}
+
+	/**
+	 * Builds the schema command group.
+	 *
+	 * @return schema group
+	 */
+	private static CliCommand schemaGroup() {
+		CliCommand schema = CliCommand.group("schema",
+				"Discover and validate against published JSON Schemas")
+				.detailHelpKey("schema")
+				.usage("<action> [options] [args]")
+				.about("Catalog the JSON Schemas crtk publishes for its on-disk and machine-readable "
+						+ "contracts, and validate documents against them. Backs the Theme F discovery "
+						+ "surface that agents, SDKs, and CI use to pin to a stable contract.")
+				.example("crtk schema list")
+				.example("crtk schema show crtk.cli.catalog.v1")
+				.example("crtk help --json | crtk schema validate crtk.cli.catalog.v1");
+		schema.add(CliCommand.leaf("list", "List registered schema names",
+				SchemaCommand::runList)
+				.detailHelpKey("schema list")
+				.usage("")
+				.about("Print every registered schema name in deterministic registry order.")
+				.example("crtk schema list"));
+		schema.add(CliCommand.leaf("show", "Print a registered schema's source text",
+				SchemaCommand::runShow)
+				.detailHelpKey("schema show")
+				.usage("<name>")
+				.about("Print the JSON source of one registered schema, suitable for piping into a file or "
+						+ "another tool.")
+				.example("crtk schema show crtk.cli.catalog.v1"));
+		schema.add(CliCommand.leaf("validate", "Validate a JSON document against a registered schema",
+				SchemaCommand::runValidate)
+				.detailHelpKey("schema validate")
+				.usage("<name> [--input PATH]")
+				.about("Validate a JSON document (read from --input PATH or standard input) against the "
+						+ "named schema. Prints 'ok' on success or one violation per line on stderr. Exits "
+						+ "non-zero with code 3 when the document fails validation.")
+				.example("crtk schema validate crtk.cli.catalog.v1 --input catalog.json")
+				.example("crtk help --json | crtk schema validate crtk.cli.catalog.v1"));
+		return schema;
+	}
+
+	/**
 	 * Builds the config command group.
 	 *
 	 * @return config group
@@ -771,12 +1035,10 @@ public final class CliRegistry {
 				.about("Inspect resolved configuration values or validate the current config/protocol files.")
 				.example("crtk config show")
 				.example("crtk config validate");
-		config.add(CliCommand.leaf("show", "Print config values", argv -> {
-			argv.ensureConsumed();
-			ConfigCommand.runConfigShow();
-		})
-				.usage("")
-				.about("Print resolved configuration values used by the CLI."));
+		config.add(CliCommand.leaf("show", "Print config values", ConfigCommand::runConfigShow)
+				.usage("[--json]")
+				.about("Print resolved configuration values used by the CLI.")
+				.example("crtk config show --json"));
 		config.add(CliCommand.leaf("validate", "Validate config file", argv -> {
 			argv.ensureConsumed();
 			ConfigCommand.runConfigValidate();

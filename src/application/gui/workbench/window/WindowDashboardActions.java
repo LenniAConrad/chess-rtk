@@ -177,4 +177,20 @@ public final class WindowDashboardActions extends WindowHost implements Dashboar
             window.runArtifacts.openLog(job);
         }
     }
+
+    /**
+     * Re-pulls the session snapshot the dashboard renders.
+     */
+    @Override
+    public void refresh() {
+        window.dashboardPanel.sessionChanged(window.session);
+    }
+
+    /**
+     * Opens the shared session folder in the desktop shell.
+     */
+    @Override
+    public void openSessionFolder() {
+        window.runArtifacts.openLogsDirectory();
+    }
 }

@@ -404,7 +404,7 @@ public final class PlayPanel extends JPanel {
         this.resignButton = new HoldButton("Resign", () -> session.resign(), true);
         setOpaque(true);
         setBackground(Theme.BG);
-        setBorder(BorderFactory.createEmptyBorder(14, 14, 14, 14));
+        setBorder(Theme.pad(14));
         searchChips.setSelectedIndex(PlayPrefs.search().ordinal());
         networkChips.setSelectedIndex(PlayPrefs.network().ordinal());
         sideChips.setSelectedIndex(PlayPrefs.sideIndex());
@@ -718,7 +718,7 @@ public final class PlayPanel extends JPanel {
         tile.setOpaque(true);
         tile.setBackground(Theme.PANEL_SOLID);
         tile.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Theme.LINE),
+                Theme.lineBorder(Theme.LINE),
                 Theme.pad(Theme.SPACE_SM, Theme.SPACE_SM, Theme.SPACE_SM, Theme.SPACE_SM)));
         tile.add(label, BorderLayout.NORTH);
         tile.add(value, BorderLayout.CENTER);
@@ -801,8 +801,7 @@ public final class PlayPanel extends JPanel {
         row.setBackground(Theme.PANEL_SOLID);
         row.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(1, 1, 1, 1, Theme.LINE),
-                BorderFactory.createEmptyBorder(Theme.SPACE_SM, Theme.SPACE_SM,
-                        Theme.SPACE_SM, Theme.SPACE_SM)));
+                Theme.pad(Theme.SPACE_SM)));
         row.add(avatar, java.awt.BorderLayout.WEST);
         row.add(text, java.awt.BorderLayout.CENTER);
         row.add(material, java.awt.BorderLayout.EAST);
@@ -1736,7 +1735,7 @@ public final class PlayPanel extends JPanel {
         // Route through the shared panel-title helper so every panel heading
         // uses one sentence-case FONT_TITLE treatment; keep a small bottom gap.
         JLabel label = Theme.sectionTitle(text);
-        label.setBorder(BorderFactory.createEmptyBorder(0, 0, Theme.SPACE_XS, 0));
+        label.setBorder(Theme.pad(0, 0, Theme.SPACE_XS, 0));
         return label;
     }
 

@@ -2,6 +2,7 @@ package testing;
 
 import static testing.TestSupport.assertEquals;
 import static testing.TestSupport.assertSame;
+import static testing.TestSupport.assertThrows;
 import static testing.TestSupport.assertTrue;
 
 import chess.engine.Sprt;
@@ -193,21 +194,6 @@ public final class SprtRegressionTest {
         assertThrows(() -> Sprt.llr(new long[4], 0.0, 5.0), "short count array");
         assertThrows(() -> Sprt.llr(null, 0.0, 5.0), "missing count array");
         assertThrows(() -> Sprt.eloEstimate(new long[6]), "long count array");
-    }
-
-    /**
-     * Verifies an action fails with {@link IllegalArgumentException}.
-     *
-     * @param action action expected to throw
-     * @param label assertion label
-     */
-    private static void assertThrows(Runnable action, String label) {
-        try {
-            action.run();
-        } catch (IllegalArgumentException expected) {
-            return;
-        }
-        throw new AssertionError(label + ": expected IllegalArgumentException");
     }
 
     /**

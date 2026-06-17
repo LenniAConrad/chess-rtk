@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Review To Study | ChessRTK</title>
+  <meta name="description" content="The deterministic chess research toolkit — Review To Study.">
+  <link rel="icon" href="assets/logo/crtk-logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      var key = "crtk-theme";
+      var isTheme = function (value) { return value === "light" || value === "dark"; };
+      var urlTheme = "";
+      var stored = "";
+      try { urlTheme = new URLSearchParams(window.location.search).get("theme"); } catch (e) {}
+      try { stored = localStorage.getItem(key); } catch (e) {}
+      var theme = isTheme(urlTheme) ? urlTheme : (isTheme(stored) ? stored : "");
+      if (!theme) {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      if (isTheme(urlTheme)) {
+        try { localStorage.setItem(key, urlTheme); } catch (e) {}
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body class="is-doc">
+
+  <header class="topnav">
+    <div class="topnav-inner">
+      <a class="topnav-brand" href="index.html">
+        <img src="assets/logo/crtk-logo.svg" alt="" width="32" height="32">
+        <span>ChessRTK</span>
+      </a>
+      <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="topnav-links">
+        <a class="" href="getting-started.html">Get started</a>
+        <a class="" href="command-reference.html">Commands</a>
+        <a class="" href="workbench.html">Workbench</a>
+        <a class="" href="wiki-index.html">Docs</a>
+        <a class="" href="chessrtk-manual.pdf">Manual</a>
+        <a class="topnav-gh" href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="doc-shell">
+    <aside class="sidebar" id="sidebar">
+      <label class="search-label" for="doc-search">Search the docs</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search pages..." autocomplete="off">
+      <div id="search-results" class="search-results" hidden></div>
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="overview">Overview</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>Commands</h2>
+<a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="cli-command-guide.html" data-title="command guide">Command Guide</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+</section>
+<section class="nav-section"><h2>Desktop Workbench</h2>
+<a class="" href="workbench.html" data-title="workbench">Workbench</a>
+<a class="" href="workbench-design-guide.html" data-title="design guide">Design Guide</a>
+</section>
+<section class="nav-section"><h2>Engines &amp; Models</h2>
+<a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
+<a class="" href="lc0.html" data-title="lc0 networks">LC0 Networks</a>
+<a class="" href="gpu.html" data-title="gpu acceleration">GPU Acceleration</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="active" href="review-to-study.html" data-title="review to study">Review To Study</a>
+<a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
+<a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="ai-agents.html" data-title="ai agents &amp; automation">AI Agents &amp; Automation</a>
+</section>
+<section class="nav-section"><h2>Project</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="support.html" data-title="support">Support</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <main class="doc-main">
+      <article class="content">
+        <p class="content-kicker">Workflows</p>
+        <h1 id="review-to-study">Review To Study</h1>
+<p><code>crtk review game</code> turns a PGN mainline into two durable artifacts: a per-ply review stream and, when requested, study material for drillable mistakes. The command is meant to answer &quot;what did I get wrong, and what should I practice from this game?&quot; without adding a GUI-only review model or an ungrounded coach layer.</p>
+<h2 id="command">Command</h2>
+<p>External UCI review is the default. Use <code>--offline</code> only when you want the deterministic in-process alpha-beta path instead of a configured engine.</p>
+<pre><code class="language-bash">crtk review game \
+  --pgn games/rapid.pgn \
+  --protocol-path config/default.engine.toml \
+  --max-nodes 50000 \
+  --max-duration 3s \
+  --multipv 2 \
+  --threads 1 \
+  --hash 64 \
+  --to-study</code></pre>
+<p>The Workbench command builder has a <code>Review game</code> template that emits the same CLI path. It does not recompute verdicts in Swing; it previews and runs the real <code>crtk review game</code> command.</p>
+<h2 id="outputs">Outputs</h2>
+<p>With no output flags, paths are derived from the PGN stem under <code>dump/</code>.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Artifact</th>
+<th>Default path</th>
+<th>Schema or shape</th>
+<th>Purpose</th>
+</tr></thead><tbody>
+<tr>
+<td>Review rows</td>
+<td><code>dump/&lt;stem&gt;.review.jsonl</code></td>
+<td><code>crtk.review.ply.v1</code> JSONL</td>
+<td>One row per reviewed mainline ply</td>
+</tr>
+<tr>
+<td>Study units</td>
+<td><code>dump/&lt;stem&gt;.study.jsonl</code></td>
+<td><code>crtk.review.study_unit.v1</code> JSONL</td>
+<td>One row per drillable mistake or blunder</td>
+</tr>
+<tr>
+<td>Study records</td>
+<td><code>dump/&lt;stem&gt;.study.record.json</code></td>
+<td><code>crtk.record.v2</code> JSON array</td>
+<td>Existing Record-compatible puzzle handoff</td>
+</tr>
+</tbody></table></div>
+<p>Override paths with <code>--output</code>, <code>--study-output</code>, and <code>--record-output</code>.</p>
+<pre><code class="language-bash">crtk review game --pgn games/rapid.pgn --to-study \
+  --output dump/rapid.review.jsonl \
+  --study-output dump/rapid.study.jsonl \
+  --record-output dump/rapid.study.record.json</code></pre>
+<h2 id="review-rows">Review Rows</h2>
+<p>Every review row carries <code>schemaVersion: &quot;crtk.review.ply.v1&quot;</code>. The row includes game identity, PGN headers, ply number, pre-move FEN, played move, best move, eval before and after, centipawn or WDL loss, PV, grounded tag deltas, mistake category, recommended action, optional study-unit id, and a <code>repro</code> block.</p>
+<p>Rows are written as JSONL so long reviews can be streamed and diffed line by line. External UCI rows record <code>repro.deterministic: false</code>; offline rows record <code>true</code>.</p>
+<h2 id="study-units">Study Units</h2>
+<p><code>--to-study</code> converts rows whose <code>recommended_action</code> is <code>drill_puzzle</code> into <code>crtk.review.study_unit.v1</code> rows. The first slice intentionally emits only mistakes and blunders, not every inaccuracy.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Field</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>id</code></td>
+<td>Stable id derived from game id and ply</td>
+</tr>
+<tr>
+<td><code>parent_fen</code></td>
+<td>The pre-move FEN where the reviewed player made the mistake</td>
+</tr>
+<tr>
+<td><code>position_fen</code></td>
+<td>The FEN after applying the recommended best move</td>
+</tr>
+<tr>
+<td><code>played_uci</code> / <code>played_san</code></td>
+<td>The move from the game</td>
+</tr>
+<tr>
+<td><code>best_uci</code> / <code>best_san</code></td>
+<td>The refutation move to study</td>
+</tr>
+<tr>
+<td><code>refutation_line</code></td>
+<td>Capped best PV in UCI notation</td>
+</tr>
+<tr>
+<td><code>mistake_category</code></td>
+<td><code>mistake</code> or <code>blunder</code></td>
+</tr>
+<tr>
+<td><code>difficulty</code></td>
+<td>Deterministic coarse label: <code>easy</code>, <code>medium</code>, or <code>hard</code></td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td>Grounded review tags plus <code>META:</code> linkage fields</td>
+</tr>
+<tr>
+<td><code>repro</code></td>
+<td>Engine, protocol, budget, version, and determinism metadata</td>
+</tr>
+</tbody></table></div>
+<p>The review row&#x27;s <code>study_unit_id</code> is set only when <code>--to-study</code> is active and a matching study unit is emitted.</p>
+<h2 id="record-handoff">Record Handoff</h2>
+<p>The Record sidecar uses the existing <code>crtk.record.v2</code> shape so record, puzzle, mining, and publishing tools can read it without a new parser. For each study unit:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Record field</th>
+<th>Value</th>
+</tr></thead><tbody>
+<tr>
+<td><code>parent</code></td>
+<td>Same as <code>parent_fen</code></td>
+</tr>
+<tr>
+<td><code>position</code></td>
+<td>Same as <code>position_fen</code></td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>Review summary naming the played move and best move</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td>Study-unit tags, including <code>META: study_unit_id</code>, <code>META: review_game_id</code>, <code>META: review_ply</code>, <code>META: played_uci</code>, and <code>META: best_uci</code></td>
+</tr>
+<tr>
+<td><code>analysis</code></td>
+<td>Minimal UCI info line whose PV starts with the refutation</td>
+</tr>
+</tbody></table></div>
+<p>Record provenance is still stringly typed because <code>Record</code> does not yet have dedicated game-id and ply fields. Keep linkage in the <code>META:</code> tags until the store/schema layer grows first-class provenance fields.</p>
+<h2 id="validation">Validation</h2>
+<p>Use the schema commands to inspect the contracts:</p>
+<pre><code class="language-bash">crtk schema show crtk.review.ply.v1
+crtk schema show crtk.review.study_unit.v1
+crtk record validate --input dump/rapid.study.record.json --strict</code></pre>
+<p>The regression suite pins the JSON shapes with <code>ReviewRowSchemaRegressionTest</code> and the end-to-end fake-UCI review fixture in <code>ReviewCommandRegressionTest</code>.</p>
+<h2 id="boundaries">Boundaries</h2>
+<p>Review-to-study is not an accuracy score, not a prose coach, and not an SRS scheduler. It emits structured, reproducible artifacts. Later Workbench panels and spaced-repetition features should consume those artifacts instead of recomputing verdicts.</p>
+      </article>
+      <aside class="toc"><h2>On this page</h2>
+<a class="toc-h2" href="#command">Command</a>
+<a class="toc-h2" href="#outputs">Outputs</a>
+<a class="toc-h2" href="#review-rows">Review Rows</a>
+<a class="toc-h2" href="#study-units">Study Units</a>
+<a class="toc-h2" href="#record-handoff">Record Handoff</a>
+<a class="toc-h2" href="#validation">Validation</a>
+<a class="toc-h2" href="#boundaries">Boundaries</a></aside>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a class="footer-logo" href="index.html">
+          <img src="assets/logo/crtk-logo.svg" alt="" width="40" height="40">
+          <span>ChessRTK</span>
+        </a>
+        <p>The deterministic chess research toolkit. Free, open-source, and built on one shared Java chess core.</p>
+        <p class="footer-license">Licensed under GPL-3.0-only.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col"><h3>Documentation</h3><ul>
+          <li><a href="getting-started.html">Getting Started</a></li>
+          <li><a href="command-reference.html">Command Reference</a></li>
+          <li><a href="configuration.html">Configuration</a></li>
+          <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          <li><a href="chessrtk-manual.pdf">Manual (PDF)</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Workflows</h3><ul>
+          <li><a href="mining.html">Puzzle Mining</a></li>
+          <li><a href="datasets.html">ML Datasets</a></li>
+          <li><a href="piece-tags.html">Tagging</a></li>
+          <li><a href="book-publishing.html">Book Publishing</a></li>
+          <li><a href="ai-agents.html">AI Agents</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Project</h3><ul>
+          <li><a href="architecture.html">Architecture</a></li>
+          <li><a href="quality-and-testing.html">Quality &amp; Testing</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk/issues" target="_blank" rel="noopener">Issues</a></li>
+        </ul></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; ChessRTK contributors &middot; GPL-3.0-only</span>
+      <span>Documentation generated from the repository <a href="wiki-index.html">wiki</a>.</span>
+    </div>
+  </footer>
+
+</body>
+</html>

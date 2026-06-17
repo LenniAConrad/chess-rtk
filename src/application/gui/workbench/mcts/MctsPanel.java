@@ -33,6 +33,7 @@ import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import application.gui.workbench.ui.SurfacePanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
 import javax.swing.JSplitPane;
@@ -46,7 +47,7 @@ import javax.swing.table.TableColumnModel;
 /**
  * First dedicated Swing-native MCTS inspection tab.
  */
-public final class MctsPanel extends JPanel implements MctsSession.Listener {
+public final class MctsPanel extends SurfacePanel implements MctsSession.Listener {
 
     /**
      * Serialization identifier for Swing component persistence.
@@ -198,12 +199,10 @@ public final class MctsPanel extends JPanel implements MctsSession.Listener {
      * @param currentFen current board FEN supplier
      */
     public MctsPanel(MctsSession session, Supplier<String> currentFen) {
-        super(new BorderLayout(0, 0));
+        super(new BorderLayout(0, 0), Theme.Surface.BACKDROP);
         this.session = session;
         this.currentFen = currentFen;
         this.stopButton = new HoldButton("Stop", () -> session.stop(), true);
-        setOpaque(true);
-        setBackground(Theme.BG);
         configureControls();
         add(buildToolbar(), BorderLayout.NORTH);
         add(buildBody(), BorderLayout.CENTER);

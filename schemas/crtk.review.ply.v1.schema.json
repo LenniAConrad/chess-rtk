@@ -1,0 +1,253 @@
+{
+  "$id": "crtk.review.ply.v1",
+  "title": "ChessRTK game-review ply JSONL row",
+  "description": "One reviewed mainline ply produced by the review router. The row is flat for JSONL consumers, version-stamped with schemaVersion, and carries engine scores, classifier verdicts, tag deltas, and reproducibility metadata.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "game_id",
+    "source",
+    "event",
+    "white",
+    "black",
+    "eco",
+    "opening",
+    "ply",
+    "move_number",
+    "color",
+    "fen",
+    "played_uci",
+    "played_san",
+    "best_uci",
+    "best_san",
+    "eval_before",
+    "eval_after",
+    "cp_loss",
+    "wdl_loss",
+    "pv_best",
+    "second_best_cp",
+    "is_only_move_position",
+    "tags_before",
+    "tags_after",
+    "tags_delta",
+    "game_phase",
+    "mistake_category",
+    "mistake_motif",
+    "severity",
+    "recommended_action",
+    "study_unit_id",
+    "repro"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "crtk.review.ply.v1"
+    },
+    "game_id": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "event": {
+      "type": ["string", "null"]
+    },
+    "white": {
+      "type": ["string", "null"]
+    },
+    "black": {
+      "type": ["string", "null"]
+    },
+    "eco": {
+      "type": ["string", "null"]
+    },
+    "opening": {
+      "type": ["string", "null"]
+    },
+    "ply": {
+      "type": "integer"
+    },
+    "move_number": {
+      "type": "integer"
+    },
+    "color": {
+      "type": "string",
+      "enum": ["white", "black"]
+    },
+    "fen": {
+      "type": "string"
+    },
+    "played_uci": {
+      "type": "string"
+    },
+    "played_san": {
+      "type": "string"
+    },
+    "best_uci": {
+      "type": ["string", "null"]
+    },
+    "best_san": {
+      "type": ["string", "null"]
+    },
+    "eval_before": {
+      "$ref": "#/$defs/Eval"
+    },
+    "eval_after": {
+      "$ref": "#/$defs/Eval"
+    },
+    "cp_loss": {
+      "type": "integer"
+    },
+    "wdl_loss": {
+      "type": ["number", "null"]
+    },
+    "pv_best": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "second_best_cp": {
+      "type": ["integer", "null"]
+    },
+    "is_only_move_position": {
+      "type": "boolean"
+    },
+    "tags_before": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tags_after": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tags_delta": {
+      "$ref": "#/$defs/TagsDelta"
+    },
+    "game_phase": {
+      "type": ["string", "null"]
+    },
+    "mistake_category": {
+      "type": "string",
+      "enum": ["ok", "inaccuracy", "mistake", "blunder"]
+    },
+    "mistake_motif": {
+      "type": ["string", "null"]
+    },
+    "severity": {
+      "type": "number"
+    },
+    "recommended_action": {
+      "type": "string",
+      "enum": ["drill_puzzle", "repertoire_note", "describe_study", "none"]
+    },
+    "study_unit_id": {
+      "type": ["string", "null"]
+    },
+    "repro": {
+      "$ref": "#/$defs/Repro"
+    }
+  },
+  "$defs": {
+    "Eval": {
+      "type": "object",
+      "required": ["cp", "mate", "wdl"],
+      "additionalProperties": false,
+      "properties": {
+        "cp": {
+          "type": ["integer", "null"]
+        },
+        "mate": {
+          "type": ["integer", "null"]
+        },
+        "wdl": {
+          "$ref": "#/$defs/Wdl"
+        }
+      }
+    },
+    "Wdl": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "integer"
+      }
+    },
+    "TagsDelta": {
+      "type": "object",
+      "required": ["added", "removed", "changed"],
+      "additionalProperties": false,
+      "properties": {
+        "added": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "removed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "changed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "Repro": {
+      "type": "object",
+      "required": [
+        "engine",
+        "protocol_path",
+        "max_nodes",
+        "max_duration_ms",
+        "multipv",
+        "threads",
+        "hash",
+        "search_mode",
+        "crtk_version",
+        "deterministic"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "engine": {
+          "type": "string"
+        },
+        "protocol_path": {
+          "type": ["string", "null"]
+        },
+        "max_nodes": {
+          "type": "integer"
+        },
+        "max_duration_ms": {
+          "type": "integer"
+        },
+        "multipv": {
+          "type": "integer"
+        },
+        "threads": {
+          "type": "integer"
+        },
+        "hash": {
+          "type": "integer"
+        },
+        "search_mode": {
+          "type": "string"
+        },
+        "crtk_version": {
+          "type": "string"
+        },
+        "deterministic": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

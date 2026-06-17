@@ -111,4 +111,14 @@ public interface DashboardActions {
      * @param job job whose log should be opened
      */
     public void openJobLog(Job job);
+
+    /**
+     * Re-pulls the session snapshot the dashboard renders.
+     */
+    public void refresh();
+
+    /**
+     * Opens the shared session folder in the desktop shell.
+     */
+    public void openSessionFolder();
 }

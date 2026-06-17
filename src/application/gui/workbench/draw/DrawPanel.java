@@ -10,7 +10,6 @@ import application.gui.workbench.ui.HoldButton;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.Ui;
-import chess.core.Field;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
@@ -18,7 +17,6 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -46,7 +44,6 @@ import javax.swing.JSlider;
 import javax.swing.JSpinner;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
-import javax.swing.ListCellRenderer;
 import javax.swing.ListSelectionModel;
 import javax.swing.SpinnerNumberModel;
 
@@ -166,16 +163,6 @@ public final class DrawPanel extends JPanel {
     private static final int ANNOTATION_SWATCH_SIZE = 14;
 
     /**
-     * Soft light-theme annotation row selection.
-     */
-    private static final Color ANNOTATION_SELECTION_LIGHT = new Color(0xEAF4FF);
-
-    /**
-     * Soft dark-theme annotation row selection.
-     */
-    private static final Color ANNOTATION_SELECTION_DARK = new Color(0x253A52);
-
-    /**
      * Selection marker for a custom color outside the preset swatch list.
      */
     private static final int CUSTOM_SWATCH_INDEX = -1;
@@ -228,27 +215,27 @@ public final class DrawPanel extends JPanel {
     /**
      * Active base color before opacity is applied.
      */
-    private Color baseColor = opaque(MarkupBrush.defaultBrush().displayColor());
+    private Color baseColor = DrawColorFormat.opaque(MarkupBrush.defaultBrush().displayColor());
 
     /**
      * Active fill color before opacity is applied.
      */
-    private Color fillBaseColor = opaque(MarkupBrush.defaultBrush().displayColor());
+    private Color fillBaseColor = DrawColorFormat.opaque(MarkupBrush.defaultBrush().displayColor());
 
     /**
      * Active border color before opacity is applied.
      */
-    private Color borderBaseColor = opaque(MarkupBrush.defaultBrush().displayBorderColor());
+    private Color borderBaseColor = DrawColorFormat.opaque(MarkupBrush.defaultBrush().displayBorderColor());
 
     /**
      * Active board light-square color.
      */
-    private Color boardLightBaseColor = opaque(Theme.BOARD_LIGHT);
+    private Color boardLightBaseColor = DrawColorFormat.opaque(Theme.BOARD_LIGHT);
 
     /**
      * Active board dark-square color.
      */
-    private Color boardDarkBaseColor = opaque(Theme.BOARD_DARK);
+    private Color boardDarkBaseColor = DrawColorFormat.opaque(Theme.BOARD_DARK);
 
     /**
      * Active swatch index.
@@ -404,12 +391,12 @@ public final class DrawPanel extends JPanel {
     /**
      * Annotation list model.
      */
-    private final DefaultListModel<AnnotationRow> annotationListModel = new DefaultListModel<>();
+    private final DefaultListModel<DrawAnnotationRow> annotationListModel = new DefaultListModel<>();
 
     /**
      * Annotation list.
      */
-    private final JList<AnnotationRow> annotationList = new JList<>(annotationListModel);
+    private final JList<DrawAnnotationRow> annotationList = new JList<>(annotationListModel);
 
     /**
      * Annotation list card holder.
@@ -460,8 +447,8 @@ public final class DrawPanel extends JPanel {
         this.summaryChanged = summaryChanged == null ? () -> {
             // optional callback
         } : summaryChanged;
-        boardLightBaseColor = opaque(board.boardLightColor());
-        boardDarkBaseColor = opaque(board.boardDarkColor());
+        boardLightBaseColor = DrawColorFormat.opaque(board.boardLightColor());
+        boardDarkBaseColor = DrawColorFormat.opaque(board.boardDarkColor());
         baseColor = fillBaseColor;
         setOpaque(true);
         setBackground(Theme.PANEL_SOLID);
@@ -569,7 +556,7 @@ public final class DrawPanel extends JPanel {
 
         JPanel row = Ui.transparentPanel(new FlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
         for (MarkupBrush brush : MarkupBrush.presetBrushes()) {
-            addSwatch(row, brush.name(), opaque(brush.displayColor()));
+            addSwatch(row, brush.name(), DrawColorFormat.opaque(brush.displayColor()));
         }
         addSwatch(row, "purple", new Color(0x8B, 0x5C, 0xD6));
         addSwatch(row, "cyan", new Color(0x00, 0x9F, 0xB7));
@@ -660,8 +647,8 @@ public final class DrawPanel extends JPanel {
         Theme.list(annotationList);
         annotationList.setFont(Theme.font(Theme.FONT_BODY, Font.PLAIN));
         annotationList.setFixedCellHeight(ANNOTATION_ROW_HEIGHT);
-        annotationList.setCellRenderer(new AnnotationRenderer());
-        annotationList.setSelectionBackground(annotationSelectionBackground());
+        annotationList.setCellRenderer(new DrawAnnotationRenderer(ANNOTATION_ROW_HEIGHT, ANNOTATION_SWATCH_SIZE));
+        annotationList.setSelectionBackground(Theme.SELECTION_SOLID);
         annotationList.setSelectionForeground(Theme.TEXT);
         annotationList.setBorder(Theme.pad(Theme.SPACE_XS));
         annotationList.addListSelectionListener(event -> updateActionState());
@@ -682,11 +669,11 @@ public final class DrawPanel extends JPanel {
      */
     private JComponent exportSection() {
         JPanel panel = verticalPanel();
-        panel.add(Ui.buttonRow(FlowLayout.LEFT,
+        panel.add(Ui.buttonRow(FlowLayout.RIGHT,
                 Ui.button("Save PNG", true, event -> BoardExportActions.exportPng(owner, board)),
                 Ui.button("Save SVG", false, event -> BoardExportActions.exportSvg(owner, board))));
         panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
-        panel.add(Ui.buttonRow(FlowLayout.LEFT,
+        panel.add(Ui.buttonRow(FlowLayout.RIGHT,
                 Ui.button("Copy image", false, event -> BoardExportActions.copyImage(owner, board)),
                 Ui.button("Copy SVG", false, event -> BoardExportActions.copySvg(owner, board))));
         return panel;
@@ -794,7 +781,7 @@ public final class DrawPanel extends JPanel {
         List<BoardMarkup> markups = board.boardMarkups();
         boolean details = showDetails();
         for (int index = 0; index < markups.size(); index++) {
-            annotationListModel.addElement(new AnnotationRow(index + 1, markups.get(index), details));
+            annotationListModel.addElement(new DrawAnnotationRow(index + 1, markups.get(index), details));
         }
         if (!markups.isEmpty()) {
             int restored = Math.min(Math.max(0, selected), markups.size() - 1);
@@ -850,7 +837,7 @@ public final class DrawPanel extends JPanel {
      * Updates selected color preview details.
      */
     private void updateSelectedColorPreview() {
-        String readout = colorLabel(baseColor) + " RGB "
+        String readout = DrawColorFormat.colorLabel(baseColor) + " RGB "
                 + baseColor.getRed() + " / " + baseColor.getGreen() + " / " + baseColor.getBlue()
                 + " HSV " + hueSlider.getValue() + " / " + saturationSlider.getValue() + " / "
                 + valueSlider.getValue()
@@ -876,7 +863,7 @@ public final class DrawPanel extends JPanel {
      */
     private void selectSwatch(int index, Color color) {
         setActiveSwatch(index);
-        setActiveBaseColor(opaque(color));
+        setActiveBaseColor(DrawColorFormat.opaque(color));
         updateColorControlsFromBase();
         applyBrush();
     }
@@ -895,8 +882,8 @@ public final class DrawPanel extends JPanel {
      * Restores theme board square colors.
      */
     private void resetBoardColors() {
-        boardLightBaseColor = opaque(Theme.BOARD_LIGHT);
-        boardDarkBaseColor = opaque(Theme.BOARD_DARK);
+        boardLightBaseColor = DrawColorFormat.opaque(Theme.BOARD_LIGHT);
+        boardDarkBaseColor = DrawColorFormat.opaque(Theme.BOARD_DARK);
         boardLightSwatch = CUSTOM_SWATCH_INDEX;
         boardDarkSwatch = CUSTOM_SWATCH_INDEX;
         customBoardColors = false;
@@ -1143,7 +1130,7 @@ public final class DrawPanel extends JPanel {
         if (syncingDirectColorFields) {
             return;
         }
-        Color parsed = parseHexColor(Ui.trimmed(hexField), activeRoleAlpha());
+        Color parsed = DrawColorFormat.parseHexColor(Ui.trimmed(hexField), activeRoleAlpha());
         if (parsed == null) {
             updateDirectColorFields();
             return;
@@ -1158,7 +1145,7 @@ public final class DrawPanel extends JPanel {
         if (syncingDirectColorFields) {
             return;
         }
-        Color parsed = parseArgbColor(Ui.trimmed(argbField));
+        Color parsed = DrawColorFormat.parseArgbColor(Ui.trimmed(argbField));
         if (parsed == null) {
             updateDirectColorFields();
             return;
@@ -1192,7 +1179,7 @@ public final class DrawPanel extends JPanel {
         try {
             Color color = activeArgbColor();
             boolean includeAlpha = activeRole() <= ROLE_BORDER;
-            hexField.setText(hexLabel(color, includeAlpha));
+            hexField.setText(DrawColorFormat.hexLabel(color, includeAlpha));
             argbField.setText(color.getAlpha() + ", " + color.getRed() + ", "
                     + color.getGreen() + ", " + color.getBlue());
         } finally {
@@ -1271,7 +1258,7 @@ public final class DrawPanel extends JPanel {
      * @param color role color
      */
     private void setActiveBaseColor(Color color) {
-        baseColor = opaque(color);
+        baseColor = DrawColorFormat.opaque(color);
         switch (activeRole()) {
             case ROLE_BORDER -> borderBaseColor = baseColor;
             case ROLE_BOARD_LIGHT -> {
@@ -1485,15 +1472,6 @@ public final class DrawPanel extends JPanel {
     }
 
     /**
-     * Returns the draw rail's softer annotation selection color.
-     *
-     * @return annotation list selection color
-     */
-    private static Color annotationSelectionBackground() {
-        return Theme.isDark() ? ANNOTATION_SELECTION_DARK : ANNOTATION_SELECTION_LIGHT;
-    }
-
-    /**
      * Creates a full-width label/switch row for Draw boolean settings.
      *
      * @param label row label
@@ -1534,379 +1512,6 @@ public final class DrawPanel extends JPanel {
             row.add(button);
         }
         return row;
-    }
-
-    /**
-     * Returns one annotation list row.
-     *
-     * @param number one-based row number
-     * @param markup markup
-     * @return list row text
-     */
-    private static String annotationText(int number, BoardMarkup markup, boolean details) {
-        String title = annotationTitle(number, markup);
-        if (details) {
-            return title + " · " + annotationDetail(markup) + " · " + colorLabel(markup.brush().displayColor());
-        }
-        return title;
-    }
-
-    /**
-     * Returns one annotation title.
-     *
-     * @param number one-based row number
-     * @param markup markup
-     * @return row title
-     */
-    private static String annotationTitle(int number, BoardMarkup markup) {
-        return number + ". " + compactAnnotationName(markup);
-    }
-
-    /**
-     * Returns one annotation detail string.
-     *
-     * @param markup markup
-     * @return detail string
-     */
-    private static String annotationDetail(BoardMarkup markup) {
-        String from = Field.toString(markup.from());
-        String target = markup.to() == Field.NO_SQUARE ? from : Field.toString(markup.to());
-        return switch (markup.tool()) {
-            case CIRCLE -> from;
-            case RECTANGLE -> from + " - " + target;
-            case GLYPH -> markup.brush().glyph() + " " + from;
-            default -> from + " -> " + target;
-        };
-    }
-
-    /**
-     * Returns one compact annotation row label.
-     *
-     * @param markup markup
-     * @return compact label
-     */
-    private static String compactAnnotationName(BoardMarkup markup) {
-        return switch (markup.tool()) {
-            case CIRCLE -> "Circle";
-            case RECTANGLE -> "Rectangle";
-            case GLYPH -> "Glyph";
-            default -> "Arrow";
-        };
-    }
-
-    /**
-     * Returns an opaque version of a color.
-     *
-     * @param color source color
-     * @return opaque color
-     */
-    private static Color opaque(Color color) {
-        return color == null ? Color.GREEN : new Color(color.getRed(), color.getGreen(), color.getBlue());
-    }
-
-    /**
-     * Returns a color label.
-     *
-     * @param color color
-     * @return color label
-     */
-    private static String colorLabel(Color color) {
-        Color value = opaque(color);
-        return "#" + String.format("%02X%02X%02X", value.getRed(), value.getGreen(), value.getBlue());
-    }
-
-    /**
-     * One annotation row in the Draw history list.
-     *
-     * @param number one-based row number
-     * @param markup markup
-     * @param details true to show square/color metadata
-     */
-    private record AnnotationRow(int number, BoardMarkup markup, boolean details) {
-
-        /**
-         * Returns the textual row representation used by accessibility,
-         * component dumps, and copy/debug paths.
-         *
-         * @return row text
-         */
-        @Override
-        public String toString() {
-            return annotationText(number, markup, details);
-        }
-    }
-
-    /**
-     * Themed annotation list row renderer.
-     */
-    private static final class AnnotationRenderer extends JComponent implements ListCellRenderer<AnnotationRow> {
-
-        /**
-         * Serialization identifier for Swing renderer compatibility.
-         */
-        private static final long serialVersionUID = 1L;
-
-        /**
-         * Row currently being painted.
-         */
-        private AnnotationRow row;
-
-        /**
-         * True when the row is selected.
-         */
-        private boolean selected;
-
-        /**
-         * True when the row has keyboard focus.
-         */
-        private boolean focused;
-
-        /**
-         * Returns the renderer component for one annotation row.
-         *
-         * @param list owning list
-         * @param value row value
-         * @param index row index
-         * @param selected true when selected
-         * @param focused true when focused
-         * @return renderer component
-         */
-        @Override
-        public Component getListCellRendererComponent(JList<? extends AnnotationRow> list, AnnotationRow value,
-                int index, boolean selected, boolean focused) {
-            row = value;
-            this.selected = selected;
-            this.focused = focused;
-            setEnabled(list.isEnabled());
-            setFont(list.getFont());
-            setForeground(selected ? list.getSelectionForeground() : list.getForeground());
-            setToolTipText(value == null ? null : value.toString());
-            return this;
-        }
-
-        /**
-         * Returns a stable row size.
-         *
-         * @return preferred size
-         */
-        @Override
-        public Dimension getPreferredSize() {
-            return new Dimension(120, ANNOTATION_ROW_HEIGHT);
-        }
-
-        /**
-         * Paints the annotation row.
-         *
-         * @param graphics graphics context
-         */
-        @Override
-        protected void paintComponent(Graphics graphics) {
-            Graphics2D g = (Graphics2D) graphics.create();
-            try {
-                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                paintBackground(g);
-                if (row != null) {
-                    paintSwatch(g);
-                    paintText(g);
-                }
-            } finally {
-                g.dispose();
-            }
-        }
-
-        /**
-         * Paints selection/focus chrome.
-         *
-         * @param g graphics context
-         */
-        private void paintBackground(Graphics2D g) {
-            int width = Math.max(0, getWidth() - Theme.SPACE_XS);
-            int height = Math.max(0, getHeight() - Theme.SPACE_XS);
-            int y = Theme.SPACE_XS / 2;
-            if (selected) {
-                g.setColor(annotationSelectionBackground());
-                g.fillRoundRect(0, y, width, height, Theme.RADIUS, Theme.RADIUS);
-            } else {
-                g.setColor(Theme.withAlpha(Theme.LINE, Theme.isDark() ? 22 : 16));
-                g.fillRoundRect(0, y, width, height, Theme.RADIUS, Theme.RADIUS);
-            }
-            if (focused) {
-                g.setColor(Theme.withAlpha(Theme.ACCENT, Theme.isDark() ? 190 : 170));
-                g.drawRoundRect(0, y, width, height, Theme.RADIUS, Theme.RADIUS);
-            }
-        }
-
-        /**
-         * Paints the annotation color swatch.
-         *
-         * @param g graphics context
-         */
-        private void paintSwatch(Graphics2D g) {
-            int x = Theme.SPACE_SM;
-            int y = Math.max(0, (getHeight() - ANNOTATION_SWATCH_SIZE) / 2);
-            MarkupBrush brush = row.markup().brush();
-            g.setColor(brush.displayColor());
-            g.fillRoundRect(x, y, ANNOTATION_SWATCH_SIZE, ANNOTATION_SWATCH_SIZE, Theme.RADIUS, Theme.RADIUS);
-            Color outline = brush.displayBorderColor().getAlpha() > 0
-                    ? brush.displayBorderColor()
-                    : Theme.LINE;
-            g.setColor(Theme.withAlpha(outline, selected ? 220 : 150));
-            g.drawRoundRect(x, y, ANNOTATION_SWATCH_SIZE, ANNOTATION_SWATCH_SIZE, Theme.RADIUS, Theme.RADIUS);
-        }
-
-        /**
-         * Paints title and optional detail text.
-         *
-         * @param g graphics context
-         */
-        private void paintText(Graphics2D g) {
-            int textX = Theme.SPACE_SM + ANNOTATION_SWATCH_SIZE + Theme.SPACE_SM;
-            int textWidth = Math.max(0, getWidth() - textX - Theme.SPACE_SM);
-            String title = annotationTitle(row.number(), row.markup());
-            g.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
-            FontMetrics titleMetrics = g.getFontMetrics();
-            if (row.details()) {
-                g.setColor(Theme.TEXT);
-                g.drawString(Ui.elide(title, titleMetrics, textWidth), textX, 15);
-                g.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
-                FontMetrics detailMetrics = g.getFontMetrics();
-                String detail = annotationDetail(row.markup()) + " · "
-                        + colorLabel(row.markup().brush().displayColor());
-                g.setColor(selected ? Theme.TEXT : Theme.MUTED);
-                g.drawString(Ui.elide(detail, detailMetrics, textWidth), textX, 30);
-            } else {
-                int baseline = (getHeight() - titleMetrics.getHeight()) / 2 + titleMetrics.getAscent();
-                g.setColor(Theme.TEXT);
-                g.drawString(Ui.elide(title, titleMetrics, textWidth), textX, baseline);
-            }
-        }
-    }
-
-    /**
-     * Returns a hex label for a color.
-     *
-     * @param color color
-     * @param includeAlpha true to include alpha as AARRGGBB
-     * @return normalized hex label
-     */
-    private static String hexLabel(Color color, boolean includeAlpha) {
-        Color value = color == null ? Color.GREEN : color;
-        if (includeAlpha) {
-            return "#" + String.format("%02X%02X%02X%02X",
-                    value.getAlpha(), value.getRed(), value.getGreen(), value.getBlue());
-        }
-        return colorLabel(value);
-    }
-
-    /**
-     * Parses #RGB, #ARGB, #RRGGBB, #AARRGGBB, or 0x-prefixed variants.
-     *
-     * @param raw raw field text
-     * @param fallbackAlpha alpha used when the text omits one
-     * @return parsed color, or null when invalid
-     */
-    private static Color parseHexColor(String raw, int fallbackAlpha) {
-        String text = raw == null ? "" : raw.trim();
-        if (text.startsWith("#")) {
-            text = text.substring(1);
-        }
-        if (text.startsWith("0x") || text.startsWith("0X")) {
-            text = text.substring(2);
-        }
-        if (text.length() == 3 || text.length() == 4) {
-            return parseShortHexColor(text, fallbackAlpha);
-        }
-        if ((text.length() != 6 && text.length() != 8) || !text.matches("[0-9A-Fa-f]+")) {
-            return null;
-        }
-        long parsed;
-        try {
-            parsed = Long.parseLong(text, 16);
-        } catch (NumberFormatException ex) {
-            return null;
-        }
-        int alpha = text.length() == 8 ? (int) ((parsed >> 24) & 0xFF) : clampByte(fallbackAlpha);
-        int red = (int) ((parsed >> 16) & 0xFF);
-        int green = (int) ((parsed >> 8) & 0xFF);
-        int blue = (int) (parsed & 0xFF);
-        return new Color(red, green, blue, alpha);
-    }
-
-    /**
-     * Parses one short #RGB or #ARGB color.
-     *
-     * @param text hex digits
-     * @param fallbackAlpha alpha used when text is RGB only
-     * @return parsed color, or null when invalid
-     */
-    private static Color parseShortHexColor(String text, int fallbackAlpha) {
-        int offset = text.length() == 4 ? 1 : 0;
-        int alpha = offset == 1 ? hexNibble(text.charAt(0)) * 17 : clampByte(fallbackAlpha);
-        int red = hexNibble(text.charAt(offset)) * 17;
-        int green = hexNibble(text.charAt(offset + 1)) * 17;
-        int blue = hexNibble(text.charAt(offset + 2)) * 17;
-        if (alpha < 0 || red < 0 || green < 0 || blue < 0) {
-            return null;
-        }
-        return new Color(red, green, blue, alpha);
-    }
-
-    /**
-     * Parses A,R,G,B integer components.
-     *
-     * @param raw raw field text
-     * @return parsed color, or null when invalid
-     */
-    private static Color parseArgbColor(String raw) {
-        String text = raw == null ? "" : raw.trim();
-        if (text.regionMatches(true, 0, "argb(", 0, 5) && text.endsWith(")")) {
-            text = text.substring(5, text.length() - 1);
-        }
-        String[] parts = text.split("[,;/\\s]+");
-        if (parts.length != 4) {
-            return null;
-        }
-        int[] channels = new int[4];
-        for (int i = 0; i < channels.length; i++) {
-            try {
-                channels[i] = Integer.parseInt(parts[i]);
-            } catch (NumberFormatException ex) {
-                return null;
-            }
-            if (channels[i] < 0 || channels[i] > 255) {
-                return null;
-            }
-        }
-        return new Color(channels[1], channels[2], channels[3], channels[0]);
-    }
-
-    /**
-     * Parses one hexadecimal nibble.
-     *
-     * @param ch digit
-     * @return nibble, or -1 when invalid
-     */
-    private static int hexNibble(char ch) {
-        if (ch >= '0' && ch <= '9') {
-            return ch - '0';
-        }
-        if (ch >= 'a' && ch <= 'f') {
-            return ch - 'a' + 10;
-        }
-        if (ch >= 'A' && ch <= 'F') {
-            return ch - 'A' + 10;
-        }
-        return -1;
-    }
-
-    /**
-     * Clamps one byte-sized channel.
-     *
-     * @param value channel value
-     * @return clamped channel
-     */
-    private static int clampByte(int value) {
-        return Math.max(0, Math.min(255, value));
     }
 
     /**
@@ -2129,7 +1734,7 @@ public final class DrawPanel extends JPanel {
                 g.drawString(activeRoleName(), x + swatch + Theme.SPACE_MD, y + 17);
                 g.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
                 g.setColor(Theme.MUTED);
-                g.drawString(colorLabel(baseColor), x + swatch + Theme.SPACE_MD, y + 36);
+                g.drawString(DrawColorFormat.colorLabel(baseColor), x + swatch + Theme.SPACE_MD, y + 36);
 
                 int boardX = Math.max(x + swatch + 112, getWidth() - Theme.SPACE_SM - swatch);
                 int half = Math.max(8, swatch / 2);
@@ -2189,7 +1794,7 @@ public final class DrawPanel extends JPanel {
          * @param index swatch index
          */
         Swatch(String name, Color color, int index) {
-            this.color = opaque(color);
+            this.color = DrawColorFormat.opaque(color);
             this.index = index;
             Dimension size = new Dimension(SWATCH_SIZE, Theme.CONTROL_HEIGHT);
             setPreferredSize(size);

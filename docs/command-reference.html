@@ -89,6 +89,7 @@
 <a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
 <a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="review-to-study.html" data-title="review to study">Review To Study</a>
 <a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
@@ -175,6 +176,10 @@
 <tr>
 <td><code>workbench</code></td>
 <td>Launch the native command and analysis workbench (alias <code>gui</code>)</td>
+</tr>
+<tr>
+<td><code>serve</code></td>
+<td>Start a localhost-only JSON-RPC daemon over the CLI dispatcher</td>
 </tr>
 <tr>
 <td><code>doctor</code></td>
@@ -2300,7 +2305,7 @@ crtk find-mate --fen &quot;&lt;FEN&gt;&quot; --mate 6 --max-nodes 5000000 --thre
 </tbody></table></div>
 <pre><code class="language-bash">crtk position diff --fen &quot;&lt;FEN_A&gt;&quot; --other &quot;&lt;FEN_B&gt;&quot; --json</code></pre>
 <h3 id="position-describe">position describe</h3>
-<p>Describe one FEN or a FEN list as deterministic classical text, structured features, or training JSONL. <code>classical</code> is the engine that works today; <code>t5</code> is wired up but waiting on trained weights, so reach for <code>classical</code> unless you have those.</p>
+<p>Describe one FEN or a FEN list as deterministic classical text, structured features, or training JSONL. <code>position describe</code> is classical-only; the working T5 runtime lives behind <code>fen text</code> and <code>puzzle text</code>.</p>
 <div class="table-wrap"><table>
 <thead><tr>
 <th>Option</th>
@@ -2324,7 +2329,7 @@ crtk find-mate --fen &quot;&lt;FEN&gt;&quot; --mate 6 --max-nodes 5000000 --thre
 </tr>
 <tr>
 <td><code>--engine MODE</code></td>
-<td><code>classical</code> (default) or <code>t5</code></td>
+<td><code>classical</code> only (default)</td>
 </tr>
 <tr>
 <td><code>--detail LEVEL</code></td>
@@ -2348,11 +2353,11 @@ crtk find-mate --fen &quot;&lt;FEN&gt;&quot; --mate 6 --max-nodes 5000000 --thre
 </tr>
 <tr>
 <td><code>--model PATH</code></td>
-<td>Future T5 position-description model path</td>
+<td>Training-jsonl prompt model-path metadata</td>
 </tr>
 <tr>
 <td><code>--max-new N</code></td>
-<td>Future T5 generated-token budget</td>
+<td>Training-jsonl prompt token-budget metadata</td>
 </tr>
 </tbody></table></div>
 <pre><code class="language-bash">crtk position describe --fen &quot;&lt;FEN&gt;&quot; --detail full --format text</code></pre>
@@ -2950,6 +2955,7 @@ crtk find-mate --fen &quot;&lt;FEN&gt;&quot; --mate 6 --max-nodes 5000000 --thre
 </tr>
 </tbody></table></div>
 <pre><code class="language-bash">crtk config show
+crtk config show --json
 crtk config validate</code></pre>
 <h2 id="workbench">workbench</h2>
 <p>Launch the native Swing command and analysis workbench; the alias <code>gui</code> opens the same app. For exploring by hand it beats typing commands one at a time, while the CLI stays the stable surface for scripts and batch jobs.</p>
@@ -2975,6 +2981,36 @@ crtk config validate</code></pre>
 <pre><code class="language-bash">crtk workbench
 crtk workbench --fen &quot;&lt;FEN&gt;&quot;
 crtk gui</code></pre>
+<h2 id="serve">serve</h2>
+<p>Start a localhost-only HTTP JSON-RPC daemon for agents and editor integrations. Requests still run through <code>application.Main</code>, so stdout, stderr, exit codes, and JSON contracts match the CLI.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Option</th>
+<th>Description</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--host HOST</code></td>
+<td>Loopback host to bind (default <code>127.0.0.1</code>)</td>
+</tr>
+<tr>
+<td><code>--port N</code></td>
+<td>TCP port to bind (default <code>8787</code>; <code>0</code> asks the OS for an ephemeral port)</td>
+</tr>
+<tr>
+<td><code>--json</code></td>
+<td>Print startup endpoints as JSON</td>
+</tr>
+<tr>
+<td><code>--verbose</code>/<code>-v</code></td>
+<td>Print stack trace on failure</td>
+</tr>
+</tbody></table></div>
+<pre><code class="language-bash">crtk serve --port 8787
+curl -s http://127.0.0.1:8787/catalog
+curl -s http://127.0.0.1:8787/rpc \
+  -H &#x27;Content-Type: application/json&#x27; \
+  -d &#x27;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:1,&quot;method&quot;:&quot;run&quot;,&quot;params&quot;:{&quot;argv&quot;:[&quot;fen&quot;,&quot;validate&quot;,&quot;--fen&quot;,&quot;&lt;FEN&gt;&quot;,&quot;--json&quot;]}}&#x27;</code></pre>
+<p>See <a href="serve.html">Local JSON-RPC daemon</a> for endpoint details.</p>
 <h2 id="doctor">doctor</h2>
 <p>Check that the environment is sane: the runtime, the main config file, the configured engine protocol, whether the engine executable is findable, the model paths, and the output directory. A missing model file is a warning rather than an error, since models are optional local artifacts you may simply not have downloaded.</p>
 <div class="table-wrap"><table>
@@ -2987,12 +3023,17 @@ crtk gui</code></pre>
 <td>Exit non-zero when warnings are present</td>
 </tr>
 <tr>
+<td><code>--json</code></td>
+<td>Emit one <code>crtk.doctor.v1</code> object, including warning/error arrays and native backend rows</td>
+</tr>
+<tr>
 <td><code>--verbose</code>/<code>-v</code></td>
 <td>Print stack trace on failure</td>
 </tr>
 </tbody></table></div>
 <pre><code class="language-bash">crtk doctor
-crtk doctor --strict</code></pre>
+crtk doctor --strict
+crtk doctor --json</code></pre>
 <h2 id="clean">clean</h2>
 <p>Clear out the generated session cache and logs under <code>dump/session/</code>, leaving the cache directory itself in place.</p>
 <div class="table-wrap"><table>

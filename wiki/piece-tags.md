@@ -153,7 +153,7 @@ crtk fen text \
   --multipv 2
 ```
 
-When you want deterministic prose and no model in the loop, `position describe` renders the same facts to fixed text. See [T5 Summaries](t5.md) for model setup.
+When you want deterministic prose and no model in the loop, `position describe` renders the same facts to fixed text. See [T5 Summaries](t5.md) for the model setup used by `fen text` and `puzzle text`.
 
 ## Reading PIECE Tags
 

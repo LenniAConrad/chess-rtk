@@ -10,21 +10,14 @@ import chess.core.Move;
 import chess.core.MoveList;
 import chess.core.Piece;
 import chess.core.Position;
-import java.awt.AlphaComposite;
-import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Cursor;
-import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.Graphics;
 import java.awt.Point;
-import java.awt.RadialGradientPaint;
 import java.awt.Rectangle;
-import java.awt.RenderingHints;
-import java.awt.Stroke;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -40,7 +33,6 @@ import java.util.function.Predicate;
 import java.util.function.ToIntFunction;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
-import javax.swing.Timer;
 
 /**
  * Native Java2D chess board used by the CRTK Workbench.
@@ -52,64 +44,14 @@ public final class BoardPanel extends JPanel {
     private static final long serialVersionUID = 1L;
 
     /**
-     * Padding around the chessboard surface.
-     */
-    private static final int BOARD_MARGIN = 32;
-
-    /**
-     * Minimum rendered board size in pixels.
-     */
-    private static final int MIN_BOARD_SIZE = 64;
-
-    /**
-     * Width of the attached evaluation bar.
-     */
-    private static final int EVAL_BAR_WIDTH = 22;
-
-    /**
-     * Gap between the board and attached evaluation bar.
-     */
-    private static final int EVAL_BAR_GAP = 8;
-
-    /**
-     * Optional attached evaluation bar component.
-     */
-    private transient EvalBar evalBar;
-
-    /**
      * Minimum pointer travel before a press becomes a drag.
      */
     private static final int DRAG_THRESHOLD = 5;
 
     /**
-     * Default move-animation duration in milliseconds.
+     * Scale factor for dragged piece images.
      */
-    private static final int MOVE_ANIMATION_MS = BoardAnimationState.DEFAULT_MOVE_ANIMATION_MS;
-
-    /**
-     * Animation timer delay in milliseconds.
-     */
-    private static final int ANIMATION_DELAY_MS = 16;
-
-    /**
-     * Extra repaint padding around drag dirty regions.
-     */
-    private static final int DRAG_REPAINT_PADDING = 8;
-
-    /**
-     * Minimum nanoseconds between throttled drag repaint flushes.
-     */
-    private static final long DRAG_REPAINT_FRAME_NANOS = 16_000_000L;
-
-    /**
-     * Shared one-pixel stroke.
-     */
-    private static final BasicStroke STROKE_1 = new BasicStroke(1f);
-
-    /**
-     * Composite used while painting dragged pieces.
-     */
-    private static final AlphaComposite DRAG_ALPHA = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f);
+    static final double DRAG_SCALE = 1.12;
 
     /**
      * Maximum number of annotation history entries retained for undo/redo.
@@ -119,12 +61,12 @@ public final class BoardPanel extends JPanel {
     /**
      * Current position rendered on the board.
      */
-    private Position position;
+    Position position;
 
     /**
      * True when White is rendered at the bottom.
      */
-    private boolean whiteDown = true;
+    boolean whiteDown = true;
 
     /**
      * Optional material strip above the board (the top side's captures), or null.
@@ -139,27 +81,17 @@ public final class BoardPanel extends JPanel {
     /**
      * Last played move and suggested engine move.
      */
-    private short lastMove = Move.NO_MOVE, suggestedMove = Move.NO_MOVE;
+    short lastMove = Move.NO_MOVE, suggestedMove = Move.NO_MOVE;
 
     /**
      * Queued premove arrow, independent from the legal suggested-move arrow.
      */
-    private short pendingPremove = Move.NO_MOVE;
+    short pendingPremove = Move.NO_MOVE;
 
     /**
      * Piece selection and drag/drop state.
      */
-    private final BoardPieceInput pieceInput = new BoardPieceInput();
-
-    /**
-     * Dirty rectangle queued for throttled drag repainting.
-     */
-    private Rectangle pendingDragDirty;
-
-    /**
-     * Last throttled drag repaint timestamp.
-     */
-    private long lastDragRepaintNanos;
+    final BoardPieceInput pieceInput = new BoardPieceInput();
 
     /**
      * Move handler used for drag-drop play.
@@ -167,24 +99,26 @@ public final class BoardPanel extends JPanel {
     private MoveHandler moveHandler;
 
     /**
-     * Animation and drag repaint timers.
-     */
-    private final Timer animationTimer, dragRepaintTimer;
-
-    /**
      * Cached board images for piece rendering.
      */
-    private final BoardImageCache imageCache = new BoardImageCache();
+    final BoardImageCache imageCache = new BoardImageCache();
 
     /**
      * Painter for board arrows.
      */
-    private final BoardArrowPainter arrowPainter = new BoardArrowPainter();
+    final BoardArrowPainter arrowPainter = new BoardArrowPainter();
 
     /**
      * Painter for user board markups.
      */
-    private final BoardMarkupPainter markupPainter = new BoardMarkupPainter();
+    final BoardMarkupPainter markupPainter = new BoardMarkupPainter();
+
+    /**
+     * Painter for Java2D board rendering.
+     */
+    private final BoardPanelPainter painter = new BoardPanelPainter(this);
+
+    private final BoardPanelLayout layout = new BoardPanelLayout(this);
 
     /**
      * Cached legal move list for the current position.
@@ -194,7 +128,7 @@ public final class BoardPanel extends JPanel {
     /**
      * Board overlay visibility toggles.
      */
-    private boolean showNotation = true, showLegalMovePreview = true,
+    boolean showNotation = true, showLegalMovePreview = true,
             showLastMoveHighlight = true, showSuggestedMoveArrow = true, showSpecialMoveHints;
 
     /**
@@ -205,17 +139,22 @@ public final class BoardPanel extends JPanel {
     /**
      * Move, snap, flip, and wrong-move marker animation state.
      */
-    private final BoardAnimationState animationState = new BoardAnimationState();
+    final BoardAnimationState animationState = new BoardAnimationState();
+
+    /**
+     * Timer and dirty-repaint driver for board animations.
+     */
+    private final BoardPanelAnimation animation = new BoardPanelAnimation(this);
 
     /**
      * Programmatic square highlights.
      */
-    private final Map<Byte, Color> squareHighlights = new LinkedHashMap<>();
+    final Map<Byte, Color> squareHighlights = new LinkedHashMap<>();
 
     /**
      * Persistent annotation list and transient annotation gesture state.
      */
-    private final BoardMarkupInput markupInput = new BoardMarkupInput();
+    final BoardMarkupInput markupInput = new BoardMarkupInput();
 
     /**
      * Undo history for user-created board annotations.
@@ -250,7 +189,7 @@ public final class BoardPanel extends JPanel {
     /**
      * True when the current selection/drag is a premove gesture.
      */
-    private boolean premoveSelection;
+    boolean premoveSelection;
 
     /**
      * Optional drop resolver for custom board interactions.
@@ -265,7 +204,7 @@ public final class BoardPanel extends JPanel {
     /**
      * Snapback and snap completion observers.
      */
-    private Runnable snapbackEndObserver, snapEndObserver;
+    Runnable snapbackEndObserver, snapEndObserver;
 
     /**
      * True when illegal-move snapback sound is enabled.
@@ -288,24 +227,9 @@ public final class BoardPanel extends JPanel {
     private byte lastMouseoverSquare = Field.NO_SQUARE;
 
     /**
-     * True while setup editing is active.
+     * Direct board setup-edit controller.
      */
-    private boolean setupEditMode;
-
-    /**
-     * Mutable board used by setup editing.
-     */
-    private final byte[] setupEditBoard = new byte[64];
-
-    /**
-     * Selected setup-edit piece and last edited square.
-     */
-    private byte setupEditSelectedPiece = Piece.WHITE_KING, setupEditLastSquare = Field.NO_SQUARE;
-
-    /**
-     * Setup edit observer.
-     */
-    private BiConsumer<Byte, Byte> setupEditObserver;
+    final BoardSetupEditor setupEditor = new BoardSetupEditor(this);
 
     /**
      * Creates the board panel.
@@ -313,15 +237,8 @@ public final class BoardPanel extends JPanel {
     public BoardPanel() {
         setOpaque(true);
         setBackground(Theme.BG);
-        int basis = Math.round(620 * displayScale());
-        setPreferredSize(new Dimension(basis, basis));
-        setMinimumSize(new Dimension(Math.round(MIN_BOARD_SIZE + BOARD_MARGIN * 2 * displayScale()),
-                Math.round(MIN_BOARD_SIZE + BOARD_MARGIN * 2 * displayScale())));
-        animationTimer = new Timer(ANIMATION_DELAY_MS, event -> tickAnimation());
-        animationTimer.setCoalesce(true);
-        dragRepaintTimer = new Timer(ANIMATION_DELAY_MS, event -> flushPendingDragRepaint());
-        dragRepaintTimer.setCoalesce(true);
-        dragRepaintTimer.setRepeats(false);
+        setPreferredSize(BoardPanelLayout.preferredSize());
+        setMinimumSize(BoardPanelLayout.minimumSize());
         MouseAdapter mouseHandler = new MouseAdapter() {
             /**
              * Starts board pointer interaction from a mouse press.
@@ -378,8 +295,7 @@ public final class BoardPanel extends JPanel {
      */
     @Override
     public void removeNotify() {
-        animationTimer.stop();
-        dragRepaintTimer.stop();
+        animation.stop();
         super.removeNotify();
     }
     /**
@@ -417,12 +333,12 @@ public final class BoardPanel extends JPanel {
         clearSelection();
         clearDragState();
         if (!animateMove || animationState.consumeSuppressNextMoveAnimation()) {
-            clearMoveAnimation();
+            animation.clearMoveAnimation();
         } else {
-            startMoveAnimation(previousBoard, position == null ? null : position.getBoard(),
+            animation.startMoveAnimation(previousBoard, position == null ? null : position.getBoard(),
                     move, reverseMoveAnimation);
         }
-        clearWrongMoveMarkerState();
+        animation.clearWrongMoveMarkerState();
         refreshMaterialStrips();
         repaint();
     }
@@ -515,7 +431,7 @@ public final class BoardPanel extends JPanel {
         setPremove(Move.NO_MOVE);
     }
 
-    private static boolean legalPremoveShape(short move) {
+    static boolean legalPremoveShape(short move) {
         if (move == Move.NO_MOVE) {
             return false;
         }
@@ -528,7 +444,7 @@ public final class BoardPanel extends JPanel {
         }
     }
 
-    private boolean legalSuggestedMove(short move) {
+    boolean legalSuggestedMove(short move) {
         if (move == Move.NO_MOVE || position == null) {
             return false;
         }
@@ -593,7 +509,7 @@ public final class BoardPanel extends JPanel {
             return;
         }
         animationState.startFlipAnimation(System.currentTimeMillis());
-        startAnimation();
+        animation.startAnimation();
         repaint();
     }
     /**
@@ -754,6 +670,10 @@ public final class BoardPanel extends JPanel {
         boardLightColor = nextLight;
         boardDarkColor = nextDark;
         repaint();
+    }
+
+    private static Color opaqueColor(Color color) {
+        return new Color(color.getRed(), color.getGreen(), color.getBlue());
     }
 
     /**
@@ -994,7 +914,7 @@ public final class BoardPanel extends JPanel {
             return;
         }
         animationState.showWrongMoveMarker(square, System.currentTimeMillis());
-        startAnimation();
+        animation.startAnimation();
         repaint();
     }
 
@@ -1005,7 +925,7 @@ public final class BoardPanel extends JPanel {
         if (animationState.wrongMoveMarkerSquare() == Field.NO_SQUARE) {
             return;
         }
-        clearWrongMoveMarkerState();
+        animation.clearWrongMoveMarkerState();
         repaint();
     }
 
@@ -1060,7 +980,7 @@ public final class BoardPanel extends JPanel {
     public void setAnimationSpeeds(int moveMs, int snapbackMs, int snapMs, int flipMs) {
         animationState.setAnimationSpeeds(moveMs, snapbackMs, snapMs, flipMs);
         if (!animationState.animationsEnabled()) {
-            clearAllAnimations();
+            animation.clearAllAnimations();
         }
     }
     /**
@@ -1073,7 +993,7 @@ public final class BoardPanel extends JPanel {
         }
         animationState.setAnimationsEnabled(enabled);
         if (!enabled) {
-            clearAllAnimations();
+            animation.clearAllAnimations();
         }
         repaint();
     }
@@ -1169,15 +1089,7 @@ public final class BoardPanel extends JPanel {
      * @param enabled true when setup editing should intercept board input
      */
     public void setSetupEditMode(boolean enabled) {
-        if (enabled == setupEditMode) {
-            return;
-        }
-        setupEditMode = enabled;
-        cancelPromotionOverlay();
-        clearDragState();
-        clearSelection();
-        setCursor(Cursor.getDefaultCursor());
-        repaint();
+        setupEditor.setMode(enabled);
     }
 
     /**
@@ -1185,7 +1097,7 @@ public final class BoardPanel extends JPanel {
      * @return true when setup editing is active
      */
     public boolean isSetupEditMode() {
-        return setupEditMode;
+        return setupEditor.active();
     }
 
     /**
@@ -1193,17 +1105,7 @@ public final class BoardPanel extends JPanel {
      * @param board board piece array, or null to clear
      */
     public void setSetupEditBoard(byte[] board) {
-        if (board == null) {
-            Arrays.fill(setupEditBoard, Piece.EMPTY);
-        } else if (board.length != setupEditBoard.length) {
-            throw new IllegalArgumentException("Setup board must contain 64 squares");
-        } else {
-            System.arraycopy(board, 0, setupEditBoard, 0, setupEditBoard.length);
-        }
-        setupEditLastSquare = Field.NO_SQUARE;
-        if (setupEditMode) {
-            repaint();
-        }
+        setupEditor.setBoard(board);
     }
 
     /**
@@ -1211,8 +1113,7 @@ public final class BoardPanel extends JPanel {
      * @param piece piece code, or {@link Piece#EMPTY} for erase
      */
     public void setSetupEditSelectedPiece(byte piece) {
-        validateSetupPiece(piece);
-        setupEditSelectedPiece = piece;
+        setupEditor.setSelectedPiece(piece);
     }
 
     /**
@@ -1221,7 +1122,7 @@ public final class BoardPanel extends JPanel {
      * @param piece piece code
      */
     public void setSetupEditPieceAt(byte square, byte piece) {
-        setSetupEditPieceAt(square, piece, true);
+        setupEditor.setPieceAt(square, piece);
     }
 
     /**
@@ -1230,10 +1131,7 @@ public final class BoardPanel extends JPanel {
      * @return piece code
      */
     public byte setupEditPieceAt(byte square) {
-        if (!isSquareIndex(square)) {
-            throw new IllegalArgumentException("Invalid square " + square);
-        }
-        return setupEditBoard[square];
+        return setupEditor.pieceAt(square);
     }
 
     /**
@@ -1241,7 +1139,7 @@ public final class BoardPanel extends JPanel {
      * @param observer observer, or null
      */
     public void setSetupEditObserver(BiConsumer<Byte, Byte> observer) {
-        setupEditObserver = observer;
+        setupEditor.setObserver(observer);
     }
 
     private void applyPosition(Position next, short move, boolean animate) {
@@ -1256,8 +1154,8 @@ public final class BoardPanel extends JPanel {
             pendingPremove = Move.NO_MOVE;
             clearSelection();
             clearDragState();
-            clearMoveAnimation();
-            clearWrongMoveMarkerState();
+            animation.clearMoveAnimation();
+            animation.clearWrongMoveMarkerState();
             repaint();
         }
         String newFen = next == null ? null : next.toString();
@@ -1280,129 +1178,10 @@ public final class BoardPanel extends JPanel {
         super.paintComponent(graphics);
         Graphics2D g = (Graphics2D) graphics.create();
         try {
-            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
-                    RenderingHints.VALUE_TEXT_ANTIALIAS_LCD_HRGB);
-            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
-                    RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL,
-                    RenderingHints.VALUE_STROKE_PURE);
-            Rectangle board = boardBounds();
-            drawShell(g, board);
-            drawBoardContent(g, board);
-            drawDraggedPiece(g, board);
+            painter.paint(g, boardBounds());
         } finally {
             g.dispose();
         }
-    }
-    private void drawBoardContent(Graphics2D g, Rectangle board) {
-        Graphics2D copy = (Graphics2D) g.create();
-        try {
-            copy.clip(board);
-            drawBoardTexture(copy, board);
-            drawCoordinates(copy, board);
-            if (setupEditMode) {
-                drawSetupEditHighlight(copy, board);
-            } else {
-                drawSquareHighlights(copy, board);
-                drawMoveHighlights(copy, board);
-                drawSelection(copy, board);
-                drawCheckHighlight(copy, board);
-                drawPremove(copy, board);
-                markupPainter.drawBackgroundMarkups(copy, board, whiteDown, markupInput);
-            }
-            drawPieces(copy, board);
-            if (!setupEditMode) {
-                drawAnimatedCapture(copy, board);
-                drawAnimatedMove(copy, board);
-                drawSnapAnimation(copy, board);
-                drawSuggestedMove(copy, board);
-                if (showSpecialMoveHints) {
-                    markupPainter.drawSpecialMoveHints(copy, board, whiteDown, position);
-                }
-                markupPainter.drawForegroundMarkups(copy, board, whiteDown, markupInput);
-            }
-            if (!setupEditMode) {
-                drawWrongMoveMarker(copy, board);
-            }
-            drawFlipOverlay(copy, board);
-            if (!setupEditMode && promotionOverlay != null) {
-                promotionOverlay.paint(copy, board, whiteDown, this::drawPieceAt);
-            }
-        } finally {
-            copy.dispose();
-        }
-    }
-    private void drawFlipOverlay(Graphics2D g, Rectangle board) {
-        double flipProgress = animationState.flipAnimationProgress();
-        if (Double.isNaN(flipProgress)) {
-            return;
-        }
-        // Triangular ramp: alpha peaks at progress 0.5.
-        float alpha = (float) (Math.sin(Math.PI * flipProgress) * 0.55);
-        if (alpha <= 0f) {
-            return;
-        }
-        java.awt.Composite saved = g.getComposite();
-        Color savedColor = g.getColor();
-        try {
-            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.min(1f, alpha)));
-            g.setColor(Theme.BG);
-            g.fillRect(board.x, board.y, board.width, board.height);
-        } finally {
-            g.setComposite(saved);
-            g.setColor(savedColor);
-        }
-    }
-    private void drawSquareHighlights(Graphics2D g, Rectangle board) {
-        if (squareHighlights.isEmpty()) {
-            return;
-        }
-        Rectangle clip = g.getClipBounds();
-        for (Map.Entry<Byte, Color> entry : squareHighlights.entrySet()) {
-            Rectangle bounds = squareBounds(board, entry.getKey());
-            if (intersectsClip(clip, bounds)) {
-                BoardStyle.drawFilledSquareHighlight(g, bounds, entry.getValue());
-            }
-        }
-    }
-    private static Color opaqueColor(Color color) {
-        return new Color(color.getRed(), color.getGreen(), color.getBlue());
-    }
-    private void drawSnapAnimation(Graphics2D g, Rectangle board) {
-        SnapAnimation snap = animationState.snapAnimation();
-        if (snap == null) {
-            return;
-        }
-        double progress = snap.progress();
-        double eased = easeOutCubic(progress);
-        int cell = board.width / 8;
-        int x = (int) Math.round(snap.startX + (snap.endX - snap.startX) * eased);
-        int y = (int) Math.round(snap.startY + (snap.endY - snap.startY) * eased);
-        drawPieceAt(g, cell, x, y, snap.piece);
-    }
-    private void drawShell(Graphics2D g, Rectangle board) {
-        g.setColor(Theme.BOARD_EDGE);
-        g.fillRect(board.x - BoardStyle.BORDER_WIDTH, board.y - BoardStyle.BORDER_WIDTH,
-                board.width + BoardStyle.BORDER_WIDTH * 2, board.height + BoardStyle.BORDER_WIDTH * 2);
-    }
-    private void drawBoardTexture(Graphics2D g, Rectangle board) {
-        BufferedImage texture = imageCache.boardTexture(board.width, boardLightColor(), boardDarkColor());
-        Rectangle clip = g.getClipBounds();
-        if (clip == null) {
-            g.drawImage(texture, board.x, board.y, null);
-            return;
-        }
-        Rectangle dirty = board.intersection(clip);
-        if (dirty.isEmpty()) {
-            return;
-        }
-        int sx = dirty.x - board.x;
-        int sy = dirty.y - board.y;
-        g.drawImage(texture,
-                dirty.x, dirty.y, dirty.x + dirty.width, dirty.y + dirty.height,
-                sx, sy, sx + dirty.width, sy + dirty.height,
-                null);
     }
     /**
      * Returns the cached board texture for tests and diagnostic callers.
@@ -1414,361 +1193,13 @@ public final class BoardPanel extends JPanel {
         return imageCache.boardTexture(size, boardLightColor(), boardDarkColor());
     }
 
-    private void drawCoordinates(Graphics2D g, Rectangle board) {
-        if (!showNotation) {
-            return;
-        }
-        BoardStyle.drawInsideCoordinates(g, board, whiteDown, 14, boardLightColor(), boardDarkColor());
-    }
-    private void drawMoveHighlights(Graphics2D g, Rectangle board) {
-        if (!showLastMoveHighlight || lastMove == Move.NO_MOVE) {
-            return;
-        }
-        Rectangle clip = g.getClipBounds();
-        Rectangle from = squareBounds(board, Move.getFromIndex(lastMove));
-        Rectangle to = squareBounds(board, Move.getToIndex(lastMove));
-        if (intersectsClip(clip, from)) {
-            BoardStyle.drawFilledSquareHighlight(g, from, Theme.LAST_MOVE_EDGE);
-        }
-        if (intersectsClip(clip, to)) {
-            BoardStyle.drawFilledSquareHighlight(g, to, Theme.LAST_MOVE_EDGE);
-        }
-    }
-    private void drawSelection(Graphics2D g, Rectangle board) {
-        byte selectedSquare = pieceInput.selectedSquare();
-        if (position == null || selectedSquare == Field.NO_SQUARE) {
-            return;
-        }
-        Rectangle selected = squareBounds(board, selectedSquare);
-        Rectangle clip = g.getClipBounds();
-        if (intersectsClip(clip, selected)) {
-            BoardStyle.drawFilledSquareHighlight(g, selected, Theme.SELECTED_EDGE);
-        }
-        if (showLegalMovePreview) {
-            if (premoveSelection) {
-                drawPremoveTargets(g, board);
-            } else {
-                drawLegalTargets(g, board);
-            }
-            drawDropTarget(g, board);
-        }
-    }
-    private void drawCheckHighlight(Graphics2D g, Rectangle board) {
-        byte square = checkedKingSquare();
-        if (square == Field.NO_SQUARE) {
-            return;
-        }
-        Rectangle bounds = squareBounds(board, square);
-        java.awt.Paint savedPaint = g.getPaint();
-        Stroke savedStroke = g.getStroke();
-        Color savedColor = g.getColor();
-        try {
-            g.setColor(Theme.CHECK_FILL);
-            g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
-            float radius = bounds.width * 0.74f;
-            Point2D center = new Point2D.Double(bounds.getCenterX(), bounds.y + bounds.height * 0.52);
-            Color core = Theme.CHECK_CORE;
-            Color glow = Theme.CHECK_GLOW;
-            Color fade = Theme.withAlpha(glow, 0);
-            g.setPaint(new RadialGradientPaint(center, radius,
-                    CHECK_GRADIENT_FRACTIONS,
-                    new Color[] { core, core, glow, fade, fade }));
-            g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
-            g.setPaint(savedPaint);
-            g.setColor(Theme.CHECK_EDGE);
-            g.setStroke(STROKE_1);
-            g.drawRect(bounds.x, bounds.y, bounds.width - 1, bounds.height - 1);
-        } finally {
-            g.setPaint(savedPaint);
-            g.setStroke(savedStroke);
-            g.setColor(savedColor);
-        }
-    }
-    /**
-     * Radial gradient stops for the checked-king highlight.
-     */
-    private static final float[] CHECK_GRADIENT_FRACTIONS = { 0.0f, 0.24f, 0.42f, 0.74f, 1.0f };
-    private byte checkedKingSquare() {
-        if (position == null || !position.inCheck()) {
-            return Field.NO_SQUARE;
-        }
-        byte target = position.isWhiteToMove() ? Piece.WHITE_KING : Piece.BLACK_KING;
-        byte[] board = position.getBoard();
-        for (byte square = 0; square < 64; square++) {
-            if (board[square] == target) {
-                return square;
-            }
-        }
-        return Field.NO_SQUARE;
-    }
-    private void drawLegalTargets(Graphics2D g, Rectangle board) {
-        Rectangle clip = g.getClipBounds();
-        byte selectedSquare = pieceInput.selectedSquare();
-        for (byte target : pieceInput.selectedLegalTargets()) {
-            if (target != selectedSquare) {
-                Rectangle bounds = squareBounds(board, target);
-                if (intersectsClip(clip, bounds)) {
-                    BoardStyle.drawLegalTarget(g, bounds, isCaptureTarget(target));
-                }
-            }
-        }
-    }
-    private void drawPremoveTargets(Graphics2D g, Rectangle board) {
-        Rectangle clip = g.getClipBounds();
-        byte selectedSquare = pieceInput.selectedSquare();
-        for (byte target : pieceInput.selectedLegalTargets()) {
-            if (target != selectedSquare) {
-                Rectangle bounds = squareBounds(board, target);
-                if (intersectsClip(clip, bounds)) {
-                    BoardStyle.drawPremoveTarget(g, bounds, isOccupied(target));
-                }
-            }
-        }
-    }
-    private void drawSetupEditHighlight(Graphics2D g, Rectangle board) {
-        if (setupEditLastSquare == Field.NO_SQUARE) {
-            return;
-        }
-        Rectangle bounds = squareBounds(board, setupEditLastSquare);
-        if (!intersectsClip(g.getClipBounds(), bounds)) {
-            return;
-        }
-        g.setColor(Theme.withAlpha(Theme.ACCENT, 74));
-        g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
-        Stroke previousStroke = g.getStroke();
-        try {
-            g.setColor(Theme.withAlpha(Theme.ACCENT, 190));
-            g.setStroke(STROKE_1);
-            g.drawRect(bounds.x + 1, bounds.y + 1, bounds.width - 3, bounds.height - 3);
-        } finally {
-            g.setStroke(previousStroke);
-        }
-    }
-    private void drawWrongMoveMarker(Graphics2D g, Rectangle board) {
-        byte wrongMoveMarkerSquare = animationState.wrongMoveMarkerSquare();
-        if (wrongMoveMarkerSquare == Field.NO_SQUARE) {
-            return;
-        }
-        Rectangle square = squareBounds(board, wrongMoveMarkerSquare);
-        if (!intersectsClip(g.getClipBounds(), square)) {
-            return;
-        }
-        double progress = wrongMoveMarkerProgress();
-        if (progress >= 1.0) {
-            return;
-        }
-        double scale = progress < 0.6
-                ? 0.25 + (1.08 - 0.25) * (progress / 0.6)
-                : 1.08 + (1.0 - 1.08) * ((progress - 0.6) / 0.4);
-        float alpha = (float) Math.max(0.0, Math.min(1.0, progress / 0.6));
-        int baseSize = Math.max(14, Math.round(square.width * 0.46f));
-        int size = Math.max(8, (int) Math.round(baseSize * scale));
-        int half = Math.max(1, size / 2);
-        int padding = Math.max(2, Math.round(square.width * 0.04f));
-        int centerX = clamped(
-                square.x + square.width - Math.round(square.width * 0.12f),
-                square.x + half + padding,
-                square.x + square.width - half - padding);
-        int centerY = clamped(
-                square.y + Math.round(square.height * 0.12f),
-                square.y + half + padding,
-                square.y + square.height - half - padding);
-        int x = centerX - size / 2;
-        int y = centerY - size / 2;
-        Graphics2D marker = (Graphics2D) g.create();
-        try {
-            marker.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-            marker.setColor(Theme.STATUS_ERROR_TEXT);
-            marker.fillOval(x, y, size, size);
-            marker.setColor(Theme.withAlpha(Color.WHITE, 230));
-            float stroke = Math.max(2f, size * 0.12f);
-            marker.setStroke(new BasicStroke(stroke, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-            int inset = Math.max(4, Math.round(size * 0.28f));
-            marker.drawLine(x + inset, y + inset, x + size - inset, y + size - inset);
-            marker.drawLine(x + size - inset, y + inset, x + inset, y + size - inset);
-        } finally {
-            marker.dispose();
-        }
-    }
-
-    private static int clamped(int value, int min, int max) {
-        if (min > max) {
-            return (min + max) / 2;
-        }
-        return Math.max(min, Math.min(max, value));
-    }
-
-    private void drawPieces(Graphics2D g, Rectangle board) {
-        byte[] pieces = setupEditMode ? setupEditBoard : position == null ? null : position.getBoard();
-        if (pieces == null) {
-            return;
-        }
-        int cell = board.width / 8;
-        Rectangle clip = g.getClipBounds();
-        for (byte square = 0; square < 64; square++) {
-            byte piece = pieces[square];
-            if (piece != Piece.EMPTY) {
-                if (pieceInput.isDragging() && square == pieceInput.dragSquare()) {
-                    continue;
-                }
-                if (animationState.moveAnimationActive() && square == animationState.animatedMoveTo()) {
-                    continue;
-                }
-                if (animationState.moveAnimationActive() && square == animationState.animatedSecondaryMoveTo()) {
-                    continue;
-                }
-                if (square == animationState.snapHiddenSquare()) {
-                    continue;
-                }
-                Rectangle bounds = squareBounds(board, square);
-                if (intersectsClip(clip, bounds)) {
-                    drawPieceAt(g, cell, bounds.x, bounds.y, piece);
-                }
-            }
-        }
-    }
-    private void drawPieceAt(Graphics2D g, int cell, int x, int y, byte piece) {
-        BufferedImage image = pieceImage(piece, cell);
-        if (image != null) {
-            g.drawImage(image, x, y, null);
-        }
-    }
-    private void drawSuggestedMove(Graphics2D g, Rectangle board) {
-        if (!showSuggestedMoveArrow || suggestedMove == Move.NO_MOVE || !legalSuggestedMove(suggestedMove)) {
-            return;
-        }
-        double gap = Math.max(1, board.width / 8) * BoardStyle.ARROW_PIECE_GAP_FRACTION;
-        arrowPainter.drawSuggested(g, center(board, Move.getFromIndex(suggestedMove)),
-                center(board, Move.getToIndex(suggestedMove)), gap);
-    }
-    private void drawPremove(Graphics2D g, Rectangle board) {
-        if (pendingPremove == Move.NO_MOVE || !legalPremoveShape(pendingPremove)) {
-            return;
-        }
-        Rectangle clip = g.getClipBounds();
-        Rectangle from = squareBounds(board, Move.getFromIndex(pendingPremove));
-        Rectangle to = squareBounds(board, Move.getToIndex(pendingPremove));
-        if (intersectsClip(clip, from)) {
-            BoardStyle.drawCurrentPremoveSquare(g, from);
-        }
-        if (intersectsClip(clip, to)) {
-            BoardStyle.drawCurrentPremoveSquare(g, to);
-        }
-    }
-    private void drawAnimatedMove(Graphics2D g, Rectangle board) {
-        if (!animationState.moveAnimationActive()) {
-            return;
-        }
-        drawAnimatedPiece(g, board,
-                animationState.animatedMovePiece(),
-                animationState.animatedMoveFrom(),
-                animationState.animatedMoveTo());
-        drawAnimatedPiece(g, board,
-                animationState.animatedSecondaryMovePiece(),
-                animationState.animatedSecondaryMoveFrom(),
-                animationState.animatedSecondaryMoveTo());
-    }
-    private void drawAnimatedPiece(Graphics2D g, Rectangle board, byte piece, byte from, byte to) {
-        if (piece == Piece.EMPTY || from == Field.NO_SQUARE || to == Field.NO_SQUARE) {
-            return;
-        }
-        int cell = board.width / 8;
-        Rectangle fromBounds = squareBounds(board, from);
-        Rectangle toBounds = squareBounds(board, to);
-        double progress = easeOutCubic(moveAnimationProgress());
-        int x = (int) Math.round(fromBounds.x + (toBounds.x - fromBounds.x) * progress);
-        int y = (int) Math.round(fromBounds.y + (toBounds.y - fromBounds.y) * progress);
-        drawPieceAt(g, cell, x, y, piece);
-    }
-    private void drawAnimatedCapture(Graphics2D g, Rectangle board) {
-        byte animatedCapturePiece = animationState.animatedCapturePiece();
-        byte animatedCaptureSquare = animationState.animatedCaptureSquare();
-        if (!animationState.moveAnimationActive()
-                || animatedCapturePiece == Piece.EMPTY
-                || animatedCaptureSquare == Field.NO_SQUARE) {
-            return;
-        }
-        int cell = board.width / 8;
-        Rectangle bounds = squareBounds(board, animatedCaptureSquare);
-        float alpha = (float) Math.max(0.0, 1.0 - easeOutCubic(moveAnimationProgress()));
-        java.awt.Composite savedComposite = g.getComposite();
-        try {
-            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-            drawPieceAt(g, cell, bounds.x, bounds.y, animatedCapturePiece);
-        } finally {
-            g.setComposite(savedComposite);
-        }
-    }
-    private void drawDropTarget(Graphics2D g, Rectangle board) {
-        if (!pieceInput.isDragging()) {
-            return;
-        }
-        byte targetSquare = pieceInput.dragTargetSquare();
-        if (targetSquare != Field.NO_SQUARE) {
-            Rectangle bounds = squareBounds(board, targetSquare);
-            if (intersectsClip(g.getClipBounds(), bounds)) {
-                if (premoveSelection) {
-                    BoardStyle.drawPremoveTarget(g, bounds, isOccupied(targetSquare));
-                } else {
-                    BoardStyle.drawLegalTarget(g, bounds, isDragCaptureTarget(targetSquare));
-                }
-            }
-        }
-    }
-    private void drawDraggedPiece(Graphics2D g, Rectangle board) {
-        byte draggedPiece = pieceInput.draggedPiece();
-        if (!pieceInput.isDragging() || draggedPiece == Piece.EMPTY) {
-            return;
-        }
-        int cell = board.width / 8;
-        int scaledCell = (int) Math.round(cell * DRAG_SCALE);
-        int offset = (scaledCell - cell) / 2;
-        int dragX = pieceInput.dragX();
-        int dragY = pieceInput.dragY();
-        int pieceX = dragX - cell / 2 - offset;
-        int pieceY = dragY - cell / 2 - offset;
-        Rectangle bounds = new Rectangle(pieceX, pieceY, scaledCell, scaledCell);
-        if (!intersectsClip(g.getClipBounds(), bounds)) {
-            return;
-        }
-        java.awt.Composite savedComposite = g.getComposite();
-        Color savedColor = g.getColor();
-        try {
-            // Soft contact shadow beneath the lifted piece gives the drag a
-            // sense of elevation, matching the chess.com / lichess feel.
-            int shadowWidth = Math.round(scaledCell * 0.66f);
-            int shadowHeight = Math.max(6, Math.round(scaledCell * 0.22f));
-            int shadowX = dragX - shadowWidth / 2;
-            int shadowY = pieceY + scaledCell - shadowHeight - Math.round(scaledCell * 0.04f);
-            for (int ring = 3; ring >= 1; ring--) {
-                g.setColor(new Color(0, 0, 0, 16));
-                g.fillOval(shadowX - ring * 2, shadowY - ring,
-                        shadowWidth + ring * 4, shadowHeight + ring * 2);
-            }
-            g.setComposite(DRAG_ALPHA);
-            BufferedImage scaled = imageCache.dragPieceImage(draggedPiece, scaledCell);
-            g.drawImage(scaled, pieceX, pieceY, null);
-        } finally {
-            g.setComposite(savedComposite);
-            g.setColor(savedColor);
-        }
-    }
-    /**
-     * Scale factor for the dragged piece image. Slightly larger than the
-     * resting square so a picked-up piece reads as lifted off the board.
-     */
-    private static final double DRAG_SCALE = 1.12;
     private void warmDragPieceImage(byte piece) {
-        Rectangle board = boardBounds();
-        int cell = board.width / 8;
-        int scaledCell = (int) Math.round(cell * DRAG_SCALE);
-        if (scaledCell > 0) {
-            imageCache.dragPieceImage(piece, scaledCell);
-        }
+        painter.warmDragPieceImage(piece);
     }
+
     private void handlePress(MouseEvent event) {
-        if (setupEditMode) {
-            handleSetupEdit(event);
+        if (setupEditor.active()) {
+            setupEditor.handle(event);
             return;
         }
         if (markupInput.directAnnotationMode() && SwingUtilities.isLeftMouseButton(event)) {
@@ -1847,44 +1278,6 @@ public final class BoardPanel extends JPanel {
         }
         repaint();
     }
-    private void handleSetupEdit(MouseEvent event) {
-        boolean paintGesture = setupPaintGesture(event);
-        boolean eraseGesture = setupEraseGesture(event);
-        if (!paintGesture && !eraseGesture) {
-            return;
-        }
-        byte square = squareAt(event.getX(), event.getY());
-        if (square == Field.NO_SQUARE) {
-            return;
-        }
-        byte piece = eraseGesture ? Piece.EMPTY : setupEditSelectedPiece;
-        setSetupEditPieceAt(square, piece, true);
-        setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
-        event.consume();
-    }
-
-    /**
-     * Returns whether a setup-editor event should paint the selected piece.
-     *
-     * @param event mouse event
-     * @return true for left-button setup painting
-     */
-    private static boolean setupPaintGesture(MouseEvent event) {
-        return SwingUtilities.isLeftMouseButton(event)
-                || (event.getModifiersEx() & MouseEvent.BUTTON1_DOWN_MASK) != 0;
-    }
-
-    /**
-     * Returns whether a setup-editor event should erase the target square.
-     *
-     * @param event mouse event
-     * @return true for right-button setup erasing
-     */
-    private static boolean setupEraseGesture(MouseEvent event) {
-        return SwingUtilities.isRightMouseButton(event)
-                || (event.getModifiersEx() & MouseEvent.BUTTON3_DOWN_MASK) != 0;
-    }
-
     /**
      * Begins one board-annotation gesture from the pressed square.
      *
@@ -2000,22 +1393,22 @@ public final class BoardPanel extends JPanel {
     /**
      * Active promotion choice overlay.
      */
-    private PromotionOverlay promotionOverlay;
+    PromotionOverlay promotionOverlay;
     private void showPromotionOverlay(short[] candidates) {
         cancelPromotionOverlay();
         byte target = Move.getToIndex(candidates[0]);
         promotionOverlay = new PromotionOverlay(target, candidates, () -> position != null && position.isWhiteToMove());
         repaint();
     }
-    private void cancelPromotionOverlay() {
+    void cancelPromotionOverlay() {
         if (promotionOverlay != null) {
             promotionOverlay = null;
             repaint();
         }
     }
     private void handleDrag(MouseEvent event) {
-        if (setupEditMode) {
-            handleSetupEdit(event);
+        if (setupEditor.active()) {
+            setupEditor.handle(event);
             return;
         }
         if (markupInput.hasGesture()) {
@@ -2030,8 +1423,8 @@ public final class BoardPanel extends JPanel {
         }
         boolean wasDragging = pieceInput.isDragging();
         Rectangle board = boardBounds();
-        Rectangle oldDirty = dragRepaintBounds(board, pieceInput.dragTargetSquare(), pieceInput.dragHoverSquare(),
-                pieceInput.dragX(), pieceInput.dragY(), wasDragging, false);
+        Rectangle oldDirty = animation.dragRepaintBounds(board, pieceInput.dragTargetSquare(),
+                pieceInput.dragHoverSquare(), pieceInput.dragX(), pieceInput.dragY(), wasDragging, false);
         pieceInput.updatePointer(event.getX(), event.getY());
         if (!pieceInput.isDragging() && pieceInput.isPastDragThreshold(DRAG_THRESHOLD)) {
             pieceInput.setDragging(true);
@@ -2045,13 +1438,13 @@ public final class BoardPanel extends JPanel {
         }
         if (wasDragging || pieceInput.isDragging()) {
             boolean dragStarted = !wasDragging && pieceInput.isDragging();
-            scheduleDragRepaint(union(oldDirty,
-                    dragRepaintBounds(board, pieceInput.dragTargetSquare(), pieceInput.dragHoverSquare(),
-                            pieceInput.dragX(), pieceInput.dragY(), pieceInput.isDragging(), dragStarted)));
+            animation.scheduleDragRepaint(oldDirty, animation.dragRepaintBounds(board, pieceInput.dragTargetSquare(),
+                    pieceInput.dragHoverSquare(), pieceInput.dragX(), pieceInput.dragY(), pieceInput.isDragging(),
+                    dragStarted));
         }
     }
     private void handleRelease(MouseEvent event) {
-        if (setupEditMode) {
+        if (setupEditor.active()) {
             updateCursor(event);
             return;
         }
@@ -2144,7 +1537,7 @@ public final class BoardPanel extends JPanel {
                 new SnapAnimation(piece, fromX - cell / 2, fromY - cell / 2, bounds.x, bounds.y, duration,
                         snapback),
                 landingSquare);
-        startAnimation();
+        animation.startAnimation();
     }
     private byte legalDropTarget(byte square) {
         byte dragSquare = pieceInput.dragSquare();
@@ -2160,17 +1553,17 @@ public final class BoardPanel extends JPanel {
         }
         return isPremoveTarget(dragSquare, pieceInput.draggedPiece(), square) ? square : Field.NO_SQUARE;
     }
-    private boolean isCaptureTarget(byte square) {
+    boolean isCaptureTarget(byte square) {
         if (position == null || !isSquareIndex(square)) {
             return false;
         }
         byte piece = position.getBoard()[square];
         return piece != Piece.EMPTY && Piece.isWhite(piece) != position.isWhiteToMove();
     }
-    private boolean isOccupied(byte square) {
+    boolean isOccupied(byte square) {
         return position != null && isSquareIndex(square) && position.getBoard()[square] != Piece.EMPTY;
     }
-    private boolean isDragCaptureTarget(byte square) {
+    boolean isDragCaptureTarget(byte square) {
         if (!premoveSelection || position == null || !isSquareIndex(square)) {
             return isCaptureTarget(square);
         }
@@ -2279,30 +1672,13 @@ public final class BoardPanel extends JPanel {
         int rank = Field.getY(to);
         return rank == 0 || rank == 7 ? (byte) 4 : 0;
     }
-    private void clearDragState() {
-        cancelPendingDragRepaint();
+    void clearDragState() {
+        animation.cancelPendingDragRepaint();
         pieceInput.clearDrag();
     }
-    private void clearSelection() {
+    void clearSelection() {
         pieceInput.clearSelection();
         premoveSelection = false;
-    }
-    private void setSetupEditPieceAt(byte square, byte piece, boolean notify) {
-        if (!isSquareIndex(square)) {
-            throw new IllegalArgumentException("Invalid square " + square);
-        }
-        validateSetupPiece(piece);
-        if (setupEditBoard[square] == piece && setupEditLastSquare == square) {
-            return;
-        }
-        setupEditBoard[square] = piece;
-        setupEditLastSquare = square;
-        if (notify && setupEditObserver != null) {
-            setupEditObserver.accept(Byte.valueOf(square), Byte.valueOf(piece));
-        }
-        if (setupEditMode) {
-            repaint(squareBounds(boardBounds(), square));
-        }
     }
     private void selectSquare(byte square) {
         premoveSelection = false;
@@ -2315,7 +1691,7 @@ public final class BoardPanel extends JPanel {
         pieceInput.select(square, new short[0], premoveTargets(square, piece));
     }
     private void updateCursor(MouseEvent event) {
-        if (setupEditMode) {
+        if (setupEditor.active()) {
             byte square = squareAt(event.getX(), event.getY());
             setCursor(square == Field.NO_SQUARE
                     ? Cursor.getDefaultCursor()
@@ -2416,15 +1792,8 @@ public final class BoardPanel extends JPanel {
         }
         return false;
     }
-    private Rectangle boardBounds() {
-        // Reserve a left strip for the eval bar so the board square never
-        // slides underneath it.
-        int leftReserve = evalBar != null ? EVAL_BAR_WIDTH + EVAL_BAR_GAP : 0;
-        int availWidth = getWidth() - leftReserve;
-        int size = Math.min(availWidth - BOARD_MARGIN * 2, getHeight() - BOARD_MARGIN * 2);
-        size = Math.max(MIN_BOARD_SIZE, size - size % 8);
-        int x = leftReserve + (availWidth - size) / 2;
-    return new Rectangle(x, (getHeight() - size) / 2, size, size);
+    Rectangle boardBounds() {
+        return layout.boardBounds();
     }
 
     /**
@@ -2441,16 +1810,7 @@ public final class BoardPanel extends JPanel {
      * @param bar evaluation bar to attach
      */
     public void setEvalBar(EvalBar bar) {
-        if (evalBar != null) {
-            remove(evalBar);
-        }
-        evalBar = bar;
-        if (bar != null) {
-            setLayout(null);
-            add(bar);
-        }
-        revalidate();
-        repaint();
+        layout.setEvalBar(bar);
     }
     /**
      * Positions the attached eval bar flush against the board square.
@@ -2458,11 +1818,7 @@ public final class BoardPanel extends JPanel {
     @Override
     public void doLayout() {
         super.doLayout();
-        if (evalBar != null) {
-            Rectangle square = boardBounds();
-            int barX = Math.max(0, square.x - EVAL_BAR_GAP - EVAL_BAR_WIDTH);
-            evalBar.setBounds(barX, square.y, EVAL_BAR_WIDTH, square.height);
-        }
+        layout.doLayout();
     }
     /**
      * Returns the rendered chessboard square in this panel's own coordinate space — used by the board stage to align the engine eval bar flush wit...
@@ -2476,11 +1832,11 @@ public final class BoardPanel extends JPanel {
      * @return export snapshot
      */
     BoardExportSnapshot exportSnapshot() {
-        byte[] pieces = setupEditMode ? setupEditBoard.clone()
+        byte[] pieces = setupEditor.active() ? setupEditor.boardCopy()
                 : position == null ? new byte[64] : position.getBoard().clone();
         return new BoardExportSnapshot(
                 pieces,
-                setupEditMode || position == null ? null : position.copy(),
+                setupEditor.active() || position == null ? null : position.copy(),
                 boardLightColor(),
                 boardDarkColor(),
                 whiteDown,
@@ -2489,7 +1845,7 @@ public final class BoardPanel extends JPanel {
                 pieceInput.selectedSquare(),
                 pieceInput.selectedLegalTargets(),
                 selectedCaptureTargets(),
-                checkedKingSquare(),
+                painter.checkedKingSquare(),
                 new LinkedHashMap<>(squareHighlights),
                 markupInput.copyMarkups(),
                 showNotation,
@@ -2509,231 +1865,23 @@ public final class BoardPanel extends JPanel {
         }
         return Arrays.copyOf(captures, count);
     }
-    private Rectangle squareBounds(Rectangle board, byte square) {
+    Rectangle squareBounds(Rectangle board, byte square) {
         return BoardGeometry.squareBounds(board, square, whiteDown);
     }
-    private BufferedImage pieceImage(byte piece, int cell) {
-        return imageCache.pieceImage(piece, cell);
-    }
-    private Rectangle dragRepaintBounds(
-            Rectangle board,
-            byte targetSquare,
-            byte hoverSquare,
-            int pointerX,
-            int pointerY,
-            boolean includeDraggedPiece,
-            boolean includeOriginSquare) {
-        Rectangle dirty = null;
-        byte dragSquare = pieceInput.dragSquare();
-        if (includeOriginSquare && isSquareIndex(dragSquare)) {
-            dirty = union(dirty, expanded(squareBounds(board, dragSquare), DRAG_REPAINT_PADDING));
-        }
-        if (isSquareIndex(targetSquare)) {
-            dirty = union(dirty, expanded(squareBounds(board, targetSquare), DRAG_REPAINT_PADDING));
-        }
-        if (isSquareIndex(hoverSquare)) {
-            dirty = union(dirty, expanded(squareBounds(board, hoverSquare), DRAG_REPAINT_PADDING));
-        }
-        if (includeDraggedPiece && pieceInput.draggedPiece() != Piece.EMPTY) {
-            int cell = board.width / 8;
-            int scaledCell = (int) Math.round(cell * DRAG_SCALE);
-            dirty = union(dirty, new Rectangle(
-                    pointerX - scaledCell / 2 - DRAG_REPAINT_PADDING,
-                    pointerY - scaledCell / 2 - DRAG_REPAINT_PADDING,
-                    scaledCell + DRAG_REPAINT_PADDING * 2,
-                    scaledCell + DRAG_REPAINT_PADDING * 2));
-        }
-        return dirty;
-    }
-    private void scheduleDragRepaint(Rectangle dirty) {
-        if (dirty == null) {
-            return;
-        }
-        pendingDragDirty = union(pendingDragDirty, dirty);
-        long now = System.nanoTime();
-        long elapsed = lastDragRepaintNanos == 0L ? Long.MAX_VALUE : now - lastDragRepaintNanos;
-        if (elapsed >= DRAG_REPAINT_FRAME_NANOS) {
-            flushPendingDragRepaint();
-            return;
-        }
-        if (!dragRepaintTimer.isRunning()) {
-            long remaining = DRAG_REPAINT_FRAME_NANOS - elapsed;
-            int delayMs = (int) Math.max(1L, (remaining + 999_999L) / 1_000_000L);
-            dragRepaintTimer.setInitialDelay(delayMs);
-            dragRepaintTimer.restart();
-        }
-    }
-    private void flushPendingDragRepaint() {
-        Rectangle dirty = pendingDragDirty;
-        pendingDragDirty = null;
-        dragRepaintTimer.stop();
-        if (dirty != null) {
-            lastDragRepaintNanos = System.nanoTime();
-            repaintDirty(dirty);
-        }
-    }
-    private void cancelPendingDragRepaint() {
-        pendingDragDirty = null;
-        lastDragRepaintNanos = 0L;
-        dragRepaintTimer.stop();
-    }
-    private void repaintDirty(Rectangle dirty) {
-        if (dirty != null) {
-            repaint(dirty.x, dirty.y, dirty.width, dirty.height);
-        }
-    }
-    private static Rectangle expanded(Rectangle bounds, int padding) {
-    return new Rectangle(bounds.x - padding, bounds.y - padding,
-                bounds.width + padding * 2, bounds.height + padding * 2);
-    }
-    private static Rectangle union(Rectangle first, Rectangle second) {
-        if (first == null) {
-            return second == null ? null : new Rectangle(second);
-        }
-        if (second == null) {
-    return new Rectangle(first);
-        }
-        return first.union(second);
-    }
-    private static boolean intersectsClip(Rectangle clip, Rectangle bounds) {
+    static boolean intersectsClip(Rectangle clip, Rectangle bounds) {
         return clip == null || bounds == null || clip.intersects(bounds);
     }
-    private byte squareAt(int x, int y) {
+    byte squareAt(int x, int y) {
         return BoardGeometry.squareAt(boardBounds(), x, y, whiteDown);
     }
-    private Point center(Rectangle board, byte square) {
+    Point center(Rectangle board, byte square) {
         return BoardGeometry.center(board, square, whiteDown);
     }
-    private void startAnimation() {
-        if (!animationTimer.isRunning()) {
-            animationTimer.start();
-        }
+    double moveAnimationProgress() {
+        return animation.moveAnimationProgress();
     }
-    private void startMoveAnimation(byte[] oldBoard, byte[] newBoard, short move,
-            boolean reverseMoveAnimation) {
-        if (!animationState.canAnimateMove()) {
-            clearMoveAnimation();
-            return;
-        }
-        clearMoveAnimation();
-        if (oldBoard == null || newBoard == null || move == Move.NO_MOVE) {
-            return;
-        }
-        byte from = Move.getFromIndex(move);
-        byte to = Move.getToIndex(move);
-        if (!isSquareIndex(from) || !isSquareIndex(to)) {
-            return;
-        }
-        byte moveFrom = from;
-        byte moveTo = to;
-        if (reverseMoveAnimation) {
-            from = moveTo;
-            to = moveFrom;
-        }
-        byte piece = animatedPiece(oldBoard, newBoard, from, to);
-        if (piece == Piece.EMPTY) {
-            return;
-        }
-        animationState.startMove(piece, from, to, System.currentTimeMillis());
-        configureAnimatedCapture(oldBoard, newBoard, from, to, piece);
-        configureSecondaryMove(oldBoard, newBoard, moveFrom, moveTo, reverseMoveAnimation);
-        startAnimation();
-    }
-    private static byte animatedPiece(byte[] oldBoard, byte[] newBoard, byte from, byte to) {
-        byte source = oldBoard[from];
-        byte target = newBoard[to];
-        if (source == Piece.EMPTY || target == Piece.EMPTY || Piece.isWhite(source) != Piece.isWhite(target)) {
-            return Piece.EMPTY;
-        }
-        return target;
-    }
-    private void configureAnimatedCapture(byte[] oldBoard, byte[] newBoard, byte from, byte to, byte movingPiece) {
-        byte direct = oldBoard[to];
-        if (direct != Piece.EMPTY && Piece.isWhite(direct) != Piece.isWhite(movingPiece)) {
-            animationState.setAnimatedCapture(direct, to);
-            return;
-        }
-        if (!Piece.isPawn(oldBoard[from]) || Field.getX(from) == Field.getX(to)) {
-            return;
-        }
-        byte candidate = (byte) ((from / 8) * 8 + Field.getX(to));
-        if (isSquareIndex(candidate) && oldBoard[candidate] != Piece.EMPTY && newBoard[candidate] == Piece.EMPTY
-                && Piece.isWhite(oldBoard[candidate]) != Piece.isWhite(movingPiece)) {
-            animationState.setAnimatedCapture(oldBoard[candidate], candidate);
-        }
-    }
-    private void configureSecondaryMove(byte[] oldBoard, byte[] newBoard, byte moveFrom, byte moveTo,
-            boolean reverseMoveAnimation) {
-        byte kingFrom = reverseMoveAnimation ? moveTo : moveFrom;
-        byte movingPiece = oldBoard[kingFrom];
-        if (!Piece.isKing(movingPiece)) {
-            return;
-        }
-        int fileDelta = Field.getX(moveTo) - Field.getX(moveFrom);
-        if (Math.abs(fileDelta) != 2) {
-            return;
-        }
-        int rank = moveFrom / 8;
-        byte forwardRookFrom = (byte) (rank * 8 + (fileDelta > 0 ? 7 : 0));
-        byte forwardRookTo = (byte) (rank * 8 + (fileDelta > 0 ? 5 : 3));
-        byte rookFrom = reverseMoveAnimation ? forwardRookTo : forwardRookFrom;
-        byte rookTo = reverseMoveAnimation ? forwardRookFrom : forwardRookTo;
-        if (!isSquareIndex(rookFrom) || !isSquareIndex(rookTo)) {
-            return;
-        }
-        byte rookPiece = oldBoard[rookFrom];
-        if (rookPiece == Piece.EMPTY || newBoard[rookTo] != rookPiece) {
-            return;
-        }
-        animationState.setAnimatedSecondaryMove(rookPiece, rookFrom, rookTo);
-    }
-    private void clearMoveAnimation() {
-        animationState.clearMoveAnimation();
-    }
-    private void clearAllAnimations() {
-        if (animationState.clearAllAnimations()) {
-            // Commit a pending flip so disabling animations mid-flight does not
-            // silently leave the board in its pre-flip orientation.
-            whiteDown = !whiteDown;
-        }
-        animationTimer.stop();
-    }
-    private void tickAnimation() {
-        if (animationState.moveAnimationActive() && moveAnimationProgress() >= 1.0) {
-            clearMoveAnimation();
-        }
-        SnapAnimation finished = animationState.takeFinishedSnapAnimation();
-        if (finished != null) {
-            if (finished.snapback) {
-                if (snapbackEndObserver != null) {
-                    snapbackEndObserver.run();
-                }
-            } else if (snapEndObserver != null) {
-                snapEndObserver.run();
-            }
-        }
-        if (animationState.wrongMoveMarkerSquare() != Field.NO_SQUARE && wrongMoveMarkerProgress() >= 1.0) {
-            clearWrongMoveMarkerState();
-        }
-        if (animationState.tickFlipAnimation(System.currentTimeMillis())) {
-            whiteDown = !whiteDown;
-        }
-        if (!hasActiveAnimation()) {
-            animationTimer.stop();
-        }
-        repaint();
-    }
-    private boolean hasActiveAnimation() {
-        return animationState.hasActiveAnimation();
-    }
-    private double moveAnimationProgress() {
-        return animationState.moveAnimationProgress(System.currentTimeMillis());
-    }
-    private double wrongMoveMarkerProgress() {
-        return animationState.wrongMoveMarkerProgress(System.currentTimeMillis());
-    }
-    private void clearWrongMoveMarkerState() {
-        animationState.clearWrongMoveMarker();
+    double wrongMoveMarkerProgress() {
+        return animation.wrongMoveMarkerProgress();
     }
     /**
      * Cubic ease-out matching the short board transition feel.
@@ -2743,21 +1891,7 @@ public final class BoardPanel extends JPanel {
     public static double easeOutCubic(double value) {
         return Ui.easeOutCubic(value);
     }
-    private static boolean isSquareIndex(byte square) {
+    static boolean isSquareIndex(byte square) {
         return square >= 0 && square < 64;
-    }
-    private static void validateSetupPiece(byte piece) {
-        if (piece < Piece.BLACK_KING || piece > Piece.WHITE_KING) {
-            throw new IllegalArgumentException("Invalid piece " + piece);
-        }
-    }
-    private static float displayScale() {
-        try {
-            java.awt.GraphicsEnvironment env = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment();
-            java.awt.GraphicsDevice device = env.getDefaultScreenDevice();
-            return (float) device.getDefaultConfiguration().getDefaultTransform().getScaleX();
-        } catch (java.awt.HeadlessException ex) {
-            return 1f;
-        }
     }
 }

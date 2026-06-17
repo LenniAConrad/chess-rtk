@@ -183,7 +183,7 @@ public final class TablebasePanel extends JPanel {
      * @return toolbar
      */
     private JComponent createToolbar() {
-        JPanel row = transparentPanel(new FlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
+        JPanel row = transparentPanel(new FlowLayout(FlowLayout.RIGHT, Theme.SPACE_SM, 0));
         row.add(Ui.button("Analyze Endgame", true, event -> runAnalysis()));
         row.add(Ui.button("Copy Command", false, event -> copyCommand()));
         row.add(Ui.button("Copy Output", false, event -> copyText.accept(outputArea.getText())));

@@ -97,8 +97,9 @@ public abstract class WindowBase extends JFrame {
     protected static final int TAB_BOARD = 1;
 
     /**
-     * Run tab index — the unified run surface hosting the Build (command
-     * builder), Batch, Console, and Logs modes.
+     * Run tab index — the command-builder surface. Batch workflows are command
+     * templates inside this view; Console and Logs are registered as their own
+     * top-level output views.
      */
     protected static final int TAB_RUN = 2;
 
@@ -1032,8 +1033,7 @@ public abstract class WindowBase extends JFrame {
     protected application.gui.workbench.ui.SwitchedWorkspace engineWorkspace;
 
     /**
-     * The unified Run surface hosting the Build/Batch/Console/Logs modes.
-     * Assigned when the Run tab is built; used to route navigation to a mode.
+     * The Run command-builder surface, assigned when the Run tab is built.
      */
     protected application.gui.workbench.ui.SwitchedWorkspace runWorkspace;
 
@@ -1156,6 +1156,13 @@ public abstract class WindowBase extends JFrame {
      * Runs the selected command-template action.
      */
     protected abstract void runSelectedTemplate();
+
+    /**
+     * Opens Run and selects a named command template.
+     *
+     * @param name command-template display name
+     */
+    protected abstract void openCommandTemplate(String name);
 
     /**
      * Copies the currently built command.
@@ -1351,8 +1358,7 @@ public abstract class WindowBase extends JFrame {
     protected abstract JComponent createEngineWorkspaceTab();
 
     /**
-     * Creates the unified Run surface (Build/Batch/Console/Logs modes behind a
-     * switcher), assigning {@link #runWorkspace}.
+     * Creates the Run command-builder surface, assigning {@link #runWorkspace}.
      *
      * @return run workspace component
      */

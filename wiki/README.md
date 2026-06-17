@@ -30,6 +30,7 @@ The same content reaches you three ways, depending on whether you want to browse
 - [CLI command guide](cli-command-guide.md) - contributor guide for adding commands, flags, help, docs, and regression tests.
 - [Command cheatsheet](command-cheatsheet.md) - common tasks mapped to exact commands.
 - [Example commands](example-commands.md) - copy-pasteable command recipes.
+- [Local JSON-RPC daemon](serve.md) - localhost-only command dispatch for agents and editors with `crtk serve`.
 - [Glossary](glossary.md) - defined terms used across the toolkit and wiki.
 
 ## Workbench
@@ -50,6 +51,7 @@ The same content reaches you three ways, depending on whether you want to browse
 - [Piece and position tags](piece-tags.md) - deterministic position, tactic, and theme tagging via `fen tags` and `puzzle tags`.
 - [Tag reference](tag-reference.md) - the catalog of tag names and their meanings.
 - [Datasets](datasets.md) - ML dataset export with `record dataset npy|lc0|classifier` and `record export ...-jsonl`.
+- [Review to study](review-to-study.md) - review PGN games into schema-pinned review rows, study units, and Record handoff files.
 - [T5 tag-to-text pipeline](t5.md) - natural-language position and puzzle summaries with `fen text` and `puzzle text`.
 - [Book publishing](book-publishing.md) - native PDF books, covers, collections, and studies (`book render`, `book cover`, `book collection`, `book study`, `book pdf`) - no LaTeX.
 - [AI agents and automation](ai-agents.md) - deterministic, scriptable commands for agents and batch pipelines (`batch run`, `config validate`, `doctor`).
@@ -76,11 +78,13 @@ The same content reaches you three ways, depending on whether you want to browse
 | Evaluate positions | `engine eval`, `engine static` | [Running engines](in-house-engine.md), [LC0 and the Java evaluator](lc0.md) |
 | Mine and export puzzles | `puzzle mine`, `puzzle pgn`, `record files` | [Mining puzzles](mining.md), [Filter DSL](filter-dsl.md) |
 | Tag positions and lines | `fen tags`, `puzzle tags`, `record tag-stats` | [Piece and position tags](piece-tags.md), [Tag reference](tag-reference.md) |
-| Summarize in plain English | `fen text`, `puzzle text`, `position describe` | [T5 tag-to-text pipeline](t5.md) |
+| Review games into study units | `review game --to-study` | [Review to study](review-to-study.md), [Outputs and logs](outputs-and-logs.md) |
+| Summarize with T5 | `fen text`, `puzzle text` | [T5 tag-to-text pipeline](t5.md) |
+| Describe positions deterministically | `position describe` | [Command reference](command-reference.md) |
 | Export training data | `record dataset npy`, `record dataset lc0`, `record dataset classifier` | [Datasets](datasets.md) |
 | Render diagrams and books | `fen render`, `book render`, `book cover`, `book pdf` | [Book publishing](book-publishing.md) |
 | Use the desktop GUI | `workbench`, `gui` | [Desktop workbench](workbench.md) |
-| Automate command use | `batch run`, `doctor`, `config validate` | [AI agents and automation](ai-agents.md) |
+| Automate command use | `serve`, `batch run`, `doctor`, `config validate` | [AI agents and automation](ai-agents.md), [Local JSON-RPC daemon](serve.md) |
 
 ## Quick Verification
 

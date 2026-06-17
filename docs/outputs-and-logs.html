@@ -89,6 +89,7 @@
 <a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
 <a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="review-to-study.html" data-title="review to study">Review To Study</a>
 <a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
@@ -252,6 +253,10 @@ crtk move list --startpos --jsonl         # {&quot;uci&quot;:&quot;a2a3&quot;,&q
 <td><code>dump/&lt;stem&gt;.analysis-delta.jsonl</code></td>
 </tr>
 <tr>
+<td><code>review game</code></td>
+<td><code>dump/&lt;stem&gt;.review.jsonl</code>; with <code>--to-study</code>, also <code>dump/&lt;stem&gt;.study.jsonl</code> and <code>dump/&lt;stem&gt;.study.record.json</code></td>
+</tr>
+<tr>
 <td><code>puzzle pgn</code></td>
 <td><code>dump/&lt;stem&gt;.pgn</code></td>
 </tr>
@@ -260,6 +265,7 @@ crtk move list --startpos --jsonl         # {&quot;uci&quot;:&quot;a2a3&quot;,&q
 <td><code>dump/&lt;stem&gt;.txt</code></td>
 </tr>
 </tbody></table></div>
+<p><code>review game</code> rows are schema-stamped as <code>crtk.review.ply.v1</code>. The optional study JSONL sidecar is <code>crtk.review.study_unit.v1</code>, and the Record sidecar is a <code>crtk.record.v2</code> JSON array whose <code>parent</code> is the pre-move FEN and whose <code>position</code> is the post-best-move FEN. See <a href="review-to-study.html">Review to study</a> for the full contract.</p>
 <h3 id="multi-file-tensor-exports">Multi-file tensor exports</h3>
 <p>A tensor export is rarely one file. Dataset exporters take a single output <em>prefix</em> and fan out several companion files around it (see <a href="datasets.html">Datasets</a>):</p>
 <ul>
@@ -275,6 +281,7 @@ crtk move list --startpos --jsonl         # {&quot;uci&quot;:&quot;a2a3&quot;,&q
 <li><code>--output -</code> streams to stdout instead of writing files.</li>
 </ul>
 <p>Each file is one top-level JSON array, grown incrementally as positions clear the <a href="filter-dsl.html">Filter DSL</a> gates rather than written all at once at the end.</p>
+<p>Each newly written record object carries a <code>schemaVersion</code> field with the current contract id, <code>crtk.record.v2</code>. Older record objects that do not carry the field remain valid input and are interpreted as <code>crtk.record.v1</code>; use <code>record validate --input FILE --strict</code> when you want malformed rows to fail loudly instead of being skipped by tolerant readers.</p>
 <h3 id="publishing-outputs">Publishing outputs</h3>
 <p>PDFs land under <code>dump/</code> like everything else, and no LaTeX toolchain is anywhere in the path — the renderer is native (see <a href="book-publishing.html">Book Publishing</a>):</p>
 <ul>
@@ -333,6 +340,7 @@ crtk clean --verbose   # print a stack trace if cleanup fails</code></pre>
 <li><a href="command-reference.html">Command Reference</a> — every area, action, and flag.</li>
 <li><a href="configuration.html">Configuration</a> — the output root and other settings in <code>config/cli.config.toml</code>.</li>
 <li><a href="datasets.html">Datasets</a> — tensor and JSONL export formats in depth.</li>
+<li><a href="review-to-study.html">Review to study</a> — PGN review artifacts and study-unit sidecars.</li>
 <li><a href="mining.html">Puzzle Mining</a> — <code>puzzle mine</code> outputs and the Filter DSL gates.</li>
 <li><a href="book-publishing.html">Book Publishing</a> — native PDF output.</li>
 <li><a href="troubleshooting.html">Troubleshooting</a> — diagnosing non-zero exit codes.</li>

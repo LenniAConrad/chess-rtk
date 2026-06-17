@@ -1,14 +1,18 @@
 package testing;
 
+import static testing.TestSupport.readUtf8;
 import static testing.WorkbenchTestSupport.*;
 
 import java.awt.Component;
 import java.lang.reflect.Proxy;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.DefaultComboBoxModel;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 
 import application.cli.CliCommand;
@@ -38,8 +42,10 @@ final class WorkbenchCommandRegression {
         testCommandOptionConflictsDisableStaleRows();
         testEvaluatorSelectorsUseExplicitDefaults();
         testCommandFormatSelectorsUseDirectChoices();
+        testPositionDescribeTemplateExposesAudiencePresets();
         testMateTemplateUsesCliShortcut();
         testEngineGauntletCommandBuilder();
+        testEngineGauntletNeuralEvaluatorSelectors();
         testCommandFormMovesHelperCopyToTooltips();
         testDynamicOptionRefresh();
         testDynamicOptionRefreshSkipsUnchangedValues();
@@ -47,6 +53,9 @@ final class WorkbenchCommandRegression {
         testCommandFormPreservesManualDynamicDepth();
         testEngineTemplateContextFeedsExternalConfigOptions();
         testEngineBatchTasksUseExternalConfigOptions();
+        testReviewGameTemplateBuildsStudyCommand();
+        testPgnStoreTemplatesBuildCommands();
+        testPgnAndReviewCommandsReachPaletteAndAllCli();
         testPositionListEditorStartsEmpty();
         testPositionListEditorRejectsEmptyCliScriptRows();
         testCommandTemplatesHaveCompactTabLabels();
@@ -169,6 +178,25 @@ final class WorkbenchCommandRegression {
     }
 
     /**
+     * Verifies the position-description builder exposes audience presets that map
+     * directly onto the CLI flag.
+     */
+    private static void testPositionDescribeTemplateExposesAudiencePresets() {
+        Object options = optionsFor("Position describe");
+        assertTrue(hasRowForFlag(options, "Beginner"), "position describe exposes beginner audience");
+        assertTrue(hasRowForFlag(options, "Club"), "position describe exposes club audience");
+        assertTrue(hasRowForFlag(options, "ML"), "position describe exposes ml audience");
+        assertTrue(hasRowForFlag(options, "Engine debug"), "position describe exposes engine-debug audience");
+        assertEquals("club", valueAfterFlag(enabledArgs(options), "--audience"),
+                "position describe template defaults to club audience");
+
+        invoke(options, "setValueAt", new Class<?>[] { Object.class, int.class, int.class },
+                Boolean.TRUE, rowForFlag(options, "ML"), COL_USE);
+        assertEquals("ml", valueAfterFlag(enabledArgs(options), "--audience"),
+                "position describe template emits selected ml audience");
+    }
+
+    /**
      * Verifies the mate command has a first-class GUI builder wired to the
      * top-level CLI shortcut.
      */
@@ -240,6 +268,54 @@ final class WorkbenchCommandRegression {
         assertEquals("4000", valueAfterFlag(command, "--nodesB"),
                 "gauntlet baseline numeric budget maps to nodes");
         assertTrue(command.contains("--stream"), "gauntlet GUI always streams per-game records");
+    }
+
+    /**
+     * Verifies the gauntlet panel exposes policy/value neural backends and keeps
+     * them on MCTS in the generated command.
+     */
+    @SuppressWarnings("unchecked")
+    private static void testEngineGauntletNeuralEvaluatorSelectors() {
+        EngineGauntletPanel panel = new EngineGauntletPanel(value -> { });
+        JComboBox<String> evalA = (JComboBox<String>) field(panel, "evalA");
+        JComboBox<String> evalB = (JComboBox<String>) field(panel, "evalB");
+        JComboBox<String> searchA = (JComboBox<String>) field(panel, "searchA");
+        JComboBox<String> searchB = (JComboBox<String>) field(panel, "searchB");
+
+        assertComboContains(evalA, "cnn", "gauntlet candidate exposes CNN evaluator");
+        assertComboContains(evalA, "bt4", "gauntlet candidate exposes BT4 evaluator");
+        assertComboContains(evalB, "otis", "gauntlet baseline exposes OTIS evaluator");
+
+        searchA.setSelectedItem("alpha-beta");
+        evalA.setSelectedItem("bt4");
+        assertEquals("mcts", searchA.getSelectedItem(), "BT4 selection prefers candidate MCTS");
+
+        searchB.setSelectedItem("alpha-beta");
+        evalB.setSelectedItem("otis");
+        assertEquals("mcts", searchB.getSelectedItem(), "OTIS selection prefers baseline MCTS");
+
+        JTextArea command = (JTextArea) field(panel, "commandArea");
+        String preview = command.getText();
+        assertTrue(preview.contains("--evalA bt4"), "gauntlet preview includes BT4 candidate evaluator");
+        assertTrue(preview.contains("--evalB otis"), "gauntlet preview includes OTIS baseline evaluator");
+        assertTrue(preview.contains("--searchA mcts"), "gauntlet preview switches candidate search to MCTS");
+        assertTrue(preview.contains("--searchB mcts"), "gauntlet preview switches baseline search to MCTS");
+    }
+
+    /**
+     * Asserts a combo model contains an expected item.
+     *
+     * @param combo combo box
+     * @param expected expected item
+     * @param message failure message
+     */
+    private static void assertComboContains(JComboBox<String> combo, String expected, String message) {
+        for (int i = 0; i < combo.getItemCount(); i++) {
+            if (expected.equals(combo.getItemAt(i))) {
+                return;
+            }
+        }
+        throw new AssertionError(message + " (missing " + expected + ")");
     }
 
     /**
@@ -377,6 +453,128 @@ final class WorkbenchCommandRegression {
     }
 
     /**
+     * Verifies the review-game template mirrors the CLI's study-unit path.
+     */
+    private static void testReviewGameTemplateBuildsStudyCommand() {
+        Object template = template("Review game");
+        assertEquals(List.of("review", "game"),
+                stringList(invoke(template, "baseArgs", new Class<?>[0])),
+                "review-game template command path");
+
+        Object options = construct(type("OptionTableModel"), new Class<?>[0]);
+        invoke(options, "setOptions",
+                new Class<?>[] { List.class, type("CommandTemplates$TemplateContext") },
+                templateOptions(template),
+                templateContext(START_FEN, "3s", "5", "2", "4",
+                        "config/review.engine.toml", "1200", "256"));
+        invoke(options, "setValueAt", new Class<?>[] { Object.class, int.class, int.class },
+                "games/rapid.pgn", rowForFlag(options, "--pgn"), COL_VALUE);
+        invoke(options, "setValueAt", new Class<?>[] { Object.class, int.class, int.class },
+                "dump/rapid.review.jsonl", rowForFlag(options, "--output"), COL_VALUE);
+        invoke(options, "setValueAt", new Class<?>[] { Object.class, int.class, int.class },
+                "dump/rapid.study.jsonl", rowForFlag(options, "--study-output"), COL_VALUE);
+        invoke(options, "setValueAt", new Class<?>[] { Object.class, int.class, int.class },
+                "dump/rapid.study.record.json", rowForFlag(options, "--record-output"), COL_VALUE);
+
+        List<String> args = enabledArgs(options);
+        assertEquals("games/rapid.pgn", valueAfterFlag(args, "--pgn"), "review-game PGN path");
+        assertTrue(hasFlag(args, "--to-study"), "review-game study flag");
+        assertEquals("dump/rapid.review.jsonl", valueAfterFlag(args, "--output"), "review output path");
+        assertEquals("dump/rapid.study.jsonl", valueAfterFlag(args, "--study-output"), "study output path");
+        assertEquals("dump/rapid.study.record.json", valueAfterFlag(args, "--record-output"),
+                "record output path");
+        assertEquals("config/review.engine.toml", valueAfterFlag(args, "--protocol-path"),
+                "review protocol path");
+        assertEquals("1200", valueAfterFlag(args, "--max-nodes"), "review node budget");
+        assertEquals("3s", valueAfterFlag(args, "--max-duration"), "review duration budget");
+        assertEquals("2", valueAfterFlag(args, "--multipv"), "review multipv");
+        assertEquals("4", valueAfterFlag(args, "--threads"), "review threads");
+        assertEquals("256", valueAfterFlag(args, "--hash"), "review hash");
+
+        invoke(options, "setValueAt", new Class<?>[] { Object.class, int.class, int.class },
+                Boolean.TRUE, rowForFlag(options, "--offline"), COL_USE);
+        List<String> offlineArgs = enabledArgs(options);
+        assertTrue(hasFlag(offlineArgs, "--offline"), "offline review flag");
+        assertFalse(hasFlag(offlineArgs, "--protocol-path"), "offline disables protocol");
+        assertFalse(hasFlag(offlineArgs, "--multipv"), "offline disables multipv");
+        assertFalse(hasFlag(offlineArgs, "--threads"), "offline disables threads");
+        assertFalse(hasFlag(offlineArgs, "--hash"), "offline disables hash");
+    }
+
+    /**
+     * Verifies the local PGN-store templates mirror the non-destructive CLI verbs.
+     */
+    private static void testPgnStoreTemplatesBuildCommands() {
+        Object importTemplate = template("PGN import");
+        assertEquals(List.of("pgn", "import"),
+                stringList(invoke(importTemplate, "baseArgs", new Class<?>[0])),
+                "PGN import template command path");
+        Object importOptions = optionsFor("PGN import");
+        invoke(importOptions, "setValueAt", new Class<?>[] { Object.class, int.class, int.class },
+                "games/recent.pgn", rowForFlag(importOptions, "--input"), COL_VALUE);
+        invoke(importOptions, "setValueAt", new Class<?>[] { Object.class, int.class, int.class },
+                "dump/pgn-store", rowForFlag(importOptions, "--store"), COL_VALUE);
+        List<String> importArgs = enabledArgs(importOptions);
+        assertEquals("games/recent.pgn", valueAfterFlag(importArgs, "--input"), "PGN import input");
+        assertEquals("dump/pgn-store", valueAfterFlag(importArgs, "--store"), "PGN import store");
+
+        Object findTemplate = template("PGN find");
+        assertEquals(List.of("pgn", "find"),
+                stringList(invoke(findTemplate, "baseArgs", new Class<?>[0])),
+                "PGN find template command path");
+        Object findOptions = optionsFor("PGN find");
+        List<String> findArgs = enabledArgs(findOptions);
+        assertEquals(START_FEN, valueAfterFlag(findArgs, "--fen"), "PGN find uses current FEN");
+        assertEquals("20", valueAfterFlag(findArgs, "--limit"), "PGN find default limit");
+
+        Object showTemplate = template("PGN show");
+        assertEquals(List.of("pgn", "show"),
+                stringList(invoke(showTemplate, "baseArgs", new Class<?>[0])),
+                "PGN show template command path");
+        Object showOptions = optionsFor("PGN show");
+        invoke(showOptions, "setValueAt", new Class<?>[] { Object.class, int.class, int.class },
+                "game-001", rowForFlag(showOptions, "--gameId"), COL_VALUE);
+        assertEquals("game-001", valueAfterFlag(enabledArgs(showOptions), "--gameId"),
+                "PGN show game id");
+        assertEquals("pgn", valueAfterFlag(enabledArgs(showOptions), "--format"),
+                "PGN show default format");
+        assertTrue(hasRowForFlag(showOptions, "Json"), "PGN show exposes JSON format");
+
+        Object statsTemplate = template("PGN stats");
+        assertEquals(List.of("pgn", "stats"),
+                stringList(invoke(statsTemplate, "baseArgs", new Class<?>[0])),
+                "PGN stats template command path");
+        assertFalse(hasFlag(enabledArgs(optionsFor("PGN stats")), "--store"),
+                "PGN stats defaults to the CLI store path");
+    }
+
+    /**
+     * Verifies the PGN/review verbs are reachable through both the palette jump
+     * actions and the registry-backed All CLI template.
+     */
+    private static void testPgnAndReviewCommandsReachPaletteAndAllCli() {
+        List<String> choices = allCliChoices();
+        for (String path : List.of(
+                "pgn import",
+                "pgn find",
+                "pgn show",
+                "pgn stats",
+                "pgn delete",
+                "pgn compact",
+                "review game")) {
+            assertTrue(choices.contains(path), "all-cli exposes " + path);
+        }
+
+        String palette = readUtf8(Path.of("src/application/gui/workbench/window/WindowPaletteActions.java"));
+        for (String template : List.of("PGN import", "PGN find", "PGN show", "PGN stats", "Review game")) {
+            assertTrue(palette.contains("openCommandTemplate(\"" + template + "\")"),
+                    "palette opens " + template + " command template");
+        }
+        assertTrue(palette.contains("new PaletteAction(\"Run\", \"Review game command\""),
+                "palette distinguishes review command from review panel");
+    }
+
+    /**
      * Verifies the merged position-list editor starts empty (no demo FENs).
      */
     private static void testPositionListEditorStartsEmpty() {
@@ -448,16 +646,7 @@ final class WorkbenchCommandRegression {
      * registry.
      */
     private static void testCommandControllerCoversCliRegistry() {
-        Object allCli = template("All CLI");
-        List<Object> options = objectList(invoke(allCli, "options", new Class<?>[0]));
-        List<String> choices = List.of();
-        for (Object option : options) {
-            List<String> candidate = stringList(invoke(option, "choices", new Class<?>[0]));
-            if (!candidate.isEmpty()) {
-                choices = candidate;
-                break;
-            }
-        }
+        List<String> choices = allCliChoices();
         assertFalse(choices.isEmpty(), "all-cli template exposes command choices");
         for (String path : commandControllerCliPaths()) {
             assertTrue(choices.contains(path), "all-cli template covers " + path);
@@ -467,6 +656,23 @@ final class WorkbenchCommandRegression {
             assertTrue(command != null && command.isRunnable(), "all-cli choice resolves: " + choice);
             assertFalse(isWorkbenchLauncherPath(choice), "all-cli excludes nested workbench launcher: " + choice);
         }
+    }
+
+    /**
+     * Returns the command path choices from the All CLI template.
+     *
+     * @return All CLI command path choices
+     */
+    private static List<String> allCliChoices() {
+        Object allCli = template("All CLI");
+        List<Object> options = objectList(invoke(allCli, "options", new Class<?>[0]));
+        for (Object option : options) {
+            List<String> candidate = stringList(invoke(option, "choices", new Class<?>[0]));
+            if (!candidate.isEmpty()) {
+                return candidate;
+            }
+        }
+        return List.of();
     }
 
     /**
@@ -497,18 +703,8 @@ final class WorkbenchCommandRegression {
      * through the Workbench error path instead of letting them escape the EDT.
      */
     private static void testRunArtifactsDesktopOpenHandlesRuntimeFailures() {
-        String source;
-        String helper;
-        try {
-            source = java.nio.file.Files.readString(
-                    java.nio.file.Path.of("src/application/gui/workbench/session/RunArtifacts.java"),
-                    java.nio.charset.StandardCharsets.UTF_8);
-            helper = java.nio.file.Files.readString(
-                    java.nio.file.Path.of("src/application/gui/workbench/session/DesktopOpen.java"),
-                    java.nio.charset.StandardCharsets.UTF_8);
-        } catch (java.io.IOException ex) {
-            throw new AssertionError("unable to read desktop-open sources", ex);
-        }
+        String source = readUtf8(Path.of("src/application/gui/workbench/session/RunArtifacts.java"));
+        String helper = readUtf8(Path.of("src/application/gui/workbench/session/DesktopOpen.java"));
         assertTrue(source.contains("DesktopOpen.open(path)"),
                 "RunArtifacts delegates desktop opening to the shared helper");
         assertTrue(helper.contains("desktop.isSupported(Desktop.Action.OPEN)"),

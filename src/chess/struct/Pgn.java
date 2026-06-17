@@ -293,23 +293,7 @@ public final class Pgn {
      * @param game target game (non-null)
      */
     private static void setStartPositionFromTags(Game game) {
-        String fen = game.getTags().get("FEN");
-        String setup = game.getTags().get("SetUp");
-        if (fen == null || fen.isEmpty()) {
-            game.setStartPosition(new Position(Game.STANDARD_START_FEN));
-            return;
-        }
-        // Per PGN, SetUp="1" indicates a FEN start; SetUp missing defaults to 1.
-        boolean useFen = (setup == null || !"0".equals(setup.trim()));
-        if (!useFen) {
-            game.setStartPosition(new Position(Game.STANDARD_START_FEN));
-            return;
-        }
-        try {
-            game.setStartPosition(new Position(fen.trim()));
-        } catch (IllegalArgumentException ex) {
-            game.setStartPosition(new Position(Game.STANDARD_START_FEN));
-        }
+        game.setStartPosition(PgnStartPosition.fromTags(game.getTags()));
     }
 
     /**
@@ -389,7 +373,7 @@ public final class Pgn {
         Position start = game.getStartPosition();
         boolean nonStandardStart = hasNonStandardStart(start);
         appendSetupTags(sb, start, nonStandardStart);
-        appendGameTags(sb, game, nonStandardStart);
+        appendGameTags(sb, game);
         sb.append(System.lineSeparator());
         appendPreambleComments(sb, game);
         PlyTracker tracker = createTracker(start);
@@ -429,12 +413,11 @@ public final class Pgn {
      *
      * @param sb output builder
      * @param game game to serialize
-     * @param nonStandardStart whether setup tags were emitted
      */
-    private static void appendGameTags(StringBuilder sb, Game game, boolean nonStandardStart) {
+    private static void appendGameTags(StringBuilder sb, Game game) {
         for (var entry : game.getTags().entrySet()) {
             String key = entry.getKey();
-            if (shouldSkipSetupTag(key, nonStandardStart)) {
+            if (shouldSkipSetupTag(key)) {
                 continue;
             }
             sb.append('[')
@@ -450,11 +433,11 @@ public final class Pgn {
      * Returns whether one tag is already covered by emitted setup tags.
      *
      * @param key tag key
-     * @param nonStandardStart whether setup tags were emitted
      * @return true when the tag should be skipped
      */
-    private static boolean shouldSkipSetupTag(String key, boolean nonStandardStart) {
-        return nonStandardStart && ("FEN".equalsIgnoreCase(key) || "SetUp".equalsIgnoreCase(key));
+    private static boolean shouldSkipSetupTag(String key) {
+        return PgnStartPosition.FEN_TAG.equalsIgnoreCase(key)
+                || PgnStartPosition.SETUP_TAG.equalsIgnoreCase(key);
     }
 
     /**

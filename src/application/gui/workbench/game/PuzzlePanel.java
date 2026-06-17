@@ -57,7 +57,7 @@ import static application.gui.workbench.ui.Ui.transparentPanel;
 /**
  * Native Swing chess puzzle trainer with PGN variation support.
  */
-public final class PuzzlePanel extends JPanel {
+public final class PuzzlePanel extends SurfacePanel {
 
     /**
      * Serialization identifier for Swing panel compatibility.
@@ -343,7 +343,7 @@ public final class PuzzlePanel extends JPanel {
      * @param summaryChanged callback fired when shell header context should refresh
      */
     private PuzzlePanel(boolean loadLibrary, Runnable summaryChanged) {
-        super(new BorderLayout(0, 8));
+        super(new BorderLayout(0, 8), Theme.Surface.PANEL);
         this.summaryChanged = summaryChanged == null ? () -> {
             // optional callback
         } : summaryChanged;
@@ -369,9 +369,6 @@ public final class PuzzlePanel extends JPanel {
      * Applies root component styling.
      */
     private void configurePanel() {
-        setOpaque(true);
-        setBackground(Theme.PANEL_SOLID);
-        setForeground(Theme.TEXT);
         setBorder(Theme.pad(Theme.SPACE_MD));
         board.setShowNotation(true);
         board.setShowLegalMovePreview(true);
@@ -427,7 +424,7 @@ public final class PuzzlePanel extends JPanel {
         boardStage.add(createBoardFooter(), BorderLayout.SOUTH);
 
         JPanel side = new SurfacePanel(new BorderLayout(0, 8));
-        side.setPreferredSize(new Dimension(430, 560));
+        side.setPreferredSize(new Dimension(360, 560));
         side.add(scroll(fillViewport(createInspector())), BorderLayout.CENTER);
 
         JSplitPane split = SplitPaneStyler.styledHorizontalSplit(boardStage, side, 0.68);

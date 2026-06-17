@@ -41,18 +41,28 @@ Skip the launcher and compile straight to an output directory, then run the main
 
 ```bash
 mkdir -p out
-javac --release 17 -d out $(find src -name "*.java")
+find src -name "*.java" | sort > /tmp/crtk-srcs.txt
+javac --release 17 -d out @/tmp/crtk-srcs.txt
+rm -rf out/schemas && cp -R schemas out/schemas
 java -cp out application.Main help
 ```
 
-A prebuilt `crtk.jar` ships in the repository root, so you can run any command without compiling first:
+If you want the runnable JAR form, package it after compiling:
 
 ```bash
+rm -rf out/schemas && cp -R schemas out/schemas
+jar --create --file crtk.jar --main-class application.Main -C out .
 java -jar crtk.jar version
 java -jar crtk.jar help
 ```
 
-Wherever this page says `crtk`, `java -jar crtk.jar` and `java -cp out application.Main` work just as well. See [Build and install](build-and-install.md) for the full matrix, including GPU backends.
+You can also let the regression runner do the compile-and-package step:
+
+```bash
+./scripts/run_regression_suite.sh jar
+```
+
+Wherever this page says `crtk`, `java -jar crtk.jar` works after the JAR exists, and `java -cp out application.Main` works after the classes are compiled. See [Build and install](build-and-install.md) for the full matrix, including GPU backends.
 
 ## Check your environment with doctor
 

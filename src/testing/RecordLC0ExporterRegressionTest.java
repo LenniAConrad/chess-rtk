@@ -3,7 +3,6 @@ package testing;
 import application.cli.PathOps;
 import static testing.TestSupport.*;
 
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -41,17 +40,16 @@ public final class RecordLC0ExporterRegressionTest {
 		Path dir = PathOps.createLocalTempDirectory("crtk-lc0-export-test");
 		Path input = dir.resolve("records.record");
 		Path stem = dir.resolve("dataset");
-		Files.writeString(input,
+		writeUtf8(input,
 				"[\n"
 						+ recordJson(START_FEN, "info depth 1 multipv 1 score cp 20 nodes 1 pv e2e4")
 						+ ",\n"
 						+ recordJson(START_FEN, "info depth 1 multipv 1 score cp 20 nodes 1 pv e2e5")
-						+ "\n]",
-				StandardCharsets.UTF_8);
+						+ "\n]");
 
 		RecordLc0Exporter.export(input, stem, null);
 
-		String meta = Files.readString(dir.resolve("dataset.lc0.meta.json"), StandardCharsets.UTF_8);
+		String meta = readUtf8(dir.resolve("dataset.lc0.meta.json"));
 		assertContains(meta, "\"rows_written\": 1", "LC0 exporter written count");
 		assertContains(meta, "\"rows_skipped\": 1", "LC0 exporter skipped illegal move count");
 		assertTrue(Files.size(dir.resolve("dataset.lc0.inputs.npy")) > 0L, "LC0 inputs file written");
@@ -73,16 +71,4 @@ public final class RecordLC0ExporterRegressionTest {
 				+ "\",\"description\":\"\",\"tags\":[],\"analysis\":[\"" + analysis + "\"]}";
 	}
 
-    /**
-     * Verifies that a string contains a substring.
-     *
-     * @param value value to inspect
-     * @param needle expected substring
-     * @param label assertion label
-     */
-	private static void assertContains(String value, String needle, String label) {
-		if (!value.contains(needle)) {
-			throw new AssertionError(label + ": expected to find " + needle + " in " + value);
-		}
-	}
 }

@@ -21,7 +21,6 @@ import application.gui.workbench.ui.WorkspaceHeader;
 import chess.core.Move;
 import chess.core.Position;
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.CardLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -43,8 +42,8 @@ import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
+import application.gui.workbench.ui.SurfacePanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
 import javax.swing.JTabbedPane;
@@ -64,7 +63,7 @@ import javax.swing.border.Border;
  * forward pass per architecture. Falls back to synthetic activations when a
  * model file is missing or fails to load.</p>
  */
-public final class NetworkPanel extends JPanel {
+public final class NetworkPanel extends SurfacePanel {
 
     private static final long serialVersionUID = 1L;
 
@@ -522,9 +521,7 @@ public final class NetworkPanel extends JPanel {
      * @param showWorkspaceHeader true to show the standalone Engine Lab header
      */
     public NetworkPanel(boolean showWorkspaceHeader) {
-        super(new BorderLayout());
-        setOpaque(true);
-        setBackground(Theme.BG);
+        super(new BorderLayout(), Theme.Surface.BACKDROP);
         setBorder(Theme.pad(Theme.SPACE_SM));
         JPanel north = new JPanel(new BorderLayout(0, showWorkspaceHeader ? Theme.SPACE_SM : 0));
         north.setOpaque(false);
@@ -622,11 +619,10 @@ public final class NetworkPanel extends JPanel {
     }
 
     private static JScrollPane wrapInScroll(JComponent view) {
-        JScrollPane scroll = new JScrollPane(view);
-        Ui.styleScrollPane(scroll);
+        // Ui.scroll(...) already applies styleScrollPane; the explicit
+        // AS_NEEDED policies were just restating Swing's defaults.
+        JScrollPane scroll = Ui.scroll(view);
         scroll.setBorder(null);
-        scroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
-        scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         scroll.getVerticalScrollBar().setUnitIncrement(24);
         scroll.getHorizontalScrollBar().setUnitIncrement(24);
         return scroll;
@@ -641,64 +637,17 @@ public final class NetworkPanel extends JPanel {
         JPanel legend = new JPanel(new GridLayout(0, 1, 0, Theme.SPACE_SM));
         legend.setOpaque(false);
         legend.setBorder(Theme.pad(Theme.SPACE_SM));
-        legend.add(legendRow(TensorViz.POSITIVE, "Positive contribution",
+        legend.add(Ui.legendRow(TensorViz.POSITIVE, "Positive contribution",
                 "Green cells, bars, and edges raise the side-to-move evaluation."));
-        legend.add(legendRow(TensorViz.NEGATIVE, "Negative contribution",
+        legend.add(Ui.legendRow(TensorViz.NEGATIVE, "Negative contribution",
                 "Red cells, bars, and edges lower the side-to-move evaluation."));
-        legend.add(legendRow(Theme.withAlpha(Theme.ACCENT, 150), "Opacity / magnitude",
+        legend.add(Ui.legendRow(Theme.withAlpha(Theme.ACCENT, 150), "Opacity / magnitude",
                 "Stronger weights and activations are drawn with higher opacity or longer bars."));
-        legend.add(legendRow(TensorViz.FOCUS, "Selected node / layer",
+        legend.add(Ui.legendRow(TensorViz.FOCUS, "Selected node / layer",
                 "Focused nodes, lanes, and layers use the focus accent and drive the inspector."));
-        legend.add(legendRow(Theme.MUTED, "Raw technical values",
+        legend.add(Ui.legendRow(Theme.MUTED, "Raw technical values",
                 "Dense tensors remain available through Trace, All, and Atlas modes."));
         return Ui.card("Trace Legend", legend);
-    }
-
-    /**
-     * Creates one legend row.
-     *
-     * @param color chip color
-     * @param title row title
-     * @param detail row detail
-     * @return row component
-     */
-    private static JComponent legendRow(Color color, String title, String detail) {
-        JPanel row = new JPanel(new BorderLayout(Theme.SPACE_SM, 0));
-        row.setOpaque(false);
-        JComponent chip = new JComponent() {
-            private static final long serialVersionUID = 1L;
-
-            /**
-             * Returns the fixed legend-chip size.
-             *
-             * @return chip dimensions
-             */
-            @Override
-            public Dimension getPreferredSize() {
-                return new Dimension(12, 12);
-            }
-
-            /**
-             * Paints the legend color chip.
-             *
-             * @param graphics drawing context
-             */
-            @Override
-            protected void paintComponent(java.awt.Graphics graphics) {
-                graphics.setColor(color);
-                graphics.fillRoundRect(0, 2, 12, 8, 4, 4);
-            }
-        };
-        JPanel text = new JPanel(new GridLayout(0, 1));
-        text.setOpaque(false);
-        JLabel titleLabel = new JLabel(title);
-        titleLabel.setFont(Theme.font(12, java.awt.Font.BOLD));
-        Theme.foreground(titleLabel, Theme.ForegroundRole.TEXT);
-        text.add(titleLabel);
-        text.add(Ui.caption(detail));
-        row.add(chip, BorderLayout.WEST);
-        row.add(text, BorderLayout.CENTER);
-        return row;
     }
 
     /**

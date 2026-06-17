@@ -14,7 +14,8 @@ public final class Model implements AutoCloseable {
     /**
      * Default classifier weights path used by helpers and examples.
      */
-    public static final Path DEFAULT_WEIGHTS = Path.of("models/classifier_21planes-6blocksx64-head32-logit1.bin");
+    public static final Path DEFAULT_WEIGHTS = Path.of(
+            "models/puzzle-classifier_21planes-6blocksx64-head32-logit1.bin");
 
     /**
      * Underlying evaluator.

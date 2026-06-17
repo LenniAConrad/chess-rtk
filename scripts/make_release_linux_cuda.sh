@@ -47,6 +47,10 @@ done
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
+# shellcheck source=scripts/build_lock.sh
+source "$repo_root/scripts/build_lock.sh"
+crtk_acquire_build_lock "$repo_root"
+
 if [[ -z "$VERSION" ]]; then
   if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     VERSION="$(git describe --tags --always)"
@@ -76,6 +80,14 @@ echo "== Building Java (crtk.jar) =="
 rm -rf out
 mkdir -p out
 find src -name "*.java" -print0 | xargs -0 javac --release 17 -d out
+if [[ -d schemas ]]; then
+  mkdir -p out/schemas
+  find schemas -type f -name '*.schema.json' -print0 \
+    | while IFS= read -r -d '' schema_file; do
+        mkdir -p "out/$(dirname "$schema_file")"
+        cp "$schema_file" "out/$schema_file"
+      done
+fi
 jar --create --file crtk.jar --main-class application.Main -C out .
 
 echo "== Building CUDA JNI (liblc0_cuda.so) =="

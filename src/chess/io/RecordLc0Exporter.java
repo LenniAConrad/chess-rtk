@@ -86,6 +86,27 @@ public final class RecordLc0Exporter {
      * @throws IOException if reading or writing fails
      */
     public static void export(Path recordFile, Path outStem, Path weights, LongConsumer byteProgress) throws IOException {
+        export(recordFile, outStem, weights, byteProgress, null);
+    }
+
+    /**
+     * Export a {@code .record} JSON array into LC0 tensors while optionally
+     * reporting accepted rows to a row-hash sink.
+     *
+     * @param recordFile input record JSON array
+     * @param outStem output stem path
+     * @param weights optional LC0 weights file to load a policy map for compression
+     *                (nullable)
+     * @param byteProgress optional callback receiving cumulative bytes read
+     * @param rowHashSink optional sink receiving raw JSON for every emitted row
+     * @throws IOException if reading or writing fails
+     */
+    public static void export(
+            Path recordFile,
+            Path outStem,
+            Path weights,
+            LongConsumer byteProgress,
+            Consumer<String> rowHashSink) throws IOException {
         if (recordFile == null || outStem == null) {
             throw new IllegalArgumentException("recordFile and outStem must be non-null");
         }
@@ -125,6 +146,9 @@ public final class RecordLc0Exporter {
                         counters[1]++;
                     } else {
                         counters[0]++;
+                        if (rowHashSink != null) {
+                            rowHashSink.accept(objJson);
+                        }
                     }
                 } catch (IOException io) {
                     throw new UncheckedIOException(io);

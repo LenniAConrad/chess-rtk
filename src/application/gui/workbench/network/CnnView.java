@@ -1,6 +1,5 @@
 package application.gui.workbench.network;
 
-import application.gui.workbench.board.BoardStyle;
 import application.gui.workbench.ui.HitRegions;
 import application.gui.workbench.ui.InspectorDialog;
 import application.gui.workbench.ui.Theme;
@@ -597,23 +596,12 @@ public final class CnnView extends NetworkView {
      */
     private void drawCnnAtlasBoard(Graphics2D g, Rectangle board, String title,
             float[] values, String caption) {
-        boolean whiteDown = TensorViz.whiteDownForSideToMove(fen);
         float[] boardValues = toBoardSquares(values);
         int focusSquare = strongestSquare(boardValues, true);
-        String focus = focusSquare >= 0 ? " · focus " + TensorViz.squareLabel(focusSquare) : "";
-        g.setColor(Theme.MUTED);
-        g.setFont(Theme.font(10, Font.BOLD));
-        FontMetrics fm = g.getFontMetrics();
-        g.drawString(Ui.elide(title + focus, fm, board.width + 10), board.x, board.y - 4);
-        TensorViz.drawMiniBoard(g, board);
-        TensorViz.drawPositionPieces(g, board, fen, whiteDown);
-        if (boardValues != null) {
-            float scale = scaleFor("cnnAtlas:board:" + title, maxAbs(boardValues));
-            TensorViz.drawSquareOverlay(g, board, boardValues, scale, whiteDown);
-            TensorViz.drawBoardSquareRing(g, board, focusSquare, TensorViz.FOCUS, whiteDown);
-            addBoardSquareTooltips(board, boardValues, caption, whiteDown);
-        }
-        TensorViz.drawBoardCoordinates(g, board, whiteDown);
+        float scale = boardValues == null ? 1.0f
+                : scaleFor("cnnAtlas:board:" + title, maxAbs(boardValues));
+        NetworkBoardSection.paintOverlayBoard(g, hitRegions, board, fen, title,
+                boardValues, scale, focusSquare, TensorViz.FOCUS, caption);
     }
 
     /**
@@ -914,43 +902,19 @@ public final class CnnView extends NetworkView {
         float[] heatmap = snapshot.data("cnn.final.activation");
         int size = Math.min(r.width, r.height - 60);
         Rectangle board = new Rectangle(r.x + (r.width - size) / 2, r.y + 50, size - 16, size - 16);
-        boolean whiteDown = TensorViz.whiteDownForSideToMove(fen);
-        TensorViz.drawMiniBoard(g, board);
-        TensorViz.drawPositionPieces(g, board, fen, whiteDown);
-        if (heatmap != null && heatmap.length >= 64) {
-            float[] boardValues = toBoardSquares(heatmap);
-            float s = scaleFor("policyAttention", maxAbs(boardValues));
-            TensorViz.drawSquareOverlay(g, board, boardValues, s, whiteDown);
-            TensorViz.drawBoardSquareRing(g, board, strongestSquare(boardValues, true), TensorViz.FOCUS,
-                    whiteDown);
-            addBoardSquareTooltips(board, boardValues, "Final-map mean activation", whiteDown);
-        }
-        TensorViz.drawBoardCoordinates(g, board, whiteDown);
+        float[] boardValues = heatmap != null && heatmap.length >= 64
+                ? toBoardSquares(heatmap)
+                : null;
+        float scale = boardValues == null ? 0.0f : scaleFor("policyAttention", maxAbs(boardValues));
+        int focusSquare = strongestSquare(boardValues, true);
+        NetworkBoardSection.paintOverlayBoard(g, hitRegions, board, fen,
+                "policy attention", boardValues, scale, focusSquare, TensorViz.FOCUS,
+                "Final-map mean activation");
 
         float[] policy = snapshot.data("cnn.policy.logits");
         if (policy != null) {
             Rectangle topRect = new Rectangle(r.x + 4, board.y + board.height + 22, r.width - 8, r.height - (board.y + board.height + 22 - r.y) - 8);
             paintTopPolicy(g, topRect, policy);
-        }
-    }
-
-    /**
-     * Adds 64 per-square hover regions over an 8x8 board overlay.
-     *
-     * @param board pixel rectangle covering the 8x8 grid
-     * @param values 64 cell values in rank-major (rank 0 = a1)
-     * @param caption tooltip caption
-     */
-    private void addBoardSquareTooltips(Rectangle board, float[] values, String caption, boolean whiteDown) {
-        if (values == null || values.length < 64) {
-            return;
-        }
-        for (int sq = 0; sq < 64; ++sq) {
-            Rectangle cell = BoardStyle.lerfSquareBounds(board, sq, whiteDown);
-            hitRegions.add(cell,
-                    TensorViz.squareLabel(sq),
-                    caption,
-                    String.format("%+.3f", values[sq]));
         }
     }
 
@@ -1182,23 +1146,18 @@ public final class CnnView extends NetworkView {
                 "position", "mean activity of the selected layer overlaid on the board");
         int size = Math.min(r.width - 8, r.height - 80);
         Rectangle board = new Rectangle(r.x + (r.width - size) / 2, r.y + 24, size, size);
-        boolean whiteDown = TensorViz.whiteDownForSideToMove(fen);
-        TensorViz.drawMiniBoard(g, board);
-        TensorViz.drawPositionPieces(g, board, fen, whiteDown);
         int idx = selectedLayer < 0 || selectedLayer >= layers.size() ? defaultLayer() : selectedLayer;
+        LayerInfo info = idx >= 0 ? layers.get(idx) : null;
+        float[] perSquare = info == null ? null : meanPerSquare(info);
+        float[] boardValues = perSquare == null ? null : toBoardSquares(perSquare);
+        float scale = info == null || boardValues == null ? 0.0f
+                : scaleFor("detailedBoard:" + info.name, maxAbs(boardValues));
+        int focusSquare = strongestSquare(boardValues, true);
+        String caption = info == null ? "Current position"
+                : info.name + " · mean activity (channel-averaged)";
+        NetworkBoardSection.paintOverlayBoard(g, hitRegions, board, fen,
+                "position", boardValues, scale, focusSquare, TensorViz.FOCUS, caption);
         if (idx >= 0) {
-            LayerInfo info = layers.get(idx);
-            float[] perSquare = meanPerSquare(info);
-            if (perSquare != null) {
-                float[] boardValues = toBoardSquares(perSquare);
-                float s = scaleFor("detailedBoard:" + info.name, maxAbs(boardValues));
-                TensorViz.drawSquareOverlay(g, board, boardValues, s, whiteDown);
-                TensorViz.drawBoardSquareRing(g, board, strongestSquare(boardValues, true), TensorViz.FOCUS,
-                        whiteDown);
-                addBoardSquareTooltips(board, boardValues,
-                        info.name + " · mean activity (channel-averaged)", whiteDown);
-            }
-            TensorViz.drawBoardCoordinates(g, board, whiteDown);
             g.setColor(Theme.MUTED);
             g.setFont(Theme.font(11, Font.PLAIN));
             g.drawString("layer: " + info.name + "  ·  " + info.shape,
@@ -1206,7 +1165,6 @@ public final class CnnView extends NetworkView {
             g.drawString(String.format("rms %.3f   mean %+.3f   range %+.2f..%+.2f",
                     info.rms, info.mean, info.min, info.max),
                     r.x + 6, board.y + board.height + 34);
-            int focusSquare = strongestSquare(toBoardSquares(perSquare), true);
             if (focusSquare >= 0) {
                 g.drawString("strongest board square: " + TensorViz.squareLabel(focusSquare),
                         r.x + 6, board.y + board.height + 50);

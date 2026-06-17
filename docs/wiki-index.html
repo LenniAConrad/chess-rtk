@@ -89,6 +89,7 @@
 <a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
 <a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="review-to-study.html" data-title="review to study">Review To Study</a>
 <a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
@@ -134,6 +135,7 @@
 <li><a href="cli-command-guide.html">CLI command guide</a> - contributor guide for adding commands, flags, help, docs, and regression tests.</li>
 <li><a href="command-cheatsheet.html">Command cheatsheet</a> - common tasks mapped to exact commands.</li>
 <li><a href="example-commands.html">Example commands</a> - copy-pasteable command recipes.</li>
+<li><a href="serve.html">Local JSON-RPC daemon</a> - localhost-only command dispatch for agents and editors with <code>crtk serve</code>.</li>
 <li><a href="glossary.html">Glossary</a> - defined terms used across the toolkit and wiki.</li>
 </ul>
 <h2 id="workbench">Workbench</h2>
@@ -154,6 +156,7 @@
 <li><a href="piece-tags.html">Piece and position tags</a> - deterministic position, tactic, and theme tagging via <code>fen tags</code> and <code>puzzle tags</code>.</li>
 <li><a href="tag-reference.html">Tag reference</a> - the catalog of tag names and their meanings.</li>
 <li><a href="datasets.html">Datasets</a> - ML dataset export with <code>record dataset npy|lc0|classifier</code> and <code>record export ...-jsonl</code>.</li>
+<li><a href="review-to-study.html">Review to study</a> - review PGN games into schema-pinned review rows, study units, and Record handoff files.</li>
 <li><a href="t5.html">T5 tag-to-text pipeline</a> - natural-language position and puzzle summaries with <code>fen text</code> and <code>puzzle text</code>.</li>
 <li><a href="book-publishing.html">Book publishing</a> - native PDF books, covers, collections, and studies (<code>book render</code>, <code>book cover</code>, <code>book collection</code>, <code>book study</code>, <code>book pdf</code>) - no LaTeX.</li>
 <li><a href="ai-agents.html">AI agents and automation</a> - deterministic, scriptable commands for agents and batch pipelines (<code>batch run</code>, <code>config validate</code>, <code>doctor</code>).</li>
@@ -220,9 +223,19 @@
 <td><a href="piece-tags.html">Piece and position tags</a>, <a href="tag-reference.html">Tag reference</a></td>
 </tr>
 <tr>
-<td>Summarize in plain English</td>
-<td><code>fen text</code>, <code>puzzle text</code>, <code>position describe</code></td>
+<td>Review games into study units</td>
+<td><code>review game --to-study</code></td>
+<td><a href="review-to-study.html">Review to study</a>, <a href="outputs-and-logs.html">Outputs and logs</a></td>
+</tr>
+<tr>
+<td>Summarize with T5</td>
+<td><code>fen text</code>, <code>puzzle text</code></td>
 <td><a href="t5.html">T5 tag-to-text pipeline</a></td>
+</tr>
+<tr>
+<td>Describe positions deterministically</td>
+<td><code>position describe</code></td>
+<td><a href="command-reference.html">Command reference</a></td>
 </tr>
 <tr>
 <td>Export training data</td>
@@ -241,8 +254,8 @@
 </tr>
 <tr>
 <td>Automate command use</td>
-<td><code>batch run</code>, <code>doctor</code>, <code>config validate</code></td>
-<td><a href="ai-agents.html">AI agents and automation</a></td>
+<td><code>serve</code>, <code>batch run</code>, <code>doctor</code>, <code>config validate</code></td>
+<td><a href="ai-agents.html">AI agents and automation</a>, <a href="serve.html">Local JSON-RPC daemon</a></td>
 </tr>
 </tbody></table></div>
 <h2 id="quick-verification">Quick Verification</h2>

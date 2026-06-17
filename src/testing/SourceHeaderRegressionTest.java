@@ -1,11 +1,13 @@
 package testing;
 
+import static testing.TestSupport.readUtf8;
+
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -27,6 +29,43 @@ public final class SourceHeaderRegressionTest {
      * Core chess source root.
      */
     private static final Path CHESS_ROOT = SOURCE_ROOT.resolve("chess");
+
+    /**
+     * Test source root.
+     */
+    private static final Path TESTING_ROOT = SOURCE_ROOT.resolve("testing");
+
+    /**
+     * Regression test runner script that gates CI.
+     */
+    private static final Path REGRESSION_SCRIPT = Path.of("scripts", "run_regression_suite.sh");
+
+    /**
+     * Allowed import root prefixes. Any third-party dependency would have an
+     * import outside this set and would fail the no-deps invariant.
+     *
+     * <p>JDK roots: {@code java.}, {@code javax.}, {@code jdk.}. The
+     * {@code org.w3c.dom} and {@code org.xml.sax} packages ship inside the
+     * {@code java.xml} module; both are explicitly allowed. Project roots
+     * cover every source tree under {@code src/}.</p>
+     */
+    private static final Set<String> ALLOWED_IMPORT_ROOTS = Set.of(
+            "java.",
+            "javax.",
+            "jdk.",
+            "org.w3c.dom.",
+            "org.xml.sax.",
+            "org.ietf.jgss.",
+            "application.",
+            "chess.",
+            "testing.",
+            "utility.");
+
+    /**
+     * Filename suffix that marks a class as a regression test required to be
+     * wired into {@link #REGRESSION_SCRIPT}.
+     */
+    private static final String REGRESSION_TEST_SUFFIX = "RegressionTest.java";
 
     /**
      * Detached top-of-file attribution banner that should not be used.
@@ -98,6 +137,8 @@ public final class SourceHeaderRegressionTest {
         testPackageDeclarationsMatchPaths();
         testPublicTypesMatchFileNames();
         testLayerBoundaryImports();
+        testNonJdkImportBan();
+        testRegressionTestsAreWired();
         testJavadocsUseMultilineShape();
         testApiDeclarationsHaveJavadocs();
         List<Path> filesWithDetachedHeaders = new ArrayList<>();
@@ -122,7 +163,7 @@ public final class SourceHeaderRegressionTest {
             if (PACKAGE_INFO_FILE.equals(sourceFile.getFileName().toString())) {
                 continue;
             }
-            List<String> lines = readSource(sourceFile).lines().toList();
+            List<String> lines = readUtf8(sourceFile).lines().toList();
             boolean inTextBlock = false;
             for (int i = 0; i < lines.size(); i++) {
                 if (!inTextBlock && requiresJavadoc(lines, i) && !hasMultilineJavadocBefore(lines, i)) {
@@ -144,7 +185,7 @@ public final class SourceHeaderRegressionTest {
     private static void testJavadocsUseMultilineShape() {
         List<String> malformed = new ArrayList<>();
         for (Path sourceFile : javaSources()) {
-            List<String> lines = readSource(sourceFile).lines().toList();
+            List<String> lines = readUtf8(sourceFile).lines().toList();
             for (int i = 0; i < lines.size(); i++) {
                 String trimmed = lines.get(i).trim();
                 if (!trimmed.startsWith("/**")) {
@@ -269,11 +310,86 @@ public final class SourceHeaderRegressionTest {
     }
 
     /**
+     * Verifies every import sits within an explicitly allowed JDK or project root.
+     *
+     * <p>The zero-third-party-dependency invariant is the spine of CRTK's
+     * reproducibility story. This guard turns it into a CI gate: a stray
+     * {@code import org.junit.*}, {@code import com.google.*}, or any other
+     * unmanaged dependency would fail loudly the moment it lands. The
+     * allowlist in {@link #ALLOWED_IMPORT_ROOTS} is the single source of
+     * truth; adopting a new third-party root requires a deliberate edit.</p>
+     */
+    private static void testNonJdkImportBan() {
+        List<String> violations = new ArrayList<>();
+        for (Path sourceFile : javaSources()) {
+            Matcher matcher = IMPORT_DECLARATION.matcher(readUtf8(sourceFile));
+            while (matcher.find()) {
+                String importedType = matcher.group(1);
+                if (!isImportAllowed(importedType)) {
+                    violations.add(sourceFile + " imports outside the allowlist: " + importedType);
+                }
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new AssertionError("non-allowlisted imports: " + violations);
+        }
+    }
+
+    /**
+     * Verifies every {@code *RegressionTest.java} source under
+     * {@link #TESTING_ROOT} is referenced by {@link #REGRESSION_SCRIPT}.
+     *
+     * <p>This is the durable orphan gate: a regression test that exists but
+     * is not wired into the runner passes by never running, which is the
+     * worst-of-both-worlds failure mode for a deterministic-first project.
+     * Adding a new {@code *RegressionTest} now requires a matching wiring
+     * line in the runner or this gate fails.</p>
+     */
+    private static void testRegressionTestsAreWired() {
+        if (!Files.exists(REGRESSION_SCRIPT)) {
+            throw new AssertionError("missing regression script: " + REGRESSION_SCRIPT);
+        }
+        String script = readUtf8(REGRESSION_SCRIPT);
+        List<String> orphaned = new ArrayList<>();
+        for (Path sourceFile : javaSourcesUnder(TESTING_ROOT)) {
+            String fileName = sourceFile.getFileName().toString();
+            if (!fileName.endsWith(REGRESSION_TEST_SUFFIX)) {
+                continue;
+            }
+            String stem = fileName.substring(0, fileName.length() - JAVA_SOURCE_SUFFIX.length());
+            String needle = "testing." + stem;
+            if (!script.contains(needle)) {
+                orphaned.add(stem);
+            }
+        }
+        if (!orphaned.isEmpty()) {
+            throw new AssertionError("unwired regression tests under src/testing/ (each must appear in "
+                    + REGRESSION_SCRIPT + " as testing.<Name>): " + orphaned);
+        }
+    }
+
+    /**
+     * Returns whether an imported fully-qualified type sits within the
+     * {@link #ALLOWED_IMPORT_ROOTS} allowlist.
+     *
+     * @param importedType fully-qualified imported type
+     * @return {@code true} when the import begins with an allowed root
+     */
+    private static boolean isImportAllowed(String importedType) {
+        for (String prefix : ALLOWED_IMPORT_ROOTS) {
+            if (importedType.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Verifies every source file declares the Java package implied by its path.
      */
     private static void testPackageDeclarationsMatchPaths() {
         for (Path sourceFile : javaSources()) {
-            String source = readSource(sourceFile);
+            String source = readUtf8(sourceFile);
             String expectedPackage = expectedPackageFor(sourceFile);
             Matcher matcher = PACKAGE_DECLARATION.matcher(source);
             if (!matcher.find()) {
@@ -297,7 +413,7 @@ public final class SourceHeaderRegressionTest {
                 continue;
             }
             String expectedTypeName = fileStem(sourceFile);
-            Matcher matcher = PUBLIC_TOP_LEVEL_TYPE.matcher(readSource(sourceFile));
+            Matcher matcher = PUBLIC_TOP_LEVEL_TYPE.matcher(readUtf8(sourceFile));
             List<String> publicTypes = new ArrayList<>();
             while (matcher.find()) {
                 publicTypes.add(matcher.group(1));
@@ -352,7 +468,7 @@ public final class SourceHeaderRegressionTest {
      */
     private static void assertSourcesDoNotImport(Path root, String forbiddenPrefix, String message) {
         for (Path sourceFile : javaSourcesUnder(root)) {
-            Matcher matcher = IMPORT_DECLARATION.matcher(readSource(sourceFile));
+            Matcher matcher = IMPORT_DECLARATION.matcher(readUtf8(sourceFile));
             while (matcher.find()) {
                 String importedType = matcher.group(1);
                 if (importedType.startsWith(forbiddenPrefix)) {
@@ -369,21 +485,7 @@ public final class SourceHeaderRegressionTest {
      * @return true when the file starts with the detached banner
      */
     private static boolean hasDetachedAttributionHeader(Path sourceFile) {
-        return readSource(sourceFile).startsWith(DETACHED_ATTRIBUTION_HEADER);
-    }
-
-    /**
-     * Reads a Java source file.
-     *
-     * @param sourceFile Java source file
-     * @return source text
-     */
-    private static String readSource(Path sourceFile) {
-        try {
-            return Files.readString(sourceFile, StandardCharsets.UTF_8);
-        } catch (IOException ex) {
-            throw new AssertionError("could not read Java source file " + sourceFile, ex);
-        }
+        return readUtf8(sourceFile).startsWith(DETACHED_ATTRIBUTION_HEADER);
     }
 
     /**

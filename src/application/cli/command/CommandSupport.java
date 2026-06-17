@@ -273,6 +273,33 @@ public final class CommandSupport {
 	}
 
 	/**
+	 * Returns a JSON string literal or {@code null}.
+	 *
+	 * @param value raw string value
+	 * @return JSON string literal, or {@code null} when the value is null
+	 */
+	public static String jsonNullableString(String value) {
+		return value == null ? "null" : jsonString(value);
+	}
+
+	/**
+	 * Returns a JSON array of string values.
+	 *
+	 * @param values values to encode
+	 * @return JSON string array
+	 */
+	public static String jsonStringArray(List<String> values) {
+		StringBuilder sb = new StringBuilder("[");
+		for (int i = 0; i < values.size(); i++) {
+			if (i > 0) {
+				sb.append(',');
+			}
+			sb.append(jsonNullableString(values.get(i)));
+		}
+		return sb.append(']').toString();
+	}
+
+	/**
 	 * Samples a random legal standard-chess position that could arise in a game and
 	 * still has at least one legal move.
 	 *

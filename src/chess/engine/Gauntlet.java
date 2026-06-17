@@ -8,7 +8,9 @@ import chess.core.Piece;
 import chess.core.Position;
 import chess.eval.CentipawnEvaluator;
 import chess.eval.Classical;
+import chess.eval.Lc0;
 import chess.eval.Nnue;
+import chess.eval.Otis;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -927,6 +929,22 @@ public final class Gauntlet {
     private static final String NNUE_PATH = "models/crtk-halfkp.nnue";
 
     /**
+     * Path to the default LC0 CNN policy/value network.
+     */
+    private static final String CNN_PATH =
+            "models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin";
+
+    /**
+     * Path to the default converted LC0 BT4 policy/value network.
+     */
+    private static final String BT4_PATH = "models/bt4-1024x15x32h.bin";
+
+    /**
+     * Path to the default real OTIS policy/WDL network used by the workbench.
+     */
+    private static final String OTIS_PATH = "models/otis_lczero_base_real_step_04721112_crtk_otis_v2.bin";
+
+    /**
      * Starting non-king material for both sides.
      */
     private static final int STARTING_MATERIAL = 7_800;
@@ -995,11 +1013,11 @@ public final class Gauntlet {
             throw new IllegalArgumentException("workers must be positive");
         }
         ProgressListener sink = listener == null ? ProgressListener.NONE : listener;
-        // Probe each evaluator once so a missing NNUE is reported a single time
-        // rather than per game.
-        probeEvaluator(config.evalA(), sink);
-        if (!config.evalB().equalsIgnoreCase(config.evalA())) {
-            probeEvaluator(config.evalB(), sink);
+        // Probe each built-in side once so a missing neural model is reported a
+        // single time rather than per game.
+        probeSide(config.searchA(), config.evalA(), sink);
+        if (config.searchB() != config.searchA() || !config.evalB().equalsIgnoreCase(config.evalA())) {
+            probeSide(config.searchB(), config.evalB(), sink);
         }
         Sprt sprt = config.sprt()
                 ? new Sprt(config.sprtElo0(), config.sprtElo1(), SPRT_ALPHA, SPRT_BETA)
@@ -1251,10 +1269,10 @@ public final class Gauntlet {
             return new UciSearcher(config.engineB(), config.threadsB(), config.hashB(), config.optionsB());
         }
         return candidate
-                ? searcher(config.searchA(), evaluator(config.evalA()), config.featuresA(),
+                ? searcher(config.searchA(), config.evalA(), config.featuresA(),
                         config.threadsA(), config.cpuctA(), config.fpuA(), config.checkPriorA(),
                         config.capturePenaltyA(), config.captureWinScaleA())
-                : searcher(config.searchB(), evaluator(config.evalB()), config.featuresB(),
+                : searcher(config.searchB(), config.evalB(), config.featuresB(),
                         config.threadsB(), config.cpuctB(), config.fpuB(), config.checkPriorB(),
                         config.capturePenaltyB(), config.captureWinScaleB());
     }
@@ -1385,7 +1403,7 @@ public final class Gauntlet {
      * Builds a per-side searcher.
      *
      * @param kind search kind
-     * @param evaluator evaluator instance
+     * @param eval evaluator/backend name
      * @param features alpha-beta features
      * @param threads worker threads
      * @param cpuct MCTS exploration constant
@@ -1397,7 +1415,7 @@ public final class Gauntlet {
      */
     private static GameSearcher searcher(
             SearchKind kind,
-            CentipawnEvaluator evaluator,
+            String eval,
             Set<AlphaBeta.Feature> features,
             int threads,
             double cpuct,
@@ -1406,8 +1424,13 @@ public final class Gauntlet {
             int losingCapturePriorPenalty,
             int winningCapturePriorScale) {
         if (kind == SearchKind.MCTS) {
-            Mcts mcts = new Mcts(evaluator, cpuct, fpuReduction, checkPriorBonus, losingCapturePriorPenalty,
+            Mcts resolved = neuralMcts(eval, cpuct, fpuReduction, checkPriorBonus, losingCapturePriorPenalty,
                     winningCapturePriorScale);
+            if (resolved == null) {
+                resolved = new Mcts(evaluator(eval), cpuct, fpuReduction, checkPriorBonus,
+                        losingCapturePriorPenalty, winningCapturePriorScale);
+            }
+            Mcts mcts = resolved;
             mcts.setThreads(threads);
             return new GameSearcher() {
                 /**
@@ -1428,6 +1451,7 @@ public final class Gauntlet {
                 }
             };
         }
+        CentipawnEvaluator evaluator = evaluator(eval);
         AlphaBeta alphaBeta = new AlphaBeta(evaluator, true, features).setSearchThreads(threads);
         return new GameSearcher() {
             /**
@@ -1447,6 +1471,42 @@ public final class Gauntlet {
                 alphaBeta.close();
             }
         };
+    }
+
+    /**
+     * Builds a neural policy/value MCTS searcher for a neural evaluator label.
+     *
+     * @param eval evaluator/backend name
+     * @param cpuct MCTS exploration constant
+     * @param fpuReduction MCTS first-play urgency reduction
+     * @param checkPriorBonus MCTS check-prior bonus
+     * @param losingCapturePriorPenalty MCTS SEE-losing-capture prior penalty
+     * @param winningCapturePriorScale MCTS positive-SEE capture prior scale
+     * @return neural MCTS searcher, or {@code null} when {@code eval} is not a
+     *         neural policy backend or the backend cannot be loaded
+     */
+    private static Mcts neuralMcts(String eval, double cpuct, double fpuReduction, int checkPriorBonus,
+            int losingCapturePriorPenalty, int winningCapturePriorScale) {
+        try {
+            String cnnPath = cnnPath(eval);
+            if (cnnPath != null) {
+                return Mcts.lc0(Path.of(cnnPath), cpuct, fpuReduction, checkPriorBonus,
+                        losingCapturePriorPenalty, winningCapturePriorScale);
+            }
+            String bt4Path = bt4Path(eval);
+            if (bt4Path != null) {
+                return Mcts.bt4(Path.of(bt4Path), cpuct, fpuReduction, checkPriorBonus,
+                        losingCapturePriorPenalty, winningCapturePriorScale);
+            }
+            String otisPath = otisPath(eval);
+            if (otisPath != null) {
+                return Mcts.otis(Path.of(otisPath), cpuct, fpuReduction, checkPriorBonus,
+                        losingCapturePriorPenalty, winningCapturePriorScale);
+            }
+        } catch (RuntimeException | IOException ex) {
+            // probeSide reports the fallback once before games are scheduled.
+        }
+        return null;
     }
 
     /**
@@ -1491,8 +1551,62 @@ public final class Gauntlet {
     }
 
     /**
+     * Probes one side's evaluator/backend once and reports any fallback that will
+     * be used during games.
+     *
+     * @param search search kind
+     * @param eval evaluator/backend name
+     * @param listener progress listener
+     */
+    private static void probeSide(SearchKind search, String eval, ProgressListener listener) {
+        if (search == SearchKind.MCTS && probePolicyBackend(eval, listener)) {
+            return;
+        }
+        probeEvaluator(eval, listener);
+    }
+
+    /**
+     * Probes an MCTS policy/value backend and reports a classical-MCTS fallback
+     * when its model cannot be loaded.
+     *
+     * @param eval evaluator/backend name
+     * @param listener progress listener
+     * @return true when {@code eval} named a policy/value backend
+     */
+    private static boolean probePolicyBackend(String eval, ProgressListener listener) {
+        String cnnPath = cnnPath(eval);
+        if (cnnPath != null) {
+            try {
+                chess.nn.lc0.cnn.Model.load(Path.of(cnnPath)).close();
+            } catch (RuntimeException | IOException ex) {
+                listener.onNote("cnn unavailable: " + ex.getMessage() + " - using classical mcts");
+            }
+            return true;
+        }
+        String bt4Path = bt4Path(eval);
+        if (bt4Path != null) {
+            try {
+                chess.nn.lc0.bt4.Network.load(Path.of(bt4Path)).close();
+            } catch (RuntimeException | IOException ex) {
+                listener.onNote("bt4 unavailable: " + ex.getMessage() + " - using classical mcts");
+            }
+            return true;
+        }
+        String otisPath = otisPath(eval);
+        if (otisPath != null) {
+            try {
+                chess.nn.otis.Model.load(Path.of(otisPath)).close();
+            } catch (RuntimeException | IOException ex) {
+                listener.onNote("otis unavailable: " + ex.getMessage() + " - using classical mcts");
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * Builds an evaluator once and reports through the listener if a requested
-     * NNUE network is unavailable and a classical fallback will be used.
+     * network is unavailable and a classical fallback will be used.
      *
      * @param eval evaluator name
      * @param listener progress listener
@@ -1504,6 +1618,28 @@ public final class Gauntlet {
                 new Nnue(Path.of(nnuePath)).close();
             } catch (RuntimeException | java.io.IOException ex) {
                 listener.onNote("nnue unavailable: " + ex.getMessage() + " - using classical");
+            }
+        }
+        String cnnPath = cnnPath(eval);
+        if (cnnPath != null) {
+            try {
+                new Lc0(Path.of(cnnPath)).close();
+            } catch (RuntimeException | IOException ex) {
+                listener.onNote("cnn unavailable: " + ex.getMessage() + " - using classical");
+            }
+            return;
+        }
+        String bt4Path = bt4Path(eval);
+        if (bt4Path != null) {
+            listener.onNote("bt4 requires mcts search; alpha-beta uses classical");
+            return;
+        }
+        String otisPath = otisPath(eval);
+        if (otisPath != null) {
+            try {
+                new Otis(Path.of(otisPath)).close();
+            } catch (RuntimeException | IOException ex) {
+                listener.onNote("otis unavailable: " + ex.getMessage() + " - using classical");
             }
         }
     }
@@ -1521,11 +1657,58 @@ public final class Gauntlet {
      * @return weights path, or {@code null} for non-NNUE evaluators
      */
     private static String nnuePath(String eval) {
-        if ("nnue".equalsIgnoreCase(eval)) {
-            return NNUE_PATH;
-        }
-        if (eval.regionMatches(true, 0, "nnue:", 0, "nnue:".length())) {
-            return eval.substring("nnue:".length());
+        return modelPath(eval, NNUE_PATH, "nnue");
+    }
+
+    /**
+     * Resolves an evaluator name to an LC0 CNN weights path.
+     *
+     * @param eval evaluator name
+     * @return weights path, or {@code null} for non-CNN evaluators
+     */
+    private static String cnnPath(String eval) {
+        return modelPath(eval, CNN_PATH, "cnn", "lc0", "leela");
+    }
+
+    /**
+     * Resolves an evaluator name to an LC0 BT4 weights path.
+     *
+     * @param eval evaluator name
+     * @return weights path, or {@code null} for non-BT4 evaluators
+     */
+    private static String bt4Path(String eval) {
+        return modelPath(eval, BT4_PATH, "bt4");
+    }
+
+    /**
+     * Resolves an evaluator name to an OTIS weights path.
+     *
+     * @param eval evaluator name
+     * @return weights path, or {@code null} for non-OTIS evaluators
+     */
+    private static String otisPath(String eval) {
+        return modelPath(eval, OTIS_PATH, "otis");
+    }
+
+    /**
+     * Resolves bare evaluator labels and {@code label:<path>} forms.
+     *
+     * @param eval evaluator name
+     * @param defaultPath default path for bare labels
+     * @param labels accepted labels
+     * @return resolved model path, or {@code null} when no label matches
+     */
+    private static String modelPath(String eval, String defaultPath, String... labels) {
+        String trimmed = eval == null ? "" : eval.trim();
+        String normalized = trimmed.toLowerCase(Locale.ROOT);
+        for (String label : labels) {
+            if (normalized.equals(label)) {
+                return defaultPath;
+            }
+            String prefix = label + ":";
+            if (normalized.startsWith(prefix)) {
+                return trimmed.substring(prefix.length()).trim();
+            }
         }
         return null;
     }
@@ -1545,6 +1728,25 @@ public final class Gauntlet {
                 // Reported once via probeEvaluator; fall back silently per game.
                 return new Classical();
             }
+        }
+        String cnnPath = cnnPath(eval);
+        if (cnnPath != null) {
+            try {
+                return new Lc0(Path.of(cnnPath));
+            } catch (RuntimeException | IOException ex) {
+                return new Classical();
+            }
+        }
+        String otisPath = otisPath(eval);
+        if (otisPath != null) {
+            try {
+                return new Otis(Path.of(otisPath));
+            } catch (RuntimeException | IOException ex) {
+                return new Classical();
+            }
+        }
+        if (bt4Path(eval) != null) {
+            return new Classical();
         }
         String normalized = eval.toLowerCase(Locale.ROOT);
         if (normalized.startsWith("scale") && normalized.length() > "scale".length()) {

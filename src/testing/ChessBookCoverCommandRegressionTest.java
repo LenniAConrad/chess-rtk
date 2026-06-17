@@ -3,7 +3,6 @@ package testing;
 import application.cli.PathOps;
 import static testing.TestSupport.*;
 
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
@@ -299,7 +298,7 @@ public final class ChessBookCoverCommandRegressionTest {
 	 */
 	private static void testPaperbackCoverExport() throws Exception {
 		Path input = PathOps.createLocalTempFile("book-cover-", JSON_SUFFIX);
-		Files.writeString(input, sampleBook(), StandardCharsets.UTF_8);
+		writeUtf8(input, sampleBook());
 
 		Path output = PathOps.createLocalTempFile("book-cover-", ".pdf");
 		String console = captureStdout(() -> BookCoverCommand.runBookCover(new Argv(new String[] {
@@ -310,10 +309,8 @@ public final class ChessBookCoverCommandRegressionTest {
 				"--pages", String.valueOf(COVER_PAGES)
 		})));
 
-		byte[] bytes = Files.readAllBytes(output);
-		String header = new String(bytes, 0, Math.min(bytes.length, 32), StandardCharsets.ISO_8859_1);
-		String text = new String(bytes, StandardCharsets.ISO_8859_1);
-		assertTrue(header.startsWith("%PDF-1.4"), "cover pdf header");
+		String text = readLatin1(output);
+		assertTrue(text.startsWith("%PDF-1.4"), "cover pdf header");
 		assertTrue(text.contains("%%EOF"), "cover eof marker");
 		assertTrue(text.contains("/Title (Cover CLI: Cover Sample cover)"), "cover metadata title");
 		assertTrue(text.contains("/Producer (chess-rtk native book cover pdf)"), "cover producer metadata");
@@ -330,7 +327,7 @@ public final class ChessBookCoverCommandRegressionTest {
 	 */
 	private static void testCliUsesInteriorPdfMetadata() throws Exception {
 		Path input = PathOps.createLocalTempFile("book-cover-pdf-", JSON_SUFFIX);
-		Files.writeString(input, sampleBook(), StandardCharsets.UTF_8);
+		writeUtf8(input, sampleBook());
 		Path pdf = writeInteriorPdf(PDF_TRIM_WIDTH_CM, PDF_TRIM_HEIGHT_CM, PDF_PAGES);
 
 		String console = captureStdout(() -> BookCoverCommand.runBookCover(new Argv(new String[] {
@@ -356,7 +353,7 @@ public final class ChessBookCoverCommandRegressionTest {
 	 */
 	private static void testCheckModeDoesNotWritePdf() throws Exception {
 		Path input = PathOps.createLocalTempFile("book-cover-check-", JSON_SUFFIX);
-		Files.writeString(input, sampleBook(), StandardCharsets.UTF_8);
+		writeUtf8(input, sampleBook());
 
 		Path output = PathOps.createLocalTempDirectory("book-cover-check-").resolve("cover.pdf");
 		String console = captureStdout(() -> BookCoverCommand.runBookCover(new Argv(new String[] {

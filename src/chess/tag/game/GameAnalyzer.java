@@ -1,5 +1,7 @@
 package chess.tag.game;
 
+import static chess.tag.core.Literals.GAME;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -111,7 +113,7 @@ public final class GameAnalyzer {
 
             String phase = phaseOf(Generator.tags(next));
             if (phase != null && prevPhase != null && !phase.equals(prevPhase)) {
-                analysis.gameTags.add("GAME: phase_transition=" + prevPhase + "->" + phase
+                analysis.gameTags.add(GAME + ": phase_transition=" + prevPhase + "->" + phase
                         + " ply=" + i + " move=" + san);
                 prevPhase = phase;
             }
@@ -142,7 +144,7 @@ public final class GameAnalyzer {
         for (String tag : Generator.tags(start)) {
             if (tag.startsWith("OPENING: ") || tag.startsWith("META: eco=")
                     || tag.startsWith("META: opening=")) {
-                analysis.gameTags.add("GAME: " + tag.substring(tag.indexOf(' ') + 1));
+                analysis.gameTags.add(GAME + ": " + tag.substring(tag.indexOf(' ') + 1));
             }
         }
     }
@@ -156,10 +158,10 @@ public final class GameAnalyzer {
     private static void addResultCause(Analysis analysis, Position endPosition) {
         if (endPosition.isCheckmate()) {
             String pattern = checkmatePattern(Generator.tags(endPosition));
-            analysis.gameTags.add("GAME: result_cause=checkmate"
+            analysis.gameTags.add(GAME + ": result_cause=checkmate"
                     + (pattern == null ? "" : " pattern=" + pattern));
         } else if (endPosition.legalMoves().isEmpty()) {
-            analysis.gameTags.add("GAME: result_cause=stalemate");
+            analysis.gameTags.add(GAME + ": result_cause=stalemate");
         }
     }
 

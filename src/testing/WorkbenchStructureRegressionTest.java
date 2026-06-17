@@ -2,12 +2,16 @@ package testing;
 
 import static testing.TestSupport.assertFalse;
 import static testing.TestSupport.assertTrue;
+import static testing.TestSupport.readUtf8;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
@@ -23,6 +27,17 @@ public final class WorkbenchStructureRegressionTest {
      * Workbench source root.
      */
     private static final Path WORKBENCH_ROOT = Path.of("src/application/gui/workbench");
+
+    /**
+     * Workbench user-facing documentation.
+     */
+    private static final Path WORKBENCH_DOC = Path.of("wiki", "workbench.md");
+
+    /**
+     * Window source that registers the top-level workbench views.
+     */
+    private static final Path WINDOW_LIFECYCLE_SOURCE =
+            WORKBENCH_ROOT.resolve(Path.of("window", "WindowLifecycle.java"));
 
     /**
      * Root Java package for the Swing workbench.
@@ -55,9 +70,20 @@ public final class WorkbenchStructureRegressionTest {
     private static final String PACKAGE_DECLARATION_SUFFIX = ";";
 
     /**
+     * Heading that introduces the user-facing registered-view table.
+     */
+    private static final String REGISTERED_VIEWS_HEADING = "## Registered views";
+
+    /**
      * Maximum allowed implementation-line count for a single workbench source file.
      */
     private static final int MAX_WORKBENCH_IMPLEMENTATION_LINES = 2_000;
+
+    /**
+     * Pattern that extracts registered-view labels from the shell source.
+     */
+    private static final Pattern REGISTERED_VIEW_LABEL =
+            Pattern.compile("new\\s+RegisteredView\\(\"([^\"]+)\"");
 
     /**
      * Feature packages expected after the workbench refactor.
@@ -67,12 +93,16 @@ public final class WorkbenchStructureRegressionTest {
             "board",
             "command",
             "dashboard",
+            "draw",
+            "engine",
             "game",
             "launch",
             "layout",
             "mcts",
             "network",
+            "play",
             "publish",
+            "relations",
             "session",
             "ui",
             "window");
@@ -95,6 +125,7 @@ public final class WorkbenchStructureRegressionTest {
         testWorkbenchFileNamesStayPackageScoped();
         testWorkbenchPackageLayoutStaysSplit();
         testWorkbenchPackageDeclarationsMatchPaths();
+        testWorkbenchDocsMatchRegisteredViews();
         System.out.println("WorkbenchStructureRegressionTest: all checks passed");
     }
 
@@ -152,11 +183,48 @@ public final class WorkbenchStructureRegressionTest {
     private static void testWorkbenchPackageDeclarationsMatchPaths() {
         for (Path file : workbenchJavaFiles()) {
             String expectedPackage = expectedPackageFor(file);
-            String source = readString(file);
+            String source = readUtf8(file);
             assertTrue(source.contains(PACKAGE_DECLARATION_PREFIX + expectedPackage
                     + PACKAGE_DECLARATION_SUFFIX),
                     WORKBENCH_ROOT.relativize(file) + " declares " + expectedPackage);
         }
+    }
+
+    /**
+     * Verifies the user-facing Workbench view table follows the registered shell
+     * instead of drifting back to older flat-tab names.
+     */
+    private static void testWorkbenchDocsMatchRegisteredViews() {
+        List<String> registeredViews = registeredViewLabels();
+        String docs = readUtf8(WORKBENCH_DOC);
+        assertTrue(registeredViews.size() == 8, "workbench shell registers 8 top-level views");
+        assertTrue(docs.contains(REGISTERED_VIEWS_HEADING), "workbench docs have registered-view heading");
+        for (String view : registeredViews) {
+            assertTrue(docs.contains("| " + view + " |"),
+                    "workbench docs include registered view " + view);
+        }
+        assertFalse(docs.contains("| Analyze | Interactive board"),
+                "workbench docs no longer list Analyze as a top-level view");
+        assertFalse(docs.contains("| Play | Human-vs-engine"),
+                "workbench docs no longer list Play as a top-level view");
+        assertFalse(docs.contains("| Network | NNUE"),
+                "workbench docs no longer list Network as a top-level view");
+        assertFalse(docs.contains("| Puzzles | Interactive puzzle"),
+                "workbench docs no longer list Puzzles as a top-level view");
+    }
+
+    /**
+     * Extracts the registered top-level Workbench view labels from the shell.
+     *
+     * @return labels in registration order
+     */
+    private static List<String> registeredViewLabels() {
+        Matcher matcher = REGISTERED_VIEW_LABEL.matcher(readUtf8(WINDOW_LIFECYCLE_SOURCE));
+        List<String> labels = new ArrayList<>();
+        while (matcher.find()) {
+            labels.add(matcher.group(1));
+        }
+        return List.copyOf(labels);
     }
 
     /**
@@ -245,20 +313,6 @@ public final class WorkbenchStructureRegressionTest {
      * @param inBlockComment true when a block comment remains open
      */
     private record CommentStrip(String code, boolean inBlockComment) {
-    }
-
-    /**
-     * Reads a UTF-8 source file into memory.
-     *
-     * @param file source file
-     * @return source text
-     */
-    private static String readString(Path file) {
-        try {
-            return Files.readString(file);
-        } catch (IOException ex) {
-            throw new AssertionError("could not read " + file, ex);
-        }
     }
 
     /**

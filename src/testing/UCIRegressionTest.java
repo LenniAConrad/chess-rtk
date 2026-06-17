@@ -108,9 +108,9 @@ public final class UCIRegressionTest {
 	 * Boolean typos should fail instead of silently becoming false.
 	 */
 	private static void testFilterDslRejectsTypos() {
-		expectIllegalArgument(() -> FilterDSL.fromString("gate=AND;null=ture;"), "filter rejects boolean typo");
-		expectIllegalArgument(() -> FilterDSL.fromString("gate=AND;leaf[eval>=0;"), "filter rejects unclosed leaf");
-		expectIllegalArgument(() -> FilterDSL.fromString("depthx>=1;"), "filter rejects predicate prefix typo");
+		assertThrows(() -> FilterDSL.fromString("gate=AND;null=ture;"), "filter rejects boolean typo");
+		assertThrows(() -> FilterDSL.fromString("gate=AND;leaf[eval>=0;"), "filter rejects unclosed leaf");
+		assertThrows(() -> FilterDSL.fromString("depthx>=1;"), "filter rejects predicate prefix typo");
 	}
 
 	/**
@@ -171,7 +171,7 @@ public final class UCIRegressionTest {
 		Path dir = PathOps.createLocalTempDirectory("crtk-uci-test");
 		Path log = dir.resolve("commands.log");
 		Path fakeEngine = dir.resolve("fake-uci.sh");
-		Files.writeString(fakeEngine, fakeEngineScript(log));
+		writeUtf8(fakeEngine, fakeEngineScript(log));
 		assertTrue(fakeEngine.toFile().setExecutable(true), "fake engine marked executable");
 
 		Protocol protocol = new Protocol()
@@ -203,7 +203,7 @@ public final class UCIRegressionTest {
 		Path dir = PathOps.createLocalTempDirectory("crtk-uci-no-chess960-test");
 		Path log = dir.resolve("commands.log");
 		Path fakeEngine = dir.resolve("fake-uci.sh");
-		Files.writeString(fakeEngine, fakeEngineScript(log));
+		writeUtf8(fakeEngine, fakeEngineScript(log));
 		assertTrue(fakeEngine.toFile().setExecutable(true), "fake engine marked executable");
 
 		Protocol protocol = new Protocol()
@@ -274,34 +274,4 @@ public final class UCIRegressionTest {
 				+ "done\n";
 	}
 
-	/**
-	 * Asserts that an action throws {@link IllegalArgumentException}.
-	 *
-	 * @param action action expected to fail
-	 * @param label assertion label
-	 */
-	private static void expectIllegalArgument(Runnable action, String label) {
-		try {
-			action.run();
-		} catch (IllegalArgumentException expected) {
-			return;
-		}
-		throw new AssertionError(label + ": expected IllegalArgumentException");
-	}
-
-	/**
-	 * Asserts that at least one item in an array contains a substring.
-	 *
-	 * @param values values to inspect
-	 * @param needle expected substring
-	 * @param label assertion label
-	 */
-	private static void assertContains(String[] values, String needle, String label) {
-		for (String value : values) {
-			if (value.contains(needle)) {
-				return;
-			}
-		}
-		throw new AssertionError(label + ": expected substring " + needle);
-	}
 }

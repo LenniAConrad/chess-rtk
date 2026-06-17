@@ -1,5 +1,7 @@
 package chess.tag.game;
 
+import static chess.tag.core.Literals.LINE;
+
 import chess.core.Position;
 import chess.core.Move;
 import chess.core.SAN;
@@ -128,7 +130,7 @@ public final class LineAnalyzer {
         emitPerpetual(out, start, playable, wasCheck, fullSan);
 
         if (forcingRun >= 2) {
-            out.add("LINE: motif=forcing count=" + forcingRun + " line=\"" + fullSan + "\"");
+            out.add(LINE + ": motif=forcing count=" + forcingRun + " line=\"" + fullSan + "\"");
         }
 
         emitDeflection(out, before, playable, wasCheck, wasCapture, fullSan);
@@ -159,7 +161,7 @@ public final class LineAnalyzer {
         } else {
             return;
         }
-        out.add("LINE: motif=combination length=" + n
+        out.add(LINE + ": motif=combination length=" + n
                 + " nets=" + net + " outcome=" + outcome
                 + " line=\"" + fullSan + "\"");
     }
@@ -207,7 +209,7 @@ public final class LineAnalyzer {
         }
 
         int net = finalBal - base;
-        out.add("LINE: motif=sacrifice piece=" + piece + " square=" + sq
+        out.add(LINE + ": motif=sacrifice piece=" + piece + " square=" + sq
                 + " recouped=" + (recouped || mate)
                 + " net=" + net
                 + " line=\"" + fullSan + "\"");
@@ -238,7 +240,7 @@ public final class LineAnalyzer {
         }
         if (!repeated) return;
 
-        out.add("LINE: motif=perpetual_check count=" + checks
+        out.add(LINE + ": motif=perpetual_check count=" + checks
                 + " line=\"" + fullSan + "\"");
     }
 
@@ -273,7 +275,7 @@ public final class LineAnalyzer {
             Position pReply = before.get(i + 1);
             if (!guards(pReply, defenderFrom, exploitTo)) continue;
 
-            out.add("LINE: motif=deflection square=" + squareName(exploitTo)
+            out.add(LINE + ": motif=deflection square=" + squareName(exploitTo)
                     + " line=\"" + fullSan + "\"");
             return;
         }

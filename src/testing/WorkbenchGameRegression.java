@@ -16,6 +16,7 @@ import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JTree;
+import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
 import application.gui.workbench.engine.EngineGauntletPanel;
@@ -29,12 +30,27 @@ import application.gui.workbench.game.PlayMoveHistoryModel;
 import application.gui.workbench.game.PuzzleLibrary;
 import application.gui.workbench.game.PuzzlePanel;
 import application.gui.workbench.game.PuzzleSession;
+import application.gui.workbench.game.ReviewCliArtifactProducer;
 import application.gui.workbench.game.SanRenderer;
 import application.gui.workbench.game.StudyAuthorPanel;
 import application.gui.workbench.game.TablebasePanel;
 import application.gui.workbench.ui.NotationPainter;
 import application.gui.workbench.ui.Theme;
 
+import chess.review.Classifier;
+import chess.review.Classifier.Request;
+import chess.review.Classifier.Score;
+import chess.review.Classifier.Thresholds;
+import chess.review.ReviewRow;
+import chess.review.ReviewRow.Assessment;
+import chess.review.ReviewRow.Eval;
+import chess.review.ReviewRow.GameRef;
+import chess.review.ReviewRow.MoveChoice;
+import chess.review.ReviewRow.Ply;
+import chess.review.ReviewRow.Repro;
+import chess.review.ReviewRow.Tags;
+import chess.review.ReviewRow.Wdl;
+import chess.review.StudyUnitFactory;
 import chess.core.Move;
 import chess.core.Field;
 import chess.core.Position;
@@ -82,6 +98,8 @@ final class WorkbenchGameRegression {
         testPgnPrepReportSummarizesPlayerOpenings();
         testEcoExplorerFiltersAndLoadsLines();
         testGameReviewPanelFindsStaticSwings();
+        testGameReviewPanelLoadsProducedReviewArtifacts();
+        testGameReviewPanelBuildsStudyArtifactsViaCli();
         testStudyAuthorPanelBuildsManifestFromGameLine();
         testAccessibilityLabelsForNewWorkbenchPanels();
         testEvalBarMapping();
@@ -846,6 +864,148 @@ final class WorkbenchGameRegression {
                 "review stores White-relative evaluation swing");
         assertTrue(finding.summary().contains("Effects:") && finding.summary().contains("Position:"),
                 "review explanation includes deterministic tags and position description");
+    }
+
+    /**
+     * Verifies the review panel can render produced review/study JSONL
+     * artifacts without recomputing verdicts from a game model.
+     */
+    private static void testGameReviewPanelLoadsProducedReviewArtifacts() {
+        try {
+            ReviewRow row = reviewArtifactFixture();
+            StudyUnitFactory.Output artifacts = StudyUnitFactory.fromRows(List.of(row));
+            assertEquals(Integer.valueOf(1), Integer.valueOf(artifacts.units().size()),
+                    "review fixture emits one study unit");
+            Path dir = Files.createTempDirectory("crtk-workbench-review-artifact-");
+            Path reviewJsonl = dir.resolve("review.jsonl");
+            Path studyJsonl = dir.resolve("study.jsonl");
+            Files.writeString(reviewJsonl, row.toJson() + System.lineSeparator());
+            Files.writeString(studyJsonl, artifacts.units().get(0).toJson() + System.lineSeparator());
+
+            List<GameReviewPanel.ReviewFinding> rows =
+                    GameReviewPanel.loadReviewArtifactRows(reviewJsonl, studyJsonl);
+            assertEquals(Integer.valueOf(1), Integer.valueOf(rows.size()),
+                    "review artifact row count");
+            GameReviewPanel.ReviewFinding finding = rows.get(0);
+            assertEquals("d1h5", finding.uci(), "review artifact played move");
+            assertEquals("Blunder", finding.verdict(), "review artifact verdict");
+            assertEquals(Integer.valueOf(1), Integer.valueOf(finding.ply()),
+                    "review artifact display ply is one-based");
+            assertEquals(Integer.valueOf(1000), Integer.valueOf(finding.lossCp()),
+                    "review artifact loss comes from row");
+            assertTrue(finding.summary().contains("Best: Qxd8 (d1d8)"),
+                    "review artifact summary includes best move");
+            assertTrue(finding.summary().contains("Study unit: artifact-game.p0"),
+                    "review artifact summary links study unit");
+            assertTrue(finding.summary().contains("Repro: Fake Review UCI, nodes 7"),
+                    "review artifact summary preserves repro budgets");
+
+            GameReviewPanel panel = new GameReviewPanel(GameModel::new, ply -> { }, value -> { });
+            panel.loadReviewArtifacts(reviewJsonl, studyJsonl);
+            assertEquals(Integer.valueOf(1), Integer.valueOf(panel.rowCount()),
+                    "review panel loaded artifact rows");
+            assertTrue(panel.selectFirstRow(), "review panel selects loaded artifact row");
+            JTextArea detail = (JTextArea) field(panel, "detailArea");
+            assertTrue(detail.getText().contains("Engine score from mover's view: +500 -> -500"),
+                    "review panel detail comes from artifact evals");
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("review artifact fixture failed", ex);
+        }
+    }
+
+    /**
+     * Verifies the Review panel can produce study artifacts through the real
+     * {@code crtk review game --to-study} CLI path and render the result.
+     */
+    private static void testGameReviewPanelBuildsStudyArtifactsViaCli() {
+        Position root = new Position("k2r4/8/8/8/8/8/8/3QK3 w - - 0 1");
+        GameModel model = new GameModel();
+        model.loadLine(root, List.of(Short.valueOf(Move.parse("d1h5"))));
+        GameReviewPanel panel = new GameReviewPanel(() -> model, ply -> { }, value -> { },
+                ReviewCliArtifactProducer.offline());
+        assertTrue(panel.buildStudyArtifactsFromGame(), "review panel starts CLI artifact production");
+        awaitReviewRows(panel, 1, "review panel CLI artifact rows");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(panel.rowCount()),
+                "review panel loaded CLI artifact rows");
+        assertTrue(panel.selectFirstRow(), "review panel selects CLI artifact row");
+        JTextArea detail = (JTextArea) field(panel, "detailArea");
+        assertTrue(detail.getText().contains("Study unit:"),
+                "review panel CLI detail links study unit");
+        assertTrue(detail.getText().contains("Repro: offline-alpha-beta"),
+                "review panel CLI detail preserves offline repro");
+    }
+
+    /**
+     * Builds a produced-row fixture matching the review-to-study contract.
+     *
+     * @return review row with a stable study-unit id
+     */
+    private static ReviewRow reviewArtifactFixture() {
+        String fen = "k2r4/8/8/8/8/8/8/3QK3 w - - 0 1";
+        Classifier.Verdict verdict = Classifier.classify(new Request(
+                Score.withWinShare(500, 0.90d),
+                Score.withWinShare(-500, 0.01d),
+                Score.centipawns(200),
+                Thresholds.classical(),
+                false));
+        ReviewRow row = new ReviewRow(
+                new GameRef("artifact-game", "pgn:fixture.pgn#1",
+                        "Review Artifact", "Tester", "Fixture", null, null),
+                new Ply(0, 1, ReviewRow.Color.WHITE, fen),
+                new MoveChoice("d1h5", "Qh5", "d1d8", "Qxd8",
+                        List.of("d1d8"), Integer.valueOf(200)),
+                new Assessment(
+                        new Eval(500, null, new Wdl(900, 90, 10)),
+                        new Eval(-500, null, new Wdl(10, 90, 900)),
+                        verdict,
+                        "hanging_piece"),
+                new Tags(
+                        List.of("FACT: phase=endgame"),
+                        List.of("THREAT: type=hanging piece=qh5", "TACTIC: motif=hanging_piece"),
+                        List.of("THREAT: type=hanging piece=qh5", "TACTIC: motif=hanging_piece"),
+                        List.of(),
+                        List.of()),
+                "endgame",
+                "drill_puzzle",
+                "artifact-game.p0",
+                new Repro("Fake Review UCI", "config/review.engine.toml", 7L, 2_000L, 2, 1, 16,
+                        "uci", "test", false));
+        return StudyUnitFactory.withStudyUnitId(row);
+    }
+
+    /**
+     * Waits for the asynchronous review panel command to populate rows.
+     *
+     * @param panel review panel
+     * @param expectedRows expected minimum row count
+     * @param label assertion label
+     */
+    private static void awaitReviewRows(GameReviewPanel panel, int expectedRows, String label) {
+        long deadline = System.currentTimeMillis() + 20_000L;
+        while (System.currentTimeMillis() < deadline) {
+            flushEdt();
+            if (panel.rowCount() >= expectedRows) {
+                return;
+            }
+            try {
+                Thread.sleep(50L);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError(label + ": interrupted", ex);
+            }
+        }
+        throw new AssertionError(label + ": timed out with row count " + panel.rowCount());
+    }
+
+    /**
+     * Flushes pending event-dispatch-thread work.
+     */
+    private static void flushEdt() {
+        try {
+            SwingUtilities.invokeAndWait(() -> { });
+        } catch (Exception ex) {
+            throw new AssertionError("failed to flush Swing event queue", ex);
+        }
     }
 
     /**

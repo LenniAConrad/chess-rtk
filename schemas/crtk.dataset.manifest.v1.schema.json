@@ -1,0 +1,68 @@
+{
+  "$id": "crtk.dataset.manifest.v1",
+  "title": "ChessRTK dataset provenance manifest",
+  "description": "Uniform sidecar emitted by every dataset exporter. Carries identity (schema/version/git), the verbatim argv, optional exporter-owned metadata, and SHA-256 digests of every input/output/weights file referenced by basename. Consumers pin to this schema version and bump on any breaking change.",
+  "type": "object",
+  "required": ["schemaVersion", "exporter", "crtkVersion", "argv", "inputs", "outputs", "weights"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "crtk.dataset.manifest.v1"
+    },
+    "exporter": {
+      "type": "string"
+    },
+    "crtkVersion": {
+      "type": "string"
+    },
+    "gitCommit": {
+      "type": "string"
+    },
+    "argv": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": {
+        "type": ["string", "number", "boolean"]
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Artifact"
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Artifact"
+      }
+    },
+    "weights": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Artifact"
+      }
+    }
+  },
+  "$defs": {
+    "Artifact": {
+      "type": "object",
+      "required": ["name", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

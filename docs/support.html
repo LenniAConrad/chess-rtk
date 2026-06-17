@@ -89,6 +89,7 @@
 <a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
 <a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="review-to-study.html" data-title="review to study">Review To Study</a>
 <a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
@@ -113,9 +114,12 @@
 <p>Start here, because most of what looks like a bug is an environment or configuration problem these three commands will name for you.</p>
 <pre><code class="language-bash">crtk doctor
 crtk config validate
-crtk config show</code></pre>
+crtk config show
+crtk doctor --json
+crtk config show --json</code></pre>
 <p><code>crtk doctor</code> inspects the runtime, configuration, engine protocol files, external engine availability, and local artifacts. By default it tolerates warnings; <code>--strict</code> turns them into a non-zero exit, which is what you want in CI:</p>
 <pre><code class="language-bash">crtk doctor --strict --verbose</code></pre>
+<p>For bug reports, automation, or the Workbench setup card, prefer <code>crtk doctor --json</code> and <code>crtk config show --json</code>. They return stable <code>crtk.doctor.v1</code> and <code>crtk.config.v1</code> objects instead of requiring text scraping.</p>
 <blockquote><p>No <code>crtk</code> launcher on your PATH? Replace <code>crtk ...</code> with <code>java -jar crtk.jar ...</code> (or <code>java -cp out application.Main ...</code>). Always tell us which form you used.</p></blockquote>
 <h2 id="run-the-regression-suite">Run the Regression Suite</h2>
 <p>Run the recommended suite from the repository root before you report anything. A clean pass narrows the search: your build and core are sound, so whatever you hit lives somewhere more specific. A failure here is the opposite of a dead end — it is the single most useful thing you can put in a report.</p>

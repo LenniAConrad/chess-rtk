@@ -440,6 +440,7 @@ blockquote p:last-child {
 <section><h2>Workflows</h2><ol><li><a href="#chapter-mining">Puzzle Mining</a></li>
 <li><a href="#chapter-filter-dsl">Filter DSL</a></li>
 <li><a href="#chapter-datasets">ML Datasets</a></li>
+<li><a href="#chapter-review-to-study">Review To Study</a></li>
 <li><a href="#chapter-piece-tags">Tagging</a></li>
 <li><a href="#chapter-tag-reference">Tag Reference</a></li>
 <li><a href="#chapter-book-publishing">Book Publishing</a></li>
@@ -451,7 +452,8 @@ blockquote p:last-child {
 <li><a href="#chapter-glossary">Glossary</a></li>
 <li><a href="#chapter-support">Support</a></li>
 <li><a href="#chapter-readme">Wiki Index</a></li></ol></section>
-<section><h2>Reference</h2><ol><li><a href="#chapter-engine-strength-tuning">Engine Strength Tuning — What Worked, What Didn&#x27;t</a></li></ol></section>
+<section><h2>Reference</h2><ol><li><a href="#chapter-engine-strength-tuning">Engine Strength Tuning — What Worked, What Didn&#x27;t</a></li>
+<li><a href="#chapter-serve">Local JSON-RPC Daemon</a></li></ol></section>
   </section>
   
 <section class="chapter">
@@ -608,12 +610,18 @@ crtk help</code></pre>
 <h2 id="chapter-getting-started-option-b-build-from-source-no-maven-no-gradle">Option B: build from source (no Maven, no Gradle)</h2>
 <p>Skip the launcher and compile straight to an output directory, then run the main class.</p>
 <pre><code class="language-bash">mkdir -p out
-javac --release 17 -d out $(find src -name &quot;*.java&quot;)
+find src -name &quot;*.java&quot; | sort &gt; /tmp/crtk-srcs.txt
+javac --release 17 -d out @/tmp/crtk-srcs.txt
+rm -rf out/schemas &amp;&amp; cp -R schemas out/schemas
 java -cp out application.Main help</code></pre>
-<p>A prebuilt <code>crtk.jar</code> ships in the repository root, so you can run any command without compiling first:</p>
-<pre><code class="language-bash">java -jar crtk.jar version
+<p>If you want the runnable JAR form, package it after compiling:</p>
+<pre><code class="language-bash">rm -rf out/schemas &amp;&amp; cp -R schemas out/schemas
+jar --create --file crtk.jar --main-class application.Main -C out .
+java -jar crtk.jar version
 java -jar crtk.jar help</code></pre>
-<p>Wherever this page says <code>crtk</code>, <code>java -jar crtk.jar</code> and <code>java -cp out application.Main</code> work just as well. See <a href="#chapter-build-and-install">Build and install</a> for the full matrix, including GPU backends.</p>
+<p>You can also let the regression runner do the compile-and-package step:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh jar</code></pre>
+<p>Wherever this page says <code>crtk</code>, <code>java -jar crtk.jar</code> works after the JAR exists, and <code>java -cp out application.Main</code> works after the classes are compiled. See <a href="#chapter-build-and-install">Build and install</a> for the full matrix, including GPU backends.</p>
 <h2 id="chapter-getting-started-check-your-environment-with-doctor">Check your environment with doctor</h2>
 <p><code>crtk doctor</code> inspects your runtime version, configuration file, engine protocol, engine pool, output directory, and local model artifacts in one pass. Run it once after installing, and again whenever something behaves unexpectedly.</p>
 <pre><code class="language-bash">crtk doctor</code></pre>
@@ -717,6 +725,11 @@ crtk engine perft --startpos --depth 4 --divide</code></pre>
 <td>Any 17-or-newer runtime runs the built JAR.</td>
 </tr>
 <tr>
+<td>JDK packaging tools (<code>jdeps</code>, <code>jlink</code>, <code>jpackage</code>)</td>
+<td>Linux self-contained runtime bundle</td>
+<td>Optional. Included with normal full JDK installs, and only needed for <code>scripts/make_runtime_linux.sh</code>.</td>
+</tr>
+<tr>
 <td>A UCI engine (e.g. Stockfish)</td>
 <td><code>engine analyze</code>, <code>engine bestmove</code>, <code>engine threats</code>, <code>engine compare</code>, <code>engine uci-smoke</code>, <code>puzzle mine</code></td>
 <td>Optional. On <code>PATH</code> or pointed to via a protocol TOML (<code>--protocol-path</code>). See <a href="#chapter-configuration">Configuration</a>.</td>
@@ -756,16 +769,27 @@ crtk engine perft --startpos --depth 4 --divide</code></pre>
 <h2 id="chapter-build-and-install-build-from-source">Build from source</h2>
 <p>Two lines from the repository root. Make a directory for the classes, then compile every source file into it:</p>
 <pre><code class="language-bash">mkdir -p out
-javac --release 17 -d out $(find src -name &quot;*.java&quot;)</code></pre>
+javac --release 17 -d out $(find src -name &quot;*.java&quot;)
+rm -rf out/schemas &amp;&amp; cp -R schemas out/schemas</code></pre>
 <blockquote><p>Keep <code>--release 17</code>. It pins both the language level and the platform API surface, so a newer JDK still emits Java 17-compatible classes that behave the same. Drop the flag and compile against a newer API and you can hit spurious errors that have nothing to do with your code.</p></blockquote>
 <p>Run straight from the compiled classes:</p>
 <pre><code class="language-bash">java -cp out application.Main help
 java -cp out application.Main &lt;area&gt; &lt;action&gt; [options]</code></pre>
 <h2 id="chapter-build-and-install-package-a-runnable-jar">Package a runnable JAR</h2>
 <p>Bundle the compiled classes into a self-contained <code>crtk.jar</code>:</p>
-<pre><code class="language-bash">jar --create --file crtk.jar --main-class application.Main -C out .
+<pre><code class="language-bash">rm -rf out/schemas &amp;&amp; cp -R schemas out/schemas
+jar --create --file crtk.jar --main-class application.Main -C out .
 java -jar crtk.jar help</code></pre>
 <p>The rest of this site writes commands as <code>crtk</code>, which is the launcher the installer drops on your <code>PATH</code>. Wherever you see it, <code>java -jar crtk.jar</code> does exactly the same thing.</p>
+<h2 id="chapter-build-and-install-build-a-self-contained-linux-runtime-bundle">Build a self-contained Linux runtime bundle</h2>
+<p>When you need a portable Linux app image that carries its own Java runtime, run the release-only jlink/jpackage script:</p>
+<pre><code class="language-bash">scripts/make_runtime_linux.sh --version v1.0.0</code></pre>
+<p>It compiles the source with <code>javac --release 17</code>, packages <code>crtk.jar</code>, derives the required Java modules with <code>jdeps</code>, builds a minimal runtime with <code>jlink</code>, and creates an app image with <code>jpackage</code>. The staged bundle includes a root <code>./crtk</code> launcher that runs from the bundle directory, so relative <code>config/</code> and documentation paths resolve the same way they do in a checkout.</p>
+<p>The script writes:</p>
+<pre><code class="language-text">dist/crtk-v1.0.0-linux-x86_64-runtime/
+dist/crtk-v1.0.0-linux-x86_64-runtime.tar.gz
+dist/crtk-v1.0.0-linux-x86_64-runtime.sha256</code></pre>
+<p>As part of the build it runs <code>./crtk version</code> from the produced bundle with an empty <code>PATH</code>, proving the launcher is using the bundled runtime rather than a system <code>java</code>.</p>
 <h2 id="chapter-build-and-install-verify-the-build">Verify the build</h2>
 <p>Three commands tell you whether everything is wired up:</p>
 <pre><code class="language-bash">crtk version
@@ -957,6 +981,11 @@ crtk engine perft-suite --depth 6 --threads 4</code></pre>
 <td><code>fen pgn</code>, <code>puzzle mine</code>, <code>record dataset</code></td>
 </tr>
 <tr>
+<td>Player reviewing games</td>
+<td>Turn your PGNs into mistake rows and study units</td>
+<td><code>review game --to-study</code></td>
+</tr>
+<tr>
 <td>Puzzle-book author</td>
 <td>Mine tactics and publish print-ready PDFs</td>
 <td><code>puzzle mine</code>, <code>book collection</code>, <code>book render</code></td>
@@ -997,9 +1026,20 @@ crtk record export training-jsonl -i dump/merged.json -o training/labels.jsonl -
 <p>Read next:</p>
 <ul>
 <li><a href="#chapter-datasets">Datasets</a></li>
+<li><a href="#chapter-review-to-study">Review to Study</a></li>
 <li><a href="#chapter-filter-dsl">Filter DSL</a></li>
 <li><a href="#chapter-piece-tags">Piece and Position Tags</a></li>
 <li><a href="#chapter-outputs-and-logs">Outputs and Logs</a></li>
+</ul>
+<h2 id="chapter-use-cases-players-reviewing-their-games">Players Reviewing Their Games</h2>
+<p>Export a PGN, run bounded review with your configured engine, and let crtk write both the per-ply verdict stream and drillable study units. The review JSONL tells you what happened on every mainline ply; the study JSONL and Record sidecar keep only mistakes and blunders that should become practice material.</p>
+<pre><code class="language-bash">crtk review game --pgn games/rapid.pgn --max-nodes 50000 --max-duration 3s --to-study</code></pre>
+<p>Read next:</p>
+<ul>
+<li><a href="#chapter-review-to-study">Review to Study</a></li>
+<li><a href="#chapter-outputs-and-logs">Outputs and Logs</a></li>
+<li><a href="#chapter-configuration">Configuration</a></li>
+<li><a href="#chapter-workbench">Desktop Workbench</a></li>
 </ul>
 <h2 id="chapter-use-cases-puzzle-book-authors">Puzzle-Book Authors</h2>
 <p>Your own games are full of tactics you missed. This path digs them out, verifies and tags them, and hands you a finished PDF — interior and cover both — without a LaTeX toolchain anywhere in sight. <code>puzzle mine</code> runs bounded UCI analysis over FEN or PGN seeds and sorts the results through a Filter DSL: the keepers land in <code>*.puzzles.json</code>, the rest in <code>*.nonpuzzles.json</code> so you can audit what got rejected and why. <code>book collection</code> turns the keepers into a print-ready manifest and PDF; <code>book cover</code> produces a matching cover sized to the binding you chose.</p>
@@ -1139,10 +1179,12 @@ crtk doctor --strict</code></pre>
 <ul>
 <li><code>crtk doctor</code> — checks the Java version, the resolved config and engine protocol files, the engine instance count, the output directory, and whether local model artifacts exist. It prints <code>ok</code>, <code>ok-with-warnings</code>, or an error, then lists each warning.</li>
 <li><code>crtk config validate</code> — validates <code>config/cli.config.toml</code> and the referenced engine protocol TOML and reports the first problem it finds.</li>
+<li><code>crtk doctor --json</code> and <code>crtk config show --json</code> — emit stable machine-readable objects for scripts, issue reports, and the Workbench setup/health surface.</li>
 </ul>
 <pre><code class="language-bash">crtk doctor
 crtk config validate
-crtk config show</code></pre>
+crtk config show
+crtk doctor --json</code></pre>
 <p>A healthy machine prints something like this. Warnings — a missing optional T5 model, say — are non-fatal: <code>doctor</code> reports <code>ok-with-warnings</code> and everything else keeps working.</p>
 <pre><code class="language-text">doctor: ok-with-warnings
 Java: 21.0.11
@@ -1152,7 +1194,7 @@ Engine instances: 4
 Output: dump/
 Warnings:
   - Missing model file for t5-model-path: /path/to/models/t5.bin</code></pre>
-<p>In CI or scripts, <code>crtk doctor --strict</code> turns warnings into failures — it exits non-zero the moment one is present. See <a href="#chapter-configuration">Configuration</a> for what each value means and <a href="#chapter-build-and-install">Build and Install</a> for installation details.</p>
+<p>In CI or scripts, <code>crtk doctor --strict</code> turns warnings into failures — it exits non-zero the moment one is present. Add <code>--json</code> when the caller needs the <code>crtk.doctor.v1</code> status, warning/error arrays, and native backend matrix without scraping text. See <a href="#chapter-configuration">Configuration</a> for what each value means and <a href="#chapter-build-and-install">Build and Install</a> for installation details.</p>
 <h2 id="chapter-troubleshooting-launcher-or-path-issues">Launcher or <code>PATH</code> issues</h2>
 <p><strong>Symptom:</strong> <code>crtk: command not found</code>, or the <code>crtk</code> launcher runs an old build.</p>
 <ul>
@@ -1866,6 +1908,10 @@ crtk engine perft-suite --depth 5                   # movegen correctness regres
 <tr>
 <td><code>workbench</code></td>
 <td>Launch the native command and analysis workbench (alias <code>gui</code>)</td>
+</tr>
+<tr>
+<td><code>serve</code></td>
+<td>Start a localhost-only JSON-RPC daemon over the CLI dispatcher</td>
 </tr>
 <tr>
 <td><code>doctor</code></td>
@@ -3991,7 +4037,7 @@ crtk find-mate --fen &quot;&lt;FEN&gt;&quot; --mate 6 --max-nodes 5000000 --thre
 </tbody></table></div>
 <pre><code class="language-bash">crtk position diff --fen &quot;&lt;FEN_A&gt;&quot; --other &quot;&lt;FEN_B&gt;&quot; --json</code></pre>
 <h3 id="chapter-command-reference-position-describe">position describe</h3>
-<p>Describe one FEN or a FEN list as deterministic classical text, structured features, or training JSONL. <code>classical</code> is the engine that works today; <code>t5</code> is wired up but waiting on trained weights, so reach for <code>classical</code> unless you have those.</p>
+<p>Describe one FEN or a FEN list as deterministic classical text, structured features, or training JSONL. <code>position describe</code> is classical-only; the working T5 runtime lives behind <code>fen text</code> and <code>puzzle text</code>.</p>
 <div class="table-wrap"><table>
 <thead><tr>
 <th>Option</th>
@@ -4015,7 +4061,7 @@ crtk find-mate --fen &quot;&lt;FEN&gt;&quot; --mate 6 --max-nodes 5000000 --thre
 </tr>
 <tr>
 <td><code>--engine MODE</code></td>
-<td><code>classical</code> (default) or <code>t5</code></td>
+<td><code>classical</code> only (default)</td>
 </tr>
 <tr>
 <td><code>--detail LEVEL</code></td>
@@ -4039,11 +4085,11 @@ crtk find-mate --fen &quot;&lt;FEN&gt;&quot; --mate 6 --max-nodes 5000000 --thre
 </tr>
 <tr>
 <td><code>--model PATH</code></td>
-<td>Future T5 position-description model path</td>
+<td>Training-jsonl prompt model-path metadata</td>
 </tr>
 <tr>
 <td><code>--max-new N</code></td>
-<td>Future T5 generated-token budget</td>
+<td>Training-jsonl prompt token-budget metadata</td>
 </tr>
 </tbody></table></div>
 <pre><code class="language-bash">crtk position describe --fen &quot;&lt;FEN&gt;&quot; --detail full --format text</code></pre>
@@ -4641,6 +4687,7 @@ crtk find-mate --fen &quot;&lt;FEN&gt;&quot; --mate 6 --max-nodes 5000000 --thre
 </tr>
 </tbody></table></div>
 <pre><code class="language-bash">crtk config show
+crtk config show --json
 crtk config validate</code></pre>
 <h2 id="chapter-command-reference-workbench">workbench</h2>
 <p>Launch the native Swing command and analysis workbench; the alias <code>gui</code> opens the same app. For exploring by hand it beats typing commands one at a time, while the CLI stays the stable surface for scripts and batch jobs.</p>
@@ -4666,6 +4713,36 @@ crtk config validate</code></pre>
 <pre><code class="language-bash">crtk workbench
 crtk workbench --fen &quot;&lt;FEN&gt;&quot;
 crtk gui</code></pre>
+<h2 id="chapter-command-reference-serve">serve</h2>
+<p>Start a localhost-only HTTP JSON-RPC daemon for agents and editor integrations. Requests still run through <code>application.Main</code>, so stdout, stderr, exit codes, and JSON contracts match the CLI.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Option</th>
+<th>Description</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--host HOST</code></td>
+<td>Loopback host to bind (default <code>127.0.0.1</code>)</td>
+</tr>
+<tr>
+<td><code>--port N</code></td>
+<td>TCP port to bind (default <code>8787</code>; <code>0</code> asks the OS for an ephemeral port)</td>
+</tr>
+<tr>
+<td><code>--json</code></td>
+<td>Print startup endpoints as JSON</td>
+</tr>
+<tr>
+<td><code>--verbose</code>/<code>-v</code></td>
+<td>Print stack trace on failure</td>
+</tr>
+</tbody></table></div>
+<pre><code class="language-bash">crtk serve --port 8787
+curl -s http://127.0.0.1:8787/catalog
+curl -s http://127.0.0.1:8787/rpc \
+  -H &#x27;Content-Type: application/json&#x27; \
+  -d &#x27;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:1,&quot;method&quot;:&quot;run&quot;,&quot;params&quot;:{&quot;argv&quot;:[&quot;fen&quot;,&quot;validate&quot;,&quot;--fen&quot;,&quot;&lt;FEN&gt;&quot;,&quot;--json&quot;]}}&#x27;</code></pre>
+<p>See <a href="#chapter-serve">Local JSON-RPC daemon</a> for endpoint details.</p>
 <h2 id="chapter-command-reference-doctor">doctor</h2>
 <p>Check that the environment is sane: the runtime, the main config file, the configured engine protocol, whether the engine executable is findable, the model paths, and the output directory. A missing model file is a warning rather than an error, since models are optional local artifacts you may simply not have downloaded.</p>
 <div class="table-wrap"><table>
@@ -4678,12 +4755,17 @@ crtk gui</code></pre>
 <td>Exit non-zero when warnings are present</td>
 </tr>
 <tr>
+<td><code>--json</code></td>
+<td>Emit one <code>crtk.doctor.v1</code> object, including warning/error arrays and native backend rows</td>
+</tr>
+<tr>
 <td><code>--verbose</code>/<code>-v</code></td>
 <td>Print stack trace on failure</td>
 </tr>
 </tbody></table></div>
 <pre><code class="language-bash">crtk doctor
-crtk doctor --strict</code></pre>
+crtk doctor --strict
+crtk doctor --json</code></pre>
 <h2 id="chapter-command-reference-clean">clean</h2>
 <p>Clear out the generated session cache and logs under <code>dump/session/</code>, leaving the cache directory itself in place.</p>
 <div class="table-wrap"><table>
@@ -5693,7 +5775,8 @@ movetext = &quot;1. Nh3&quot;</code></pre>
 <p>Three commands confirm a setup without committing to a full workload.</p>
 <h3 id="chapter-configuration-config-show"><code>config show</code></h3>
 <p>Prints the resolved CLI config — the absolute config path and every effective value, including the fully parsed puzzle filters. It&#x27;s the fastest way to check that an override or a swapped baseline actually took.</p>
-<pre><code class="language-bash">java -jar crtk.jar config show</code></pre>
+<pre><code class="language-bash">java -jar crtk.jar config show
+java -jar crtk.jar config show --json</code></pre>
 <pre><code class="language-text">Config path: /home/you/chess-rtk/config/cli.config.toml
 Protocol path: config/default.engine.toml
 LC0 model path: models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin
@@ -5704,6 +5787,7 @@ Max nodes: 50000000
 Max duration (ms): 1000000
 Puzzle analysis cache: 5000000
 Puzzle quality: gate=AND;...</code></pre>
+<p><code>--json</code> emits one stable <code>crtk.config.v1</code> object with the same resolved values, using script-friendly field names such as <code>config</code>, <code>protocol</code>, <code>engineInstances</code>, <code>maxNodes</code>, <code>maxDurationMs</code>, and <code>puzzleQuality</code>.</p>
 <h3 id="chapter-configuration-config-validate"><code>config validate</code></h3>
 <p>Checks the config and reports problems — a model path pointing at a file that isn&#x27;t there, for instance. A missing optional model is a warning, not a failure, since you may simply not use that evaluator.</p>
 <pre><code class="language-bash">java -jar crtk.jar config validate</code></pre>
@@ -5712,7 +5796,9 @@ Puzzle quality: gate=AND;...</code></pre>
 <h3 id="chapter-configuration-doctor"><code>doctor</code></h3>
 <p>The broader sweep: runtime version, CLI config, engine protocol, output root, and local artifacts. It reports one overall status — <code>ok</code>, <code>ok-with-warnings</code>, or an error — followed by an itemized warning list. <code>--strict</code> promotes warnings to a non-zero exit, which is what you want when this runs in CI.</p>
 <pre><code class="language-bash">java -jar crtk.jar doctor
-java -jar crtk.jar doctor --strict</code></pre>
+java -jar crtk.jar doctor --strict
+java -jar crtk.jar doctor --json</code></pre>
+<p><code>--json</code> emits one stable <code>crtk.doctor.v1</code> object with the text-mode status, Java version, resolved config/protocol/output values, warning/error arrays, and a <code>nativeBackends</code> matrix matching <code>engine gpu</code>.</p>
 <pre><code class="language-text">doctor: ok-with-warnings
 Java: 21.0.11
 Config: /home/you/chess-rtk/config/cli.config.toml
@@ -5881,6 +5967,10 @@ crtk move list --startpos --jsonl         # {&quot;uci&quot;:&quot;a2a3&quot;,&q
 <td><code>dump/&lt;stem&gt;.analysis-delta.jsonl</code></td>
 </tr>
 <tr>
+<td><code>review game</code></td>
+<td><code>dump/&lt;stem&gt;.review.jsonl</code>; with <code>--to-study</code>, also <code>dump/&lt;stem&gt;.study.jsonl</code> and <code>dump/&lt;stem&gt;.study.record.json</code></td>
+</tr>
+<tr>
 <td><code>puzzle pgn</code></td>
 <td><code>dump/&lt;stem&gt;.pgn</code></td>
 </tr>
@@ -5889,6 +5979,7 @@ crtk move list --startpos --jsonl         # {&quot;uci&quot;:&quot;a2a3&quot;,&q
 <td><code>dump/&lt;stem&gt;.txt</code></td>
 </tr>
 </tbody></table></div>
+<p><code>review game</code> rows are schema-stamped as <code>crtk.review.ply.v1</code>. The optional study JSONL sidecar is <code>crtk.review.study_unit.v1</code>, and the Record sidecar is a <code>crtk.record.v2</code> JSON array whose <code>parent</code> is the pre-move FEN and whose <code>position</code> is the post-best-move FEN. See <a href="#chapter-review-to-study">Review to study</a> for the full contract.</p>
 <h3 id="chapter-outputs-and-logs-multi-file-tensor-exports">Multi-file tensor exports</h3>
 <p>A tensor export is rarely one file. Dataset exporters take a single output <em>prefix</em> and fan out several companion files around it (see <a href="#chapter-datasets">Datasets</a>):</p>
 <ul>
@@ -5904,6 +5995,7 @@ crtk move list --startpos --jsonl         # {&quot;uci&quot;:&quot;a2a3&quot;,&q
 <li><code>--output -</code> streams to stdout instead of writing files.</li>
 </ul>
 <p>Each file is one top-level JSON array, grown incrementally as positions clear the <a href="#chapter-filter-dsl">Filter DSL</a> gates rather than written all at once at the end.</p>
+<p>Each newly written record object carries a <code>schemaVersion</code> field with the current contract id, <code>crtk.record.v2</code>. Older record objects that do not carry the field remain valid input and are interpreted as <code>crtk.record.v1</code>; use <code>record validate --input FILE --strict</code> when you want malformed rows to fail loudly instead of being skipped by tolerant readers.</p>
 <h3 id="chapter-outputs-and-logs-publishing-outputs">Publishing outputs</h3>
 <p>PDFs land under <code>dump/</code> like everything else, and no LaTeX toolchain is anywhere in the path — the renderer is native (see <a href="#chapter-book-publishing">Book Publishing</a>):</p>
 <ul>
@@ -5962,6 +6054,7 @@ crtk clean --verbose   # print a stack trace if cleanup fails</code></pre>
 <li><a href="#chapter-command-reference">Command Reference</a> — every area, action, and flag.</li>
 <li><a href="#chapter-configuration">Configuration</a> — the output root and other settings in <code>config/cli.config.toml</code>.</li>
 <li><a href="#chapter-datasets">Datasets</a> — tensor and JSONL export formats in depth.</li>
+<li><a href="#chapter-review-to-study">Review to study</a> — PGN review artifacts and study-unit sidecars.</li>
 <li><a href="#chapter-mining">Puzzle Mining</a> — <code>puzzle mine</code> outputs and the Filter DSL gates.</li>
 <li><a href="#chapter-book-publishing">Book Publishing</a> — native PDF output.</li>
 <li><a href="#chapter-troubleshooting">Troubleshooting</a> — diagnosing non-zero exit codes.</li>
@@ -6013,68 +6106,60 @@ crtk workbench --flip</code></pre>
 <td>Print workbench launch help</td>
 </tr>
 </tbody></table></div>
-<h2 id="chapter-workbench-main-areas">Main areas</h2>
-<p>The Workbench is a set of dockable tabs, each carved out around one job rather than one feature.</p>
+<h2 id="chapter-workbench-registered-views">Registered views</h2>
+<p>The Workbench currently registers eight top-level views. Older names such as Analyze, Play, Solve, Relations, Draw, Network, MCTS, Tree, Gauntlet, Batch, and Commands are modes or workflows inside these views, not separate top-level tabs.</p>
 <div class="table-wrap"><table>
 <thead><tr>
-<th>Area</th>
+<th>View</th>
+<th>Modes and workflows</th>
 <th>Purpose</th>
 </tr></thead><tbody>
 <tr>
 <td>Dashboard</td>
-<td>Session overview, health, recent jobs, and generated artifacts</td>
+<td>Session overview, health, recent jobs, artifacts</td>
+<td>The default operational overview</td>
 </tr>
 <tr>
-<td>Analyze</td>
-<td>Interactive board, PGN navigation, legal moves, tags, ECO tree, post-game review, study authoring, endgame tablebase status, board editor, and engine controls</td>
+<td>Board</td>
+<td>Analyze, Play, Solve, Relations, Draw</td>
+<td>The shared board workspace for positions, games, puzzles, overlays, and annotation</td>
 </tr>
 <tr>
-<td>Play</td>
-<td>Human-vs-engine games against in-process alpha-beta/classical preset opponents</td>
-</tr>
-<tr>
-<td>Commands</td>
-<td>GUI forms that build and run any <code>crtk</code> command</td>
-</tr>
-<tr>
-<td>Batch</td>
-<td>FEN-list and command-script execution with progress</td>
+<td>Run</td>
+<td>Command builder and batch-style templates</td>
+<td>GUI forms that build and run real <code>crtk</code> commands</td>
 </tr>
 <tr>
 <td>Datasets</td>
+<td>Dataset loaders, summaries, charts, sample inspection</td>
 <td>Loading, validation, summaries, and charts for exported data</td>
 </tr>
 <tr>
 <td>Publish</td>
-<td>Previews for diagrams, books, studies, collections, and covers</td>
+<td>Diagram, book, study, collection, and cover previews</td>
+<td>Publishing workflow previews before rendering PDFs</td>
+</tr>
+<tr>
+<td>Engine Lab</td>
+<td>Network, MCTS, Tree, Gauntlet</td>
+<td>Neural, search-tree, and self-play engine diagnostics</td>
 </tr>
 <tr>
 <td>Console</td>
-<td>Command output with terminal-style progress handling</td>
+<td>Live command output</td>
+<td>Terminal-style progress and stdout/stderr display</td>
 </tr>
 <tr>
 <td>Logs</td>
 <td>Persisted job logs and artifacts</td>
-</tr>
-<tr>
-<td>Network</td>
-<td>NNUE, LC0 CNN, BT4, and OTIS model diagnostics and visualizers</td>
-</tr>
-<tr>
-<td>Relations</td>
-<td>OTIS tactical-incidence relation channels drawn as typed arrows on a board</td>
-</tr>
-<tr>
-<td>Puzzles</td>
-<td>Interactive puzzle practice</td>
+<td>The durable audit trail for completed runs</td>
 </tr>
 </tbody></table></div>
-<h2 id="chapter-workbench-analysis-and-pgn-board">Analysis and PGN board</h2>
-<p>Analyze is where you land. The board sits in the middle, surrounded by everything you&#x27;d want pointed at a position: move navigation, the legal-move list, deterministic tags, an ECO opening tree, deterministic post-game review with retry jumps, study TOML authoring from the current line, endgame tablebase-hit status, a board editor for arbitrary setups, and panels for both the in-process search and the external analysis engine. Load a PGN and you step through the game from the same view.</p>
+<h2 id="chapter-workbench-board-view">Board view</h2>
+<p>Board is the shared position and game workspace. Its mode switcher hosts Analyze, Play, Solve, Relations, and Draw. The board sits in the middle, surrounded by the mode-specific tools for the current task: move navigation, the legal-move list, deterministic tags, an ECO opening tree, deterministic post-game review with retry jumps, study TOML authoring from the current line, endgame/tablebase-hit status, a board editor for arbitrary setups, puzzle practice, tactical-incidence overlays, and freehand annotation/export controls. Load a PGN in Analyze mode and you step through the game from the same shared board surface.</p>
 <p><img src="assets/screenshots/workbench-analysis.png" alt="Workbench analysis board" loading="eager" decoding="sync"></p>
 <p>The board sees the world the way the CLI does: identical move generation, identical FEN/SAN/UCI handling, identical Chess960 support. The tags on the board are the ones <code>fen tags</code> produces, down to the bit. Live analysis drives your configured external UCI engine — Stockfish or LC0 — the same way <code>engine analyze</code> does, MultiPV included.</p>
 <p>The PGN explorer doubles as a lightweight database workspace. It indexes player/opening/result metadata, filters games reaching the current board position, removes exact duplicates, copies selected games, and can copy a prep report for the visible games or named player query.</p>
-<p>The Engine surface includes a Gauntlet mode for reproducible built-in engine self-play. It builds the exact <code>testing.SelfPlayGauntlet</code> JVM command, runs it in a child process, and streams W-D-L/Elo output into the panel.</p>
 <h3 id="chapter-workbench-where-to-find-the-new-analysis-tools">Where to find the new analysis tools</h3>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -6083,15 +6168,15 @@ crtk workbench --flip</code></pre>
 </tr></thead><tbody>
 <tr>
 <td>Opening tree</td>
-<td>Analyze -&gt; Board -&gt; Tools -&gt; Opening Tree, or the side rail ECO tab</td>
+<td>Board -&gt; Analyze -&gt; Tools -&gt; Opening Tree, or the side rail ECO tab</td>
 </tr>
 <tr>
 <td>Post-game review and retry</td>
-<td>Analyze -&gt; Board -&gt; Tools -&gt; Review, or Analyze -&gt; Game -&gt; Study / Review / Database -&gt; Review Game</td>
+<td>Board -&gt; Analyze -&gt; Tools -&gt; Review, or Board -&gt; Analyze -&gt; Game -&gt; Study / Review / Database -&gt; Review Game</td>
 </tr>
 <tr>
 <td>PGN database workspace</td>
-<td>Analyze -&gt; Board -&gt; PGN Database, or Analyze -&gt; Game -&gt; Study / Review / Database -&gt; PGN Database</td>
+<td>Board -&gt; Analyze -&gt; PGN Database, or Board -&gt; Analyze -&gt; Game -&gt; Study / Review / Database -&gt; PGN Database</td>
 </tr>
 <tr>
 <td>Player prep report</td>
@@ -6099,20 +6184,20 @@ crtk workbench --flip</code></pre>
 </tr>
 <tr>
 <td>Engine gauntlet manager</td>
-<td>Analyze -&gt; Board -&gt; Tools -&gt; Gauntlet, or Engine -&gt; Gauntlet</td>
+<td>Engine Lab -&gt; Gauntlet</td>
 </tr>
 <tr>
 <td>Endgame/tablebase panel</td>
-<td>Analyze -&gt; Board -&gt; Tools -&gt; Endgame, or the side rail Endgame tab</td>
+<td>Board -&gt; Analyze -&gt; Tools -&gt; Endgame, or the side rail Endgame tab</td>
 </tr>
 <tr>
 <td>Study/repertoire authoring</td>
-<td>Analyze -&gt; Board -&gt; Tools -&gt; Study, or Analyze -&gt; Game -&gt; Study / Review / Database -&gt; Author Study</td>
+<td>Board -&gt; Analyze -&gt; Tools -&gt; Study, or Board -&gt; Analyze -&gt; Game -&gt; Study / Review / Database -&gt; Author Study</td>
 </tr>
 </tbody></table></div>
 <p>The command palette also exposes the same workflows by name: Opening tree, Review game, Author study, Endgame tablebase, PGN database, Player prep report, and Open engine gauntlet.</p>
-<h2 id="chapter-workbench-play-vs-engine">Play vs engine</h2>
-<p>Play runs a full human-versus-engine game from the start position, the current board, or a pasted FEN. The named preset bots all use alpha-beta search with the always-available classical evaluator; their Elo changes adjust the search budget and move sampling, not the backend. Choose Custom to expose the two backend selectors:</p>
+<h2 id="chapter-workbench-board-play">Board / Play</h2>
+<p>Board / Play runs a full human-versus-engine game from the start position, the current board, or a pasted FEN. The named preset bots all use alpha-beta search with the always-available classical evaluator; their Elo changes adjust the search budget and move sampling, not the backend. Choose Custom to expose the two backend selectors:</p>
 <ul>
 <li><strong>Search</strong> chooses the move-picking algorithm: <code>Alpha-Beta</code> or <code>MCTS</code>.</li>
 <li><strong>Network</strong> chooses the leaf evaluator: <code>Classical</code>, <code>NNUE</code>, <code>CNN</code> (LC0), or <code>OTIS</code>.</li>
@@ -6147,26 +6232,28 @@ crtk workbench --flip</code></pre>
 </tbody></table></div>
 <p>If a neural model is missing or won&#x27;t load, Play drops back to classical evaluation rather than refusing to start — you get a game, just a weaker one. The LC0 CNN and BT4 paths are real, playable evaluators, but they are simplified and not bit-exact reproductions of upstream LC0/BT4; <a href="#chapter-lc0">LC0 networks</a> covers exactly where the fidelity stops.</p>
 <blockquote><p>Important: Play is in-process only. Whatever external UCI engine you&#x27;ve configured (Stockfish, full LC0) backs the Workbench&#x27;s live analysis and the engine command forms — never the Play opponent.</p></blockquote>
-<h2 id="chapter-workbench-command-controller-and-forms">Command controller and forms</h2>
-<p>The Commands tab is the CLI rendered as forms. Pick an area and action — <code>engine bestmove</code>, <code>puzzle mine</code>, <code>record dataset npy</code>, <code>fen tags</code> — and the form sorts the inputs into required fields, mutually exclusive choices, and optional flags, validating as you go. The exact <code>crtk</code> command takes shape in front of you while you fill it in, ready to copy into a script or run on the spot.</p>
+<h2 id="chapter-workbench-run-view">Run view</h2>
+<p>Run is the CLI rendered as forms. Pick an area and action — <code>engine bestmove</code>, <code>puzzle mine</code>, <code>record dataset npy</code>, <code>fen tags</code> — and the form sorts the inputs into required fields, mutually exclusive choices, and optional flags, validating as you go. The exact <code>crtk</code> command takes shape in front of you while you fill it in, ready to copy into a script or run on the spot.</p>
 <p><img src="assets/screenshots/workbench-commands.png" alt="Workbench command controller" loading="eager" decoding="sync"></p>
 <p>Since every form lands on a real CLI command, this doubles as a way to learn the surface area: assemble a command by clicking, read off its flags, then lift the generated text into a script for reproducible runs. The <a href="#chapter-command-reference">Command Reference</a> documents what each form mirrors.</p>
+<p>The <code>Review game</code> command template mirrors <code>crtk review game --to-study</code>: choose a PGN, keep the shared engine budget fields explicit, and run the CLI to produce review JSONL, study JSONL, and Record sidecars. The Workbench preview is the runnable command; later review panels consume those files instead of computing separate verdicts.</p>
+<p>The local PGN store also has first-class Run templates for the non-destructive database path: <code>pgn import</code>, <code>pgn find</code>, <code>pgn show</code>, and <code>pgn stats</code>. Use the command palette entries <code>PGN import</code>, <code>PGN find</code>, <code>PGN show</code>, <code>PGN stats</code>, and <code>Review game command</code> to jump directly to those templates. The destructive store-maintenance verbs, <code>pgn delete</code> and <code>pgn compact</code>, remain available through the <code>All CLI</code> template.</p>
 <h2 id="chapter-workbench-batch-jobs">Batch jobs</h2>
-<p>Batch is for work measured in the thousands. Sweep a FEN list through an engine command, or run a command script — one <code>crtk</code> command per non-comment line — exactly as <code>batch run</code> would. It tracks progress, breaks out per-row results, and gathers the output, so a large mining or export pass never has to leave the GUI. Anything long-running reports into the Console and persists into Logs.</p>
+<p>Batch work now lives in Run as command templates and multi-line inputs. Sweep a FEN list through an engine command, or run a command script — one <code>crtk</code> command per non-comment line — exactly as <code>batch run</code> would. It tracks progress, breaks out per-row results, and gathers the output, so a large mining or export pass never has to leave the GUI. Anything long-running reports into Console and persists into Logs.</p>
 <h2 id="chapter-workbench-datasets">Datasets</h2>
 <p>The Datasets tab opens up whatever the export pipeline produced — the tensors from <code>record dataset npy</code>, <code>record dataset lc0</code>, and <code>record dataset classifier</code>, and the JSONL rows from the <code>record export ...-jsonl</code> family — and reports shapes, counts, label distributions, and charts. The point is to catch a broken or skewed training set here, before a trainer spends hours on it. See <a href="#chapter-datasets">Datasets</a> for the export formats.</p>
 <h2 id="chapter-workbench-publishing-previews">Publishing previews</h2>
 <p>The Publish tab shows you the PDF before you pay for the render. It previews single diagrams (<code>book pdf</code>), puzzle collections (<code>book collection</code>), annotated studies (<code>book study</code>), book interiors (<code>book render</code>), and covers (<code>book cover</code>). The whole publishing stack is built in — no LaTeX, no external toolchain to install. See <a href="#chapter-book-publishing">Book publishing</a> for the manifest formats and the full option set.</p>
-<h2 id="chapter-workbench-puzzles">Puzzles</h2>
-<p>The Puzzles tab is where you actually solve the things you mined. Load the <code>*.puzzles.json</code> output of <code>puzzle mine</code>, work a position on the board, then reveal the principal variation and the move-by-move tags — the same deterministic tagging behind <code>puzzle tags</code>. See <a href="#chapter-mining">Puzzle mining</a> for how the sets are produced and gated by the Filter DSL.</p>
-<h2 id="chapter-workbench-network-visualizer">Network visualizer</h2>
-<p>The Network tab opens up the neural networks the toolkit has loaded — NNUE, the LC0 CNN, BT4, OTIS — and shows what they&#x27;re doing: loaded-model state, inference state, feature boards, activation summaries, atlases, trace views, runtime information, and exportable visualizations. As close as you can get to watching an evaluator look at a position.</p>
-<h2 id="chapter-workbench-relations">Relations</h2>
-<p>The Relations tab draws the OTIS <em>tactical incidence</em> graph — the twelve typed relation channels <code>A(x)</code> the oriented-tactical-sheaf network ingests — as colour-coded arrows over a board: us/them attacks and defenses, king-zone pressure, occlusion-aware bishop/rook/queen rays, knight and pawn attacks, and absolute-pin candidates. Toggle channels on and off, set the arrow opacity, and point it at the current analysis position (Sync to board) or a pasted FEN. The edges are computed deterministically from the position alone — no model file needed — and are the exact same <code>A(x)</code> the CLI <code>fen relations</code> command renders and the network reads.</p>
+<h2 id="chapter-workbench-board-solve">Board / Solve</h2>
+<p>Board / Solve is where you actually solve the things you mined. Load the <code>*.puzzles.json</code> output of <code>puzzle mine</code>, work a position on the board, then reveal the principal variation and the move-by-move tags — the same deterministic tagging behind <code>puzzle tags</code>. See <a href="#chapter-mining">Puzzle mining</a> for how the sets are produced and gated by the Filter DSL.</p>
+<h2 id="chapter-workbench-engine-lab">Engine Lab</h2>
+<p>Engine Lab hosts the implementation-facing engine views. Network opens up the neural networks the toolkit has loaded — NNUE, the LC0 CNN, BT4, OTIS — and shows what they&#x27;re doing: loaded-model state, inference state, feature boards, activation summaries, atlases, trace views, runtime information, and exportable visualizations. MCTS and Tree inspect the in-process PUCT/MCTS search, including root moves and tree exports. Gauntlet runs reproducible built-in engine self-play; it builds the exact <code>testing.SelfPlayGauntlet</code> JVM command, runs it in a child process, and streams W-D-L/Elo output into the panel.</p>
+<h2 id="chapter-workbench-board-relations">Board / Relations</h2>
+<p>Board / Relations draws the OTIS <em>tactical incidence</em> graph — the twelve typed relation channels <code>A(x)</code> the oriented-tactical-sheaf network ingests — as colour-coded arrows over a board: us/them attacks and defenses, king-zone pressure, occlusion-aware bishop/rook/queen rays, knight and pawn attacks, and absolute-pin candidates. Toggle channels on and off, set the arrow opacity, and point it at the current analysis position (Sync to board) or a pasted FEN. The edges are computed deterministically from the position alone — no model file needed — and are the exact same <code>A(x)</code> the CLI <code>fen relations</code> command renders and the network reads.</p>
 <p><img src="assets/screenshots/workbench-network.png" alt="Workbench network visualizer" loading="eager" decoding="sync"></p>
 <p>Read this as a research and debugging aid, not ground truth about a reference engine. The networks are usable evaluators, but the LC0 CNN and BT4 paths are simplified and not bit-exact equivalents of upstream inference — so the activations are faithful to ChessRTK&#x27;s implementation, which is not quite the same thing as faithful to LC0 or BT4.</p>
-<h2 id="chapter-workbench-console-and-logs">Console and logs</h2>
-<p>The Console streams command output with terminal-style progress handling, so a running export or mining job reads much like it would in a shell. When the run ends, the Logs tab holds onto the job logs and their artifacts — your audit trail of what was produced and where it landed. See <a href="#chapter-outputs-and-logs">Outputs and logs</a> for the on-disk layout.</p>
+<h2 id="chapter-workbench-console-and-logs">Console and Logs</h2>
+<p>Console and Logs are first-class registered views, which means they can be split, duplicated, and resized beside other views. Console streams command output with terminal-style progress handling, so a running export or mining job reads much like it would in a shell. Logs holds onto job logs and artifacts after a run ends — your audit trail of what was produced and where it landed. See <a href="#chapter-outputs-and-logs">Outputs and logs</a> for the on-disk layout.</p>
 <h2 id="chapter-workbench-keyboard-and-layout">Keyboard and layout</h2>
 <ul>
 <li>Arrow keys navigate game positions; <code>Home</code> and <code>End</code> jump to the start or end of the line.</li>
@@ -6313,7 +6400,7 @@ crtk workbench --flip</code></pre>
 </tr>
 <tr>
 <td>Workspace</td>
-<td>One full-screen task surface at a time: Dashboard, Board, Engine Lab, Run, Datasets, or Publish.</td>
+<td>One full-screen task surface at a time: Dashboard, Board, Run, Datasets, Publish, Engine Lab, Console, or Logs today; Library joins later when the corpus surface ships.</td>
 </tr>
 <tr>
 <td>Center</td>
@@ -6333,8 +6420,57 @@ crtk workbench --flip</code></pre>
 </tr>
 </tbody></table></div>
 <p>The most important visual rule is that the content owns the screen. Chess boards should look like boards, datasets should look like analytics, runs should look like executable command records, and publishing should look like previewing a real artifact. Chrome should help the user orient, not compete with the work.</p>
+<h2 id="chapter-workbench-design-guide-current-registered-shell">Current Registered Shell</h2>
+<p>The shipped shell currently registers eight top-level views. This is the source of truth for docs, command-palette routing, and split/duplicate behavior.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Registered view</th>
+<th>Current modes / workflows</th>
+<th>Design home</th>
+</tr></thead><tbody>
+<tr>
+<td>Dashboard</td>
+<td>Health, recent jobs, artifacts, quick links</td>
+<td>Session state</td>
+</tr>
+<tr>
+<td>Board</td>
+<td>Analyze, Play, Solve, Relations, Draw</td>
+<td>Position/game work</td>
+</tr>
+<tr>
+<td>Run</td>
+<td>Command builder and batch-style command templates</td>
+<td>Executable command work</td>
+</tr>
+<tr>
+<td>Datasets</td>
+<td>Export loaders, validation, charts, samples</td>
+<td>Data artifacts</td>
+</tr>
+<tr>
+<td>Publish</td>
+<td>Diagram, book, study, collection, cover previews</td>
+<td>Rendered artifacts</td>
+</tr>
+<tr>
+<td>Engine Lab</td>
+<td>Network, MCTS, Tree, Gauntlet</td>
+<td>Engine/search state</td>
+</tr>
+<tr>
+<td>Console</td>
+<td>Live child-process output</td>
+<td>Run/output companion</td>
+</tr>
+<tr>
+<td>Logs</td>
+<td>Persisted logs and artifacts</td>
+<td>Run/output companion</td>
+</tr>
+</tbody></table></div>
 <h2 id="chapter-workbench-design-guide-target-information-architecture">Target Information Architecture</h2>
-<p>The ideal Workbench has six top-level surfaces. Current implementation may keep transitional tabs while migration is in progress, but new design work should place features in these homes.</p>
+<p>The ideal Workbench has seven top-level surfaces after the local game-corpus surface ships and output views can be treated as Run companions. Until then, new design work should still place features in the homes below instead of adding new top-level tabs.</p>
 <div class="table-wrap"><table>
 <thead><tr>
 <th>Surface</th>
@@ -6356,6 +6492,13 @@ crtk workbench --flip</code></pre>
 <td>Analyze, Play, Solve, Relations, Draw, board editor, study/review/ECO/endgame tools</td>
 <td>One shared <code>BoardStage</code> with eval bar and overlays</td>
 <td>Mode inspector for moves, engine, puzzle, play, relations, draw, tags, ECO</td>
+</tr>
+<tr>
+<td><code>Library</code></td>
+<td>Game corpus (local PGN store)</td>
+<td>Import, query/filter, game list, per-game metadata, dedupe/compact status; opens a selected game into Board</td>
+<td>Dense results table</td>
+<td>Selected-game metadata and a small board preview</td>
 </tr>
 <tr>
 <td><code>Engine Lab</code></td>
@@ -6393,10 +6536,11 @@ crtk workbench --flip</code></pre>
 <li><code>Network</code>, <code>MCTS</code>, <code>Tree</code>, and <code>Gauntlet</code> are Engine Lab modes.</li>
 <li><code>Commands</code>, <code>Batch</code>, <code>Console</code>, and <code>Logs</code> are Run modes or Run/output companion views.</li>
 <li><code>Datasets</code> and <code>Publish</code> stay top-level because their primary artifacts are not positions or command output.</li>
+<li><code>Library</code> is top-level because its primary object — a queryable game corpus (the local PGN store) — is neither a single position (<code>Board</code>) nor an ML artifact (<code>Datasets</code>); selecting a game routes it into <code>Board</code>. It is introduced for the forthcoming <code>crtk db</code>/<code>pgn</code> store and may stay behind a transitional tab until that store lands.</li>
 <li><code>Dashboard</code> is the only global state surface. It should launch work, not duplicate full workflows.</li>
 <li>Command palette entries may preserve old names like <code>Open Play</code> or <code>Open Logs</code>, but they should route to the right surface and mode.</li>
 </ul>
-<p>When a feature seems to need a new tab, name its primary object first. If the object is a position, engine/search state, command run, dataset, publication, or session status, it belongs in one of the six surfaces above.</p>
+<p>When a feature seems to need a new tab, name its primary object first. If the object is a position, game corpus, engine/search state, command run, dataset, publication, or session status, it belongs in one of the seven surfaces above.</p>
 <h2 id="chapter-workbench-design-guide-primary-object-model">Primary Object Model</h2>
 <p>Every screen must make one primary object obvious. This prevents the app from becoming a stack of unrelated forms.</p>
 <div class="table-wrap"><table>
@@ -6411,6 +6555,12 @@ crtk workbench --flip</code></pre>
 <td>FEN summary, side to move, source, game ply</td>
 <td>Board, legal moves, overlays, tags, ECO, engine lines</td>
 <td>Load PGN/FEN, copy FEN, analyze, play, solve, export</td>
+</tr>
+<tr>
+<td>Game corpus</td>
+<td>Store path, game count, active filter/source</td>
+<td>Results table with per-game metadata</td>
+<td>Import, find, open in Board, dedupe, export, stats</td>
 </tr>
 <tr>
 <td>Engine/search state</td>
@@ -6458,6 +6608,10 @@ crtk workbench --flip</code></pre>
 <tr>
 <td>Board</td>
 <td>A large square board dominates the center-left. The right rail is a mode inspector with <code>Analyze</code>, <code>Play</code>, <code>Solve</code>, <code>Relations</code>, and <code>Draw</code>. Switching modes preserves the board and position whenever possible.</td>
+</tr>
+<tr>
+<td>Library</td>
+<td>Looks like a database browser. A query/filter band on top, a dense results table (event, players, result, ECO, date) filling the body, and a compact rail with the selected game&#x27;s metadata and a small board preview. Double-clicking a row opens the game in Board. No hero text; the table owns the screen.</td>
 </tr>
 <tr>
 <td>Engine Lab</td>
@@ -6542,7 +6696,7 @@ crtk workbench --flip</code></pre>
 </tr>
 <tr>
 <td>Editor Area</td>
-<td>Dashboard, Board, Engine Lab, Run, Datasets, Publish</td>
+<td>Dashboard, Board, Library, Engine Lab, Run, Datasets, Publish</td>
 <td>The primary task owns the center; tabs and splits preserve context.</td>
 </tr>
 <tr>
@@ -6623,6 +6777,77 @@ crtk workbench --flip</code></pre>
 <tr>
 <td>Toolbar grouping</td>
 <td>Leading area orients, center changes mode, trailing area holds persistent actions/search.</td>
+</tr>
+</tbody></table></div>
+<h2 id="chapter-workbench-design-guide-foundational-ui-principles">Foundational UI Principles</h2>
+<p>The lecture notes add two overlapping checks that every Workbench surface should pass: the six UI basics — contrast, consistency, typography, color, visual hierarchy, and spacing — and the C-R-A-P mnemonic: contrast, repetition, alignment, and proximity. Apply them through ChessRTK&#x27;s shared primitives, not through one-off styling.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Principle</th>
+<th>Workbench rule</th>
+</tr></thead><tbody>
+<tr>
+<td>Contrast</td>
+<td>Use size, weight, color, shape, and spacing to separate primary content from secondary controls. The strongest contrast on a surface should point to the current task, selected object, primary action, or critical state.</td>
+</tr>
+<tr>
+<td>Repetition and consistency</td>
+<td>Repeat the same colors, type roles, spacing, icons, control heights, and layout patterns so users can learn the interface once and reuse that knowledge across panels.</td>
+</tr>
+<tr>
+<td>Alignment</td>
+<td>Build visible order with invisible axes: fixed label lanes, aligned table columns, shared toolbar baselines, and consistent side-rail edges. Experimental layouts may rotate or offset content only when the alignment system remains legible.</td>
+</tr>
+<tr>
+<td>Proximity</td>
+<td>Put related elements close together and separate unrelated groups with clear gaps, hairlines, or section headers. A label, input, helper text, validation message, and action should read as one group.</td>
+</tr>
+<tr>
+<td>Typography</td>
+<td>Optimize for readability first. Use the shared UI font for interface text and monospace only for commands, logs, tensors, code, and exact chess data. Use size and weight to create hierarchy, not extra typefaces.</td>
+</tr>
+<tr>
+<td>Color</td>
+<td>Color should guide navigation, priority, state, and brand feel. Pick harmonious theme-token combinations, update light and dark palettes together, and never use color as the only signal for state.</td>
+</tr>
+<tr>
+<td>Visual hierarchy</td>
+<td>Decide the scan order before styling. Larger elements, stronger weights, saturated colors, unusual alignment, proximity, and whitespace all pull attention; use them deliberately and sparingly.</td>
+</tr>
+<tr>
+<td>Spacing</td>
+<td>Treat empty space as structure. Padding defines an element&#x27;s internal comfort; margin defines relationships between elements. Dense screens still need enough spacing to make groups and hierarchy obvious.</td>
+</tr>
+</tbody></table></div>
+<p>Use this quick pass before declaring a UI slice done:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Check</th>
+<th>Question</th>
+</tr></thead><tbody>
+<tr>
+<td>Focal point</td>
+<td>Does the eye land first on the board, table, graph, command, or artifact the task is actually about?</td>
+</tr>
+<tr>
+<td>Learnability</td>
+<td>Would a control used in another Workbench panel look and behave the same here?</td>
+</tr>
+<tr>
+<td>Grouping</td>
+<td>Are related controls visually closer to each other than to unrelated controls?</td>
+</tr>
+<tr>
+<td>Reading order</td>
+<td>Do alignment, type scale, color, and whitespace create a clear top-to-bottom or left-to-right path?</td>
+</tr>
+<tr>
+<td>Color meaning</td>
+<td>Does every colored element communicate action, state, domain data, or selection?</td>
+</tr>
+<tr>
+<td>Spacing meaning</td>
+<td>Is every large gap separating groups, not just decorating the page?</td>
 </tr>
 </tbody></table></div>
 <h2 id="chapter-workbench-design-guide-visual-identity">Visual Identity</h2>
@@ -6795,7 +7020,7 @@ crtk workbench --flip</code></pre>
 </tr>
 <tr>
 <td>Opaque top-level panes</td>
-<td><code>src/application/gui/workbench/ui/SurfacePanel.java</code></td>
+<td><code>SurfacePanel(layout)</code> / <code>SurfacePanel(layout, Theme.Surface.PANEL)</code> for document-tone surfaces (dashboards, reports, Logs); <code>SurfacePanel(layout, Theme.Surface.BACKDROP)</code> for chrome-backdrop surfaces that lay raised <code>PANEL_SOLID</code> cards on top (boards, engine workspaces, datasets, publish controls). Theme refresh rebinds the background automatically via <code>Theme.refreshComponent</code>.</td>
 </tr>
 <tr>
 <td>Root window backdrop</td>
@@ -6822,8 +7047,20 @@ crtk workbench --flip</code></pre>
 <td><code>Ui.fieldRow(...)</code>, <code>Ui.labelControlRow(...)</code>, <code>Ui.optionGroup(...)</code>, <code>Ui.styleFields(...)</code>, <code>Ui.placeholder(...)</code></td>
 </tr>
 <tr>
+<td>Field error/invalid state</td>
+<td><code>Ui.setInvalid(component, invalid)</code> — drives the themed invalid border via the shared <code>InputChrome</code>, so feature panels don&#x27;t hand-roll error styling</td>
+</tr>
+<tr>
+<td>Themed line borders</td>
+<td><code>Theme.lineBorder(color)</code> / <code>Theme.lineBorder(color, thickness)</code> — use instead of <code>BorderFactory.createLineBorder(...)</code> in feature panels so a theme refresh recolors the border</td>
+</tr>
+<tr>
 <td>Buttons</td>
 <td><code>Ui.button(...)</code>, <code>Ui.ghostButton(...)</code>, <code>Ui.destructiveButton(...)</code>, <code>Ui.iconButton(...)</code></td>
+</tr>
+<tr>
+<td>Transport / glyph-with-tooltip buttons</td>
+<td><code>Ui.iconButton(glyph, accessibleLabel, listener)</code> — shows the glyph as text but attaches a descriptive tooltip + accessible name. Use for <code>⏮ ◀ ▶ ⏭</code>, scrubbers, and other symbol controls whose meaning isn&#x27;t obvious.</td>
 </tr>
 <tr>
 <td>Tables</td>
@@ -7083,7 +7320,8 @@ crtk workbench --flip</code></pre>
 <td>Fill width; important columns pinned</td>
 </tr>
 </tbody></table></div>
-<p>Use Layout A for Board, Engine Lab, Run, Publish, and the inspector modes inside them. Use Layout B for Dashboard, report-like publishing summaries, dataset overviews, and static diagnostics.</p>
+<p>Use Layout A for Board, Library, Engine Lab, Run, Publish, Datasets, and the inspector modes inside them. Use Layout B for Dashboard, report-like publishing summaries, and static diagnostics.</p>
+<p>Datasets is a Layout A surface with an analytics-split body: the chart grid sits in the top half of a vertical <code>JSplitPane</code> (overview), the sample/issue tables fill the bottom half, and the dataset filter band sits above the split so it stays visible from both halves. A pure Layout B scroll body would push the tables off-screen on real datasets, so the split is intentional rather than a Layout B miss.</p>
 <h3 id="chapter-workbench-design-guide-region-rules">Region Rules</h3>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -7253,7 +7491,7 @@ crtk workbench --flip</code></pre>
 </tr>
 <tr>
 <td>Datasets</td>
-<td>Header and load actions on top, summary cards before charts/tables, tables fill the remaining vertical space</td>
+<td>Header + load toolbar on top; a single dataset filter band above a vertical chart / table split; KPI/summary cards and chart grid in the top half, sample/issue tables fill the bottom half; row-action buttons trail above the tables</td>
 </tr>
 <tr>
 <td>Publish</td>
@@ -7355,6 +7593,31 @@ crtk workbench --flip</code></pre>
 <td><code>Publish</code></td>
 <td>Top-level preview/render surface.</td>
 </tr>
+<tr>
+<td>Game database</td>
+<td><code>Library</code></td>
+<td>Game-corpus browser over the local PGN store; importing and querying games. Selecting a game opens it in <code>Board</code>.</td>
+</tr>
+<tr>
+<td>Import (folder/Lichess/Chess.com)</td>
+<td><code>Library</code></td>
+<td>Fetch-only import action into the store; never an account-linking, sync, matchmaking, or social surface.</td>
+</tr>
+<tr>
+<td>Review (game)</td>
+<td><code>Board</code></td>
+<td>Engine-graded post-game review mode over the shared board; consumes the CLI-produced review artifact, never recomputes verdicts in-process.</td>
+</tr>
+<tr>
+<td>Repertoire / drill</td>
+<td><code>Board</code></td>
+<td>Spaced-repetition drill mode over the shared board; grade buttons feed the CLI scheduler.</td>
+</tr>
+<tr>
+<td>Explain</td>
+<td><code>Board</code></td>
+<td>Grounded position/why explanation mode (Facts/Prose) over the shared board.</td>
+</tr>
 </tbody></table></div>
 <h3 id="chapter-workbench-design-guide-surface-and-mode-blueprints">Surface And Mode Blueprints</h3>
 <p>Use these as the target shape when adapting current Workbench implementation. Rows that belong to <code>Board</code>, <code>Engine Lab</code>, or <code>Run</code> are modes or inspector states, not necessarily top-level tabs.</p>
@@ -7376,6 +7639,15 @@ crtk workbench --flip</code></pre>
 <td>Summary grid, recent jobs, artifacts</td>
 <td>None by default</td>
 <td>Refresh, open session folder</td>
+</tr>
+<tr>
+<td>Library</td>
+<td><code>Library</code></td>
+<td>Store path, game count, active filter</td>
+<td>Source/collection selector</td>
+<td>Results table (event, players, result, ECO, date)</td>
+<td>Selected-game metadata and board preview</td>
+<td>Import, Find, Open in Board, Export</td>
 </tr>
 <tr>
 <td>Analyze</td>
@@ -7522,7 +7794,7 @@ crtk workbench --flip</code></pre>
 <td>Apply, reset, close</td>
 </tr>
 </tbody></table></div>
-<p>Uniform adaptation rule: if a current view cannot be described by this table, first decide whether it belongs in the center body, side rail, toolbar, bottom panel, floating layer, or one of the six target surfaces. Do not add new chrome until that decision is made.</p>
+<p>Uniform adaptation rule: if a current view cannot be described by this table, first decide whether it belongs in the center body, side rail, toolbar, bottom panel, floating layer, or one of the seven target surfaces. Do not add new chrome until that decision is made.</p>
 <h3 id="chapter-workbench-design-guide-shell-skeleton">Shell Skeleton</h3>
 <p>Use <code>BorderLayout</code> for top-level screens. Put the header and toolbar in <code>NORTH</code>, the working canvas in <code>CENTER</code>, and avoid absolute positioning.</p>
 <pre><code class="language-java">SurfacePanel root = new SurfacePanel(new BorderLayout(0, Theme.SPACE_MD));
@@ -7666,9 +7938,28 @@ JScrollPane scroller = Ui.scroll(table);</code></pre>
 </tr>
 </tbody></table></div>
 <p>The frosted-glass idea is a restraint, not a theme. Use <code>Theme.GLASS_HIGHLIGHT</code>, backdrop colors, and existing floating primitives rather than painting translucent panels over live content.</p>
+<p><code>SurfacePanel</code> is non-final and takes an optional <code>Theme.Surface</code> role so a single primitive serves both elevations:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Role</th>
+<th>Background</th>
+<th>Use for</th>
+</tr></thead><tbody>
+<tr>
+<td><code>Theme.Surface.PANEL</code> (default)</td>
+<td><code>Theme.PANEL_SOLID</code> (document tone)</td>
+<td>Dashboards, reports, Logs, Puzzles, Network diagnostics — surfaces whose body IS the document.</td>
+</tr>
+<tr>
+<td><code>Theme.Surface.BACKDROP</code></td>
+<td><code>Theme.BG</code> (chrome backdrop)</td>
+<td>Boards, Engine Lab modes, Datasets, the Publish surface root — pages that lay raised <code>PANEL_SOLID</code> cards, rails, and inspectors on top of a darker editor backdrop.</td>
+</tr>
+</tbody></table></div>
+<p>Surface roots should extend <code>SurfacePanel</code> and call <code>super(layout)</code> or <code>super(layout, role)</code>; do not re-set opaque/background/foreground manually. Theme refresh re-resolves the background through <code>Theme.refreshComponent</code> automatically. The &quot;PANEL inside BACKDROP&quot; contrast is intentional editor structure — don&#x27;t flatten one onto the other.</p>
 <p>Surface styling rules:</p>
 <ul>
-<li>Main editor surfaces use <code>Theme.PANEL_SOLID</code>, not translucent fills.</li>
+<li>Main editor surfaces use <code>Theme.PANEL_SOLID</code> (for <code>PANEL</code>) or <code>Theme.BG</code> (for <code>BACKDROP</code>), not translucent fills.</li>
 <li>Side rails use the same surface family as the main pane, separated by a hairline or split divider.</li>
 <li>Cards sit one elevation above the page and must have a clear grouping purpose.</li>
 <li>Floating chrome may use <code>Theme.GLASS_HIGHLIGHT</code>, soft borders, and shadow, but must keep text over an opaque or solid-blended surface.</li>
@@ -8347,7 +8638,7 @@ JScrollPane scroller = Ui.scroll(table);</code></pre>
 <h2 id="chapter-workbench-design-guide-copy">Copy</h2>
 <p>Workbench copy should be short and operational.</p>
 <ul>
-<li>Use top-level titles like <code>Dashboard</code>, <code>Board</code>, <code>Engine Lab</code>, <code>Run</code>, <code>Datasets</code>, and <code>Publish</code>.</li>
+<li>Use top-level titles like <code>Dashboard</code>, <code>Board</code>, <code>Library</code>, <code>Engine Lab</code>, <code>Run</code>, <code>Datasets</code>, and <code>Publish</code>.</li>
 <li>Use mode titles like <code>Analyze</code>, <code>Play</code>, <code>Solve</code>, <code>Relations</code>, <code>Draw</code>, <code>Search</code>, <code>Tree</code>, <code>Gauntlet</code>, <code>Build</code>, and <code>Logs</code>.</li>
 <li>Use action labels that name the command: <code>Run</code>, <code>Load PGN</code>, <code>Copy command</code>, <code>Export SVG</code>, <code>Reset</code>, <code>Stop</code>.</li>
 <li>Use captions only where they reduce ambiguity in a form or status surface.</li>
@@ -8442,7 +8733,7 @@ JScrollPane scroller = Ui.scroll(table);</code></pre>
 <tr>
 <td><code>Ui.button</code> with one-symbol labels</td>
 <td>Transport and toolbar controls look like text buttons instead of icon controls</td>
-<td>Use <code>Ui.iconButton(...)</code> or add a shared transport-button primitive with tooltip and accessible name</td>
+<td>For transport glyphs (<code>⏮ ◀ ▶ ⏭</code>, <code>« »</code>, etc.) where the symbol IS the affordance, use <code>Ui.iconButton(glyph, accessibleLabel, listener)</code> — keeps the glyph visible and attaches a real-word tooltip + accessible name. For other icon-only utility buttons, use <code>Ui.iconButton(label, listener)</code></td>
 <td>Math signs in numeric steppers only when the control is explicitly a stepper</td>
 </tr>
 <tr>
@@ -8466,7 +8757,7 @@ JScrollPane scroller = Ui.scroll(table);</code></pre>
 <tr>
 <td><code>setBorder</code> with <code>BorderFactory</code> in feature panels</td>
 <td>Padding, radius, and line color become inconsistent</td>
-<td>Use <code>Theme.pad(...)</code>, <code>Theme.lineBorder(...)</code>, <code>Ui.card(...)</code>, or shared section primitives</td>
+<td>Use <code>Theme.pad(...)</code>, <code>Theme.lineBorder(...)</code>, <code>Ui.card(...)</code>, or shared section primitives. For invalid-input borders specifically, drive the themed error chrome via <code>Ui.setInvalid(component, invalid)</code> instead of hand-rolling a red line border</td>
 <td>Custom painter borders and shared UI primitive internals</td>
 </tr>
 <tr>
@@ -8478,7 +8769,7 @@ JScrollPane scroller = Ui.scroll(table);</code></pre>
 <tr>
 <td>Missing <code>setToolTipText</code> on icon controls</td>
 <td>Compact controls become inaccessible and ambiguous</td>
-<td>Add one-sentence tooltip and accessible name</td>
+<td>Add a one-sentence tooltip and accessible name. Prefer building the control through <code>Ui.iconButton(glyph, accessibleLabel, listener)</code> or <code>Ui.iconButton(label, listener)</code>, which set both automatically and consistently</td>
 <td>Text buttons whose visible label fully names the action</td>
 </tr>
 <tr>
@@ -8496,7 +8787,7 @@ JScrollPane scroller = Ui.scroll(table);</code></pre>
 <tr>
 <td>Top-level <code>JPanel</code> roots</td>
 <td>Main surfaces miss shell styling and theme refresh behavior</td>
-<td>Use <code>SurfacePanel</code> or a shared root primitive</td>
+<td>Extend <code>SurfacePanel</code> and pass the appropriate <code>Theme.Surface</code> role: <code>PANEL</code> (default) for document-tone surfaces (dashboards, reports, Logs) or <code>BACKDROP</code> for chrome backdrops that lay raised cards on top (boards, engine workspaces, datasets, publish controls). Theme refresh re-binds the background automatically. Don&#x27;t re-set opaque/background/foreground manually</td>
 <td>Lightweight child groups inside an already styled surface</td>
 </tr>
 <tr>
@@ -8785,7 +9076,7 @@ rg -n &quot;background=|foreground=|font=|border=|ui=&quot; artifacts/workbench-
 </tr>
 <tr>
 <td class="numeric">5</td>
-<td>Engine Lab: Evaluator, Search, Tree, Gauntlet</td>
+<td>Engine Lab: Network, MCTS, Tree, Gauntlet</td>
 <td>Engine workflows need clear state, budget, model honesty, and result layout.</td>
 </tr>
 <tr>
@@ -8798,6 +9089,11 @@ rg -n &quot;background=|foreground=|font=|border=|ui=&quot; artifacts/workbench-
 <td>Dashboard live links and recent-run/artifact cards</td>
 <td>The dashboard becomes useful once surfaces and output states are normalized.</td>
 </tr>
+<tr>
+<td class="numeric">8</td>
+<td>Library: game-corpus browser over the local PGN store</td>
+<td>Net-new surface gated on the <code>crtk db</code>/<code>pgn</code> store (Theme A); promotes the in-memory <code>PgnExplorerModel</code> onto the core store.</td>
+</tr>
 </tbody></table></div>
 <h2 id="chapter-workbench-design-guide-code-review-acceptance-criteria">Code Review Acceptance Criteria</h2>
 <p>A Workbench UI PR is acceptable only if it answers these questions clearly.</p>
@@ -8808,11 +9104,11 @@ rg -n &quot;background=|foreground=|font=|border=|ui=&quot; artifacts/workbench-
 </tr></thead><tbody>
 <tr>
 <td>Which primary object does this serve?</td>
-<td>Position, engine/search state, command run, dataset, publication, or session status is named.</td>
+<td>Position, game corpus, engine/search state, command run, dataset, publication, or session status is named.</td>
 </tr>
 <tr>
 <td>Which target surface owns it?</td>
-<td>Dashboard, Board, Engine Lab, Run, Datasets, or Publish is the clear home.</td>
+<td>Dashboard, Board, Library, Engine Lab, Run, Datasets, or Publish is the clear home.</td>
 </tr>
 <tr>
 <td>Which VS Code container does this use?</td>
@@ -8855,8 +9151,8 @@ rg -n &quot;background=|foreground=|font=|border=|ui=&quot; artifacts/workbench-
 <p>Before editing a panel:</p>
 <ol>
 <li>Identify the user job and the primary state the surface must show.</li>
-<li>Name the primary object: position, engine/search state, command run, dataset, publication, or session status.</li>
-<li>Name the target surface: Dashboard, Board, Engine Lab, Run, Datasets, or Publish.</li>
+<li>Name the primary object: position, game corpus, engine/search state, command run, dataset, publication, or session status.</li>
+<li>Name the target surface: Dashboard, Board, Library, Engine Lab, Run, Datasets, or Publish.</li>
 <li>Name the VS Code container it belongs to: editor, side rail, panel, command palette, status, context menu, or floating chrome.</li>
 <li>Apply the Apple behavior layer: hierarchy, grouped controls, search placement, consistent buttons, legible text, and accessible focus.</li>
 <li>Choose the existing primitive from <code>Ui</code>, <code>Theme</code>, <code>BoardStyle</code>, or the layout package.</li>
@@ -9650,7 +9946,7 @@ cmake --build native/oneapi/build -j</code></pre>
 <li>Tokenizes with a built-in SentencePiece unigram tokenizer — no Python, no native ML runtime required.</li>
 <li>Generates greedily on the CPU, or on an optional GPU backend with transparent CPU fallback.</li>
 </ul>
-<p>The tags driving the model come from the same code behind <code>fen tags</code> and <code>puzzle tags</code>. Nothing is invented along the way — the text describes precisely the motifs crtk detected, no more. See <a href="#chapter-tag-reference">Tag reference</a> for the vocabulary.</p>
+<p>The tags driving the model come from the same code behind <code>fen tags</code> and <code>puzzle tags</code>. The prompt tells the model to stay inside those facts, but generated prose is still experimental and can drift. The working T5 runtime is exposed through <code>fen text</code> and <code>puzzle text</code>. For strict, non-hallucinated position prose, <code>position describe</code> is classical-only and uses the deterministic path plus the <code>PositionDescriptionVerifier</code> guard described below. See <a href="#chapter-tag-reference">Tag reference</a> for the vocabulary.</p>
 <h2 id="chapter-t5-pipeline-at-a-glance">Pipeline at a glance</h2>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -9841,6 +10137,9 @@ crtk puzzle text --fen &quot;&lt;FEN&gt;&quot; --model models/t5.bin --include-f
 <h2 id="chapter-t5-prompt-building">Prompt building</h2>
 <p>Before tokenizing, crtk wraps the tag list in a fixed instruction prompt. The instructions are pointed: write a single paragraph of chess commentary, ground it in material, king safety, and the top tactical motif, mention only moves that appear in the tags, and don&#x27;t talk about tags or input formats. Then the tags follow as bullet lines, closed by an <code>OUTPUT:</code> marker.</p>
 <p>With <code>fen text</code> and <code>puzzle text</code> you never touch this prompt — crtk derives the tags and assembles it. The shape matters when you train or fine-tune a model: the model has to have learned this tag-prompt format, or its output will drift.</p>
+<h2 id="chapter-t5-grounding-guard">Grounding guard</h2>
+<p><code>position describe</code> has a verifier for any future model-backed prose, but it does not expose a T5 runtime today. <code>PositionDescriptionVerifier</code> checks generated text against <code>PositionDescriptionInput</code>: every SAN-like move mention must match an input candidate, side-to-move claims must match the FEN, directional eval claims must agree with the evaluation sign, and concrete material-surplus claims such as &quot;a rook up&quot;, &quot;an extra knight&quot;, or &quot;a piece up&quot; must match the extracted material. When a candidate text fails, callers can use <code>groundedOrFallback(...)</code> to return the classical description instead.</p>
+<p>This guard is intentionally conservative. It does not certify that model prose is insightful; it blocks concrete false claims before model text can replace the faithful classical description. The repository still ships no T5 position-description weights, and <code>position describe --engine t5</code> is not a supported runtime. Use <code>fen text</code> or <code>puzzle text</code> for the one working T5 path.</p>
 <h2 id="chapter-t5-backends">Backends</h2>
 <p>Generation defaults to the CPU. When their JNI libraries are present, the native backends take over decoding; when one fails to load or stumbles at runtime, crtk drops back to the CPU path without complaint. A missing GPU library should never sink a run, so it doesn&#x27;t.</p>
 <p>Pick a backend with a JVM system property:</p>
@@ -10483,6 +10782,7 @@ leaf[gate=OR;eval&lt;0;leaf[break=2;eval&gt;-300]];</code></pre>
 <li><code>.record</code> JSON arrays from analysis pipelines.</li>
 <li>Merged, filtered, or split files produced by <code>record files</code>.</li>
 </ul>
+<p>Newly written record rows include <code>&quot;schemaVersion&quot;:&quot;crtk.record.v2&quot;</code> so later tools can distinguish the on-disk contract explicitly. Historical rows without that field are still accepted and treated as <code>crtk.record.v1</code>, so existing mining and export dumps remain readable.</p>
 <p>Look before you export. <code>record stats</code> gives you record counts and engines, <code>record tag-stats</code> shows the tag distribution (the same tags from <a href="#chapter-piece-tags">Position &amp; Piece Tags</a>), and <code>record analysis-delta</code> surfaces positions whose evaluation never settled. A skewed class balance or a pile of unstable samples is cheap to spot here and expensive to discover three epochs into training.</p>
 <pre><code class="language-bash">crtk record stats     -i dump/run.puzzles.json
 crtk record tag-stats  -i dump/run.puzzles.json</code></pre>
@@ -10623,7 +10923,8 @@ crtk record dataset lc0 \
 <h2 id="chapter-datasets-reproducibility-notes">Reproducibility Notes</h2>
 <ul>
 <li>Same input file, flags, and weights, same output — every export is deterministic down to the byte. Re-running a command reproduces its tensors and labels exactly.</li>
-<li>Keep each <code>*.meta.json</code> next to its tensor files. It records the sources, filters, label policy, and value scale, which is the difference between a model run you can trace and one you can only guess at.</li>
+<li>Keep each <code>*.manifest.json</code> next to its exported artifacts. It records the exporter, CRTK version, optional git commit, command-line argv, input/output/weights SHA-256 checksums, and exporter metadata such as label policy and row counts. Legacy <code>*.meta.json</code> files still carry format-specific tensor encoding details for LC0/classifier exports.</li>
+<li>Add <code>--row-hashes</code> to <code>record dataset npy|lc0|classifier</code> and <code>record export training-jsonl|puzzle-jsonl|puzzle-elo-jsonl</code> when you need row-level auditability. It writes a sibling <code>.rowhashes.txt</code> sidecar with one <code>sha256(raw-record-json-v1)</code> digest per emitted logical row, and the manifest records and hashes that sidecar as an output artifact.</li>
 <li>The <code>.npy</code> files are portable NumPy arrays. For framework-specific shards (PyTorch <code>.pt</code>, TFRecord, and the like), load them in your training stack and re-save in the native format — crtk stays framework-agnostic on purpose rather than guessing which one you use.</li>
 </ul>
 <h2 id="chapter-datasets-related-pages">Related Pages</h2>
@@ -10636,6 +10937,148 @@ crtk record dataset lc0 \
 
 <section class="chapter">
   <p class="chapter-kicker">Workflows · Chapter 22</p>
+  <h1 id="chapter-review-to-study">Review To Study</h1>
+  <div class="chapter-body">
+    <p><code>crtk review game</code> turns a PGN mainline into two durable artifacts: a per-ply review stream and, when requested, study material for drillable mistakes. The command is meant to answer &quot;what did I get wrong, and what should I practice from this game?&quot; without adding a GUI-only review model or an ungrounded coach layer.</p>
+<h2 id="chapter-review-to-study-command">Command</h2>
+<p>External UCI review is the default. Use <code>--offline</code> only when you want the deterministic in-process alpha-beta path instead of a configured engine.</p>
+<pre><code class="language-bash">crtk review game \
+  --pgn games/rapid.pgn \
+  --protocol-path config/default.engine.toml \
+  --max-nodes 50000 \
+  --max-duration 3s \
+  --multipv 2 \
+  --threads 1 \
+  --hash 64 \
+  --to-study</code></pre>
+<p>The Workbench command builder has a <code>Review game</code> template that emits the same CLI path. It does not recompute verdicts in Swing; it previews and runs the real <code>crtk review game</code> command.</p>
+<h2 id="chapter-review-to-study-outputs">Outputs</h2>
+<p>With no output flags, paths are derived from the PGN stem under <code>dump/</code>.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Artifact</th>
+<th>Default path</th>
+<th>Schema or shape</th>
+<th>Purpose</th>
+</tr></thead><tbody>
+<tr>
+<td>Review rows</td>
+<td><code>dump/&lt;stem&gt;.review.jsonl</code></td>
+<td><code>crtk.review.ply.v1</code> JSONL</td>
+<td>One row per reviewed mainline ply</td>
+</tr>
+<tr>
+<td>Study units</td>
+<td><code>dump/&lt;stem&gt;.study.jsonl</code></td>
+<td><code>crtk.review.study_unit.v1</code> JSONL</td>
+<td>One row per drillable mistake or blunder</td>
+</tr>
+<tr>
+<td>Study records</td>
+<td><code>dump/&lt;stem&gt;.study.record.json</code></td>
+<td><code>crtk.record.v2</code> JSON array</td>
+<td>Existing Record-compatible puzzle handoff</td>
+</tr>
+</tbody></table></div>
+<p>Override paths with <code>--output</code>, <code>--study-output</code>, and <code>--record-output</code>.</p>
+<pre><code class="language-bash">crtk review game --pgn games/rapid.pgn --to-study \
+  --output dump/rapid.review.jsonl \
+  --study-output dump/rapid.study.jsonl \
+  --record-output dump/rapid.study.record.json</code></pre>
+<h2 id="chapter-review-to-study-review-rows">Review Rows</h2>
+<p>Every review row carries <code>schemaVersion: &quot;crtk.review.ply.v1&quot;</code>. The row includes game identity, PGN headers, ply number, pre-move FEN, played move, best move, eval before and after, centipawn or WDL loss, PV, grounded tag deltas, mistake category, recommended action, optional study-unit id, and a <code>repro</code> block.</p>
+<p>Rows are written as JSONL so long reviews can be streamed and diffed line by line. External UCI rows record <code>repro.deterministic: false</code>; offline rows record <code>true</code>.</p>
+<h2 id="chapter-review-to-study-study-units">Study Units</h2>
+<p><code>--to-study</code> converts rows whose <code>recommended_action</code> is <code>drill_puzzle</code> into <code>crtk.review.study_unit.v1</code> rows. The first slice intentionally emits only mistakes and blunders, not every inaccuracy.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Field</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>id</code></td>
+<td>Stable id derived from game id and ply</td>
+</tr>
+<tr>
+<td><code>parent_fen</code></td>
+<td>The pre-move FEN where the reviewed player made the mistake</td>
+</tr>
+<tr>
+<td><code>position_fen</code></td>
+<td>The FEN after applying the recommended best move</td>
+</tr>
+<tr>
+<td><code>played_uci</code> / <code>played_san</code></td>
+<td>The move from the game</td>
+</tr>
+<tr>
+<td><code>best_uci</code> / <code>best_san</code></td>
+<td>The refutation move to study</td>
+</tr>
+<tr>
+<td><code>refutation_line</code></td>
+<td>Capped best PV in UCI notation</td>
+</tr>
+<tr>
+<td><code>mistake_category</code></td>
+<td><code>mistake</code> or <code>blunder</code></td>
+</tr>
+<tr>
+<td><code>difficulty</code></td>
+<td>Deterministic coarse label: <code>easy</code>, <code>medium</code>, or <code>hard</code></td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td>Grounded review tags plus <code>META:</code> linkage fields</td>
+</tr>
+<tr>
+<td><code>repro</code></td>
+<td>Engine, protocol, budget, version, and determinism metadata</td>
+</tr>
+</tbody></table></div>
+<p>The review row&#x27;s <code>study_unit_id</code> is set only when <code>--to-study</code> is active and a matching study unit is emitted.</p>
+<h2 id="chapter-review-to-study-record-handoff">Record Handoff</h2>
+<p>The Record sidecar uses the existing <code>crtk.record.v2</code> shape so record, puzzle, mining, and publishing tools can read it without a new parser. For each study unit:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Record field</th>
+<th>Value</th>
+</tr></thead><tbody>
+<tr>
+<td><code>parent</code></td>
+<td>Same as <code>parent_fen</code></td>
+</tr>
+<tr>
+<td><code>position</code></td>
+<td>Same as <code>position_fen</code></td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>Review summary naming the played move and best move</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td>Study-unit tags, including <code>META: study_unit_id</code>, <code>META: review_game_id</code>, <code>META: review_ply</code>, <code>META: played_uci</code>, and <code>META: best_uci</code></td>
+</tr>
+<tr>
+<td><code>analysis</code></td>
+<td>Minimal UCI info line whose PV starts with the refutation</td>
+</tr>
+</tbody></table></div>
+<p>Record provenance is still stringly typed because <code>Record</code> does not yet have dedicated game-id and ply fields. Keep linkage in the <code>META:</code> tags until the store/schema layer grows first-class provenance fields.</p>
+<h2 id="chapter-review-to-study-validation">Validation</h2>
+<p>Use the schema commands to inspect the contracts:</p>
+<pre><code class="language-bash">crtk schema show crtk.review.ply.v1
+crtk schema show crtk.review.study_unit.v1
+crtk record validate --input dump/rapid.study.record.json --strict</code></pre>
+<p>The regression suite pins the JSON shapes with <code>ReviewRowSchemaRegressionTest</code> and the end-to-end fake-UCI review fixture in <code>ReviewCommandRegressionTest</code>.</p>
+<h2 id="chapter-review-to-study-boundaries">Boundaries</h2>
+<p>Review-to-study is not an accuracy score, not a prose coach, and not an SRS scheduler. It emits structured, reproducible artifacts. Later Workbench panels and spaced-repetition features should consume those artifacts instead of recomputing verdicts.</p>
+  </div>
+</section>
+
+<section class="chapter">
+  <p class="chapter-kicker">Workflows · Chapter 23</p>
   <h1 id="chapter-piece-tags">Tagging</h1>
   <div class="chapter-body">
     <p>A position holds a lot of truths at once — who moves, who&#x27;s up material, where the pawns lock, whether the king is exposed, what tactic is hanging in the air. <strong>Tags</strong> are how ChessRTK names each of those truths as a single structured string, so a position becomes a stream of facts you can sort, count, and reason over instead of a board you have to re-read. The same schema feeds three consumers: the <a href="#chapter-filter-dsl">Filter DSL</a> that gates puzzle mining, the dataset exporters, and the T5 summaries. Every tag traces back to one chess core and a fixed set of deterministic taggers, so the same FEN always produces the same tags. That is the property that makes them worth filtering on, diffing, and handing to an LLM as grounded evidence — the strings don&#x27;t drift under you.</p>
@@ -10776,7 +11219,7 @@ crtk puzzle text --fen &quot;&lt;FEN&gt;&quot; --model models/t5.bin --include-f
   --analyze \
   --max-duration 2s \
   --multipv 2</code></pre>
-<p>When you want deterministic prose and no model in the loop, <code>position describe</code> renders the same facts to fixed text. See <a href="#chapter-t5">T5 Summaries</a> for model setup.</p>
+<p>When you want deterministic prose and no model in the loop, <code>position describe</code> renders the same facts to fixed text. See <a href="#chapter-t5">T5 Summaries</a> for the model setup used by <code>fen text</code> and <code>puzzle text</code>.</p>
 <h2 id="chapter-piece-tags-reading-piece-tags">Reading PIECE Tags</h2>
 <p><code>PIECE</code> tags speak to where a piece sits and how much it can do. The fields you&#x27;ll see most:</p>
 <ul>
@@ -10813,7 +11256,7 @@ crtk record tag-stats -i dump/run.puzzles.json --top 50</code></pre>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Workflows · Chapter 23</p>
+  <p class="chapter-kicker">Workflows · Chapter 24</p>
   <h1 id="chapter-tag-reference">Tag Reference</h1>
   <div class="chapter-body">
     <p>A tag is crtk&#x27;s answer to a recurring problem: how do you let a language model talk about a chess position without letting it hallucinate the moves? You don&#x27;t hand it prose. You hand it facts. A tag such as <code>MATERIAL: balance=white_up_exchange</code> or <code>TACTIC: motif=fork side=white move=e4c5</code> is a short, parseable string that states only what is verifiably true of the board, derived from the same chess core that generates moves, converts FEN/SAN/UCI, and runs perft. Feed the tagger the same FEN twice and you get the same tags in the same canonical order, every time. This page is the catalogue: every family, every field, every value, so you — or a model downstream — can quote them without guessing. Tags come out of <code>fen tags</code> and <code>puzzle tags</code>, get summarized by <code>record tag-stats</code>, and feed both the classical <code>position describe</code> pipeline and the optional T5 summaries behind <code>fen text</code> / <code>puzzle text</code>.</p>
@@ -10848,6 +11291,10 @@ crtk record tag-stats -i dump/run.puzzles.json --top 50</code></pre>
 <td>Tag positions from a PGN (<code>--mainline</code> or <code>--sidelines</code>).</td>
 </tr>
 <tr>
+<td><code>fen tags --pgn FILE --analyze-game</code></td>
+<td>Emit one whole-game analysis JSON object per parsed game, including dynamic game-analysis families.</td>
+</tr>
+<tr>
 <td><code>fen tags --delta</code></td>
 <td>Emit per-move tag deltas as JSONL.</td>
 </tr>
@@ -10870,7 +11317,7 @@ crtk record tag-stats -i dump/run.puzzles.json --top 50</code></pre>
 <ul>
 <li><strong>Deterministic.</strong> The same FEN always yields the same tags. A tag asserts what is true of the position and nothing more — no mood, no hand-waving evaluation.</li>
 <li><strong>Sorted and de-duplicated.</strong> Output is ordered by family rank, then lexicographically within a family, with exact duplicates dropped. The sort is idempotent, so re-sorting canonical output changes nothing.</li>
-<li><strong>Stable canonical family order:</strong> <code>FACT</code> → <code>META</code> → <code>MOVE</code> → <code>THREAT</code> → <code>CAND</code> → <code>PV</code> → <code>IDEA</code> → <code>TACTIC</code> → <code>CHECKMATE</code> → <code>PIECE</code> → <code>KING</code> → <code>PAWN</code> → <code>MATERIAL</code> → <code>SPACE</code> → <code>INITIATIVE</code> → <code>DEVELOPMENT</code> → <code>MOBILITY</code> → <code>OUTPOST</code> → <code>ENDGAME</code> → <code>OPENING</code>.</li>
+<li><strong>Stable canonical family order:</strong> <code>FACT</code> → <code>META</code> → <code>MOVE</code> → <code>THREAT</code> → <code>CAND</code> → <code>PV</code> → <code>IDEA</code> → <code>TACTIC</code> → <code>CHECKMATE</code> → <code>PIECE</code> → <code>KING</code> → <code>PAWN</code> → <code>MATERIAL</code> → <code>SPACE</code> → <code>INITIATIVE</code> → <code>DEVELOPMENT</code> → <code>MOBILITY</code> → <code>OUTPOST</code> → <code>ENDGAME</code> → <code>OPENING</code> → <code>MOVE_EFFECT</code> → <code>LINE</code> → <code>VARIATION</code> → <code>GAME</code>.</li>
 <li><strong>Regression-locked.</strong> A new <code>pattern=</code> or <code>motif=</code> value ships with a golden fixture under <code>testdata/tags/*.tsv</code> and is cross-checked against the existing detectors before it lands. That cross-check is the safeguard that stops a new detector from quietly rewriting old output.</li>
 </ul>
 <h2 id="chapter-tag-reference-family-overview">Family overview</h2>
@@ -10980,6 +11427,26 @@ crtk record tag-stats -i dump/run.puzzles.json --top 50</code></pre>
 <td><code>OPENING</code></td>
 <td>when ECO matches</td>
 <td>ECO code and opening name from the bundled book.</td>
+</tr>
+<tr>
+<td><code>MOVE_EFFECT</code></td>
+<td>with <code>--analyze-game</code></td>
+<td>What each replayed game move changed.</td>
+</tr>
+<tr>
+<td><code>LINE</code></td>
+<td>with <code>--analyze-game</code></td>
+<td>Multi-move motifs grounded by replaying a legal line.</td>
+</tr>
+<tr>
+<td><code>VARIATION</code></td>
+<td>with <code>--analyze-game</code></td>
+<td>PGN sideline headers and shared sibling-variation tactics.</td>
+</tr>
+<tr>
+<td><code>GAME</code></td>
+<td>with <code>--analyze-game</code></td>
+<td>Whole-game summary facts such as phase transitions, opening, and result cause.</td>
 </tr>
 </tbody></table></div>
 <h2 id="chapter-tag-reference-fact-static-board-observations">FACT — static board observations</h2>
@@ -11401,6 +11868,38 @@ crtk record tag-stats -i dump/run.puzzles.json --top 50</code></pre>
 </tr>
 </tbody></table></div>
 <p><code>OPENING</code> tags appear only when the bundled ECO book matches the position — out of book, there is no honest code to emit.</p>
+<h2 id="chapter-tag-reference-dynamic-game-analysis-families">Dynamic game-analysis families</h2>
+<p>These four families come from <code>fen tags --pgn FILE --analyze-game</code>. They are grounded by replaying a parsed game through the same chess core, so malformed or illegal branches are truncated instead of guessed.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Family</th>
+<th>Forms</th>
+</tr></thead><tbody>
+<tr>
+<td><code>MOVE_EFFECT</code></td>
+<td>`san=&lt;SAN&gt; type=checkmate\</td>
+<td>check\</td>
+<td>capture\</td>
+<td>quiet<code>; optional </code>creates=&quot;...&quot;<code> / </code>removes=&quot;...&quot;` motif deltas between parent and child positions</td>
+</tr>
+<tr>
+<td><code>LINE</code></td>
+<td>`motif=forcing\</td>
+<td>combination\</td>
+<td>sacrifice\</td>
+<td>perpetual_check\</td>
+<td>deflection ... line=&quot;&lt;SAN ...&gt;&quot;`</td>
+</tr>
+<tr>
+<td><code>VARIATION</code></td>
+<td><code>branch_ply=&lt;n&gt; length=&lt;n&gt; line=&quot;&lt;SAN ...&gt;&quot;</code>; <code>tactic_shared=&lt;motif&gt; branch_ply=&lt;n&gt; count=&lt;n&gt; detail=&quot;&lt;payload&gt;&quot;</code></td>
+</tr>
+<tr>
+<td><code>GAME</code></td>
+<td><code>phase_transition=&lt;from&gt;-&gt;&lt;to&gt; ply=&lt;n&gt; move=&lt;SAN&gt;</code>; <code>eco=&lt;code&gt;</code>; <code>opening=&quot;&lt;name&gt;&quot;</code>; `result_cause=checkmate\</td>
+<td>stalemate`</td>
+</tr>
+</tbody></table></div>
 <h2 id="chapter-tag-reference-tag-deltas-and-identity">Tag deltas and identity</h2>
 <p>Walking a game move by move, you care less about the full tag set than about what just changed. <code>fen tags --delta</code> gives you that. The trick is comparing tags by <strong>semantic identity</strong> instead of raw text, so editing a value reads as a single change rather than one remove paired with one add:</p>
 <pre><code class="language-text">META: to_move=white         -&gt; META:to_move
@@ -11438,7 +11937,7 @@ CHECKMATE: pattern=smothered_mate -&gt; CHECKMATE:pattern:smothered_mate</code><
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Workflows · Chapter 24</p>
+  <p class="chapter-kicker">Workflows · Chapter 25</p>
   <h1 id="chapter-book-publishing">Book Publishing</h1>
   <div class="chapter-body">
     <p>Most chess-book pipelines bolt SAN rendering onto a TeX stack and hope the two agree. The <code>book</code> area skips that entirely: it writes print-ready books, covers, and diagram sheets straight to native vector PDF, with no LaTeX, no TeX distribution, and nothing to install beyond the runtime. Feed it a JSON or TOML manifest (or a <code>.record</code> dump) and it emits a finished PDF through the same chess core that backs every other command, so the SAN, the diagrams, and the figurine notation are the ones you already trust. Five subcommands span the path from raw material to a press-ready product. <code>book collection</code> turns a record dump into a dense puzzle book, <code>book study</code> renders deeply annotated studies, <code>book render</code> typesets a manifest into the interior, <code>book cover</code> builds the matching wraparound, and <code>book pdf</code> cuts quick diagram sheets. Each one takes a <code>--check</code> dry run that validates geometry, FENs, and solution moves before a single byte hits disk.</p>
@@ -11952,7 +12451,7 @@ java -Djava.awt.headless=true -cp out testing.PuzzleCollectionCommandRegressionT
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Workflows · Chapter 25</p>
+  <p class="chapter-kicker">Workflows · Chapter 26</p>
   <h1 id="chapter-ai-agents">AI Agents &amp; Automation</h1>
   <div class="chapter-body">
     <p>A program driving <code>crtk</code> should never have to guess. Every command is a noun-verb invocation (<code>crtk move list</code>, <code>crtk engine bestmove</code>, <code>crtk fen validate</code>) that takes its inputs through named flags, writes a stable line-based or JSON/JSONL shape to stdout, and exits with a code that means what it says. One chess core handles legality, notation, and search for the entire toolkit, so the FEN/SAN/UCI semantics an agent learns from one command hold everywhere else. What follows: where the machine-readable contracts live, how to keep a run from going open-ended, and how to push a whole plan through in a single process.</p>
@@ -11960,6 +12459,7 @@ java -Djava.awt.headless=true -cp out testing.PuzzleCollectionCommandRegressionT
 <h2 id="chapter-ai-agents-why-crtk-is-agent-friendly">Why crtk Is Agent-Friendly</h2>
 <ul>
 <li><strong>Deterministic outputs.</strong> Move ordering, FEN normalization, perft counters, and the built-in search return the same answer for the same inputs and budgets. The core paths carry no hidden clocks and no randomized defaults.</li>
+<li><strong>Self-describing.</strong> <code>crtk help --json</code> emits the entire command tree — paths, aliases, usage, flags, examples, and the exit-code taxonomy — as a deterministic <code>crtk.cli.catalog.v1</code> object. Discover the surface from the catalog instead of hard-coding it; <code>crtk help --json &lt;area&gt; &lt;action&gt;</code> scopes it to one subtree.</li>
 <li><strong>Stable contracts.</strong> Most machine-facing commands take <code>--json</code> (one object or array) or <code>--jsonl</code> (one object per line); notation commands take <code>--format uci|san|both</code>. Parse a documented shape rather than scrape prose.</li>
 <li><strong>Explicit inputs.</strong> Positions come in through named flags (<code>--fen</code>, <code>--input</code>, <code>--startpos</code>, <code>--randompos</code>, <code>--stdin</code>), never positional guesswork. When a free-form argument could pass for a flag, separate it with <code>--</code>.</li>
 <li><strong>Exit codes that mean something.</strong> Success exits <code>0</code>; a bad FEN, a missing file, or a failed command exits non-zero. Errors go to stderr, so a failing run still leaves stdout clean for the parser.</li>
@@ -11970,11 +12470,29 @@ java -Djava.awt.headless=true -cp out testing.PuzzleCollectionCommandRegressionT
 <pre><code class="language-bash">crtk doctor                 # environment + config health
 crtk config validate        # config file is well-formed
 crtk version --json         # {&quot;name&quot;:&quot;ChessRTK&quot;,&quot;launcher&quot;:&quot;crtk&quot;,&quot;version&quot;:&quot;...&quot;,&quot;java&quot;:&quot;...&quot;}
-crtk help                   # area list; `crtk help &lt;area&gt; &lt;action&gt;` for any command</code></pre>
+crtk help                   # area list; `crtk help &lt;area&gt; &lt;action&gt;` for any command
+crtk help --json            # full machine-readable command catalog (crtk.cli.catalog.v1)
+crtk serve --port 8787      # optional localhost JSON-RPC daemon for repeated calls</code></pre>
 <p>The smallest useful loop — is this position legal, and what can I play from it:</p>
 <pre><code class="language-bash">crtk fen validate --fen &quot;&lt;FEN&gt;&quot; --json
 crtk fen normalize --fen &quot;&lt;FEN&gt;&quot; --json
 crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code></pre>
+<h2 id="chapter-ai-agents-warm-process-crtk-serve">Warm Process: <code>crtk serve</code></h2>
+<p>For interactive agents and editor integrations, <code>crtk serve</code> keeps one JVM warm and exposes the same command dispatcher over localhost HTTP. It binds <code>127.0.0.1</code> by default, refuses non-loopback hosts, and exposes only <code>/rpc</code>, <code>/catalog</code>, and <code>/health</code>.</p>
+<pre><code class="language-bash">crtk serve --port 8787</code></pre>
+<p>Use <code>/catalog</code> for the same command contract as <code>crtk help --json</code>:</p>
+<pre><code class="language-bash">curl -s http://127.0.0.1:8787/catalog</code></pre>
+<p>Run commands through JSON-RPC by sending the exact argv tokens after <code>crtk</code>:</p>
+<pre><code class="language-bash">curl -s http://127.0.0.1:8787/rpc \
+  -H &#x27;Content-Type: application/json&#x27; \
+  -d &#x27;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:1,&quot;method&quot;:&quot;run&quot;,&quot;params&quot;:{&quot;argv&quot;:[&quot;fen&quot;,&quot;validate&quot;,&quot;--fen&quot;,&quot;&lt;FEN&gt;&quot;,&quot;--json&quot;]}}&#x27;</code></pre>
+<p>The result contains <code>exitCode</code>, <code>stdout</code>, <code>stderr</code>, and the argv the daemon dispatched. The stdout text is the CLI&#x27;s stdout byte-for-byte, so existing JSON parsers can keep using the command-specific contracts. Requests are serialized through one dispatcher thread because the underlying CLI writes to process-wide stdout and stderr. See <a href="#chapter-serve">Local JSON-RPC daemon</a> for endpoint details and safety boundaries.</p>
+<p>Python integrations can use the generated SDK instead of hand-writing JSON-RPC requests:</p>
+<pre><code class="language-bash">python3 scripts/generate_python_sdk.py</code></pre>
+<pre><code class="language-python">from crtk_client import CrtkClient
+
+client = CrtkClient(&quot;http://127.0.0.1:8787&quot;)
+result = client.fen_validate(&quot;--fen&quot;, &quot;&lt;FEN&gt;&quot;, &quot;--json&quot;, check=True)</code></pre>
 <h2 id="chapter-ai-agents-machine-readable-output-by-command">Machine-Readable Output by Command</h2>
 <p>These are the commands worth reaching for first, paired with the contract each one emits.</p>
 <div class="table-wrap"><table>
@@ -12074,6 +12592,11 @@ crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code></pre>
 <td>deterministic prompt/target row with features</td>
 </tr>
 <tr>
+<td>Review a PGN into study units</td>
+<td><code>review game --pgn &lt;file&gt; --to-study</code></td>
+<td><code>crtk.review.ply.v1</code> JSONL plus <code>crtk.review.study_unit.v1</code> and <code>crtk.record.v2</code> sidecars</td>
+</tr>
+<tr>
 <td>Perft counters</td>
 <td><code>engine perft --depth &lt;d&gt;</code></td>
 <td>nodes plus detailed counters</td>
@@ -12160,6 +12683,7 @@ crtk record analysis-delta -i dump/merged.json -o dump/merged.analysis-delta.jso
 crtk record dataset classifier -i dump/puzzles.json -i dump/nonpuzzles.json -o training/classifier/run
 crtk record export training-jsonl -i dump/puzzles.json -o training/run.jsonl --max-records 100000</code></pre>
 <p>Puzzle mining (<code>puzzle mine</code>) writes <code>*.puzzles.json</code> / <code>*.nonpuzzles.json</code> and is gated by the Filter DSL. See <a href="#chapter-mining">Puzzle Mining</a>, <a href="#chapter-datasets">Datasets</a>, and <a href="#chapter-filter-dsl">Filter DSL</a>.</p>
+<p>Game review (<code>review game --to-study</code>) writes <code>*.review.jsonl</code>, <code>*.study.jsonl</code>, and <code>*.study.record.json</code>. The review rows keep every analyzed ply; the study rows and Record file keep drillable mistakes. See <a href="#chapter-review-to-study">Review to Study</a>.</p>
 <h2 id="chapter-ai-agents-setup-gates-for-pipelines">Setup Gates for Pipelines</h2>
 <p>Run these as preflight checks before the real work, at the top of a CI job or agent session:</p>
 <ul>
@@ -12182,6 +12706,7 @@ crtk record export training-jsonl -i dump/puzzles.json -o training/run.jsonl --m
 <li><a href="#chapter-command-cheatsheet">Command Cheatsheet</a> — one-liners for common tasks</li>
 <li><a href="#chapter-example-commands">Example Commands</a> — copy-pasteable walkthroughs</li>
 <li><a href="#chapter-outputs-and-logs">Outputs and Logs</a> — output formats and where artifacts land</li>
+<li><a href="#chapter-review-to-study">Review to Study</a> — review JSONL and study-unit artifact contracts</li>
 <li><a href="#chapter-configuration">Configuration</a> — config keys and engine protocols</li>
 <li><a href="#chapter-use-cases">Use Cases</a> — end-to-end workflows</li>
 </ul>
@@ -12189,7 +12714,7 @@ crtk record export training-jsonl -i dump/puzzles.json -o training/run.jsonl --m
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Project · Chapter 26</p>
+  <p class="chapter-kicker">Project · Chapter 27</p>
   <h1 id="chapter-architecture">Architecture</h1>
   <div class="chapter-body">
     <p>Most chess tools accrete a second, third, and fourth notion of &quot;what is legal&quot; as they grow, and then spend their lives reconciling them. ChessRTK (&quot;crtk&quot;) refuses to. There is <strong>one shared chess core</strong>, and every part of the tool asks it the same questions. A FEN that is legal for <code>move list</code> is legal in exactly the same way for <code>engine perft</code>, <code>fen tags</code>, <code>record dataset npy</code>, <code>book render</code>, and the Swing <code>workbench</code>. Notation, search, evaluation, tagging, datasets, rendering, publishing — all of it sits on the single <code>chess.core</code> model of the board and the rules. That is why two commands never quietly disagree. This page maps the layers, names the real packages, and follows a command from a CLI flag down to its output.</p>
@@ -12283,7 +12808,7 @@ crtk record export training-jsonl -i dump/puzzles.json -o training/run.jsonl --m
 <li><code>chess.io</code> — record readers/writers and exporters: <code>RecordPgnExporter</code>, <code>RecordDatasetExporter</code>, <code>RecordLc0Exporter</code>, <code>ClassifierDatasetExporter</code>, <code>PuzzleEloExporter</code>. These back <code>record export *</code>, <code>record dataset *</code>, and <code>record files</code>/<code>stats</code>.</li>
 <li><code>chess.puzzle</code> — puzzle scoring and difficulty signals (<code>Scorer</code>, <code>Difficulty</code>, <code>Goal</code>) used by <code>puzzle mine</code>.</li>
 <li><code>chess.tag</code> — deterministic position/tactic/theme tagging (<code>Generator</code>, <code>Detector</code>, <code>Emitter</code>, <code>Checkmate</code>, plus <code>core</code>, <code>material</code>, <code>move</code>, <code>pawn</code>, <code>piece</code>, <code>position</code> detectors) behind <code>fen tags</code> and <code>puzzle tags</code>.</li>
-<li><code>chess.describe</code> — deterministic and T5 position descriptions behind <code>position describe</code>.</li>
+<li><code>chess.describe</code> — deterministic classical position descriptions behind <code>position describe</code>.</li>
 <li><code>chess.eco</code> — ECO opening lookup.</li>
 </ul>
 <h3 id="chapter-architecture-rendering-and-publishing-chess-images-chess-pdf-chess-book">Rendering and publishing (<code>chess.images</code>, <code>chess.pdf</code>, <code>chess.book</code>)</h3>
@@ -12341,7 +12866,7 @@ crtk record export training-jsonl -i dump/puzzles.json -o training/run.jsonl --m
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Project · Chapter 27</p>
+  <p class="chapter-kicker">Project · Chapter 28</p>
   <h1 id="chapter-quality-and-testing">Quality &amp; Testing</h1>
   <div class="chapter-body">
     <p>Because everything in crtk routes through one chess core — legal move generation, make/undo, attack detection, FEN/SAN/UCI conversion, Chess960, perft — a single regression suite can guard parsing, engine analysis, datasets, rendering, and PDF publishing in one pass. Correctness isn&#x27;t a phase here; it&#x27;s the product. The suite is a plain Bash script with named targets: <code>./scripts/run_regression_suite.sh &lt;target&gt;</code>. Each target is deterministic and builds with <code>javac --release 17</code> (no Maven, no Gradle). The same script drives your laptop and GitHub Actions, which is the whole point — a green local run is the same checks that gate CI, so it means a green CI run.</p>
@@ -12550,7 +13075,7 @@ crtk doctor --strict</code></pre>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Project · Chapter 28</p>
+  <p class="chapter-kicker">Project · Chapter 29</p>
   <h1 id="chapter-development-notes">Development Notes</h1>
   <div class="chapter-body">
     <p>One rule shapes everything in this codebase: there is exactly one chess core, and everyone uses it. Commands, the desktop Workbench, the puzzle miner, the dataset exporters — all of them route legality, FEN/SAN/UCI, and Chess960 through the same code, so the same input produces the same output every time. Protecting that property is the thing to keep in mind as you read the rest of this page, which covers the repository layout, the build (and the one compiler flag you cannot skip), the regression suite, regenerating the docs site and manual PDF, re-rendering the diagrams, and the conventions the source follows.</p>
@@ -12630,6 +13155,7 @@ crtk doctor --strict</code></pre>
 <h2 id="chapter-development-notes-building-with-javac-release-17">Building with <code>javac --release 17</code></h2>
 <p>The canonical build is whatever <code>install.sh</code> does, which is two commands: compile every source under <code>src/</code>, then package a runnable jar.</p>
 <pre><code class="language-bash">find src -name &#x27;*.java&#x27; -print0 | xargs -0 javac --release 17 -d out
+rm -rf out/schemas &amp;&amp; cp -R schemas out/schemas
 jar --create --file crtk.jar --main-class application.Main -C out .</code></pre>
 <p>Then run it:</p>
 <pre><code class="language-bash">java -jar crtk.jar version
@@ -12751,7 +13277,7 @@ bash scripts/run_regression_suite.sh engine       # engine / NN / GPU perft test
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Project · Chapter 29</p>
+  <p class="chapter-kicker">Project · Chapter 30</p>
   <h1 id="chapter-releasing">Releasing</h1>
   <div class="chapter-body">
     <p>A release is one runnable jar, a thin launcher, and — if you want the GPU — a native library beside it. There is <strong>no Maven or Gradle</strong>: <code>javac --release 17</code>, <code>jar</code>, and CMake produce every artifact, full stop. That austerity is the point. The same sources through the same three tools yield the same <code>crtk</code> binary, which is what lets the packager ship checksums and mean them.</p>
@@ -12838,13 +13364,41 @@ bash scripts/run_regression_suite.sh engine       # engine / NN / GPU perft test
 </tr>
 </tbody></table></div>
 <p>Artifacts are tagged <code>vX.Y.Z</code>. The packager takes the version as its own argument (see below); omit it and it falls back to <code>git describe --tags --always</code>, then to a UTC date stamp outside a checkout. The one rule when cutting a release: the git tag, the bundle filename, and <code>crtk version</code> must agree. A mismatch there is the bug nobody notices until a user reports it.</p>
+<p>The Java constant behind <code>crtk version</code>, the text/JSON command output, and the repository metadata in <code>package.json</code> are checked together by <code>CLICommandRegressionTest</code>, so release metadata drift fails in the normal CLI suite instead of waiting for a packaging run.</p>
 <h2 id="chapter-releasing-build-the-runnable-jar">Build the runnable jar</h2>
 <p>Everything else hangs off the jar, so build it through the regression suite — the same path CI takes, which is the point of building it that way locally:</p>
 <pre><code class="language-bash">./scripts/run_regression_suite.sh jar</code></pre>
 <p>That compiles every source with <code>javac --release 17</code>, packages <code>crtk.jar</code> under main class <code>application.Main</code>, and runs a smoke check (<code>crtk --help</code>, plus <code>workbench</code>/<code>gui</code> help). The two underlying commands, if you ever want them by hand:</p>
 <pre><code class="language-bash">find src -name &#x27;*.java&#x27; -print0 | xargs -0 javac --release 17 -d out
+rm -rf out/schemas &amp;&amp; cp -R schemas out/schemas
 jar --create --file crtk.jar --main-class application.Main -C out .</code></pre>
 <p><code>--release 17</code> is not optional. It pins both the bytecode target and the standard-library surface the compiler will admit, which is what makes the build reproducible across JDK versions — you can compile on a newer JDK and still ship an artifact that only depends on 17.</p>
+<h2 id="chapter-releasing-build-the-linux-self-contained-runtime-bundle">Build the Linux self-contained runtime bundle</h2>
+<p>For a CPU-only Linux bundle that does not require a system JDK/JRE at runtime, use the jlink/jpackage script. It still compiles with <code>javac --release 17</code> and packages <code>crtk.jar</code> first; the bundled runtime is only a release artifact layered on top of that jar.</p>
+<pre><code class="language-bash">scripts/make_runtime_linux.sh --version v1.0.0</code></pre>
+<p>Prerequisites are the stock JDK packaging tools: <code>javac</code>, <code>jar</code>, <code>jdeps</code>, <code>jlink</code>, and <code>jpackage</code>. The script derives the Java module set from <code>crtk.jar</code>, adds TLS/locale support, writes a jpackage app image, and adds a root <code>./crtk</code> launcher that changes into the bundle directory before dispatching. That keeps the relative <code>config/</code>, <code>wiki/</code>, and <code>models/README.md</code> paths consistent with the normal checkout launcher.</p>
+<p>Outputs land under <code>dist/</code>:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Output</th>
+<th>Description</th>
+</tr></thead><tbody>
+<tr>
+<td><code>dist/crtk-&lt;version&gt;-linux-x86_64-runtime/</code></td>
+<td>Staged self-contained app image</td>
+</tr>
+<tr>
+<td><code>dist/crtk-&lt;version&gt;-linux-x86_64-runtime.tar.gz</code></td>
+<td>Portable runtime tarball</td>
+</tr>
+<tr>
+<td><code>dist/crtk-&lt;version&gt;-linux-x86_64-runtime.sha256</code></td>
+<td>SHA-256 checksum file for the tarball</td>
+</tr>
+</tbody></table></div>
+<p>The script smoke-tests the produced root launcher with an empty <code>PATH</code>:</p>
+<pre><code class="language-bash">env -i HOME=&quot;$HOME&quot; PATH=&quot;&quot; dist/crtk-v1.0.0-linux-x86_64-runtime/crtk version</code></pre>
+<p>If that prints the expected version, the app is using the bundled runtime rather than a <code>java</code> binary from the host. This is still Linux-only groundwork; Windows/macOS launchers and installers remain separate release work.</p>
 <h2 id="chapter-releasing-build-the-linux-x86-64-cuda-release-artifact">Build the Linux (x86_64) + CUDA release artifact</h2>
 <p>One script does the whole pass: <code>scripts/make_release_linux_cuda.sh</code> builds the jar, builds the CUDA JNI library, stages the bundle, and writes the tarball and checksums.</p>
 <p>Prerequisites:</p>
@@ -12979,7 +13533,7 @@ jar --create --file crtk.jar --main-class application.Main -C out .</code></pre>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Project · Chapter 30</p>
+  <p class="chapter-kicker">Project · Chapter 31</p>
   <h1 id="chapter-glossary">Glossary</h1>
   <div class="chapter-body">
     <p>Chess research has its own dense vocabulary, and crtk borrows freely from all of it: the notations players use to write moves, the algorithms engines use to choose them, the network pieces that score positions, and a handful of formats crtk invented for itself. Because everything sits on one shared core, a term means the same thing at the CLI, in a batch script, and in the Workbench. The definitions below are deliberately terse. When one term deserves a chapter, the cross-link points to it.</p>
@@ -13081,7 +13635,7 @@ jar --create --file crtk.jar --main-class application.Main -C out .</code></pre>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Project · Chapter 31</p>
+  <p class="chapter-kicker">Project · Chapter 32</p>
   <h1 id="chapter-support">Support</h1>
   <div class="chapter-body">
     <p>When crtk misbehaves, the good news is that it almost always misbehaves the same way twice. Determinism means a problem reproduces from one command plus its input, so a report that hands a maintainer that command rarely needs a follow-up. The self-checks below resolve the usual suspects — runtime version, config, protocol TOML, engine path, movegen — on their own, which is why they come before the issue tracker.</p>
@@ -13089,9 +13643,12 @@ jar --create --file crtk.jar --main-class application.Main -C out .</code></pre>
 <p>Start here, because most of what looks like a bug is an environment or configuration problem these three commands will name for you.</p>
 <pre><code class="language-bash">crtk doctor
 crtk config validate
-crtk config show</code></pre>
+crtk config show
+crtk doctor --json
+crtk config show --json</code></pre>
 <p><code>crtk doctor</code> inspects the runtime, configuration, engine protocol files, external engine availability, and local artifacts. By default it tolerates warnings; <code>--strict</code> turns them into a non-zero exit, which is what you want in CI:</p>
 <pre><code class="language-bash">crtk doctor --strict --verbose</code></pre>
+<p>For bug reports, automation, or the Workbench setup card, prefer <code>crtk doctor --json</code> and <code>crtk config show --json</code>. They return stable <code>crtk.doctor.v1</code> and <code>crtk.config.v1</code> objects instead of requiring text scraping.</p>
 <blockquote><p>No <code>crtk</code> launcher on your PATH? Replace <code>crtk ...</code> with <code>java -jar crtk.jar ...</code> (or <code>java -cp out application.Main ...</code>). Always tell us which form you used.</p></blockquote>
 <h2 id="chapter-support-run-the-regression-suite">Run the Regression Suite</h2>
 <p>Run the recommended suite from the repository root before you report anything. A clean pass narrows the search: your build and core are sound, so whatever you hit lives somewhere more specific. A failure here is the opposite of a dead end — it is the single most useful thing you can put in a report.</p>
@@ -13225,7 +13782,7 @@ crtk fen text --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Project · Chapter 32</p>
+  <p class="chapter-kicker">Project · Chapter 33</p>
   <h1 id="chapter-readme">Wiki Index</h1>
   <div class="chapter-body">
     <p>Everything in ChessRTK (&quot;crtk&quot;) runs through one chess core. A single legal move generator, one make/undo, one attack detector, one FEN/SAN/UCI/Chess960 codepath — and every command above it inherits the same answers. That is what makes the noun-verb CLI (<code>move list</code>, <code>engine bestmove</code>, <code>puzzle mine</code>) agree with the search, the tagger, the datasets, and the GUI down to the last bit. On top of the core sit external UCI analysis (Stockfish, LC0), built-in alpha-beta/MCTS search with a forced-mate prover, classical/NNUE/LC0/OTIS evaluators, position and tactic tagging, optional T5 summaries, puzzle mining driven by a Filter DSL, ML dataset export, native PDF publishing with no LaTeX, optional GPU backends for perft and OTIS, and a Swing desktop Workbench. This page is the index. Pick a section and follow the one-line descriptions to the page that goes deeper.</p>
@@ -13254,6 +13811,7 @@ crtk fen text --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 <li><a href="#chapter-cli-command-guide">CLI command guide</a> - contributor guide for adding commands, flags, help, docs, and regression tests.</li>
 <li><a href="#chapter-command-cheatsheet">Command cheatsheet</a> - common tasks mapped to exact commands.</li>
 <li><a href="#chapter-example-commands">Example commands</a> - copy-pasteable command recipes.</li>
+<li><a href="#chapter-serve">Local JSON-RPC daemon</a> - localhost-only command dispatch for agents and editors with <code>crtk serve</code>.</li>
 <li><a href="#chapter-glossary">Glossary</a> - defined terms used across the toolkit and wiki.</li>
 </ul>
 <h2 id="chapter-readme-workbench">Workbench</h2>
@@ -13274,6 +13832,7 @@ crtk fen text --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 <li><a href="#chapter-piece-tags">Piece and position tags</a> - deterministic position, tactic, and theme tagging via <code>fen tags</code> and <code>puzzle tags</code>.</li>
 <li><a href="#chapter-tag-reference">Tag reference</a> - the catalog of tag names and their meanings.</li>
 <li><a href="#chapter-datasets">Datasets</a> - ML dataset export with <code>record dataset npy|lc0|classifier</code> and <code>record export ...-jsonl</code>.</li>
+<li><a href="#chapter-review-to-study">Review to study</a> - review PGN games into schema-pinned review rows, study units, and Record handoff files.</li>
 <li><a href="#chapter-t5">T5 tag-to-text pipeline</a> - natural-language position and puzzle summaries with <code>fen text</code> and <code>puzzle text</code>.</li>
 <li><a href="#chapter-book-publishing">Book publishing</a> - native PDF books, covers, collections, and studies (<code>book render</code>, <code>book cover</code>, <code>book collection</code>, <code>book study</code>, <code>book pdf</code>) - no LaTeX.</li>
 <li><a href="#chapter-ai-agents">AI agents and automation</a> - deterministic, scriptable commands for agents and batch pipelines (<code>batch run</code>, <code>config validate</code>, <code>doctor</code>).</li>
@@ -13340,9 +13899,19 @@ crtk fen text --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 <td><a href="#chapter-piece-tags">Piece and position tags</a>, <a href="#chapter-tag-reference">Tag reference</a></td>
 </tr>
 <tr>
-<td>Summarize in plain English</td>
-<td><code>fen text</code>, <code>puzzle text</code>, <code>position describe</code></td>
+<td>Review games into study units</td>
+<td><code>review game --to-study</code></td>
+<td><a href="#chapter-review-to-study">Review to study</a>, <a href="#chapter-outputs-and-logs">Outputs and logs</a></td>
+</tr>
+<tr>
+<td>Summarize with T5</td>
+<td><code>fen text</code>, <code>puzzle text</code></td>
 <td><a href="#chapter-t5">T5 tag-to-text pipeline</a></td>
+</tr>
+<tr>
+<td>Describe positions deterministically</td>
+<td><code>position describe</code></td>
+<td><a href="#chapter-command-reference">Command reference</a></td>
 </tr>
 <tr>
 <td>Export training data</td>
@@ -13361,8 +13930,8 @@ crtk fen text --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 </tr>
 <tr>
 <td>Automate command use</td>
-<td><code>batch run</code>, <code>doctor</code>, <code>config validate</code></td>
-<td><a href="#chapter-ai-agents">AI agents and automation</a></td>
+<td><code>serve</code>, <code>batch run</code>, <code>doctor</code>, <code>config validate</code></td>
+<td><a href="#chapter-ai-agents">AI agents and automation</a>, <a href="#chapter-serve">Local JSON-RPC daemon</a></td>
 </tr>
 </tbody></table></div>
 <h2 id="chapter-readme-quick-verification">Quick Verification</h2>
@@ -13386,7 +13955,7 @@ java -cp out application.Main engine builtin --startpos --depth 3 --format summa
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Reference · Chapter 33</p>
+  <p class="chapter-kicker">Reference · Chapter 34</p>
   <h1 id="chapter-engine-strength-tuning">Engine Strength Tuning — What Worked, What Didn&#x27;t</h1>
   <div class="chapter-body">
     <p>A running log of attempts to make the in-house <code>AlphaBeta</code> engine stronger, with the measured outcome of each. The point is to <strong>not relearn the same lessons</strong>: which techniques paid off, which didn&#x27;t, and — more importantly — the <em>methodology and gotchas</em> that decide whether a measurement can be trusted at all.</p>
@@ -13555,6 +14124,75 @@ java -cp &quot;$OUT&quot; testing.SelfPlayGauntlet --a SEE_PRUNING,SEARCH_REPETI
 <li>*<em>Incremental NNUE </em>threats**<em> — threats ray-walk sliders and depend non-locally on occupancy, so a per-move delta risks silently changing eval. Only pursue behind the bit-exact parity harness; treat any divergence as a bug, not a tradeoff. Estimated </em>modest* (the threat rebuild is ~40% of the per-node cost).</li>
 <li><strong>Broaden SMP / deep-heuristics below the Max tier</strong> — a calibration tradeoff (it strengthens settings beyond their nominal Elo); make it an explicit Play &quot;use all cores&quot; option rather than silently shifting the slider&#x27;s meaning.</li>
 <li><strong>Re-test the shelved heuristics now that search is deeper</strong> (faster NNUE + SMP) — the depth-scaling lesson predicts some may now help.</li>
+</ul>
+  </div>
+</section>
+
+<section class="chapter">
+  <p class="chapter-kicker">Reference · Chapter 35</p>
+  <h1 id="chapter-serve">Local JSON-RPC Daemon</h1>
+  <div class="chapter-body">
+    <p><code>crtk serve</code> starts a localhost-only HTTP wrapper around the existing command dispatcher. It is for agents, editors, and scripts that need many small <code>crtk</code> calls without paying JVM startup every time. It is not an online service, not a play server, and not a social or matchmaking endpoint.</p>
+<h2 id="chapter-serve-start-it">Start It</h2>
+<pre><code class="language-bash">crtk serve --port 8787</code></pre>
+<p>The daemon binds <code>127.0.0.1</code> by default and refuses non-loopback addresses. Use <code>--port 0</code> when embedding or testing and let the OS choose an ephemeral port.</p>
+<pre><code class="language-bash">crtk serve --host 127.0.0.1 --port 8787 --json</code></pre>
+<h2 id="chapter-serve-endpoints">Endpoints</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Endpoint</th>
+<th>Method</th>
+<th>Contract</th>
+</tr></thead><tbody>
+<tr>
+<td><code>/health</code></td>
+<td><code>GET</code></td>
+<td>daemon status, schema, host, and port</td>
+</tr>
+<tr>
+<td><code>/catalog</code></td>
+<td><code>GET</code></td>
+<td>the same deterministic <code>crtk help --json</code> catalog</td>
+</tr>
+<tr>
+<td><code>/rpc</code></td>
+<td><code>POST</code></td>
+<td>JSON-RPC command dispatch through <code>application.Main</code></td>
+</tr>
+</tbody></table></div>
+<p>Unknown paths return 404. There are no game-play, matchmaking, account, network-play, or remote-analysis endpoints.</p>
+<h2 id="chapter-serve-json-rpc-run">JSON-RPC Run</h2>
+<p>Send <code>method: &quot;run&quot;</code> with <code>params.argv</code> as the exact CLI argv tokens after <code>crtk</code>.</p>
+<pre><code class="language-bash">curl -s http://127.0.0.1:8787/rpc \
+  -H &#x27;Content-Type: application/json&#x27; \
+  -d &#x27;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:1,&quot;method&quot;:&quot;run&quot;,&quot;params&quot;:{&quot;argv&quot;:[&quot;fen&quot;,&quot;validate&quot;,&quot;--fen&quot;,&quot;&lt;FEN&gt;&quot;,&quot;--json&quot;]}}&#x27;</code></pre>
+<p>The response keeps stdout and stderr separate and reports the CLI exit code.</p>
+<pre><code class="language-json">{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:1,&quot;result&quot;:{&quot;exitCode&quot;:0,&quot;stdout&quot;:&quot;...&quot;,&quot;stderr&quot;:&quot;&quot;,&quot;argv&quot;:[&quot;fen&quot;,&quot;validate&quot;,&quot;--fen&quot;,&quot;&lt;FEN&gt;&quot;,&quot;--json&quot;]}}</code></pre>
+<p>Commands still run through the normal <code>application.Main</code> path, so JSON shapes, exit codes, and diagnostics match the CLI. Because stdout and stderr are process-wide streams, the daemon serializes requests through one dispatcher thread.</p>
+<h2 id="chapter-serve-discovery">Discovery</h2>
+<p>Fetch the catalog instead of scraping help text:</p>
+<pre><code class="language-bash">curl -s http://127.0.0.1:8787/catalog</code></pre>
+<p>That response is the same <code>crtk.cli.catalog.v1</code> object emitted by:</p>
+<pre><code class="language-bash">crtk help --json</code></pre>
+<h2 id="chapter-serve-python-sdk">Python SDK</h2>
+<p>The Python client is generated from the command catalog. Regenerate it after a command is added, removed, or renamed:</p>
+<pre><code class="language-bash">python3 scripts/generate_python_sdk.py</code></pre>
+<p>The default output is <code>sdk/python/crtk_client.py</code>. The generator can also read a saved catalog, which is useful for tests and release checks:</p>
+<pre><code class="language-bash">crtk help --json &gt; /tmp/crtk-catalog.json
+python3 scripts/generate_python_sdk.py --catalog /tmp/crtk-catalog.json</code></pre>
+<p>Use the client against a running daemon:</p>
+<pre><code class="language-python">from crtk_client import CrtkClient
+
+fen = &quot;rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1&quot;
+client = CrtkClient(&quot;http://127.0.0.1:8787&quot;)
+result = client.fen_validate(&quot;--fen&quot;, fen, &quot;--json&quot;, check=True)
+print(result.stdout)</code></pre>
+<h2 id="chapter-serve-safety-boundaries">Safety Boundaries</h2>
+<ul>
+<li>The server binds only loopback addresses.</li>
+<li>The daemon is off by default and exists only when <code>crtk serve</code> is running.</li>
+<li>Engine work is still bounded by the command flags you pass, such as <code>--max-nodes</code>, <code>--max-duration</code>, and <code>--multipv</code>.</li>
+<li>Nested <code>serve</code> calls are rejected through the daemon to avoid blocking the dispatcher with another long-lived server.</li>
 </ul>
   </div>
 </section>

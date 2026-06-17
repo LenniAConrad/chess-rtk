@@ -56,6 +56,11 @@ crtk version --json
 
 Artifacts are tagged `vX.Y.Z`. The packager takes the version as its own argument (see below); omit it and it falls back to `git describe --tags --always`, then to a UTC date stamp outside a checkout. The one rule when cutting a release: the git tag, the bundle filename, and `crtk version` must agree. A mismatch there is the bug nobody notices until a user reports it.
 
+The Java constant behind `crtk version`, the text/JSON command output, and the
+repository metadata in `package.json` are checked together by
+`CLICommandRegressionTest`, so release metadata drift fails in the normal CLI
+suite instead of waiting for a packaging run.
+
 ## Build the runnable jar
 
 Everything else hangs off the jar, so build it through the regression suite — the same path CI takes, which is the point of building it that way locally:
@@ -68,10 +73,37 @@ That compiles every source with `javac --release 17`, packages `crtk.jar` under 
 
 ```bash
 find src -name '*.java' -print0 | xargs -0 javac --release 17 -d out
+rm -rf out/schemas && cp -R schemas out/schemas
 jar --create --file crtk.jar --main-class application.Main -C out .
 ```
 
 `--release 17` is not optional. It pins both the bytecode target and the standard-library surface the compiler will admit, which is what makes the build reproducible across JDK versions — you can compile on a newer JDK and still ship an artifact that only depends on 17.
+
+## Build the Linux self-contained runtime bundle
+
+For a CPU-only Linux bundle that does not require a system JDK/JRE at runtime, use the jlink/jpackage script. It still compiles with `javac --release 17` and packages `crtk.jar` first; the bundled runtime is only a release artifact layered on top of that jar.
+
+```bash
+scripts/make_runtime_linux.sh --version v1.0.0
+```
+
+Prerequisites are the stock JDK packaging tools: `javac`, `jar`, `jdeps`, `jlink`, and `jpackage`. The script derives the Java module set from `crtk.jar`, adds TLS/locale support, writes a jpackage app image, and adds a root `./crtk` launcher that changes into the bundle directory before dispatching. That keeps the relative `config/`, `wiki/`, and `models/README.md` paths consistent with the normal checkout launcher.
+
+Outputs land under `dist/`:
+
+| Output | Description |
+| --- | --- |
+| `dist/crtk-<version>-linux-x86_64-runtime/` | Staged self-contained app image |
+| `dist/crtk-<version>-linux-x86_64-runtime.tar.gz` | Portable runtime tarball |
+| `dist/crtk-<version>-linux-x86_64-runtime.sha256` | SHA-256 checksum file for the tarball |
+
+The script smoke-tests the produced root launcher with an empty `PATH`:
+
+```bash
+env -i HOME="$HOME" PATH="" dist/crtk-v1.0.0-linux-x86_64-runtime/crtk version
+```
+
+If that prints the expected version, the app is using the bundled runtime rather than a `java` binary from the host. This is still Linux-only groundwork; Windows/macOS launchers and installers remain separate release work.
 
 ## Build the Linux (x86_64) + CUDA release artifact
 

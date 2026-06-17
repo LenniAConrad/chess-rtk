@@ -8,6 +8,7 @@ import static application.cli.Constants.OPT_NONPUZZLES;
 import static application.cli.Constants.OPT_OUTPUT;
 import static application.cli.Constants.OPT_OUTPUT_SHORT;
 import static application.cli.Constants.OPT_PUZZLES;
+import static application.cli.Constants.OPT_ROW_HASHES;
 import static application.cli.Constants.OPT_VERBOSE;
 import static application.cli.Constants.OPT_VERBOSE_SHORT;
 import static application.cli.Constants.OPT_WEIGHTS;
@@ -24,7 +25,9 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Locale;
+import java.util.function.Consumer;
 
 import application.Config;
 import application.console.Bar;
@@ -78,6 +81,7 @@ final class RecordPuzzleJsonlCommand {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
 		boolean puzzles = a.flag(OPT_PUZZLES);
 		boolean nonpuzzles = a.flag(OPT_NONPUZZLES);
+		boolean rowHashes = a.flag(OPT_ROW_HASHES);
 		String filterDsl = a.string(OPT_FILTER, OPT_FILTER_SHORT);
 		Path in = a.pathRequired(OPT_INPUT, OPT_INPUT_SHORT);
 		Path weights = a.path(OPT_WEIGHTS);
@@ -88,10 +92,69 @@ final class RecordPuzzleJsonlCommand {
 		Filter filter = parseFilterOrExit(COMMAND_RECORD_EXPORT_PUZZLE_JSONL, OPT_FILTER, filterDsl, verbose);
 		Filter puzzleVerify = resolvePuzzleJsonlVerify(puzzles, nonpuzzles);
 		Path output = defaultOutputPath(in, out, EXT_PUZZLE_JSONL);
+		Path rowHashPath = rowHashes ? DatasetManifestSupport.rowHashPathFor(output) : null;
 		Lc0Artifacts lc0 = loadLc0Artifacts(weights, verbose, COMMAND_RECORD_EXPORT_PUZZLE_JSONL);
-		exportPuzzleJsonl(in, output,
-				new PuzzleJsonlExportContext(filter, puzzleVerify, puzzles, nonpuzzles, verbose, lc0),
-				new PuzzleJsonlExportStats());
+		PuzzleJsonlExportContext context =
+				new PuzzleJsonlExportContext(filter, puzzleVerify, puzzles, nonpuzzles, verbose, lc0, rowHashPath);
+		PuzzleJsonlExportStats stats = new PuzzleJsonlExportStats();
+		exportPuzzleJsonl(in, output, context, stats);
+		writePuzzleJsonlManifest(in, output, weights, context, stats);
+	}
+
+	/**
+	 * Writes puzzle-jsonl manifest metadata after a successful export.
+	 *
+	 * @param input input record file
+	 * @param output output JSONL file
+	 * @param weights LC0 weights file
+	 * @param context export context
+	 * @param stats export counters
+	 */
+	private static void writePuzzleJsonlManifest(
+			Path input,
+			Path output,
+			Path weights,
+			PuzzleJsonlExportContext context,
+			PuzzleJsonlExportStats stats) {
+		DatasetManifestSupport.write(
+				"record.export.puzzle-jsonl",
+				input,
+				List.of(output),
+				weights,
+				Path.of(output + ".manifest.json"),
+				builder -> {
+					builder.metadata("label_policy", "puzzle-jsonl-lc0-policy-v1")
+							.metadata("label_definition",
+									"critical_move=engine PV1 legal move; lc0_policy_pct/lc0_wdl from supplied LC0 weights")
+							.metadata("selector", puzzleJsonlSelector(context))
+							.metadataNumber("records_seen", stats.seen)
+							.metadataNumber("rows_written", stats.written)
+							.metadataNumber("skipped_invalid", stats.invalid)
+							.metadataNumber("skipped_filtered", stats.skipped);
+					DatasetManifestSupport.addRowHashSidecar(builder, context.rowHashPath);
+					if (context.filter != null) {
+						builder.metadata("row_filter", FilterDSL.toString(context.filter));
+					}
+					if (context.puzzleVerify != null) {
+						builder.metadata("puzzle_filter", FilterDSL.toString(context.puzzleVerify));
+					}
+				});
+	}
+
+	/**
+	 * Returns the row selector encoded by puzzle-jsonl flags.
+	 *
+	 * @param context export context
+	 * @return selector label
+	 */
+	private static String puzzleJsonlSelector(PuzzleJsonlExportContext context) {
+		if (context.puzzlesOnly) {
+			return "puzzles";
+		}
+		if (context.nonpuzzlesOnly) {
+			return "nonpuzzles";
+		}
+		return "all";
 	}
 
 	/**
@@ -209,13 +272,18 @@ final class RecordPuzzleJsonlCommand {
 		}
 		Bar bar = fileProgressBar(input, 1, COMMAND_RECORD_EXPORT_PUZZLE_JSONL);
 		try (Network network = context.lc0.network;
-				BufferedWriter writer = Files.newBufferedWriter(output)) {
+				BufferedWriter writer = Files.newBufferedWriter(output);
+				BufferedWriter rowHashWriter = context.rowHashPath == null
+						? null
+						: DatasetManifestSupport.openRowHashWriter(context.rowHashPath)) {
 			PuzzleJsonlWriteContext writeContext =
-					new PuzzleJsonlWriteContext(context, network, writer, bar);
+					new PuzzleJsonlWriteContext(context, network, writer, bar,
+							DatasetManifestSupport.rowHashSink(rowHashWriter));
 			streamRecordJson(input,
 					objJson -> writePuzzleJsonlRecord(objJson, writeContext, stats),
 					byteProgress(bar));
 		} catch (IOException | UncheckedIOException ex) {
+			deleteQuietly(context.rowHashPath);
 			exitWithError(COMMAND_RECORD_EXPORT_PUZZLE_JSONL + ": failed to write output: " + ex.getMessage(),
 					ex, context.verbose);
 		}
@@ -261,6 +329,9 @@ final class RecordPuzzleJsonlCommand {
 		try {
 			context.writer.write(line);
 			context.writer.newLine();
+			if (context.rowHashSink != null) {
+				context.rowHashSink.accept(objJson);
+			}
 		} catch (IOException ex) {
 			throw new UncheckedIOException(ex);
 		}
@@ -319,6 +390,22 @@ final class RecordPuzzleJsonlCommand {
 	}
 
 	/**
+	 * Removes a partially written optional sidecar after an export failure.
+	 *
+	 * @param path sidecar path, or {@code null} when disabled
+	 */
+	private static void deleteQuietly(Path path) {
+		if (path == null) {
+			return;
+		}
+		try {
+			Files.deleteIfExists(path);
+		} catch (IOException ignored) {
+			// best-effort cleanup
+		}
+	}
+
+	/**
 	 * Holds LC0 resources needed by JSONL exporters.
 	 */
 	private static final class Lc0Artifacts {
@@ -371,6 +458,10 @@ final class RecordPuzzleJsonlCommand {
 		 * Loaded LC0 resources.
 		 */
 		private final Lc0Artifacts lc0;
+		/**
+		 * Optional row-hash sidecar path.
+		 */
+		private final Path rowHashPath;
 
 		/**
 		 * Creates a new puzzle-jsonl export context.
@@ -381,6 +472,7 @@ final class RecordPuzzleJsonlCommand {
 		 * @param nonpuzzlesOnly whether only non-puzzles should be written
 		 * @param verbose whether verbose diagnostics are enabled
 		 * @param lc0 loaded LC0 resources
+		 * @param rowHashPath optional row-hash sidecar path
 		 */
 		private PuzzleJsonlExportContext(
 				Filter filter,
@@ -388,13 +480,15 @@ final class RecordPuzzleJsonlCommand {
 				boolean puzzlesOnly,
 				boolean nonpuzzlesOnly,
 				boolean verbose,
-				Lc0Artifacts lc0) {
+				Lc0Artifacts lc0,
+				Path rowHashPath) {
 			this.filter = filter;
 			this.puzzleVerify = puzzleVerify;
 			this.puzzlesOnly = puzzlesOnly;
 			this.nonpuzzlesOnly = nonpuzzlesOnly;
 			this.verbose = verbose;
 			this.lc0 = lc0;
+			this.rowHashPath = rowHashPath;
 		}
 	}
 
@@ -418,6 +512,10 @@ final class RecordPuzzleJsonlCommand {
 		 * Optional progress bar.
 		 */
 		private final Bar bar;
+		/**
+		 * Optional sink receiving raw JSON for every emitted row.
+		 */
+		private final Consumer<String> rowHashSink;
 
 		/**
 		 * Creates a new write context.
@@ -426,16 +524,19 @@ final class RecordPuzzleJsonlCommand {
 		 * @param network loaded network
 		 * @param writer destination writer
 		 * @param bar optional progress bar
+		 * @param rowHashSink optional row-hash sink
 		 */
 		private PuzzleJsonlWriteContext(
 				PuzzleJsonlExportContext options,
 				Network network,
 				BufferedWriter writer,
-				Bar bar) {
+				Bar bar,
+				Consumer<String> rowHashSink) {
 			this.options = options;
 			this.network = network;
 			this.writer = writer;
 			this.bar = bar;
+			this.rowHashSink = rowHashSink;
 		}
 	}
 

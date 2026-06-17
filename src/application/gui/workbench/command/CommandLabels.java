@@ -44,8 +44,10 @@ final class CommandLabels {
         return switch (value == null ? "" : value) {
             case "uci" -> "UCI";
             case "san" -> "SAN";
+            case "ml" -> "ML";
             case "both" -> "Both";
             case "uci-info" -> "UCI info";
+            case "engine-debug" -> "Engine debug";
             default -> value == null || value.isBlank()
                     ? "default"
                     : Character.toUpperCase(value.charAt(0)) + value.substring(1);
@@ -66,6 +68,9 @@ final class CommandLabels {
             case "--input" -> "Input";
             case "--pgn" -> "PGN";
             case "--protocol-path" -> "Config path";
+            case "--to-study" -> "Study units";
+            case "--study-output" -> "Study output";
+            case "--record-output" -> "Record output";
             case "--max-duration" -> "Max duration";
             case "--duration" -> "Duration";
             case "--depth" -> "Max depth";
@@ -82,6 +87,7 @@ final class CommandLabels {
             case "--jsonl" -> "JSONL";
             case "--wdl" -> "WDL";
             case "--no-wdl" -> "No WDL";
+            case "--offline" -> "Offline";
             case "--classical" -> "Classical";
             case "--nnue" -> "NNUE";
             case "--lc0" -> "LC0";

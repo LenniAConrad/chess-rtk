@@ -87,8 +87,11 @@ Commands that write an artifact instead of streaming to stdout drop it in the di
 | `record export puzzle-elo-jsonl` | `dump/<stem>.puzzle-elo.jsonl` |
 | `record export training-jsonl` | `dump/<stem>.training.jsonl` |
 | `record analysis-delta` | `dump/<stem>.analysis-delta.jsonl` |
+| `review game` | `dump/<stem>.review.jsonl`; with `--to-study`, also `dump/<stem>.study.jsonl` and `dump/<stem>.study.record.json` |
 | `puzzle pgn` | `dump/<stem>.pgn` |
 | `fen pgn` | `dump/<stem>.txt` |
+
+`review game` rows are schema-stamped as `crtk.review.ply.v1`. The optional study JSONL sidecar is `crtk.review.study_unit.v1`, and the Record sidecar is a `crtk.record.v2` JSON array whose `parent` is the pre-move FEN and whose `position` is the post-best-move FEN. See [Review to study](review-to-study.md) for the full contract.
 
 ### Multi-file tensor exports
 
@@ -107,6 +110,12 @@ A tensor export is rarely one file. Dataset exporters take a single output *pref
 - `--output -` streams to stdout instead of writing files.
 
 Each file is one top-level JSON array, grown incrementally as positions clear the [Filter DSL](filter-dsl.md) gates rather than written all at once at the end.
+
+Each newly written record object carries a `schemaVersion` field with the current
+contract id, `crtk.record.v2`. Older record objects that do not carry the field
+remain valid input and are interpreted as `crtk.record.v1`; use
+`record validate --input FILE --strict` when you want malformed rows to fail
+loudly instead of being skipped by tolerant readers.
 
 ### Publishing outputs
 
@@ -174,6 +183,7 @@ Its reach stops at session cache and log artifacts. Your committed `dump/` outpu
 - [Command Reference](command-reference.md) — every area, action, and flag.
 - [Configuration](configuration.md) — the output root and other settings in `config/cli.config.toml`.
 - [Datasets](datasets.md) — tensor and JSONL export formats in depth.
+- [Review to study](review-to-study.md) — PGN review artifacts and study-unit sidecars.
 - [Puzzle Mining](mining.md) — `puzzle mine` outputs and the Filter DSL gates.
 - [Book Publishing](book-publishing.md) — native PDF output.
 - [Troubleshooting](troubleshooting.md) — diagnosing non-zero exit codes.

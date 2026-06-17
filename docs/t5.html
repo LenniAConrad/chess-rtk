@@ -89,6 +89,7 @@
 <a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
 <a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="review-to-study.html" data-title="review to study">Review To Study</a>
 <a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
@@ -118,7 +119,7 @@
 <li>Tokenizes with a built-in SentencePiece unigram tokenizer — no Python, no native ML runtime required.</li>
 <li>Generates greedily on the CPU, or on an optional GPU backend with transparent CPU fallback.</li>
 </ul>
-<p>The tags driving the model come from the same code behind <code>fen tags</code> and <code>puzzle tags</code>. Nothing is invented along the way — the text describes precisely the motifs crtk detected, no more. See <a href="tag-reference.html">Tag reference</a> for the vocabulary.</p>
+<p>The tags driving the model come from the same code behind <code>fen tags</code> and <code>puzzle tags</code>. The prompt tells the model to stay inside those facts, but generated prose is still experimental and can drift. The working T5 runtime is exposed through <code>fen text</code> and <code>puzzle text</code>. For strict, non-hallucinated position prose, <code>position describe</code> is classical-only and uses the deterministic path plus the <code>PositionDescriptionVerifier</code> guard described below. See <a href="tag-reference.html">Tag reference</a> for the vocabulary.</p>
 <h2 id="pipeline-at-a-glance">Pipeline at a glance</h2>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -309,6 +310,9 @@ crtk puzzle text --fen &quot;&lt;FEN&gt;&quot; --model models/t5.bin --include-f
 <h2 id="prompt-building">Prompt building</h2>
 <p>Before tokenizing, crtk wraps the tag list in a fixed instruction prompt. The instructions are pointed: write a single paragraph of chess commentary, ground it in material, king safety, and the top tactical motif, mention only moves that appear in the tags, and don&#x27;t talk about tags or input formats. Then the tags follow as bullet lines, closed by an <code>OUTPUT:</code> marker.</p>
 <p>With <code>fen text</code> and <code>puzzle text</code> you never touch this prompt — crtk derives the tags and assembles it. The shape matters when you train or fine-tune a model: the model has to have learned this tag-prompt format, or its output will drift.</p>
+<h2 id="grounding-guard">Grounding guard</h2>
+<p><code>position describe</code> has a verifier for any future model-backed prose, but it does not expose a T5 runtime today. <code>PositionDescriptionVerifier</code> checks generated text against <code>PositionDescriptionInput</code>: every SAN-like move mention must match an input candidate, side-to-move claims must match the FEN, directional eval claims must agree with the evaluation sign, and concrete material-surplus claims such as &quot;a rook up&quot;, &quot;an extra knight&quot;, or &quot;a piece up&quot; must match the extracted material. When a candidate text fails, callers can use <code>groundedOrFallback(...)</code> to return the classical description instead.</p>
+<p>This guard is intentionally conservative. It does not certify that model prose is insightful; it blocks concrete false claims before model text can replace the faithful classical description. The repository still ships no T5 position-description weights, and <code>position describe --engine t5</code> is not a supported runtime. Use <code>fen text</code> or <code>puzzle text</code> for the one working T5 path.</p>
 <h2 id="backends">Backends</h2>
 <p>Generation defaults to the CPU. When their JNI libraries are present, the native backends take over decoding; when one fails to load or stumbles at runtime, crtk drops back to the CPU path without complaint. A missing GPU library should never sink a run, so it doesn&#x27;t.</p>
 <p>Pick a backend with a JVM system property:</p>
@@ -396,6 +400,7 @@ crtk puzzle text --fen &quot;&lt;FEN&gt;&quot; --model models/t5.bin --include-f
 <a class="toc-h2" href="#the-model-file">The model file</a>
 <a class="toc-h2" href="#tokenizer">Tokenizer</a>
 <a class="toc-h2" href="#prompt-building">Prompt building</a>
+<a class="toc-h2" href="#grounding-guard">Grounding guard</a>
 <a class="toc-h2" href="#backends">Backends</a>
 <a class="toc-h2" href="#low-level-runner">Low-level runner</a>
 <a class="toc-h2" href="#status-and-quality">Status and quality</a>

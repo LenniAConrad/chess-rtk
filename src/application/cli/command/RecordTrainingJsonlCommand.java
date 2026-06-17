@@ -9,6 +9,7 @@ import static application.cli.Constants.OPT_MAX_RECORDS;
 import static application.cli.Constants.OPT_OUTPUT;
 import static application.cli.Constants.OPT_OUTPUT_SHORT;
 import static application.cli.Constants.OPT_RECURSIVE;
+import static application.cli.Constants.OPT_ROW_HASHES;
 import static application.cli.Constants.OPT_VERBOSE;
 import static application.cli.Constants.OPT_VERBOSE_SHORT;
 import static application.cli.PathOps.deriveOutputPath;
@@ -30,6 +31,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import application.Config;
 import application.console.Bar;
@@ -83,6 +85,10 @@ final class RecordTrainingJsonlCommand {
 	 */
 	private static final String COMMAND_RECORD_EXPORT_TRAINING_JSONL = "record export training-jsonl";
 	/**
+	 * Stable schema identifier emitted on every training JSONL row.
+	 */
+	private static final String TRAINING_JSONL_SCHEMA_VERSION = "crtk.record.training-jsonl.v1";
+	/**
 	 * Shared positional input hint constant.
 	 */
 	private static final String INPUTS_OR_POSITIONAL_HINT = " (or positional files/dirs)";
@@ -118,6 +124,7 @@ final class RecordTrainingJsonlCommand {
 		ensureTrainingOutputReady(request.output, request.verbose, bar);
 		writeTrainingJsonlOutput(request, puzzleParents, stats, bar);
 		finishProgress(bar);
+		writeTrainingJsonlManifest(request, puzzleParents.size(), stats);
 		System.out.printf(Locale.ROOT,
 				COMMAND_RECORD_EXPORT_TRAINING_JSONL
 						+ ": wrote %d/%d records to %s (puzzles=%d, similar=%d, random=%d, invalid=%d, puzzle-parents=%d)%n",
@@ -129,6 +136,45 @@ final class RecordTrainingJsonlCommand {
 				stats.random,
 				stats.invalid,
 				puzzleParents.size());
+	}
+
+	/**
+	 * Writes training-jsonl manifest metadata for label-policy and row-count
+	 * provenance.
+	 *
+	 * @param request export request
+	 * @param puzzleParentCount number of parent FEN groups marked as puzzle-like
+	 * @param stats export counters
+	 */
+	private static void writeTrainingJsonlManifest(
+			TrainingJsonlRequest request,
+			int puzzleParentCount,
+			TrainingExportStats stats) {
+		DatasetManifestSupport.write(
+				"record.export.training-jsonl",
+				request.inputFiles,
+				List.of(request.output),
+				null,
+				Path.of(request.output + ".manifest.json"),
+				builder -> {
+					builder.metadata("label_policy", "training-jsonl-coarse-fine-v1")
+							.metadata("positive_definition",
+									"verified_puzzle coarse=1 fine=2; verified_near_puzzle coarse=1 fine=1; "
+											+ "known_non_puzzle coarse=0 fine=0")
+							.metadata("puzzle_filter", FilterDSL.toString(request.puzzleFilter))
+							.metadataBoolean("include_engine_metadata", request.includeEngineMetadata)
+							.metadataNumber("records_seen", stats.seen)
+							.metadataNumber("rows_written", stats.written)
+							.metadataNumber("invalid", stats.invalid)
+							.metadataNumber("verified_puzzle", stats.puzzles)
+							.metadataNumber("verified_near_puzzle", stats.similar)
+							.metadataNumber("known_non_puzzle", stats.random)
+							.metadataNumber("puzzle_parents", puzzleParentCount);
+					DatasetManifestSupport.addRowHashSidecar(builder, request.rowHashPath);
+					if (request.maxRecords > 0L) {
+						builder.metadataNumber("max_records", request.maxRecords);
+					}
+				});
 	}
 
 	/**
@@ -171,6 +217,7 @@ final class RecordTrainingJsonlCommand {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
 		boolean recursive = a.flag(OPT_RECURSIVE);
 		boolean includeEngineMetadata = a.flag(OPT_INCLUDE_ENGINE_METADATA);
+		boolean rowHashes = a.flag(OPT_ROW_HASHES);
 		String puzzleFilterDsl = a.string(OPT_FILTER, OPT_FILTER_SHORT);
 		Long maxRecordsOpt = a.lng(OPT_MAX_RECORDS);
 		Path out = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
@@ -200,7 +247,9 @@ final class RecordTrainingJsonlCommand {
 			exitWithError(COMMAND_RECORD_EXPORT_TRAINING_JSONL + ": no input files found");
 		}
 		validateTrainingOutputPath(inputFiles, out);
-		return new TrainingJsonlRequest(out, inputFiles, puzzleFilter, includeEngineMetadata, maxRecords, verbose);
+		Path rowHashPath = rowHashes ? DatasetManifestSupport.rowHashPathFor(out) : null;
+		return new TrainingJsonlRequest(out, inputFiles, puzzleFilter, includeEngineMetadata, maxRecords,
+				verbose, rowHashPath);
 	}
 
 	/**
@@ -251,13 +300,18 @@ final class RecordTrainingJsonlCommand {
 			Set<String> puzzleParents,
 			TrainingExportStats stats,
 			Bar bar) {
-		try (BufferedWriter writer = Files.newBufferedWriter(request.output, StandardCharsets.UTF_8)) {
+		try (BufferedWriter writer = Files.newBufferedWriter(request.output, StandardCharsets.UTF_8);
+				BufferedWriter rowHashWriter = request.rowHashPath == null
+						? null
+						: DatasetManifestSupport.openRowHashWriter(request.rowHashPath)) {
 			writeTrainingJsonl(request.inputFiles, writer,
-					new TrainingWriteContext(request, puzzleParents, stats, bar));
+					new TrainingWriteContext(request, puzzleParents, stats, bar,
+							DatasetManifestSupport.rowHashSink(rowHashWriter)));
 		} catch (StopTrainingExport ignored) {
 			// max-records reached cleanly
 		} catch (IOException | UncheckedIOException ex) {
 			finishProgress(bar);
+			deleteQuietly(request.rowHashPath);
 			exitWithError(COMMAND_RECORD_EXPORT_TRAINING_JSONL
 					+ ": failed to write output: " + ex.getMessage(), ex, request.verbose);
 		}
@@ -313,6 +367,22 @@ final class RecordTrainingJsonlCommand {
 				if (outputAbs.equals(input.toAbsolutePath().normalize())) {
 					exitWithError(COMMAND_RECORD_EXPORT_TRAINING_JSONL + ": output cannot overwrite input file " + input);
 			}
+		}
+	}
+
+	/**
+	 * Removes a partially written optional sidecar after an export failure.
+	 *
+	 * @param path sidecar path, or {@code null} when disabled
+	 */
+	private static void deleteQuietly(Path path) {
+		if (path == null) {
+			return;
+		}
+		try {
+			Files.deleteIfExists(path);
+		} catch (IOException ignored) {
+			// best-effort cleanup
 		}
 	}
 
@@ -430,6 +500,9 @@ final class RecordTrainingJsonlCommand {
 		try {
 			writer.write(line);
 			writer.newLine();
+			if (context.rowHashSink != null) {
+				context.rowHashSink.accept(objJson);
+			}
 		} catch (IOException ex) {
 			throw new UncheckedIOException(ex);
 		}
@@ -493,6 +566,7 @@ final class RecordTrainingJsonlCommand {
 		}
 		StringBuilder sb = new StringBuilder(512);
 		sb.append('{');
+		appendJsonStringField(sb, "schemaVersion", TRAINING_JSONL_SCHEMA_VERSION);
 		appendJsonStringField(sb, "fen", rec.getPosition().toString());
 		appendJsonStringField(sb, "label_status", label.status);
 		appendJsonIntField(sb, "coarse_label", label.coarse);
@@ -787,6 +861,10 @@ final class RecordTrainingJsonlCommand {
 		 * Whether verbose diagnostics are enabled.
 		 */
 		private final boolean verbose;
+		/**
+		 * Optional row-hash sidecar path.
+		 */
+		private final Path rowHashPath;
 
 		/**
 		 * Creates a new training-jsonl request.
@@ -797,6 +875,7 @@ final class RecordTrainingJsonlCommand {
 		 * @param includeEngineMetadata whether engine metadata should be included
 		 * @param maxRecords maximum number of records to write
 		 * @param verbose whether verbose diagnostics are enabled
+		 * @param rowHashPath optional row-hash sidecar path
 		 */
 		private TrainingJsonlRequest(
 				Path output,
@@ -804,13 +883,15 @@ final class RecordTrainingJsonlCommand {
 				Filter puzzleFilter,
 				boolean includeEngineMetadata,
 				long maxRecords,
-				boolean verbose) {
+				boolean verbose,
+				Path rowHashPath) {
 			this.output = output;
 			this.inputFiles = inputFiles;
 			this.puzzleFilter = puzzleFilter;
 			this.includeEngineMetadata = includeEngineMetadata;
 			this.maxRecords = maxRecords;
 			this.verbose = verbose;
+			this.rowHashPath = rowHashPath;
 		}
 	}
 
@@ -846,6 +927,10 @@ final class RecordTrainingJsonlCommand {
 		 * Optional progress bar.
 		 */
 		private final Bar bar;
+		/**
+		 * Optional sink receiving raw JSON for every emitted row.
+		 */
+		private final Consumer<String> rowHashSink;
 
 		/**
 		 * Creates a new training write context.
@@ -854,12 +939,14 @@ final class RecordTrainingJsonlCommand {
 		 * @param puzzleParents parent-group lookup
 		 * @param stats running counters
 		 * @param bar optional progress bar
+		 * @param rowHashSink optional row-hash sink
 		 */
 		private TrainingWriteContext(
 				TrainingJsonlRequest request,
 				Set<String> puzzleParents,
 				TrainingExportStats stats,
-				Bar bar) {
+				Bar bar,
+				Consumer<String> rowHashSink) {
 			this.puzzleFilter = request.puzzleFilter;
 			this.puzzleParents = puzzleParents;
 			this.includeEngineMetadata = request.includeEngineMetadata;
@@ -867,6 +954,7 @@ final class RecordTrainingJsonlCommand {
 			this.verbose = request.verbose;
 			this.stats = stats;
 			this.bar = bar;
+			this.rowHashSink = rowHashSink;
 		}
 
 		/**

@@ -1,5 +1,6 @@
 package application.gui.workbench.ui;
 
+import java.awt.Color;
 import java.awt.LayoutManager;
 import javax.swing.JPanel;
 
@@ -10,8 +11,14 @@ import javax.swing.JPanel;
  * does not draw a rounded card. Elevation and frosted-glass cues are reserved
  * for genuinely floating chrome (command palette, dialogs, popovers), where a
  * controlled backdrop keeps text legible without expensive live blur.
+ *
+ * <p>The {@link Theme.Surface} role chooses between the document-tone
+ * {@code PANEL_SOLID} fill (dashboards, reports) and the chrome {@code BG}
+ * backdrop that boards and engine surfaces lay raised cards on top of. A
+ * single primitive on both sides keeps the uniformity contract intact while
+ * letting each surface pick the appropriate elevation.</p>
  */
-public final class SurfacePanel extends JPanel {
+public class SurfacePanel extends JPanel {
 
     /**
      * Serialization identifier for Swing panel compatibility.
@@ -19,22 +26,51 @@ public final class SurfacePanel extends JPanel {
     private static final long serialVersionUID = 1L;
 
     /**
-     * Creates an opaque surface panel with a layout.
+     * Surface role chosen at construction time.
+     */
+    private final Theme.Surface role;
+
+    /**
+     * Creates an opaque document-tone surface panel.
      *
      * @param layout layout manager
      */
     public SurfacePanel(LayoutManager layout) {
-        super(layout);
-        configure();
+        this(layout, Theme.Surface.PANEL);
     }
 
     /**
-     * Applies opaque-surface defaults.
+     * Creates an opaque surface panel with the requested role.
+     *
+     * @param layout layout manager
+     * @param role surface role (document tone or chrome backdrop)
      */
-    private void configure() {
+    public SurfacePanel(LayoutManager layout, Theme.Surface role) {
+        super(layout);
+        this.role = role == null ? Theme.Surface.PANEL : role;
         setOpaque(true);
-        setBackground(Theme.PANEL_SOLID);
+        setBackground(surfaceColor(this.role));
         setForeground(Theme.TEXT);
-        setBorder(Theme.pad(Theme.SPACE_MD, Theme.SPACE_MD, Theme.SPACE_MD, Theme.SPACE_MD));
+    }
+
+    /**
+     * Returns the surface role this panel was built with.
+     *
+     * @return surface role
+     */
+    public final Theme.Surface surfaceRole() {
+        return role;
+    }
+
+    /**
+     * Resolves the themed background color for a surface role. Called both at
+     * construction and on theme refresh so a light/dark switch repaints in the
+     * correct surface color.
+     *
+     * @param role surface role
+     * @return background color
+     */
+    static Color surfaceColor(Theme.Surface role) {
+        return role == Theme.Surface.BACKDROP ? Theme.BG : Theme.PANEL_SOLID;
     }
 }

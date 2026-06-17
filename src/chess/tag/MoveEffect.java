@@ -1,5 +1,7 @@
 package chess.tag;
 
+import static chess.tag.core.Literals.MOVE_EFFECT;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeSet;
@@ -42,7 +44,7 @@ import chess.core.Position;
  */
 public final class MoveEffect {
 
-    private static final String PREFIX = "MOVE_EFFECT: san=";
+    private static final String PREFIX = MOVE_EFFECT + ": san=";
 
     private MoveEffect() {
         // utility

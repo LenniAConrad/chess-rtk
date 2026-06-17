@@ -449,13 +449,13 @@ final class GauntletGameBrowser extends JPanel {
         private JComponent buildControls() {
             JPanel row = new JPanel(new FlowLayout(FlowLayout.CENTER, Theme.SPACE_SM, 0));
             row.setOpaque(false);
-            row.add(Ui.button("⏮", false, event -> goTo(0)));
-            row.add(Ui.button("◀", false, event -> goTo(ply - 1)));
+            row.add(Ui.iconButton("⏮", "First move", event -> goTo(0)));
+            row.add(Ui.iconButton("◀", "Previous move", event -> goTo(ply - 1)));
             plyLabel.setHorizontalAlignment(SwingConstants.CENTER);
-            plyLabel.setBorder(BorderFactory.createEmptyBorder(0, Theme.SPACE_MD, 0, Theme.SPACE_MD));
+            plyLabel.setBorder(Theme.pad(0, Theme.SPACE_MD, 0, Theme.SPACE_MD));
             row.add(plyLabel);
-            row.add(Ui.button("▶", false, event -> goTo(ply + 1)));
-            row.add(Ui.button("⏭", false, event -> goTo(fens.size() - 1)));
+            row.add(Ui.iconButton("▶", "Next move", event -> goTo(ply + 1)));
+            row.add(Ui.iconButton("⏭", "Last move", event -> goTo(fens.size() - 1)));
             return row;
         }
 

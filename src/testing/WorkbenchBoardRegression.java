@@ -1,5 +1,6 @@
 package testing;
 
+import static testing.TestSupport.readUtf8;
 import static testing.WorkbenchTestSupport.*;
 
 import java.awt.Component;
@@ -178,13 +179,7 @@ final class WorkbenchBoardRegression {
      * @return source text
      */
     private static String readWorkbenchSource(String relativePath) {
-        try {
-            return java.nio.file.Files.readString(
-                    java.nio.file.Path.of("src/application/gui/workbench", relativePath),
-                    java.nio.charset.StandardCharsets.UTF_8);
-        } catch (java.io.IOException ex) {
-            throw new AssertionError("unable to read workbench source " + relativePath, ex);
-        }
+        return readUtf8(java.nio.file.Path.of("src/application/gui/workbench", relativePath));
     }
 
     /**
@@ -526,11 +521,12 @@ final class WorkbenchBoardRegression {
         component.setSize(640, 640);
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class },
                 new Position(START_FEN), Move.NO_MOVE);
+        Object animation = field(board, "animation");
         byte invalidHover = Field.toIndex('f', '3');
         seedBoardDrag(board, Field.toIndex('e', '2'), Piece.WHITE_PAWN, 12, 12, false);
 
         Rectangle boardBounds = (Rectangle) invoke(board, "boardBounds", new Class<?>[0]);
-        Rectangle dirty = (Rectangle) invoke(board, "dragRepaintBounds",
+        Rectangle dirty = (Rectangle) invoke(animation, "dragRepaintBounds",
                 new Class<?>[] {
                         Rectangle.class,
                         byte.class,
@@ -555,13 +551,14 @@ final class WorkbenchBoardRegression {
         component.setSize(640, 640);
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class },
                 new Position(START_FEN), Move.NO_MOVE);
+        Object animation = field(board, "animation");
         byte origin = Field.toIndex('a', '2');
         byte target = Field.toIndex('h', '7');
         seedBoardDrag(board, origin, Piece.WHITE_PAWN, 0, 0, false);
         Rectangle boardBounds = (Rectangle) invoke(board, "boardBounds", new Class<?>[0]);
         Point pointer = boardPoint(target, true, 640, 640);
 
-        Rectangle firstFrame = (Rectangle) invoke(board, "dragRepaintBounds",
+        Rectangle firstFrame = (Rectangle) invoke(animation, "dragRepaintBounds",
                 new Class<?>[] {
                         Rectangle.class,
                         byte.class,
@@ -571,7 +568,7 @@ final class WorkbenchBoardRegression {
                         boolean.class,
                         boolean.class },
                 boardBounds, Field.NO_SQUARE, target, pointer.x, pointer.y, Boolean.TRUE, Boolean.TRUE);
-        Rectangle activeFrame = (Rectangle) invoke(board, "dragRepaintBounds",
+        Rectangle activeFrame = (Rectangle) invoke(animation, "dragRepaintBounds",
                 new Class<?>[] {
                         Rectangle.class,
                         byte.class,
@@ -597,21 +594,22 @@ final class WorkbenchBoardRegression {
      */
     private static void testBoardDragRepaintsCoalesceFastEvents() {
         Object board = construct(type("BoardPanel"), new Class<?>[0]);
-        setField(board, "lastDragRepaintNanos", Long.valueOf(System.nanoTime()));
+        Object animation = field(board, "animation");
+        setField(animation, "lastDragRepaintNanos", Long.valueOf(System.nanoTime()));
         Rectangle first = new Rectangle(10, 12, 22, 24);
         Rectangle second = new Rectangle(80, 90, 16, 18);
 
-        invoke(board, "scheduleDragRepaint", new Class<?>[] { Rectangle.class }, first);
-        invoke(board, "scheduleDragRepaint", new Class<?>[] { Rectangle.class }, second);
+        invoke(animation, "scheduleDragRepaint", new Class<?>[] { Rectangle.class }, first);
+        invoke(animation, "scheduleDragRepaint", new Class<?>[] { Rectangle.class }, second);
 
-        Timer timer = (Timer) field(board, "dragRepaintTimer");
-        Rectangle pending = (Rectangle) field(board, "pendingDragDirty");
+        Timer timer = (Timer) field(animation, "dragRepaintTimer");
+        Rectangle pending = (Rectangle) field(animation, "pendingDragDirty");
         assertTrue(timer.isRunning(), "drag repaint timer coalesces fast samples");
         assertTrue(pending.contains(first) && pending.contains(second),
                 "pending drag repaint is the union of fast samples");
 
-        invoke(board, "flushPendingDragRepaint", new Class<?>[0]);
-        assertEquals(null, field(board, "pendingDragDirty"), "flushed drag repaint clears pending region");
+        invoke(animation, "flushPendingDragRepaint", new Class<?>[0]);
+        assertEquals(null, field(animation, "pendingDragDirty"), "flushed drag repaint clears pending region");
         assertFalse(timer.isRunning(), "flushed drag repaint stops timer");
     }
 
@@ -1002,7 +1000,7 @@ final class WorkbenchBoardRegression {
      * overlays cover the labels.
      */
     private static void testBoardCoordinatesPaintBelowOverlays() {
-        String panel = readWorkbenchSource("board/BoardPanel.java");
+        String panel = readWorkbenchSource("board/BoardPanelPainter.java");
         assertSourceOrder(panel, "drawBoardTexture(copy, board);", "drawCoordinates(copy, board);",
                 "board coordinates draw after board texture");
         assertSourceOrder(panel, "drawCoordinates(copy, board);", "drawSquareHighlights(copy, board);",
@@ -1040,8 +1038,9 @@ final class WorkbenchBoardRegression {
         Object board = construct(type("BoardPanel"), new Class<?>[0]);
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class },
                 new Position("4k3/8/8/8/8/8/8/K3R3 b - - 0 1"), Move.NO_MOVE);
+        Object painter = field(board, "painter");
         assertEquals(Byte.valueOf(Field.toIndex('e', '8')),
-                invoke(board, "checkedKingSquare", new Class<?>[0]),
+                invoke(painter, "checkedKingSquare", new Class<?>[0]),
                 "checked king square");
 
         Component component = (Component) board;
@@ -1084,11 +1083,12 @@ final class WorkbenchBoardRegression {
      */
     private static void testBoardPieceImageCacheReusesScaledSvg() {
         Object board = construct(type("BoardPanel"), new Class<?>[0]);
-        Object first = invoke(board, "pieceImage", new Class<?>[] { byte.class, int.class },
+        Object imageCache = field(board, "imageCache");
+        Object first = invoke(imageCache, "pieceImage", new Class<?>[] { byte.class, int.class },
                 Piece.WHITE_KNIGHT, 72);
-        Object second = invoke(board, "pieceImage", new Class<?>[] { byte.class, int.class },
+        Object second = invoke(imageCache, "pieceImage", new Class<?>[] { byte.class, int.class },
                 Piece.WHITE_KNIGHT, 72);
-        Object larger = invoke(board, "pieceImage", new Class<?>[] { byte.class, int.class },
+        Object larger = invoke(imageCache, "pieceImage", new Class<?>[] { byte.class, int.class },
                 Piece.WHITE_KNIGHT, 80);
 
         assertTrue(first == second, "same cell piece cache reuse");

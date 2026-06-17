@@ -1,6 +1,5 @@
 package application.gui.workbench.network;
 
-import application.gui.workbench.board.BoardStyle;
 import application.gui.workbench.ui.HitRegions;
 import application.gui.workbench.ui.InspectorDialog;
 import application.gui.workbench.ui.Theme;
@@ -310,19 +309,15 @@ public final class OtisView extends NetworkView {
         salience = chessRtkToLerf(salience);
         int size = Math.max(96, Math.min(r.width - 28, r.height - 86));
         Rectangle board = new Rectangle(r.x + (r.width - size) / 2, r.y + 56, size, size);
-        boolean whiteDown = TensorViz.whiteDownForSideToMove(fen);
-        TensorViz.drawMiniBoard(g, board);
-        TensorViz.drawPositionPieces(g, board, fen, whiteDown);
-        hitRegions.addInspectable(board, "Current position",
-                "OTIS sheaf signal board", "", "otis.sheaf.node", 0, 0, 8, "8x8");
-        if (salience != null) {
-            float scale = scaleFor("otis:sheaf-node", maxAbs(salience));
-            TensorViz.drawSquareOverlay(g, board, salience, scale, whiteDown);
-            int focusSquare = strongestSquare(salience);
-            TensorViz.drawBoardSquareRing(g, board, focusSquare, TensorViz.FOCUS, whiteDown);
-            addBoardTooltips(board, salience, "OTIS sheaf square signal", whiteDown);
-        }
-        TensorViz.drawBoardCoordinates(g, board, whiteDown);
+        float scale = salience == null ? 1.0f
+                : scaleFor("otis:sheaf-node", maxAbs(salience));
+        int focusSquare = strongestSquare(salience);
+        NetworkBoardSection.paintOverlayBoard(g, hitRegions, board, fen,
+                "sheaf focus", salience, scale, focusSquare, TensorViz.FOCUS,
+                "OTIS sheaf square signal",
+                new NetworkBoardSection.Inspection("Current position",
+                        "OTIS sheaf signal board", "", "otis.sheaf.node",
+                        0, 0, 8, "8x8"));
     }
 
     /**
@@ -337,18 +332,14 @@ public final class OtisView extends NetworkView {
         float[] laplacian = chessRtkToLerf(data("otis.sheaf.laplacian"));
         int size = Math.max(96, Math.min(r.width - 28, r.height - 86));
         Rectangle board = new Rectangle(r.x + (r.width - size) / 2, r.y + 56, size, size);
-        boolean whiteDown = TensorViz.whiteDownForSideToMove(fen);
-        TensorViz.drawMiniBoard(g, board);
-        TensorViz.drawPositionPieces(g, board, fen, whiteDown);
-        hitRegions.addInspectable(board, "Sheaf Laplacian",
-                "signed OTIS tactical sheaf Laplacian", "", "otis.sheaf.laplacian", 0, 0, 8, "8x8");
-        if (laplacian != null) {
-            float scale = scaleFor("otis:sheaf-laplacian", maxAbs(laplacian));
-            TensorViz.drawSquareOverlay(g, board, laplacian, scale, whiteDown);
-            TensorViz.drawBoardSquareRing(g, board, strongestSquare(laplacian), TensorViz.VALUE, whiteDown);
-            addBoardTooltips(board, laplacian, "OTIS sheaf Laplacian", whiteDown);
-        }
-        TensorViz.drawBoardCoordinates(g, board, whiteDown);
+        float scale = laplacian == null ? 1.0f
+                : scaleFor("otis:sheaf-laplacian", maxAbs(laplacian));
+        NetworkBoardSection.paintOverlayBoard(g, hitRegions, board, fen,
+                "sheaf Laplacian", laplacian, scale, strongestSquare(laplacian),
+                TensorViz.VALUE, "OTIS sheaf Laplacian",
+                new NetworkBoardSection.Inspection("Sheaf Laplacian",
+                        "signed OTIS tactical sheaf Laplacian", "",
+                        "otis.sheaf.laplacian", 0, 0, 8, "8x8"));
     }
 
     /**
@@ -626,31 +617,6 @@ public final class OtisView extends NetworkView {
     }
 
     /**
-     * Adds per-square tooltips over a board.
-     *
-     * @param board board bounds
-     * @param values values
-     * @param caption caption
-     * @param whiteDown orientation
-     */
-    private void addBoardTooltips(Rectangle board, float[] values, String caption, boolean whiteDown) {
-        if (values == null || values.length < 64) {
-            return;
-        }
-        for (int sq = 0; sq < 64; sq++) {
-            Rectangle cell = BoardStyle.lerfSquareBounds(board, sq, whiteDown);
-            hitRegions.add(cell, TensorViz.squareLabel(sq), caption,
-                    String.format("%+.4f", values[sq]));
-        }
-    }
-
-    /**
-     * Returns the strongest square by absolute value.
-     *
-     * @param values 64 values
-     * @return square or -1
-     */
-    /**
      * Converts a chess-rtk square-indexed array (0 = a8, as the OTIS sheaf
      * tensors and the board pieces use) into the LERF order (0 = a1) that the
      * shared board overlay / ring / tooltip helpers expect, by flipping the rank
@@ -672,6 +638,12 @@ public final class OtisView extends NetworkView {
         return lerf;
     }
 
+    /**
+     * Returns the strongest square by absolute value.
+     *
+     * @param values 64 values
+     * @return square or -1
+     */
     private static int strongestSquare(float[] values) {
         if (values == null || values.length < 64) {
             return -1;

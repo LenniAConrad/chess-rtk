@@ -1,0 +1,127 @@
+{
+  "$id": "crtk.cli.catalog.v1",
+  "title": "ChessRTK CLI command catalog",
+  "description": "Machine-readable catalog of every command in the crtk CLI registry. Emitted deterministically by crtk help --json. Consumers should pin to this schema version and bump on any breaking change.",
+  "type": "object",
+  "required": ["schemaVersion", "tool", "exitCodes", "commands"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "crtk.cli.catalog.v1"
+    },
+    "tool": {
+      "type": "string",
+      "const": "crtk"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "exitCodes": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Command"
+      }
+    }
+  },
+  "$defs": {
+    "Command": {
+      "type": "object",
+      "required": ["path", "name", "summary", "group", "runnable", "usage"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "group": {
+          "type": "boolean"
+        },
+        "runnable": {
+          "type": "boolean"
+        },
+        "usage": {
+          "type": "string"
+        },
+        "about": {
+          "type": "string"
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "aliasPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "conventions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "examples": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "related": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Flag"
+          }
+        },
+        "optionsHelp": {
+          "type": "string"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Command"
+          }
+        }
+      }
+    },
+    "Flag": {
+      "type": "object",
+      "required": ["names", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "arg": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

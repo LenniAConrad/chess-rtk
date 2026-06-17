@@ -3,8 +3,6 @@ package testing;
 import application.cli.PathOps;
 import static testing.TestSupport.*;
 
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 
 import application.cli.command.book.BookPdfCommand;
@@ -45,10 +43,9 @@ public final class ChessPDFCommandRegressionTest {
 	 */
 	private static void testFenListExport() throws Exception {
 		Path input = PathOps.createLocalTempFile("book-pdf-fens-", ".txt");
-		Files.writeString(input,
+		writeUtf8(input,
 				"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\n"
-						+ "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1\n",
-				StandardCharsets.UTF_8);
+						+ "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1\n");
 
 		Path output = PathOps.createLocalTempFile("book-pdf-fens-", ".pdf");
 		BookPdfCommand.runBookPdf(new Argv(new String[] {
@@ -57,10 +54,8 @@ public final class ChessPDFCommandRegressionTest {
 				"--title", "Fen Sheet"
 		}));
 
-		byte[] bytes = Files.readAllBytes(output);
-		assertTrue(bytes.length > 6_000, "fen-list output size");
-		assertTrue(new String(bytes, StandardCharsets.ISO_8859_1).contains("/Title (Fen Sheet)"),
-				"fen-list title metadata");
+		String text = readLatin1WithMinSize(output, 6_000, "fen-list output size");
+		assertTrue(text.contains("/Title (Fen Sheet)"), "fen-list title metadata");
 	}
 
 	/**
@@ -70,13 +65,12 @@ public final class ChessPDFCommandRegressionTest {
 	 */
 	private static void testPgnExport() throws Exception {
 		Path input = PathOps.createLocalTempFile("book-pdf-games-", ".pgn");
-		Files.writeString(input,
+		writeUtf8(input,
 				"[Event \"Regression\"]\n"
 						+ "[White \"Alpha\"]\n"
 						+ "[Black \"Beta\"]\n"
 						+ "[Result \"*\"]\n\n"
-						+ "1. e4 e5 2. Nf3 Nc6 *\n",
-				StandardCharsets.UTF_8);
+						+ "1. e4 e5 2. Nf3 Nc6 *\n");
 
 		Path output = PathOps.createLocalTempFile("book-pdf-games-", ".pdf");
 		BookPdfCommand.runBookPdf(new Argv(new String[] {
@@ -85,9 +79,7 @@ public final class ChessPDFCommandRegressionTest {
 				"--title", "PGN Export"
 		}));
 
-		byte[] bytes = Files.readAllBytes(output);
-		String text = new String(bytes, StandardCharsets.ISO_8859_1);
-		assertTrue(bytes.length > 8_000, "pgn output size");
+		String text = readLatin1WithMinSize(output, 8_000, "pgn output size");
 		assertTrue(text.contains("/Title (PGN Export)"), "pgn title metadata");
 		assertFalse(text.contains("/Subtype /Image"), "pgn raster image embedding");
 	}

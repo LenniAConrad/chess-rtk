@@ -10,6 +10,8 @@ Start here, because most of what looks like a bug is an environment or configura
 crtk doctor
 crtk config validate
 crtk config show
+crtk doctor --json
+crtk config show --json
 ```
 
 `crtk doctor` inspects the runtime, configuration, engine protocol files, external engine availability, and local artifacts. By default it tolerates warnings; `--strict` turns them into a non-zero exit, which is what you want in CI:
@@ -17,6 +19,8 @@ crtk config show
 ```bash
 crtk doctor --strict --verbose
 ```
+
+For bug reports, automation, or the Workbench setup card, prefer `crtk doctor --json` and `crtk config show --json`. They return stable `crtk.doctor.v1` and `crtk.config.v1` objects instead of requiring text scraping.
 
 > No `crtk` launcher on your PATH? Replace `crtk ...` with `java -jar crtk.jar ...` (or `java -cp out application.Main ...`). Always tell us which form you used.
 

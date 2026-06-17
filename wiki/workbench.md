@@ -39,28 +39,34 @@ There are only three launch options, and they match what the CLI reports:
 | `--flip` / `--black-down` | Render the board with Black at the bottom |
 | `-h` / `--help` | Print workbench launch help |
 
-## Main areas
+## Registered views
 
-The Workbench is a set of dockable tabs, each carved out around one job rather than one feature.
+The Workbench currently registers eight top-level views. Older names such as
+Analyze, Play, Solve, Relations, Draw, Network, MCTS, Tree, Gauntlet, Batch, and
+Commands are modes or workflows inside these views, not separate top-level tabs.
 
-| Area | Purpose |
+| View | Modes and workflows | Purpose |
 | --- | --- |
-| Dashboard | Session overview, health, recent jobs, and generated artifacts |
-| Analyze | Interactive board, PGN navigation, legal moves, tags, ECO tree, post-game review, study authoring, endgame tablebase status, board editor, and engine controls |
-| Play | Human-vs-engine games against in-process alpha-beta/classical preset opponents |
-| Commands | GUI forms that build and run any `crtk` command |
-| Batch | FEN-list and command-script execution with progress |
-| Datasets | Loading, validation, summaries, and charts for exported data |
-| Publish | Previews for diagrams, books, studies, collections, and covers |
-| Console | Command output with terminal-style progress handling |
-| Logs | Persisted job logs and artifacts |
-| Network | NNUE, LC0 CNN, BT4, and OTIS model diagnostics and visualizers |
-| Relations | OTIS tactical-incidence relation channels drawn as typed arrows on a board |
-| Puzzles | Interactive puzzle practice |
+| Dashboard | Session overview, health, recent jobs, artifacts | The default operational overview |
+| Board | Analyze, Play, Solve, Relations, Draw | The shared board workspace for positions, games, puzzles, overlays, and annotation |
+| Run | Command builder and batch-style templates | GUI forms that build and run real `crtk` commands |
+| Datasets | Dataset loaders, summaries, charts, sample inspection | Loading, validation, summaries, and charts for exported data |
+| Publish | Diagram, book, study, collection, and cover previews | Publishing workflow previews before rendering PDFs |
+| Engine Lab | Network, MCTS, Tree, Gauntlet | Neural, search-tree, and self-play engine diagnostics |
+| Console | Live command output | Terminal-style progress and stdout/stderr display |
+| Logs | Persisted job logs and artifacts | The durable audit trail for completed runs |
 
-## Analysis and PGN board
+## Board view
 
-Analyze is where you land. The board sits in the middle, surrounded by everything you'd want pointed at a position: move navigation, the legal-move list, deterministic tags, an ECO opening tree, deterministic post-game review with retry jumps, study TOML authoring from the current line, endgame tablebase-hit status, a board editor for arbitrary setups, and panels for both the in-process search and the external analysis engine. Load a PGN and you step through the game from the same view.
+Board is the shared position and game workspace. Its mode switcher hosts Analyze,
+Play, Solve, Relations, and Draw. The board sits in the middle, surrounded by
+the mode-specific tools for the current task: move navigation, the legal-move
+list, deterministic tags, an ECO opening tree, deterministic post-game review
+with retry jumps, study TOML authoring from the current line,
+endgame/tablebase-hit status, a board editor for arbitrary setups, puzzle
+practice, tactical-incidence overlays, and freehand annotation/export controls.
+Load a PGN in Analyze mode and you step through the game from the same shared
+board surface.
 
 ![Workbench analysis board](../assets/screenshots/workbench-analysis.png)
 
@@ -68,25 +74,23 @@ The board sees the world the way the CLI does: identical move generation, identi
 
 The PGN explorer doubles as a lightweight database workspace. It indexes player/opening/result metadata, filters games reaching the current board position, removes exact duplicates, copies selected games, and can copy a prep report for the visible games or named player query.
 
-The Engine surface includes a Gauntlet mode for reproducible built-in engine self-play. It builds the exact `testing.SelfPlayGauntlet` JVM command, runs it in a child process, and streams W-D-L/Elo output into the panel.
-
 ### Where to find the new analysis tools
 
 | Tool | Path |
 | --- | --- |
-| Opening tree | Analyze -> Board -> Tools -> Opening Tree, or the side rail ECO tab |
-| Post-game review and retry | Analyze -> Board -> Tools -> Review, or Analyze -> Game -> Study / Review / Database -> Review Game |
-| PGN database workspace | Analyze -> Board -> PGN Database, or Analyze -> Game -> Study / Review / Database -> PGN Database |
+| Opening tree | Board -> Analyze -> Tools -> Opening Tree, or the side rail ECO tab |
+| Post-game review and retry | Board -> Analyze -> Tools -> Review, or Board -> Analyze -> Game -> Study / Review / Database -> Review Game |
+| PGN database workspace | Board -> Analyze -> PGN Database, or Board -> Analyze -> Game -> Study / Review / Database -> PGN Database |
 | Player prep report | PGN Database -> Prep Report after loading/searching PGNs |
-| Engine gauntlet manager | Analyze -> Board -> Tools -> Gauntlet, or Engine -> Gauntlet |
-| Endgame/tablebase panel | Analyze -> Board -> Tools -> Endgame, or the side rail Endgame tab |
-| Study/repertoire authoring | Analyze -> Board -> Tools -> Study, or Analyze -> Game -> Study / Review / Database -> Author Study |
+| Engine gauntlet manager | Engine Lab -> Gauntlet |
+| Endgame/tablebase panel | Board -> Analyze -> Tools -> Endgame, or the side rail Endgame tab |
+| Study/repertoire authoring | Board -> Analyze -> Tools -> Study, or Board -> Analyze -> Game -> Study / Review / Database -> Author Study |
 
 The command palette also exposes the same workflows by name: Opening tree, Review game, Author study, Endgame tablebase, PGN database, Player prep report, and Open engine gauntlet.
 
-## Play vs engine
+## Board / Play
 
-Play runs a full human-versus-engine game from the start position, the current board, or a pasted FEN. The named preset bots all use alpha-beta search with the always-available classical evaluator; their Elo changes adjust the search budget and move sampling, not the backend. Choose Custom to expose the two backend selectors:
+Board / Play runs a full human-versus-engine game from the start position, the current board, or a pasted FEN. The named preset bots all use alpha-beta search with the always-available classical evaluator; their Elo changes adjust the search budget and move sampling, not the backend. Choose Custom to expose the two backend selectors:
 
 - **Search** chooses the move-picking algorithm: `Alpha-Beta` or `MCTS`.
 - **Network** chooses the leaf evaluator: `Classical`, `NNUE`, `CNN` (LC0), or `OTIS`.
@@ -109,17 +113,31 @@ If a neural model is missing or won't load, Play drops back to classical evaluat
 
 > Important: Play is in-process only. Whatever external UCI engine you've configured (Stockfish, full LC0) backs the Workbench's live analysis and the engine command forms — never the Play opponent.
 
-## Command controller and forms
+## Run view
 
-The Commands tab is the CLI rendered as forms. Pick an area and action — `engine bestmove`, `puzzle mine`, `record dataset npy`, `fen tags` — and the form sorts the inputs into required fields, mutually exclusive choices, and optional flags, validating as you go. The exact `crtk` command takes shape in front of you while you fill it in, ready to copy into a script or run on the spot.
+Run is the CLI rendered as forms. Pick an area and action — `engine bestmove`, `puzzle mine`, `record dataset npy`, `fen tags` — and the form sorts the inputs into required fields, mutually exclusive choices, and optional flags, validating as you go. The exact `crtk` command takes shape in front of you while you fill it in, ready to copy into a script or run on the spot.
 
 ![Workbench command controller](../assets/screenshots/workbench-commands.png)
 
 Since every form lands on a real CLI command, this doubles as a way to learn the surface area: assemble a command by clicking, read off its flags, then lift the generated text into a script for reproducible runs. The [Command Reference](command-reference.md) documents what each form mirrors.
 
+The `Review game` command template mirrors `crtk review game --to-study`: choose a PGN, keep the shared engine budget fields explicit, and run the CLI to produce review JSONL, study JSONL, and Record sidecars. The Workbench preview is the runnable command; later review panels consume those files instead of computing separate verdicts.
+
+The local PGN store also has first-class Run templates for the non-destructive
+database path: `pgn import`, `pgn find`, `pgn show`, and `pgn stats`. Use the
+command palette entries `PGN import`, `PGN find`, `PGN show`, `PGN stats`, and
+`Review game command` to jump directly to those templates. The destructive
+store-maintenance verbs, `pgn delete` and `pgn compact`, remain available through
+the `All CLI` template.
+
 ## Batch jobs
 
-Batch is for work measured in the thousands. Sweep a FEN list through an engine command, or run a command script — one `crtk` command per non-comment line — exactly as `batch run` would. It tracks progress, breaks out per-row results, and gathers the output, so a large mining or export pass never has to leave the GUI. Anything long-running reports into the Console and persists into Logs.
+Batch work now lives in Run as command templates and multi-line inputs. Sweep a
+FEN list through an engine command, or run a command script — one `crtk` command
+per non-comment line — exactly as `batch run` would. It tracks progress, breaks
+out per-row results, and gathers the output, so a large mining or export pass
+never has to leave the GUI. Anything long-running reports into Console and
+persists into Logs.
 
 ## Datasets
 
@@ -129,25 +147,41 @@ The Datasets tab opens up whatever the export pipeline produced — the tensors 
 
 The Publish tab shows you the PDF before you pay for the render. It previews single diagrams (`book pdf`), puzzle collections (`book collection`), annotated studies (`book study`), book interiors (`book render`), and covers (`book cover`). The whole publishing stack is built in — no LaTeX, no external toolchain to install. See [Book publishing](book-publishing.md) for the manifest formats and the full option set.
 
-## Puzzles
+## Board / Solve
 
-The Puzzles tab is where you actually solve the things you mined. Load the `*.puzzles.json` output of `puzzle mine`, work a position on the board, then reveal the principal variation and the move-by-move tags — the same deterministic tagging behind `puzzle tags`. See [Puzzle mining](mining.md) for how the sets are produced and gated by the Filter DSL.
+Board / Solve is where you actually solve the things you mined. Load the
+`*.puzzles.json` output of `puzzle mine`, work a position on the board, then
+reveal the principal variation and the move-by-move tags — the same
+deterministic tagging behind `puzzle tags`. See [Puzzle mining](mining.md) for
+how the sets are produced and gated by the Filter DSL.
 
-## Network visualizer
+## Engine Lab
 
-The Network tab opens up the neural networks the toolkit has loaded — NNUE, the LC0 CNN, BT4, OTIS — and shows what they're doing: loaded-model state, inference state, feature boards, activation summaries, atlases, trace views, runtime information, and exportable visualizations. As close as you can get to watching an evaluator look at a position.
+Engine Lab hosts the implementation-facing engine views. Network opens up the
+neural networks the toolkit has loaded — NNUE, the LC0 CNN, BT4, OTIS — and
+shows what they're doing: loaded-model state, inference state, feature boards,
+activation summaries, atlases, trace views, runtime information, and exportable
+visualizations. MCTS and Tree inspect the in-process PUCT/MCTS search, including
+root moves and tree exports. Gauntlet runs reproducible built-in engine
+self-play; it builds the exact `testing.SelfPlayGauntlet` JVM command, runs it
+in a child process, and streams W-D-L/Elo output into the panel.
 
-## Relations
+## Board / Relations
 
-The Relations tab draws the OTIS *tactical incidence* graph — the twelve typed relation channels `A(x)` the oriented-tactical-sheaf network ingests — as colour-coded arrows over a board: us/them attacks and defenses, king-zone pressure, occlusion-aware bishop/rook/queen rays, knight and pawn attacks, and absolute-pin candidates. Toggle channels on and off, set the arrow opacity, and point it at the current analysis position (Sync to board) or a pasted FEN. The edges are computed deterministically from the position alone — no model file needed — and are the exact same `A(x)` the CLI `fen relations` command renders and the network reads.
+Board / Relations draws the OTIS *tactical incidence* graph — the twelve typed relation channels `A(x)` the oriented-tactical-sheaf network ingests — as colour-coded arrows over a board: us/them attacks and defenses, king-zone pressure, occlusion-aware bishop/rook/queen rays, knight and pawn attacks, and absolute-pin candidates. Toggle channels on and off, set the arrow opacity, and point it at the current analysis position (Sync to board) or a pasted FEN. The edges are computed deterministically from the position alone — no model file needed — and are the exact same `A(x)` the CLI `fen relations` command renders and the network reads.
 
 ![Workbench network visualizer](../assets/screenshots/workbench-network.png)
 
 Read this as a research and debugging aid, not ground truth about a reference engine. The networks are usable evaluators, but the LC0 CNN and BT4 paths are simplified and not bit-exact equivalents of upstream inference — so the activations are faithful to ChessRTK's implementation, which is not quite the same thing as faithful to LC0 or BT4.
 
-## Console and logs
+## Console and Logs
 
-The Console streams command output with terminal-style progress handling, so a running export or mining job reads much like it would in a shell. When the run ends, the Logs tab holds onto the job logs and their artifacts — your audit trail of what was produced and where it landed. See [Outputs and logs](outputs-and-logs.md) for the on-disk layout.
+Console and Logs are first-class registered views, which means they can be split,
+duplicated, and resized beside other views. Console streams command output with
+terminal-style progress handling, so a running export or mining job reads much
+like it would in a shell. Logs holds onto job logs and artifacts after a run ends
+— your audit trail of what was produced and where it landed. See [Outputs and
+logs](outputs-and-logs.md) for the on-disk layout.
 
 ## Keyboard and layout
 

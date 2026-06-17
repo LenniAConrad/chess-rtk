@@ -89,6 +89,7 @@
 <a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
 <a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="review-to-study.html" data-title="review to study">Review To Study</a>
 <a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
@@ -114,10 +115,12 @@
 <ul>
 <li><code>crtk doctor</code> — checks the Java version, the resolved config and engine protocol files, the engine instance count, the output directory, and whether local model artifacts exist. It prints <code>ok</code>, <code>ok-with-warnings</code>, or an error, then lists each warning.</li>
 <li><code>crtk config validate</code> — validates <code>config/cli.config.toml</code> and the referenced engine protocol TOML and reports the first problem it finds.</li>
+<li><code>crtk doctor --json</code> and <code>crtk config show --json</code> — emit stable machine-readable objects for scripts, issue reports, and the Workbench setup/health surface.</li>
 </ul>
 <pre><code class="language-bash">crtk doctor
 crtk config validate
-crtk config show</code></pre>
+crtk config show
+crtk doctor --json</code></pre>
 <p>A healthy machine prints something like this. Warnings — a missing optional T5 model, say — are non-fatal: <code>doctor</code> reports <code>ok-with-warnings</code> and everything else keeps working.</p>
 <pre><code class="language-text">doctor: ok-with-warnings
 Java: 21.0.11
@@ -127,7 +130,7 @@ Engine instances: 4
 Output: dump/
 Warnings:
   - Missing model file for t5-model-path: /path/to/models/t5.bin</code></pre>
-<p>In CI or scripts, <code>crtk doctor --strict</code> turns warnings into failures — it exits non-zero the moment one is present. See <a href="configuration.html">Configuration</a> for what each value means and <a href="build-and-install.html">Build and Install</a> for installation details.</p>
+<p>In CI or scripts, <code>crtk doctor --strict</code> turns warnings into failures — it exits non-zero the moment one is present. Add <code>--json</code> when the caller needs the <code>crtk.doctor.v1</code> status, warning/error arrays, and native backend matrix without scraping text. See <a href="configuration.html">Configuration</a> for what each value means and <a href="build-and-install.html">Build and Install</a> for installation details.</p>
 <h2 id="launcher-or-path-issues">Launcher or <code>PATH</code> issues</h2>
 <p><strong>Symptom:</strong> <code>crtk: command not found</code>, or the <code>crtk</code> launcher runs an old build.</p>
 <ul>

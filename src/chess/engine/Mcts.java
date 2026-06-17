@@ -329,6 +329,26 @@ public final class Mcts implements AutoCloseable {
     }
 
     /**
+     * Creates an LC0 CNN policy/value-backed MCTS searcher with custom PUCT
+     * tuning.
+     *
+     * @param weights LC0 weights path, or {@code null} for the bundled default
+     * @param cpuct exploration constant
+     * @param fpuReduction first-play urgency reduction for unvisited children
+     * @param checkPriorBonus handcrafted prior bonus for moves that give check
+     * @param losingCapturePriorPenalty handcrafted prior penalty for SEE-losing captures
+     * @param winningCapturePriorScale scale applied to positive SEE values
+     * @return policy/value-backed searcher
+     * @throws IOException if weights cannot be loaded
+     */
+    public static Mcts lc0(Path weights, double cpuct, double fpuReduction, int checkPriorBonus,
+            int losingCapturePriorPenalty, int winningCapturePriorScale) throws IOException {
+        Path resolved = weights == null ? chess.nn.lc0.cnn.Model.DEFAULT_WEIGHTS : weights;
+        return new Mcts(new CnnBackend(chess.nn.lc0.cnn.Model.load(resolved)), cpuct, fpuReduction,
+                checkPriorBonus, losingCapturePriorPenalty, winningCapturePriorScale);
+    }
+
+    /**
      * Creates an LC0 BT4 policy/value-backed MCTS searcher.
      *
      * @param weights BT4 weights path
@@ -355,6 +375,28 @@ public final class Mcts implements AutoCloseable {
     }
 
     /**
+     * Creates an LC0 BT4 policy/value-backed MCTS searcher with custom PUCT
+     * tuning.
+     *
+     * @param weights BT4 weights path
+     * @param cpuct exploration constant
+     * @param fpuReduction first-play urgency reduction for unvisited children
+     * @param checkPriorBonus handcrafted prior bonus for moves that give check
+     * @param losingCapturePriorPenalty handcrafted prior penalty for SEE-losing captures
+     * @param winningCapturePriorScale scale applied to positive SEE values
+     * @return policy/value-backed searcher
+     * @throws IOException if weights cannot be loaded
+     */
+    public static Mcts bt4(Path weights, double cpuct, double fpuReduction, int checkPriorBonus,
+            int losingCapturePriorPenalty, int winningCapturePriorScale) throws IOException {
+        if (weights == null) {
+            throw new IllegalArgumentException("weights == null");
+        }
+        return new Mcts(new Bt4Backend(chess.nn.lc0.bt4.Network.load(weights)), cpuct, fpuReduction,
+                checkPriorBonus, losingCapturePriorPenalty, winningCapturePriorScale);
+    }
+
+    /**
      * Creates an OTIS policy/WDL-backed MCTS searcher.
      *
      * @param weights OTIS weights path
@@ -376,6 +418,25 @@ public final class Mcts implements AutoCloseable {
     public static Mcts otis(Path weights, double cpuct) throws IOException {
         Path resolved = weights == null ? chess.nn.otis.Model.DEFAULT_WEIGHTS : weights;
         return new Mcts(new OtisBackend(chess.nn.otis.Model.load(resolved)), cpuct);
+    }
+
+    /**
+     * Creates an OTIS policy/WDL-backed MCTS searcher with custom PUCT tuning.
+     *
+     * @param weights OTIS weights path, or {@code null} for the bundled default
+     * @param cpuct exploration constant
+     * @param fpuReduction first-play urgency reduction for unvisited children
+     * @param checkPriorBonus handcrafted prior bonus for moves that give check
+     * @param losingCapturePriorPenalty handcrafted prior penalty for SEE-losing captures
+     * @param winningCapturePriorScale scale applied to positive SEE values
+     * @return policy/value-backed searcher
+     * @throws IOException if weights cannot be loaded
+     */
+    public static Mcts otis(Path weights, double cpuct, double fpuReduction, int checkPriorBonus,
+            int losingCapturePriorPenalty, int winningCapturePriorScale) throws IOException {
+        Path resolved = weights == null ? chess.nn.otis.Model.DEFAULT_WEIGHTS : weights;
+        return new Mcts(new OtisBackend(chess.nn.otis.Model.load(resolved)), cpuct, fpuReduction,
+                checkPriorBonus, losingCapturePriorPenalty, winningCapturePriorScale);
     }
 
     /**

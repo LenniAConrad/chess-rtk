@@ -89,6 +89,7 @@
 <a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
 <a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="review-to-study.html" data-title="review to study">Review To Study</a>
 <a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="active" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
@@ -140,6 +141,10 @@
 <td>Tag positions from a PGN (<code>--mainline</code> or <code>--sidelines</code>).</td>
 </tr>
 <tr>
+<td><code>fen tags --pgn FILE --analyze-game</code></td>
+<td>Emit one whole-game analysis JSON object per parsed game, including dynamic game-analysis families.</td>
+</tr>
+<tr>
 <td><code>fen tags --delta</code></td>
 <td>Emit per-move tag deltas as JSONL.</td>
 </tr>
@@ -162,7 +167,7 @@
 <ul>
 <li><strong>Deterministic.</strong> The same FEN always yields the same tags. A tag asserts what is true of the position and nothing more — no mood, no hand-waving evaluation.</li>
 <li><strong>Sorted and de-duplicated.</strong> Output is ordered by family rank, then lexicographically within a family, with exact duplicates dropped. The sort is idempotent, so re-sorting canonical output changes nothing.</li>
-<li><strong>Stable canonical family order:</strong> <code>FACT</code> → <code>META</code> → <code>MOVE</code> → <code>THREAT</code> → <code>CAND</code> → <code>PV</code> → <code>IDEA</code> → <code>TACTIC</code> → <code>CHECKMATE</code> → <code>PIECE</code> → <code>KING</code> → <code>PAWN</code> → <code>MATERIAL</code> → <code>SPACE</code> → <code>INITIATIVE</code> → <code>DEVELOPMENT</code> → <code>MOBILITY</code> → <code>OUTPOST</code> → <code>ENDGAME</code> → <code>OPENING</code>.</li>
+<li><strong>Stable canonical family order:</strong> <code>FACT</code> → <code>META</code> → <code>MOVE</code> → <code>THREAT</code> → <code>CAND</code> → <code>PV</code> → <code>IDEA</code> → <code>TACTIC</code> → <code>CHECKMATE</code> → <code>PIECE</code> → <code>KING</code> → <code>PAWN</code> → <code>MATERIAL</code> → <code>SPACE</code> → <code>INITIATIVE</code> → <code>DEVELOPMENT</code> → <code>MOBILITY</code> → <code>OUTPOST</code> → <code>ENDGAME</code> → <code>OPENING</code> → <code>MOVE_EFFECT</code> → <code>LINE</code> → <code>VARIATION</code> → <code>GAME</code>.</li>
 <li><strong>Regression-locked.</strong> A new <code>pattern=</code> or <code>motif=</code> value ships with a golden fixture under <code>testdata/tags/*.tsv</code> and is cross-checked against the existing detectors before it lands. That cross-check is the safeguard that stops a new detector from quietly rewriting old output.</li>
 </ul>
 <h2 id="family-overview">Family overview</h2>
@@ -272,6 +277,26 @@
 <td><code>OPENING</code></td>
 <td>when ECO matches</td>
 <td>ECO code and opening name from the bundled book.</td>
+</tr>
+<tr>
+<td><code>MOVE_EFFECT</code></td>
+<td>with <code>--analyze-game</code></td>
+<td>What each replayed game move changed.</td>
+</tr>
+<tr>
+<td><code>LINE</code></td>
+<td>with <code>--analyze-game</code></td>
+<td>Multi-move motifs grounded by replaying a legal line.</td>
+</tr>
+<tr>
+<td><code>VARIATION</code></td>
+<td>with <code>--analyze-game</code></td>
+<td>PGN sideline headers and shared sibling-variation tactics.</td>
+</tr>
+<tr>
+<td><code>GAME</code></td>
+<td>with <code>--analyze-game</code></td>
+<td>Whole-game summary facts such as phase transitions, opening, and result cause.</td>
 </tr>
 </tbody></table></div>
 <h2 id="fact-static-board-observations">FACT — static board observations</h2>
@@ -693,6 +718,38 @@
 </tr>
 </tbody></table></div>
 <p><code>OPENING</code> tags appear only when the bundled ECO book matches the position — out of book, there is no honest code to emit.</p>
+<h2 id="dynamic-game-analysis-families">Dynamic game-analysis families</h2>
+<p>These four families come from <code>fen tags --pgn FILE --analyze-game</code>. They are grounded by replaying a parsed game through the same chess core, so malformed or illegal branches are truncated instead of guessed.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Family</th>
+<th>Forms</th>
+</tr></thead><tbody>
+<tr>
+<td><code>MOVE_EFFECT</code></td>
+<td>`san=&lt;SAN&gt; type=checkmate\</td>
+<td>check\</td>
+<td>capture\</td>
+<td>quiet<code>; optional </code>creates=&quot;...&quot;<code> / </code>removes=&quot;...&quot;` motif deltas between parent and child positions</td>
+</tr>
+<tr>
+<td><code>LINE</code></td>
+<td>`motif=forcing\</td>
+<td>combination\</td>
+<td>sacrifice\</td>
+<td>perpetual_check\</td>
+<td>deflection ... line=&quot;&lt;SAN ...&gt;&quot;`</td>
+</tr>
+<tr>
+<td><code>VARIATION</code></td>
+<td><code>branch_ply=&lt;n&gt; length=&lt;n&gt; line=&quot;&lt;SAN ...&gt;&quot;</code>; <code>tactic_shared=&lt;motif&gt; branch_ply=&lt;n&gt; count=&lt;n&gt; detail=&quot;&lt;payload&gt;&quot;</code></td>
+</tr>
+<tr>
+<td><code>GAME</code></td>
+<td><code>phase_transition=&lt;from&gt;-&gt;&lt;to&gt; ply=&lt;n&gt; move=&lt;SAN&gt;</code>; <code>eco=&lt;code&gt;</code>; <code>opening=&quot;&lt;name&gt;&quot;</code>; `result_cause=checkmate\</td>
+<td>stalemate`</td>
+</tr>
+</tbody></table></div>
 <h2 id="tag-deltas-and-identity">Tag deltas and identity</h2>
 <p>Walking a game move by move, you care less about the full tag set than about what just changed. <code>fen tags --delta</code> gives you that. The trick is comparing tags by <strong>semantic identity</strong> instead of raw text, so editing a value reads as a single change rather than one remove paired with one add:</p>
 <pre><code class="language-text">META: to_move=white         -&gt; META:to_move
@@ -747,7 +804,7 @@ CHECKMATE: pattern=smothered_mate -&gt; CHECKMATE:pattern:smothered_mate</code><
 <a class="toc-h2" href="#material-material-balance">MATERIAL — material balance</a>
 <a class="toc-h2" href="#space-initiative-development-mobility-outpost">SPACE, INITIATIVE, DEVELOPMENT, MOBILITY, OUTPOST</a>
 <a class="toc-h2" href="#endgame-and-opening">ENDGAME and OPENING</a>
-<a class="toc-h2" href="#tag-deltas-and-identity">Tag deltas and identity</a></aside>
+<a class="toc-h2" href="#dynamic-game-analysis-families">Dynamic game-analysis families</a></aside>
     </main>
   </div>
 

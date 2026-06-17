@@ -57,7 +57,7 @@ import static application.gui.workbench.ui.Ui.transparentPanel;
  * session directory for application logs and command-run logs, then renders
  * them in a terminal-like read-only view.
  */
-public final class LogPanel extends JPanel {
+public final class LogPanel extends SurfacePanel {
 
     /**
      * Serialization identifier for Swing panel compatibility.
@@ -196,6 +196,7 @@ public final class LogPanel extends JPanel {
      * @param copyText clipboard callback for copied paths
      */
     public LogPanel(Consumer<String> copyText) {
+        super(new BorderLayout(0, 0), Theme.Surface.PANEL);
         this.copyText = copyText == null ? LogPanel::copyToSystemClipboard : copyText;
         configure();
         refreshLogs();
@@ -316,11 +317,6 @@ public final class LogPanel extends JPanel {
      * Applies the static Swing layout and component styling.
      */
     private void configure() {
-        setLayout(new BorderLayout(0, 0));
-        setOpaque(true);
-        setBackground(Theme.PANEL_SOLID);
-        setForeground(Theme.TEXT);
-
         add(header(), BorderLayout.NORTH);
         JPanel body = transparentPanel(new BorderLayout(0, Theme.SPACE_MD));
         body.setBorder(Theme.pad(Theme.SPACE_MD));
@@ -788,7 +784,7 @@ public final class LogPanel extends JPanel {
         tile.setOpaque(true);
         tile.setBackground(Theme.PANEL_SOLID);
         tile.setBorder(javax.swing.BorderFactory.createCompoundBorder(
-                javax.swing.BorderFactory.createLineBorder(Theme.LINE),
+                Theme.lineBorder(Theme.LINE),
                 Theme.pad(Theme.SPACE_XS, Theme.SPACE_SM, Theme.SPACE_XS, Theme.SPACE_SM)));
         JLabel label = new JLabel(title);
         label.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));

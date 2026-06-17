@@ -89,6 +89,7 @@
 <a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
 <a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="review-to-study.html" data-title="review to study">Review To Study</a>
 <a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
@@ -113,6 +114,7 @@
 <h2 id="why-crtk-is-agent-friendly">Why crtk Is Agent-Friendly</h2>
 <ul>
 <li><strong>Deterministic outputs.</strong> Move ordering, FEN normalization, perft counters, and the built-in search return the same answer for the same inputs and budgets. The core paths carry no hidden clocks and no randomized defaults.</li>
+<li><strong>Self-describing.</strong> <code>crtk help --json</code> emits the entire command tree — paths, aliases, usage, flags, examples, and the exit-code taxonomy — as a deterministic <code>crtk.cli.catalog.v1</code> object. Discover the surface from the catalog instead of hard-coding it; <code>crtk help --json &lt;area&gt; &lt;action&gt;</code> scopes it to one subtree.</li>
 <li><strong>Stable contracts.</strong> Most machine-facing commands take <code>--json</code> (one object or array) or <code>--jsonl</code> (one object per line); notation commands take <code>--format uci|san|both</code>. Parse a documented shape rather than scrape prose.</li>
 <li><strong>Explicit inputs.</strong> Positions come in through named flags (<code>--fen</code>, <code>--input</code>, <code>--startpos</code>, <code>--randompos</code>, <code>--stdin</code>), never positional guesswork. When a free-form argument could pass for a flag, separate it with <code>--</code>.</li>
 <li><strong>Exit codes that mean something.</strong> Success exits <code>0</code>; a bad FEN, a missing file, or a failed command exits non-zero. Errors go to stderr, so a failing run still leaves stdout clean for the parser.</li>
@@ -123,11 +125,29 @@
 <pre><code class="language-bash">crtk doctor                 # environment + config health
 crtk config validate        # config file is well-formed
 crtk version --json         # {&quot;name&quot;:&quot;ChessRTK&quot;,&quot;launcher&quot;:&quot;crtk&quot;,&quot;version&quot;:&quot;...&quot;,&quot;java&quot;:&quot;...&quot;}
-crtk help                   # area list; `crtk help &lt;area&gt; &lt;action&gt;` for any command</code></pre>
+crtk help                   # area list; `crtk help &lt;area&gt; &lt;action&gt;` for any command
+crtk help --json            # full machine-readable command catalog (crtk.cli.catalog.v1)
+crtk serve --port 8787      # optional localhost JSON-RPC daemon for repeated calls</code></pre>
 <p>The smallest useful loop — is this position legal, and what can I play from it:</p>
 <pre><code class="language-bash">crtk fen validate --fen &quot;&lt;FEN&gt;&quot; --json
 crtk fen normalize --fen &quot;&lt;FEN&gt;&quot; --json
 crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code></pre>
+<h2 id="warm-process-crtk-serve">Warm Process: <code>crtk serve</code></h2>
+<p>For interactive agents and editor integrations, <code>crtk serve</code> keeps one JVM warm and exposes the same command dispatcher over localhost HTTP. It binds <code>127.0.0.1</code> by default, refuses non-loopback hosts, and exposes only <code>/rpc</code>, <code>/catalog</code>, and <code>/health</code>.</p>
+<pre><code class="language-bash">crtk serve --port 8787</code></pre>
+<p>Use <code>/catalog</code> for the same command contract as <code>crtk help --json</code>:</p>
+<pre><code class="language-bash">curl -s http://127.0.0.1:8787/catalog</code></pre>
+<p>Run commands through JSON-RPC by sending the exact argv tokens after <code>crtk</code>:</p>
+<pre><code class="language-bash">curl -s http://127.0.0.1:8787/rpc \
+  -H &#x27;Content-Type: application/json&#x27; \
+  -d &#x27;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:1,&quot;method&quot;:&quot;run&quot;,&quot;params&quot;:{&quot;argv&quot;:[&quot;fen&quot;,&quot;validate&quot;,&quot;--fen&quot;,&quot;&lt;FEN&gt;&quot;,&quot;--json&quot;]}}&#x27;</code></pre>
+<p>The result contains <code>exitCode</code>, <code>stdout</code>, <code>stderr</code>, and the argv the daemon dispatched. The stdout text is the CLI&#x27;s stdout byte-for-byte, so existing JSON parsers can keep using the command-specific contracts. Requests are serialized through one dispatcher thread because the underlying CLI writes to process-wide stdout and stderr. See <a href="serve.html">Local JSON-RPC daemon</a> for endpoint details and safety boundaries.</p>
+<p>Python integrations can use the generated SDK instead of hand-writing JSON-RPC requests:</p>
+<pre><code class="language-bash">python3 scripts/generate_python_sdk.py</code></pre>
+<pre><code class="language-python">from crtk_client import CrtkClient
+
+client = CrtkClient(&quot;http://127.0.0.1:8787&quot;)
+result = client.fen_validate(&quot;--fen&quot;, &quot;&lt;FEN&gt;&quot;, &quot;--json&quot;, check=True)</code></pre>
 <h2 id="machine-readable-output-by-command">Machine-Readable Output by Command</h2>
 <p>These are the commands worth reaching for first, paired with the contract each one emits.</p>
 <div class="table-wrap"><table>
@@ -227,6 +247,11 @@ crtk move list --fen &quot;&lt;FEN&gt;&quot; --format both</code></pre>
 <td>deterministic prompt/target row with features</td>
 </tr>
 <tr>
+<td>Review a PGN into study units</td>
+<td><code>review game --pgn &lt;file&gt; --to-study</code></td>
+<td><code>crtk.review.ply.v1</code> JSONL plus <code>crtk.review.study_unit.v1</code> and <code>crtk.record.v2</code> sidecars</td>
+</tr>
+<tr>
 <td>Perft counters</td>
 <td><code>engine perft --depth &lt;d&gt;</code></td>
 <td>nodes plus detailed counters</td>
@@ -313,6 +338,7 @@ crtk record analysis-delta -i dump/merged.json -o dump/merged.analysis-delta.jso
 crtk record dataset classifier -i dump/puzzles.json -i dump/nonpuzzles.json -o training/classifier/run
 crtk record export training-jsonl -i dump/puzzles.json -o training/run.jsonl --max-records 100000</code></pre>
 <p>Puzzle mining (<code>puzzle mine</code>) writes <code>*.puzzles.json</code> / <code>*.nonpuzzles.json</code> and is gated by the Filter DSL. See <a href="mining.html">Puzzle Mining</a>, <a href="datasets.html">Datasets</a>, and <a href="filter-dsl.html">Filter DSL</a>.</p>
+<p>Game review (<code>review game --to-study</code>) writes <code>*.review.jsonl</code>, <code>*.study.jsonl</code>, and <code>*.study.record.json</code>. The review rows keep every analyzed ply; the study rows and Record file keep drillable mistakes. See <a href="review-to-study.html">Review to Study</a>.</p>
 <h2 id="setup-gates-for-pipelines">Setup Gates for Pipelines</h2>
 <p>Run these as preflight checks before the real work, at the top of a CI job or agent session:</p>
 <ul>
@@ -335,6 +361,7 @@ crtk record export training-jsonl -i dump/puzzles.json -o training/run.jsonl --m
 <li><a href="command-cheatsheet.html">Command Cheatsheet</a> — one-liners for common tasks</li>
 <li><a href="example-commands.html">Example Commands</a> — copy-pasteable walkthroughs</li>
 <li><a href="outputs-and-logs.html">Outputs and Logs</a> — output formats and where artifacts land</li>
+<li><a href="review-to-study.html">Review to Study</a> — review JSONL and study-unit artifact contracts</li>
 <li><a href="configuration.html">Configuration</a> — config keys and engine protocols</li>
 <li><a href="use-cases.html">Use Cases</a> — end-to-end workflows</li>
 </ul>
@@ -342,6 +369,7 @@ crtk record export training-jsonl -i dump/puzzles.json -o training/run.jsonl --m
       <aside class="toc"><h2>On this page</h2>
 <a class="toc-h2" href="#why-crtk-is-agent-friendly">Why crtk Is Agent-Friendly</a>
 <a class="toc-h2" href="#quickstart-for-an-agent">Quickstart for an Agent</a>
+<a class="toc-h2" href="#warm-process-crtk-serve">Warm Process: crtk serve</a>
 <a class="toc-h2" href="#machine-readable-output-by-command">Machine-Readable Output by Command</a>
 <a class="toc-h2" href="#bounding-engine-and-search-runs">Bounding Engine and Search Runs</a>
 <a class="toc-h2" href="#batch-many-commands-in-one-run">Batch Many Commands in One Run</a>

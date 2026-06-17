@@ -1,11 +1,13 @@
 # Position Description — Architecture, Quality Assessment, and T5 Roadmap
 
 This package turns a chess position into English at three detail levels
-(`brief` / `normal` / `full`). Today that text is produced by a **deterministic
-heuristic engine**. A trained **T5** text model is the planned upgrade; its stub
-already lives here (`T5PositionDescriptionGenerator`). This note records, honestly,
-how good the heuristic text is, where it hits a hard ceiling, and exactly what the
-transformer is supposed to buy us.
+(`brief` / `normal` / `full`). Runtime text is produced by a **deterministic
+heuristic engine**. The working T5 tag-to-text runtime lives under `chess.nn.t5`
+behind `fen text` and `puzzle text`; `T5PositionDescriptionGenerator` remains only
+as a prompt/training-row helper and unavailable sentinel, not as a selectable
+`position describe` engine. This note records, honestly, how good the heuristic
+text is, where it hits a hard ceiling, and exactly what a future verified model
+would need to buy us.
 
 ## Pipeline today
 
@@ -157,6 +159,19 @@ the safety net:
 - Add a **grounding/verification pass** at inference: every SAN the model names must
   be a legal candidate; claimed material/eval/side-to-move must match the input;
   on contradiction, regenerate or fall back to the classical text.
+
+`PositionDescriptionVerifier` implements that guard for position descriptions:
+it verifies SAN mentions against `PositionDescriptionInput.candidates()`, checks
+side-to-move and directional evaluation claims, rejects concrete material-surplus
+falsehoods for queens, rooks, bishops, knights, pawns, and minor pieces, and
+exposes `groundedOrFallback(...)` so future model prose can fail back to the
+classical description without weakening the no-hallucination guarantee.
+
+`StrategicPlanNarrator` now gives the classical path a small deterministic
+why/plan layer from the same input tags: passed pawns, center state, king-safety
+signals, space advantage, and pawn weaknesses can produce bounded plan sentences.
+It intentionally avoids square names and unverified move names, leaving concrete
+move mentions to the candidate list and the verifier.
 
 **Concrete "needs the transformer" examples** (things tried and impossible to do
 faithfully by rule):

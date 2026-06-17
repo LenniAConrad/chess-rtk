@@ -89,6 +89,7 @@
 <a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
 <a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="review-to-study.html" data-title="review to study">Review To Study</a>
 <a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
@@ -192,13 +193,41 @@
 </tr>
 </tbody></table></div>
 <p>Artifacts are tagged <code>vX.Y.Z</code>. The packager takes the version as its own argument (see below); omit it and it falls back to <code>git describe --tags --always</code>, then to a UTC date stamp outside a checkout. The one rule when cutting a release: the git tag, the bundle filename, and <code>crtk version</code> must agree. A mismatch there is the bug nobody notices until a user reports it.</p>
+<p>The Java constant behind <code>crtk version</code>, the text/JSON command output, and the repository metadata in <code>package.json</code> are checked together by <code>CLICommandRegressionTest</code>, so release metadata drift fails in the normal CLI suite instead of waiting for a packaging run.</p>
 <h2 id="build-the-runnable-jar">Build the runnable jar</h2>
 <p>Everything else hangs off the jar, so build it through the regression suite — the same path CI takes, which is the point of building it that way locally:</p>
 <pre><code class="language-bash">./scripts/run_regression_suite.sh jar</code></pre>
 <p>That compiles every source with <code>javac --release 17</code>, packages <code>crtk.jar</code> under main class <code>application.Main</code>, and runs a smoke check (<code>crtk --help</code>, plus <code>workbench</code>/<code>gui</code> help). The two underlying commands, if you ever want them by hand:</p>
 <pre><code class="language-bash">find src -name &#x27;*.java&#x27; -print0 | xargs -0 javac --release 17 -d out
+rm -rf out/schemas &amp;&amp; cp -R schemas out/schemas
 jar --create --file crtk.jar --main-class application.Main -C out .</code></pre>
 <p><code>--release 17</code> is not optional. It pins both the bytecode target and the standard-library surface the compiler will admit, which is what makes the build reproducible across JDK versions — you can compile on a newer JDK and still ship an artifact that only depends on 17.</p>
+<h2 id="build-the-linux-self-contained-runtime-bundle">Build the Linux self-contained runtime bundle</h2>
+<p>For a CPU-only Linux bundle that does not require a system JDK/JRE at runtime, use the jlink/jpackage script. It still compiles with <code>javac --release 17</code> and packages <code>crtk.jar</code> first; the bundled runtime is only a release artifact layered on top of that jar.</p>
+<pre><code class="language-bash">scripts/make_runtime_linux.sh --version v1.0.0</code></pre>
+<p>Prerequisites are the stock JDK packaging tools: <code>javac</code>, <code>jar</code>, <code>jdeps</code>, <code>jlink</code>, and <code>jpackage</code>. The script derives the Java module set from <code>crtk.jar</code>, adds TLS/locale support, writes a jpackage app image, and adds a root <code>./crtk</code> launcher that changes into the bundle directory before dispatching. That keeps the relative <code>config/</code>, <code>wiki/</code>, and <code>models/README.md</code> paths consistent with the normal checkout launcher.</p>
+<p>Outputs land under <code>dist/</code>:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Output</th>
+<th>Description</th>
+</tr></thead><tbody>
+<tr>
+<td><code>dist/crtk-&lt;version&gt;-linux-x86_64-runtime/</code></td>
+<td>Staged self-contained app image</td>
+</tr>
+<tr>
+<td><code>dist/crtk-&lt;version&gt;-linux-x86_64-runtime.tar.gz</code></td>
+<td>Portable runtime tarball</td>
+</tr>
+<tr>
+<td><code>dist/crtk-&lt;version&gt;-linux-x86_64-runtime.sha256</code></td>
+<td>SHA-256 checksum file for the tarball</td>
+</tr>
+</tbody></table></div>
+<p>The script smoke-tests the produced root launcher with an empty <code>PATH</code>:</p>
+<pre><code class="language-bash">env -i HOME=&quot;$HOME&quot; PATH=&quot;&quot; dist/crtk-v1.0.0-linux-x86_64-runtime/crtk version</code></pre>
+<p>If that prints the expected version, the app is using the bundled runtime rather than a <code>java</code> binary from the host. This is still Linux-only groundwork; Windows/macOS launchers and installers remain separate release work.</p>
 <h2 id="build-the-linux-x86-64-cuda-release-artifact">Build the Linux (x86_64) + CUDA release artifact</h2>
 <p>One script does the whole pass: <code>scripts/make_release_linux_cuda.sh</code> builds the jar, builds the CUDA JNI library, stages the bundle, and writes the tarball and checksums.</p>
 <p>Prerequisites:</p>
@@ -334,6 +363,7 @@ jar --create --file crtk.jar --main-class application.Main -C out .</code></pre>
 <a class="toc-h2" href="#what-ships-in-a-release">What ships in a release</a>
 <a class="toc-h2" href="#versioning">Versioning</a>
 <a class="toc-h2" href="#build-the-runnable-jar">Build the runnable jar</a>
+<a class="toc-h2" href="#build-the-linux-self-contained-runtime-bundle">Build the Linux self-contained runtime bundle</a>
 <a class="toc-h2" href="#build-the-linux-x86-64-cuda-release-artifact">Build the Linux (x86_64) + CUDA release artifact</a>
 <a class="toc-h3" href="#smoke-test-the-artifact">Smoke-test the artifact</a>
 <a class="toc-h2" href="#other-native-backends">Other native backends</a>

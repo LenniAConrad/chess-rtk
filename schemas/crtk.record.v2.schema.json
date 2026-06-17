@@ -1,0 +1,41 @@
+{
+  "$id": "crtk.record.v2",
+  "title": "ChessRTK analysis record",
+  "description": "Versioned JSON object emitted by chess.struct.Record.toJson and accepted by record-oriented commands. Old unversioned rows remain readable for compatibility, but new emitters stamp schemaVersion so datasets can pin the contract.",
+  "type": "object",
+  "required": ["schemaVersion", "created", "engine", "parent", "position", "description", "tags", "analysis"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "crtk.record.v2"
+    },
+    "created": {
+      "type": "integer"
+    },
+    "engine": {
+      "type": "string"
+    },
+    "parent": {
+      "type": "string"
+    },
+    "position": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "analysis": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

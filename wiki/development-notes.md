@@ -51,6 +51,7 @@ The canonical build is whatever `install.sh` does, which is two commands: compil
 
 ```bash
 find src -name '*.java' -print0 | xargs -0 javac --release 17 -d out
+rm -rf out/schemas && cp -R schemas out/schemas
 jar --create --file crtk.jar --main-class application.Main -C out .
 ```
 

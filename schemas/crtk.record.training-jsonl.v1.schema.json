@@ -1,0 +1,149 @@
+{
+  "$id": "crtk.record.training-jsonl.v1",
+  "title": "ChessRTK record training JSONL row",
+  "description": "One labeled position row emitted by crtk record export training-jsonl. The required core stays model-facing; optional engine metadata is present only with --include-engine-metadata.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "fen",
+    "label_status",
+    "coarse_label",
+    "fine_label",
+    "source_kind",
+    "source_file",
+    "source_record_index",
+    "source_group_id",
+    "sister_group_id",
+    "game_id",
+    "position_index",
+    "verification_status"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "crtk.record.training-jsonl.v1"
+    },
+    "fen": {
+      "type": "string"
+    },
+    "label_status": {
+      "type": "string",
+      "enum": ["verified_puzzle", "verified_near_puzzle", "known_non_puzzle"]
+    },
+    "coarse_label": {
+      "type": "integer",
+      "enum": [0, 1]
+    },
+    "fine_label": {
+      "type": ["integer", "null"],
+      "enum": [0, 1, 2, null]
+    },
+    "source_kind": {
+      "type": "string",
+      "const": "crtk_record"
+    },
+    "source_file": {
+      "type": "string"
+    },
+    "source_record_index": {
+      "type": "integer"
+    },
+    "source_group_id": {
+      "type": ["string", "null"]
+    },
+    "sister_group_id": {
+      "type": ["string", "null"]
+    },
+    "game_id": {
+      "type": ["string", "null"]
+    },
+    "position_index": {
+      "type": ["integer", "null"]
+    },
+    "verification_status": {
+      "type": "string"
+    },
+    "best_move": {
+      "type": ["string", "null"]
+    },
+    "pv1_cp": {
+      "type": ["integer", "null"]
+    },
+    "pv2_cp": {
+      "type": ["integer", "null"]
+    },
+    "pv_gap_cp": {
+      "type": ["integer", "null"]
+    },
+    "pv1_mate": {
+      "type": ["integer", "null"]
+    },
+    "pv2_mate": {
+      "type": ["integer", "null"]
+    },
+    "stockfish_nodes": {
+      "type": ["integer", "null"]
+    },
+    "stockfish_depth": {
+      "type": ["integer", "null"]
+    },
+    "stockfish_version": {
+      "type": ["string", "null"]
+    },
+    "engine_eval": {
+      "type": ["string", "null"]
+    },
+    "engine_wdl": {
+      "$ref": "#/$defs/Wdl"
+    },
+    "multipv": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MultiPv"
+      }
+    }
+  },
+  "$defs": {
+    "Wdl": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "win": {
+          "type": "number"
+        },
+        "draw": {
+          "type": "number"
+        },
+        "loss": {
+          "type": "number"
+        }
+      }
+    },
+    "MultiPv": {
+      "type": "object",
+      "required": ["rank", "move", "pv"],
+      "additionalProperties": false,
+      "properties": {
+        "rank": {
+          "type": "integer"
+        },
+        "move": {
+          "type": ["string", "null"]
+        },
+        "cp": {
+          "type": ["integer", "null"]
+        },
+        "mate": {
+          "type": ["integer", "null"]
+        },
+        "pv": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

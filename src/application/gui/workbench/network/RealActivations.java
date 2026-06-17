@@ -160,9 +160,9 @@ public final class RealActivations {
     private static final Path BT4_PATH = Path.of("models/bt4-1024x15x32h.bin");
 
     /**
-     * OTIS randomized placeholder weights path.
+     * OTIS policy/WDL weights path used by Workbench network views and Play.
      */
-    private static final Path OTIS_PATH = chess.nn.otis.Model.DEFAULT_WEIGHTS;
+    private static final Path OTIS_PATH = Path.of("models/otis_lczero_base_real_step_04721112_crtk_otis_v2.bin");
 
     /**
      * Returns the CNN weights path used by the workbench.

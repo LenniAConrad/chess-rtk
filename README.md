@@ -16,6 +16,8 @@
 
 ## Overview
 
+> "Chess programming exposes you to a wide range of programming disciplines."
+
 [ChessRTK][website-link] (`crtk`) is a deterministic chess programming toolkit for
 legal move generation, move validation, `perft` testing, FEN/PGN/SAN/UCI workflows,
 Chess960, UCI engine analysis, puzzle mining, dataset export, SVG board rendering,
@@ -98,6 +100,7 @@ Java dependency tree. Always compile for the Java 17 release:
 ```bash
 find src -name '*.java' | sort > /tmp/crtk-srcs.txt
 javac --release 17 -d out @/tmp/crtk-srcs.txt
+rm -rf out/schemas && cp -R schemas out/schemas
 jar --create --file crtk.jar --main-class application.Main -C out .
 ```
 

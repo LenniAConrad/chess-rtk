@@ -89,6 +89,7 @@
 <a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
 <a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="review-to-study.html" data-title="review to study">Review To Study</a>
 <a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
@@ -185,6 +186,7 @@
 <h2 id="building-with-javac-release-17">Building with <code>javac --release 17</code></h2>
 <p>The canonical build is whatever <code>install.sh</code> does, which is two commands: compile every source under <code>src/</code>, then package a runnable jar.</p>
 <pre><code class="language-bash">find src -name &#x27;*.java&#x27; -print0 | xargs -0 javac --release 17 -d out
+rm -rf out/schemas &amp;&amp; cp -R schemas out/schemas
 jar --create --file crtk.jar --main-class application.Main -C out .</code></pre>
 <p>Then run it:</p>
 <pre><code class="language-bash">java -jar crtk.jar version

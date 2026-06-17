@@ -36,10 +36,35 @@ final class PopupMenus {
      * @return styled item
      */
     static JMenuItem item(String label, Runnable action, boolean enabled) {
+        return item(label, label, action, enabled, null);
+    }
+
+    /**
+     * Creates a styled popup menu item with an explicit command and disabled
+     * explanation.
+     *
+     * @param label item label
+     * @param command stable action command
+     * @param action item action
+     * @param enabled whether the item can run
+     * @param disabledTooltip tooltip used when disabled, or null
+     * @return styled item
+     */
+    static JMenuItem item(String label, String command, Runnable action, boolean enabled, String disabledTooltip) {
         JMenuItem item = new JMenuItem(label);
         styleItem(item);
+        item.setActionCommand(command == null || command.isBlank() ? label : command);
         item.setEnabled(enabled);
-        item.addActionListener(event -> action.run());
+        item.getAccessibleContext().setAccessibleName(label);
+        if (!enabled && disabledTooltip != null && !disabledTooltip.isBlank()) {
+            item.setToolTipText(disabledTooltip);
+            item.getAccessibleContext().setAccessibleDescription(disabledTooltip);
+        }
+        item.addActionListener(event -> {
+            if (item.isEnabled()) {
+                action.run();
+            }
+        });
         return item;
     }
 

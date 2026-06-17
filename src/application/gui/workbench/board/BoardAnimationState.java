@@ -34,6 +34,11 @@ final class BoardAnimationState {
     private static final int WRONG_MOVE_MARKER_MS = 320;
 
     /**
+     * Wrong-move marker retention after the bounce reaches its final frame.
+     */
+    private static final int WRONG_MOVE_MARKER_CLEAR_MS = 900;
+
+    /**
      * Pieces involved in the current move animation.
      */
     private byte animatedMovePiece = Piece.EMPTY, animatedSecondaryMovePiece = Piece.EMPTY,
@@ -541,6 +546,18 @@ final class BoardAnimationState {
         }
         double elapsed = (double) now - (double) wrongMoveMarkerStartedAt;
         return Math.max(0.0, Math.min(1.0, elapsed / Math.max(1.0, WRONG_MOVE_MARKER_MS)));
+    }
+
+    /**
+     * Returns whether the wrong-move marker should be cleared.
+     *
+     * @param now current timestamp
+     * @return true when the marker has expired
+     */
+    boolean wrongMoveMarkerExpired(long now) {
+        return wrongMoveMarkerSquare != Field.NO_SQUARE
+                && wrongMoveMarkerStartedAt != 0L
+                && now - wrongMoveMarkerStartedAt >= WRONG_MOVE_MARKER_CLEAR_MS;
     }
 
     /**

@@ -89,6 +89,7 @@
 <a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
 <a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="review-to-study.html" data-title="review to study">Review To Study</a>
 <a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
@@ -148,68 +149,60 @@ crtk workbench --flip</code></pre>
 <td>Print workbench launch help</td>
 </tr>
 </tbody></table></div>
-<h2 id="main-areas">Main areas</h2>
-<p>The Workbench is a set of dockable tabs, each carved out around one job rather than one feature.</p>
+<h2 id="registered-views">Registered views</h2>
+<p>The Workbench currently registers eight top-level views. Older names such as Analyze, Play, Solve, Relations, Draw, Network, MCTS, Tree, Gauntlet, Batch, and Commands are modes or workflows inside these views, not separate top-level tabs.</p>
 <div class="table-wrap"><table>
 <thead><tr>
-<th>Area</th>
+<th>View</th>
+<th>Modes and workflows</th>
 <th>Purpose</th>
 </tr></thead><tbody>
 <tr>
 <td>Dashboard</td>
-<td>Session overview, health, recent jobs, and generated artifacts</td>
+<td>Session overview, health, recent jobs, artifacts</td>
+<td>The default operational overview</td>
 </tr>
 <tr>
-<td>Analyze</td>
-<td>Interactive board, PGN navigation, legal moves, tags, ECO tree, post-game review, study authoring, endgame tablebase status, board editor, and engine controls</td>
+<td>Board</td>
+<td>Analyze, Play, Solve, Relations, Draw</td>
+<td>The shared board workspace for positions, games, puzzles, overlays, and annotation</td>
 </tr>
 <tr>
-<td>Play</td>
-<td>Human-vs-engine games against in-process alpha-beta/classical preset opponents</td>
-</tr>
-<tr>
-<td>Commands</td>
-<td>GUI forms that build and run any <code>crtk</code> command</td>
-</tr>
-<tr>
-<td>Batch</td>
-<td>FEN-list and command-script execution with progress</td>
+<td>Run</td>
+<td>Command builder and batch-style templates</td>
+<td>GUI forms that build and run real <code>crtk</code> commands</td>
 </tr>
 <tr>
 <td>Datasets</td>
+<td>Dataset loaders, summaries, charts, sample inspection</td>
 <td>Loading, validation, summaries, and charts for exported data</td>
 </tr>
 <tr>
 <td>Publish</td>
-<td>Previews for diagrams, books, studies, collections, and covers</td>
+<td>Diagram, book, study, collection, and cover previews</td>
+<td>Publishing workflow previews before rendering PDFs</td>
+</tr>
+<tr>
+<td>Engine Lab</td>
+<td>Network, MCTS, Tree, Gauntlet</td>
+<td>Neural, search-tree, and self-play engine diagnostics</td>
 </tr>
 <tr>
 <td>Console</td>
-<td>Command output with terminal-style progress handling</td>
+<td>Live command output</td>
+<td>Terminal-style progress and stdout/stderr display</td>
 </tr>
 <tr>
 <td>Logs</td>
 <td>Persisted job logs and artifacts</td>
-</tr>
-<tr>
-<td>Network</td>
-<td>NNUE, LC0 CNN, BT4, and OTIS model diagnostics and visualizers</td>
-</tr>
-<tr>
-<td>Relations</td>
-<td>OTIS tactical-incidence relation channels drawn as typed arrows on a board</td>
-</tr>
-<tr>
-<td>Puzzles</td>
-<td>Interactive puzzle practice</td>
+<td>The durable audit trail for completed runs</td>
 </tr>
 </tbody></table></div>
-<h2 id="analysis-and-pgn-board">Analysis and PGN board</h2>
-<p>Analyze is where you land. The board sits in the middle, surrounded by everything you&#x27;d want pointed at a position: move navigation, the legal-move list, deterministic tags, an ECO opening tree, deterministic post-game review with retry jumps, study TOML authoring from the current line, endgame tablebase-hit status, a board editor for arbitrary setups, and panels for both the in-process search and the external analysis engine. Load a PGN and you step through the game from the same view.</p>
+<h2 id="board-view">Board view</h2>
+<p>Board is the shared position and game workspace. Its mode switcher hosts Analyze, Play, Solve, Relations, and Draw. The board sits in the middle, surrounded by the mode-specific tools for the current task: move navigation, the legal-move list, deterministic tags, an ECO opening tree, deterministic post-game review with retry jumps, study TOML authoring from the current line, endgame/tablebase-hit status, a board editor for arbitrary setups, puzzle practice, tactical-incidence overlays, and freehand annotation/export controls. Load a PGN in Analyze mode and you step through the game from the same shared board surface.</p>
 <p><img src="assets/screenshots/workbench-analysis.png" alt="Workbench analysis board" loading="lazy"></p>
 <p>The board sees the world the way the CLI does: identical move generation, identical FEN/SAN/UCI handling, identical Chess960 support. The tags on the board are the ones <code>fen tags</code> produces, down to the bit. Live analysis drives your configured external UCI engine — Stockfish or LC0 — the same way <code>engine analyze</code> does, MultiPV included.</p>
 <p>The PGN explorer doubles as a lightweight database workspace. It indexes player/opening/result metadata, filters games reaching the current board position, removes exact duplicates, copies selected games, and can copy a prep report for the visible games or named player query.</p>
-<p>The Engine surface includes a Gauntlet mode for reproducible built-in engine self-play. It builds the exact <code>testing.SelfPlayGauntlet</code> JVM command, runs it in a child process, and streams W-D-L/Elo output into the panel.</p>
 <h3 id="where-to-find-the-new-analysis-tools">Where to find the new analysis tools</h3>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -218,15 +211,15 @@ crtk workbench --flip</code></pre>
 </tr></thead><tbody>
 <tr>
 <td>Opening tree</td>
-<td>Analyze -&gt; Board -&gt; Tools -&gt; Opening Tree, or the side rail ECO tab</td>
+<td>Board -&gt; Analyze -&gt; Tools -&gt; Opening Tree, or the side rail ECO tab</td>
 </tr>
 <tr>
 <td>Post-game review and retry</td>
-<td>Analyze -&gt; Board -&gt; Tools -&gt; Review, or Analyze -&gt; Game -&gt; Study / Review / Database -&gt; Review Game</td>
+<td>Board -&gt; Analyze -&gt; Tools -&gt; Review, or Board -&gt; Analyze -&gt; Game -&gt; Study / Review / Database -&gt; Review Game</td>
 </tr>
 <tr>
 <td>PGN database workspace</td>
-<td>Analyze -&gt; Board -&gt; PGN Database, or Analyze -&gt; Game -&gt; Study / Review / Database -&gt; PGN Database</td>
+<td>Board -&gt; Analyze -&gt; PGN Database, or Board -&gt; Analyze -&gt; Game -&gt; Study / Review / Database -&gt; PGN Database</td>
 </tr>
 <tr>
 <td>Player prep report</td>
@@ -234,20 +227,20 @@ crtk workbench --flip</code></pre>
 </tr>
 <tr>
 <td>Engine gauntlet manager</td>
-<td>Analyze -&gt; Board -&gt; Tools -&gt; Gauntlet, or Engine -&gt; Gauntlet</td>
+<td>Engine Lab -&gt; Gauntlet</td>
 </tr>
 <tr>
 <td>Endgame/tablebase panel</td>
-<td>Analyze -&gt; Board -&gt; Tools -&gt; Endgame, or the side rail Endgame tab</td>
+<td>Board -&gt; Analyze -&gt; Tools -&gt; Endgame, or the side rail Endgame tab</td>
 </tr>
 <tr>
 <td>Study/repertoire authoring</td>
-<td>Analyze -&gt; Board -&gt; Tools -&gt; Study, or Analyze -&gt; Game -&gt; Study / Review / Database -&gt; Author Study</td>
+<td>Board -&gt; Analyze -&gt; Tools -&gt; Study, or Board -&gt; Analyze -&gt; Game -&gt; Study / Review / Database -&gt; Author Study</td>
 </tr>
 </tbody></table></div>
 <p>The command palette also exposes the same workflows by name: Opening tree, Review game, Author study, Endgame tablebase, PGN database, Player prep report, and Open engine gauntlet.</p>
-<h2 id="play-vs-engine">Play vs engine</h2>
-<p>Play runs a full human-versus-engine game from the start position, the current board, or a pasted FEN. The named preset bots all use alpha-beta search with the always-available classical evaluator; their Elo changes adjust the search budget and move sampling, not the backend. Choose Custom to expose the two backend selectors:</p>
+<h2 id="board-play">Board / Play</h2>
+<p>Board / Play runs a full human-versus-engine game from the start position, the current board, or a pasted FEN. The named preset bots all use alpha-beta search with the always-available classical evaluator; their Elo changes adjust the search budget and move sampling, not the backend. Choose Custom to expose the two backend selectors:</p>
 <ul>
 <li><strong>Search</strong> chooses the move-picking algorithm: <code>Alpha-Beta</code> or <code>MCTS</code>.</li>
 <li><strong>Network</strong> chooses the leaf evaluator: <code>Classical</code>, <code>NNUE</code>, <code>CNN</code> (LC0), or <code>OTIS</code>.</li>
@@ -282,26 +275,28 @@ crtk workbench --flip</code></pre>
 </tbody></table></div>
 <p>If a neural model is missing or won&#x27;t load, Play drops back to classical evaluation rather than refusing to start — you get a game, just a weaker one. The LC0 CNN and BT4 paths are real, playable evaluators, but they are simplified and not bit-exact reproductions of upstream LC0/BT4; <a href="lc0.html">LC0 networks</a> covers exactly where the fidelity stops.</p>
 <blockquote><p>Important: Play is in-process only. Whatever external UCI engine you&#x27;ve configured (Stockfish, full LC0) backs the Workbench&#x27;s live analysis and the engine command forms — never the Play opponent.</p></blockquote>
-<h2 id="command-controller-and-forms">Command controller and forms</h2>
-<p>The Commands tab is the CLI rendered as forms. Pick an area and action — <code>engine bestmove</code>, <code>puzzle mine</code>, <code>record dataset npy</code>, <code>fen tags</code> — and the form sorts the inputs into required fields, mutually exclusive choices, and optional flags, validating as you go. The exact <code>crtk</code> command takes shape in front of you while you fill it in, ready to copy into a script or run on the spot.</p>
+<h2 id="run-view">Run view</h2>
+<p>Run is the CLI rendered as forms. Pick an area and action — <code>engine bestmove</code>, <code>puzzle mine</code>, <code>record dataset npy</code>, <code>fen tags</code> — and the form sorts the inputs into required fields, mutually exclusive choices, and optional flags, validating as you go. The exact <code>crtk</code> command takes shape in front of you while you fill it in, ready to copy into a script or run on the spot.</p>
 <p><img src="assets/screenshots/workbench-commands.png" alt="Workbench command controller" loading="lazy"></p>
 <p>Since every form lands on a real CLI command, this doubles as a way to learn the surface area: assemble a command by clicking, read off its flags, then lift the generated text into a script for reproducible runs. The <a href="command-reference.html">Command Reference</a> documents what each form mirrors.</p>
+<p>The <code>Review game</code> command template mirrors <code>crtk review game --to-study</code>: choose a PGN, keep the shared engine budget fields explicit, and run the CLI to produce review JSONL, study JSONL, and Record sidecars. The Workbench preview is the runnable command; later review panels consume those files instead of computing separate verdicts.</p>
+<p>The local PGN store also has first-class Run templates for the non-destructive database path: <code>pgn import</code>, <code>pgn find</code>, <code>pgn show</code>, and <code>pgn stats</code>. Use the command palette entries <code>PGN import</code>, <code>PGN find</code>, <code>PGN show</code>, <code>PGN stats</code>, and <code>Review game command</code> to jump directly to those templates. The destructive store-maintenance verbs, <code>pgn delete</code> and <code>pgn compact</code>, remain available through the <code>All CLI</code> template.</p>
 <h2 id="batch-jobs">Batch jobs</h2>
-<p>Batch is for work measured in the thousands. Sweep a FEN list through an engine command, or run a command script — one <code>crtk</code> command per non-comment line — exactly as <code>batch run</code> would. It tracks progress, breaks out per-row results, and gathers the output, so a large mining or export pass never has to leave the GUI. Anything long-running reports into the Console and persists into Logs.</p>
+<p>Batch work now lives in Run as command templates and multi-line inputs. Sweep a FEN list through an engine command, or run a command script — one <code>crtk</code> command per non-comment line — exactly as <code>batch run</code> would. It tracks progress, breaks out per-row results, and gathers the output, so a large mining or export pass never has to leave the GUI. Anything long-running reports into Console and persists into Logs.</p>
 <h2 id="datasets">Datasets</h2>
 <p>The Datasets tab opens up whatever the export pipeline produced — the tensors from <code>record dataset npy</code>, <code>record dataset lc0</code>, and <code>record dataset classifier</code>, and the JSONL rows from the <code>record export ...-jsonl</code> family — and reports shapes, counts, label distributions, and charts. The point is to catch a broken or skewed training set here, before a trainer spends hours on it. See <a href="datasets.html">Datasets</a> for the export formats.</p>
 <h2 id="publishing-previews">Publishing previews</h2>
 <p>The Publish tab shows you the PDF before you pay for the render. It previews single diagrams (<code>book pdf</code>), puzzle collections (<code>book collection</code>), annotated studies (<code>book study</code>), book interiors (<code>book render</code>), and covers (<code>book cover</code>). The whole publishing stack is built in — no LaTeX, no external toolchain to install. See <a href="book-publishing.html">Book publishing</a> for the manifest formats and the full option set.</p>
-<h2 id="puzzles">Puzzles</h2>
-<p>The Puzzles tab is where you actually solve the things you mined. Load the <code>*.puzzles.json</code> output of <code>puzzle mine</code>, work a position on the board, then reveal the principal variation and the move-by-move tags — the same deterministic tagging behind <code>puzzle tags</code>. See <a href="mining.html">Puzzle mining</a> for how the sets are produced and gated by the Filter DSL.</p>
-<h2 id="network-visualizer">Network visualizer</h2>
-<p>The Network tab opens up the neural networks the toolkit has loaded — NNUE, the LC0 CNN, BT4, OTIS — and shows what they&#x27;re doing: loaded-model state, inference state, feature boards, activation summaries, atlases, trace views, runtime information, and exportable visualizations. As close as you can get to watching an evaluator look at a position.</p>
-<h2 id="relations">Relations</h2>
-<p>The Relations tab draws the OTIS <em>tactical incidence</em> graph — the twelve typed relation channels <code>A(x)</code> the oriented-tactical-sheaf network ingests — as colour-coded arrows over a board: us/them attacks and defenses, king-zone pressure, occlusion-aware bishop/rook/queen rays, knight and pawn attacks, and absolute-pin candidates. Toggle channels on and off, set the arrow opacity, and point it at the current analysis position (Sync to board) or a pasted FEN. The edges are computed deterministically from the position alone — no model file needed — and are the exact same <code>A(x)</code> the CLI <code>fen relations</code> command renders and the network reads.</p>
+<h2 id="board-solve">Board / Solve</h2>
+<p>Board / Solve is where you actually solve the things you mined. Load the <code>*.puzzles.json</code> output of <code>puzzle mine</code>, work a position on the board, then reveal the principal variation and the move-by-move tags — the same deterministic tagging behind <code>puzzle tags</code>. See <a href="mining.html">Puzzle mining</a> for how the sets are produced and gated by the Filter DSL.</p>
+<h2 id="engine-lab">Engine Lab</h2>
+<p>Engine Lab hosts the implementation-facing engine views. Network opens up the neural networks the toolkit has loaded — NNUE, the LC0 CNN, BT4, OTIS — and shows what they&#x27;re doing: loaded-model state, inference state, feature boards, activation summaries, atlases, trace views, runtime information, and exportable visualizations. MCTS and Tree inspect the in-process PUCT/MCTS search, including root moves and tree exports. Gauntlet runs reproducible built-in engine self-play; it builds the exact <code>testing.SelfPlayGauntlet</code> JVM command, runs it in a child process, and streams W-D-L/Elo output into the panel.</p>
+<h2 id="board-relations">Board / Relations</h2>
+<p>Board / Relations draws the OTIS <em>tactical incidence</em> graph — the twelve typed relation channels <code>A(x)</code> the oriented-tactical-sheaf network ingests — as colour-coded arrows over a board: us/them attacks and defenses, king-zone pressure, occlusion-aware bishop/rook/queen rays, knight and pawn attacks, and absolute-pin candidates. Toggle channels on and off, set the arrow opacity, and point it at the current analysis position (Sync to board) or a pasted FEN. The edges are computed deterministically from the position alone — no model file needed — and are the exact same <code>A(x)</code> the CLI <code>fen relations</code> command renders and the network reads.</p>
 <p><img src="assets/screenshots/workbench-network.png" alt="Workbench network visualizer" loading="lazy"></p>
 <p>Read this as a research and debugging aid, not ground truth about a reference engine. The networks are usable evaluators, but the LC0 CNN and BT4 paths are simplified and not bit-exact equivalents of upstream inference — so the activations are faithful to ChessRTK&#x27;s implementation, which is not quite the same thing as faithful to LC0 or BT4.</p>
-<h2 id="console-and-logs">Console and logs</h2>
-<p>The Console streams command output with terminal-style progress handling, so a running export or mining job reads much like it would in a shell. When the run ends, the Logs tab holds onto the job logs and their artifacts — your audit trail of what was produced and where it landed. See <a href="outputs-and-logs.html">Outputs and logs</a> for the on-disk layout.</p>
+<h2 id="console-and-logs">Console and Logs</h2>
+<p>Console and Logs are first-class registered views, which means they can be split, duplicated, and resized beside other views. Console streams command output with terminal-style progress handling, so a running export or mining job reads much like it would in a shell. Logs holds onto job logs and artifacts after a run ends — your audit trail of what was produced and where it landed. See <a href="outputs-and-logs.html">Outputs and logs</a> for the on-disk layout.</p>
 <h2 id="keyboard-and-layout">Keyboard and layout</h2>
 <ul>
 <li>Arrow keys navigate game positions; <code>Home</code> and <code>End</code> jump to the start or end of the line.</li>
@@ -322,18 +317,18 @@ crtk workbench --flip</code></pre>
       <aside class="toc"><h2>On this page</h2>
 <a class="toc-h2" href="#what-you-can-do">What you can do</a>
 <a class="toc-h2" href="#launch">Launch</a>
-<a class="toc-h2" href="#main-areas">Main areas</a>
-<a class="toc-h2" href="#analysis-and-pgn-board">Analysis and PGN board</a>
+<a class="toc-h2" href="#registered-views">Registered views</a>
+<a class="toc-h2" href="#board-view">Board view</a>
 <a class="toc-h3" href="#where-to-find-the-new-analysis-tools">Where to find the new analysis tools</a>
-<a class="toc-h2" href="#play-vs-engine">Play vs engine</a>
-<a class="toc-h2" href="#command-controller-and-forms">Command controller and forms</a>
+<a class="toc-h2" href="#board-play">Board / Play</a>
+<a class="toc-h2" href="#run-view">Run view</a>
 <a class="toc-h2" href="#batch-jobs">Batch jobs</a>
 <a class="toc-h2" href="#datasets">Datasets</a>
 <a class="toc-h2" href="#publishing-previews">Publishing previews</a>
-<a class="toc-h2" href="#puzzles">Puzzles</a>
-<a class="toc-h2" href="#network-visualizer">Network visualizer</a>
-<a class="toc-h2" href="#relations">Relations</a>
-<a class="toc-h2" href="#console-and-logs">Console and logs</a>
+<a class="toc-h2" href="#board-solve">Board / Solve</a>
+<a class="toc-h2" href="#engine-lab">Engine Lab</a>
+<a class="toc-h2" href="#board-relations">Board / Relations</a>
+<a class="toc-h2" href="#console-and-logs">Console and Logs</a>
 <a class="toc-h2" href="#keyboard-and-layout">Keyboard and layout</a>
 <a class="toc-h2" href="#related-pages">Related pages</a></aside>
     </main>

@@ -199,15 +199,17 @@ public final class StudyAuthorPanel extends JPanel {
      * @return toolbar
      */
     private JComponent createToolbar() {
-        JPanel row = transparentPanel(new FlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
-        row.add(Ui.button("Refresh", false, event -> refreshManifest()));
-        row.add(Ui.button("Copy Manifest", true, event -> {
-            refreshManifest();
-            copyText.accept(manifestArea.getText());
-            statusLabel.setText("Manifest copied");
-        }));
-        row.add(Ui.button("Save TOML", false, event -> saveManifest()));
-        row.add(statusLabel);
+        JComponent actions = Ui.controlRow(FlowLayout.RIGHT,
+                Ui.button("Refresh", false, event -> refreshManifest()),
+                Ui.button("Copy Manifest", true, event -> {
+                    refreshManifest();
+                    copyText.accept(manifestArea.getText());
+                    statusLabel.setText("Manifest copied");
+                }),
+                Ui.button("Save TOML", false, event -> saveManifest()));
+        JPanel row = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        row.add(statusLabel, BorderLayout.WEST);
+        row.add(actions, BorderLayout.EAST);
         return row;
     }
 

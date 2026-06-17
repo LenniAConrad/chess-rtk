@@ -285,8 +285,8 @@ public final class CommandPalette extends JPanel {
         resultScroll.setBorder(BorderFactory.createEmptyBorder());
         resultScroll.setViewportBorder(BorderFactory.createEmptyBorder());
         resultScroll.getViewport().setOpaque(false);
-        resultScroll.getViewport().setBackground(new Color(0, 0, 0, 0));
-        Color clear = new Color(0, 0, 0, 0);
+        resultScroll.getViewport().setBackground(Theme.TRANSPARENT);
+        Color clear = Theme.TRANSPARENT;
         for (String corner : new String[] {
                 ScrollPaneConstants.UPPER_LEFT_CORNER,
                 ScrollPaneConstants.UPPER_RIGHT_CORNER,
@@ -310,8 +310,8 @@ public final class CommandPalette extends JPanel {
      */
     private static javax.swing.border.Border buildSearchBorder() {
         return BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Theme.ACCENT, 1),
-                BorderFactory.createEmptyBorder(7, ROW_HPAD, 7, ROW_HPAD));
+                Theme.lineBorder(Theme.ACCENT, 1),
+                Theme.pad(7, ROW_HPAD, 7, ROW_HPAD));
     }
 
     /**
@@ -389,10 +389,10 @@ public final class CommandPalette extends JPanel {
     private void applyRowListChrome() {
         Theme.list(rowList);
         rowList.setOpaque(false);
-        rowList.setBackground(new Color(0, 0, 0, 0));
+        rowList.setBackground(Theme.TRANSPARENT);
         // Defeat the L&F selection background — RowRenderer paints its own
         // accent fill so the list's selection bg would double-draw.
-        rowList.setSelectionBackground(new Color(0, 0, 0, 0));
+        rowList.setSelectionBackground(Theme.TRANSPARENT);
         rowList.setFixedCellHeight(-1);
     }
 

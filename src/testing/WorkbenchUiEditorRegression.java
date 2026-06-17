@@ -6,6 +6,7 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
+import java.awt.Rectangle;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
 import java.lang.reflect.Proxy;
@@ -23,6 +24,7 @@ import javax.swing.JPopupMenu;
 import javax.swing.JSplitPane;
 import javax.swing.JTextArea;
 import javax.swing.JToggleButton;
+import javax.swing.SwingUtilities;
 
 import application.gui.workbench.dataset.DatasetChart;
 import application.gui.workbench.layout.LazyPanel;
@@ -57,6 +59,8 @@ final class WorkbenchUiEditorRegression {
         testSplitAreaExposesFlexibleTabActions();
         testEditorSplitActionsExposeClearStates();
         testSplitGroupsKeepLocalLayoutControls();
+        testEditorLayoutControlsSurviveViewportWidths();
+        testEditorLayoutControlsTrackFocusThroughStateTransitions();
         testSplitAreaDuplicatesFactoryBackedTabs();
         testSplitAreaDuplicatesFactoryBackedToolTabs();
         testDetachedAnalysisWorkspaceKeepsLocalHistory();
@@ -395,8 +399,18 @@ final class WorkbenchUiEditorRegression {
         assertTrue(menu != null, "tab exposes a context action menu");
         assertEquals("Split Tab Right", ((JMenuItem) menu.getComponent(0)).getText(),
                 "tab menu starts with split actions");
+        assertEquals("workbench.editor.tab.split.right", ((JMenuItem) menu.getComponent(0)).getActionCommand(),
+                "tab split-right action has a stable command id");
+        assertEquals("workbench.editor.tab.split.down", ((JMenuItem) menu.getComponent(1)).getActionCommand(),
+                "tab split-down action has a stable command id");
+        assertEquals("workbench.editor.tab.split.left", ((JMenuItem) menu.getComponent(2)).getActionCommand(),
+                "tab split-left action has a stable command id");
+        assertEquals("workbench.editor.tab.split.up", ((JMenuItem) menu.getComponent(3)).getActionCommand(),
+                "tab split-up action has a stable command id");
         assertEquals("Close Other Tabs", ((JMenuItem) menu.getComponent(5)).getText(),
                 "tab menu exposes close-others action");
+        assertEquals("workbench.editor.tab.closeOthers", ((JMenuItem) menu.getComponent(5)).getActionCommand(),
+                "close-others action has a stable command id");
 
         invoke(area, "closeOtherTabs", new Class<?>[0]);
         assertEquals(Integer.valueOf(1), invoke(area, "openTabCount", new Class<?>[0]),
@@ -425,13 +439,23 @@ final class WorkbenchUiEditorRegression {
         assertTrue(splitButton.getToolTipText().contains("duplicate-capable"),
                 "disabled split tooltip explains recovery");
 
+        JPanel primaryStrip = (JPanel) field(single, "primaryStrip");
+        JPopupMenu disabledMenu = ((JComponent) primaryStrip.getComponent(0)).getComponentPopupMenu();
+        JMenuItem disabledSplit = (JMenuItem) disabledMenu.getComponent(0);
+        assertFalse(disabledSplit.isEnabled(), "single non-duplicable tab cannot run split menu actions");
+        assertEquals("workbench.editor.tab.split.right", disabledSplit.getActionCommand(),
+                "disabled split menu item keeps stable command id");
+        assertTrue(disabledSplit.getToolTipText().contains("duplicate-capable"),
+                "disabled split menu item explains recovery");
+        assertEquals("Split Tab Right", disabledSplit.getAccessibleContext().getAccessibleName(),
+                "disabled split menu item exposes accessible action name");
+
         Object area = splitFixture();
         splitButton = (JToggleButton) field(area, "splitButton");
         assertTrue(splitButton.isEnabled(), "multi-tab editor can split selected tab");
         assertEquals("Split active tab to the right", splitButton.getToolTipText(),
                 "split button names its actual action");
 
-        JPanel primaryStrip = (JPanel) field(single, "primaryStrip");
         assertEquals(Integer.valueOf(1), Integer.valueOf(primaryStrip.getComponentCount()),
                 "single closed/restorable fixture starts with one tab only");
         invoke(single, "closeSelectedTab", new Class<?>[0]);
@@ -487,6 +511,107 @@ final class WorkbenchUiEditorRegression {
     }
 
     /**
+     * Verifies editor-group controls keep stable, usable bounds across compact,
+     * ordinary, and wide viewport widths.
+     */
+    private static void testEditorLayoutControlsSurviveViewportWidths() {
+        Class<?> areaType = type("layout.EditorSplitArea");
+        Object area = construct(areaType, new Class<?>[0]);
+        for (int i = 0; i < 8; i++) {
+            invoke(area, "addPanel", new Class<?>[] { String.class, javax.swing.JComponent.class },
+                    "Tab " + i, new JPanel());
+        }
+        invoke(area, "install", new Class<?>[0]);
+        invoke(area, "splitWithDragged", new Class<?>[] { int.class, boolean.class }, 2, false);
+        setField(area, "dragZone", staticField(areaType, "DROP_BOTTOM_RIGHT"));
+        invoke(area, "finishTabDrag", new Class<?>[] { int.class }, 1);
+        setField(area, "dragZone", staticField(areaType, "DROP_TOP_LEFT"));
+        invoke(area, "finishTabDrag", new Class<?>[] { int.class }, 3);
+        invoke(area, "closeTab", new Class<?>[] { int.class }, 7);
+
+        JPanel[] headers = (JPanel[]) field(area, "paneHeaders");
+        JToggleButton[] splitButtons = (JToggleButton[]) field(area, "splitButtons");
+        int[] widths = { 420, 900, 1440 };
+        for (int width : widths) {
+            layoutTree((Component) area, width, 720);
+            for (int pane = 0; pane < headers.length; pane++) {
+                JToggleButton split = splitButtons[pane];
+                assertVisibleControl(headers[pane], split,
+                        "split button " + pane + " at width " + width);
+                assertEquals("workbench.editor.split.right", split.getActionCommand(),
+                        "split button " + pane + " command survives width " + width);
+                assertTrue(split.getToolTipText() != null && !split.getToolTipText().isBlank(),
+                        "split button " + pane + " tooltip survives width " + width);
+                assertTrue(split.getAccessibleContext().getAccessibleName() != null
+                        && !split.getAccessibleContext().getAccessibleName().isBlank(),
+                        "split button " + pane + " accessible name survives width " + width);
+            }
+
+            for (int pane = 0; pane < 4; pane++) {
+                JPanel strip = (JPanel) field(area, switch (pane) {
+                    case 1 -> "secondaryStrip";
+                    case 2 -> "tertiaryStrip";
+                    case 3 -> "quaternaryStrip";
+                    default -> "primaryStrip";
+                });
+                JToggleButton restore = findButtonWithCommand(strip, "workbench.editor.tabs.newOrRestore");
+                assertTrue(restore != null, "restore control exists in pane " + pane + " at width " + width);
+                assertHorizontallyReachableControl(strip, restore,
+                        "restore control " + pane + " at width " + width);
+                assertTrue(restore.getToolTipText() != null && restore.getToolTipText().contains("restore"),
+                        "restore control tooltip survives width " + width);
+            }
+        }
+    }
+
+    /**
+     * Verifies editor-group controls keep their focus feedback and command
+     * affordances while close, restore, and collapse actions reshape the layout.
+     */
+    private static void testEditorLayoutControlsTrackFocusThroughStateTransitions() {
+        Class<?> areaType = type("layout.EditorSplitArea");
+        Object area = construct(areaType, new Class<?>[0]);
+        for (int i = 0; i < 6; i++) {
+            invoke(area, "addPanel", new Class<?>[] { String.class, javax.swing.JComponent.class },
+                    "Tab " + i, new JPanel());
+        }
+        invoke(area, "install", new Class<?>[0]);
+        invoke(area, "splitWithDragged", new Class<?>[] { int.class, boolean.class }, 2, false);
+        setField(area, "dragZone", staticField(areaType, "DROP_BOTTOM_RIGHT"));
+        invoke(area, "finishTabDrag", new Class<?>[] { int.class }, 1);
+        setField(area, "dragZone", staticField(areaType, "DROP_TOP_LEFT"));
+        invoke(area, "finishTabDrag", new Class<?>[] { int.class }, 3);
+
+        int primary = (Integer) staticField(areaType, "PANE_PRIMARY");
+        int secondary = (Integer) staticField(areaType, "PANE_SECONDARY");
+        int tertiary = (Integer) staticField(areaType, "PANE_TERTIARY");
+        int quaternary = (Integer) staticField(areaType, "PANE_QUATERNARY");
+
+        assertLayoutControlsAtWidths(area, primary, "initial four-way layout");
+        invoke(area, "setSecondary", new Class<?>[] { int.class }, 2);
+        assertLayoutControlsAtWidths(area, secondary, "secondary focus");
+        invoke(area, "setTertiary", new Class<?>[] { int.class }, 4);
+        invoke(area, "selectNextTab", new Class<?>[0]);
+        assertEquals(Integer.valueOf(5), invoke(area, "selectedIndex", new Class<?>[0]),
+                "tab cycling stays inside the active tertiary group");
+        assertLayoutControlsAtWidths(area, tertiary, "tertiary focus after keyboard tab cycle");
+        invoke(area, "setQuaternary", new Class<?>[] { int.class }, 1);
+        assertLayoutControlsAtWidths(area, quaternary, "quaternary focus");
+
+        invoke(area, "closeSelectedTab", new Class<?>[0]);
+        assertEquals(Integer.valueOf(primary), field(area, "activePane"),
+                "closing the active split group falls back to the primary group");
+        assertLayoutControlsAtWidths(area, primary, "after closing focused split tab");
+
+        invoke(area, "reopenAllTabs", new Class<?>[0]);
+        assertLayoutControlsAtWidths(area, primary, "after restoring closed tabs");
+        invoke(area, "collapseAndRelayout", new Class<?>[0]);
+        assertEquals(Integer.valueOf(1), invoke(area, "visibleGroupCount", new Class<?>[0]),
+                "collapse returns to one editor group");
+        assertLayoutControlsAtWidths(area, -1, "after collapse");
+    }
+
+    /**
      * Returns whether a component subtree contains a target component.
      *
      * @param parent subtree root
@@ -513,15 +638,121 @@ final class WorkbenchUiEditorRegression {
      * @return true when a matching button is found
      */
     private static boolean containsButtonWithCommand(Container parent, String command) {
+        return findButtonWithCommand(parent, command) != null;
+    }
+
+    /**
+     * Finds the first toggle button with the requested command.
+     *
+     * @param parent subtree root
+     * @param command action command to find
+     * @return matching button, or null
+     */
+    private static JToggleButton findButtonWithCommand(Container parent, String command) {
         for (Component child : parent.getComponents()) {
             if (child instanceof JToggleButton button && command.equals(button.getActionCommand())) {
-                return true;
+                return button;
             }
-            if (child instanceof Container nested && containsButtonWithCommand(nested, command)) {
-                return true;
+            if (child instanceof Container nested) {
+                JToggleButton match = findButtonWithCommand(nested, command);
+                if (match != null) {
+                    return match;
+                }
             }
         }
-        return false;
+        return null;
+    }
+
+    /**
+     * Sizes a component tree and forces layout recursively.
+     *
+     * @param component component root
+     * @param width root width
+     * @param height root height
+     */
+    private static void layoutTree(Component component, int width, int height) {
+        component.setBounds(0, 0, width, height);
+        layoutTree(component);
+    }
+
+    private static void layoutTree(Component component) {
+        component.doLayout();
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                layoutTree(child);
+            }
+        }
+    }
+
+    /**
+     * Verifies a control is visible, sized, and inside its owner after layout.
+     *
+     * @param owner expected owner coordinate space
+     * @param control control to check
+     * @param label assertion label
+     */
+    private static void assertVisibleControl(JComponent owner, JComponent control, String label) {
+        assertTrue(control.isVisible(), label + " is visible");
+        assertTrue(control.getWidth() > 0 && control.getHeight() > 0, label + " has positive bounds");
+        Rectangle bounds = SwingUtilities.convertRectangle(control.getParent(), control.getBounds(), owner);
+        assertTrue(bounds.x >= 0 && bounds.y >= 0, label + " starts inside owner");
+        assertTrue(bounds.x + bounds.width <= owner.getWidth(), label + " fits owner width");
+        assertTrue(bounds.y < owner.getHeight() && bounds.y + bounds.height > 0,
+                label + " intersects owner height");
+    }
+
+    /**
+     * Verifies a tab-strip control keeps a positive size and remains reachable
+     * within the strip's horizontal span. FlowLayout can let tab controls
+     * overhang vertically in the synthetic headless layout, so the vertical fit
+     * is covered by the split-button/header assertion instead.
+     *
+     * @param owner expected owner coordinate space
+     * @param control control to check
+     * @param label assertion label
+     */
+    private static void assertHorizontallyReachableControl(JComponent owner, JComponent control, String label) {
+        assertTrue(control.isVisible(), label + " is visible");
+        assertTrue(owner.getWidth() > 0, label + " owner has positive width");
+        assertTrue(control.getWidth() > 0 && control.getHeight() > 0, label + " has positive bounds");
+        Rectangle bounds = SwingUtilities.convertRectangle(control.getParent(), control.getBounds(), owner);
+        assertTrue(bounds.x < owner.getWidth() && bounds.x + bounds.width > 0,
+                label + " intersects owner width");
+    }
+
+    /**
+     * Verifies split controls are visible and only the active split group is
+     * marked selected across the compact/normal/wide layout widths.
+     *
+     * @param area editor split area under test
+     * @param selectedPane expected selected split-control pane, or -1 when no
+     *     split-control should be selected
+     * @param phase assertion phase label
+     */
+    private static void assertLayoutControlsAtWidths(Object area, int selectedPane, String phase) {
+        JPanel[] headers = (JPanel[]) field(area, "paneHeaders");
+        JToggleButton[] splitButtons = (JToggleButton[]) field(area, "splitButtons");
+        int[] widths = { 420, 900, 1440 };
+        for (int width : widths) {
+            layoutTree((Component) area, width, 720);
+            boolean splitActive = (Boolean) invoke(area, "isSplitActive", new Class<?>[0]);
+            for (int pane = 0; pane < splitButtons.length; pane++) {
+                boolean visible = (Boolean) invoke(area, "paneVisible", new Class<?>[] { int.class }, pane);
+                if (!visible) {
+                    continue;
+                }
+                JToggleButton split = splitButtons[pane];
+                assertVisibleControl(headers[pane], split,
+                        phase + " split button " + pane + " at width " + width);
+                assertEquals("workbench.editor.split.right", split.getActionCommand(),
+                        phase + " split button " + pane + " command survives width " + width);
+                assertEquals(Boolean.valueOf(splitActive && pane == selectedPane),
+                        Boolean.valueOf(split.isSelected()),
+                        phase + " split button " + pane + " focus state survives width " + width);
+                assertTrue(split.getToolTipText() != null && !split.getToolTipText().isBlank(),
+                        phase + " split button " + pane + " tooltip survives width " + width);
+            }
+        }
     }
 
     /**
@@ -809,7 +1040,7 @@ final class WorkbenchUiEditorRegression {
         Object board = construct(type("BoardPanel"), new Class<?>[0]);
         assertTrue((Integer) staticField(type("Ui"), "BUTTON_TRANSITION_MS") <= 80,
                 "button transitions are short");
-        assertTrue((Integer) staticField(type("BoardPanel"), "MOVE_ANIMATION_MS") <= 120,
+        assertTrue((Integer) staticField(type("BoardAnimationState"), "DEFAULT_MOVE_ANIMATION_MS") <= 120,
                 "board move animation is short");
         Object animation = field(board, "animationState");
         assertTrue((Integer) invoke(animation, "snapbackAnimationMs", new Class<?>[0]) <= 100,

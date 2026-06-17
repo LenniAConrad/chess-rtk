@@ -1,6 +1,8 @@
 package testing;
 
 import application.cli.PathOps;
+import static testing.TestSupport.readUtf8;
+import static testing.TestSupport.writeUtf8;
 import static testing.WorkbenchTestSupport.*;
 
 import java.awt.Color;
@@ -17,11 +19,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.Predicate;
 
 import javax.swing.JComboBox;
@@ -55,6 +59,7 @@ import application.gui.workbench.session.ArtifactIndex;
 import application.gui.workbench.session.LogPanel;
 import application.gui.workbench.network.NnueDrawing;
 import application.gui.workbench.network.TensorViz;
+import application.gui.workbench.ui.HitRegions;
 import application.gui.workbench.ui.RenderAcceleration;
 import application.gui.workbench.ui.Theme;
 
@@ -101,6 +106,7 @@ final class WorkbenchBackendRegression {
         testRealActivationProgressReportsFallback();
         testNetworkMctsFollowLeafUsesRenderBackpressure();
         testNetworkMctsPublishesWeightsBeforeLeafActivation();
+        testNetworkMctsPublishesDistinctLiveFramesHeadlessly();
         testNetworkMctsUsesSelectedArchitectureBackend();
         testNetworkPositionPickerClearsLeafOverride();
         testNetworkDiagnosticsPreviewHighlightsConfig();
@@ -115,6 +121,8 @@ final class WorkbenchBackendRegression {
         testNnueRawUsesStableFeatureLanes();
         testNnueHalfKpDecodingUsesFeatureEncoderLayout();
         testNetworkBoardOrientationFollowsSideToMove();
+        testNetworkBoardSectionSuppressesSmallLabelsAndKeepsHitOrientation();
+        testBt4DetailedBoardUsesSharedTriangleOverlay();
         testNnueForwardSkipUsesNormalLineStyle();
         testNnueTraceRanksCombinedContributionsAndShowsAllFeatures();
         testNnueTraceInlineInspectorShowsGatheredColumn();
@@ -240,7 +248,7 @@ final class WorkbenchBackendRegression {
 
             Path log = (Path) invokeStatic(type("RunLog"), "write",
                     new Class<?>[] { Path.class, jobType, Path.class }, dir, job, Path.of("."));
-            String text = Files.readString(log, StandardCharsets.UTF_8);
+            String text = readUtf8(log);
             assertTrue(text.contains("CRTK Workbench Command Log"), "log header");
             assertTrue(text.contains("command: crtk engine bestmove"), "log command");
             assertTrue(text.contains("info depth 1\rinfo depth 2"), "log preserves carriage returns");
@@ -258,16 +266,8 @@ final class WorkbenchBackendRegression {
      * display server.
      */
     private static void testLogPanelConstructsHeadlessly() {
-        String source;
-        String helper;
-        try {
-            source = Files.readString(Path.of("src/application/gui/workbench/session/LogPanel.java"),
-                    StandardCharsets.UTF_8);
-            helper = Files.readString(Path.of("src/application/gui/workbench/session/DesktopOpen.java"),
-                    StandardCharsets.UTF_8);
-        } catch (IOException ex) {
-            throw new AssertionError("unable to read desktop-open sources", ex);
-        }
+        String source = readUtf8(Path.of("src/application/gui/workbench/session/LogPanel.java"));
+        String helper = readUtf8(Path.of("src/application/gui/workbench/session/DesktopOpen.java"));
         assertTrue(source.contains("DesktopOpen.open(path)"),
                 "LogPanel delegates desktop opening to the shared helper");
         assertTrue(helper.contains("desktop.isSupported(Desktop.Action.OPEN)"),
@@ -310,7 +310,7 @@ final class WorkbenchBackendRegression {
         try {
             Path dir = PathOps.createLocalTempDirectory("crtk-workbench-log-clobber-");
             Path existing = dir.resolve("run-00001-succeeded.log");
-            Files.writeString(existing, "keep", StandardCharsets.UTF_8);
+            writeUtf8(existing, "keep");
 
             Object manager = construct(type("JobManager"), new Class<?>[0]);
             Class<?> jobType = type("Job");
@@ -322,9 +322,9 @@ final class WorkbenchBackendRegression {
             Path log = (Path) invokeStatic(type("RunLog"), "write",
                     new Class<?>[] { Path.class, jobType, Path.class }, dir, job, Path.of("."));
             assertFalse(existing.equals(log), "run log selects a collision-free filename");
-            assertEquals("keep", Files.readString(existing, StandardCharsets.UTF_8),
+            assertEquals("keep", readUtf8(existing),
                     "existing run log is not clobbered");
-            assertTrue(Files.readString(log, StandardCharsets.UTF_8).contains("doctor ok"),
+            assertTrue(readUtf8(log).contains("doctor ok"),
                     "new run log is written");
         } catch (java.io.IOException ex) {
             throw new AssertionError("log clobber test setup failed", ex);
@@ -351,6 +351,12 @@ final class WorkbenchBackendRegression {
                     "puzzle complete cue present");
             assertEquals(SoundCue.MCTS_PROGRESS, SoundCue.valueOf("MCTS_PROGRESS"),
                     "MCTS progress cue present");
+            int playbackLanes = (Integer) staticField(type("SoundService"), "MAX_SIMULTANEOUS_CUES");
+            ThreadPoolExecutor executor =
+                    (ThreadPoolExecutor) staticField(type("SoundService"), "EXECUTOR");
+            assertTrue(playbackLanes > 1, "sound playback allows overlapping cues");
+            assertEquals(Integer.valueOf(playbackLanes), Integer.valueOf(executor.getMaximumPoolSize()),
+                    "sound playback lanes match active cue limit");
             int[] notifications = { 0 };
             Runnable listener = () -> notifications[0]++;
             SoundService.addSettingsListener(listener);
@@ -383,8 +389,8 @@ final class WorkbenchBackendRegression {
             Path dir = PathOps.createLocalTempDirectory("crtk-workbench-manifest-");
             Path input = dir.resolve("input.fens");
             Path output = dir.resolve("result.jsonl");
-            Files.writeString(input, START_FEN + System.lineSeparator(), StandardCharsets.UTF_8);
-            Files.writeString(output, "{\"bestmove\":\"e2e4\"}" + System.lineSeparator(), StandardCharsets.UTF_8);
+            writeUtf8(input, START_FEN + System.lineSeparator());
+            writeUtf8(output, "{\"bestmove\":\"e2e4\"}" + System.lineSeparator());
 
             Object manager = construct(type("JobManager"), new Class<?>[0]);
             Class<?> jobType = type("Job");
@@ -405,7 +411,7 @@ final class WorkbenchBackendRegression {
             Path manifest = (Path) invokeStatic(type("RunManifest"), "write",
                     new Class<?>[] { Path.class, jobType, List.class, String.class, Path.class },
                     dir, job, List.of(output), "stdin payload", Path.of("."));
-            String json = Files.readString(manifest, StandardCharsets.UTF_8);
+            String json = readUtf8(manifest);
 
             assertTrue(json.contains("\"schema\": \"crtk.workbench.run-manifest.v1\""),
                     "manifest schema");
@@ -441,7 +447,7 @@ final class WorkbenchBackendRegression {
         try {
             Path dir = PathOps.createLocalTempDirectory("crtk-workbench-manifest-clobber-");
             Path existing = dir.resolve("run-00001-succeeded.json");
-            Files.writeString(existing, "keep", StandardCharsets.UTF_8);
+            writeUtf8(existing, "keep");
 
             Object manager = construct(type("JobManager"), new Class<?>[0]);
             Class<?> jobType = type("Job");
@@ -454,9 +460,9 @@ final class WorkbenchBackendRegression {
                     new Class<?>[] { Path.class, jobType, List.class, String.class, Path.class },
                     dir, job, List.of(), "", Path.of("."));
             assertFalse(existing.equals(manifest), "run manifest selects a collision-free filename");
-            assertEquals("keep", Files.readString(existing, StandardCharsets.UTF_8),
+            assertEquals("keep", readUtf8(existing),
                     "existing run manifest is not clobbered");
-            assertTrue(Files.readString(manifest, StandardCharsets.UTF_8)
+            assertTrue(readUtf8(manifest)
                     .contains("\"schema\": \"crtk.workbench.run-manifest.v1\""),
                     "new run manifest is written");
         } catch (java.io.IOException ex) {
@@ -534,6 +540,7 @@ final class WorkbenchBackendRegression {
                 new Class<?>[] { actionsType }, (proxy, method, args) -> null);
         Object panel = construct(type("DashboardPanel"),
                 new Class<?>[] { type("Session"), actionsType }, session, actions);
+        flushEdt();
         assertTrue(panel instanceof JComponent, "dashboard panel is a Swing component");
         assertTrue(((JComponent) panel).getComponentCount() > 0,
                 "dashboard panel builds its cards");
@@ -543,10 +550,23 @@ final class WorkbenchBackendRegression {
                 "dashboard has an engine status card");
         assertTrue(componentTreeHasLabelText((JComponent) panel, "Health Checks"),
                 "dashboard has actionable health checks");
-        assertTrue(componentTreeHasLabelText((JComponent) panel, "Runtime Models"),
-                "dashboard has scannable runtime model rows");
-        assertTrue(componentTreeHasLabelText((JComponent) panel, "Cache / Activation"),
-                "dashboard has activation-cache status");
+        assertTrue(componentTreeHasLabelText((JComponent) panel, "Network Runtime"),
+                "dashboard has shared network runtime diagnostics");
+        Component diagnostics = componentTreeFindClass((JComponent) panel,
+                "NetworkDiagnosticsPanel");
+        assertTrue(diagnostics != null,
+                "dashboard embeds the shared compact network diagnostics panel");
+        assertFalse((Boolean) field(diagnostics, "includeConfigPreview"),
+                "dashboard uses the compact diagnostics variant");
+        JPanel modelRows = (JPanel) field(diagnostics, "modelRows");
+        JPanel gpuRows = (JPanel) field(diagnostics, "gpuRows");
+        JPanel cacheRows = (JPanel) field(diagnostics, "cacheRows");
+        assertTrue(modelRows.getComponentCount() > 0,
+                "dashboard diagnostics exposes model status");
+        assertTrue(componentTreeHasLabelText(gpuRows, "Java2D"),
+                "dashboard diagnostics exposes Java2D/backend status");
+        assertTrue(componentTreeHasLabelText(cacheRows, "Activation"),
+                "dashboard diagnostics exposes activation-cache status");
         assertTrue(componentTreeHasLabelText((JComponent) panel, "No recent jobs"),
                 "dashboard uses the shared empty state for jobs");
         invoke(session, "updatePosition",
@@ -623,17 +643,29 @@ final class WorkbenchBackendRegression {
      * @return true when found
      */
     private static boolean componentTreeContainsClass(Component component, String simpleName) {
+        return componentTreeFindClass(component, simpleName) != null;
+    }
+
+    /**
+     * Returns the first component in a tree with the given simple class name.
+     *
+     * @param component root component
+     * @param simpleName class simple name
+     * @return matching component, or null
+     */
+    private static Component componentTreeFindClass(Component component, String simpleName) {
         if (component != null && simpleName.equals(component.getClass().getSimpleName())) {
-            return true;
+            return component;
         }
         if (component instanceof Container container) {
             for (Component child : container.getComponents()) {
-                if (componentTreeContainsClass(child, simpleName)) {
-                    return true;
+                Component match = componentTreeFindClass(child, simpleName);
+                if (match != null) {
+                    return match;
                 }
             }
         }
-        return false;
+        return null;
     }
 
     /**
@@ -905,6 +937,18 @@ final class WorkbenchBackendRegression {
     }
 
     /**
+     * Lets the MCTS worker publish and the EDT process one live frame.
+     */
+    private static void sleepForLiveFramePoll() {
+        try {
+            Thread.sleep(8L);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("interrupted while waiting for live MCTS frames", ex);
+        }
+    }
+
+    /**
      * Verifies Network-tab MCTS keeps heavy leaf inference off the EDT while
      * applying follow-leaf frames synchronously before the search advances.
      */
@@ -993,6 +1037,54 @@ final class WorkbenchBackendRegression {
         String builderBody = source.substring(frameBuilder, activationBuilder);
         assertFalse(builderBody.contains("inferSnapshot("),
                 "network MCTS frame builder does not block on model inference");
+    }
+
+    /**
+     * Verifies live follow-leaf visualization produces multiple observable
+     * intermediate frames during a bounded headless search, not only the initial
+     * and final position.
+     */
+    private static void testNetworkMctsPublishesDistinctLiveFramesHeadlessly() {
+        Object panel = construct(type("NetworkPanel"), new Class<?>[0]);
+        Timer timer = (Timer) field(panel, "debounceTimer");
+        timer.stop();
+        JComboBox<?> archCombo = (JComboBox<?>) field(panel, "archCombo");
+        archCombo.setSelectedItem("NNUE - HalfKP");
+        JCheckBox followLeaf = (JCheckBox) field(panel, "mctsFollowLeafToggle");
+        followLeaf.setSelected(true);
+        JSpinner visits = (JSpinner) field(panel, "mctsVisitsSpinner");
+        JSpinner millis = (JSpinner) field(panel, "mctsMillisSpinner");
+        visits.setValue(Integer.valueOf(8));
+        millis.setValue(Integer.valueOf(0));
+        invoke(panel, "setActive", new Class<?>[] { boolean.class }, Boolean.TRUE);
+        invoke(panel, "setFen", new Class<?>[] { String.class }, START_FEN);
+        invoke(panel, "startNetworkMcts", new Class<?>[0]);
+        LinkedHashSet<String> frames = new LinkedHashSet<>();
+        try {
+            long deadline = System.currentTimeMillis() + 8_000L;
+            while (System.currentTimeMillis() < deadline && frames.size() <= 2) {
+                flushEdt();
+                Object weights = field(panel, "mctsWeightsPanel");
+                Object snapshot = field(weights, "snapshot");
+                String leafFen = (String) field(panel, "mctsLeafFen");
+                if (snapshot != null && leafFen != null && !leafFen.isBlank()) {
+                    frames.add(invoke(snapshot, "playouts", new Class<?>[0])
+                            + "|" + leafFen
+                            + "|" + invoke(snapshot, "exploringLineText", new Class<?>[0]));
+                }
+                Object worker = field(panel, "mctsWorker");
+                if (worker instanceof SwingWorker<?, ?> swingWorker && swingWorker.isDone()) {
+                    flushEdt();
+                }
+                sleepForLiveFramePoll();
+            }
+            assertTrue(frames.size() > 2,
+                    "network MCTS follow-leaf publishes more than start/end live visualization frames: " + frames);
+        } finally {
+            invoke(panel, "stopNetworkMcts", new Class<?>[] { boolean.class }, Boolean.FALSE);
+            invoke(panel, "dispose", new Class<?>[0]);
+            flushEdt();
+        }
     }
 
     /**
@@ -1444,6 +1536,297 @@ final class WorkbenchBackendRegression {
     }
 
     /**
+     * Verifies the shared dense-view board helper keeps tiny boards visual-only
+     * while preserving oriented square hit regions.
+     */
+    private static void testNetworkBoardSectionSuppressesSmallLabelsAndKeepsHitOrientation() {
+        Rectangle smallBoard = new Rectangle(10, 20, 64, 64);
+        BufferedImage small = new BufferedImage(96, 96, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = small.createGraphics();
+        try {
+            TensorViz.useHighQuality(g);
+            paintNetworkBoardSection(g, new HitRegions(), smallBoard, START_FEN,
+                    "caption should not paint on tiny board", null, 1.0f, -1,
+                    TensorViz.FOCUS, "caption");
+        } finally {
+            g.dispose();
+        }
+        assertEquals(Integer.valueOf(0),
+                Integer.valueOf(alphaSum(small, 0, 0, small.getWidth(), smallBoard.y)),
+                "tiny network board section suppresses visible captions");
+
+        String blackFen = "rnbqkbnr/ppp1pppp/8/3p4/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1";
+        Rectangle board = new Rectangle(0, 0, 80, 80);
+        float[] values = new float[64];
+        values[7] = 1.0f;
+        HitRegions hits = new HitRegions();
+        BufferedImage image = new BufferedImage(80, 80, BufferedImage.TYPE_INT_ARGB);
+        g = image.createGraphics();
+        try {
+            TensorViz.useHighQuality(g);
+            paintNetworkBoardSection(g, hits, board, blackFen, "orientation",
+                    values, 1.0f, 7, TensorViz.FOCUS, "oriented value");
+        } finally {
+            g.dispose();
+        }
+        HitRegions.Region topLeft = hits.hitTest(5, 5);
+        assertTrue(topLeft != null, "network board section registers square hit regions");
+        assertEquals("h1", topLeft.title,
+                "black-to-move network board section maps top-left hit to h1");
+        assertEquals("+1.0000", topLeft.value,
+                "network board section exposes per-square values through tooltips");
+
+        HitRegions inspectHits = new HitRegions();
+        image = new BufferedImage(80, 80, BufferedImage.TYPE_INT_ARGB);
+        g = image.createGraphics();
+        try {
+            TensorViz.useHighQuality(g);
+            paintInspectableNetworkBoardSection(g, inspectHits, board, blackFen,
+                    "inspection", null, 1.0f, -1, TensorViz.VALUE,
+                    "whole board", "OTIS board", "inspectable OTIS board",
+                    "otis.sheaf.laplacian");
+        } finally {
+            g.dispose();
+        }
+        HitRegions.Region center = inspectHits.hitTest(40, 40);
+        assertTrue(center != null, "inspectable network board section registers a whole-board region");
+        assertEquals("otis.sheaf.laplacian", center.dataKey,
+                "network board section keeps whole-board inspector binding when no overlay is present");
+
+        List<String> layerOrder = new ArrayList<>();
+        Object underlay = networkBoardOverlay((gg, overlayBoard, whiteDown) -> {
+            layerOrder.add("underlay");
+            assertEquals(Boolean.FALSE, Boolean.valueOf(whiteDown),
+                    "network board section passes side-to-move orientation to custom underlays");
+            gg.setColor(TensorViz.VALUE);
+            gg.fillRect(overlayBoard.x, overlayBoard.y, 4, 4);
+        });
+        Object overlay = networkBoardOverlay((gg, overlayBoard, whiteDown) -> {
+            layerOrder.add("overlay");
+            assertEquals(Boolean.FALSE, Boolean.valueOf(whiteDown),
+                    "network board section passes side-to-move orientation to custom overlays");
+            gg.setColor(TensorViz.FOCUS);
+            gg.fillRect(overlayBoard.x + 4, overlayBoard.y, 4, 4);
+        });
+        image = new BufferedImage(80, 80, BufferedImage.TYPE_INT_ARGB);
+        g = image.createGraphics();
+        try {
+            TensorViz.useHighQuality(g);
+            paintLayeredNetworkBoardSection(g, new HitRegions(), board, blackFen,
+                    "custom", null, 1.0f, -1, TensorViz.FOCUS,
+                    "custom overlay", underlay, overlay, null);
+        } finally {
+            g.dispose();
+        }
+        assertEquals("underlay,overlay", String.join(",", layerOrder),
+                "network board section invokes underlays before overlays");
+    }
+
+    /**
+     * Verifies the BT4 detailed-board overlay keeps click selection, triangle
+     * tinting, and oriented per-square hover metadata after routing through the
+     * shared board-section helper.
+     */
+    private static void testBt4DetailedBoardUsesSharedTriangleOverlay() {
+        Class<?> snapshotType = type("ActivationSnapshot");
+        Class<?> baseType = type("NetworkView");
+        Class<?> modeType = type("ViewMode");
+        Object detailed = enumValue(modeType, "DETAILED");
+        Object view = construct(type("Bt4View"), new Class<?>[0]);
+        Object snapshot = construct(snapshotType, new Class<?>[0]);
+        invokeStatic(type("SyntheticActivations"), "fillBt4",
+                new Class<?>[] { String.class, snapshotType }, START_FEN, snapshot);
+        invoke(snapshot, "seal", new Class<?>[0]);
+        invokeOn(baseType, view, "setFen", new Class<?>[] { String.class }, START_FEN);
+        invokeOn(baseType, view, "setSnapshot", new Class<?>[] { snapshotType }, snapshot);
+        invokeOn(baseType, view, "setViewMode", new Class<?>[] { modeType }, detailed);
+
+        JComponent component = (JComponent) view;
+        component.setSize(1240, 760);
+        BufferedImage before = paint(component, 1240, 760);
+        Rectangle board = (Rectangle) field(view, "boardBounds");
+        assertTrue(board.width > 0 && board.height > 0, "BT4 detailed board bounds are painted");
+
+        int x = board.x + board.width / 2;
+        int y = board.y + board.height / 2;
+        component.dispatchEvent(mouse(component, MouseEvent.MOUSE_PRESSED, 1L, x, y, 1));
+        BufferedImage after = paint(component, 1240, 760);
+        assertTrue(countDifferingPixels(before, after, board.x, board.y, board.width, board.height) > 256,
+                "BT4 selected-square triangle overlay changes the board pixels");
+
+        HitRegions regions = (HitRegions) field(view, "hitRegions");
+        HitRegions.Region region = regions.hitTest(x, y);
+        assertTrue(region != null, "BT4 detailed board registers selected-square hover metadata");
+        assertTrue(region.value.contains("outgoing") && region.value.contains("incoming"),
+                "BT4 triangle tooltip keeps both attention directions");
+    }
+
+    /**
+     * Reflectively paints the package-private network board helper.
+     *
+     * @param g graphics
+     * @param hitRegions hit registry
+     * @param board board rectangle
+     * @param fen position FEN
+     * @param title title text
+     * @param values optional square values
+     * @param scale overlay scale
+     * @param focusSquare highlighted square
+     * @param focusColor highlighted-square color
+     * @param caption tooltip caption
+     */
+    private static void paintNetworkBoardSection(Graphics2D g, HitRegions hitRegions,
+            Rectangle board, String fen, String title, float[] values, float scale,
+            int focusSquare, Color focusColor, String caption) {
+        invokeStatic(type("NetworkBoardSection"), "paintOverlayBoard",
+                new Class<?>[] {
+                        Graphics2D.class, HitRegions.class, Rectangle.class,
+                        String.class, String.class, float[].class, float.class,
+                        int.class, Color.class, String.class
+                },
+                g, hitRegions, board, fen, title, values, Float.valueOf(scale),
+                Integer.valueOf(focusSquare), focusColor, caption);
+    }
+
+    /**
+     * Reflectively paints an inspectable network board helper.
+     *
+     * @param g graphics
+     * @param hitRegions hit registry
+     * @param board board rectangle
+     * @param fen position FEN
+     * @param title title text
+     * @param values optional square values
+     * @param scale overlay scale
+     * @param focusSquare highlighted square
+     * @param focusColor highlighted-square color
+     * @param caption tooltip caption
+     * @param inspectionTitle whole-board inspector title
+     * @param inspectionDescription whole-board inspector description
+     * @param dataKey activation snapshot key
+     */
+    private static void paintInspectableNetworkBoardSection(Graphics2D g,
+            HitRegions hitRegions, Rectangle board, String fen, String title,
+            float[] values, float scale, int focusSquare, Color focusColor,
+            String caption, String inspectionTitle, String inspectionDescription,
+            String dataKey) {
+        Class<?> inspectionType = type("NetworkBoardSection$Inspection");
+        Object inspection = construct(inspectionType,
+                new Class<?>[] {
+                        String.class, String.class, String.class, String.class,
+                        int.class, int.class, int.class, String.class
+                },
+                inspectionTitle, inspectionDescription, "", dataKey,
+                Integer.valueOf(0), Integer.valueOf(0), Integer.valueOf(8), "8x8");
+        invokeStatic(type("NetworkBoardSection"), "paintOverlayBoard",
+                new Class<?>[] {
+                        Graphics2D.class, HitRegions.class, Rectangle.class,
+                        String.class, String.class, float[].class, float.class,
+                        int.class, Color.class, String.class, inspectionType
+                },
+                g, hitRegions, board, fen, title, values, Float.valueOf(scale),
+                Integer.valueOf(focusSquare), focusColor, caption, inspection);
+    }
+
+    /**
+     * Reflectively paints a network board helper with a custom overlay hook.
+     *
+     * @param g graphics
+     * @param hitRegions hit registry
+     * @param board board rectangle
+     * @param fen position FEN
+     * @param title title text
+     * @param values optional square values
+     * @param scale overlay scale
+     * @param focusSquare highlighted square
+     * @param focusColor highlighted-square color
+     * @param caption tooltip caption
+     * @param overlay custom board overlay
+     * @param inspection optional inspector binding
+     */
+    private static void paintCustomNetworkBoardSection(Graphics2D g,
+            HitRegions hitRegions, Rectangle board, String fen, String title,
+            float[] values, float scale, int focusSquare, Color focusColor,
+            String caption, Object overlay, Object inspection) {
+        paintLayeredNetworkBoardSection(g, hitRegions, board, fen, title, values,
+                scale, focusSquare, focusColor, caption, null, overlay,
+                inspection);
+    }
+
+    /**
+     * Reflectively paints a network board helper with custom board layers.
+     *
+     * @param g graphics
+     * @param hitRegions hit registry
+     * @param board board rectangle
+     * @param fen position FEN
+     * @param title title text
+     * @param values optional square values
+     * @param scale overlay scale
+     * @param focusSquare highlighted square
+     * @param focusColor highlighted-square color
+     * @param caption tooltip caption
+     * @param underlay custom board underlay
+     * @param overlay custom board overlay
+     * @param inspection optional inspector binding
+     */
+    private static void paintLayeredNetworkBoardSection(Graphics2D g,
+            HitRegions hitRegions, Rectangle board, String fen, String title,
+            float[] values, float scale, int focusSquare, Color focusColor,
+            String caption, Object underlay, Object overlay, Object inspection) {
+        Class<?> overlayType = type("NetworkBoardSection$BoardOverlay");
+        Class<?> inspectionType = type("NetworkBoardSection$Inspection");
+        invokeStatic(type("NetworkBoardSection"), "paintOverlayBoard",
+                new Class<?>[] {
+                        Graphics2D.class, HitRegions.class, Rectangle.class,
+                        String.class, String.class, float[].class, float.class,
+                        int.class, Color.class, String.class, overlayType,
+                        overlayType, inspectionType
+                },
+                g, hitRegions, board, fen, title, values, Float.valueOf(scale),
+                Integer.valueOf(focusSquare), focusColor, caption, underlay,
+                overlay, inspection);
+    }
+
+    /**
+     * Creates a dynamic proxy for the package-private board overlay interface.
+     *
+     * @param callback callback invoked by the proxy
+     * @return proxy implementing NetworkBoardSection.BoardOverlay
+     */
+    private static Object networkBoardOverlay(BoardOverlayCallback callback) {
+        Class<?> overlayType = type("NetworkBoardSection$BoardOverlay");
+        return Proxy.newProxyInstance(overlayType.getClassLoader(),
+                new Class<?>[] { overlayType },
+                (proxy, method, args) -> {
+                    if ("paint".equals(method.getName())) {
+                        callback.paint((Graphics2D) args[0], (Rectangle) args[1],
+                                ((Boolean) args[2]).booleanValue());
+                    }
+                    if ("toString".equals(method.getName())) {
+                        return "test network board overlay";
+                    }
+                    return null;
+                });
+    }
+
+    /**
+     * Test-side adapter for the package-private board overlay callback.
+     */
+    @FunctionalInterface
+    private interface BoardOverlayCallback {
+
+        /**
+         * Paints a custom board annotation.
+         *
+         * @param g graphics
+         * @param board board rectangle
+         * @param whiteDown whether White is rendered at the bottom
+         */
+        void paint(Graphics2D g, Rectangle board, boolean whiteDown);
+    }
+
+    /**
      * Returns whether a single-square overlay changes the board's top-left
      * cell for the requested visual orientation.
      *
@@ -1821,7 +2204,7 @@ final class WorkbenchBackendRegression {
         assertOtisStatusDetailContains(provider, "simple_18");
         assertOtisStatusDetailContains(provider, params);
 
-        if (!Files.exists(chess.nn.otis.Model.DEFAULT_WEIGHTS)) {
+        if (!Files.exists(application.gui.workbench.network.RealActivations.otisPath())) {
             return;
         }
         Object snapshot = invoke(provider, "inferOtis", new Class<?>[] { String.class }, START_FEN);

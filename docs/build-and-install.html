@@ -89,6 +89,7 @@
 <a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
 <a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="review-to-study.html" data-title="review to study">Review To Study</a>
 <a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
@@ -134,6 +135,11 @@
 <td>Any 17-or-newer runtime runs the built JAR.</td>
 </tr>
 <tr>
+<td>JDK packaging tools (<code>jdeps</code>, <code>jlink</code>, <code>jpackage</code>)</td>
+<td>Linux self-contained runtime bundle</td>
+<td>Optional. Included with normal full JDK installs, and only needed for <code>scripts/make_runtime_linux.sh</code>.</td>
+</tr>
+<tr>
 <td>A UCI engine (e.g. Stockfish)</td>
 <td><code>engine analyze</code>, <code>engine bestmove</code>, <code>engine threats</code>, <code>engine compare</code>, <code>engine uci-smoke</code>, <code>puzzle mine</code></td>
 <td>Optional. On <code>PATH</code> or pointed to via a protocol TOML (<code>--protocol-path</code>). See <a href="configuration.html">Configuration</a>.</td>
@@ -173,16 +179,27 @@
 <h2 id="build-from-source">Build from source</h2>
 <p>Two lines from the repository root. Make a directory for the classes, then compile every source file into it:</p>
 <pre><code class="language-bash">mkdir -p out
-javac --release 17 -d out $(find src -name &quot;*.java&quot;)</code></pre>
+javac --release 17 -d out $(find src -name &quot;*.java&quot;)
+rm -rf out/schemas &amp;&amp; cp -R schemas out/schemas</code></pre>
 <blockquote><p>Keep <code>--release 17</code>. It pins both the language level and the platform API surface, so a newer JDK still emits Java 17-compatible classes that behave the same. Drop the flag and compile against a newer API and you can hit spurious errors that have nothing to do with your code.</p></blockquote>
 <p>Run straight from the compiled classes:</p>
 <pre><code class="language-bash">java -cp out application.Main help
 java -cp out application.Main &lt;area&gt; &lt;action&gt; [options]</code></pre>
 <h2 id="package-a-runnable-jar">Package a runnable JAR</h2>
 <p>Bundle the compiled classes into a self-contained <code>crtk.jar</code>:</p>
-<pre><code class="language-bash">jar --create --file crtk.jar --main-class application.Main -C out .
+<pre><code class="language-bash">rm -rf out/schemas &amp;&amp; cp -R schemas out/schemas
+jar --create --file crtk.jar --main-class application.Main -C out .
 java -jar crtk.jar help</code></pre>
 <p>The rest of this site writes commands as <code>crtk</code>, which is the launcher the installer drops on your <code>PATH</code>. Wherever you see it, <code>java -jar crtk.jar</code> does exactly the same thing.</p>
+<h2 id="build-a-self-contained-linux-runtime-bundle">Build a self-contained Linux runtime bundle</h2>
+<p>When you need a portable Linux app image that carries its own Java runtime, run the release-only jlink/jpackage script:</p>
+<pre><code class="language-bash">scripts/make_runtime_linux.sh --version v1.0.0</code></pre>
+<p>It compiles the source with <code>javac --release 17</code>, packages <code>crtk.jar</code>, derives the required Java modules with <code>jdeps</code>, builds a minimal runtime with <code>jlink</code>, and creates an app image with <code>jpackage</code>. The staged bundle includes a root <code>./crtk</code> launcher that runs from the bundle directory, so relative <code>config/</code> and documentation paths resolve the same way they do in a checkout.</p>
+<p>The script writes:</p>
+<pre><code class="language-text">dist/crtk-v1.0.0-linux-x86_64-runtime/
+dist/crtk-v1.0.0-linux-x86_64-runtime.tar.gz
+dist/crtk-v1.0.0-linux-x86_64-runtime.sha256</code></pre>
+<p>As part of the build it runs <code>./crtk version</code> from the produced bundle with an empty <code>PATH</code>, proving the launcher is using the bundled runtime rather than a system <code>java</code>.</p>
 <h2 id="verify-the-build">Verify the build</h2>
 <p>Three commands tell you whether everything is wired up:</p>
 <pre><code class="language-bash">crtk version
@@ -354,6 +371,7 @@ crtk engine perft-suite --depth 6 --threads 4</code></pre>
 <a class="toc-h2" href="#debian-ubuntu-packages">Debian/Ubuntu packages</a>
 <a class="toc-h2" href="#build-from-source">Build from source</a>
 <a class="toc-h2" href="#package-a-runnable-jar">Package a runnable JAR</a>
+<a class="toc-h2" href="#build-a-self-contained-linux-runtime-bundle">Build a self-contained Linux runtime bundle</a>
 <a class="toc-h2" href="#verify-the-build">Verify the build</a>
 <a class="toc-h2" href="#linux-installer-debian-ubuntu">Linux installer (Debian/Ubuntu)</a>
 <a class="toc-h3" href="#installer-flags">Installer flags</a>

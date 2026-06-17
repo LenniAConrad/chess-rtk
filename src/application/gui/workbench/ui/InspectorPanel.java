@@ -205,20 +205,13 @@ public final class InspectorPanel extends JPanel {
      * Resets the inspector to the empty-selection state.
      */
     public void clear() {
-        // VS Code-style helpful empty state: instead of the bare "Select an
-        // item." placeholder, point the user at what clicking does and
-        // suggest a concrete first interaction. The description area also
-        // gets a longer hint so the panel stops feeling empty.
+        // Empty-selection state: keep the surface quiet with a short state
+        // descriptor rather than an instructional walkthrough.
         titleLabel.setText("Inspector");
         subtitleLabel.setText("Nothing selected.");
         valueLabel.setText(" ");
-        statsLabel.setText("Click a heat-mapped square, channel, head, or feature lane to inspect it.");
-        descriptionArea.setText("""
-                Tips:
-                  • Click a square on the input planes to see the raw value.
-                  • Click a slot in the Trace view to pin a feature lane.
-                  • Click any cell in an Atlas grid to drill into that block.
-                """);
+        statsLabel.setText("No selection");
+        descriptionArea.setText("");
         dataArea.setText("");
         dataScroll.setVisible(false);
         clipboardPayload = "";

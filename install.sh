@@ -31,6 +31,12 @@ MODEL_LOCAL_FILES=(
   "leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin"
   "BT4-1024x15x32h-swa-6147500-policytune-332.pb.gz"
 )
+MODEL_SHA256=(
+  "fcf986aea78a22de420ec0f0d1f4cf5b2b8497896aa678ff1e1bee5922fab113"
+  "c4dd6b62acd3c86be3d6199a32d6119d9144f508f84c823f69881ae0bae41034"
+  "b99bec1aba97e96bf03ac8e016578527b983b6653f1adf040452f86c6f3ef348"
+  "e6ada9d6c4a769bfab3aa0848d82caeb809aa45f83e6c605fc58a31d21bdd618"
+)
 
 CUDA_MODE="auto"      # auto|yes|no
 REQUIRE_CUDA=0
@@ -246,6 +252,48 @@ download_file() {
   mv "$tmp" "$dest"
 }
 
+sha256_file() {
+  # sha256_file PATH
+  local file="$1"
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$file" | awk '{print $1}'
+    return 0
+  fi
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$file" | awk '{print $1}'
+    return 0
+  fi
+  err "No SHA-256 tool found (need sha256sum or shasum -a 256)."
+  return 1
+}
+
+copy_runtime_resources() {
+  if [[ -d "$APP_HOME/schemas" ]]; then
+    mkdir -p "$OUT_DIR/schemas"
+    find "$APP_HOME/schemas" -type f -name '*.schema.json' -print0 \
+      | while IFS= read -r -d '' schema_file; do
+          local rel="${schema_file#$APP_HOME/}"
+          mkdir -p "$OUT_DIR/$(dirname "$rel")"
+          cp "$schema_file" "$OUT_DIR/$rel"
+        done
+  fi
+}
+
+verify_model_sha256() {
+  # verify_model_sha256 PATH EXPECTED
+  local file="$1"
+  local expected="$2"
+  local actual
+  actual="$(sha256_file "$file")" || return 1
+  if [[ "${actual,,}" != "${expected,,}" ]]; then
+    warn "SHA-256 mismatch for $file"
+    info "expected: $expected"
+    info "actual:   $actual"
+    return 1
+  fi
+  return 0
+}
+
 model_url() {
   case "$1" in
     http://*|https://*) printf '%s\n' "$1" ;;
@@ -264,9 +312,11 @@ fetch_model_weights() {
   local remote
   local remote_name
   local file
+  local expected_sha
   for index in "${!MODEL_LOCAL_FILES[@]}"; do
     remote="${MODEL_REMOTE_FILES[$index]}"
     file="${MODEL_LOCAL_FILES[$index]}"
+    expected_sha="${MODEL_SHA256[$index]}"
     remote_name="${remote##*/}"
     if [[ ! -s "$MODEL_DIR/$file" && "$remote_name" != "$file" && -s "$MODEL_DIR/$remote_name" ]]; then
       mv "$MODEL_DIR/$remote_name" "$MODEL_DIR/$file"
@@ -274,6 +324,8 @@ fetch_model_weights() {
       mv "$MODEL_DIR/$remote" "$MODEL_DIR/$file"
     fi
     if [[ ! -s "$MODEL_DIR/$file" ]]; then
+      missing+=("$index")
+    elif ! verify_model_sha256 "$MODEL_DIR/$file" "$expected_sha"; then
       missing+=("$index")
     fi
   done
@@ -299,24 +351,39 @@ fetch_model_weights() {
 
   mkdir -p "$MODEL_DIR"
   local failed=0
+  local verification_failed=0
   for index in "${missing[@]}"; do
     remote="${MODEL_REMOTE_FILES[$index]}"
     file="${MODEL_LOCAL_FILES[$index]}"
+    expected_sha="${MODEL_SHA256[$index]}"
     echo
     step "Downloading model weight: $file"
-    if download_file "$(model_url "$remote")" "$MODEL_DIR/$file"; then
-      step "Saved: $MODEL_DIR/$file"
-    else
+    if ! download_file "$(model_url "$remote")" "$MODEL_DIR/$file"; then
       failed=1
-      rm -f "$MODEL_DIR/$file.tmp"
+      rm -f "$MODEL_DIR/$file" "$MODEL_DIR/$file.tmp"
       warn "Failed to download $file"
+      continue
     fi
+    if ! verify_model_sha256 "$MODEL_DIR/$file" "$expected_sha"; then
+      failed=1
+      verification_failed=1
+      rm -f "$MODEL_DIR/$file" "$MODEL_DIR/$file.tmp"
+      err "Checksum verification failed for $file"
+      continue
+    fi
+    step "Saved: $MODEL_DIR/$file"
   done
 
   if [[ $failed -eq 0 ]]; then
     MODEL_RESULT="downloaded"
   else
     MODEL_RESULT="failed"
+  fi
+  if [[ $verification_failed -ne 0 ]]; then
+    return 1
+  fi
+  if [[ $failed -ne 0 && "$MODEL_MODE" == "yes" ]]; then
+    return 1
   fi
   return 0
 }
@@ -1131,6 +1198,9 @@ fetch_model_weights
 section "Java Build"
 step "Compiling sources with javac"
 find "$APP_HOME/src" -name "*.java" -print0 | xargs -0 javac --release 17 -d "$OUT_DIR"
+
+step "Copying runtime resources"
+copy_runtime_resources
 
 step "Packaging runnable jar"
 jar --create --file "$JAR_PATH" --main-class application.Main -C "$OUT_DIR" .

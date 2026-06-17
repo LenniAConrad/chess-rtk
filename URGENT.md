@@ -1,4 +1,4 @@
-# ⚠️ URGENT: OTIS tactical-incidence pawn channel was BACKWARD — now fixed
+# RESOLVED: OTIS tactical-incidence pawn channel was backward, now fixed
 
 **Date:** 2026-06-02
 **Severity:** High — a network input channel was geometrically inverted in both the
@@ -35,6 +35,14 @@ were never meaningful. **But** any *real* OTIS weights converted from a
 chess-nn-playground checkpoint trained before this fix were trained on the backward
 pawn channel and must be **re-exported from a retrained checkpoint**.
 
+## Resolution
+
+Checked on 2026-06-16: the only default OTIS weight path in this repository is
+`models/otis_policy_wdl_random.bin` (`chess.nn.otis.Model.DEFAULT_WEIGHTS`), and
+the local `models/` directory contains no production OTIS `.bin` file. The default
+file is a randomized placeholder rather than a trained pre-fix model, so no
+repository-shipped OTIS weight needs re-exporting.
+
 ## Origin
 
 This builder mirrors `chess-nn-playground`'s
@@ -46,5 +54,5 @@ the same.
 
 ## Action items
 
-- [ ] Re-export any production OTIS `.bin` weights from a retrained playground checkpoint.
-- [ ] Remove this file once no pre-fix OTIS weights remain in use.
+- [x] No production OTIS `.bin` weights are shipped or referenced by defaults; no repository re-export is required.
+- [x] Live follow-up closed; this file is retained only as a historical note for local/private pre-fix weights.

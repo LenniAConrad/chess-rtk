@@ -12,6 +12,7 @@ Every command reads as `crtk <area> <action> [options]`, noun then verb, and lea
 | --- | --- | --- |
 | Chess researcher | Study positions, validate move generation, compare engines | `fen print`, `engine analyze`, `engine perft` |
 | ML dataset builder | Turn games and analysis into labeled tensors and JSONL | `fen pgn`, `puzzle mine`, `record dataset` |
+| Player reviewing games | Turn your PGNs into mistake rows and study units | `review game --to-study` |
 | Puzzle-book author | Mine tactics and publish print-ready PDFs | `puzzle mine`, `book collection`, `book render` |
 | Engine tester | Benchmark movegen, run perft suites, A/B engines | `engine perft-suite`, `engine compare`, `engine benchmark` |
 | AI-agent / automation builder | Get clean JSON/JSONL from deterministic primitives | `fen normalize`, `move list`, `engine bestmove-batch` |
@@ -52,9 +53,25 @@ crtk record export training-jsonl -i dump/merged.json -o training/labels.jsonl -
 Read next:
 
 - [Datasets](datasets.md)
+- [Review to Study](review-to-study.md)
 - [Filter DSL](filter-dsl.md)
 - [Piece and Position Tags](piece-tags.md)
 - [Outputs and Logs](outputs-and-logs.md)
+
+## Players Reviewing Their Games
+
+Export a PGN, run bounded review with your configured engine, and let crtk write both the per-ply verdict stream and drillable study units. The review JSONL tells you what happened on every mainline ply; the study JSONL and Record sidecar keep only mistakes and blunders that should become practice material.
+
+```bash
+crtk review game --pgn games/rapid.pgn --max-nodes 50000 --max-duration 3s --to-study
+```
+
+Read next:
+
+- [Review to Study](review-to-study.md)
+- [Outputs and Logs](outputs-and-logs.md)
+- [Configuration](configuration.md)
+- [Desktop Workbench](workbench.md)
 
 ## Puzzle-Book Authors
 

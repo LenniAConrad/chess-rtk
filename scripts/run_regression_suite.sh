@@ -4,11 +4,51 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+# shellcheck source=scripts/build_lock.sh
+source "$ROOT_DIR/scripts/build_lock.sh"
+crtk_acquire_build_lock "$ROOT_DIR"
+
 SUITE="${1:-recommended}"
-PERFT_THREADS="${CRTK_PERFT_THREADS:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)}"
+BUILD_STAMP="out/.crtk-build-complete"
+ONLINE_CPUS="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+if ! [[ "$ONLINE_CPUS" =~ ^[0-9]+$ ]] || [[ "$ONLINE_CPUS" -lt 1 ]]; then
+  ONLINE_CPUS=2
+fi
+# Java regression classes and high-level phases share the compiled tree and
+# out/tmp. Keep both serial by default so the standard recommended gate is
+# stable; CRTK_TEST_JOBS/CRTK_SUITE_JOBS remain explicit opt-ins.
+DEFAULT_TEST_JOBS=1
+DEFAULT_SUITE_JOBS=1
+PERFT_THREADS="${CRTK_PERFT_THREADS:-$ONLINE_CPUS}"
 PERFT_DEPTH="${CRTK_PERFT_DEPTH:-4}"
 PERFT_SUITE_DEPTH="${CRTK_PERFT_SUITE_DEPTH:-4}"
 REQUIRE_STOCKFISH="${CRTK_REQUIRE_STOCKFISH:-0}"
+TEST_TIMEOUT="${CRTK_TEST_TIMEOUT:-300}"
+TEST_JOBS="${CRTK_TEST_JOBS:-$DEFAULT_TEST_JOBS}"
+SUITE_JOBS="${CRTK_SUITE_JOBS:-$DEFAULT_SUITE_JOBS}"
+
+require_positive_integer() {
+  local name="$1"
+  local value="$2"
+  if ! [[ "$value" =~ ^[0-9]+$ ]] || [[ "$value" -lt 1 ]]; then
+    echo "$name must be a positive integer (got '$value')" >&2
+    exit 2
+  fi
+}
+
+require_non_negative_integer() {
+  local name="$1"
+  local value="$2"
+  if ! [[ "$value" =~ ^[0-9]+$ ]]; then
+    echo "$name must be a non-negative integer (got '$value')" >&2
+    exit 2
+  fi
+}
+
+require_positive_integer CRTK_PERFT_THREADS "$PERFT_THREADS"
+require_positive_integer CRTK_TEST_JOBS "$TEST_JOBS"
+require_positive_integer CRTK_SUITE_JOBS "$SUITE_JOBS"
+require_non_negative_integer CRTK_TEST_TIMEOUT "$TEST_TIMEOUT"
 
 compile_sources() {
   clean_out
@@ -19,6 +59,8 @@ compile_sources() {
     exit 1
   fi
   javac "$@" --release 17 -d out "${sources[@]}"
+  copy_runtime_resources
+  touch "$BUILD_STAMP"
 }
 
 clean_out() {
@@ -33,11 +75,11 @@ clean_out() {
 }
 
 ensure_compiled() {
-  if ! find out -name '*.class' -print -quit >/dev/null 2>&1; then
+  if [[ ! -f "$BUILD_STAMP" ]]; then
     run_build
     return
   fi
-  if [[ -z "$(find out -name '*.class' -print -quit)" ]]; then
+  if [[ ! -f out/application/Main.class || ! -f out/testing/CLICommandRegressionTest.class ]]; then
     run_build
   fi
 }
@@ -47,16 +89,247 @@ run_java() {
   java "$@"
 }
 
+# Wraps a java invocation in a per-step timeout when GNU `timeout` (or macOS
+# `gtimeout`) is available, so a hung UCI/Robot/engine path cannot block the
+# whole CI gate. Override via CRTK_TEST_TIMEOUT=seconds; set to 0 to disable.
+run_test_with_timeout() {
+  local cmd="$1"
+  shift || true
+  if [[ "$TEST_TIMEOUT" == "0" || -z "$TEST_TIMEOUT" ]]; then
+    "$cmd" "$@"
+    return
+  fi
+  local timeout_bin=""
+  if command -v timeout >/dev/null 2>&1; then
+    timeout_bin="timeout"
+  elif command -v gtimeout >/dev/null 2>&1; then
+    timeout_bin="gtimeout"
+  fi
+  if [[ -z "$timeout_bin" ]]; then
+    "$cmd" "$@"
+    return
+  fi
+  echo "==> [timeout=${TEST_TIMEOUT}s] $cmd $*"
+  # Capture the wrapped command's exit BEFORE entering an if-block. Inside
+  # `if ! cmd; then ... fi` bash does not preserve the failing command's $?
+  # for the body, so `local rc=$?` always saw 0 and `exit $rc` silently
+  # turned every test failure into a clean exit.
+  local rc=0
+  "$timeout_bin" --kill-after=10 "$TEST_TIMEOUT" "$cmd" "$@" || rc=$?
+  if [[ $rc -ne 0 ]]; then
+    if [[ $rc -eq 124 || $rc -eq 137 ]]; then
+      echo "==> TEST TIMED OUT after ${TEST_TIMEOUT}s: $cmd $*" >&2
+    fi
+    exit $rc
+  fi
+}
+
 run_test() {
   local main_class="$1"
   shift || true
-  run_java -cp out "$main_class" "$@"
+  run_test_with_timeout java -cp out "$main_class" "$@"
 }
 
 run_headless_test() {
   local main_class="$1"
   shift || true
-  run_java -Djava.awt.headless=true -cp out "$main_class" "$@"
+  run_test_with_timeout java -Djava.awt.headless=true -cp out "$main_class" "$@"
+}
+
+run_test_spec() {
+  local spec="$1"
+  local mode="${spec%%:*}"
+  local main_class="${spec#*:}"
+  case "$mode" in
+    java)
+      run_test "$main_class"
+      ;;
+    headless)
+      run_headless_test "$main_class"
+      ;;
+    *)
+      echo "unknown test spec: $spec" >&2
+      exit 2
+      ;;
+  esac
+}
+
+run_test_batch() {
+  local label="$1"
+  shift || true
+  local -a specs=("$@")
+  local count="${#specs[@]}"
+  if [[ "$count" -eq 0 ]]; then
+    return
+  fi
+  if [[ "$TEST_JOBS" -eq 1 || "$count" -eq 1 ]]; then
+    local spec
+    for spec in "${specs[@]}"; do
+      run_test_spec "$spec"
+    done
+    return
+  fi
+
+  local jobs="$TEST_JOBS"
+  if [[ "$jobs" -gt "$count" ]]; then
+    jobs="$count"
+  fi
+  echo "==> $label tests (${count} classes, ${jobs} jobs)"
+
+  local tmpdir
+  tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/crtk-regression-${label}.XXXXXX")"
+  local failed=0
+  local start=0
+  local index end pid log rc spec
+  local -a pids=()
+  local -a logs=()
+
+  while [[ "$start" -lt "$count" ]]; do
+    end=$((start + jobs))
+    if [[ "$end" -gt "$count" ]]; then
+      end="$count"
+    fi
+    pids=()
+    logs=()
+
+    for ((index = start; index < end; index++)); do
+      spec="${specs[$index]}"
+      log="$tmpdir/$(printf "%03d" "$index").log"
+      logs[$index]="$log"
+      ( run_test_spec "$spec" ) >"$log" 2>&1 &
+      pids[$index]=$!
+    done
+
+    for ((index = start; index < end; index++)); do
+      pid="${pids[$index]}"
+      log="${logs[$index]}"
+      rc=0
+      wait "$pid" || rc=$?
+      cat "$log"
+      if [[ "$rc" -ne 0 ]]; then
+        failed="$rc"
+      fi
+    done
+
+    start="$end"
+    if [[ "$failed" -ne 0 ]]; then
+      rm -rf "$tmpdir"
+      exit "$failed"
+    fi
+  done
+
+  rm -rf "$tmpdir"
+  if [[ "$failed" -ne 0 ]]; then
+    exit "$failed"
+  fi
+}
+
+run_test_batch_serial() {
+  local saved_jobs="$TEST_JOBS"
+  TEST_JOBS=1
+  run_test_batch "$@"
+  TEST_JOBS="$saved_jobs"
+}
+
+run_suite_phase() {
+  local phase="$1"
+  case "$phase" in
+    core)
+      run_core
+      ;;
+    cli)
+      run_cli
+      ;;
+    engine)
+      run_engine
+      ;;
+    uci)
+      run_uci
+      ;;
+    book)
+      run_book
+      ;;
+    docs)
+      run_docs
+      ;;
+    perft-smoke)
+      run_perft_smoke
+      ;;
+    *)
+      echo "unknown suite phase: $phase" >&2
+      exit 2
+      ;;
+  esac
+}
+
+run_suite_phase_batch() {
+  local label="$1"
+  shift || true
+  local -a phases=("$@")
+  local count="${#phases[@]}"
+  if [[ "$count" -eq 0 ]]; then
+    return
+  fi
+  if [[ "$SUITE_JOBS" -eq 1 || "$count" -eq 1 ]]; then
+    local phase
+    for phase in "${phases[@]}"; do
+      run_suite_phase "$phase"
+    done
+    return
+  fi
+
+  local jobs="$SUITE_JOBS"
+  if [[ "$jobs" -gt "$count" ]]; then
+    jobs="$count"
+  fi
+  echo "==> $label phases (${count} targets, ${jobs} jobs)"
+
+  local tmpdir
+  tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/crtk-regression-${label}-phases.XXXXXX")"
+  local failed=0
+  local start=0
+  local index end pid log rc phase
+  local -a pids=()
+  local -a logs=()
+
+  while [[ "$start" -lt "$count" ]]; do
+    end=$((start + jobs))
+    if [[ "$end" -gt "$count" ]]; then
+      end="$count"
+    fi
+    pids=()
+    logs=()
+
+    for ((index = start; index < end; index++)); do
+      phase="${phases[$index]}"
+      log="$tmpdir/$(printf "%03d" "$index")-$phase.log"
+      logs[$index]="$log"
+      ( run_suite_phase "$phase" ) >"$log" 2>&1 &
+      pids[$index]=$!
+    done
+
+    for ((index = start; index < end; index++)); do
+      pid="${pids[$index]}"
+      log="${logs[$index]}"
+      rc=0
+      wait "$pid" || rc=$?
+      cat "$log"
+      if [[ "$rc" -ne 0 ]]; then
+        failed="$rc"
+      fi
+    done
+
+    start="$end"
+    if [[ "$failed" -ne 0 ]]; then
+      rm -rf "$tmpdir"
+      exit "$failed"
+    fi
+  done
+
+  rm -rf "$tmpdir"
+  if [[ "$failed" -ne 0 ]]; then
+    exit "$failed"
+  fi
 }
 
 run_build() {
@@ -66,6 +339,13 @@ run_build() {
 
 run_lint() {
   echo "==> lint"
+  compile_sources -Xlint:all
+  run_scripts_lint
+  git diff --check
+}
+
+run_build_and_lint() {
+  echo "==> build + lint"
   compile_sources -Xlint:all
   run_scripts_lint
   git diff --check
@@ -94,47 +374,96 @@ run_scripts_lint() {
   fi
 }
 
+copy_runtime_resources() {
+  if [[ -d schemas ]]; then
+    mkdir -p out/schemas
+    find schemas -type f -name '*.schema.json' -print0 \
+      | while IFS= read -r -d '' schema_file; do
+          mkdir -p "out/$(dirname "$schema_file")"
+          cp "$schema_file" "out/$schema_file"
+        done
+  fi
+}
+
 run_core() {
   ensure_compiled
-  run_test testing.PositionRegressionTest
-  run_test testing.CoreMoveGenerationRegressionTest
-  run_test testing.SplitPerftRegressionTest
-  run_test testing.SANRegressionTest
-  run_test testing.ClassicalEvaluationBreakdownTest
-  run_test testing.JsonRegressionTest
-  run_test testing.XmlSecurityRegressionTest
-  run_test testing.InstallScriptRegressionTest
-  run_test testing.SourceHeaderRegressionTest
-  run_test testing.Chess960SetupRegressionTest
-  run_test testing.ParserRegressionTest
-  run_test testing.TaggingRegressionTest
-  run_test testing.TagFixtureRegressionTest
-  run_test testing.WorkbenchStructureRegressionTest
-  run_headless_test testing.WorkbenchRegressionTest
+  run_test_batch core \
+    java:testing.PositionRegressionTest \
+    java:testing.CoreMoveGenerationRegressionTest \
+    java:testing.SplitPerftRegressionTest \
+    java:testing.SANRegressionTest \
+    java:testing.ClassicalEvaluationBreakdownTest \
+    java:testing.JsonRegressionTest \
+    java:testing.RecordSchemaVersionRegressionTest \
+    java:testing.XmlSecurityRegressionTest \
+    java:testing.InstallScriptRegressionTest \
+    java:testing.SourceHeaderRegressionTest \
+    java:testing.DescribeVerifierRegressionTest \
+    java:testing.Chess960SetupRegressionTest \
+    java:testing.ParserRegressionTest \
+    java:testing.TaggingRegressionTest \
+    java:testing.TagFixtureRegressionTest \
+    java:testing.SortFamilyOrderRegressionTest \
+    java:testing.WorkbenchStructureRegressionTest \
+    java:testing.BooleansRegressionTest \
+    headless:testing.WorkbenchRegressionTest
 }
 
 run_cli() {
   ensure_compiled
-  run_test testing.CLICommandRegressionTest
-  run_test testing.PGNRegressionTest
-  run_test testing.ChessBookCommandRegressionTest
-  run_test testing.ChessBookCoverCommandRegressionTest
-  run_test testing.ChessPDFCommandRegressionTest
-  run_test testing.PuzzleCollectionCommandRegressionTest
-  run_test testing.PuzzleStudyCommandRegressionTest
+  run_test_batch cli \
+    java:testing.CLICommandRegressionTest \
+    java:testing.CommandCatalogRegressionTest \
+    java:testing.SchemaAgreementRegressionTest \
+    java:testing.RecordValidateRegressionTest \
+    java:testing.RecordDedupeRegressionTest \
+    java:testing.RecordSplitRegressionTest \
+    java:testing.RecordAuditSplitRegressionTest \
+    java:testing.RecordTrainingJSONLRegressionTest \
+    java:testing.RecordLC0ExporterRegressionTest \
+    java:testing.DatasetDeterminismRegressionTest \
+    java:testing.DatasetManifestRegressionTest \
+    java:testing.DatasetVerifyRegressionTest \
+    java:testing.DatasetAuditRegressionTest \
+    java:testing.DatasetDiffRegressionTest \
+    java:testing.PgnStoreRegressionTest \
+    java:testing.PgnStoreCompactRegressionTest \
+    java:testing.PgnStoreScaleRegressionTest \
+    java:testing.PGNRegressionTest \
+    java:testing.ReviewClassifierRegressionTest \
+    java:testing.ReviewRowSchemaRegressionTest \
+    java:testing.ReviewCommandRegressionTest \
+    java:testing.ChessBookCommandRegressionTest \
+    java:testing.ChessBookCoverCommandRegressionTest \
+    java:testing.ChessPDFCommandRegressionTest \
+    java:testing.PuzzleCollectionCommandRegressionTest \
+    java:testing.PuzzleStudyCommandRegressionTest
+  # These tests both spin up the localhost daemon and exercise process-wide
+  # command capture. Keep them serial so the CLI phase remains deterministic
+  # while the broader command suite still runs in parallel.
+  run_test_batch_serial cli-daemon \
+    java:testing.ServeRegressionTest \
+    java:testing.PythonSdkRegressionTest
 }
 
 run_engine() {
   ensure_compiled
-  run_test testing.BuiltInEngineRegressionTest
-  run_test testing.SprtRegressionTest
-  run_test testing.GameClockRegressionTest
-  run_test testing.StagedPickerRegressionTest
-  run_test testing.PuzzleDifficultyRegressionTest
-  run_test testing.BT4RegressionTest
-  run_test testing.T5RegressionTest
-  run_test testing.OtisBackendRegressionTest
-  run_test testing.GpuPerftRegressionTest
+  # Engine tests touch shared optional backend/model state. Keep this phase
+  # serial so the recommended suite remains a reliable gate.
+  run_test_batch_serial engine \
+    java:testing.BuiltInEngineRegressionTest \
+    java:testing.SprtRegressionTest \
+    java:testing.GameClockRegressionTest \
+    java:testing.StagedPickerRegressionTest \
+    java:testing.PuzzleDifficultyRegressionTest \
+    java:testing.BT4RegressionTest \
+    java:testing.ClassifierModelRegressionTest \
+    java:testing.T5RegressionTest \
+    java:testing.OtisBackendRegressionTest \
+    java:testing.GpuPerftRegressionTest \
+    java:testing.NNUERegressionTest \
+    java:testing.UpstreamRegressionTest \
+    headless:testing.PlayModeRegressionTest
 }
 
 run_uci() {
@@ -152,9 +481,10 @@ run_uci() {
 
 run_book() {
   ensure_compiled
-  run_headless_test testing.BookRegressionTest
-  run_headless_test testing.ChessPDFRegressionTest
-  run_test testing.PDFDocumentRegressionTest
+  run_test_batch book \
+    headless:testing.BookRegressionTest \
+    headless:testing.ChessPDFRegressionTest \
+    java:testing.PDFDocumentRegressionTest
 }
 
 run_docs() {
@@ -172,36 +502,28 @@ run_perft_smoke() {
 run_jar() {
   ensure_compiled
   echo "==> jar"
+  copy_runtime_resources
+  rm -rf out/tmp
   rm -f crtk.jar
   jar --create --file crtk.jar --main-class application.Main -C out .
   echo "==> jar smoke"
-  java -jar crtk.jar --help >/dev/null
-  java -jar crtk.jar workbench --help | grep -q "workbench options:"
-  java -jar crtk.jar gui --help | grep -q "crtk workbench"
+  local jar_path="$ROOT_DIR/crtk.jar"
+  ( cd "${TMPDIR:-/tmp}" \
+    && java -jar "$jar_path" --help >/dev/null \
+    && java -jar "$jar_path" workbench --help | grep -q "workbench options:" \
+    && java -jar "$jar_path" gui --help | grep -q "crtk workbench" \
+    && java -jar "$jar_path" schema show crtk.record.v2 | grep -q '"$id": "crtk.record.v2"' )
 }
 
 run_recommended() {
-  run_build
-  run_lint
-  run_core
-  run_cli
-  run_engine
-  run_uci
-  run_book
-  run_perft_smoke
+  run_build_and_lint
+  run_suite_phase_batch recommended core cli engine uci book perft-smoke
   run_jar
 }
 
 run_ci() {
-  run_build
-  run_lint
-  run_core
-  run_cli
-  run_engine
-  run_book
-  run_docs
-  run_uci
-  run_perft_smoke
+  run_build_and_lint
+  run_suite_phase_batch ci core cli engine book docs uci perft-smoke
   run_jar
 }
 

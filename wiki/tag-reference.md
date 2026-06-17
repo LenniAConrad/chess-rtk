@@ -29,6 +29,7 @@ Most paths into the tagger differ only in what they read — a single FEN, a lis
 | `fen tags --fen "<FEN>"` | Emit the full tag set for one position (JSON array of tag strings). |
 | `fen tags --input FILE` | Tag a FEN list; supports parent/child pairs and `--sequence` for ordered lines. |
 | `fen tags --pgn FILE` | Tag positions from a PGN (`--mainline` or `--sidelines`). |
+| `fen tags --pgn FILE --analyze-game` | Emit one whole-game analysis JSON object per parsed game, including dynamic game-analysis families. |
 | `fen tags --delta` | Emit per-move tag deltas as JSONL. |
 | `fen tags --analyze` | Run bounded engine analysis to enrich tags (adds `CAND` / `PV` / eval metadata). |
 | `puzzle tags --fen "<FEN>"` | Generate per-move tags across a puzzle's principal variations. |
@@ -42,7 +43,7 @@ The whole point of tags is that you can trust them across runs, so the generator
 
 - **Deterministic.** The same FEN always yields the same tags. A tag asserts what is true of the position and nothing more — no mood, no hand-waving evaluation.
 - **Sorted and de-duplicated.** Output is ordered by family rank, then lexicographically within a family, with exact duplicates dropped. The sort is idempotent, so re-sorting canonical output changes nothing.
-- **Stable canonical family order:** `FACT` → `META` → `MOVE` → `THREAT` → `CAND` → `PV` → `IDEA` → `TACTIC` → `CHECKMATE` → `PIECE` → `KING` → `PAWN` → `MATERIAL` → `SPACE` → `INITIATIVE` → `DEVELOPMENT` → `MOBILITY` → `OUTPOST` → `ENDGAME` → `OPENING`.
+- **Stable canonical family order:** `FACT` → `META` → `MOVE` → `THREAT` → `CAND` → `PV` → `IDEA` → `TACTIC` → `CHECKMATE` → `PIECE` → `KING` → `PAWN` → `MATERIAL` → `SPACE` → `INITIATIVE` → `DEVELOPMENT` → `MOBILITY` → `OUTPOST` → `ENDGAME` → `OPENING` → `MOVE_EFFECT` → `LINE` → `VARIATION` → `GAME`.
 - **Regression-locked.** A new `pattern=` or `motif=` value ships with a golden fixture under `testdata/tags/*.tsv` and is cross-checked against the existing detectors before it lands. That cross-check is the safeguard that stops a new detector from quietly rewriting old output.
 
 ## Family overview
@@ -71,6 +72,10 @@ Some families fire on every position; others only when the board earns them. The
 | `OUTPOST` | when present | Knight/bishop outpost squares. |
 | `ENDGAME` | when applicable | Material endgame class. |
 | `OPENING` | when ECO matches | ECO code and opening name from the bundled book. |
+| `MOVE_EFFECT` | with `--analyze-game` | What each replayed game move changed. |
+| `LINE` | with `--analyze-game` | Multi-move motifs grounded by replaying a legal line. |
+| `VARIATION` | with `--analyze-game` | PGN sideline headers and shared sibling-variation tactics. |
+| `GAME` | with `--analyze-game` | Whole-game summary facts such as phase transitions, opening, and result cause. |
 
 ## FACT — static board observations
 
@@ -255,6 +260,19 @@ The slower-burning positional signals, each reduced to a side and a count where 
 | `OPENING` | `eco=A00`; `name="Amar Opening"` style fields (inherited from the parent line when the child has no exact ECO match) |
 
 `OPENING` tags appear only when the bundled ECO book matches the position — out of book, there is no honest code to emit.
+
+## Dynamic game-analysis families
+
+These four families come from `fen tags --pgn FILE --analyze-game`. They are
+grounded by replaying a parsed game through the same chess core, so malformed or
+illegal branches are truncated instead of guessed.
+
+| Family | Forms |
+| --- | --- |
+| `MOVE_EFFECT` | `san=<SAN> type=checkmate\|check\|capture\|quiet`; optional `creates="..."` / `removes="..."` motif deltas between parent and child positions |
+| `LINE` | `motif=forcing\|combination\|sacrifice\|perpetual_check\|deflection ... line="<SAN ...>"` |
+| `VARIATION` | `branch_ply=<n> length=<n> line="<SAN ...>"`; `tactic_shared=<motif> branch_ply=<n> count=<n> detail="<payload>"` |
+| `GAME` | `phase_transition=<from>-><to> ply=<n> move=<SAN>`; `eco=<code>`; `opening="<name>"`; `result_cause=checkmate\|stalemate` |
 
 ## Tag deltas and identity
 

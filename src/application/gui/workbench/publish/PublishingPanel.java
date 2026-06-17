@@ -3,9 +3,7 @@ package application.gui.workbench.publish;
 import application.cli.PathOps;
 import application.gui.workbench.Defaults;
 import application.gui.workbench.command.CommandRunner;
-import application.gui.workbench.game.FenInput;
 import application.gui.workbench.game.GameModel;
-import application.gui.workbench.publish.PublishSampleData.SampleItem;
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.ui.FieldValidator;
 import application.gui.workbench.ui.FileDialogs;
@@ -485,7 +483,6 @@ public final class PublishingPanel {
     /**
      * Publishing command preview field.
      */
-    private final JTextArea publishCommandField = new JTextArea(3, 40);
 
     /**
      * Visual publishing preview.
@@ -651,10 +648,10 @@ public final class PublishingPanel {
      * @return publish tab
      */
     private JComponent createPublishTab() {
-        JPanel panel = transparentPanel(new BorderLayout(0, 0));
+        SurfacePanel panel = new SurfacePanel(new BorderLayout(0, 0), Theme.Surface.BACKDROP);
         JComponent body = createBookPublishingPanel();
         workspaceHeader.setActions(createPublishActions());
-        workspaceHeader.setContext(publishContext(null));
+        workspaceHeader.setContext(PublishingPreviewPlanner.contextLine(previewContext(), null));
         panel.add(workspaceHeader, BorderLayout.NORTH);
         panel.add(body, BorderLayout.CENTER);
         configurePublishControls();
@@ -682,7 +679,7 @@ public final class PublishingPanel {
         JPanel root = transparentPanel(new BorderLayout(0, 0));
         JComponent controls = scroll(fillViewport(createPublishingControlsPanel()));
         JComponent preview = createPublishingPreviewPanel();
-        JSplitPane split = SplitPaneStyler.styledHorizontalSplit(controls, preview, 0.56);
+        JSplitPane split = SplitPaneStyler.styledHorizontalSplit(controls, preview, 0.40);
         root.add(split, BorderLayout.CENTER);
         return root;
     }
@@ -707,10 +704,9 @@ public final class PublishingPanel {
                 publishDiagramsPerRowField, publishBoardPixelsField, publishMarginField,
                 publishTableFrequencyField, publishPuzzleRowsField, publishPuzzleColumnsField,
                 publishWatermarkIdField);
-        styleAreas(publishCommandField, publishImprintArea, publishDedicationArea, publishIntroductionArea,
+        styleAreas(publishImprintArea, publishDedicationArea, publishIntroductionArea,
                 publishHowToReadArea, publishBlurbArea, publishLinkArea, publishAfterwordArea);
         installNumericFieldValidation();
-        configurePublishingArea(publishCommandField, false);
         configurePublishingArea(publishImprintArea, true);
         configurePublishingArea(publishDedicationArea, true);
         configurePublishingArea(publishIntroductionArea, true);
@@ -804,12 +800,7 @@ public final class PublishingPanel {
 
         JPanel advanced = transparentPanel(new GridBagLayout());
         GridBagConstraints advancedC = constraints();
-        publishCommandField.setEditable(false);
-        publishCommandField.setFocusable(false);
-        publishCommandField.setToolTipText("Generated publishing command");
         sectionRow = 0;
-        sectionRow = addPublishingControlRow(advanced, advancedC, label("command"), scroll(publishCommandField),
-                sectionRow);
         addPublishingControlRow(advanced, advancedC, label("report"), createReportPanel(), sectionRow);
         grid(panel, collapsible("Advanced", advanced, false), c, 0, row++, 4, 1);
 
@@ -829,7 +820,7 @@ public final class PublishingPanel {
         }
         return controlRow(FlowLayout.RIGHT,
                 publishCreateButton,
-                button("Copy Command", false, event -> host.copyText(publishCommandField.getText())),
+                button("Copy Command", false, event -> host.copyText(currentPublishCommandText())),
                 host.commandStopButton());
     }
 
@@ -870,7 +861,7 @@ public final class PublishingPanel {
     private static JComponent fieldGroup(String title, JComponent body) {
         JPanel group = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
         group.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Theme.LINE),
+                Theme.lineBorder(Theme.LINE),
                 Theme.pad(Theme.SPACE_SM, Theme.SPACE_MD, Theme.SPACE_MD, Theme.SPACE_MD)));
         group.add(Theme.section(title), BorderLayout.NORTH);
         group.add(body, BorderLayout.CENTER);
@@ -1026,9 +1017,9 @@ public final class PublishingPanel {
     private JComponent createPublishingPreviewPanel() {
         JPanel panel = new SurfacePanel(new BorderLayout(8, 8));
         publishReadinessLabel.setFont(Theme.font(12, Font.BOLD));
-        publishPreviewZoomLabel.setFont(Theme.mono(11));
+        publishPreviewZoomLabel.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
         publishPreviewZoomLabel.setForeground(Theme.MUTED);
-        publishPreviewPageLabel.setFont(Theme.mono(11));
+        publishPreviewPageLabel.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
         publishPreviewPageLabel.setForeground(Theme.MUTED);
 
         JPanel header = transparentPanel(new BorderLayout(Theme.SPACE_MD, Theme.SPACE_SM));
@@ -1289,22 +1280,43 @@ public final class PublishingPanel {
     }
 
     /**
-     * Updates the publishing command preview.
+     * Recomputes whether the publishing command is currently runnable and
+     * refreshes the visual preview. The generated command itself is no longer
+     * displayed in Publish — it surfaces through Run/output when Create PDF
+     * runs, and is rebuilt on demand by {@link #currentPublishCommandText()}
+     * for the Copy Command action.
      */
     private void updatePublishCommand() {
         publishCommandUpdateQueued = false;
-        String issue = publishPreflightIssue();
-        try {
-            publishCommandField.setText(CommandRunner.displayCommand(buildPublishArgs(false)));
-        } catch (IllegalArgumentException | IOException ex) {
-            issue = ex.getMessage();
-            publishCommandField.setText("incomplete: " + issue);
+        String issue = PublishingPreviewPlanner.preflightIssue(previewContext());
+        if (issue == null) {
+            try {
+                buildPublishArgs(false);
+            } catch (IllegalArgumentException | IOException ex) {
+                issue = ex.getMessage();
+            }
         }
         if (publishCreateButton != null) {
             // Don't offer Create when the command can't even be built.
             publishCreateButton.setEnabled(issue == null);
         }
         updatePublishingVisualPreview(issue);
+    }
+
+    /**
+     * Builds the current publishing command text on demand, mirroring what
+     * Create PDF would launch. Returns an {@code incomplete:} marker when the
+     * command can't be built so the user copies an actionable message instead
+     * of a stale or empty string.
+     *
+     * @return display-form command text
+     */
+    private String currentPublishCommandText() {
+        try {
+            return CommandRunner.displayCommand(buildPublishArgs(false));
+        } catch (IllegalArgumentException | IOException ex) {
+            return "incomplete: " + ex.getMessage();
+        }
     }
 
     /**
@@ -1362,7 +1374,7 @@ public final class PublishingPanel {
      * Opens the selected output PDF if it exists.
      */
     private void openPublishPdf() {
-        Path pdf = currentPublishPdfPath();
+        Path pdf = PublishingPreviewPlanner.currentPdfPath(previewContext());
         if (pdf == null) {
             host.showError("Open PDF", "No PDF output path is configured for the current task.");
             return;
@@ -1389,7 +1401,7 @@ public final class PublishingPanel {
         if (publishOpenPdfButton == null) {
             return;
         }
-        Path pdf = currentPublishPdfPath();
+        Path pdf = PublishingPreviewPlanner.currentPdfPath(previewContext());
         boolean exists = pdf != null && Files.exists(pdf);
         publishOpenPdfButton.setEnabled(exists);
         publishOpenPdfButton.setToolTipText(pdf == null
@@ -1398,135 +1410,115 @@ public final class PublishingPanel {
     }
 
     /**
-     * Returns the primary PDF path for the selected publishing task.
-     *
-     * @return output PDF path, or null
-     */
-    private Path currentPublishPdfPath() {
-        String value = switch (selectedPublishTask()) {
-            case DIAGRAMS, RENDER, STUDY -> trimmed(publishOutputField);
-            case COLLECTION -> trimmed(publishPdfOutputField);
-            case COVER -> trimmed(publishOutputField);
-        };
-        return value == null || value.isBlank() ? null : Path.of(value);
-    }
-
-    /**
      * Updates the visual publishing preview.
      *
      * @param issue readiness issue, or null
      */
     private void updatePublishingVisualPreview(String issue) {
-        PublishTask task = selectedPublishTask();
-        String title = trimmed(publishTitleField);
-        List<SampleItem> items = publishPreviewItems(task);
-        PublishPreview.Preview preview = new PublishPreview.Preview(
-                task.toString(),
-                title.isEmpty() && usesSampleTitle(task) ? PublishSampleData.SAMPLE_TITLE : title,
-                trimmed(publishSubtitleField),
-                publishSourcePreview(task),
-                publishOutputPreview(task),
-                issue == null,
-                issue == null ? "" : issue,
-                estimatedPublishPages(task),
-                task == PublishTask.COVER,
-                task == PublishTask.DIAGRAMS,
-                publishFlipBox.isSelected(),
-                publishNoFenBox.isSelected(),
-                items);
+        PublishingPreviewPlanner.Context context = previewContext();
+        PublishPreview.Preview preview = PublishingPreviewPlanner.preview(context, issue);
         publishVisualPreview.setPreview(preview);
         publishReadinessLabel.setText(issue == null ? "Ready to publish" : "Needs attention");
         publishReadinessLabel.setToolTipText(issue == null ? "Publishing command is ready" : issue);
         publishReadinessLabel.setForeground(issue == null ? Theme.STATUS_SUCCESS_TEXT
                 : Theme.STATUS_WARNING_TEXT);
-        workspaceHeader.setContext(publishContext(issue));
+        workspaceHeader.setContext(PublishingPreviewPlanner.contextLine(context, issue));
         updatePublishPreviewPageLabel();
         updatePublishOpenPdfButton();
     }
 
     /**
-     * Returns the Publish shell context line.
+     * Returns a snapshot adapter for publishing preview planning.
      *
-     * @param issue current preflight issue, or null when ready
-     * @return context summary
+     * @return preview planner context
      */
-    private String publishContext(String issue) {
-        return selectedPublishTask() + " · " + selectedPublishSource() + " · "
-                + (issue == null ? "Ready to publish" : "Needs attention");
-    }
-
-    /**
-     * Returns whether a task should fall back to the bundled sample book title
-     * when the user has not typed one, so the preview never reads "Untitled".
-     *
-     * @param task selected task
-     * @return true when the sample title applies
-     */
-    private static boolean usesSampleTitle(PublishTask task) {
-        return task == PublishTask.COLLECTION || task == PublishTask.STUDY
-                || task == PublishTask.RENDER || task == PublishTask.COVER;
-    }
-
-    /**
-     * Builds the preview's sample items from live workbench data when available,
-     * falling back to the bundled real-book sample otherwise.
-     *
-     * @param task selected task
-     * @return preview items, never null
-     */
-    private List<SampleItem> publishPreviewItems(PublishTask task) {
-        if (task == PublishTask.DIAGRAMS) {
-            return diagramPreviewItems();
-        }
-        if (task == PublishTask.COLLECTION) {
-            return PublishSampleData.puzzleItems();
-        }
-        return PublishSampleData.studyItems();
-    }
-
-    /**
-     * Returns diagram preview items, preferring the live source the user picked.
-     *
-     * @return diagram items, never null
-     */
-    private List<SampleItem> diagramPreviewItems() {
-        List<SampleItem> items = switch (selectedPublishSource()) {
-            case CURRENT_FEN -> {
-                String fen = host.currentFen();
-                yield fen == null || fen.isBlank() ? List.of()
-                        : List.of(new SampleItem(fen, "Current position", FenInput.compactPreview(fen)));
+    private PublishingPreviewPlanner.Context previewContext() {
+        return new PublishingPreviewPlanner.Context() {
+            @Override
+            PublishTask task() {
+                return selectedPublishTask();
             }
-            case GAME_PGN -> fenListItems(host.gameModel().fenList(), "Move ");
-            case BATCH_FENS -> fenListItems(host.batchInputText(), "Position ");
-            case EXISTING_FILE -> List.of();
+
+            @Override
+            PublishSource source() {
+                return selectedPublishSource();
+            }
+
+            @Override
+            String title() {
+                return trimmed(publishTitleField);
+            }
+
+            @Override
+            String subtitle() {
+                return trimmed(publishSubtitleField);
+            }
+
+            @Override
+            String inputPath() {
+                return trimmed(publishInputField);
+            }
+
+            @Override
+            String outputPath() {
+                return trimmed(publishOutputField);
+            }
+
+            @Override
+            String manifestOutputPath() {
+                return trimmed(publishManifestOutputField);
+            }
+
+            @Override
+            String pdfOutputPath() {
+                return trimmed(publishPdfOutputField);
+            }
+
+            @Override
+            String coverOutputPath() {
+                return trimmed(publishCoverOutputField);
+            }
+
+            @Override
+            String limit() {
+                return trimmed(publishLimitField);
+            }
+
+            @Override
+            String pages() {
+                return trimmed(publishPagesField);
+            }
+
+            @Override
+            boolean flip() {
+                return publishFlipBox.isSelected();
+            }
+
+            @Override
+            boolean noFen() {
+                return publishNoFenBox.isSelected();
+            }
+
+            @Override
+            String currentFen() {
+                return host.currentFen();
+            }
+
+            @Override
+            String gameFenList() {
+                return host.gameModel().fenList();
+            }
+
+            @Override
+            int gameLastPly() {
+                return host.gameModel().lastPly();
+            }
+
+            @Override
+            String batchInputText() {
+                return host.batchInputText();
+            }
         };
-        return items.isEmpty() ? PublishSampleData.studyItems() : items;
-    }
-
-    /**
-     * Builds preview items from a newline-separated FEN list, capped for the
-     * preview.
-     *
-     * @param text FEN list text
-     * @param captionPrefix per-item caption prefix
-     * @return preview items, never null
-     */
-    private static List<SampleItem> fenListItems(String text, String captionPrefix) {
-        if (text == null || text.isBlank()) {
-            return List.of();
-        }
-        List<SampleItem> items = new ArrayList<>();
-        for (String line : text.strip().split("\\R")) {
-            String fen = line.trim();
-            if (fen.isEmpty() || fen.startsWith("#")) {
-                continue;
-            }
-            items.add(new SampleItem(fen, captionPrefix + (items.size() + 1), FenInput.compactPreview(fen)));
-            if (items.size() >= 12) {
-                break;
-            }
-        }
-        return items;
     }
 
     /**
@@ -1534,45 +1526,6 @@ public final class PublishingPanel {
      */
     private void updatePublishPreviewPageLabel() {
         publishPreviewPageLabel.setText(publishVisualPreview.pageLabel());
-    }
-
-    /**
-     * Returns a source summary for the selected publishing task.
-     *
-     * @param task selected task
-     * @return source summary
-     */
-    private String publishSourcePreview(PublishTask task) {
-        if (task != PublishTask.DIAGRAMS) {
-            return pathOrMissing("input file", publishInputField);
-        }
-        return switch (selectedPublishSource()) {
-            case CURRENT_FEN -> "current board FEN (" + FenInput.compactPreview(host.currentFen()) + ")";
-            case GAME_PGN -> host.gameModel().lastPly() <= 0
-                    ? "workbench game PGN (no moves)"
-                    : "workbench game PGN (" + host.gameModel().lastPly() + " ply)";
-            case BATCH_FENS -> batchFenPreview();
-            case EXISTING_FILE -> pathOrMissing("diagram input file", publishInputField);
-        };
-    }
-
-    /**
-     * Returns an output summary for the selected publishing task.
-     *
-     * @param task selected task
-     * @return output summary
-     */
-    private String publishOutputPreview(PublishTask task) {
-        return switch (task) {
-            case DIAGRAMS, RENDER, STUDY -> pathOrMissing("PDF", publishOutputField)
-                    + optionalOutput("manifest copy", publishManifestOutputField, task == PublishTask.STUDY)
-                    + optionalOutput("cover", publishCoverOutputField, task == PublishTask.STUDY);
-            case COLLECTION -> pathOrMissing("manifest", publishOutputField)
-                    + optionalOutput("interior PDF", publishPdfOutputField, true)
-                    + optionalOutput("cover", publishCoverOutputField, true);
-            case COVER -> pathOrMissing("cover PDF", publishOutputField)
-                    + optionalOutput("interior PDF", publishPdfOutputField, true);
-        };
     }
 
     /**
@@ -1587,146 +1540,6 @@ public final class PublishingPanel {
             return "";
         }
         return value.trim();
-    }
-
-    /**
-     * Estimates pages for the visual publishing preview.
-     *
-     * @param task selected task
-     * @return estimated page count
-     */
-    private int estimatedPublishPages(PublishTask task) {
-        Integer explicitPages = optionalPreviewInteger(publishPagesField);
-        if (explicitPages != null && (task == PublishTask.COLLECTION || task == PublishTask.STUDY
-                || task == PublishTask.COVER)) {
-            return explicitPages.intValue();
-        }
-        return switch (task) {
-            case COVER -> 1;
-            case DIAGRAMS -> estimatedDiagramPages();
-            case RENDER -> Math.max(1, optionalPreviewInteger(publishLimitField, 12) / 2);
-            case COLLECTION -> Math.max(8, optionalPreviewInteger(publishLimitField, 64));
-            case STUDY -> Math.max(12, host.gameModel().lastPly() + 8);
-        };
-    }
-
-    /**
-     * Estimates diagram-page count.
-     *
-     * @return page count
-     */
-    private int estimatedDiagramPages() {
-        return switch (selectedPublishSource()) {
-            case CURRENT_FEN -> 1;
-            case GAME_PGN -> Math.max(1, Math.max(1, host.gameModel().lastPly()) / 2);
-            case BATCH_FENS -> Math.max(1, FenInput.validateBatchFenInput(host.batchInputText()).validRows());
-            case EXISTING_FILE -> 6;
-        };
-    }
-
-    /**
-     * Parses an optional preview integer.
-     *
-     * @param field source field
-     * @return parsed value or null
-     */
-    private static Integer optionalPreviewInteger(JTextField field) {
-        String value = trimmed(field);
-        if (!value.matches("[1-9]\\d*")) {
-            return null;
-        }
-        try {
-            return Integer.valueOf(value);
-        } catch (NumberFormatException ex) {
-            return null;
-        }
-    }
-
-    /**
-     * Parses an optional preview integer with fallback.
-     *
-     * @param field source field
-     * @param fallback fallback value
-     * @return parsed or fallback
-     */
-    private static int optionalPreviewInteger(JTextField field, int fallback) {
-        Integer value = optionalPreviewInteger(field);
-        return value == null ? fallback : value.intValue();
-    }
-
-    /**
-     * Returns a preflight issue for generated workbench input sources.
-     *
-     * @return issue text or null
-     */
-    private String publishPreflightIssue() {
-        if (selectedPublishTask() != PublishTask.DIAGRAMS) {
-            return null;
-        }
-        return switch (selectedPublishSource()) {
-            case GAME_PGN -> host.gameModel().lastPly() <= 0
-                    ? "Play or import at least one game move before exporting PGN diagrams." : null;
-            case BATCH_FENS -> batchFenIssue();
-            case CURRENT_FEN, EXISTING_FILE -> null;
-        };
-    }
-
-    /**
-     * Returns a compact batch FEN preview.
-     *
-     * @return batch source summary
-     */
-    private String batchFenPreview() {
-        String text = host.batchInputText() == null ? "" : host.batchInputText().trim();
-        if (text.isEmpty()) {
-            return host.gameModel().lastPly() <= 0 ? "batch FENs (empty)" : "game FEN list (" + host.gameModel().lastPly() + " ply)";
-        }
-        FenInput.Summary scan = FenInput.validateBatchFenInput(text);
-        if (scan.hasError()) {
-            return scan.rows() + " row" + (scan.rows() == 1 ? "" : "s")
-                    + ", issue on line " + scan.firstErrorLine();
-        }
-        return scan.validRows() + " valid FEN row" + (scan.validRows() == 1 ? "" : "s");
-    }
-
-    /**
-     * Returns a batch source issue, if present.
-     *
-     * @return issue text or null
-     */
-    private String batchFenIssue() {
-        String text = host.batchInputText() == null ? "" : host.batchInputText().trim();
-        if (text.isEmpty()) {
-            return host.gameModel().lastPly() <= 0 ? "Add FEN rows in Batch or play a game line before exporting diagrams."
-                    : null;
-        }
-        FenInput.Summary scan = FenInput.validateBatchFenInput(text);
-        return scan.hasError() ? "Batch FEN line " + scan.firstErrorLine() + ": " + scan.firstError() : null;
-    }
-
-    /**
-     * Returns a required path preview.
-     *
-     * @param label path label
-     * @param field source field
-     * @return preview text
-     */
-    private static String pathOrMissing(String label, JTextField field) {
-        String value = trimmed(field);
-        return value.isEmpty() ? "missing " + label : label + " " + value;
-    }
-
-    /**
-     * Returns optional output text when enabled and present.
-     *
-     * @param label path label
-     * @param field source field
-     * @param enabled whether this output applies to the selected task
-     * @return optional preview text
-     */
-    private static String optionalOutput(String label, JTextField field, boolean enabled) {
-        String value = trimmed(field);
-        return enabled && !value.isEmpty() ? "; " + label + " " + value : "";
     }
 
     /**

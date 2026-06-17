@@ -3,8 +3,6 @@ package testing;
 import application.cli.PathOps;
 import static testing.TestSupport.*;
 
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -99,11 +97,8 @@ public final class ChessPDFRegressionTest {
 		Path file = PathOps.createLocalTempFile("book-pdf-composition-", ".pdf");
 		Writer.writeComposition(file, composition, options);
 
-		byte[] bytes = Files.readAllBytes(file);
-		assertTrue(bytes.length > 8_000, "single composition pdf size");
-		String header = new String(bytes, 0, Math.min(bytes.length, 32), StandardCharsets.ISO_8859_1);
-		assertTrue(header.startsWith("%PDF-1.4"), "pdf header");
-		String text = new String(bytes, StandardCharsets.ISO_8859_1);
+		String text = readLatin1WithMinSize(file, 8_000, "single composition pdf size");
+		assertTrue(text.startsWith("%PDF-1.4"), "pdf header");
 		assertTrue(text.contains("/Type /Page"), "page marker");
 		assertFalse(text.contains("/Subtype /Image"), "raster image marker");
 		assertTrue(text.contains("/Type /Font"), "font marker");
@@ -131,7 +126,7 @@ public final class ChessPDFRegressionTest {
 		Path file = PathOps.createLocalTempFile("book-pdf-metadata-wrap-", ".pdf");
 		Writer.writeComposition(file, composition, new Options());
 
-		String text = Files.readString(file, StandardCharsets.ISO_8859_1);
+		String text = readLatin1(file);
 		double lastMetadataBaseline = baselineForText(text, "FINALMETA");
 		double diagramsBaseline = baselineForText(text, "Diagrams");
 		assertTrue(diagramsBaseline < lastMetadataBaseline - 8.0, "wrapped metadata cursor advance");
@@ -152,9 +147,7 @@ public final class ChessPDFRegressionTest {
 		Writer.writeDiagramSheet(file, "Puzzle Sheet", fens,
 				new Options().setPageSize(PageSize.A5).setDiagramsPerRow(1).setBoardPixels(700));
 
-		byte[] bytes = Files.readAllBytes(file);
-		assertTrue(bytes.length > 6_000, "diagram sheet pdf size");
-		String text = new String(bytes, StandardCharsets.ISO_8859_1);
+		String text = readLatin1WithMinSize(file, 6_000, "diagram sheet pdf size");
 		assertTrue(text.contains("/Title (Puzzle Sheet)"), "title metadata");
 		assertTrue(text.contains("/Type /Pages /Count "), "page tree count");
 	}

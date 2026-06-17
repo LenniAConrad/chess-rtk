@@ -3,6 +3,7 @@ package application.cli.command;
 import static application.cli.ConfigOps.validateConfigToml;
 import static application.cli.ConfigOps.validateModelPath;
 import static application.cli.ConfigOps.validateProtocolConfig;
+import static application.cli.Constants.OPT_JSON;
 import static application.cli.Constants.OPT_VERBOSE;
 import static application.cli.Constants.OPT_VERBOSE_SHORT;
 
@@ -23,9 +24,39 @@ import utility.Argv;
 public final class DoctorCommand {
 
 	/**
+	 * Stable schema marker for machine-readable doctor output.
+	 */
+	private static final String SCHEMA = "crtk.doctor.v1";
+
+	/**
 	 * Strict mode flag for turning warnings into a non-zero exit status.
 	 */
 	private static final String OPT_STRICT = "--strict";
+
+	/**
+	 * Immutable doctor report payload.
+	 *
+	 * @param status         overall status label
+	 * @param javaVersion    resolved Java runtime version
+	 * @param configPath     resolved CLI config path
+	 * @param protocolPath   configured UCI protocol path
+	 * @param engineInstances configured engine worker count
+	 * @param output         configured output root
+	 * @param warnings       non-fatal diagnostics
+	 * @param errors         fatal diagnostics
+	 * @param nativeBackends native backend availability rows
+	 */
+	private record DoctorReport(
+			String status,
+			String javaVersion,
+			Path configPath,
+			String protocolPath,
+			int engineInstances,
+			String output,
+			List<String> warnings,
+			List<String> errors,
+			List<GpuCommand.Backend> nativeBackends) {
+	}
 
 	/**
 	 * Utility class; prevent instantiation.
@@ -42,27 +73,44 @@ public final class DoctorCommand {
 	public static void runDoctor(Argv a) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
 		boolean strict = a.flag(OPT_STRICT);
+		boolean json = a.flag(OPT_JSON);
 		a.ensureConsumed();
 
-		List<String> warnings = new ArrayList<>();
-		List<String> errors = new ArrayList<>();
-
 		try {
-			Config.reload();
-			validateConfigToml(Config.getConfigPath(), warnings, errors);
-			validateProtocolConfig(Config.getProtocolPath(), warnings, errors);
-			validateModelPath("lc0-model-path", Config.getLc0ModelPath(), warnings);
-			validateModelPath("t5-model-path", Config.getT5ModelPath(), warnings);
-			validateDirectory("output", Config.getOutput(), warnings);
-			printDoctorReport(warnings, errors, strict);
+			DoctorReport report = collectDoctorReport(strict);
+			printDoctorReport(report, json);
+			failOnDoctorReport(report, strict);
 		} catch (CommandFailure failure) {
 			throw failure;
 		} catch (RuntimeException ex) {
-			System.out.println("doctor: failed");
-			System.out.println("Errors:");
-			System.out.println("  - " + ex.getMessage());
+			if (json) {
+				printDoctorJson(failedReport(strict, ex));
+			} else {
+				System.out.println("doctor: failed");
+				System.out.println("Errors:");
+				System.out.println("  - " + ex.getMessage());
+			}
 			throw new CommandFailure("doctor: failed", ex, 2, verbose);
 		}
+	}
+
+	/**
+	 * Runs all doctor checks and returns the collected report.
+	 *
+	 * @param strict whether warnings should fail the command
+	 * @return doctor report
+	 */
+	private static DoctorReport collectDoctorReport(boolean strict) {
+		List<String> warnings = new ArrayList<>();
+		List<String> errors = new ArrayList<>();
+
+		Config.reload();
+		validateConfigToml(Config.getConfigPath(), warnings, errors);
+		validateProtocolConfig(Config.getProtocolPath(), warnings, errors);
+		validateModelPath("lc0-model-path", Config.getLc0ModelPath(), warnings);
+		validateModelPath("t5-model-path", Config.getT5ModelPath(), warnings);
+		validateDirectory("output", Config.getOutput(), warnings);
+		return report(warnings, errors, strict, GpuCommand.backends());
 	}
 
 	/**
@@ -94,21 +142,141 @@ public final class DoctorCommand {
 	 * @param errors   collected errors
 	 * @param strict   whether warnings should fail the command
 	 */
-	private static void printDoctorReport(List<String> warnings, List<String> errors, boolean strict) {
-		System.out.println("doctor: " + status(warnings, errors, strict));
-		System.out.println("Java: " + System.getProperty("java.version"));
-		System.out.println("Config: " + Config.getConfigPath().toAbsolutePath());
-		System.out.println("Protocol: " + Config.getProtocolPath());
-		System.out.println("Engine instances: " + Config.getEngineInstances());
-		System.out.println("Output: " + Config.getOutput());
-		printMessages("Warnings", warnings);
-		printMessages("Errors", errors);
-		if (!errors.isEmpty()) {
+	private static void printDoctorReport(DoctorReport report, boolean json) {
+		if (json) {
+			printDoctorJson(report);
+		} else {
+			printDoctorText(report);
+		}
+	}
+
+	/**
+	 * Throws the historic doctor exit status after a report was printed.
+	 *
+	 * @param report doctor report
+	 * @param strict whether warnings should fail the command
+	 */
+	private static void failOnDoctorReport(DoctorReport report, boolean strict) {
+		if (!report.errors().isEmpty()) {
 			throw new CommandFailure("", 2);
 		}
-		if (strict && !warnings.isEmpty()) {
+		if (strict && !report.warnings().isEmpty()) {
 			throw new CommandFailure("", 1);
 		}
+	}
+
+	/**
+	 * Prints the human-readable doctor report.
+	 *
+	 * @param report doctor report
+	 */
+	private static void printDoctorText(DoctorReport report) {
+		System.out.println("doctor: " + report.status());
+		System.out.println("Java: " + report.javaVersion());
+		System.out.println("Config: " + report.configPath().toAbsolutePath());
+		System.out.println("Protocol: " + report.protocolPath());
+		System.out.println("Engine instances: " + report.engineInstances());
+		System.out.println("Output: " + report.output());
+		printMessages("Warnings", report.warnings());
+		printMessages("Errors", report.errors());
+	}
+
+	/**
+	 * Prints the machine-readable doctor report.
+	 *
+	 * @param report doctor report
+	 */
+	private static void printDoctorJson(DoctorReport report) {
+		System.out.println("{\"schema\":" + CommandSupport.jsonString(SCHEMA)
+				+ ",\"status\":" + CommandSupport.jsonString(report.status())
+				+ ",\"java\":" + CommandSupport.jsonNullableString(report.javaVersion())
+				+ ",\"config\":" + CommandSupport.jsonString(report.configPath().toAbsolutePath().toString())
+				+ ",\"protocol\":" + CommandSupport.jsonNullableString(report.protocolPath())
+				+ ",\"engineInstances\":" + report.engineInstances()
+				+ ",\"output\":" + CommandSupport.jsonNullableString(report.output())
+				+ ",\"warnings\":" + CommandSupport.jsonStringArray(report.warnings())
+				+ ",\"errors\":" + CommandSupport.jsonStringArray(report.errors())
+				+ ",\"nativeBackends\":" + nativeBackendsJson(report.nativeBackends()) + "}");
+	}
+
+	/**
+	 * Builds a normal doctor report.
+	 *
+	 * @param warnings collected warnings
+	 * @param errors collected errors
+	 * @param strict whether warnings fail the run
+	 * @param nativeBackends native backend rows
+	 * @return doctor report
+	 */
+	private static DoctorReport report(
+			List<String> warnings,
+			List<String> errors,
+			boolean strict,
+			List<GpuCommand.Backend> nativeBackends) {
+		return new DoctorReport(
+				status(warnings, errors, strict),
+				System.getProperty("java.version"),
+				Config.getConfigPath(),
+				Config.getProtocolPath(),
+				Config.getEngineInstances(),
+				Config.getOutput(),
+				List.copyOf(warnings),
+				List.copyOf(errors),
+				List.copyOf(nativeBackends));
+	}
+
+	/**
+	 * Builds a failed doctor report for unexpected runtime failures.
+	 *
+	 * @param strict whether warnings fail the run
+	 * @param ex exception to serialize
+	 * @return failed doctor report
+	 */
+	private static DoctorReport failedReport(boolean strict, RuntimeException ex) {
+		List<String> errors = List.of(errorMessage(ex));
+		return new DoctorReport(
+				status(List.of(), errors, strict),
+				System.getProperty("java.version"),
+				Config.getConfigPath(),
+				Config.getProtocolPath(),
+				Config.getEngineInstances(),
+				Config.getOutput(),
+				List.of(),
+				errors,
+				List.of());
+	}
+
+	/**
+	 * Returns a stable user-facing exception message.
+	 *
+	 * @param ex exception to inspect
+	 * @return non-empty message
+	 */
+	private static String errorMessage(RuntimeException ex) {
+		String message = ex.getMessage();
+		return message == null || message.isBlank() ? ex.getClass().getSimpleName() : message;
+	}
+
+	/**
+	 * Serializes native backend rows.
+	 *
+	 * @param backends native backend rows
+	 * @return JSON array
+	 */
+	private static String nativeBackendsJson(List<GpuCommand.Backend> backends) {
+		StringBuilder sb = new StringBuilder("[");
+		for (int i = 0; i < backends.size(); i++) {
+			GpuCommand.Backend backend = backends.get(i);
+			if (i > 0) {
+				sb.append(',');
+			}
+			sb.append("{\"name\":").append(CommandSupport.jsonString(backend.label()))
+					.append(",\"loaded\":").append(backend.loaded())
+					.append(",\"available\":").append(backend.available())
+					.append(",\"deviceCount\":").append(backend.deviceCount())
+					.append('}');
+		}
+		return sb.append(']').toString();
 	}
 
 	/**

@@ -731,11 +731,10 @@ public abstract class NnueOverviewView extends NnueAtlasView {
         Rectangle innerBoard = new Rectangle(r.x + (r.width - side) / 2,
                 r.y + 36 + Math.max(0, (availableH - side) / 2),
                 side, side);
-        boolean whiteDown = sideToMoveWhite();
-        TensorViz.drawMiniBoard(g, innerBoard);
-        TensorViz.drawPositionPieces(g, innerBoard, fen, whiteDown);
-        paintOverviewFeatureOverlay(g, innerBoard, whiteDown);
-        TensorViz.drawBoardCoordinates(g, innerBoard, whiteDown);
+        NetworkBoardSection.paintOverlayBoard(g, hitRegions, innerBoard, fen,
+                "", null, 0.0f, -1, TensorViz.FOCUS,
+                "NNUE half-KP features are derived from this position",
+                this::paintOverviewFeatureOverlay, null);
         hitRegions.add(innerBoard, "Current position",
                 fen == null ? "no FEN" : fen,
                 "NNUE half-KP features are derived from this position");

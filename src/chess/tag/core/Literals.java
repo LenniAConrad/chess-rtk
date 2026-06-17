@@ -308,6 +308,31 @@ public final class Literals {
     public static final String OPENING = "OPENING";
 
     /**
+     * The move-effect dynamic-family name, emitted by {@code chess.tag.MoveEffect}.
+     *
+     * <p>One of the four dynamic families produced by the game-analysis layers.
+     * Registered here so emitters can stamp the prefix from a single constant
+     * and {@link chess.tag.Sort} can rank the family canonically rather than
+     * fall back to the unknown-rank bucket.</p>
+     */
+    public static final String MOVE_EFFECT = "MOVE_EFFECT";
+
+    /**
+     * The line-motif dynamic-family name, emitted by {@code chess.tag.game.LineAnalyzer}.
+     */
+    public static final String LINE = "LINE";
+
+    /**
+     * The variation dynamic-family name, emitted by {@code chess.tag.game.VariationAnalyzer}.
+     */
+    public static final String VARIATION = "VARIATION";
+
+    /**
+     * The whole-game dynamic-family name, emitted by {@code chess.tag.game.GameAnalyzer}.
+     */
+    public static final String GAME = "GAME";
+
+    /**
      * The FACT prefix.
      */
     public static final String FACT_PREFIX = FACT + ": ";

@@ -143,11 +143,11 @@ How this differs from the full LC0 CNN format:
 - There is no WDL/value head split.
 - The output is one scalar logit instead of policy logits plus WDL.
 
-The Java package is named `chess.nn.classifier` (Java identifiers cannot contain hyphens); the on-disk filename convention does use hyphens, e.g. `classifier_21planes-6blocksx64-head32-logit1.bin`.
+The Java package is named `chess.nn.classifier` (Java identifiers cannot contain hyphens); the on-disk filename convention does use hyphens, e.g. `puzzle-classifier_21planes-6blocksx64-head32-logit1.bin`.
 
 ## Loading and running a model
 
-`Model` is the simplest entry point. `Model.DEFAULT_WEIGHTS` points at `models/classifier_21planes-6blocksx64-head32-logit1.bin`.
+`Model` is the simplest entry point. `Model.DEFAULT_WEIGHTS` points at `models/puzzle-classifier_21planes-6blocksx64-head32-logit1.bin`.
 
 ```java
 import chess.core.Position;

@@ -23,6 +23,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import chess.core.Move;
 import chess.core.MoveList;
@@ -151,6 +152,33 @@ public final class PuzzleEloExporter {
     }
 
     /**
+     * Returns the stable identifier stamped into puzzle-Elo output rows.
+     *
+     * @return puzzle Elo model identifier
+     */
+    public static String modelId() {
+        return PUZZLE_ELO_MODEL;
+    }
+
+    /**
+     * Returns the maximum explicit solver-position depth used per puzzle tree.
+     *
+     * @return tree solver depth cap
+     */
+    public static int maxTreeSolverDepth() {
+        return MAX_TREE_SOLVER_DEPTH;
+    }
+
+    /**
+     * Returns the maximum node count used per puzzle root tree.
+     *
+     * @return tree node cap
+     */
+    public static int maxTreeNodesPerRoot() {
+        return MAX_TREE_NODES_PER_ROOT;
+    }
+
+    /**
      * Exports direct Elo-rated puzzle records.
      *
      * @param inputs input record files
@@ -160,6 +188,24 @@ public final class PuzzleEloExporter {
      * @throws IOException if reading or writing fails
      */
     public static Summary export(List<Path> inputs, Path output, Options options) throws IOException {
+        return export(inputs, output, options, null);
+    }
+
+    /**
+     * Exports direct Elo-rated puzzle records.
+     *
+     * @param inputs input record files
+     * @param output output JSONL path
+     * @param options export options
+     * @param rowHashSink optional sink receiving raw JSON for every emitted row
+     * @return export summary
+     * @throws IOException if reading or writing fails
+     */
+    public static Summary export(
+            List<Path> inputs,
+            Path output,
+            Options options,
+            Consumer<String> rowHashSink) throws IOException {
         if (inputs == null || inputs.isEmpty()) {
             throw new IllegalArgumentException("inputs must not be empty");
         }
@@ -172,7 +218,7 @@ public final class PuzzleEloExporter {
             CorpusIndex index = indexInputs(inputs, opts, spool);
             List<ScoredPuzzle> scored = index.score();
             Map<Long, Difficulty> difficultyBySignature = difficultyBySignature(scored);
-            long written = writeRatedRecords(spool, output, difficultyBySignature);
+            long written = writeRatedRecords(spool, output, difficultyBySignature, rowHashSink);
             MutableSummary stats = index.stats;
             stats.written = written;
             return stats.toSummary();
@@ -198,7 +244,7 @@ public final class PuzzleEloExporter {
      * @throws IOException if reading or writing fails
      */
     public static Summary exportFromRatingCsv(List<Path> inputs, Path output, Path ratingsCsv) throws IOException {
-        return exportFromRatingCsv(inputs, output, ratingsCsv, null);
+        return exportFromRatingCsv(inputs, output, ratingsCsv, null, null);
     }
 
     /**
@@ -217,6 +263,27 @@ public final class PuzzleEloExporter {
             Path output,
             Path ratingsCsv,
             Filter puzzleVerify) throws IOException {
+        return exportFromRatingCsv(inputs, output, ratingsCsv, puzzleVerify, null);
+    }
+
+    /**
+     * Exports puzzle records by reusing a scored puzzle rating CSV.
+     *
+     * @param inputs input record files
+     * @param output output JSONL path
+     * @param ratingsCsv scored puzzle CSV with the standard difficulty columns
+     * @param puzzleVerify optional verification filter for records without
+     *                     {@code kind=puzzle}
+     * @param rowHashSink optional sink receiving raw JSON for every emitted row
+     * @return export summary
+     * @throws IOException if reading or writing fails
+     */
+    public static Summary exportFromRatingCsv(
+            List<Path> inputs,
+            Path output,
+            Path ratingsCsv,
+            Filter puzzleVerify,
+            Consumer<String> rowHashSink) throws IOException {
         if (inputs == null || inputs.isEmpty()) {
             throw new IllegalArgumentException("inputs must not be empty");
         }
@@ -234,7 +301,8 @@ public final class PuzzleEloExporter {
         MutableSummary stats = new MutableSummary();
         try (BufferedWriter writer = Files.newBufferedWriter(output, StandardCharsets.UTF_8)) {
             for (Path input : inputs) {
-                streamRecordJson(input, objJson -> writeCsvRatedRecord(objJson, writer, ratings, puzzleVerify, stats));
+                streamRecordJson(input,
+                        objJson -> writeCsvRatedRecord(objJson, writer, ratings, puzzleVerify, stats, rowHashSink));
             }
         } catch (UncheckedIOException ex) {
             throw ex.getCause();
@@ -314,14 +382,16 @@ public final class PuzzleEloExporter {
     private static long writeRatedRecords(
             Path spool,
             Path output,
-            Map<Long, Difficulty> difficultyBySignature) throws IOException {
+            Map<Long, Difficulty> difficultyBySignature,
+            Consumer<String> rowHashSink) throws IOException {
         Path parent = output.getParent();
         if (parent != null) {
             Files.createDirectories(parent);
         }
         long[] written = { 0L };
         try (BufferedWriter writer = Files.newBufferedWriter(output, StandardCharsets.UTF_8)) {
-            streamRecordJson(spool, objJson -> writeRatedRecord(objJson, writer, difficultyBySignature, written));
+            streamRecordJson(spool,
+                    objJson -> writeRatedRecord(objJson, writer, difficultyBySignature, written, rowHashSink));
         } catch (UncheckedIOException ex) {
             throw ex.getCause();
         }
@@ -334,12 +404,14 @@ public final class PuzzleEloExporter {
      * @param writer output writer
      * @param difficultyBySignature difficulty by signature value
      * @param written written value
+     * @param rowHashSink optional sink receiving raw JSON for every emitted row
      */
     private static void writeRatedRecord(
             String objJson,
             BufferedWriter writer,
             Map<Long, Difficulty> difficultyBySignature,
-            long[] written) {
+            long[] written,
+            Consumer<String> rowHashSink) {
         Record rec;
         try {
             rec = Record.fromJson(objJson);
@@ -357,6 +429,9 @@ public final class PuzzleEloExporter {
             writer.write(withDifficultyTags(rec, difficulty).toJson());
             writer.newLine();
             written[0]++;
+            if (rowHashSink != null) {
+                rowHashSink.accept(objJson);
+            }
         } catch (IOException ex) {
             throw new UncheckedIOException(ex);
         }
@@ -369,13 +444,15 @@ public final class PuzzleEloExporter {
      * @param ratings ratings value
      * @param puzzleVerify puzzle verification result
      * @param stats statistics data
+     * @param rowHashSink optional sink receiving raw JSON for every emitted row
      */
     private static void writeCsvRatedRecord(
             String objJson,
             BufferedWriter writer,
             Map<String, CsvDifficulty> ratings,
             Filter puzzleVerify,
-            MutableSummary stats) {
+            MutableSummary stats,
+            Consumer<String> rowHashSink) {
         stats.seen++;
         String fen = Json.parseStringField(objJson, "position");
         CsvDifficulty difficulty = fen == null ? null : ratings.get(fen);
@@ -404,6 +481,9 @@ public final class PuzzleEloExporter {
             writer.newLine();
             stats.indexedPuzzles++;
             stats.written++;
+            if (rowHashSink != null) {
+                rowHashSink.accept(objJson);
+            }
         } catch (IOException ex) {
             throw new UncheckedIOException(ex);
         }

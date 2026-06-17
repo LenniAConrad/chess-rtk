@@ -41,7 +41,14 @@ public final class Sort {
             MOBILITY,
             OUTPOST,
             ENDGAME,
-            OPENING);
+            OPENING,
+            // Dynamic families produced by chess.tag.MoveEffect and the
+            // game-analysis layers — appended after the static families so
+            // existing rank ordering of static tags is preserved.
+            MOVE_EFFECT,
+            LINE,
+            VARIATION,
+            GAME);
 
     /**
      * Prevents instantiation of this utility class.

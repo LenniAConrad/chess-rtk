@@ -1,0 +1,26 @@
+{
+  "$id": "crtk.pgn.store.manifest.v1",
+  "title": "ChessRTK local PGN store manifest",
+  "description": "Versioned manifest written to the root of a PgnStore. Pins the on-disk schema versions and the aggregate counts so a future store version can be detected before any read.",
+  "type": "object",
+  "required": ["schemaVersion", "gameSchemaVersion", "gameCount", "positionCount", "tombstoneCount"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "crtk.pgn.store.manifest.v1"
+    },
+    "gameSchemaVersion": {
+      "type": "string"
+    },
+    "gameCount": {
+      "type": "integer"
+    },
+    "positionCount": {
+      "type": "integer"
+    },
+    "tombstoneCount": {
+      "type": "integer"
+    }
+  }
+}

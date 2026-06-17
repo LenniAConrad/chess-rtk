@@ -208,6 +208,7 @@ Prints the resolved CLI config — the absolute config path and every effective 
 
 ```bash
 java -jar crtk.jar config show
+java -jar crtk.jar config show --json
 ```
 
 ```text
@@ -222,6 +223,8 @@ Max duration (ms): 1000000
 Puzzle analysis cache: 5000000
 Puzzle quality: gate=AND;...
 ```
+
+`--json` emits one stable `crtk.config.v1` object with the same resolved values, using script-friendly field names such as `config`, `protocol`, `engineInstances`, `maxNodes`, `maxDurationMs`, and `puzzleQuality`.
 
 ### `config validate`
 
@@ -243,7 +246,10 @@ The broader sweep: runtime version, CLI config, engine protocol, output root, an
 ```bash
 java -jar crtk.jar doctor
 java -jar crtk.jar doctor --strict
+java -jar crtk.jar doctor --json
 ```
+
+`--json` emits one stable `crtk.doctor.v1` object with the text-mode status, Java version, resolved config/protocol/output values, warning/error arrays, and a `nativeBackends` matrix matching `engine gpu`.
 
 ```text
 doctor: ok-with-warnings

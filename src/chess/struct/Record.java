@@ -16,6 +16,7 @@ import java.util.Objects;
  * <pre>
  * JSON shape (single object):
  * {
+ *   "schemaVersion": "crtk.record.v2",
  *   "created": 1711171067923,
  *   "engine": "Stockfish 16",
  *   "parent": "r1k5/2p4p/2p5/3p4/1Q4P1/1P3P2/PR3R1q/1K6 b - - 0 1",
@@ -37,6 +38,22 @@ import java.util.Objects;
  * @author Lennart A. Conrad
  */
 public class Record {
+
+    /**
+     * The implicit schema identifier of historical records that do not carry an
+     * explicit {@code schemaVersion} field.
+     */
+    public static final String LEGACY_SCHEMA_VERSION = "crtk.record.v1";
+
+    /**
+     * Stable current schema identifier emitted by newly-created records.
+     */
+    public static final String SCHEMA_VERSION = "crtk.record.v2";
+
+    /**
+     * Version of the serialized record shape.
+     */
+    private String schemaVersion;
 
     /**
      * Epoch millis when this record was created.
@@ -79,6 +96,7 @@ public class Record {
      * and empty description.
      */
     public Record() {
+        this.schemaVersion = SCHEMA_VERSION;
         this.created = System.currentTimeMillis();
         this.engine = null;
         this.parent = null;
@@ -102,6 +120,26 @@ public class Record {
      */
     public Record(long created, String engine, Position parent, Position position,
             String description, String[] tags, Analysis analysis) {
+        this(SCHEMA_VERSION, created, engine, parent, position, description, tags, analysis);
+    }
+
+    /**
+     * Used for constructing an evaluation record from explicit values including
+     * its serialized schema identifier.
+     *
+     * @param schemaVersion serialized schema identifier, e.g. {@code crtk.record.v2}
+     * @param created       epoch milliseconds when the record was created
+     * @param engine        engine name and version (e.g., "Stockfish 16")
+     * @param parent        parent FEN from which the analyzed position originated
+     * @param position      analyzed position as a {@link chess.core.Position}
+     * @param description   free-form description of the position/analysis; null → ""
+     * @param tags          optional tag array; null → empty array
+     * @param analysis      engine analysis lines; null → empty
+     *                      {@link chess.uci.Analysis}
+     */
+    public Record(String schemaVersion, long created, String engine, Position parent, Position position,
+            String description, String[] tags, Analysis analysis) {
+        setSchemaVersion(schemaVersion);
         this.created = created;
         this.engine = engine;
         this.parent = parent;
@@ -118,6 +156,7 @@ public class Record {
      */
     public Record copyOf() {
         return new Record(
+                schemaVersion,
                 created,
                 engine,
                 parent != null ? parent.copy() : null,
@@ -125,6 +164,39 @@ public class Record {
                 description != null ? description : "",
                 Arrays.copyOf(tags, tags.length),
                 analysis != null ? analysis.copyOf() : new Analysis());
+    }
+
+    /**
+     * Used for returning the serialized record schema identifier.
+     *
+     * @return schema identifier; historical unversioned rows parse as
+     *         {@link #LEGACY_SCHEMA_VERSION}
+     */
+    public String getSchemaVersion() {
+        return schemaVersion;
+    }
+
+    /**
+     * Used for setting the serialized record schema identifier.
+     *
+     * @param schemaVersion schema identifier, e.g. {@code crtk.record.v2}
+     */
+    public void setSchemaVersion(String schemaVersion) {
+        if (schemaVersion == null || schemaVersion.isBlank()) {
+            throw new IllegalArgumentException("schemaVersion must be non-empty");
+        }
+        this.schemaVersion = schemaVersion;
+    }
+
+    /**
+     * Used for fluently setting the serialized record schema identifier.
+     *
+     * @param schemaVersion schema identifier, e.g. {@code crtk.record.v2}
+     * @return this record
+     */
+    public Record withSchemaVersion(String schemaVersion) {
+        setSchemaVersion(schemaVersion);
+        return this;
     }
 
     /**
@@ -370,6 +442,8 @@ public class Record {
     public String toJson() {
         StringBuilder sb = new StringBuilder(256);
         sb.append('{');
+        appendStringField(sb, "schemaVersion", schemaVersion);
+        sb.append(',');
         appendNumberField(sb, "created", created);
         sb.append(',');
         appendStringField(sb, "engine", engine);
@@ -462,6 +536,7 @@ public class Record {
             return null;
         }
 
+        String schemaVersion = parseSchemaVersion(s);
         long created = Json.parseLongField(s, "created");
         String engine = Json.parseStringField(s, "engine");
 
@@ -497,7 +572,43 @@ public class Record {
             a.addAll(lines);
         }
 
-        return new Record(created, engine, parent, position, description, tags, a);
+        return new Record(schemaVersion, created, engine, parent, position, description, tags, a);
+    }
+
+    /**
+     * Parses the optional {@code schemaVersion} field. Historical records without
+     * the field are version 1 by definition. Numeric stamps are accepted as a
+     * tolerant bridge from early schema-planning drafts and normalized to
+     * {@code crtk.record.vN}.
+     *
+     * @param json record JSON text
+     * @return parsed schema identifier, or {@link #LEGACY_SCHEMA_VERSION} when
+     *         absent
+     */
+    private static String parseSchemaVersion(String json) {
+        if (!hasField(json, "schemaVersion")) {
+            return LEGACY_SCHEMA_VERSION;
+        }
+        String stringVersion = Json.parseStringField(json, "schemaVersion");
+        if (stringVersion != null && !stringVersion.isBlank()) {
+            return stringVersion;
+        }
+        long numericVersion = Json.parseLongField(json, "schemaVersion");
+        if (numericVersion < 1 || numericVersion > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("Invalid schemaVersion: " + numericVersion);
+        }
+        return "crtk.record.v" + numericVersion;
+    }
+
+    /**
+     * Returns whether a JSON object contains a field with the exact name.
+     *
+     * @param json JSON object text
+     * @param name field name
+     * @return {@code true} when the field marker appears
+     */
+    private static boolean hasField(String json, String name) {
+        return json.indexOf('"' + name + '"' + ':') >= 0;
     }
 
     /**

@@ -89,6 +89,7 @@
 <a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
 <a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="review-to-study.html" data-title="review to study">Review To Study</a>
 <a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
@@ -151,12 +152,18 @@ crtk help</code></pre>
 <h2 id="option-b-build-from-source-no-maven-no-gradle">Option B: build from source (no Maven, no Gradle)</h2>
 <p>Skip the launcher and compile straight to an output directory, then run the main class.</p>
 <pre><code class="language-bash">mkdir -p out
-javac --release 17 -d out $(find src -name &quot;*.java&quot;)
+find src -name &quot;*.java&quot; | sort &gt; /tmp/crtk-srcs.txt
+javac --release 17 -d out @/tmp/crtk-srcs.txt
+rm -rf out/schemas &amp;&amp; cp -R schemas out/schemas
 java -cp out application.Main help</code></pre>
-<p>A prebuilt <code>crtk.jar</code> ships in the repository root, so you can run any command without compiling first:</p>
-<pre><code class="language-bash">java -jar crtk.jar version
+<p>If you want the runnable JAR form, package it after compiling:</p>
+<pre><code class="language-bash">rm -rf out/schemas &amp;&amp; cp -R schemas out/schemas
+jar --create --file crtk.jar --main-class application.Main -C out .
+java -jar crtk.jar version
 java -jar crtk.jar help</code></pre>
-<p>Wherever this page says <code>crtk</code>, <code>java -jar crtk.jar</code> and <code>java -cp out application.Main</code> work just as well. See <a href="build-and-install.html">Build and install</a> for the full matrix, including GPU backends.</p>
+<p>You can also let the regression runner do the compile-and-package step:</p>
+<pre><code class="language-bash">./scripts/run_regression_suite.sh jar</code></pre>
+<p>Wherever this page says <code>crtk</code>, <code>java -jar crtk.jar</code> works after the JAR exists, and <code>java -cp out application.Main</code> works after the classes are compiled. See <a href="build-and-install.html">Build and install</a> for the full matrix, including GPU backends.</p>
 <h2 id="check-your-environment-with-doctor">Check your environment with doctor</h2>
 <p><code>crtk doctor</code> inspects your runtime version, configuration file, engine protocol, engine pool, output directory, and local model artifacts in one pass. Run it once after installing, and again whenever something behaves unexpectedly.</p>
 <pre><code class="language-bash">crtk doctor</code></pre>

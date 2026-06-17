@@ -13,6 +13,8 @@ import static application.cli.Constants.CMD_MOVE;
 import static application.cli.Constants.CMD_POSITION;
 import static application.cli.Constants.CMD_PUZZLE;
 import static application.cli.Constants.CMD_RECORD;
+import static application.cli.Constants.CMD_REVIEW;
+import static application.cli.Constants.CMD_SERVE;
 import static application.cli.Constants.CMD_UCI_SMOKE;
 import static application.cli.Constants.CMD_VERSION;
 import static application.cli.Constants.CMD_WORKBENCH;
@@ -79,6 +81,16 @@ public final class HelpCommand {
 	 * Help marker for {@code puzzle}.
 	 */
 	private static final String PUZZLE_SUBCOMMANDS_MARKER = "puzzle subcommands:";
+
+	/**
+	 * Help marker for {@code review}.
+	 */
+	private static final String REVIEW_SUBCOMMANDS_MARKER = "review subcommands:";
+
+	/**
+	 * Help marker for {@code review game}.
+	 */
+	private static final String REVIEW_GAME_OPTIONS_MARKER = "review game options:";
 
 	/**
 	 * Help marker for {@code batch run}.
@@ -149,6 +161,27 @@ public final class HelpCommand {
 	 */
 	private static final String RECORD_ANALYSIS_DELTA_OPTIONS_MARKER =
 			"record analysis-delta options:";
+
+	/**
+	 * Help marker for {@code record validate}.
+	 */
+	private static final String RECORD_VALIDATE_OPTIONS_MARKER = "record validate options:";
+
+	/**
+	 * Help marker for {@code record dedupe}.
+	 */
+	private static final String RECORD_DEDUPE_OPTIONS_MARKER = "record dedupe options:";
+
+	/**
+	 * Help marker for {@code record split}.
+	 */
+	private static final String RECORD_SPLIT_OPTIONS_MARKER = "record split options:";
+
+	/**
+	 * Help marker for {@code record audit-split}.
+	 */
+	private static final String RECORD_AUDIT_SPLIT_OPTIONS_MARKER =
+			"record audit-split options:";
 
 	/**
 	 * Help marker for {@code engine gpu}.
@@ -406,6 +439,11 @@ public final class HelpCommand {
 	private static final String POSITION_DESCRIBE_OPTIONS_MARKER = "position describe options:";
 
 	/**
+	 * Help marker for {@code serve}.
+	 */
+	private static final String SERVE_OPTIONS_MARKER = "serve options:";
+
+	/**
 	 * Help marker for {@code fen pgn}.
 	 */
 	private static final String PGN_TO_FENS_OPTIONS_MARKER = "fen pgn options:";
@@ -429,6 +467,81 @@ public final class HelpCommand {
 	 * Help marker for {@code doctor}.
 	 */
 	private static final String DOCTOR_OPTIONS_MARKER = "doctor options:";
+
+	/**
+	 * Help marker for {@code dataset}.
+	 */
+	private static final String DATASET_SUBCOMMANDS_MARKER = "dataset subcommands:";
+
+	/**
+	 * Help marker for {@code dataset verify}.
+	 */
+	private static final String DATASET_VERIFY_OPTIONS_MARKER = "dataset verify options:";
+
+	/**
+	 * Help marker for {@code dataset audit}.
+	 */
+	private static final String DATASET_AUDIT_OPTIONS_MARKER = "dataset audit options:";
+
+	/**
+	 * Help marker for {@code dataset diff}.
+	 */
+	private static final String DATASET_DIFF_OPTIONS_MARKER = "dataset diff options:";
+
+	/**
+	 * Help marker for {@code pgn}.
+	 */
+	private static final String PGN_SUBCOMMANDS_MARKER = "pgn subcommands:";
+
+	/**
+	 * Help marker for {@code pgn import}.
+	 */
+	private static final String PGN_IMPORT_OPTIONS_MARKER = "pgn import options:";
+
+	/**
+	 * Help marker for {@code pgn show}.
+	 */
+	private static final String PGN_SHOW_OPTIONS_MARKER = "pgn show options:";
+
+	/**
+	 * Help marker for {@code pgn find}.
+	 */
+	private static final String PGN_FIND_OPTIONS_MARKER = "pgn find options:";
+
+	/**
+	 * Help marker for {@code pgn stats}.
+	 */
+	private static final String PGN_STATS_OPTIONS_MARKER = "pgn stats options:";
+
+	/**
+	 * Help marker for {@code pgn delete}.
+	 */
+	private static final String PGN_DELETE_OPTIONS_MARKER = "pgn delete options:";
+
+	/**
+	 * Help marker for {@code pgn compact}.
+	 */
+	private static final String PGN_COMPACT_OPTIONS_MARKER = "pgn compact options:";
+
+	/**
+	 * Help marker for {@code schema}.
+	 */
+	private static final String SCHEMA_SUBCOMMANDS_MARKER = "schema subcommands:";
+
+	/**
+	 * Help marker for {@code schema list}.
+	 */
+	private static final String SCHEMA_LIST_OPTIONS_MARKER = "schema list options:";
+
+	/**
+	 * Help marker for {@code schema show}.
+	 */
+	private static final String SCHEMA_SHOW_OPTIONS_MARKER = "schema show options:";
+
+	/**
+	 * Help marker for {@code schema validate}.
+	 */
+	private static final String SCHEMA_VALIDATE_OPTIONS_MARKER = "schema validate options:";
 
 	/**
 	 * Help marker for {@code help} variants.
@@ -460,6 +573,10 @@ public final class HelpCommand {
 			Map.entry("record stats", STATS_OPTIONS_MARKER),
 			Map.entry("record tag-stats", STATS_TAGS_OPTIONS_MARKER),
 			Map.entry("record analysis-delta", RECORD_ANALYSIS_DELTA_OPTIONS_MARKER),
+			Map.entry("record validate", RECORD_VALIDATE_OPTIONS_MARKER),
+			Map.entry("record dedupe", RECORD_DEDUPE_OPTIONS_MARKER),
+			Map.entry("record split", RECORD_SPLIT_OPTIONS_MARKER),
+			Map.entry("record audit-split", RECORD_AUDIT_SPLIT_OPTIONS_MARKER),
 			Map.entry(CMD_FEN, FEN_SUBCOMMANDS_MARKER),
 			Map.entry("fen normalize", FEN_NORMALIZE_OPTIONS_MARKER),
 			Map.entry("fen validate", FEN_VALIDATE_OPTIONS_MARKER),
@@ -523,10 +640,28 @@ public final class HelpCommand {
 			Map.entry("puzzle pgn", PUZZLES_TO_PGN_OPTIONS_MARKER),
 			Map.entry("puzzle tags", PUZZLE_TAGS_OPTIONS_MARKER),
 			Map.entry("puzzle text", PUZZLE_TEXT_OPTIONS_MARKER),
+			Map.entry(CMD_REVIEW, REVIEW_SUBCOMMANDS_MARKER),
+			Map.entry("review game", REVIEW_GAME_OPTIONS_MARKER),
+			Map.entry(CMD_SERVE, SERVE_OPTIONS_MARKER),
 			Map.entry(CMD_WORKBENCH, WORKBENCH_OPTIONS_MARKER),
 			Map.entry(CMD_CONFIG, CONFIG_SUBCOMMANDS_MARKER),
 			Map.entry(CMD_CLEAN, CLEAN_OPTIONS_MARKER),
 			Map.entry(CMD_DOCTOR, DOCTOR_OPTIONS_MARKER),
+			Map.entry("dataset", DATASET_SUBCOMMANDS_MARKER),
+			Map.entry("dataset verify", DATASET_VERIFY_OPTIONS_MARKER),
+			Map.entry("dataset audit", DATASET_AUDIT_OPTIONS_MARKER),
+			Map.entry("dataset diff", DATASET_DIFF_OPTIONS_MARKER),
+			Map.entry("pgn", PGN_SUBCOMMANDS_MARKER),
+			Map.entry("pgn import", PGN_IMPORT_OPTIONS_MARKER),
+			Map.entry("pgn show", PGN_SHOW_OPTIONS_MARKER),
+			Map.entry("pgn find", PGN_FIND_OPTIONS_MARKER),
+			Map.entry("pgn stats", PGN_STATS_OPTIONS_MARKER),
+			Map.entry("pgn delete", PGN_DELETE_OPTIONS_MARKER),
+			Map.entry("pgn compact", PGN_COMPACT_OPTIONS_MARKER),
+			Map.entry("schema", SCHEMA_SUBCOMMANDS_MARKER),
+			Map.entry("schema list", SCHEMA_LIST_OPTIONS_MARKER),
+			Map.entry("schema show", SCHEMA_SHOW_OPTIONS_MARKER),
+			Map.entry("schema validate", SCHEMA_VALIDATE_OPTIONS_MARKER),
 			Map.entry(CMD_HELP, HELP_OPTIONS_MARKER),
 			Map.entry(CMD_VERSION, VERSION_OPTIONS_MARKER),
 			Map.entry(CMD_HELP_SHORT, HELP_OPTIONS_MARKER),
@@ -570,11 +705,15 @@ public final class HelpCommand {
 	 * @return exit code
 	 */
 	public static int runHelpWithStatus(Argv a) {
+		boolean json = a.flag("--json");
 		boolean full = a.flag("--full");
 		boolean self = a.flag(CMD_HELP_SHORT, CMD_HELP_LONG);
 		List<String> rest = a.positionals();
 		a.ensureConsumed();
 
+		if (json) {
+			return CommandCatalog.print(rest, System.out);
+		}
 		if (self) {
 			printCommandHelp(CliRegistry.resolve(List.of(CMD_HELP)), CMD_HELP, System.out);
 			return 0;
@@ -692,6 +831,26 @@ public final class HelpCommand {
 		}
 		printList(out, "examples", command.examples());
 		printList(out, "related", prefixCommand(command.related()));
+	}
+
+	/**
+	 * Returns the rendered usage line for a command, as shown in help output.
+	 *
+	 * @param command command node
+	 * @return usage string beginning with {@code crtk}
+	 */
+	public static String renderedUsage(CliCommand command) {
+		return renderUsage(command, command.commandPath());
+	}
+
+	/**
+	 * Returns the verbatim option/detail help block for a command, if any.
+	 *
+	 * @param command command node
+	 * @return extracted help block, or {@code null} when none is registered
+	 */
+	public static String optionsHelp(CliCommand command) {
+		return helpSection(command.detailHelpKey());
 	}
 
 	/**
@@ -871,6 +1030,10 @@ public final class HelpCommand {
 			  stats                      Summarize record files
 			  tag-stats                  Summarize tag distributions
 			  analysis-delta             Compare parent/child analysis changes
+			  dedupe                     Remove duplicate record rows before split/export
+			  split                      Deterministic group-aware train/val/test split
+			  audit-split                Detect position leakage across record splits
+			  validate                   Fail-loud validation of a record file (JSON or JSONL)
 
 			record export subcommands:
 			  plain                      Convert .record JSON to .plain
@@ -953,6 +1116,27 @@ public final class HelpCommand {
 			  tags                       Generate per-move tags for puzzle PVs
 			  text                       Run T5 over puzzle PVs
 
+			review subcommands:
+			  game                       Review PGN games as crtk.review.ply.v1 JSONL
+
+			review game options:
+			  --pgn PATH                 PGN file to review (alias: --input|-i)
+			  --protocol-path|-P PATH    External UCI protocol TOML (default: configured protocol-path)
+			  --offline                  Use deterministic in-process alpha-beta instead of external UCI
+			  --output|-o PATH           Output JSONL file (default: dump/<input-stem>.review.jsonl)
+			  --to-study                 Also emit drillable study units and Record JSON
+			  --study-output PATH        Study JSONL file (default: dump/<input-stem>.study.jsonl)
+			  --record-output PATH       Study Record JSON file (default: dump/<input-stem>.study.record.json)
+			  --depth|-d N               Offline alpha-beta depth (default: 2; offline only)
+			  --max-nodes|--nodes N      Node budget per search (external default: config; offline default: 25000)
+			  --max-duration DURATION    Watchdog budget per search (external default: config; offline default: 0)
+			  --multipv N                External UCI MultiPV setting (default: 2)
+			  --threads N                External UCI thread count (default: 1)
+			  --hash N                   External UCI hash in MB (default: 64)
+			  --wdl|--no-wdl             Request or suppress UCI WDL output (default: request)
+			  --limit N                  Cap emitted rows (default: 0 = no cap)
+			  --verbose|-v               Print stack trace on failure
+
 			record export plain options:
 			  --input|-i PATH            Input .record JSON file
 			  --output|-o PATH           Output .plain file (default: dump/<input-stem>.plain)
@@ -969,11 +1153,13 @@ public final class HelpCommand {
 			record dataset npy options:
 			  --input|-i PATH            Input .record JSON file
 			  --output|-o PATH           Output dataset prefix (default: dump/<input-stem>.dataset)
+			  --row-hashes               Emit <prefix>.rowhashes.txt with one source-row hash per tensor row
 
 			record dataset lc0 options:
 			  --input|-i PATH            Input .record JSON file
 			  --output|-o PATH           Output dataset prefix (default: dump/<input-stem>.lc0)
 			  --weights PATH             Optional LC0 weights for policy-map compression
+			  --row-hashes               Emit <prefix>.rowhashes.txt with one source-row hash per tensor row
 
 			record dataset classifier options:
 			  --input|-i PATH            Input record file(s) or directories
@@ -983,6 +1169,7 @@ public final class HelpCommand {
 			  --max-positives N          Cap positive rows
 			  --max-negatives N          Cap negative rows
 			  --recursive                Recurse into input directories
+			  --row-hashes               Emit <prefix>.rowhashes.txt with one source-row hash per tensor row
 			  --verbose|-v               Print stack trace on failure
 
 			record export puzzle-jsonl options:
@@ -992,6 +1179,7 @@ public final class HelpCommand {
 			  --filter|-f DSL            Optional row-selection Filter DSL
 			  --puzzles                  Keep only puzzle records
 			  --nonpuzzles               Keep only non-puzzle records
+			  --row-hashes               Emit <output>.rowhashes.txt with one source-row hash per JSONL row
 			  --verbose|-v               Print stack trace on failure
 
 			record export puzzle-elo-jsonl options:
@@ -1001,6 +1189,7 @@ public final class HelpCommand {
 			  --max-records N            Score at most N verified puzzles (0/default: no cap)
 			  --threads N                Tree-scoring worker threads (default: available processors)
 			  --ratings-csv PATH         Reuse an existing scored rating CSV for a one-pass re-export
+			  --row-hashes               Emit <output>.rowhashes.txt with one source-row hash per JSONL row
 			  --verbose|-v               Print stack trace on failure
 
 			record export training-jsonl options:
@@ -1010,6 +1199,7 @@ public final class HelpCommand {
 			  --recursive                Recurse into input directories
 			  --include-engine-metadata  Include engine/PV metadata as metadata only
 			  --max-records N            Stop after writing N rows (0/default: no cap)
+			  --row-hashes               Emit <output>.rowhashes.txt with one source-row hash per JSONL row
 			  --verbose|-v               Print stack trace on failure
 
 			  Writes one chess position per JSONL line. Rows matching the puzzle DSL
@@ -1039,6 +1229,30 @@ public final class HelpCommand {
 			  --input|-i PATH            Input record file
 			  --output|-o PATH           Output JSONL path (default: dump/<input-stem>.analysis-delta.jsonl)
 			  --verbose|-v               Print stack trace on failure
+
+			record validate options:
+			  --input|-i PATH            Input record file (JSON array or JSONL)
+			  --strict                   Stop at the first invalid record (exits 3)
+			  --max-errors N             Cap on issue reports printed in tolerant mode (default 50)
+
+			record dedupe options:
+			  --input|-i PATH            Input record file (JSON array or JSONL)
+			  --output|-o PATH           Output unique JSONL file
+			  --key NAME                 position-signature (default), fen-exact, or row-hash
+			  --keep NAME                first (default) or last; highest-depth is reserved
+
+			record split options:
+			  --input|-i PATH            Input record file (JSON array or JSONL)
+			  --output|-o PATH           Output prefix; writes <prefix>.<split>.jsonl per split
+			  --split A:B:C              Ratio spec (e.g. 70:15:15)
+			  --seed N                   Deterministic seed
+			  --split-by NAME            Group-key strategy (default fen; only fen supported today)
+			  --row-hashes               Emit <prefix>.<split>.rowhashes.txt sidecars
+
+			record audit-split options:
+			  --splits A,B,C             Comma-separated split files to audit
+			  --split-by NAME            Group-key strategy (default fen; aliases: --group-by)
+			  --max-leaks N              Maximum leakage examples to print on stderr (default 20)
 
 			batch run options:
 			  --input|-i PATH            UTF-8 script with one CRTK command per non-comment line
@@ -1292,6 +1506,70 @@ public final class HelpCommand {
 			config subcommands:
 			  show                       Print config values
 			  validate                   Validate config file
+
+			dataset subcommands:
+			  verify                     Re-hash every artifact referenced by a manifest
+			  audit                      Recursively audit every manifest under a directory
+			  diff                       Explain why two manifests differ
+
+			dataset verify options:
+			  --input|-i PATH            Manifest file to verify (crtk.dataset.manifest.v1)
+
+			dataset audit options:
+			  --root PATH                Directory tree to walk for *.manifest.json sidecars
+			  --limit N                  Cap on the number of manifests to verify (default 0 = no cap)
+
+			dataset diff options:
+			  --left PATH                Left manifest file
+			  --right PATH               Right manifest file
+			  --strict                   Exit 3 when the two manifests differ (default: always exit 0)
+
+			pgn subcommands:
+			  import                     Import games from a PGN file (idempotent on gameId)
+			  show                       Show one stored game by id
+			  find                       Find games that pass through a given FEN
+			  stats                      Summarize the store
+			  delete                     Tombstone one stored game by id (mutating)
+			  compact                    Drop tombstoned games and rebuild indexes (mutating)
+
+			pgn import options:
+			  --input|-i PATH            PGN file to import
+			  --store PATH               Store root directory (default: dump/pgn-store; CRTK_PGN_STORE overrides)
+
+			pgn show options:
+			  --gameId ID                Canonical game identifier
+			  --store PATH               Store root directory (default: dump/pgn-store)
+			  --format FORMAT            pgn (default) or json
+
+			pgn find options:
+			  --fen FEN                  Position FEN to look up
+			  --store PATH               Store root directory (default: dump/pgn-store)
+			  --limit N                  Cap on returned matches
+
+			pgn stats options:
+			  --store PATH               Store root directory (default: dump/pgn-store)
+
+			pgn delete options:
+			  --gameId ID                Canonical game identifier
+			  --store PATH               Store root directory (default: dump/pgn-store)
+
+			pgn compact options:
+			  --store PATH               Store root directory (default: dump/pgn-store)
+
+			schema subcommands:
+			  list                       List registered schema names
+			  show                       Print a registered schema's source text
+			  validate                   Validate a JSON document against a registered schema
+
+			schema list options:
+			  (no options)               Prints every registered schema name in registry order
+
+			schema show options:
+			  <name>                     Registered schema name (e.g. crtk.cli.catalog.v1)
+
+			schema validate options:
+			  <name>                     Registered schema name to validate against
+			  --input|-i PATH            Document path; standard input is used when omitted
 
 			record stats options:
 			  --input|-i PATH            Input record file
@@ -1643,7 +1921,8 @@ public final class HelpCommand {
 			  --b CSV                     Baseline features: all, none, or feature CSV (default: none)
 			  --search alpha-beta|mcts    Search for both sides (default: alpha-beta)
 			  --searchA|--searchB KIND    Per-side search override (alpha-beta or mcts)
-			  --eval classical|nnue       Evaluator for both sides (default: classical)
+			  --eval classical|nnue|cnn|bt4|otis
+			                              Evaluator/backend for both sides (default: classical)
 			  --evalA|--evalB NAME        Per-side evaluator override
 			  --nodes N                   Fixed node budget per move (default: 5000)
 			  --movetime MS               Fixed time budget per move in ms (overrides --nodes)
@@ -1798,18 +2077,20 @@ public final class HelpCommand {
 			  --randompos                Use a reachable random legal standard position
 			  --input|-i PATH            Input FEN list
 			  --stdin                    Read FEN rows from standard input
-			  --engine MODE              classical or t5 (default: classical)
+			  --engine MODE              classical only (default: classical)
+			  --audience MODE            beginner, club, advanced, coach, researcher, ml, or engine-debug
 			  --detail LEVEL             brief, normal, or full (default: normal)
 			  --eval SOURCE              static or engine (default: static; engine = real search)
 			  --eval-depth N             Engine-eval search depth in plies (implies --eval engine)
 			  --format FMT               text, json, jsonl, or training-jsonl (default: text)
 			  --json                     Alias for --format json
 			  --jsonl                    Alias for --format jsonl
+			  --facts-only               Suppress prose and emit structured facts in JSON/JSONL
 			  --budget N                 Maximum candidate moves in generated text
 			  --max-candidates N         Alias for --budget
 			  --output|-o PATH           Write output to a file
-			  --model PATH               Future T5 position-description model path
-			  --max-new N                Future T5 generated-token budget
+			  --model PATH               Training-jsonl prompt model-path metadata
+			  --max-new N                Training-jsonl prompt token-budget metadata
 			  --verbose|-v               Print stack trace on failure
 
 			fen pgn options:
@@ -1843,10 +2124,18 @@ public final class HelpCommand {
 
 			doctor options:
 			  --strict                   Exit non-zero when warnings are present
+			  --json                     Emit one crtk.doctor.v1 JSON object
+			  --verbose|-v               Print stack trace on failure
+
+			serve options:
+			  --host HOST                Loopback host to bind (default: 127.0.0.1)
+			  --port N                   TCP port to bind (default: 8787; 0 = ephemeral)
+			  --json                     Print startup endpoints as JSON
 			  --verbose|-v               Print stack trace on failure
 
 			help options:
 			  --full                      Show full help output
+			  --json                      Emit the command catalog as JSON (crtk.cli.catalog.v1)
 			  <command>                   Show help for one command
 
 			version options:

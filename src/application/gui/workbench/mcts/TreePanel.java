@@ -9,33 +9,26 @@ import application.gui.workbench.network.Prefs;
 import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.HoldButton;
 import application.gui.workbench.ui.StatusBadge;
+import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Toast;
 import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.Ui;
 import application.gui.workbench.ui.WrappingFlowLayout;
 import application.gui.workbench.ui.WorkspaceHeader;
-import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-import java.awt.geom.Path2D;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import chess.core.Move;
-import chess.core.MoveList;
 import chess.core.Position;
-import chess.tag.game.SanResolver;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -49,7 +42,6 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JSlider;
 import javax.swing.JSpinner;
 import javax.swing.JTextField;
 import javax.swing.JSplitPane;
@@ -57,7 +49,6 @@ import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
-import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableColumnModel;
 
 /**
@@ -74,7 +65,7 @@ import javax.swing.table.TableColumnModel;
  * labelled boxes, and a bottom scrubber replays the recorded tree growth frame
  * by frame. The tree can be exported to a standalone vector SVG.</p>
  */
-public final class TreePanel extends JPanel implements MctsSession.Listener {
+public final class TreePanel extends SurfacePanel implements MctsSession.Listener {
 
     /**
      * Serialization identifier.
@@ -136,11 +127,6 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
      * Split weight giving most of the width to the canvas.
      */
     private static final double INSPECTOR_SPLIT = 0.76;
-
-    /**
-     * Frame interval for scrubber playback, in milliseconds.
-     */
-    private static final int PLAY_INTERVAL_MS = 110;
 
     /**
      * Shared MCTS session.
@@ -318,7 +304,7 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
     /**
      * Child-statistics table model.
      */
-    private final ChildTableModel childModel = new ChildTableModel();
+    private final TreeChildTableModel childModel = new TreeChildTableModel();
 
     /**
      * Child-statistics table.
@@ -349,42 +335,7 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
     /**
      * Visual win/draw/loss + eval bar for the inspected node.
      */
-    private final WdlBar wdlBar = new WdlBar();
-
-    /**
-     * Faint node-count-over-time sparkline behind the growth scrubber.
-     */
-    private final Sparkline sparkline = new Sparkline();
-
-    /**
-     * Growth-scrubber timeline.
-     */
-    private final JSlider scrubSlider = new JSlider(0, 0, 0);
-
-    /**
-     * Step-back-one-frame button.
-     */
-    private final JButton scrubPrevButton = Ui.button("«", false, event -> stepScrub(-1));
-
-    /**
-     * Step-forward-one-frame button.
-     */
-    private final JButton scrubNextButton = Ui.button("»", false, event -> stepScrub(1));
-
-    /**
-     * Play/pause button that animates the scrubber through recorded frames.
-     */
-    private final JButton playButton = Ui.button("Play", false, event -> togglePlay());
-
-    /**
-     * Return-to-live button.
-     */
-    private final JButton liveButton = Ui.button("Live", false, event -> goLive());
-
-    /**
-     * Scrubber readout (frame counter / visits / nodes).
-     */
-    private final JLabel scrubLabel = new JLabel("no recording yet");
+    private final TreeWdlBar wdlBar = new TreeWdlBar();
 
     /**
      * Split between canvas and inspector, retained for the collapse toggle.
@@ -427,32 +378,9 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
     private String inspectorNodeId;
 
     /**
-     * True while showing a recorded growth frame instead of the live tree.
+     * Recorded search-tree growth controller.
      */
-    private boolean scrubbing;
-
-    /**
-     * Index of the recorded growth frame shown while scrubbing.
-     */
-    private int scrubIndex;
-
-    /**
-     * Guards scrubber events triggered by programmatic slider updates.
-     */
-    private boolean adjustingScrub;
-
-    /**
-     * Last recorded frame rendered while scrubbing, so the canvas is re-rendered
-     * only when history decimation changes the frame under the slider thumb.
-     */
-    private transient MctsSearch.TreeSnapshot lastScrubbedFrame;
-
-
-    /**
-     * Timer driving scrubber playback (animating through recorded frames), or
-     * null when not playing.
-     */
-    private transient javax.swing.Timer playTimer;
+    private final TreeScrubber scrubber;
 
     /**
      * Callback that opens a position FEN in a new detached board, or null.
@@ -480,25 +408,9 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
     private final JLabel targetLabel = new JLabel("no target");
 
     /**
-     * Parsed target line as encoded moves from {@link #targetRootFen}.
+     * Target-line parser and status latch.
      */
-    private transient short[] targetMoves = new short[0];
-
-    /**
-     * Root FEN the {@link #targetMoves} were parsed against.
-     */
-    private String targetRootFen;
-
-    /**
-     * Elapsed millis when the search first made the target's first move its best
-     * move, or -1 when not yet found.
-     */
-    private long targetFoundMillis = -1L;
-
-    /**
-     * Visit count when the target's first move first became the best move.
-     */
-    private long targetFoundVisits;
+    private final TreeTargetTracker targetTracker = new TreeTargetTracker();
 
     /**
      * Creates the panel.
@@ -518,12 +430,11 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
      * @param showWorkspaceHeader true to show the standalone Search Tree header
      */
     public TreePanel(MctsSession session, Supplier<String> currentFen, boolean showWorkspaceHeader) {
-        super(new BorderLayout(0, 0));
+        super(new BorderLayout(0, 0), Theme.Surface.BACKDROP);
         this.session = session;
         this.currentFen = currentFen;
         this.stopButton = new HoldButton("Stop", () -> session.stop(), true);
-        setOpaque(true);
-        setBackground(Theme.BG);
+        this.scrubber = new TreeScrubber(session, tree -> rebuildModel(tree, null), this::renderLive);
         configureControls();
         JPanel north = Ui.transparentPanel(new BorderLayout(0, 0));
         if (showWorkspaceHeader) {
@@ -532,7 +443,7 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
         north.add(buildToolbar(), BorderLayout.SOUTH);
         add(north, BorderLayout.NORTH);
         add(buildBody(), BorderLayout.CENTER);
-        add(buildScrubBar(), BorderLayout.SOUTH);
+        add(scrubber.buildBar(), BorderLayout.SOUTH);
         view.setSelectionListener(this::onNodeSelected);
         installShortcuts();
         session.addListener(this);
@@ -548,11 +459,11 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
     private void installShortcuts() {
         javax.swing.InputMap keys = view.getInputMap(JComponent.WHEN_FOCUSED);
         javax.swing.ActionMap actions = view.getActionMap();
-        bindKey(keys, actions, "SPACE", "tree.play", this::togglePlay);
-        bindKey(keys, actions, "LEFT", "tree.prev", () -> stepScrub(-1));
-        bindKey(keys, actions, "RIGHT", "tree.next", () -> stepScrub(1));
-        bindKey(keys, actions, "HOME", "tree.first", () -> stepScrub(-session.historySize()));
-        bindKey(keys, actions, "END", "tree.live", this::goLive);
+        bindKey(keys, actions, "SPACE", "tree.play", scrubber::togglePlay);
+        bindKey(keys, actions, "LEFT", "tree.prev", () -> scrubber.step(-1));
+        bindKey(keys, actions, "RIGHT", "tree.next", () -> scrubber.step(1));
+        bindKey(keys, actions, "HOME", "tree.first", () -> scrubber.step(-session.historySize()));
+        bindKey(keys, actions, "END", "tree.live", scrubber::goLive);
     }
 
     /**
@@ -586,7 +497,7 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
      * Stops observing the shared session.
      */
     public void dispose() {
-        stopPlay();
+        scrubber.stopPlay();
         session.removeListener(this);
     }
 
@@ -625,7 +536,7 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
      */
     @Override
     public void removeNotify() {
-        stopPlay();
+        scrubber.stopPlay();
         session.setTreeOptions(null);
         super.removeNotify();
     }
@@ -698,17 +609,6 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
         altParents.setAlignmentX(LEFT_ALIGNMENT);
         altParents.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
 
-        Ui.styleSlider(scrubSlider);
-        scrubSlider.setToolTipText("Scrub through the recorded growth of the tree");
-        scrubSlider.setPreferredSize(new Dimension(260, Theme.CONTROL_HEIGHT));
-        scrubSlider.addChangeListener(event -> onScrubSlider());
-        scrubPrevButton.setToolTipText("Step one recorded frame back");
-        scrubNextButton.setToolTipText("Step one recorded frame forward");
-        liveButton.setToolTipText("Jump back to the live, growing tree");
-        scrubLabel.setFont(Theme.mono(12));
-        scrubLabel.setForeground(Theme.MUTED);
-        playButton.setToolTipText("Play back the recorded growth frame by frame");
-
         Ui.styleFields(targetField);
         Ui.placeholder(targetField, "e.g. Qh8 c5 ...");
         targetField.setPreferredSize(new Dimension(190, Theme.CONTROL_HEIGHT));
@@ -729,7 +629,7 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
         inspectorSummary.setLineWrap(true);
         inspectorSummary.setWrapStyleWord(true);
         inspectorSummary.setBorder(Theme.pad(8));
-        inspectorSummary.setText("Click a node to list its children here.");
+        inspectorSummary.setText("No node selected");
 
         Theme.table(childTable, Theme.TABLE_ROW_HEIGHT);
         childTable.setAutoCreateRowSorter(true);
@@ -776,7 +676,7 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
         guideLevelLabel.setBackground(Theme.INPUT);
         guideLevelLabel.setForeground(Theme.TEXT);
         guideLevelLabel.setFont(Theme.font(Theme.FONT_CONTROL, Font.BOLD));
-        guideLevelLabel.setBorder(BorderFactory.createLineBorder(Theme.INPUT_BORDER));
+        guideLevelLabel.setBorder(Theme.lineBorder(Theme.INPUT_BORDER));
         guideLevelLabel.setPreferredSize(new Dimension(48, Theme.CONTROL_HEIGHT));
         guideLevelLabel.setMinimumSize(new Dimension(48, Theme.CONTROL_HEIGHT));
         guideLevelLabel.setToolTipText("Vertical guide level. Off means no vertical subtree dividers.");
@@ -925,33 +825,6 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
     }
 
     /**
-     * Builds the bottom growth-scrubber bar.
-     *
-     * @return scrubber component
-     */
-    private JComponent buildScrubBar() {
-        JPanel bar = Ui.transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
-        bar.setOpaque(true);
-        bar.setBackground(Theme.PANEL_SOLID);
-        bar.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.LINE),
-                Theme.pad(Theme.SPACE_XS, Theme.SPACE_SM, Theme.SPACE_XS, Theme.SPACE_SM)));
-        JPanel nav = Ui.transparentPanel(new FlowLayout(FlowLayout.LEFT, Theme.SPACE_XS, 0));
-        nav.add(Ui.label("Growth"));
-        nav.add(scrubPrevButton);
-        nav.add(scrubNextButton);
-        nav.add(playButton);
-        nav.add(liveButton);
-        bar.add(nav, BorderLayout.WEST);
-        JPanel timeline = Ui.transparentPanel(new BorderLayout(0, 0));
-        timeline.add(sparkline, BorderLayout.NORTH);
-        timeline.add(scrubSlider, BorderLayout.CENTER);
-        bar.add(timeline, BorderLayout.CENTER);
-        bar.add(scrubLabel, BorderLayout.EAST);
-        return bar;
-    }
-
-    /**
      * Handles a position-picker change: pin the chosen root (or follow the main
      * board) for the next search, and reflect it on the idle session root.
      */
@@ -991,9 +864,9 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
             // Keep the raw FEN if it cannot be parsed.
         }
         applyTreeOptions();
-        stopPlay();
-        resetTargetTracking();
-        parseTarget(rootFen);
+        scrubber.stopPlay();
+        targetTracker.resetTracking();
+        targetTracker.parse(rootFen, targetField.getText());
         session.start(new MctsSession.Config(
                 rootFen,
                 (MctsSession.Backend) backendCombo.getSelectedItem(),
@@ -1019,8 +892,8 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
      * Rebuilds the active frame (live or scrubbed) and resets the view.
      */
     private void rebuildAndReset() {
-        if (scrubbing) {
-            renderScrubbed();
+        if (scrubber.isScrubbing()) {
+            scrubber.renderCurrentFrame();
         } else {
             renderLive(session.snapshot());
         }
@@ -1036,9 +909,9 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
         updateButtons(snapshot);
         updateStatus(snapshot);
         updateWorkspaceHeader(snapshot);
-        updateScrubControls();
+        scrubber.updateControls();
         updateTargetStatus(snapshot);
-        if (!scrubbing) {
+        if (!scrubber.isScrubbing()) {
             renderLive(snapshot);
         }
     }
@@ -1057,15 +930,6 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
     }
 
     /**
-     * Renders the recorded growth frame currently selected on the scrubber.
-     */
-    private void renderScrubbed() {
-        MctsSearch.TreeSnapshot tree = session.historyFrame(scrubIndex);
-        lastScrubbedFrame = tree;
-        rebuildModel(tree, null);
-    }
-
-    /**
      * Rebuilds the tree layout from a snapshot and refreshes the inspector.
      *
      * @param tree tree snapshot to render, or null for empty
@@ -1080,7 +944,7 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
             currentInfos = List.of();
             inspectorKey = null;
             inspectorNodeId = null;
-            inspectorSummary.setText("Click a node to list its children here.");
+            inspectorSummary.setText("No node selected");
             inspectorSummary.setCaretPosition(0);
             childHeading.setText("Children");
             setChildRows(List.of(), 1);
@@ -1106,7 +970,7 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
         PathOverlay targetPath = targetPathOverlay();
         PathOverlay selectedPath = selectedPathOverlay(activeSelectedId);
         view.setSearchPath(searchPath.keys(), searchPath.segments());
-        view.setTargetPath(targetPath.keys(), targetPath.segments(), targetMoves.length > 0);
+        view.setTargetPath(targetPath.keys(), targetPath.segments(), targetTracker.hasMoves());
         view.setSelectedPath(selectedPath.keys(), selectedPath.segments());
         if (inspectorKey == null) {
             // Default the inspector to the root so children are immediately
@@ -1145,177 +1009,6 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
     }
 
     /**
-     * Updates the scrubber slider, buttons, and readout from the recorded
-     * history. Following live keeps the thumb pinned to the latest frame.
-     */
-    private void updateScrubControls() {
-        int frames = session.historySize();
-        boolean has = frames > 0;
-        if (!has) {
-            scrubbing = false;
-        }
-        scrubSlider.setEnabled(has);
-        scrubPrevButton.setEnabled(has);
-        scrubNextButton.setEnabled(has);
-        liveButton.setEnabled(has && scrubbing);
-        adjustingScrub = true;
-        scrubSlider.setMinimum(0);
-        scrubSlider.setMaximum(Math.max(0, frames - 1));
-        if (scrubbing) {
-            scrubIndex = Math.min(scrubIndex, Math.max(0, frames - 1));
-        } else {
-            scrubIndex = Math.max(0, frames - 1);
-        }
-        scrubSlider.setValue(scrubIndex);
-        adjustingScrub = false;
-        // History decimation can remap which frame an index points at; while
-        // scrubbing, if the frame under the thumb changed, re-render so the
-        // canvas stays in step with the moved slider and readout.
-        if (scrubbing && session.historyFrame(scrubIndex) != lastScrubbedFrame) {
-            renderScrubbed();
-        }
-        updateScrubLabel();
-        sparkline.repaint();
-    }
-
-    /**
-     * Updates the scrubber readout text.
-     */
-    private void updateScrubLabel() {
-        int frames = session.historySize();
-        if (frames == 0) {
-            scrubLabel.setText("no recording yet");
-            return;
-        }
-        if (!scrubbing) {
-            scrubLabel.setText(String.format("Live · %,d frames", frames));
-            return;
-        }
-        MctsSearch.TreeSnapshot frame = session.historyFrame(scrubIndex);
-        scrubLabel.setText(String.format("Frame %,d / %,d · %,d visits · %,d nodes",
-                scrubIndex + 1, frames, frame == null ? 0 : frame.playouts(),
-                frame == null ? 0 : frame.nodes().size()));
-    }
-
-    /**
-     * Handles a user drag of the scrubber slider.
-     */
-    private void onScrubSlider() {
-        if (adjustingScrub) {
-            return;
-        }
-        stopPlay();
-        scrubbing = true;
-        scrubIndex = scrubSlider.getValue();
-        liveButton.setEnabled(true);
-        updateScrubLabel();
-        renderScrubbed();
-    }
-
-    /**
-     * Steps the scrubber by a number of frames.
-     *
-     * @param delta frame delta (negative to step back)
-     */
-    private void stepScrub(int delta) {
-        int frames = session.historySize();
-        if (frames == 0) {
-            return;
-        }
-        stopPlay();
-        scrubbing = true;
-        scrubIndex = Math.max(0, Math.min(frames - 1, scrubIndex + delta));
-        adjustingScrub = true;
-        scrubSlider.setValue(scrubIndex);
-        adjustingScrub = false;
-        liveButton.setEnabled(true);
-        updateScrubLabel();
-        renderScrubbed();
-    }
-
-    /**
-     * Returns the scrubber to following the live, growing tree.
-     */
-    private void goLive() {
-        stopPlay();
-        scrubbing = false;
-        MctsSession.Snapshot snapshot = session.snapshot();
-        updateScrubControls();
-        renderLive(snapshot);
-    }
-
-    /**
-     * Toggles scrubber playback, animating forward through the recorded frames.
-     */
-    private void togglePlay() {
-        if (playTimer != null) {
-            stopPlay();
-        } else {
-            startPlay();
-        }
-    }
-
-    /**
-     * Starts playback. Replays the recorded frames in order without recomputing
-     * the search, so you watch exactly how the tree grew.
-     */
-    private void startPlay() {
-        if (session.historySize() == 0) {
-            return;
-        }
-        scrubbing = true;
-        if (scrubIndex >= session.historySize() - 1) {
-            scrubIndex = 0;
-        }
-        liveButton.setEnabled(true);
-        playButton.setText("Pause");
-        playTimer = new javax.swing.Timer(PLAY_INTERVAL_MS, event -> advancePlay());
-        playTimer.start();
-        showScrubFrame();
-    }
-
-    /**
-     * Stops playback if running.
-     */
-    private void stopPlay() {
-        if (playTimer != null) {
-            playTimer.stop();
-            playTimer = null;
-        }
-        playButton.setText("Play");
-    }
-
-    /**
-     * Advances playback by one recorded frame, stopping at the end.
-     */
-    private void advancePlay() {
-        int frames = session.historySize();
-        if (frames == 0) {
-            stopPlay();
-            return;
-        }
-        if (scrubIndex >= frames - 1) {
-            scrubIndex = frames - 1;
-            showScrubFrame();
-            stopPlay();
-            return;
-        }
-        scrubIndex++;
-        showScrubFrame();
-    }
-
-    /**
-     * Syncs the slider and readout to the current scrub index and renders it.
-     */
-    private void showScrubFrame() {
-        adjustingScrub = true;
-        scrubSlider.setValue(scrubIndex);
-        adjustingScrub = false;
-        updateScrubLabel();
-        renderScrubbed();
-    }
-
-    /**
      * Opens the inspected node's position in a new board, if a callback is set.
      */
     private void openSelectedInBoard() {
@@ -1336,97 +1029,14 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
      * overlay and readout immediately.
      */
     private void onTargetChanged() {
-        parseTarget(session.snapshot().rootFen());
-        resetTargetTracking();
-        if (scrubbing) {
-            renderScrubbed();
+        targetTracker.parse(session.snapshot().rootFen(), targetField.getText());
+        targetTracker.resetTracking();
+        if (scrubber.isScrubbing()) {
+            scrubber.renderCurrentFrame();
         } else {
             renderLive(session.snapshot());
         }
         updateTargetStatus(session.snapshot());
-    }
-
-    /**
-     * Parses the target field text into encoded moves against a root FEN.
-     *
-     * @param rootFen root position the line starts from
-     */
-    private void parseTarget(String rootFen) {
-        targetRootFen = rootFen;
-        targetMoves = parseLine(rootFen, targetField.getText());
-    }
-
-    /**
-     * Resets the time-to-find tracking for a fresh measurement.
-     */
-    private void resetTargetTracking() {
-        targetFoundMillis = -1L;
-        targetFoundVisits = 0L;
-    }
-
-    /**
-     * Parses a SAN/UCI move line from a root FEN into encoded moves, stopping at
-     * the first token that does not resolve to a legal move. Move numbers like
-     * {@code 1.} / {@code 1...} are ignored.
-     *
-     * @param rootFen root FEN
-     * @param text move line text
-     * @return the resolvable prefix as encoded moves
-     */
-    private static short[] parseLine(String rootFen, String text) {
-        if (rootFen == null || rootFen.isBlank() || text == null || text.isBlank()) {
-            return new short[0];
-        }
-        Position pos;
-        try {
-            pos = new Position(rootFen);
-        } catch (RuntimeException ex) {
-            return new short[0];
-        }
-        List<Short> moves = new ArrayList<>();
-        for (String raw : text.trim().split("\\s+")) {
-            String token = raw.replaceAll("^\\d+\\.+", "").trim();
-            if (token.isEmpty() || ".".equals(token)) {
-                continue;
-            }
-            short move = SanResolver.resolve(pos, token);
-            if (move == Move.NO_MOVE) {
-                move = parseUci(pos, token);
-            }
-            if (move == Move.NO_MOVE) {
-                break;
-            }
-            moves.add(move);
-            pos = pos.play(move);
-        }
-        short[] out = new short[moves.size()];
-        for (int i = 0; i < out.length; i++) {
-            out[i] = moves.get(i);
-        }
-        return out;
-    }
-
-    /**
-     * Resolves a UCI token to a legal move by matching its rendered UCI text, so
-     * castling, en passant, and promotions resolve regardless of the engine's
-     * internal square convention.
-     *
-     * @param pos position
-     * @param token UCI token (e.g. {@code "d1h5"}, {@code "e7e8q"})
-     * @return the legal move, or {@link Move#NO_MOVE}
-     */
-    private static short parseUci(Position pos, String token) {
-        if (!Move.isMove(token)) {
-            return Move.NO_MOVE;
-        }
-        MoveList legal = pos.legalMoves();
-        for (int i = 0; i < legal.size(); i++) {
-            short move = legal.get(i);
-            if (token.equalsIgnoreCase(Move.toString(move))) {
-                return move;
-            }
-        }
-        return Move.NO_MOVE;
     }
 
     /**
@@ -1436,6 +1046,7 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
      * @return target path present in the current frame
      */
     private PathOverlay targetPathOverlay() {
+        short[] targetMoves = targetTracker.moves();
         if (targetMoves.length == 0 || currentInfos.isEmpty()) {
             return PathOverlay.empty();
         }
@@ -1523,51 +1134,7 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
      * @param snapshot session snapshot
      */
     private void updateTargetStatus(MctsSession.Snapshot snapshot) {
-        if (snapshot != null && !Objects.equals(snapshot.rootFen(), targetRootFen)) {
-            parseTarget(snapshot.rootFen());
-            resetTargetTracking();
-        }
-        if (targetMoves.length == 0) {
-            targetLabel.setText("no target");
-            return;
-        }
-        MctsSearch.Snapshot root = snapshot == null ? null : snapshot.root();
-        if (root == null) {
-            targetLabel.setText("set · start search");
-            return;
-        }
-        boolean bestMatch = root.bestMove() == targetMoves[0];
-        int agree = commonPrefix(root.bestPv(), targetMoves);
-        if (bestMatch && targetFoundMillis < 0) {
-            targetFoundMillis = root.elapsedMillis();
-            targetFoundVisits = root.playouts();
-        }
-        String pv = "PV " + agree + "/" + targetMoves.length;
-        if (targetFoundMillis >= 0) {
-            targetLabel.setText(String.format("found %.2fs · %,d v · %s",
-                    targetFoundMillis / 1000.0, targetFoundVisits, pv));
-        } else {
-            targetLabel.setText("searching · " + pv);
-        }
-    }
-
-    /**
-     * Returns the length of the common leading move prefix of two lines.
-     *
-     * @param a first line (may be null)
-     * @param b second line
-     * @return common prefix length
-     */
-    private static int commonPrefix(short[] a, short[] b) {
-        if (a == null) {
-            return 0;
-        }
-        int n = Math.min(a.length, b.length);
-        int i = 0;
-        while (i < n && a[i] == b[i]) {
-            i++;
-        }
-        return i;
+        targetLabel.setText(targetTracker.updateStatus(snapshot, targetField.getText()));
     }
 
     /**
@@ -1988,64 +1555,17 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
         JPanel legend = new JPanel(new java.awt.GridLayout(0, 1, 0, Theme.SPACE_XS));
         legend.setOpaque(false);
         legend.setBorder(Theme.pad(Theme.SPACE_SM));
-        legend.add(legendRow(Theme.ACCENT, "Selected principal path",
+        legend.add(Ui.legendRow(Theme.ACCENT, "Selected principal path",
                 "Highlighted route from root to the inspected node."));
-        legend.add(legendRow(TensorViz.POLICY, "Explored branch",
+        legend.add(Ui.legendRow(TensorViz.POLICY, "Explored branch",
                 "Visible child board with visits, prior, Q, U, and PUCT."));
-        legend.add(legendRow(Theme.MUTED, "Transposition",
+        legend.add(Ui.legendRow(Theme.MUTED, "Transposition",
                 "Dashed link when merge transpositions is enabled."));
-        legend.add(legendRow(Theme.STATUS_WARNING_BORDER, "Collapsed leaf",
+        legend.add(Ui.legendRow(Theme.STATUS_WARNING_BORDER, "Collapsed leaf",
                 "Batched frontier node when leaf batching keeps the tree readable."));
-        legend.add(legendRow(Theme.LINE, "Guide level",
+        legend.add(Ui.legendRow(Theme.LINE, "Guide level",
                 "0 hides vertical subtree dividers; higher levels partition that layer and descendants."));
         return legend;
-    }
-
-    /**
-     * Creates one legend row.
-     *
-     * @param color chip color
-     * @param title title
-     * @param detail detail
-     * @return row component
-     */
-    private static JComponent legendRow(java.awt.Color color, String title, String detail) {
-        JPanel row = new JPanel(new BorderLayout(Theme.SPACE_SM, 0));
-        row.setOpaque(false);
-        JComponent chip = new JComponent() {
-            private static final long serialVersionUID = 1L;
-
-            /**
-             * Returns the fixed legend-chip size.
-             *
-             * @return chip dimensions
-             */
-            @Override
-            public Dimension getPreferredSize() {
-                return new Dimension(12, 12);
-            }
-
-            /**
-             * Paints the legend color chip.
-             *
-             * @param graphics drawing context
-             */
-            @Override
-            protected void paintComponent(Graphics graphics) {
-                graphics.setColor(color);
-                graphics.fillRoundRect(0, 2, 12, 8, 4, 4);
-            }
-        };
-        JPanel text = new JPanel(new java.awt.GridLayout(0, 1));
-        text.setOpaque(false);
-        JLabel titleLabel = new JLabel(title);
-        titleLabel.setFont(Theme.font(12, Font.BOLD));
-        Theme.foreground(titleLabel, Theme.ForegroundRole.TEXT);
-        text.add(titleLabel);
-        text.add(Ui.caption(detail));
-        row.add(chip, BorderLayout.WEST);
-        row.add(text, BorderLayout.CENTER);
-        return row;
     }
 
     /**
@@ -2121,287 +1641,4 @@ public final class TreePanel extends JPanel implements MctsSession.Listener {
         }
     }
 
-    /**
-     * A compact win/draw/loss stacked bar plus a centered eval bar for the
-     * inspected node, so its value reads at a glance instead of as raw text.
-     */
-    private static final class WdlBar extends JComponent {
-        /**
-         * Serialization identifier.
-         */
-        private static final long serialVersionUID = 1L;
-
-        /**
-         * Win / draw / loss probabilities and mean value of the shown node.
-         */
-        private double win;
-        private double draw;
-        private double loss;
-        private double q;
-
-        /**
-         * True once a node's values have been set.
-         */
-        private boolean has;
-
-        /**
-         * Creates the bar.
-         */
-        WdlBar() {
-            setOpaque(false);
-            setPreferredSize(new Dimension(0, 36));
-        }
-
-        /**
-         * Sets the node values and repaints.
-         *
-         * @param w win probability
-         * @param d draw probability
-         * @param l loss probability
-         * @param value mean value in [-1, 1]
-         */
-        void set(double w, double d, double l, double value) {
-            win = w;
-            draw = d;
-            loss = l;
-            q = value;
-            has = true;
-            repaint();
-        }
-
-        /**
-         * Clears the bar.
-         */
-        void clear() {
-            has = false;
-            repaint();
-        }
-
-        /**
-         * Paints the WDL distribution bar.
-         *
-         * @param graphics graphics context
-         */
-        @Override
-        protected void paintComponent(Graphics graphics) {
-            if (!has) {
-                return;
-            }
-            Graphics2D g = (Graphics2D) graphics.create();
-            try {
-                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                int w = Math.max(1, getWidth());
-                int barH = 13;
-                double total = Math.max(1e-6, win + draw + loss);
-                int ww = (int) Math.round(w * win / total);
-                int dw = (int) Math.round(w * draw / total);
-                int x = 0;
-                g.setColor(TensorViz.POSITIVE);
-                g.fillRect(x, 0, ww, barH);
-                x += ww;
-                g.setColor(Theme.withAlpha(Theme.MUTED, 150));
-                g.fillRect(x, 0, dw, barH);
-                x += dw;
-                g.setColor(TensorViz.NEGATIVE);
-                g.fillRect(x, 0, Math.max(0, w - x), barH);
-                g.setFont(Theme.font(9, Font.BOLD));
-                g.setColor(Theme.TEXT);
-                g.drawString(String.format("%.0f", win * 100), 3, barH - 3);
-                String lossText = String.format("%.0f", loss * 100);
-                g.drawString(lossText, w - g.getFontMetrics().stringWidth(lossText) - 3, barH - 3);
-                // Eval bar: q in [-1, 1] mapped to a bar growing from the center.
-                int evalY = barH + 7;
-                int evalH = 8;
-                g.setColor(Theme.withAlpha(Theme.LINE, 120));
-                g.fillRoundRect(0, evalY, w, evalH, evalH, evalH);
-                int mid = w / 2;
-                int qx = (int) Math.round(mid + Math.max(-1, Math.min(1, q)) * (w / 2.0));
-                g.setColor(q >= 0 ? TensorViz.POSITIVE : TensorViz.NEGATIVE);
-                if (q >= 0) {
-                    g.fillRoundRect(mid, evalY, Math.max(0, qx - mid), evalH, evalH, evalH);
-                } else {
-                    g.fillRoundRect(qx, evalY, Math.max(0, mid - qx), evalH, evalH, evalH);
-                }
-                g.setColor(Theme.withAlpha(Theme.TEXT, 180));
-                g.fillRect(mid - 1, evalY - 1, 2, evalH + 2);
-            } finally {
-                g.dispose();
-            }
-        }
-    }
-
-    /**
-     * A faint node-count-over-time sparkline that sits above the growth slider,
-     * so you can see where the search accelerated.
-     */
-    private final class Sparkline extends JComponent {
-        /**
-         * Serialization identifier.
-         */
-        private static final long serialVersionUID = 1L;
-
-        /**
-         * Creates the sparkline.
-         */
-        Sparkline() {
-            setOpaque(false);
-            setPreferredSize(new Dimension(0, 14));
-        }
-
-        /**
-         * Paints the search-history sparkline.
-         *
-         * @param graphics graphics context
-         */
-        @Override
-        protected void paintComponent(Graphics graphics) {
-            int n = session.historySize();
-            if (n < 2 || getWidth() <= 1) {
-                return;
-            }
-            Graphics2D g = (Graphics2D) graphics.create();
-            try {
-                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                int w = getWidth();
-                int h = getHeight();
-                int maxNodes = 1;
-                for (int i = 0; i < n; i++) {
-                    MctsSearch.TreeSnapshot f = session.historyFrame(i);
-                    if (f != null) {
-                        maxNodes = Math.max(maxNodes, f.nodes().size());
-                    }
-                }
-                Path2D.Double path = new Path2D.Double();
-                for (int i = 0; i < n; i++) {
-                    MctsSearch.TreeSnapshot f = session.historyFrame(i);
-                    int count = f == null ? 0 : f.nodes().size();
-                    double x = (double) i / (n - 1) * (w - 1);
-                    double y = h - 1 - (double) count / maxNodes * (h - 2);
-                    if (i == 0) {
-                        path.moveTo(x, y);
-                    } else {
-                        path.lineTo(x, y);
-                    }
-                }
-                g.setColor(Theme.withAlpha(Theme.ACCENT, 95));
-                g.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                g.draw(path);
-            } finally {
-                g.dispose();
-            }
-        }
-    }
-
-    /**
-     * Table model for the navigation inspector's child rows.
-     */
-    private static final class ChildTableModel extends AbstractTableModel {
-        /**
-         * Serialization identifier.
-         */
-        private static final long serialVersionUID = 1L;
-
-        /**
-         * Column names.
-         */
-        private final String[] columns = { "Move", "Visits", "N%", "Q", "Prior", "PUCT" };
-
-        /**
-         * Current rows.
-         */
-        private final transient List<MctsSearch.NodeInfo> rows = new ArrayList<>();
-
-        /**
-         * Visit denominator for the N% column.
-         */
-        private int shareBase = 1;
-
-        /**
-         * Replaces the rows.
-         *
-         * @param next next rows
-         * @param base N% denominator
-         */
-        void setRows(List<MctsSearch.NodeInfo> next, int base) {
-            rows.clear();
-            if (next != null) {
-                rows.addAll(next);
-            }
-            shareBase = Math.max(1, base);
-            fireTableDataChanged();
-        }
-
-        /**
-         * Returns a row by model index.
-         *
-         * @param index model row index
-         * @return row or null
-         */
-        MctsSearch.NodeInfo row(int index) {
-            return index < 0 || index >= rows.size() ? null : rows.get(index);
-        }
-
-        /**
-         * Returns the number of displayed child rows.
-         *
-         * @return row count
-         */
-        @Override
-        public int getRowCount() {
-            return rows.size();
-        }
-
-        /**
-         * Returns the number of visible columns.
-         *
-         * @return column count
-         */
-        @Override
-        public int getColumnCount() {
-            return columns.length;
-        }
-
-        /**
-         * Returns the column title.
-         *
-         * @param column column index
-         * @return column name
-         */
-        @Override
-        public String getColumnName(int column) {
-            return columns[column];
-        }
-
-        /**
-         * Returns the preferred column value class.
-         *
-         * @param columnIndex column index
-         * @return value class
-         */
-        @Override
-        public Class<?> getColumnClass(int columnIndex) {
-            return columnIndex == 1 ? Integer.class : String.class;
-        }
-
-        /**
-         * Returns the displayed cell value.
-         *
-         * @param rowIndex row index
-         * @param columnIndex column index
-         * @return cell value
-         */
-        @Override
-        public Object getValueAt(int rowIndex, int columnIndex) {
-            MctsSearch.NodeInfo row = rows.get(rowIndex);
-            return switch (columnIndex) {
-                case 0 -> row.san() == null || row.san().isBlank() ? row.uci() : row.san();
-                case 1 -> row.visits();
-                case 2 -> String.format("%.0f%%", 100.0 * row.visits() / shareBase);
-                case 3 -> String.format("%+.2f", row.q());
-                case 4 -> String.format("%.1f%%", row.prior() * 100.0);
-                case 5 -> String.format("%+.2f", row.score());
-                default -> "";
-            };
-        }
-    }
 }

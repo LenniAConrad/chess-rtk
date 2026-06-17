@@ -1,16 +1,23 @@
 package testing;
 
 import application.cli.PathOps;
+import application.cli.command.VersionCommand;
 import static testing.TestSupport.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
 
+import chess.schema.JsonParser;
+import chess.schema.JsonValue;
+import chess.describe.PositionDescriptionInput;
+import chess.describe.PositionDescriptionVerifier;
 import chess.core.Position;
 import chess.eval.Evaluator;
 import chess.nn.otis.Model;
+import utility.Json;
 
 /**
  * Regression checks for lightweight CLI command routing and formatting.
@@ -114,12 +121,14 @@ public final class CLICommandRegressionTest {
 		testStructuredFenAndMoveFailures();
 		testStructuredLegacyCommandFailures();
 		testVersionCommand();
+		testDiagnosticJsonCommands();
 		testBatchRunCommandScript();
 		testDefaultOutputPathsUseDumpDirectory();
 		testCorePerftCommand();
 		testEngineEvalEvaluatorModes();
 		testHighValueResearchCommands();
 		testPositionDescribeClassicalGoldenOutput();
+		testPositionDescribeStrategicPlans();
 		testPositionDescribeJsonlAndT5Failure();
 		testPositionDescribeEngineEval();
 		testHelpListsNewCommands();
@@ -690,11 +699,115 @@ public final class CLICommandRegressionTest {
 	private static void testVersionCommand() {
 		String text = TestSupport.runMain("version").strip();
 		assertTrue(text.startsWith("crtk "), "version text output");
+		assertEquals("crtk " + VersionCommand.VERSION, text, "version text matches command constant");
 
 		String json = TestSupport.runMain("version", "--json").strip();
 		assertTrue(json.contains("\"name\":\"ChessRTK\""), "version --json name");
 		assertTrue(json.contains("\"launcher\":\"crtk\""), "version --json launcher");
-		assertTrue(json.contains("\"version\":\""), "version --json version");
+		assertEquals(VersionCommand.VERSION, Json.parseStringField(json, "version"),
+				"version --json matches command constant");
+
+		try {
+			String packageJson = Files.readString(Path.of("package.json"));
+			assertEquals(VersionCommand.VERSION, Json.parseStringField(packageJson, "version"),
+					"package.json version matches command constant");
+		} catch (IOException ex) {
+			throw new AssertionError("package.json version check failed", ex);
+		}
+	}
+
+	/**
+	 * Verifies diagnostics expose stable machine-readable objects without changing exit codes.
+	 */
+	private static void testDiagnosticJsonCommands() {
+		TestSupport.RunResult doctorText = TestSupport.runMainAny("doctor");
+		TestSupport.RunResult doctorJson = TestSupport.runMainAny("doctor", "--json");
+		assertEquals(doctorText.exitCode(), doctorJson.exitCode(), "doctor --json exit code matches text");
+
+		LinkedHashMap<String, JsonValue> doctor = JsonParser.parse(doctorJson.stdout().strip()).asObject();
+		assertEquals("crtk.doctor.v1", stringField(doctor, "schema"), "doctor --json schema");
+		String status = stringField(doctor, "status");
+		assertValidDoctorStatus(status, "doctor --json status");
+		assertEquals(doctorStatus(doctorText.stdout()), status, "doctor --json status matches text");
+		assertEquals(System.getProperty("java.version"), stringField(doctor, "java"), "doctor --json java");
+		assertFalse(stringField(doctor, "config").isBlank(), "doctor --json config path");
+		assertFalse(stringField(doctor, "protocol").isBlank(), "doctor --json protocol path");
+		assertTrue(longField(doctor, "engineInstances") >= 1L, "doctor --json engine instances");
+		assertFalse(stringField(doctor, "output").isBlank(), "doctor --json output");
+		assertNotNull(doctor.get("warnings").asArray(), "doctor --json warnings array");
+		assertNotNull(doctor.get("errors").asArray(), "doctor --json errors array");
+		assertTrue(doctor.get("nativeBackends").asArray().size() >= 12, "doctor --json native backend rows");
+
+		TestSupport.RunResult strictText = TestSupport.runMainAny("doctor", "--strict");
+		TestSupport.RunResult strictJson = TestSupport.runMainAny("doctor", "--strict", "--json");
+		assertEquals(strictText.exitCode(), strictJson.exitCode(), "doctor --strict --json exit code matches text");
+		LinkedHashMap<String, JsonValue> strict = JsonParser.parse(strictJson.stdout().strip()).asObject();
+		assertEquals(doctorStatus(strictText.stdout()), stringField(strict, "status"),
+				"doctor --strict --json status matches text");
+
+		LinkedHashMap<String, JsonValue> config = JsonParser.parse(
+				TestSupport.runMain("config", "show", "--json").strip()).asObject();
+		assertEquals("crtk.config.v1", stringField(config, "schema"), "config show --json schema");
+		assertFalse(stringField(config, "config").isBlank(), "config show --json config path");
+		assertFalse(stringField(config, "protocol").isBlank(), "config show --json protocol path");
+		assertFalse(stringField(config, "output").isBlank(), "config show --json output");
+		assertTrue(longField(config, "engineInstances") >= 1L, "config show --json engine instances");
+		assertTrue(longField(config, "maxNodes") >= 1L, "config show --json max nodes");
+		assertTrue(longField(config, "maxDurationMs") >= 1L, "config show --json max duration");
+		assertTrue(longField(config, "puzzleAnalysisCache") >= 1L, "config show --json puzzle cache");
+		assertFalse(stringField(config, "puzzleQuality").isBlank(), "config show --json puzzle quality");
+	}
+
+	/**
+	 * Extracts the doctor status from text mode.
+	 *
+	 * @param stdout command standard output
+	 * @return doctor status
+	 */
+	private static String doctorStatus(String stdout) {
+		for (String line : stdout.split("\\R")) {
+			if (line.startsWith("doctor: ")) {
+				return line.substring("doctor: ".length()).trim();
+			}
+		}
+		throw new AssertionError("doctor status line missing: " + stdout);
+	}
+
+	/**
+	 * Verifies a doctor status is part of the public status vocabulary.
+	 *
+	 * @param status status to check
+	 * @param label assertion label
+	 */
+	private static void assertValidDoctorStatus(String status, String label) {
+		assertTrue(List.of("ok", "ok-with-warnings", "failed", "failed-strict").contains(status), label);
+	}
+
+	/**
+	 * Reads a JSON object string field.
+	 *
+	 * @param object parsed JSON object
+	 * @param field field name
+	 * @return string field value
+	 */
+	private static String stringField(LinkedHashMap<String, JsonValue> object, String field) {
+		JsonValue value = object.get(field);
+		assertNotNull(value, "JSON field present: " + field);
+		return value.asString();
+	}
+
+	/**
+	 * Reads a JSON object integer field as a long.
+	 *
+	 * @param object parsed JSON object
+	 * @param field field name
+	 * @return numeric field value
+	 */
+	private static long longField(LinkedHashMap<String, JsonValue> object, String field) {
+		JsonValue value = object.get(field);
+		assertNotNull(value, "JSON field present: " + field);
+		assertTrue(value.numberIsInteger(), "JSON integer field: " + field);
+		return (long) value.asNumber();
 	}
 
 	/**
@@ -890,12 +1003,23 @@ public final class CLICommandRegressionTest {
 				TestSupport.runMain("position", "describe", FEN_OPTION, START_FEN, "--detail", "brief").strip(),
 				"position describe brief golden");
 		assertEquals(
+				TestSupport.runMain("position", "describe", FEN_OPTION, START_FEN, "--detail", "brief").strip(),
+				TestSupport.runMain("position", "describe", FEN_OPTION, START_FEN, "--audience", "beginner")
+						.strip(),
+				"position describe beginner audience maps to brief");
+		assertEquals(
 				"White is to move in the opening, and the position is dead level. The static evaluation of "
 						+ "+0.2 for White and a WDL of 249/537/214 amount to next to nothing; this is as balanced "
 						+ "as a position gets. The natural course is to develop with Nc3, with Nf3 and d4 as "
 						+ "alternatives.",
 				TestSupport.runMain("position", "describe", FEN_OPTION, START_FEN, "--detail", "normal").strip(),
 				"position describe normal golden");
+		assertEquals(
+				TestSupport.runMain("position", "describe", FEN_OPTION, START_FEN, "--detail", "full",
+						"--budget", "1").strip(),
+				TestSupport.runMain("position", "describe", FEN_OPTION, START_FEN, "--audience", "beginner",
+						"--detail", "full", "--budget", "1").strip(),
+				"position describe explicit detail overrides audience preset");
 		assertEquals(
 				"White is to move in a bare king-and-king endgame. The material is level and, with too little "
 						+ "left to force a checkmate, the result is not in doubt. The evaluation reads a nominal "
@@ -908,8 +1032,33 @@ public final class CLICommandRegressionTest {
 	}
 
 	/**
-	 * Verifies batch JSONL rows, output file writing, and the explicit unavailable
-	 * T5 path.
+	 * Verifies deterministic why/plan sentences are grounded in extracted tags.
+	 */
+	private static void testPositionDescribeStrategicPlans() {
+		String passedPawn = "8/8/8/4P3/8/8/8/4K2k w - - 0 1";
+		String first = TestSupport.runMain("position", "describe", FEN_OPTION, passedPawn, "--detail", "normal")
+				.strip();
+		assertTrue(first.contains("Because White has a passed pawn"),
+				"position describe passed-pawn why sentence");
+		assertTrue(first.contains("the plan is to push it only when it stays supported"),
+				"position describe passed-pawn plan sentence");
+		assertTrue(PositionDescriptionVerifier.verify(PositionDescriptionInput.fromFen(passedPawn), first).grounded(),
+				"position describe passed-pawn plan remains verifier-grounded");
+		String repeat = TestSupport.runMain("position", "describe", FEN_OPTION, passedPawn, "--detail", "normal")
+				.strip();
+		assertEquals(first, repeat, "position describe strategic plan is deterministic");
+
+		String closedCenter = "4k3/8/8/3p4/3P4/8/8/4K3 w - - 0 1";
+		String full = TestSupport.runMain("position", "describe", FEN_OPTION, closedCenter, "--detail", "full")
+				.strip();
+		assertTrue(full.contains("Because the center is closed"),
+				"position describe closed-center why sentence");
+		assertTrue(full.contains("improve pieces before opening lines"),
+				"position describe closed-center plan sentence");
+	}
+
+	/**
+	 * Verifies batch JSONL rows, output file writing, and the retired T5 selector.
 	 */
 	private static void testPositionDescribeJsonlAndT5Failure() {
 		try {
@@ -922,6 +1071,35 @@ public final class CLICommandRegressionTest {
 			assertTrue(lines[0].contains("\"index\":1"), "position describe jsonl first index");
 			assertTrue(lines[1].contains("\"index\":2"), "position describe jsonl second index");
 			assertTrue(lines[0].contains("\"input\":"), "position describe jsonl includes structured input");
+			assertTrue(lines[0].contains("\"grounding\":{\"grounded\":true,\"violations\":[]}"),
+					"position describe jsonl includes verifier verdict");
+
+			String factsJsonl = TestSupport.runMain("position", "describe", "--input", input.toString(),
+					FORMAT_OPTION, "jsonl", "--detail", "brief", "--facts-only");
+			String[] factsLines = factsJsonl.strip().split("\\R");
+			assertEquals(2, factsLines.length, "position describe facts-only row count");
+			assertTrue(factsLines[0].contains("\"schema\":\"crtk.position_description.facts.v1\""),
+					"position describe facts-only schema");
+			assertTrue(factsLines[0].contains("\"facts\":{\"fen\":"),
+					"position describe facts-only structured facts");
+			assertTrue(factsLines[0].contains("\"grounding\":{\"grounded\":true,\"violations\":[]}"),
+					"position describe facts-only grounding verdict");
+			assertFalse(factsLines[0].contains("\"description\":"),
+					"position describe facts-only omits prose description");
+			assertFalse(factsLines[0].contains("\"prompt\":"),
+					"position describe facts-only omits training prompt");
+			assertFalse(factsLines[0].contains("\"target\":"),
+					"position describe facts-only omits training target");
+
+			String mlJson = TestSupport.runMain("position", "describe", FEN_OPTION, START_FEN,
+					"--audience", "ml");
+			assertTrue(mlJson.contains("\"schema\":\"crtk.position_description.facts.v1\""),
+					"position describe ml audience defaults to facts schema");
+			assertTrue(mlJson.contains("\"audience\":\"ml\""), "position describe ml audience is recorded");
+			assertTrue(mlJson.contains("\"facts\":{\"fen\":"),
+					"position describe ml audience emits facts object");
+			assertFalse(mlJson.contains("\"description\":"),
+					"position describe ml audience suppresses prose by default");
 
 			String trainingJsonl = TestSupport.runMain("position", "describe", "--input", input.toString(),
 					"--format", "training-jsonl", "--detail", "brief", "--budget", "2", "--max-new", "64");
@@ -935,6 +1113,8 @@ public final class CLICommandRegressionTest {
 					"position describe training-jsonl target");
 			assertTrue(trainingLines[0].contains("\"classical_text\":\"White is to move in the opening"),
 					"position describe training-jsonl classical text");
+			assertTrue(trainingLines[0].contains("\"grounding\":{\"grounded\":true,\"violations\":[]}"),
+					"position describe training-jsonl grounding verdict");
 			assertTrue(trainingLines[0].contains("\"input\":"), "position describe training-jsonl input");
 			assertTrue(trainingLines[0].contains("\"candidate_budget\":2"),
 					"position describe training-jsonl candidate budget");
@@ -950,11 +1130,31 @@ public final class CLICommandRegressionTest {
 			throw new AssertionError("position describe temp file failed", ex);
 		}
 
+		TestSupport.FailureResult factsText = TestSupport.runMainExpectFailure("position", "describe",
+				FEN_OPTION, SIMPLE_FEN, "--facts-only");
+		assertEquals(2, factsText.exitCode(), "position describe facts-only text exit code");
+		assertTrue(factsText.stderr().contains("--facts-only requires --json or --format jsonl"),
+				"position describe facts-only text message");
+
+		TestSupport.FailureResult factsTraining = TestSupport.runMainExpectFailure("position", "describe",
+				FEN_OPTION, SIMPLE_FEN, FORMAT_OPTION, "training-jsonl", "--facts-only");
+		assertEquals(2, factsTraining.exitCode(), "position describe facts-only training exit code");
+		assertTrue(factsTraining.stderr().contains("--facts-only is not valid with training-jsonl"),
+				"position describe facts-only training message");
+
+		TestSupport.FailureResult badAudience = TestSupport.runMainExpectFailure("position", "describe",
+				FEN_OPTION, SIMPLE_FEN, "--audience", "oracle");
+		assertEquals(2, badAudience.exitCode(), "position describe bad audience exit code");
+		assertTrue(badAudience.stderr().contains("unsupported --audience oracle"),
+				"position describe bad audience message");
+
 		TestSupport.FailureResult t5 = TestSupport.runMainExpectFailure("position", "describe",
 				FEN_OPTION, SIMPLE_FEN, "--engine", "t5");
-		assertEquals(2, t5.exitCode(), "position describe t5 unavailable exit code");
-		assertTrue(t5.stderr().contains("T5 position-description generation is unavailable"),
-				"position describe t5 unavailable message");
+		assertEquals(2, t5.exitCode(), "position describe retired t5 exit code");
+		assertTrue(t5.stderr().contains("position describe is classical-only"),
+				"position describe retired t5 message");
+		assertTrue(t5.stderr().contains("fen text") && t5.stderr().contains("puzzle text"),
+				"position describe retired t5 points to working runtime");
 	}
 
 	/**
@@ -1008,6 +1208,7 @@ public final class CLICommandRegressionTest {
 		assertTrue(summary.contains("position"), "help lists position group");
 		assertTrue(summary.contains("book"), "help lists book group");
 		assertTrue(summary.contains("puzzle"), "help lists puzzle group");
+		assertTrue(summary.contains("review"), "help lists review group");
 		assertTrue(summary.contains("doctor"), "help lists doctor");
 		assertTrue(summary.contains("version"), "help lists version");
 		assertTrue(!summary.contains("record-to-plain"), "short help omits removed record converter");
@@ -1041,6 +1242,24 @@ public final class CLICommandRegressionTest {
 		String batchRunHelp = TestSupport.runMain("help", "batch", "run");
 		assertTrue(batchRunHelp.contains("batch run options:"), "help batch run options");
 		assertTrue(batchRunHelp.contains("--keep-going"), "help batch run keep-going option");
+
+		String positionDescribeHelp = TestSupport.runMain("help", "position", "describe");
+		assertTrue(positionDescribeHelp.contains("position describe options:"),
+				"help position describe options");
+		assertTrue(positionDescribeHelp.contains("--audience MODE"),
+				"help position describe audience option");
+
+		String reviewHelp = TestSupport.runMain("help", "review");
+		assertTrue(reviewHelp.contains("review subcommands:"), "help review subcommands");
+		assertTrue(reviewHelp.contains("game"), "help review lists game command");
+
+		String reviewGameHelp = TestSupport.runMain("help", "review", "game");
+		assertTrue(reviewGameHelp.contains("review game options:"), "help review game options");
+		assertTrue(reviewGameHelp.contains("--offline"), "help review game offline option");
+		assertTrue(reviewGameHelp.contains("--protocol-path"), "help review game protocol option");
+		assertTrue(reviewGameHelp.contains("--multipv"), "help review game multipv option");
+		assertTrue(reviewGameHelp.contains("--to-study"), "help review game study option");
+		assertTrue(reviewGameHelp.contains("--record-output"), "help review game record output option");
 
 		String engineHelp = TestSupport.runMain("help", ENGINE_COMMAND);
 		assertTrue(engineHelp.contains("uci-smoke"), "help engine lists uci-smoke");
@@ -1091,6 +1310,10 @@ public final class CLICommandRegressionTest {
 		assertTrue(engineEval.contains("--startpos"), "help engine eval startpos option");
 		assertTrue(engineEval.contains("--randompos"), "help engine eval randompos option");
 		assertTrue(engineEval.contains("--evaluator MODE"), "help engine eval evaluator option");
+
+		String engineGauntlet = TestSupport.runMain("help", ENGINE_COMMAND, "gauntlet");
+		assertTrue(engineGauntlet.contains("--eval classical|nnue|cnn|bt4|otis"),
+				"help engine gauntlet neural evaluators");
 
 		String enginePerftSuite = TestSupport.runMain("help", ENGINE_COMMAND, "perft-suite");
 		assertTrue(enginePerftSuite.contains("engine perft-suite options:"),

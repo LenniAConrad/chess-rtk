@@ -32,10 +32,30 @@ import utility.Argv;
 public final class Main {
 
 	/**
+	 * Snapshot of the argv tokens for the most recent dispatch, used by command
+	 * bodies that need to record the verbatim invocation (for example dataset
+	 * provenance manifests). Updated at the start of {@link #run(String[])};
+	 * never mutated after dispatch begins.
+	 */
+	private static volatile String[] lastInvocationArgv = new String[0];
+
+	/**
 	 * Utility class; prevent instantiation.
 	 */
 	private Main() {
 		// utility
+	}
+
+	/**
+	 * Returns an immutable copy of the argv tokens passed to the most recent
+	 * {@link #run(String[])} invocation. Command bodies use this to record
+	 * the verbatim command in side-effect artifacts such as dataset manifests.
+	 *
+	 * @return list of argv tokens (never {@code null}; may be empty)
+	 */
+	public static List<String> lastInvocationArgv() {
+		String[] snapshot = lastInvocationArgv;
+		return List.of(snapshot);
 	}
 
 	/**
@@ -69,6 +89,7 @@ public final class Main {
 	 * @return process exit code
 	 */
 	public static int run(String[] argv) {
+		lastInvocationArgv = argv == null ? new String[0] : argv.clone();
 		try {
 			if (argv == null || argv.length == 0) {
 				HelpCommand.helpSummary();

@@ -12,6 +12,7 @@ import static application.cli.Constants.OPT_WEIGHTS;
 import static application.cli.Constants.OPT_PUZZLES;
 import static application.cli.Constants.OPT_RATINGS_CSV;
 import static application.cli.Constants.OPT_RECURSIVE;
+import static application.cli.Constants.OPT_ROW_HASHES;
 import static application.cli.Constants.OPT_THREADS;
 import static application.cli.Constants.OPT_VERBOSE;
 import static application.cli.Constants.OPT_VERBOSE_SHORT;
@@ -33,6 +34,7 @@ import static application.cli.command.RecordCommandSupport.fileProgressBar;
 import static application.cli.command.RecordCommandSupport.finishProgress;
 import static application.cli.command.RecordCommandSupport.requireReadableFile;
 
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -48,6 +50,7 @@ import application.Config;
 import application.console.Bar;
 import chess.io.Converter;
 import chess.io.ClassifierDatasetExporter;
+import chess.io.DatasetManifest;
 import chess.io.PuzzleEloExporter;
 import chess.io.RecordPgnExporter;
 import chess.io.Writer;
@@ -197,22 +200,39 @@ public final class RecordCommands {
 	public static void runRecordToDataset(Argv a) {
 		Path in = a.pathRequired(OPT_INPUT, OPT_INPUT_SHORT);
 		Path out = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
+		boolean rowHashes = a.flag(OPT_ROW_HASHES);
 		a.ensureConsumed();
 
 		if (out == null) {
 			out = deriveOutputPath(in, ".dataset");
 		}
+		Path rowHashPath = rowHashes ? DatasetManifestSupport.rowHashPathFor(out) : null;
+		Path manifestRowHashPath = rowHashPath;
 
 		Bar bar = fileProgressBar(in, 1, "record dataset npy");
 		boolean progressFinished = false;
-		try {
-			chess.io.RecordDatasetExporter.export(in, out, byteProgress(bar));
+		try (BufferedWriter rowHashWriter = rowHashPath == null
+				? null
+				: DatasetManifestSupport.openRowHashWriter(rowHashPath)) {
+			chess.io.RecordDatasetExporter.export(in, out, byteProgress(bar),
+					DatasetManifestSupport.rowHashSink(rowHashWriter));
 			finishProgress(bar);
 			progressFinished = true;
+			flushSidecar(rowHashWriter);
+			DatasetManifestSupport.write(
+					"record.dataset.npy",
+					in,
+					java.util.List.of(
+							Path.of(out + ".features.npy"),
+							Path.of(out + ".labels.npy")),
+					null,
+					Path.of(out + ".manifest.json"),
+					builder -> DatasetManifestSupport.addRowHashSidecar(builder, manifestRowHashPath));
 			System.out.printf("Wrote %s.features.npy and %s.labels.npy%n", out, out);
 		} catch (IOException e) {
 			finishProgress(bar);
 			progressFinished = true;
+			deleteQuietly(rowHashPath);
 			exitWithError("record dataset npy: failed to export dataset: " + e.getMessage(), e, false);
 		} finally {
 			if (!progressFinished) {
@@ -230,24 +250,42 @@ public final class RecordCommands {
 		Path in = argv.pathRequired(OPT_INPUT, OPT_INPUT_SHORT);
 		Path out = argv.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
 		Path weights = argv.path(OPT_WEIGHTS);
+		boolean rowHashes = argv.flag(OPT_ROW_HASHES);
 		argv.ensureConsumed();
 
 		if (out == null) {
 			out = deriveOutputPath(in, ".lc0");
 		}
+		Path rowHashPath = rowHashes ? DatasetManifestSupport.rowHashPathFor(out) : null;
+		Path manifestRowHashPath = rowHashPath;
 
 		Bar bar = fileProgressBar(in, 1, "record dataset lc0");
 		boolean progressFinished = false;
-		try {
-			chess.io.RecordLc0Exporter.export(in, out, weights, byteProgress(bar));
+		try (BufferedWriter rowHashWriter = rowHashPath == null
+				? null
+				: DatasetManifestSupport.openRowHashWriter(rowHashPath)) {
+			chess.io.RecordLc0Exporter.export(in, out, weights, byteProgress(bar),
+					DatasetManifestSupport.rowHashSink(rowHashWriter));
 			finishProgress(bar);
 			progressFinished = true;
+			flushSidecar(rowHashWriter);
+			DatasetManifestSupport.write(
+					"record.dataset.lc0",
+					in,
+					java.util.List.of(
+							Path.of(out + ".lc0.inputs.npy"),
+							Path.of(out + ".lc0.policy.npy"),
+							Path.of(out + ".lc0.value.npy")),
+					weights,
+					Path.of(out + ".lc0.manifest.json"),
+					builder -> DatasetManifestSupport.addRowHashSidecar(builder, manifestRowHashPath));
 			System.out.printf(
 					"Wrote %s.lc0.inputs.npy, %s.lc0.policy.npy, %s.lc0.value.npy, %s.lc0.meta.json%n",
 					out, out, out, out);
 		} catch (IOException e) {
 			finishProgress(bar);
 			progressFinished = true;
+			deleteQuietly(rowHashPath);
 			exitWithError("record dataset lc0: failed to export LC0 dataset: " + e.getMessage(), e, false);
 		} finally {
 			if (!progressFinished) {
@@ -269,6 +307,7 @@ public final class RecordCommands {
 		Long maxPositivesOpt = a.lng(OPT_MAX_POSITIVES);
 		Long maxNegativesOpt = a.lng(OPT_MAX_NEGATIVES);
 		Path out = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
+		boolean rowHashes = a.flag(OPT_ROW_HASHES);
 
 		List<String> inputs = new ArrayList<>();
 		inputs.addAll(a.strings(OPT_INPUT, OPT_INPUT_SHORT));
@@ -282,6 +321,7 @@ public final class RecordCommands {
 		if (out == null) {
 			out = deriveClassifierOutputOrExit(inputs);
 		}
+		Path rowHashPath = rowHashes ? DatasetManifestSupport.rowHashPathFor(out) : null;
 
 		long maxPositives = maxPositivesOpt == null
 				? ClassifierDatasetExporter.NO_CLASS_CAP
@@ -321,13 +361,18 @@ public final class RecordCommands {
 
 		Bar filesBar = progressBar(inputFiles.size(), "classifier files");
 		final boolean[] progressFinished = { false };
-		try {
+		try (BufferedWriter rowHashWriter = rowHashPath == null
+				? null
+				: DatasetManifestSupport.openRowHashWriter(rowHashPath)) {
 			ClassifierDatasetExporter.Summary summary =
 					ClassifierDatasetExporter.export(inputFiles, out, options,
 							filesBar == null ? null : progress -> updateClassifierProgress(filesBar, progress),
-							null);
+							null,
+							DatasetManifestSupport.rowHashSink(rowHashWriter));
 			finishProgress(filesBar);
 			progressFinished[0] = true;
+			flushSidecar(rowHashWriter);
+			writeClassifierManifest(inputFiles, out, options, summary, rowHashPath);
 			System.out.printf(
 					"Wrote %s.classifier.inputs.npy and %s.classifier.labels.npy (%d rows: %d positive, %d negative; skipped %d invalid, %d unlabeled)%n",
 					out,
@@ -340,12 +385,113 @@ public final class RecordCommands {
 			} catch (IOException | RuntimeException ex) {
 				finishProgress(filesBar);
 				progressFinished[0] = true;
+				deleteQuietly(rowHashPath);
 				exitWithError(COMMAND_RECORD_DATASET_CLASSIFIER + ": failed to export dataset: " + ex.getMessage(),
 						ex, verbose);
 		} finally {
 			if (!progressFinished[0]) {
 				finishProgress(filesBar);
 			}
+		}
+	}
+
+	/**
+	 * Writes classifier manifest metadata that downstream training jobs need to
+	 * interpret labels without reading the exporter implementation.
+	 *
+	 * @param inputFiles input record files
+	 * @param out output stem
+	 * @param options classifier export options
+	 * @param summary export counters
+	 * @param rowHashPath optional row-hash sidecar path
+	 */
+	private static void writeClassifierManifest(
+			List<Path> inputFiles,
+			Path out,
+			ClassifierDatasetExporter.Options options,
+			ClassifierDatasetExporter.Summary summary,
+			Path rowHashPath) {
+		DatasetManifestSupport.write(
+				"record.dataset.classifier",
+				inputFiles,
+				java.util.List.of(
+						Path.of(out + ".classifier.inputs.npy"),
+						Path.of(out + ".classifier.labels.npy")),
+				null,
+				Path.of(out + ".classifier.manifest.json"),
+				builder -> {
+					builder.metadata("label_policy", "classifier-binary-21plane-v1")
+							.metadata("label_source", ClassifierDatasetExporter.labelSource(options))
+							.metadata("positive_definition", ClassifierDatasetExporter.positiveDefinition(options))
+							.metadataNumber("records_seen", summary.seen())
+							.metadataNumber("rows_written", summary.rowsWritten())
+							.metadataNumber("positives", summary.positives())
+							.metadataNumber("negatives", summary.negatives())
+							.metadataNumber("skipped_invalid", summary.skippedInvalid())
+							.metadataNumber("skipped_missing_position", summary.skippedMissingPosition())
+							.metadataNumber("skipped_row_filter", summary.skippedRowFilter())
+							.metadataNumber("skipped_unlabeled", summary.skippedUnlabeled())
+							.metadataNumber("skipped_class_cap", summary.skippedClassCap());
+					DatasetManifestSupport.addRowHashSidecar(builder, rowHashPath);
+					addOptionalManifestString(builder, "row_filter", options.rowFilterDsl());
+					addOptionalManifestString(builder, "label_filter", options.labelFilterDsl());
+					addOptionalManifestString(builder, "fallback_label_filter", options.fallbackLabelFilterDsl());
+					addOptionalManifestCap(builder, "max_positives", options.maxPositives());
+					addOptionalManifestCap(builder, "max_negatives", options.maxNegatives());
+				});
+	}
+
+	/**
+	 * Adds a string metadata field only when it has a meaningful value.
+	 *
+	 * @param builder manifest builder
+	 * @param name metadata key
+	 * @param value metadata value
+	 */
+	private static void addOptionalManifestString(DatasetManifest.Builder builder, String name, String value) {
+		if (value != null && !value.isBlank()) {
+			builder.metadata(name, value);
+		}
+	}
+
+	/**
+	 * Adds a class-cap metadata field only when the export was capped.
+	 *
+	 * @param builder manifest builder
+	 * @param name metadata key
+	 * @param value class-cap value
+	 */
+	private static void addOptionalManifestCap(DatasetManifest.Builder builder, String name, long value) {
+		if (value != ClassifierDatasetExporter.NO_CLASS_CAP) {
+			builder.metadataNumber(name, value);
+		}
+	}
+
+	/**
+	 * Removes a partially written optional sidecar after an export failure.
+	 *
+	 * @param path sidecar path, or {@code null} when disabled
+	 */
+	private static void deleteQuietly(Path path) {
+		if (path == null) {
+			return;
+		}
+		try {
+			Files.deleteIfExists(path);
+		} catch (IOException ignored) {
+			// best-effort cleanup
+		}
+	}
+
+	/**
+	 * Flushes an optional sidecar writer before its path is hashed into a manifest.
+	 *
+	 * @param writer sidecar writer, or {@code null} when disabled
+	 * @throws IOException when flushing fails
+	 */
+	private static void flushSidecar(BufferedWriter writer) throws IOException {
+		if (writer != null) {
+			writer.flush();
 		}
 	}
 
@@ -422,11 +568,6 @@ public final class RecordCommands {
 	 *
 	 * @param a argument parser for the subcommand
 	 */
-	/**
-	 * Handles {@code record export puzzle-jsonl}.
-	 *
-	 * @param a argument parser for the subcommand
-	 */
 	public static void runRecordToPuzzleJsonl(Argv a) {
 		RecordPuzzleJsonlCommand.run(a);
 	}
@@ -439,6 +580,7 @@ public final class RecordCommands {
 	public static void runRecordToPuzzleEloJsonl(Argv a) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
 		boolean recursive = a.flag(OPT_RECURSIVE);
+		boolean rowHashes = a.flag(OPT_ROW_HASHES);
 		Long maxPuzzlesOpt = a.lng(OPT_MAX_RECORDS);
 		Integer threadsOpt = a.integer(OPT_THREADS);
 		Path ratingsCsv = a.path(OPT_RATINGS_CSV);
@@ -474,15 +616,24 @@ public final class RecordCommands {
 		}
 		Path output = out == null ? defaultPuzzleEloOutput(inputFiles) : out;
 		validatePuzzleEloOutput(inputFiles, output);
+		Path rowHashPath = rowHashes ? DatasetManifestSupport.rowHashPathFor(output) : null;
 
 		Config.reload();
-		try {
+		Filter puzzleVerify = Config.getPuzzleVerify();
+		try (BufferedWriter rowHashWriter = rowHashPath == null
+				? null
+				: DatasetManifestSupport.openRowHashWriter(rowHashPath)) {
 			PuzzleEloExporter.Summary summary = ratingsCsv == null
 					? PuzzleEloExporter.export(
 							inputFiles,
 							output,
-							new PuzzleEloExporter.Options(Config.getPuzzleVerify(), maxPuzzles, threads))
-					: PuzzleEloExporter.exportFromRatingCsv(inputFiles, output, ratingsCsv, Config.getPuzzleVerify());
+							new PuzzleEloExporter.Options(puzzleVerify, maxPuzzles, threads),
+							DatasetManifestSupport.rowHashSink(rowHashWriter))
+					: PuzzleEloExporter.exportFromRatingCsv(inputFiles, output, ratingsCsv, puzzleVerify,
+							DatasetManifestSupport.rowHashSink(rowHashWriter));
+			flushSidecar(rowHashWriter);
+			writePuzzleEloManifest(inputFiles, output, ratingsCsv, puzzleVerify, maxPuzzles, threads,
+					summary, rowHashPath);
 			System.out.printf(
 					COMMAND_RECORD_EXPORT_PUZZLE_ELO_JSONL
 							+ ": wrote %d/%d Elo-rated puzzle records (indexed %d puzzles, invalid %d, skipped %d unscorable, %d non-puzzles, truncated %d trees) to %s%n",
@@ -495,9 +646,68 @@ public final class RecordCommands {
 					summary.truncatedTrees(),
 					output);
 		} catch (IOException ex) {
+			deleteQuietly(rowHashPath);
 			exitWithError(COMMAND_RECORD_EXPORT_PUZZLE_ELO_JSONL + ": failed to export: "
 					+ ex.getMessage(), ex, verbose);
 		}
+	}
+
+	/**
+	 * Writes puzzle-Elo manifest metadata after a successful export.
+	 *
+	 * @param inputFiles input record files
+	 * @param output output JSONL file
+	 * @param ratingsCsv optional scored ratings CSV
+	 * @param puzzleVerify canonical puzzle verification filter
+	 * @param maxPuzzles direct-export puzzle cap
+	 * @param threads direct-export tree worker count
+	 * @param summary export counters
+	 * @param rowHashPath optional row-hash sidecar path
+	 */
+	private static void writePuzzleEloManifest(
+			List<Path> inputFiles,
+			Path output,
+			Path ratingsCsv,
+			Filter puzzleVerify,
+			long maxPuzzles,
+			int threads,
+			PuzzleEloExporter.Summary summary,
+			Path rowHashPath) {
+		List<Path> manifestInputs = new ArrayList<>(inputFiles);
+		if (ratingsCsv != null) {
+			manifestInputs.add(ratingsCsv);
+		}
+		DatasetManifestSupport.write(
+				"record.export.puzzle-elo-jsonl",
+				manifestInputs,
+				List.of(output),
+				null,
+				Path.of(output + ".manifest.json"),
+				builder -> {
+					builder.metadata("label_policy", PuzzleEloExporter.modelId())
+							.metadata("rating_scope", "corpus-internal")
+							.metadataBoolean("calibrated_to_humans", false)
+							.metadata("rating_source", ratingsCsv == null ? "tree-search" : "ratings-csv")
+							.metadataNumber("records_seen", summary.seen())
+							.metadataNumber("indexed_puzzles", summary.indexedPuzzles())
+							.metadataNumber("rows_written", summary.written())
+							.metadataNumber("non_puzzles", summary.nonPuzzles())
+							.metadataNumber("skipped", summary.skipped())
+							.metadataNumber("invalid", summary.invalid())
+							.metadataNumber("truncated_trees", summary.truncatedTrees());
+					DatasetManifestSupport.addRowHashSidecar(builder, rowHashPath);
+					if (puzzleVerify != null) {
+						builder.metadata("puzzle_filter", FilterDSL.toString(puzzleVerify));
+					}
+					if (ratingsCsv == null) {
+						builder.metadataNumber("threads", threads)
+								.metadataNumber("tree_solver_depth", PuzzleEloExporter.maxTreeSolverDepth())
+								.metadataNumber("tree_nodes_per_root", PuzzleEloExporter.maxTreeNodesPerRoot());
+						if (maxPuzzles > 0L) {
+							builder.metadataNumber("max_puzzles", maxPuzzles);
+						}
+					}
+				});
 	}
 
 	/**

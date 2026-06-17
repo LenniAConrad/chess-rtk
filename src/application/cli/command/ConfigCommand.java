@@ -4,12 +4,14 @@ import static application.cli.ConfigOps.printValidationResults;
 import static application.cli.ConfigOps.validateConfigToml;
 import static application.cli.ConfigOps.validateModelPath;
 import static application.cli.ConfigOps.validateProtocolConfig;
+import static application.cli.Constants.OPT_JSON;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
 import application.Config;
+import utility.Argv;
 
 /**
  * Implements {@code config} subcommands.
@@ -20,6 +22,11 @@ import application.Config;
 public final class ConfigCommand {
 
 	/**
+	 * Stable schema marker for machine-readable config output.
+	 */
+	private static final String SCHEMA = "crtk.config.v1";
+
+	/**
 	 * Utility class; prevent instantiation.
 	 */
 	private ConfigCommand() {
@@ -28,9 +35,25 @@ public final class ConfigCommand {
 
 	/**
 	 * Prints resolved configuration values to standard output.
+	 *
+	 * @param a argument parser for {@code config show}
 	 */
-	public static void runConfigShow() {
+	public static void runConfigShow(Argv a) {
+		boolean json = a.flag(OPT_JSON);
+		a.ensureConsumed();
+
 		Config.reload();
+		if (json) {
+			printConfigJson();
+			return;
+		}
+		printConfigText();
+	}
+
+	/**
+	 * Prints resolved configuration values as text.
+	 */
+	private static void printConfigText() {
 		Path configPath = Config.getConfigPath();
 		System.out.println("Config path: " + configPath.toAbsolutePath());
 		System.out.println("Protocol path: " + Config.getProtocolPath());
@@ -45,6 +68,27 @@ public final class ConfigCommand {
 		System.out.println("Puzzle winning: " + Config.getPuzzleWinning());
 		System.out.println("Puzzle drawing: " + Config.getPuzzleDrawing());
 		System.out.println("Puzzle accelerate: " + Config.getPuzzleAccelerate());
+	}
+
+	/**
+	 * Prints resolved configuration values as JSON.
+	 */
+	private static void printConfigJson() {
+		System.out.println("{\"schema\":" + CommandSupport.jsonString(SCHEMA)
+				+ ",\"config\":" + CommandSupport.jsonString(Config.getConfigPath().toAbsolutePath().toString())
+				+ ",\"protocol\":" + CommandSupport.jsonNullableString(Config.getProtocolPath())
+				+ ",\"lc0ModelPath\":" + CommandSupport.jsonNullableString(Config.getLc0ModelPath())
+				+ ",\"t5ModelPath\":" + CommandSupport.jsonNullableString(Config.getT5ModelPath())
+				+ ",\"output\":" + CommandSupport.jsonNullableString(Config.getOutput())
+				+ ",\"engineInstances\":" + Config.getEngineInstances()
+				+ ",\"maxNodes\":" + Config.getMaxNodes()
+				+ ",\"maxDurationMs\":" + Config.getMaxDuration()
+				+ ",\"puzzleAnalysisCache\":" + Config.getPuzzleAnalysisCacheSize()
+				+ ",\"puzzleQuality\":" + CommandSupport.jsonNullableString(String.valueOf(Config.getPuzzleQuality()))
+				+ ",\"puzzleWinning\":" + CommandSupport.jsonNullableString(String.valueOf(Config.getPuzzleWinning()))
+				+ ",\"puzzleDrawing\":" + CommandSupport.jsonNullableString(String.valueOf(Config.getPuzzleDrawing()))
+				+ ",\"puzzleAccelerate\":" + CommandSupport.jsonNullableString(String.valueOf(Config.getPuzzleAccelerate()))
+				+ "}");
 	}
 
 	/**

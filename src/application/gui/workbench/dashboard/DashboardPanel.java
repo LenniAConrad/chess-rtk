@@ -1,6 +1,7 @@
 package application.gui.workbench.dashboard;
 
 import application.Config;
+import application.gui.workbench.network.NetworkDiagnosticsPanel;
 import application.gui.workbench.network.NetworkPanel;
 import application.gui.workbench.network.RealActivations;
 import application.gui.workbench.session.HealthSnapshot;
@@ -32,6 +33,7 @@ import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import application.gui.workbench.ui.SurfacePanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
@@ -43,7 +45,7 @@ import javax.swing.SwingUtilities;
  * {@link Session} plus lightweight runtime diagnostics, then routes all actions
  * back through {@link DashboardActions}.
  */
-public final class DashboardPanel extends JPanel implements SessionListener {
+public final class DashboardPanel extends SurfacePanel implements SessionListener {
 
     /**
      * Serialization identifier for Swing panel compatibility.
@@ -126,14 +128,9 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     private final StatusBadge smokeBadge = new StatusBadge();
 
     /**
-     * Runtime model rows.
+     * Shared compact Network tab diagnostics used by the Dashboard runtime card.
      */
-    private final JPanel modelRows = rowsPanel();
-
-    /**
-     * Activation/cache rows.
-     */
-    private final JPanel cacheRows = rowsPanel();
+    private final NetworkDiagnosticsPanel networkDiagnostics = new NetworkDiagnosticsPanel(false);
 
     /**
      * Warning/setup issue rows.
@@ -188,9 +185,6 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         this.jobModel = new JobTableModel(session.jobs());
         this.jobTable = new JTable(jobModel);
 
-        setOpaque(true);
-        setBackground(Theme.PANEL_SOLID);
-
         CardGrid summaryGrid = Ui.contentGrid(300);
         summaryGrid.add(buildPositionCard());
         summaryGrid.add(buildEngineCard());
@@ -198,8 +192,7 @@ public final class DashboardPanel extends JPanel implements SessionListener {
 
         CardGrid lowerGrid = Ui.contentGrid(420);
         lowerGrid.add(buildQuickActionsCard());
-        lowerGrid.add(buildRuntimeModelsCard());
-        lowerGrid.add(buildCacheActivationCard());
+        lowerGrid.add(buildNetworkRuntimeCard());
         lowerGrid.add(buildWarningsCard());
         lowerGrid.add(buildJobsCard());
 
@@ -237,7 +230,9 @@ public final class DashboardPanel extends JPanel implements SessionListener {
      * @return toolbar band component
      */
     private JComponent buildToolbarBand() {
-        workspaceHeader.setActions(null);
+        workspaceHeader.setActions(Ui.controlRow(java.awt.FlowLayout.RIGHT,
+                Ui.button("Refresh", Theme.ButtonVariant.SECONDARY, e -> actions.refresh()),
+                Ui.button("Open Folder", Theme.ButtonVariant.SECONDARY, e -> actions.openSessionFolder())));
         return workspaceHeader;
     }
 
@@ -319,25 +314,15 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     }
 
     /**
-     * Builds the Runtime Models card.
+     * Builds the Network Runtime card.
      *
      * @return card component
      */
-    private JComponent buildRuntimeModelsCard() {
+    private JComponent buildNetworkRuntimeCard() {
         JPanel body = cardBody();
-        body.add(modelRows);
-        return card("Runtime Models", body);
-    }
-
-    /**
-     * Builds the Cache / Activation card.
-     *
-     * @return card component
-     */
-    private JComponent buildCacheActivationCard() {
-        JPanel body = cardBody();
-        body.add(cacheRows);
-        return card("Cache / Activation", body);
+        networkDiagnostics.setAlignmentX(Component.LEFT_ALIGNMENT);
+        body.add(networkDiagnostics);
+        return card("Network Runtime", body);
     }
 
     /**
@@ -450,48 +435,9 @@ public final class DashboardPanel extends JPanel implements SessionListener {
      * @param health latest health snapshot
      */
     private void refreshRuntimeSections(HealthSnapshot health) {
-        refreshModelRows();
-        refreshCacheRows();
+        networkDiagnostics.refresh(runtimeProvider, "Dashboard",
+                NetworkPanel.runtimeCacheSummary());
         refreshWarningRows(health);
-    }
-
-    /**
-     * Rebuilds runtime model rows from the real activation provider previews.
-     */
-    private void refreshModelRows() {
-        modelRows.removeAll();
-        for (RealActivations.ModelStatus status : runtimeProvider.modelStatuses()) {
-            modelRows.add(modelStatusRow(status));
-        }
-        modelRows.add(Box.createVerticalStrut(Theme.SPACE_XS));
-        modelRows.add(configModelRow("Config LC0", Config.getLc0ModelPath()));
-        modelRows.add(configModelRow("Config T5", Config.getT5ModelPath()));
-        modelRows.revalidate();
-        modelRows.repaint();
-    }
-
-    /**
-     * Rebuilds activation cache rows.
-     */
-    private void refreshCacheRows() {
-        cacheRows.removeAll();
-        String summary = NetworkPanel.runtimeCacheSummary();
-        String cacheState = summary.startsWith("0 /") ? "empty" : "ready";
-        cacheRows.add(statusDetailRow("Activation snapshots", cacheState, statusRole(cacheState),
-                "Network tab cache", summary));
-
-        cacheRows.add(statusDetailRow("Inference provider", "lazy", Theme.ForegroundRole.MUTED,
-                "Models load on demand", "Dashboard checks status without loading weights."));
-
-        if (session.fen().isEmpty()) {
-            cacheRows.add(statusDetailRow("Current position", "no FEN", Theme.ForegroundRole.MUTED,
-                    "No active FEN", "Open or paste a position before running activation inference."));
-        } else {
-            cacheRows.add(statusDetailRow("Current position", "ready", Theme.ForegroundRole.SUCCESS,
-                    sideValue.getText() + " to move", "Available for analysis and model previews."));
-        }
-        cacheRows.revalidate();
-        cacheRows.repaint();
     }
 
     /**
@@ -745,77 +691,6 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         c.gridx = 2;
         c.insets = new Insets(0, 0, 0, 0);
         row.add(action, c);
-        return row;
-    }
-
-    /**
-     * Builds one runtime model status row.
-     *
-     * @param status model status
-     * @return row component
-     */
-    private static JComponent modelStatusRow(RealActivations.ModelStatus status) {
-        return runtimeModelRow(status.label(), status.state(), statusRole(status.state()),
-                modelSummary(status), modelTooltip(status));
-    }
-
-    /**
-     * Builds one configured-model path row.
-     *
-     * @param label row label
-     * @param pathText configured path
-     * @return row component
-     */
-    private static JComponent configModelRow(String label, String pathText) {
-        String state = pathState(pathText);
-        String detail = switch (state) {
-            case "present" -> "CLI config path set";
-            case "missing" -> "CLI config path missing";
-            case "invalid" -> "CLI config path invalid";
-            default -> "CLI config not set";
-        };
-        return runtimeModelRow(label, state, statusRole(state), detail, pathDetail(pathText));
-    }
-
-    /**
-     * Builds one compact Runtime Models row.
-     *
-     * @param label row label
-     * @param state short state text
-     * @param role foreground role for the state text
-     * @param detail compact single-line detail
-     * @param tooltip full detail tooltip
-     * @return row component
-     */
-    private static JComponent runtimeModelRow(String label, String state,
-            Theme.ForegroundRole role, String detail, String tooltip) {
-        JPanel row = Ui.transparentPanel(new BorderLayout(Theme.SPACE_SM, 1));
-        row.setAlignmentX(Component.LEFT_ALIGNMENT);
-        row.setBorder(Theme.pad(Theme.SPACE_XS, 0, Theme.SPACE_XS, 0));
-
-        JLabel title = new JLabel(label);
-        title.setFont(Theme.font(Theme.FONT_CONTROL, Font.BOLD));
-        Theme.foreground(title, Theme.ForegroundRole.TEXT);
-        title.setToolTipText(tooltip == null || tooltip.isBlank() ? label : tooltip);
-
-        JLabel stateLabel = new JLabel(state == null || state.isBlank() ? "-" : state);
-        stateLabel.setFont(Theme.font(Theme.FONT_METADATA, Font.BOLD));
-        Theme.foreground(stateLabel, role == null ? Theme.ForegroundRole.MUTED : role);
-        stateLabel.setHorizontalAlignment(SwingConstants.RIGHT);
-        stateLabel.setPreferredSize(new Dimension(82, Theme.CONTROL_HEIGHT - 8));
-        stateLabel.setToolTipText(stateLabel.getText());
-
-        JPanel top = Ui.transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
-        top.add(title, BorderLayout.CENTER);
-        top.add(stateLabel, BorderLayout.EAST);
-
-        JLabel detailLabel = new JLabel(detail == null || detail.isBlank() ? "-" : detail);
-        detailLabel.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
-        Theme.foreground(detailLabel, Theme.ForegroundRole.MUTED);
-        detailLabel.setToolTipText(tooltip == null || tooltip.isBlank() ? detailLabel.getText() : tooltip);
-
-        row.add(top, BorderLayout.NORTH);
-        row.add(detailLabel, BorderLayout.CENTER);
         return row;
     }
 
@@ -1076,46 +951,6 @@ public final class DashboardPanel extends JPanel implements SessionListener {
     }
 
     /**
-     * Returns the compact Runtime Models detail line.
-     *
-     * @param status model status
-     * @return short status detail
-     */
-    private static String modelSummary(RealActivations.ModelStatus status) {
-        String size = detailSize(status.detail());
-        String state = status.state() == null ? "" : status.state().toLowerCase(Locale.ROOT);
-        String behavior = switch (state) {
-            case "loaded" -> "loaded in memory";
-            case "available" -> "loads on demand";
-            case "fallback" -> "synthetic fallback";
-            case "missing" -> "synthetic fallback";
-            default -> modelNote(status);
-        };
-        if (!size.isBlank() && status.present()) {
-            return size + " - " + behavior;
-        }
-        return behavior;
-    }
-
-    /**
-     * Returns full Runtime Models detail for tooltips.
-     *
-     * @param status model status
-     * @return tooltip text
-     */
-    private static String modelTooltip(RealActivations.ModelStatus status) {
-        String path = status.path() == null ? "" : status.path().toString();
-        String detail = status.detail() == null ? "" : status.detail();
-        if (path.isBlank()) {
-            return detail;
-        }
-        if (detail.isBlank()) {
-            return path;
-        }
-        return path + " - " + detail;
-    }
-
-    /**
      * Returns a model row source string.
      *
      * @param status model status
@@ -1284,37 +1119,4 @@ public final class DashboardPanel extends JPanel implements SessionListener {
         }
     }
 
-    /**
-     * Returns state text for a configured path.
-     *
-     * @param text path text
-     * @return state text
-     */
-    private static String pathState(String text) {
-        if (text == null || text.isBlank()) {
-            return "empty";
-        }
-        try {
-            return Files.exists(Path.of(text)) ? "present" : "missing";
-        } catch (RuntimeException ex) {
-            return "invalid";
-        }
-    }
-
-    /**
-     * Returns detail text for a configured path.
-     *
-     * @param text path text
-     * @return detail text
-     */
-    private static String pathDetail(String text) {
-        if (text == null || text.isBlank()) {
-            return "no path configured";
-        }
-        try {
-            return Path.of(text).toString();
-        } catch (RuntimeException ex) {
-            return ex.getMessage();
-        }
-    }
 }

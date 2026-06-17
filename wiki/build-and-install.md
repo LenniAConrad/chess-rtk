@@ -16,6 +16,7 @@ The same sources compiled against the same `--release 17` target produce the sam
 | --- | --- | --- |
 | Java 17+ JDK (with `javac`) | Building from source | The JDK is required because you compile the sources yourself. A JRE alone cannot build. |
 | Java 17+ runtime | Running `crtk` | Any 17-or-newer runtime runs the built JAR. |
+| JDK packaging tools (`jdeps`, `jlink`, `jpackage`) | Linux self-contained runtime bundle | Optional. Included with normal full JDK installs, and only needed for `scripts/make_runtime_linux.sh`. |
 | A UCI engine (e.g. Stockfish) | `engine analyze`, `engine bestmove`, `engine threats`, `engine compare`, `engine uci-smoke`, `puzzle mine` | Optional. On `PATH` or pointed to via a protocol TOML (`--protocol-path`). See [Configuration](configuration.md). |
 | Local model weights under `models/` | NNUE, LC0 CNN, OTIS, and T5 evaluators/text | Optional. Used by `engine eval`, `engine builtin`, `fen text`, and `puzzle text`. |
 | Vendor GPU toolchain (CUDA/ROCm/oneAPI) | Native perft and OTIS acceleration | Optional, with automatic CPU fallback. See [GPU Backends](gpu.md). |
@@ -64,6 +65,7 @@ Two lines from the repository root. Make a directory for the classes, then compi
 ```bash
 mkdir -p out
 javac --release 17 -d out $(find src -name "*.java")
+rm -rf out/schemas && cp -R schemas out/schemas
 ```
 
 > Keep `--release 17`. It pins both the language level and the platform API surface, so a newer JDK still emits Java 17-compatible classes that behave the same. Drop the flag and compile against a newer API and you can hit spurious errors that have nothing to do with your code.
@@ -80,11 +82,32 @@ java -cp out application.Main <area> <action> [options]
 Bundle the compiled classes into a self-contained `crtk.jar`:
 
 ```bash
+rm -rf out/schemas && cp -R schemas out/schemas
 jar --create --file crtk.jar --main-class application.Main -C out .
 java -jar crtk.jar help
 ```
 
 The rest of this site writes commands as `crtk`, which is the launcher the installer drops on your `PATH`. Wherever you see it, `java -jar crtk.jar` does exactly the same thing.
+
+## Build a self-contained Linux runtime bundle
+
+When you need a portable Linux app image that carries its own Java runtime, run the release-only jlink/jpackage script:
+
+```bash
+scripts/make_runtime_linux.sh --version v1.0.0
+```
+
+It compiles the source with `javac --release 17`, packages `crtk.jar`, derives the required Java modules with `jdeps`, builds a minimal runtime with `jlink`, and creates an app image with `jpackage`. The staged bundle includes a root `./crtk` launcher that runs from the bundle directory, so relative `config/` and documentation paths resolve the same way they do in a checkout.
+
+The script writes:
+
+```text
+dist/crtk-v1.0.0-linux-x86_64-runtime/
+dist/crtk-v1.0.0-linux-x86_64-runtime.tar.gz
+dist/crtk-v1.0.0-linux-x86_64-runtime.sha256
+```
+
+As part of the build it runs `./crtk version` from the produced bundle with an empty `PATH`, proving the launcher is using the bundled runtime rather than a system `java`.
 
 ## Verify the build
 

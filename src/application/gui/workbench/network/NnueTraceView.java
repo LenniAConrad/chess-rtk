@@ -69,11 +69,10 @@ public abstract class NnueTraceView extends NnueOverviewView {
         drawClippedColumn(g, layout);
         drawContributionColumn(g, layout);
         drawOutputColumn(g, layout);
-        boolean whiteDown = sideToMoveWhite();
-        TensorViz.drawMiniBoard(g, boardArea);
-        TensorViz.drawPositionPieces(g, boardArea, fen, whiteDown);
-        paintSelectedFeatureOverlay(g, boardArea, whiteDown);
-        TensorViz.drawBoardCoordinates(g, boardArea, whiteDown);
+        NetworkBoardSection.paintOverlayBoard(g, hitRegions, boardArea, fen,
+                "", null, 0.0f, -1, TensorViz.FOCUS,
+                "Half-KP features are derived from this board",
+                this::paintSelectedFeatureOverlay, null);
         hitRegions.add(boardArea, "Current position",
                 fen == null ? "no FEN" : fen,
                 "Half-KP features are derived from this board");

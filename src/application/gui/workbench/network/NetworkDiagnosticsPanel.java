@@ -28,6 +28,7 @@ import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import application.gui.workbench.ui.SurfacePanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextPane;
 import javax.swing.ScrollPaneConstants;
@@ -43,7 +44,7 @@ import javax.swing.ScrollPaneConstants;
  * the active CLI TOML config.
  * </p>
  */
-public final class NetworkDiagnosticsPanel extends JPanel {
+public final class NetworkDiagnosticsPanel extends SurfacePanel {
 
     /**
      * Serialization identifier for Swing compatibility.
@@ -129,10 +130,8 @@ public final class NetworkDiagnosticsPanel extends JPanel {
      * @param includeConfigPreview true to include the TOML config preview
      */
     public NetworkDiagnosticsPanel(boolean includeConfigPreview) {
-        super(new BorderLayout(0, Theme.SPACE_SM));
+        super(new BorderLayout(0, Theme.SPACE_SM), Theme.Surface.PANEL);
         this.includeConfigPreview = includeConfigPreview;
-        setOpaque(true);
-        setBackground(Theme.PANEL_SOLID);
         setBorder(includeConfigPreview ? Theme.pad(Theme.SPACE_MD)
                 : Theme.pad(Theme.SPACE_SM, 0, Theme.SPACE_SM, 0));
         if (includeConfigPreview) {
@@ -177,10 +176,9 @@ public final class NetworkDiagnosticsPanel extends JPanel {
         configPane.addPropertyChangeListener("foreground",
                 event -> refreshConfigColorsIfNeeded());
 
-        JScrollPane configScroll = new JScrollPane(configPane,
-                ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
-                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-        Ui.styleScrollPane(configScroll);
+        // Ui.scroll already applies styleScrollPane; the explicit AS_NEEDED
+        // policies on the previous raw JScrollPane were Swing's defaults.
+        JScrollPane configScroll = Ui.scroll(configPane);
 
         JPanel configHeader = Ui.transparentPanel(
     new BorderLayout(Theme.SPACE_SM, 0));

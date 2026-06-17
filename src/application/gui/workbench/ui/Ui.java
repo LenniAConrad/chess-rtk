@@ -6,11 +6,13 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
+import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.Insets;
 import java.awt.LayoutManager;
 import java.awt.Rectangle;
+import java.awt.RenderingHints;
 import java.awt.event.ActionListener;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -123,6 +125,30 @@ public final class Ui {
      */
     public static JButton iconButton(String label, ActionListener listener) {
         return IconButton.create(label, listener);
+    }
+
+    /**
+     * Creates a compact transport/utility button that shows a glyph but exposes
+     * a separate descriptive tooltip and accessible name.
+     *
+     * @param glyph visible glyph rendered on the button
+     * @param accessibleLabel tooltip and accessible label
+     * @param listener optional action listener
+     * @return styled compact button showing the glyph
+     */
+    public static JButton iconButton(String glyph, String accessibleLabel, ActionListener listener) {
+        return IconButton.create(glyph, accessibleLabel, listener);
+    }
+
+    /**
+     * Marks an input control as valid or invalid, driving its themed error
+     * border through the shared input chrome instead of ad hoc borders.
+     *
+     * @param component input control styled through the Workbench input chrome
+     * @param invalid whether the control currently holds an invalid value
+     */
+    public static void setInvalid(JComponent component, boolean invalid) {
+        InputChrome.setInvalid(component, invalid);
     }
 
     /**
@@ -244,6 +270,105 @@ public final class Ui {
      */
     public static JLabel caption(String text) {
         return UiFormControls.caption(text);
+    }
+
+    /**
+     * Creates one compact legend row with a color chip, title, and caption.
+     *
+     * @param color chip color
+     * @param title title text
+     * @param detail caption text
+     * @return legend row
+     */
+    public static JComponent legendRow(Color color, String title, String detail) {
+        JPanel row = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        row.add(colorChip(color), BorderLayout.WEST);
+        JPanel text = transparentPanel(new java.awt.GridLayout(0, 1));
+        JLabel label = new JLabel(title);
+        label.setFont(Theme.font(12, Font.BOLD));
+        Theme.foreground(label, Theme.ForegroundRole.TEXT);
+        text.add(label);
+        text.add(caption(detail));
+        row.add(text, BorderLayout.CENTER);
+        return row;
+    }
+
+    /**
+     * Creates a small rounded color chip for legend rows.
+     *
+     * @param color chip color
+     * @return color chip component
+     */
+    private static JComponent colorChip(Color color) {
+        return colorChip(color, 12);
+    }
+
+    /**
+     * Creates a small rounded color chip.
+     *
+     * @param color chip color
+     * @param size chip side length
+     * @return color chip component
+     */
+    public static JComponent colorChip(Color color, int size) {
+        int side = Math.max(8, size);
+        return new JComponent() {
+            private static final long serialVersionUID = 1L;
+
+            {
+                setAlignmentY(Component.CENTER_ALIGNMENT);
+            }
+
+            /**
+             * Returns the fixed legend-chip size.
+             *
+             * @return chip dimensions
+             */
+            @Override
+            public Dimension getPreferredSize() {
+                return new Dimension(side, side);
+            }
+
+            /**
+             * Returns the minimum chip size.
+             *
+             * @return chip dimensions
+             */
+            @Override
+            public Dimension getMinimumSize() {
+                return getPreferredSize();
+            }
+
+            /**
+             * Returns the maximum chip size.
+             *
+             * @return chip dimensions
+             */
+            @Override
+            public Dimension getMaximumSize() {
+                return getPreferredSize();
+            }
+
+            /**
+             * Paints the legend color chip.
+             *
+             * @param graphics drawing context
+             */
+            @Override
+            protected void paintComponent(Graphics graphics) {
+                Graphics2D g = (Graphics2D) graphics.create();
+                try {
+                    g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                            RenderingHints.VALUE_ANTIALIAS_ON);
+                    g.setColor(color == null ? Theme.LINE : color);
+                    int inset = Math.max(1, side / 6);
+                    int height = Math.max(2, side - inset * 2);
+                    g.fillRoundRect(0, inset, side, height, 4, 4);
+                } finally {
+                    g.dispose();
+                }
+            }
+        };
     }
 
     /**

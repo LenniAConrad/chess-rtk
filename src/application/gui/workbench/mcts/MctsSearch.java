@@ -2,11 +2,8 @@ package application.gui.workbench.mcts;
 
 import chess.core.Move;
 import chess.core.MoveList;
-import chess.core.Piece;
 import chess.core.Position;
-import chess.core.SAN;
 import chess.engine.MateProver;
-import chess.eval.See;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -42,31 +39,6 @@ public final class MctsSearch implements AutoCloseable {
     private static final double FPU_REDUCTION = 0.05;
 
     /**
-     * Handcrafted prior bonus for moves that give check.
-     */
-    private static final int CHECK_PRIOR_BONUS = 4_000;
-
-    /**
-     * Handcrafted prior penalty for captures that lose material by SEE.
-     */
-    private static final int LOSING_CAPTURE_PRIOR_PENALTY = 8_000;
-
-    /**
-     * Scale applied to positive SEE values for winning-capture priors.
-     */
-    private static final int WINNING_CAPTURE_PRIOR_SCALE = 8;
-
-    /**
-     * Maximum forcing plies searched when valuing tactically unstable leaves.
-     */
-    private static final int QUIESCENCE_MAX_PLY = 4;
-
-    /**
-     * Maximum non-evasion forcing moves searched at one quiescence node.
-     */
-    private static final int QUIESCENCE_MAX_MOVES = 12;
-
-    /**
      * Exploration constant used by PUCT selection.
      */
     private final double cpuct;
@@ -75,6 +47,11 @@ public final class MctsSearch implements AutoCloseable {
      * Policy/value backend used for leaf values and move priors.
      */
     private final SearchBackend backend;
+
+    /**
+     * Leaf evaluator and handcrafted prior scorer.
+     */
+    private final MctsSearchScorer scorer;
 
     /**
      * Bounded hash table keyed by full position signature. Buckets hold MCTS
@@ -142,6 +119,7 @@ public final class MctsSearch implements AutoCloseable {
     throw new IllegalArgumentException("root == null");
         }
         this.backend = new ClassicalSearchBackend();
+        this.scorer = new MctsSearchScorer(this.backend);
         this.transpositions = newTranspositionTable(DEFAULT_TRANSPOSITION_LIMIT);
         this.rootPosition = root.copy();
         this.cpuct = Math.max(0.05, cpuct);
@@ -240,6 +218,7 @@ public final class MctsSearch implements AutoCloseable {
         this.rootPosition = root.copy();
         this.cpuct = Math.max(0.05, cpuct);
         this.backend = backend == null ? new ClassicalSearchBackend() : backend;
+        this.scorer = new MctsSearchScorer(this.backend);
         this.transpositions = newTranspositionTable(transpositionLimit);
         this.root = newNode(null, Move.NO_MOVE, this.rootPosition.copy(), 1.0, 0);
         expand(this.root, List.of(this.root));
@@ -431,7 +410,7 @@ public final class MctsSearch implements AutoCloseable {
             rows.add(new Row(
                     nodeId(child),
                     child.move,
-                    moveSan(rootPosition, child.move),
+                    MctsSearchFormatter.moveSan(rootPosition, child.move),
                     Move.toString(child.move),
                     child.visits(),
                     child.prior,
@@ -439,7 +418,7 @@ public final class MctsSearch implements AutoCloseable {
                     u,
                     q + u,
                     pv,
-                    pvText(rootPosition, pv)));
+                    MctsSearchFormatter.pvText(rootPosition, pv)));
         }
         Node best = decision == null && !children.isEmpty() ? children.get(0) : null;
         short bestMove = decision == null
@@ -467,7 +446,7 @@ public final class MctsSearch implements AutoCloseable {
                         ? best == null ? root.q() : rootPerspectiveQ(best)
                         : proofValue(root.proof)
                 : decision.value();
-        int rootCentipawns = valueToCentipawns(displayValue);
+        int rootCentipawns = MctsSearchFormatter.valueToCentipawns(displayValue);
         String rootScoreLabel = decision != null && decision.mateMoves() > 0
                 ? "#" + decision.mateMoves()
                 : root.proof == ProofState.WIN ? "#" + mateMoves(root.proofPlies)
@@ -483,11 +462,11 @@ public final class MctsSearch implements AutoCloseable {
                 rootCentipawns,
                 rootScoreLabel,
                 bestPv,
-                pvText(rootPosition, bestPv),
+                MctsSearchFormatter.pvText(rootPosition, bestPv),
                 preview,
                 exploring,
                 exploringLine,
-                pvText(rootPosition, exploringLine),
+                MctsSearchFormatter.pvText(rootPosition, exploringLine),
                 rows);
         }
     }
@@ -618,7 +597,7 @@ public final class MctsSearch implements AutoCloseable {
             double value = rootPosition.inCheck() ? -1.0 : 0.0;
     return new RootDecision(Move.NO_MOVE, value, new short[0], false, 0);
         }
-        if (isDraw(rootPosition) || isRepetition(List.of(root))) {
+        if (MctsSearchScorer.isStaticDraw(rootPosition) || isRepetition(List.of(root))) {
             short bestMove = immediateFallbackMove(legal);
             short[] pv = bestMove == Move.NO_MOVE ? new short[0] : new short[] { bestMove };
     return new RootDecision(bestMove, 0.0, pv, false, 0);
@@ -740,10 +719,10 @@ public final class MctsSearch implements AutoCloseable {
                 line,
                 pv,
                 node.move,
-                moveSan(node.parent == null ? rootPosition : node.parent.position, node.move),
+                MctsSearchFormatter.moveSan(node.parent == null ? rootPosition : node.parent.position, node.move),
                 node.move == Move.NO_MOVE ? "" : Move.toString(node.move),
-                uciText(line),
-                pvText(rootPosition, line),
+                MctsSearchFormatter.uciText(line),
+                MctsSearchFormatter.pvText(rootPosition, line),
                 node.depth,
                 visits,
                 node.prior,
@@ -757,7 +736,7 @@ public final class MctsSearch implements AutoCloseable {
                 terminalState(node),
                 node.children.size(),
                 node.position.toString(),
-                pvText(rootPosition, pv),
+                MctsSearchFormatter.pvText(rootPosition, pv),
                 node.key);
     }
 
@@ -912,7 +891,7 @@ public final class MctsSearch implements AutoCloseable {
             return;
         }
         MoveList legal = node.position.legalMoves();
-        if (legal.isEmpty() || isDraw(node.position) || isRepetition(path)) {
+        if (legal.isEmpty() || MctsSearchScorer.isStaticDraw(node.position) || isRepetition(path)) {
             initializeTerminalProof(node, legal.isEmpty(), isRepetition(path));
             node.expanded = true;
             return;
@@ -940,7 +919,7 @@ public final class MctsSearch implements AutoCloseable {
      * @return scalar evaluation
      */
     double evaluate(Position position) {
-        return evaluatePosition(position).value();
+        return scorer.evaluate(position).value();
     }
 
     /**
@@ -957,194 +936,7 @@ public final class MctsSearch implements AutoCloseable {
         if (isRepetition(path)) {
             return SearchEvaluation.draw();
         }
-    return evaluatePosition(node.position);
-    }
-
-    /**
-     * Evaluates a standalone position from the side-to-move perspective.
-     *
-     * @param position position to evaluate
-     * @return structured evaluation
-     */
-    private SearchEvaluation evaluatePosition(Position position) {
-        MoveList legal = position.legalMoves();
-        if (legal.isEmpty()) {
-            return position.inCheck() ? SearchEvaluation.loss() : SearchEvaluation.draw();
-        }
-        if (isDraw(position)) {
-            return SearchEvaluation.draw();
-        }
-    return quiescence(position, 0, -1.0, 1.0);
-    }
-
-    /**
-     * Values a leaf after resolving immediate mates, captures/promotions, and
-     * forced check evasions. The returned value is from the side-to-move
-     * perspective of {@code position}.
-     *
-     * @param position position to evaluate
-     * @param qply quiescence ply
-     * @param alpha alpha bound
-     * @param beta beta bound
-     * @return quiescence evaluation
-     */
-    private SearchEvaluation quiescence(Position position, int qply, double alpha, double beta) {
-        if (isDraw(position)) {
-            return SearchEvaluation.draw();
-        }
-        MoveList legal = position.legalMoves();
-        if (legal.isEmpty()) {
-            return position.inCheck() ? SearchEvaluation.loss() : SearchEvaluation.draw();
-        }
-        if (qply == 0 && findMateInOne(position, legal) != Move.NO_MOVE) {
-            return SearchEvaluation.win();
-        }
-
-        boolean inCheck = position.inCheck();
-        if (qply >= QUIESCENCE_MAX_PLY) {
-            return backend.evaluate(position);
-        }
-
-        SearchEvaluation best = inCheck ? SearchEvaluation.loss() : backend.evaluate(position);
-        double currentAlpha = Math.max(alpha, best.value());
-        if (!inCheck && best.value() >= beta) {
-            return best;
-        }
-        short[] moves = quiescenceMoves(position, legal, inCheck);
-        for (short move : moves) {
-            Position.State state = new Position.State();
-            position.play(move, state);
-            try {
-                SearchEvaluation value = quiescence(position, qply + 1, -beta, -currentAlpha).flipped();
-                if (value.value() >= beta) {
-                    return value;
-                }
-                if (value.value() > best.value()) {
-                    best = value;
-                    currentAlpha = Math.max(currentAlpha, value.value());
-                }
-            } finally {
-                position.undo(move, state);
-            }
-        }
-        return best;
-    }
-
-    /**
-     * Returns quiescence candidate moves: all legal evasions while in check, or
-     * captures/promotions in otherwise quiet positions.
-     *
-     * @param position position to inspect
-     * @param legal legal moves
-     * @param inCheck whether side to move is in check
-     * @return quiescence candidate moves
-     */
-    private static short[] quiescenceMoves(Position position, MoveList legal, boolean inCheck) {
-        if (inCheck) {
-            return legal.toArray();
-        }
-        short[] moves = new short[legal.size()];
-        int[] scores = new int[legal.size()];
-        int count = 0;
-        for (int i = 0; i < legal.size(); i++) {
-            short move = legal.raw(i);
-            if (isQuiescenceMove(position, move)) {
-                moves[count] = move;
-                scores[count] = quiescenceMoveScore(position, move);
-                count++;
-            }
-        }
-        insertionSortDescending(moves, scores, count);
-        int outCount = Math.min(count, QUIESCENCE_MAX_MOVES);
-        short[] filtered = new short[outCount];
-        if (outCount > 0) {
-            System.arraycopy(moves, 0, filtered, 0, outCount);
-        }
-        return filtered;
-    }
-
-    /**
-     * Returns a legal mate-in-one move, or {@link Move#NO_MOVE}.
-     *
-     * @param position position to inspect
-     * @param legal legal moves
-     * @return mate-in-one move or {@link Move#NO_MOVE}
-     */
-    private static short findMateInOne(Position position, MoveList legal) {
-        for (int i = 0; i < legal.size(); i++) {
-            short move = legal.raw(i);
-            Position.State state = new Position.State();
-            position.play(move, state);
-            try {
-                if (position.inCheck() && position.legalMoves().isEmpty()) {
-                    return move;
-                }
-            } finally {
-                position.undo(move, state);
-            }
-        }
-        return Move.NO_MOVE;
-    }
-
-    /**
-     * Returns whether a move should be searched in quiescence from a non-check
-     * position.
-     *
-     * @param position position to inspect
-     * @param move move to inspect
-     * @return true when the move is tactically noisy
-     */
-    private static boolean isQuiescenceMove(Position position, short move) {
-        return position.isCapture(move) || position.isPromotion(move);
-    }
-
-    /**
-     * Scores a quiescence move for deterministic tactical ordering.
-     *
-     * @param position position to inspect
-     * @param move move to score
-     * @return ordering score
-     */
-    private static int quiescenceMoveScore(Position position, short move) {
-        int score = promotionValue(Move.getPromotion(move)) * 100;
-        int captured = position.capturedPiece(move);
-        if (captured >= 0) {
-            score += Piece.getValue((byte) captured) * 100;
-            score -= Piece.getValue(position.pieceAt(Move.getFromIndex(move)));
-        }
-        return score;
-    }
-
-    /**
-     * Sorts the first {@code count} moves by descending scores.
-     *
-     * @param moves moves to reorder
-     * @param scores move scores
-     * @param count number of entries to sort
-     */
-    private static void insertionSortDescending(short[] moves, int[] scores, int count) {
-        for (int i = 1; i < count; i++) {
-            short move = moves[i];
-            int score = scores[i];
-            int j = i - 1;
-            while (j >= 0 && scores[j] < score) {
-                moves[j + 1] = moves[j];
-                scores[j + 1] = scores[j];
-                j--;
-            }
-            moves[j + 1] = move;
-            scores[j + 1] = score;
-        }
-    }
-
-    /**
-     * Returns whether the position is terminal by workbench search draw rules.
-     *
-     * @param position position to inspect
-     * @return true for automatic static draws
-     */
-    private static boolean isDraw(Position position) {
-        return position.halfMoveClock() >= 100 || position.isInsufficientMaterial();
+    return scorer.evaluate(node.position);
     }
 
     /**
@@ -1157,7 +949,7 @@ public final class MctsSearch implements AutoCloseable {
     private static boolean isTerminal(Node node, List<Node> path) {
         return node.proof != ProofState.UNKNOWN
                 || node.position.legalMoves().isEmpty()
-                || isDraw(node.position)
+                || MctsSearchScorer.isStaticDraw(node.position)
                 || isRepetition(path);
     }
 
@@ -1185,7 +977,7 @@ public final class MctsSearch implements AutoCloseable {
             } else {
                 setProof(node, ProofState.DRAW, 0);
             }
-        } else if (repetition || isDraw(node.position)) {
+        } else if (repetition || MctsSearchScorer.isStaticDraw(node.position)) {
             setProof(node, ProofState.DRAW, 0);
         }
     }
@@ -1427,83 +1219,7 @@ public final class MctsSearch implements AutoCloseable {
      * @return normalized priors
      */
     private double[] priors(Position position, short[] moves, Position[] childPositions) {
-        int[] scores = new int[moves.length];
-        backend.prepareMoveOrdering(position);
-        backend.scoreMoves(position, moves, scores);
-        double max = -Double.MAX_VALUE;
-        double[] fallback = new double[moves.length];
-        for (int i = 0; i < moves.length; i++) {
-            fallback[i] = (scores[i] + tacticalPrior(position, moves[i], childPositions[i])) / 18_000.0;
-            if (fallback[i] > max) {
-                max = fallback[i];
-            }
-        }
-        double sum = 0.0;
-        for (int i = 0; i < fallback.length; i++) {
-            fallback[i] = Math.exp(fallback[i] - max);
-            sum += fallback[i];
-        }
-        if (!Double.isFinite(sum) || sum <= 0.0) {
-            double uniform = 1.0 / Math.max(1, moves.length);
-            for (int i = 0; i < fallback.length; i++) {
-                fallback[i] = uniform;
-            }
-            return backend.priors(position, moves, fallback);
-        }
-        for (int i = 0; i < fallback.length; i++) {
-            fallback[i] /= sum;
-        }
-        return backend.priors(position, moves, fallback);
-    }
-
-    /**
-     * Adds cheap tactical priors so the tree opens on plausible moves.
-     *
-     * @param position position to inspect
-     * @param move move to score
-     * @param childPosition child reached by {@code move}
-     * @return handcrafted prior score
-     */
-    private static int tacticalPrior(Position position, short move, Position childPosition) {
-        int bonus = 0;
-        byte fromPiece = position.pieceAt(Move.getFromIndex(move));
-        byte captured = position.pieceAt(Move.getToIndex(move));
-        if (captured != Piece.EMPTY) {
-            bonus += Piece.getValue(captured) * 40;
-            bonus -= Piece.getValue(fromPiece) * 6;
-            int see = See.see(position, move);
-            if (see < 0) {
-                bonus -= LOSING_CAPTURE_PRIOR_PENALTY;
-            } else if (see > 0) {
-                bonus += Math.min(900, see) * WINNING_CAPTURE_PRIOR_SCALE;
-            }
-        }
-        if (position.isPromotion(move)) {
-            bonus += promotionValue(Move.getPromotion(move)) * 35;
-        }
-        if (position.isCastle(move)) {
-            bonus += 12_000;
-        }
-        if (childPosition.inCheck()) {
-            bonus += CHECK_PRIOR_BONUS;
-        }
-        return bonus;
-    }
-
-    /**
-     * Material value for a promotion code.
-     *
-     * @param promotion promotion code
-     * @return promoted piece value
-     */
-    private static int promotionValue(int promotion) {
-    return switch (promotion) {
-            case 1 -> Piece.VALUE_KNIGHT;
-            case 2 -> Piece.VALUE_BISHOP;
-            case 3 -> Piece.VALUE_ROOK;
-            case 4 -> Piece.VALUE_QUEEN;
-            default -> 0;
-        };
+        return scorer.priors(position, moves, childPositions);
     }
 
     /**
@@ -1607,28 +1323,7 @@ public final class MctsSearch implements AutoCloseable {
      * Returns the stable UCI-line id for a node.
      */
     private static String nodeId(Node node) {
-        short[] line = lineTo(node, 128);
-        return line.length == 0 ? "root" : uciText(line);
-    }
-
-    /**
-     * Formats a move line as UCI tokens.
-     */
-    private static String uciText(short[] line) {
-        if (line == null || line.length == 0) {
-            return "";
-        }
-        StringBuilder sb = new StringBuilder();
-        for (short move : line) {
-            if (move == Move.NO_MOVE) {
-                continue;
-            }
-            if (sb.length() > 0) {
-                sb.append(' ');
-            }
-            sb.append(Move.toString(move));
-        }
-        return sb.toString();
+        return MctsSearchFormatter.nodeId(lineTo(node, 128));
     }
 
     /**
@@ -1642,62 +1337,6 @@ public final class MctsSearch implements AutoCloseable {
             return "terminal";
         }
         return "non-terminal";
-    }
-
-    /**
-     * Formats a move in SAN, falling back to UCI if SAN cannot be produced.
-     *
-     * @param position position before the move
-     * @param move move to format
-     * @return SAN or UCI text
-     */
-    private static String moveSan(Position position, short move) {
-        if (move == Move.NO_MOVE) {
-            return "";
-        }
-        try {
-            return SAN.toAlgebraic(position, move);
-        } catch (RuntimeException ex) {
-            return Move.toString(move);
-        }
-    }
-
-    /**
-     * Formats a PV as SAN tokens.
-     *
-     * @param root root position
-     * @param pv move sequence
-     * @return SAN principal variation text
-     */
-    private static String pvText(Position root, short[] pv) {
-        Position cursor = root.copy();
-        StringBuilder sb = new StringBuilder();
-        for (short move : pv) {
-            if (move == Move.NO_MOVE) {
-                continue;
-            }
-            if (sb.length() > 0) {
-                sb.append(' ');
-            }
-            sb.append(moveSan(cursor, move));
-            try {
-                cursor.play(move);
-            } catch (RuntimeException ex) {
-                break;
-            }
-        }
-        return sb.toString();
-    }
-
-    /**
-     * Converts a normalized value back to a compact centipawn display.
-     *
-     * @param value normalized value
-     * @return centipawn approximation
-     */
-    private static int valueToCentipawns(double value) {
-        double v = Math.max(-0.999, Math.min(0.999, value));
-        return (int) Math.round(600.0 * 0.5 * Math.log((1.0 + v) / (1.0 - v)));
     }
 
     /**

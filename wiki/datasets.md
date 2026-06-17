@@ -29,6 +29,11 @@ Every dataset command reads chess records. They tend to come from one of three p
 - `.record` JSON arrays from analysis pipelines.
 - Merged, filtered, or split files produced by `record files`.
 
+Newly written record rows include `"schemaVersion":"crtk.record.v2"` so later
+tools can distinguish the on-disk contract explicitly. Historical rows without
+that field are still accepted and treated as `crtk.record.v1`, so existing
+mining and export dumps remain readable.
+
 Look before you export. `record stats` gives you record counts and engines, `record tag-stats` shows the tag distribution (the same tags from [Position & Piece Tags](piece-tags.md)), and `record analysis-delta` surfaces positions whose evaluation never settled. A skewed class balance or a pile of unstable samples is cheap to spot here and expensive to discover three epochs into training.
 
 ```bash
@@ -231,7 +236,8 @@ crtk record dataset lc0 \
 ## Reproducibility Notes
 
 - Same input file, flags, and weights, same output — every export is deterministic down to the byte. Re-running a command reproduces its tensors and labels exactly.
-- Keep each `*.meta.json` next to its tensor files. It records the sources, filters, label policy, and value scale, which is the difference between a model run you can trace and one you can only guess at.
+- Keep each `*.manifest.json` next to its exported artifacts. It records the exporter, CRTK version, optional git commit, command-line argv, input/output/weights SHA-256 checksums, and exporter metadata such as label policy and row counts. Legacy `*.meta.json` files still carry format-specific tensor encoding details for LC0/classifier exports.
+- Add `--row-hashes` to `record dataset npy|lc0|classifier` and `record export training-jsonl|puzzle-jsonl|puzzle-elo-jsonl` when you need row-level auditability. It writes a sibling `.rowhashes.txt` sidecar with one `sha256(raw-record-json-v1)` digest per emitted logical row, and the manifest records and hashes that sidecar as an output artifact.
 - The `.npy` files are portable NumPy arrays. For framework-specific shards (PyTorch `.pt`, TFRecord, and the like), load them in your training stack and re-save in the native format — crtk stays framework-agnostic on purpose rather than guessing which one you use.
 
 ## Related Pages

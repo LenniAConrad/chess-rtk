@@ -17,6 +17,7 @@ The whole toolkit compiles from `src/` with the stock JDK. Always target the Jav
 ```bash
 find src -name '*.java' | sort > /tmp/srcs.txt
 javac --release 17 -d out @/tmp/srcs.txt
+rm -rf out/schemas && cp -R schemas out/schemas
 ```
 
 Or let the regression runner do it for you:
@@ -30,6 +31,7 @@ Or let the regression runner do it for you:
 To package the runnable jar (this is what `run_regression_suite.sh jar` does):
 
 ```bash
+rm -rf out/schemas && cp -R schemas out/schemas
 jar --create --file crtk.jar --main-class application.Main -C out .
 ```
 
@@ -65,7 +67,7 @@ The regression suite is the source of truth for "does it still work." Prefer it 
 | `jar` | Build `crtk.jar` and smoke the launcher |
 | `recommended` / `ci` / `release` | Composite runs (`ci` also runs `docs`) |
 
-Useful environment overrides: `CRTK_PERFT_THREADS`, `CRTK_PERFT_DEPTH`, `CRTK_PERFT_SUITE_DEPTH`, and `CRTK_REQUIRE_STOCKFISH=1` to fail (instead of skip) the `uci` phase when Stockfish is missing.
+Useful environment overrides: `CRTK_SUITE_JOBS` for parallel composite phases, `CRTK_TEST_JOBS` for parallel Java regression classes (both default to twice the online CPU count), `CRTK_TEST_TIMEOUT` for per-test timeouts, `CRTK_PERFT_THREADS`, `CRTK_PERFT_DEPTH`, `CRTK_PERFT_SUITE_DEPTH`, and `CRTK_REQUIRE_STOCKFISH=1` to fail (instead of skip) the `uci` phase when Stockfish is missing.
 
 Tests under `src/testing/` are self-contained classes, each with its own `main(...)`; you can run one directly, e.g. `java -cp out testing.UCIRegressionTest`.
 

@@ -1,6 +1,7 @@
 package testing;
 
 import application.cli.PathOps;
+import static testing.TestSupport.readUtf8;
 import static testing.WorkbenchTestSupport.*;
 
 import java.awt.Component;
@@ -14,7 +15,6 @@ import java.awt.Rectangle;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -397,19 +397,10 @@ final class WorkbenchUiRegression {
                 "Black to move · 28 legal moves", new JPanel());
         assertEquals("Board / Analyze", header.title(), "workspace header title");
         assertEquals("Black to move · 28 legal moves", header.context(), "workspace header context");
-        String lifecycle;
-        String boardLayer;
-        String lazyPanel;
-        try {
-            lifecycle = Files.readString(Path.of("src/application/gui/workbench/window/WindowLifecycle.java"),
-                    StandardCharsets.UTF_8);
-            boardLayer = Files.readString(Path.of("src/application/gui/workbench/window/WindowBoardLayer.java"),
-                    StandardCharsets.UTF_8);
-            lazyPanel = Files.readString(Path.of("src/application/gui/workbench/layout/LazyPanel.java"),
-                    StandardCharsets.UTF_8);
-        } catch (java.io.IOException ex) {
-            throw new AssertionError("unable to read workbench shell sources", ex);
-        }
+        String lifecycle = readSource(Path.of("src/application/gui/workbench/window/WindowLifecycle.java"));
+        String boardLayer = readSource(Path.of("src/application/gui/workbench/window/WindowBoardLayer.java"));
+        String commandLayer = readSource(Path.of("src/application/gui/workbench/window/WindowCommandLayer.java"));
+        String lazyPanel = readSource(Path.of("src/application/gui/workbench/layout/LazyPanel.java"));
         assertTrue(lifecycle.contains("new RegisteredView(\"Dashboard\", dashboardPanel)"),
                 "Dashboard remains a major shell route");
         assertTrue(lifecycle.contains("new RegisteredView(\"Engine Lab\""),
@@ -420,15 +411,15 @@ final class WorkbenchUiRegression {
                 "Board workspace uses a titled shell header");
         assertTrue(boardLayer.contains("new SwitchedWorkspace(\"Engine Lab\""),
                 "Engine Lab workspace uses a titled shell header");
-        assertTrue(boardLayer.contains("runHeader = new WorkspaceHeader"),
+        assertTrue(commandLayer.contains("runHeader = new WorkspaceHeader"),
                 "Run surface owns a workspace header");
-        assertTrue(boardLayer.contains("createRunSettingsColumn()"),
+        assertTrue(commandLayer.contains("createRunSettingsColumn()"),
                 "Run builder has a dedicated settings column");
-        assertTrue(boardLayer.contains("createRunOutputColumn()"),
+        assertTrue(commandLayer.contains("createRunOutputColumn()"),
                 "Run builder has a dedicated preview/output column");
-        assertTrue(boardLayer.contains("Command Preview"),
+        assertTrue(commandLayer.contains("Command Preview"),
                 "Run builder exposes a readable command preview card");
-        assertTrue(boardLayer.contains("Raw Output / Log"),
+        assertTrue(commandLayer.contains("Raw Output / Log"),
                 "Run builder keeps raw command output accessible");
         assertTrue(lazyPanel.contains("Ui.emptyState(\"Loading \" + name"),
                 "lazy shell placeholders use the shared empty state");
@@ -662,17 +653,9 @@ final class WorkbenchUiRegression {
      * (the former 14-button category strip was consolidated to one combo).
      */
     private static void testCommandPaletteGroupsActionsByCategory() {
-        String paletteSource;
-        String commandLayerSource;
-        try {
-            paletteSource = Files.readString(Path.of("src/application/gui/workbench/command/CommandPalette.java"),
-                    StandardCharsets.UTF_8);
-            commandLayerSource = Files.readString(
-                    Path.of("src/application/gui/workbench/window/WindowCommandLayer.java"),
-                    StandardCharsets.UTF_8);
-        } catch (java.io.IOException ex) {
-            throw new AssertionError("unable to read command UI sources", ex);
-        }
+        String paletteSource = readSource(Path.of("src/application/gui/workbench/command/CommandPalette.java"));
+        String commandLayerSource = readSource(
+                Path.of("src/application/gui/workbench/window/WindowCommandLayer.java"));
         assertTrue(paletteSource.contains("addGroupedRows"),
                 "command palette groups blank actions by category");
         assertTrue(paletteSource.contains("PaletteRow.Divider.INSTANCE"),
@@ -688,20 +671,10 @@ final class WorkbenchUiRegression {
      * bottom dock, so users can drag, split, and resize them like other tabs.
      */
     private static void testConsoleAndLogsAreMovableWorkbenchTabs() {
-        String lifecycle;
-        String base;
-        String dashboardActions;
-        try {
-            lifecycle = Files.readString(Path.of("src/application/gui/workbench/window/WindowLifecycle.java"),
-                    StandardCharsets.UTF_8);
-            base = Files.readString(Path.of("src/application/gui/workbench/window/WindowBase.java"),
-                    StandardCharsets.UTF_8);
-            dashboardActions = Files.readString(
-                    Path.of("src/application/gui/workbench/window/WindowDashboardActions.java"),
-                    StandardCharsets.UTF_8);
-        } catch (java.io.IOException ex) {
-            throw new AssertionError("unable to read workbench window sources", ex);
-        }
+        String lifecycle = readSource(Path.of("src/application/gui/workbench/window/WindowLifecycle.java"));
+        String base = readSource(Path.of("src/application/gui/workbench/window/WindowBase.java"));
+        String dashboardActions = readSource(
+                Path.of("src/application/gui/workbench/window/WindowDashboardActions.java"));
         // Console and Logs are now first-class top-level surfaces: each is its
         // own movable RegisteredView with a duplicate factory, so they can be
         // split, docked side-by-side, resized, and duplicated like the other
@@ -819,12 +792,7 @@ final class WorkbenchUiRegression {
      * @param file source file to inspect
      */
     private static void assertRawScrollPaneStyling(Path root, Path file) {
-        String source;
-        try {
-            source = Files.readString(file, StandardCharsets.UTF_8);
-        } catch (java.io.IOException ex) {
-            throw new AssertionError("unable to read " + file, ex);
-        }
+        String source = readSource(file);
         int scrollPaneCreations = occurrences(source, "new JScrollPane(");
         if (scrollPaneCreations == 0) {
             return;
@@ -913,12 +881,7 @@ final class WorkbenchUiRegression {
      * @param file source file to inspect
      */
     private static void assertRawPopupMenuStyling(Path root, Path file) {
-        String source;
-        try {
-            source = Files.readString(file, StandardCharsets.UTF_8);
-        } catch (java.io.IOException ex) {
-            throw new AssertionError("unable to read " + file, ex);
-        }
+        String source = readSource(file);
         int popupCreations = occurrences(source, "new JPopupMenu(")
                 + occurrences(source, "new javax.swing.JPopupMenu(");
         if (popupCreations == 0) {
@@ -1031,11 +994,7 @@ final class WorkbenchUiRegression {
      * @return source text
      */
     private static String readSource(Path file) {
-        try {
-            return Files.readString(file, StandardCharsets.UTF_8);
-        } catch (java.io.IOException ex) {
-            throw new AssertionError("unable to read " + file, ex);
-        }
+        return readUtf8(file);
     }
 
     /**
@@ -2198,12 +2157,7 @@ final class WorkbenchUiRegression {
      * @param file source file to inspect
      */
     private static void assertSplitPaneStyling(Path root, Path file) {
-        String source;
-        try {
-            source = Files.readString(file, StandardCharsets.UTF_8);
-        } catch (java.io.IOException ex) {
-            throw new AssertionError("unable to read " + file, ex);
-        }
+        String source = readSource(file);
         int splitPaneCreations = occurrences(source, "new JSplitPane(");
         if (splitPaneCreations == 0) {
             return;

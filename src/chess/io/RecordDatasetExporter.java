@@ -53,10 +53,11 @@ public final class RecordDatasetExporter {
 		 * @param obj JSON object text
 		 * @param featsBuf reusable feature buffer
 		 * @param feat feature writer
-		 * @param lab label writer
-		 * @throws IOException if writing fails
-		 */
-		void export(String obj, float[] featsBuf, NpyFloat32Writer feat, NpyFloat32Writer lab) throws IOException;
+	 * @param lab label writer
+	 * @return true when a row was emitted
+	 * @throws IOException if writing fails
+	 */
+		boolean export(String obj, float[] featsBuf, NpyFloat32Writer feat, NpyFloat32Writer lab) throws IOException;
 	}
 
 	/**
@@ -87,10 +88,28 @@ public final class RecordDatasetExporter {
 	 * @throws IOException if reading or writing fails
 	 */
 	public static void export(Path recordFile, Path outStem, LongConsumer byteProgress) throws IOException {
+		export(recordFile, outStem, byteProgress, null);
+	}
+
+	/**
+	 * Exports a {@code .record} JSON array into NPY feature/label tensors while
+	 * optionally reporting every accepted raw record to a row-hash sink.
+	 *
+	 * @param recordFile input record JSON array file
+	 * @param outStem output stem path
+	 * @param byteProgress optional callback receiving cumulative bytes read
+	 * @param rowHashSink optional sink receiving raw JSON for every emitted row
+	 * @throws IOException if reading or writing fails
+	 */
+	public static void export(
+			Path recordFile,
+			Path outStem,
+			LongConsumer byteProgress,
+			Consumer<String> rowHashSink) throws IOException {
 		if (recordFile == null || outStem == null) {
 			throw new IllegalArgumentException("recordFile and outStem must be non-null");
 		}
-		exportInternal(recordFile, outStem, RecordDatasetExporter::exportRecordObject, byteProgress);
+		exportInternal(recordFile, outStem, RecordDatasetExporter::exportRecordObject, byteProgress, rowHashSink);
 	}
 
 	/**
@@ -112,12 +131,14 @@ public final class RecordDatasetExporter {
 	 * @param exporter object-to-row exporter implementation
 	 * @throws IOException if reading or writing fails
 	 * @param byteProgress progress byte value
+	 * @param rowHashSink optional sink receiving raw JSON for every emitted row
 	 */
 	private static void exportInternal(
 			Path jsonFile,
 			Path outStem,
 			JsonObjectExporter exporter,
-			LongConsumer byteProgress) throws IOException {
+			LongConsumer byteProgress,
+			Consumer<String> rowHashSink) throws IOException {
 		Path featPath = outStem.resolveSibling(outStem.getFileName().toString() + ".features.npy");
 		Path labPath = outStem.resolveSibling(outStem.getFileName().toString() + ".labels.npy");
 
@@ -130,7 +151,9 @@ public final class RecordDatasetExporter {
 
 			Consumer<String> sink = obj -> {
 				try {
-					exporter.export(obj, featsBuf, feat, lab);
+					if (exporter.export(obj, featsBuf, feat, lab) && rowHashSink != null) {
+						rowHashSink.accept(obj);
+					}
 				} catch (IOException io) {
 					throw new UncheckedIOException(io);
 				}
@@ -156,30 +179,32 @@ public final class RecordDatasetExporter {
 	 * @param featsBuf reusable feature buffer
 	 * @param feat feature writer
 	 * @param lab label writer
+	 * @return true when a row was emitted
 	 * @throws IOException if writing fails
 	 */
-	private static void exportRecordObject(String json, float[] featsBuf, NpyFloat32Writer feat, NpyFloat32Writer lab)
+	private static boolean exportRecordObject(String json, float[] featsBuf, NpyFloat32Writer feat, NpyFloat32Writer lab)
 			throws IOException {
 		Record rec = Record.fromJson(json);
-		if (rec == null) return;
+		if (rec == null) return false;
 
 		Position pos = rec.getPosition();
-		if (pos == null) return;
+		if (pos == null) return false;
 
 		Analysis a = rec.getAnalysis();
-		if (a == null) return;
+		if (a == null) return false;
 
 		Output best = a.getBestOutput();
-		if (best == null) return;
+		if (best == null) return false;
 
 		Evaluation ev = best.getEvaluation();
-		if (ev == null || !ev.isValid()) return;
+		if (ev == null || !ev.isValid()) return false;
 
 		float pawns = ev.isMate() ? pawnsFromMate(ev.getValue()) : pawnsFromCp(ev.getValue());
 
 		encodeInto(pos, featsBuf);
 		feat.writeRow(featsBuf);
 		lab.writeScalar(pawns);
+		return true;
 	}
 
 	/**

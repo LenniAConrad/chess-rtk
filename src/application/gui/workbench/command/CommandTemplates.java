@@ -62,6 +62,11 @@ public final class CommandTemplates {
     private static final String GROUP_TEXT_DETAIL = "text detail";
 
     /**
+     * Exclusive group for position text audience presets.
+     */
+    private static final String GROUP_TEXT_AUDIENCE = "text audience";
+
+    /**
      * Exclusive group for PGN line-selection flags.
      */
     private static final String GROUP_PGN_LINE = "pgn line";
@@ -121,6 +126,25 @@ public final class CommandTemplates {
                         hashOption(false),
                         wdlFlag("--wdl", false, "Enable WDL output"),
                         wdlFlag("--no-wdl", false, "Disable WDL output"),
+                        commonVerbose())),
+    new CommandTemplate("Review game", List.of("review", "game"), reviewGameOptions()),
+    new CommandTemplate("PGN import", List.of("pgn", "import"), List.of(
+                        opt("--input", "", true, "PGN file to import"),
+                        pgnStoreOption(),
+                        commonVerbose())),
+    new CommandTemplate("PGN find", List.of("pgn", "find"), List.of(
+                        optSource("--fen", ValueSource.CURRENT_FEN, true, "Position FEN to query"),
+                        pgnStoreOption(),
+                        opt("--limit", "20", true, "Maximum returned games"),
+                        commonVerbose())),
+    new CommandTemplate("PGN show", List.of("pgn", "show"), List.of(
+                        opt("--gameId", "", true, "Stored game id"),
+                        pgnStoreOption(),
+                        resultFormatChoice("pgn", true, "Print PGN"),
+                        resultFormatChoice("json", false, "Print JSON"),
+                        commonVerbose())),
+    new CommandTemplate("PGN stats", List.of("pgn", "stats"), List.of(
+                        pgnStoreOption(),
                         commonVerbose())),
     new CommandTemplate("Best move", List.of("engine", "bestmove"), positionOptions(
                         positionInputSource("--input", false, "Input FEN file"),
@@ -227,12 +251,27 @@ public final class CommandTemplates {
                                 GROUP_TEXT_ENGINE),
                         exclusiveChoice("--engine", "t5", false, "Configured T5 path; unavailable until trained",
                                 GROUP_TEXT_ENGINE),
+                        exclusiveChoice("--audience", "beginner", false, "Beginner preset",
+                                GROUP_TEXT_AUDIENCE),
+                        exclusiveChoice("--audience", "club", true, "Club-player preset",
+                                GROUP_TEXT_AUDIENCE),
+                        exclusiveChoice("--audience", "advanced", false, "Advanced preset",
+                                GROUP_TEXT_AUDIENCE),
+                        exclusiveChoice("--audience", "coach", false, "Coach preset",
+                                GROUP_TEXT_AUDIENCE),
+                        exclusiveChoice("--audience", "researcher", false, "Research facts preset",
+                                GROUP_TEXT_AUDIENCE),
+                        exclusiveChoice("--audience", "ml", false, "ML facts preset",
+                                GROUP_TEXT_AUDIENCE),
+                        exclusiveChoice("--audience", "engine-debug", false, "Engine-debug preset",
+                                GROUP_TEXT_AUDIENCE),
                         exclusiveChoice("--detail", "brief", false, "Brief text", GROUP_TEXT_DETAIL),
                         exclusiveChoice("--detail", "normal", true, "Normal text", GROUP_TEXT_DETAIL),
                         exclusiveChoice("--detail", "full", false, "Full signal text", GROUP_TEXT_DETAIL),
                         resultFormatChoice("text", true, "Plain text"),
                         resultFormatChoice("json", false, "Emit JSON"),
                         resultFormatChoice("jsonl", false, "Emit JSONL"),
+                        flag("--facts-only", false, "Emit structured facts without prose"),
                         opt("--budget", "", false, "Maximum candidate moves in text"),
                         opt("--output", "", false, "Output file"),
                         opt("--model", "", false, "Future T5 position-description model path"),
@@ -278,6 +317,41 @@ public final class CommandTemplates {
                 threadsOption(threads),
                 hashOption(true),
                 flag("--jsonl", true, "Emit one JSON object per line"));
+    }
+
+    /**
+     * Builds the Workbench template for {@code review game --to-study}.
+     *
+     * @return review command options
+     */
+    private static List<CommandOption> reviewGameOptions() {
+        return List.of(
+                opt("--pgn", "", true, "PGN file to review"),
+                flag("--to-study", true, "Emit study-unit JSONL and Record JSON sidecars"),
+                opt("--output", "", false, "Review JSONL output path"),
+                opt("--study-output", "", false, "Study-unit JSONL output path"),
+                opt("--record-output", "", false, "Study Record JSON output path"),
+                optSource("--protocol-path", ValueSource.PROTOCOL, true, "External UCI protocol TOML path"),
+                nodesOption(true),
+                durationOption(true),
+                multipvOption(true),
+                threadsOption(true),
+                hashOption(true),
+                wdlFlag("--no-wdl", false, "Suppress UCI WDL output"),
+                conflictingFlag("--offline", false, "Use deterministic in-process alpha-beta",
+                        "--protocol-path", "--multipv", "--threads", "--hash", "--no-wdl"),
+                depthOption(false),
+                commonVerbose());
+    }
+
+    /**
+     * Builds the optional local PGN store path row.
+     *
+     * @return store option
+     */
+    private static CommandOption pgnStoreOption() {
+        return opt("--store", PathOps.dumpPath("pgn-store").toString(), false,
+                "Local PGN store directory");
     }
 
     /**

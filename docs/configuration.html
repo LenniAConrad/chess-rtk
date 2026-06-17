@@ -89,6 +89,7 @@
 <a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
 <a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
 <a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="review-to-study.html" data-title="review to study">Review To Study</a>
 <a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
 <a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
 <a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
@@ -456,7 +457,8 @@ movetext = &quot;1. Nh3&quot;</code></pre>
 <p>Three commands confirm a setup without committing to a full workload.</p>
 <h3 id="config-show"><code>config show</code></h3>
 <p>Prints the resolved CLI config — the absolute config path and every effective value, including the fully parsed puzzle filters. It&#x27;s the fastest way to check that an override or a swapped baseline actually took.</p>
-<pre><code class="language-bash">java -jar crtk.jar config show</code></pre>
+<pre><code class="language-bash">java -jar crtk.jar config show
+java -jar crtk.jar config show --json</code></pre>
 <pre><code class="language-text">Config path: /home/you/chess-rtk/config/cli.config.toml
 Protocol path: config/default.engine.toml
 LC0 model path: models/leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin
@@ -467,6 +469,7 @@ Max nodes: 50000000
 Max duration (ms): 1000000
 Puzzle analysis cache: 5000000
 Puzzle quality: gate=AND;...</code></pre>
+<p><code>--json</code> emits one stable <code>crtk.config.v1</code> object with the same resolved values, using script-friendly field names such as <code>config</code>, <code>protocol</code>, <code>engineInstances</code>, <code>maxNodes</code>, <code>maxDurationMs</code>, and <code>puzzleQuality</code>.</p>
 <h3 id="config-validate"><code>config validate</code></h3>
 <p>Checks the config and reports problems — a model path pointing at a file that isn&#x27;t there, for instance. A missing optional model is a warning, not a failure, since you may simply not use that evaluator.</p>
 <pre><code class="language-bash">java -jar crtk.jar config validate</code></pre>
@@ -475,7 +478,9 @@ Puzzle quality: gate=AND;...</code></pre>
 <h3 id="doctor"><code>doctor</code></h3>
 <p>The broader sweep: runtime version, CLI config, engine protocol, output root, and local artifacts. It reports one overall status — <code>ok</code>, <code>ok-with-warnings</code>, or an error — followed by an itemized warning list. <code>--strict</code> promotes warnings to a non-zero exit, which is what you want when this runs in CI.</p>
 <pre><code class="language-bash">java -jar crtk.jar doctor
-java -jar crtk.jar doctor --strict</code></pre>
+java -jar crtk.jar doctor --strict
+java -jar crtk.jar doctor --json</code></pre>
+<p><code>--json</code> emits one stable <code>crtk.doctor.v1</code> object with the text-mode status, Java version, resolved config/protocol/output values, warning/error arrays, and a <code>nativeBackends</code> matrix matching <code>engine gpu</code>.</p>
 <pre><code class="language-text">doctor: ok-with-warnings
 Java: 21.0.11
 Config: /home/you/chess-rtk/config/cli.config.toml

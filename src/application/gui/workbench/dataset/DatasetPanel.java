@@ -68,7 +68,7 @@ import javax.swing.table.TableRowSorter;
 /**
  * Workbench panel dedicated to dataset inspection and quality analysis.
  */
-public final class DatasetPanel extends JPanel {
+public final class DatasetPanel extends SurfacePanel {
 
     /**
      * Serialization identifier for Swing component compatibility.
@@ -409,11 +409,9 @@ public final class DatasetPanel extends JPanel {
      *     Board tab, or {@code null} to omit the "Open in New Board" affordance
      */
     public DatasetPanel(Consumer<String> openFenInBoard, Consumer<String> openFenInNewBoard) {
-        super(new BorderLayout(0, 0));
+        super(new BorderLayout(0, 0), Theme.Surface.BACKDROP);
         this.openFenInBoard = openFenInBoard;
         this.openFenInNewBoard = openFenInNewBoard;
-        setOpaque(true);
-        setBackground(Theme.BG);
         buildUi();
         applySummary(DatasetSummary.empty());
         setBusy(false);
@@ -677,8 +675,34 @@ public final class DatasetPanel extends JPanel {
         bodyCard.setOpaque(false);
         bodyCard.add(createEmptyHero(), "empty");
         bodyCard.add(createLoadingCard(), "loading");
-        bodyCard.add(split, "loaded");
+        // The dataset filter sits above the JSplitPane so it is visible from
+        // both the chart overview (top half) and the sample / issue tables
+        // (bottom half). Chart clicks set this same field via applyChartFilter,
+        // so a single placement keeps the filter source of truth shared.
+        JPanel loaded = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
+        loaded.add(buildDatasetFilterBand(), BorderLayout.NORTH);
+        loaded.add(split, BorderLayout.CENTER);
+        bodyCard.add(loaded, "loaded");
         return bodyCard;
+    }
+
+    /**
+     * Builds the dataset filter band placed above the chart / table split, so
+     * the filter affordance is visible no matter which half of the dataset the
+     * user is scanning.
+     *
+     * @return filter band component
+     */
+    private JComponent buildDatasetFilterBand() {
+        styleFields(tableFilterField);
+        placeholder(tableFilterField, "Filter tags, engine, FEN, file, issue...");
+        tableFilterField.getAccessibleContext().setAccessibleName("Filter dataset rows");
+        tableFilterField.getDocument().addDocumentListener(changeListener(this::applyTableFilter));
+        JButton clearFilter = button("Clear", false, event -> tableFilterField.setText(""));
+        JPanel band = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        band.add(tableFilterField, BorderLayout.CENTER);
+        band.add(clearFilter, BorderLayout.EAST);
+        return band;
     }
 
     /**
@@ -871,6 +895,9 @@ public final class DatasetPanel extends JPanel {
                 "No issues found", "Validation problems appear here after a scan."));
         tableTabs.addChangeListener(event -> updateRowActions());
 
+        // The dataset filter lives above the whole chart / table split (built in
+        // createBody); the row-action buttons stay near the tables because they
+        // operate on the selected row.
         JPanel actions = transparentPanel(new WrappingFlowLayout(FlowLayout.RIGHT, Theme.SPACE_SM, 0));
         actions.add(copyFenButton);
         if (openFenInNewBoard != null) {
@@ -879,20 +906,10 @@ public final class DatasetPanel extends JPanel {
         if (openFenInBoard != null) {
             actions.add(openInBoardButton);
         }
-        styleFields(tableFilterField);
-        placeholder(tableFilterField, "Filter tags, engine, FEN, file, issue...");
-        tableFilterField.getDocument().addDocumentListener(changeListener(this::applyTableFilter));
-        JButton clearFilter = button("Clear", false, event -> tableFilterField.setText(""));
-        JPanel filters = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
-        filters.add(tableFilterField, BorderLayout.CENTER);
-        filters.add(clearFilter, BorderLayout.EAST);
-        JPanel top = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
-        top.add(filters, BorderLayout.CENTER);
-        top.add(actions, BorderLayout.EAST);
 
         JSplitPane tableSplit = SplitPaneStyler.styledHorizontalSplit(tableTabs, createRowInspector(), 0.72d);
         JPanel wrap = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
-        wrap.add(top, BorderLayout.NORTH);
+        wrap.add(actions, BorderLayout.NORTH);
         wrap.add(tableSplit, BorderLayout.CENTER);
         updateRowActions();
         return wrap;

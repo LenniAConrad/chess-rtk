@@ -15,12 +15,9 @@ import chess.nn.otis.Model;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
-import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -335,7 +332,7 @@ public final class RelationsPanel extends JPanel {
         panel.add(caption);
         panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
 
-        JPanel actions = Ui.buttonRow(FlowLayout.LEFT,
+        JPanel actions = Ui.buttonRow(FlowLayout.RIGHT,
                 Ui.button("Sync to board", true, event -> syncToBoard()),
                 Ui.button("Load FEN", false, event -> loadFen(fenField.getText())));
         panel.add(actions);
@@ -421,9 +418,9 @@ public final class RelationsPanel extends JPanel {
     private JComponent channelRow(int channel, boolean selected) {
         JPanel row = Ui.transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
         row.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Theme.LINE),
-                BorderFactory.createEmptyBorder(Theme.SPACE_XS, Theme.SPACE_SM, Theme.SPACE_XS, Theme.SPACE_SM)));
-        row.add(new ColorChip(RelationPalette.color(channel), 14), BorderLayout.WEST);
+                Theme.lineBorder(Theme.LINE),
+                Theme.pad(Theme.SPACE_XS, Theme.SPACE_SM, Theme.SPACE_XS, Theme.SPACE_SM)));
+        row.add(Ui.colorChip(RelationPalette.color(channel), 14), BorderLayout.WEST);
 
         JPanel text = verticalPanel();
         JLabel label = new JLabel(CHANNEL_LABELS[channel]);
@@ -487,32 +484,14 @@ public final class RelationsPanel extends JPanel {
      */
     private JComponent legendSection() {
         JPanel panel = verticalPanel();
-        panel.add(legendRow(RelationPalette.color(0), "Channel color", "Each color maps to one OTIS relation channel."));
-        panel.add(legendRow(Theme.withAlpha(RelationPalette.color(0), 96), "Opacity", "Lower opacity means less visual dominance, not weaker relation data."));
-        panel.add(legendRow(Theme.ACCENT, "Selected square", "Clicking a board piece focuses filters and selection details."));
+        panel.add(Ui.legendRow(RelationPalette.color(0), "Channel color",
+                "Each color maps to one OTIS relation channel."));
+        panel.add(Ui.legendRow(Theme.withAlpha(RelationPalette.color(0), 96), "Opacity",
+                "Lower opacity means less visual dominance, not weaker relation data."));
+        panel.add(Ui.legendRow(Theme.ACCENT, "Selected square",
+                "Clicking a board piece focuses filters and selection details."));
         panel.add(Ui.caption("Arrow direction is source square to target square. Overlap means multiple relation channels share geometry."));
         return panel;
-    }
-
-    /**
-     * Builds one legend row.
-     *
-     * @param color color sample
-     * @param title title
-     * @param detail detail text
-     * @return legend row
-     */
-    private static JComponent legendRow(Color color, String title, String detail) {
-        JPanel row = Ui.transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
-        row.add(new ColorChip(color, 13), BorderLayout.WEST);
-        JPanel text = verticalPanel();
-        JLabel label = new JLabel(title);
-        label.setForeground(Theme.TEXT);
-        label.setFont(Theme.font(Theme.FONT_METADATA, Font.BOLD));
-        text.add(label);
-        text.add(Ui.caption(detail));
-        row.add(text, BorderLayout.CENTER);
-        return row;
     }
 
     /**
@@ -662,7 +641,7 @@ public final class RelationsPanel extends JPanel {
         Color[] colors = new Color[Model.RELATION_COUNT];
         for (int channel = 0; channel < colors.length; channel++) {
             Color base = RelationPalette.color(channel);
-            colors[channel] = new Color(base.getRed(), base.getGreen(), base.getBlue(), alpha);
+            colors[channel] = Theme.withAlpha(base, alpha);
         }
         return colors;
     }
@@ -917,59 +896,4 @@ public final class RelationsPanel extends JPanel {
         };
     }
 
-    /**
-     * Small color chip component.
-     */
-    private static final class ColorChip extends JComponent {
-
-        /**
-         * Serialization identifier for Swing component compatibility.
-         */
-        private static final long serialVersionUID = 1L;
-
-        /**
-         * Chip color.
-         */
-        private final Color color;
-
-        /**
-         * Chip size.
-         */
-        private final int size;
-
-        /**
-         * Creates a color chip.
-         *
-         * @param color chip color
-         * @param size chip size
-         */
-        ColorChip(Color color, int size) {
-            this.color = color;
-            this.size = size;
-            Dimension dimension = new Dimension(size, size);
-            setPreferredSize(dimension);
-            setMinimumSize(dimension);
-            setMaximumSize(dimension);
-            setAlignmentY(Component.CENTER_ALIGNMENT);
-        }
-
-        /**
-         * Paints the chip.
-         *
-         * @param graphics graphics context
-         */
-        @Override
-        protected void paintComponent(Graphics graphics) {
-            Graphics2D g = (Graphics2D) graphics.create();
-            try {
-                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g.setColor(color == null ? Theme.LINE : color);
-                g.fillRoundRect(1, 1, size - 2, size - 2, Theme.RADIUS, Theme.RADIUS);
-                g.setColor(Theme.LINE);
-                g.drawRoundRect(0, 0, size - 1, size - 1, Theme.RADIUS, Theme.RADIUS);
-            } finally {
-                g.dispose();
-            }
-        }
-    }
 }

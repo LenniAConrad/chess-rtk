@@ -35,6 +35,7 @@ Most of the surface never touches an external engine. The in-process commands (`
 | `puzzle` | Mine, convert, tag, and summarize puzzle lines |
 | `config` | Show and validate configuration |
 | `workbench` | Launch the native command and analysis workbench (alias `gui`) |
+| `serve` | Start a localhost-only JSON-RPC daemon over the CLI dispatcher |
 | `doctor` | Check Java, config, protocol, engine, and local artifacts |
 | `clean` | Delete session cache and logs |
 | `help` | Show command help |
@@ -1095,7 +1096,7 @@ crtk position diff --fen "<FEN_A>" --other "<FEN_B>" --json
 
 ### position describe
 
-Describe one FEN or a FEN list as deterministic classical text, structured features, or training JSONL. `classical` is the engine that works today; `t5` is wired up but waiting on trained weights, so reach for `classical` unless you have those.
+Describe one FEN or a FEN list as deterministic classical text, structured features, or training JSONL. `position describe` is classical-only; the working T5 runtime lives behind `fen text` and `puzzle text`.
 
 | Option | Description |
 | --- | --- |
@@ -1103,14 +1104,14 @@ Describe one FEN or a FEN list as deterministic classical text, structured featu
 | `--startpos` / `--randompos` | Use the standard start / a random legal position |
 | `--input`/`-i PATH` | Input FEN list |
 | `--stdin` | Read FEN rows from standard input |
-| `--engine MODE` | `classical` (default) or `t5` |
+| `--engine MODE` | `classical` only (default) |
 | `--detail LEVEL` | `brief`, `normal` (default), or `full` |
 | `--format FMT` | `text` (default), `json`, `jsonl`, or `training-jsonl` |
 | `--json` / `--jsonl` | Aliases for `--format json` / `--format jsonl` |
 | `--budget N` / `--max-candidates N` | Maximum candidate moves in generated text (`--max-candidates` is an alias) |
 | `--output`/`-o PATH` | Write output to a file |
-| `--model PATH` | Future T5 position-description model path |
-| `--max-new N` | Future T5 generated-token budget |
+| `--model PATH` | Training-jsonl prompt model-path metadata |
+| `--max-new N` | Training-jsonl prompt token-budget metadata |
 
 ```bash
 crtk position describe --fen "<FEN>" --detail full --format text
@@ -1360,6 +1361,7 @@ See what the CLI thinks its configuration is, and check that it holds together.
 
 ```bash
 crtk config show
+crtk config show --json
 crtk config validate
 ```
 
@@ -1381,6 +1383,27 @@ crtk workbench --fen "<FEN>"
 crtk gui
 ```
 
+## serve
+
+Start a localhost-only HTTP JSON-RPC daemon for agents and editor integrations. Requests still run through `application.Main`, so stdout, stderr, exit codes, and JSON contracts match the CLI.
+
+| Option | Description |
+| --- | --- |
+| `--host HOST` | Loopback host to bind (default `127.0.0.1`) |
+| `--port N` | TCP port to bind (default `8787`; `0` asks the OS for an ephemeral port) |
+| `--json` | Print startup endpoints as JSON |
+| `--verbose`/`-v` | Print stack trace on failure |
+
+```bash
+crtk serve --port 8787
+curl -s http://127.0.0.1:8787/catalog
+curl -s http://127.0.0.1:8787/rpc \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"run","params":{"argv":["fen","validate","--fen","<FEN>","--json"]}}'
+```
+
+See [Local JSON-RPC daemon](serve.md) for endpoint details.
+
 ## doctor
 
 Check that the environment is sane: the runtime, the main config file, the configured engine protocol, whether the engine executable is findable, the model paths, and the output directory. A missing model file is a warning rather than an error, since models are optional local artifacts you may simply not have downloaded.
@@ -1388,11 +1411,13 @@ Check that the environment is sane: the runtime, the main config file, the confi
 | Option | Description |
 | --- | --- |
 | `--strict` | Exit non-zero when warnings are present |
+| `--json` | Emit one `crtk.doctor.v1` object, including warning/error arrays and native backend rows |
 | `--verbose`/`-v` | Print stack trace on failure |
 
 ```bash
 crtk doctor
 crtk doctor --strict
+crtk doctor --json
 ```
 
 ## clean

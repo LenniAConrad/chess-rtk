@@ -223,6 +223,7 @@ public final class ClassicalPositionDescriptionGenerator {
             out.add(sentence("The king is in check and must be met before anything else"));
         }
         out.add(assessmentSentence(input, verdict));
+        out.addAll(StrategicPlanNarrator.sentences(input, false));
         weaveCandidates(out, input.candidates(), input.moves(), verdict, candidateLimit, false);
         return joinSentences(out);
     }
@@ -252,6 +253,7 @@ public final class ClassicalPositionDescriptionGenerator {
         out.add(headlineSentence(input, verdict, material));
         out.add(assessmentSentence(input, verdict));
         out.add(kingAndRoomSentence(input, verdict));
+        out.addAll(StrategicPlanNarrator.sentences(input, true));
         weaveCandidates(out, input.candidates(), input.moves(), verdict, candidateLimit, true);
         if (input.moves().mates() == 0) {
             out.add(closingSentence(input, verdict));

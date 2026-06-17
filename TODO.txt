@@ -149,21 +149,18 @@ orientation/runtime pass.
 
 ### OTIS CUDA Backend
 
-Goal: add an optimized CUDA implementation of the OTIS architecture and iterate
-on it until it is as fast as practical while staying numerically correct.
+Goal: keep the existing OTIS CUDA backend correct, visible, and worth using by
+optimizing the implementation only after CPU-vs-CUDA parity is pinned.
 
-- Implement the CUDA backend:
-  - Add native CUDA kernels for OTIS inference, including input preparation,
-    sheaf/Laplacian-style propagation, trunk blocks, policy logits, WDL/value
-    output, and any required reductions.
-  - Add JNI bindings and Java backend selection consistent with the existing
-    NN CUDA/native backend patterns.
+- Maintain and optimize the existing CUDA backend:
+  - Audit the current native kernels, JNI bindings, and Java backend selection
+    against the CPU OTIS model before adding new kernel variants.
   - Support clean CPU fallback when CUDA is unavailable, model loading fails, or
     the current platform cannot load native libraries.
   - Keep memory ownership explicit: model upload, device buffers, batch-size
     assumptions, cleanup, and error reporting.
 - Optimize through measured variants:
-  - Start with a straightforward correct CUDA implementation.
+  - Start from the current correct CUDA implementation.
   - Build and benchmark alternative kernels/layouts for the expensive stages:
     fused kernels, shared-memory tiling, coalesced access patterns, reduced
     host/device copies, persistent uploaded weights, and batched evaluation if
@@ -301,29 +298,8 @@ Next (in order):
   king_attack (legal check into grounded weak shelter; suppressed when mate
   exists); chess.tag.Threats wired into Generator (non-promote tags only, to keep
   the existing promotion path + ctx flags). Golden test + fixture; suite green.
-  ORIGINAL NOTE (resolved): THREAT beyond promotion: DESIGNED + adversarially VERIFIED (verdict=confirm:
-  compiles, every threat grounded, mate threats proven, all moves legal, quiet
-  positions clean). BUT the build agent wrote chess.tag.Threats to an isolated
-  worktree that did NOT persist and returned a DESCRIPTION instead of source, so
-  the artifact was lost (src/chess/tag/Threats.java is an 11-byte stub; out/ has a
-  stale Threats.class with enum ThreatType{PROMOTE,MATE,MATERIAL,KING_ATTACK},
-  promotion-only). Generator currently emits promotion threats via its own
-  addPromotionThreatTags, NOT Threats.addThreats. TO FINISH: re-run a workflow
-  that RETURNS full source in the result (forbid disk writes), or hand-build
-  chess.tag.Threats.addThreats(List,Position) from this spec:
-    * type=mate: m1 via copy().play(m).isCheckmate() severity=immediate; longer via
-      MateProver.proveMate (Proof.bestMove():short, mateMoves():int) severity=soon
-      target=mate_in_N; require bestMove in legalMoves().
-    * type=king_attack: only when no mate; legal move with after.inCheck() &&
-      !after.isCheckmate() AND concrete enemy-king shelter weakness (open/half-open
-      file via frame-invariant pawn scan, or >=2 attacked ring squares); else none.
-    * type=material: SKIP (needs search to ground).
-    * preserve promote threats; field order type=,side=,severity=,move=/square=/target=;
-      SAN via SAN.toAlgebraic(pos,move) with Move.toString fallback; de-dup.
-    Wire Threats.addThreats into Generator.tags(); add golden test + fixture; build
-    src/chess/**+src/utility/** only (external play/ tree is broken). LESSON: workflow
-    build-agents must RETURN source in the result, never write repo files (their
-    worktree writes do not persist).
+  Resolved roadmap note: Threats.java is now the canonical implementation and is
+  wired through Generator.tags(); do not rebuild it from the historical spec.
 
 - [DONE] IDEA family: chess.tag.Ideas.addIdeas emits grounded IDEA tags - type=
   win_material (highest-SEE legal capture), promote (legal promotion move),

@@ -26,7 +26,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
-import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.DefaultListCellRenderer;
@@ -211,6 +210,7 @@ public final class CommandForm extends JPanel {
         add(Ui.scroll(Ui.fillViewport(body)), BorderLayout.CENTER);
         Ui.styleFields(filterField);
         Ui.placeholder(filterField, "filter flags");
+        filterField.getAccessibleContext().setAccessibleName("Filter flags");
         Ui.onTextChange(this::applyFilter, filterField);
     }
 
@@ -956,7 +956,6 @@ public final class CommandForm extends JPanel {
         Ui.styleFields(text);
         applyOptionTooltip(text, field.option);
         field.editor = text;
-        field.defaultBorder = text.getBorder();
         Ui.onTextChange(() -> {
             field.value = text.getText();
             if (!rebuilding) {
@@ -1173,11 +1172,7 @@ public final class CommandForm extends JPanel {
         }
         String error = validationError(field);
         field.valid = error == null;
-        field.editor.setBorder(field.valid
-                ? field.defaultBorder
-                : BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(Theme.STATUS_ERROR_TEXT, 2),
-                        Theme.pad(6, 8, 6, 8)));
+        Ui.setInvalid(field.editor, !field.valid);
         field.editor.setToolTipText(error == null ? tooltipText(field.option) : error);
     }
 
@@ -1457,12 +1452,6 @@ public final class CommandForm extends JPanel {
          * Free-text editor, when the option takes a free-text value.
          */
         private JTextField editor;
-
-        /**
-         * The free-text editor's resting border, restored when the value is
-         * valid.
-         */
-        private javax.swing.border.Border defaultBorder;
 
         /**
          * Dropdown editor, when the option takes a fixed value.

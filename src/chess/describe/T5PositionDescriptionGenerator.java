@@ -3,12 +3,12 @@ package chess.describe;
 import java.nio.file.Path;
 
 /**
- * Configuration-ready T5 position-description stub.
+ * Configuration-ready T5 position-description prompt helper and unavailable sentinel.
  *
  * <p>
- * The shared input and prompt path are in place, but no trained
- * position-description weights are shipped yet. This class deliberately refuses
- * to generate text so callers cannot accidentally present fake T5 output.
+ * The shared input and prompt path are in place for training exports, but no
+ * trained position-description weights are shipped yet. This class deliberately
+ * refuses to generate text so callers cannot accidentally present fake T5 output.
  * </p>
  */
 public final class T5PositionDescriptionGenerator {
@@ -95,6 +95,7 @@ public final class T5PositionDescriptionGenerator {
     public String unavailableMessage() {
         String path = modelPath == null ? "<unset>" : modelPath.toString();
         return "T5 position-description generation is unavailable: no trained position-description "
-                + "T5 weights exist yet (configured model path: " + path + "). Use --engine classical.";
+                + "T5 weights exist yet (configured model path: " + path + "). Use position describe for "
+                + "classical prose, or fen text / puzzle text for the T5 tag-to-text runtime.";
     }
 }

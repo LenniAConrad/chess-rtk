@@ -28,6 +28,9 @@ import chess.describe.ClassicalPositionDescriptionGenerator;
 import chess.describe.EngineEvaluator;
 import chess.describe.PositionDescriptionDetail;
 import chess.describe.PositionDescriptionInput;
+import chess.describe.PositionDescriptionVerifier;
+import chess.describe.PositionDescriptionVerifier.Verification;
+import chess.describe.PositionDescriptionVerifier.Violation;
 import chess.describe.T5PositionDescriptionGenerator;
 import chess.io.Reader;
 import utility.Argv;
@@ -43,7 +46,7 @@ public final class PositionDescribeCommand {
     private static final String COMMAND = "position describe";
 
     /**
-     * Engine selector option.
+     * Classical renderer selector option.
      */
     private static final String OPT_ENGINE = "--engine";
 
@@ -51,6 +54,11 @@ public final class PositionDescribeCommand {
      * Detail-level selector option.
      */
     private static final String OPT_DETAIL = "--detail";
+
+    /**
+     * Audience preset selector option.
+     */
+    private static final String OPT_AUDIENCE = "--audience";
 
     /**
      * Evaluation-source selector option ({@code static} or {@code engine}).
@@ -63,6 +71,11 @@ public final class PositionDescribeCommand {
     private static final String OPT_EVAL_DEPTH = "--eval-depth";
 
     /**
+     * Machine-readable facts-only output selector.
+     */
+    private static final String OPT_FACTS_ONLY = "--facts-only";
+
+    /**
      * Legacy candidate-budget selector.
      */
     private static final String OPT_BUDGET = "--budget";
@@ -73,12 +86,12 @@ public final class PositionDescribeCommand {
     private static final String OPT_MAX_CANDIDATES = "--max-candidates";
 
     /**
-     * T5 model-path selector option.
+     * Training-prompt model-path metadata option.
      */
     private static final String OPT_MODEL = "--model";
 
     /**
-     * T5 maximum-new-token selector option.
+     * Training-prompt maximum-new-token metadata option.
      */
     private static final String OPT_MAX_NEW = "--max-new";
 
@@ -91,6 +104,11 @@ public final class PositionDescribeCommand {
      * Stable schema marker for position-description training rows.
      */
     private static final String TRAINING_SCHEMA = "crtk.position_description.training.v1";
+
+    /**
+     * Stable schema marker for facts-only position-description rows.
+     */
+    private static final String FACTS_SCHEMA = "crtk.position_description.facts.v1";
 
     /**
      * Prevents instantiation.
@@ -106,11 +124,6 @@ public final class PositionDescribeCommand {
      */
     public static void runDescribe(Argv a) {
         Options options = parseOptions(a);
-        if (options.engine() == Engine.T5) {
-            T5PositionDescriptionGenerator t5 = new T5PositionDescriptionGenerator(options.modelPath(),
-                    options.maxNewTokens());
-            throw new CommandFailure(COMMAND + ": " + t5.unavailableMessage(), 2);
-        }
         List<String> fens = resolveFenRows(options);
         List<Row> rows = new ArrayList<>(fens.size());
         ClassicalPositionDescriptionGenerator generator = new ClassicalPositionDescriptionGenerator();
@@ -121,7 +134,8 @@ public final class PositionDescribeCommand {
                 input = input.withEvaluation(EngineEvaluator.evaluate(position, options.evalDepth()));
             }
             String text = generator.generate(input, options.detail(), options.candidateBudget());
-            rows.add(new Row(i + 1, "pos-" + (i + 1), input, text));
+            Verification verification = PositionDescriptionVerifier.verify(input, text);
+            rows.add(new Row(i + 1, "pos-" + (i + 1), input, text, verification));
         }
         write(render(rows, options), options.output(), options.verbose());
     }
@@ -137,9 +151,17 @@ public final class PositionDescribeCommand {
         boolean stdin = a.flag(OPT_STDIN);
         Path input = a.path(OPT_INPUT, OPT_INPUT_SHORT);
         Path output = a.path(OPT_OUTPUT, OPT_OUTPUT_SHORT);
-        OutputFormat outputFormat = outputFormat(a);
+        String format = CommandSupport.trimToNull(a.string(OPT_FORMAT));
+        boolean json = a.flag(OPT_JSON);
+        boolean jsonl = a.flag(OPT_JSONL);
+        boolean explicitOutputFormat = format != null || json || jsonl;
+        OutputFormat outputFormat = outputFormat(format, json, jsonl);
         Engine engine = Engine.parse(a.string(OPT_ENGINE));
-        PositionDescriptionDetail detail = PositionDescriptionDetail.parse(a.string(OPT_DETAIL));
+        Audience audience = Audience.parse(a.string(OPT_AUDIENCE));
+        String detailValue = a.string(OPT_DETAIL);
+        PositionDescriptionDetail detail = detailValue == null || detailValue.isBlank()
+                ? audience.detail()
+                : PositionDescriptionDetail.parse(detailValue);
         Integer budget = a.integer(OPT_BUDGET, OPT_MAX_CANDIDATES);
         int candidateBudget = budget == null ? -1 : Math.max(0, budget);
         String model = CommandSupport.trimToNull(a.string(OPT_MODEL));
@@ -148,6 +170,11 @@ public final class PositionDescribeCommand {
         Integer evalDepthBox = a.integer(OPT_EVAL_DEPTH);
         boolean evalEngine = parseEvalEngine(CommandSupport.trimToNull(a.string(OPT_EVAL)), evalDepthBox != null);
         int evalDepth = evalDepthBox == null ? EngineEvaluator.DEFAULT_DEPTH : Math.max(1, evalDepthBox);
+        boolean explicitFactsOnly = a.flag(OPT_FACTS_ONLY);
+        boolean factsOnly = explicitFactsOnly || audience.factsOnly();
+        if (factsOnly && !explicitFactsOnly && !explicitOutputFormat && outputFormat == OutputFormat.TEXT) {
+            outputFormat = OutputFormat.JSON;
+        }
         boolean startPos = a.flag(OPT_STARTPOS);
         boolean randomPos = a.flag(OPT_RANDOMPOS);
         String fen = a.string(OPT_FEN);
@@ -155,8 +182,9 @@ public final class PositionDescribeCommand {
         a.ensureConsumed();
         String selectedFen = CommandSupport.resolveSelectedFen(COMMAND, fen, rest, startPos, randomPos, false);
         validateInputSelectors(input, stdin, selectedFen);
+        validateFactsOnly(outputFormat, factsOnly);
         return new Options(verbose, stdin, input, output, selectedFen, outputFormat, engine, detail, candidateBudget,
-                modelPath, maxNew == null ? 128 : Math.max(1, maxNew), evalEngine, evalDepth);
+                modelPath, maxNew == null ? 128 : Math.max(1, maxNew), evalEngine, evalDepth, factsOnly, audience);
     }
 
     /**
@@ -189,10 +217,7 @@ public final class PositionDescribeCommand {
      * @param a argument parser
      * @return output format
      */
-    private static OutputFormat outputFormat(Argv a) {
-        String format = CommandSupport.trimToNull(a.string(OPT_FORMAT));
-        boolean json = a.flag(OPT_JSON);
-        boolean jsonl = a.flag(OPT_JSONL);
+    private static OutputFormat outputFormat(String format, boolean json, boolean jsonl) {
         int selectors = (format == null ? 0 : 1) + (json ? 1 : 0) + (jsonl ? 1 : 0);
         if (selectors > 1) {
             throw new CommandFailure(COMMAND + ": use only one of --format, --json, or --jsonl", 2);
@@ -233,6 +258,24 @@ public final class PositionDescribeCommand {
             throw new CommandFailure(COMMAND
                     + ": provide exactly one of --fen, --input, --stdin, --startpos, --randompos, or positional FEN",
                     2);
+        }
+    }
+
+    /**
+     * Ensures facts-only mode stays a structured data contract.
+     *
+     * @param outputFormat selected output format
+     * @param factsOnly true when prose should be suppressed
+     */
+    private static void validateFactsOnly(OutputFormat outputFormat, boolean factsOnly) {
+        if (!factsOnly) {
+            return;
+        }
+        if (outputFormat == OutputFormat.TEXT) {
+            throw new CommandFailure(COMMAND + ": --facts-only requires --json or --format jsonl", 2);
+        }
+        if (outputFormat == OutputFormat.TRAINING_JSONL) {
+            throw new CommandFailure(COMMAND + ": --facts-only is not valid with training-jsonl", 2);
         }
     }
 
@@ -343,14 +386,41 @@ public final class PositionDescribeCommand {
      * @return JSON object
      */
     private static String rowJson(Row row, Options options) {
+        if (options.factsOnly()) {
+            return factsRowJson(row, options);
+        }
         return "{\"ok\":true"
                 + ",\"index\":" + row.index()
                 + ",\"id\":" + CommandSupport.jsonString(row.id())
                 + ",\"engine\":" + CommandSupport.jsonString(options.engine().label())
                 + ",\"detail\":" + CommandSupport.jsonString(options.detail().label())
+                + ",\"audience\":" + CommandSupport.jsonString(options.audience().label())
                 + ",\"fen\":" + CommandSupport.jsonString(row.input().fen())
                 + ",\"description\":" + CommandSupport.jsonString(row.description())
+                + ",\"grounding\":" + groundingJson(row.verification())
                 + ",\"input\":" + row.input().toJson()
+                + "}";
+    }
+
+    /**
+     * Renders one generated row as structured facts without prose.
+     *
+     * @param row generated row
+     * @param options parsed options
+     * @return JSON object
+     */
+    private static String factsRowJson(Row row, Options options) {
+        return "{\"ok\":true"
+                + ",\"schema\":" + CommandSupport.jsonString(FACTS_SCHEMA)
+                + ",\"index\":" + row.index()
+                + ",\"id\":" + CommandSupport.jsonString(row.id())
+                + ",\"engine\":" + CommandSupport.jsonString(options.engine().label())
+                + ",\"detail\":" + CommandSupport.jsonString(options.detail().label())
+                + ",\"audience\":" + CommandSupport.jsonString(options.audience().label())
+                + ",\"fen\":" + CommandSupport.jsonString(row.input().fen())
+                + ",\"candidate_budget\":" + candidateBudgetJson(options.candidateBudget())
+                + ",\"grounding\":" + groundingJson(row.verification())
+                + ",\"facts\":" + row.input().toJson()
                 + "}";
     }
 
@@ -369,13 +439,46 @@ public final class PositionDescribeCommand {
                 + ",\"id\":" + CommandSupport.jsonString(row.id())
                 + ",\"task\":\"describe_position\""
                 + ",\"detail\":" + CommandSupport.jsonString(options.detail().label())
+                + ",\"audience\":" + CommandSupport.jsonString(options.audience().label())
                 + ",\"fen\":" + CommandSupport.jsonString(row.input().fen())
                 + ",\"prompt\":" + CommandSupport.jsonString(promptBuilder.prompt(row.input(), options.detail()))
                 + ",\"target\":" + CommandSupport.jsonString(row.description())
                 + ",\"classical_text\":" + CommandSupport.jsonString(row.description())
+                + ",\"grounding\":" + groundingJson(row.verification())
                 + ",\"input\":" + row.input().toJson()
                 + ",\"metadata\":" + trainingMetadataJson(options)
                 + "}";
+    }
+
+    /**
+     * Renders the grounding-verifier verdict for machine-readable outputs.
+     *
+     * @param verification verifier result
+     * @return JSON object
+     */
+    private static String groundingJson(Verification verification) {
+        return "{\"grounded\":" + verification.grounded()
+                + ",\"violations\":" + violationsJson(verification.violations())
+                + "}";
+    }
+
+    /**
+     * Renders grounding violations.
+     *
+     * @param violations verifier violations
+     * @return JSON array
+     */
+    private static String violationsJson(List<Violation> violations) {
+        if (violations.isEmpty()) {
+            return "[]";
+        }
+        List<String> entries = new ArrayList<>(violations.size());
+        for (Violation violation : violations) {
+            entries.add("{\"kind\":" + CommandSupport.jsonString(violation.kind())
+                    + ",\"message\":" + CommandSupport.jsonString(violation.message())
+                    + "}");
+        }
+        return "[" + String.join(",", entries) + "]";
     }
 
     /**
@@ -387,6 +490,7 @@ public final class PositionDescribeCommand {
     private static String trainingMetadataJson(Options options) {
         return "{\"source\":\"position describe\""
                 + ",\"source_engine\":" + CommandSupport.jsonString(options.engine().label())
+                + ",\"audience\":" + CommandSupport.jsonString(options.audience().label())
                 + ",\"candidate_budget\":" + candidateBudgetJson(options.candidateBudget())
                 + ",\"max_new_tokens\":" + options.maxNewTokens()
                 + ",\"model_path\":" + CommandSupport.jsonString(options.modelPath().toString())
@@ -427,18 +531,13 @@ public final class PositionDescribeCommand {
     }
 
     /**
-     * Position-description engine selector.
+     * Position-description renderer selector.
      */
     private enum Engine {
         /**
          * Deterministic template-based generator.
          */
-        CLASSICAL("classical"),
-
-        /**
-         * Reserved T5 generator path.
-         */
-        T5("t5");
+        CLASSICAL("classical");
 
         /**
          * Stable CLI label.
@@ -475,9 +574,130 @@ public final class PositionDescribeCommand {
             }
             return switch (value.trim().toLowerCase(Locale.ROOT)) {
                 case "classical", "static" -> CLASSICAL;
-                case "t5" -> T5;
+                case "t5" -> throw new CommandFailure(COMMAND
+                        + ": --engine t5 is not a position-describe runtime. "
+                        + "Use fen text or puzzle text for the T5 tag-to-text runtime; "
+                        + "position describe is classical-only.", 2);
                 default -> throw new CommandFailure(COMMAND
-                        + ": unsupported --engine " + value + " (expected classical or t5)", 2);
+                        + ": unsupported --engine " + value + " (expected classical)", 2);
+            };
+        }
+    }
+
+    /**
+     * Position-description audience presets.
+     */
+    private enum Audience {
+        /**
+         * Compact language for a first-pass explanation.
+         */
+        BEGINNER("beginner", PositionDescriptionDetail.BRIEF, false),
+
+        /**
+         * Default practical club-player prose.
+         */
+        CLUB("club", PositionDescriptionDetail.NORMAL, false),
+
+        /**
+         * More complete prose for stronger users.
+         */
+        ADVANCED("advanced", PositionDescriptionDetail.FULL, false),
+
+        /**
+         * Coaching-style prose using the current full-detail signal set.
+         */
+        COACH("coach", PositionDescriptionDetail.FULL, false),
+
+        /**
+         * Research-oriented structured facts without prose by default.
+         */
+        RESEARCHER("researcher", PositionDescriptionDetail.FULL, true),
+
+        /**
+         * ML/data-oriented structured facts without prose by default.
+         */
+        ML("ml", PositionDescriptionDetail.FULL, true),
+
+        /**
+         * Verbose engine-debug prose.
+         */
+        ENGINE_DEBUG("engine-debug", PositionDescriptionDetail.FULL, false);
+
+        /**
+         * Stable CLI label.
+         */
+        private final String label;
+
+        /**
+         * Default detail level.
+         */
+        private final PositionDescriptionDetail detail;
+
+        /**
+         * Whether the preset defaults to facts-only output.
+         */
+        private final boolean factsOnly;
+
+        /**
+         * Creates an audience preset.
+         *
+         * @param label stable CLI label
+         * @param detail default detail level
+         * @param factsOnly true to default to structured facts
+         */
+        Audience(String label, PositionDescriptionDetail detail, boolean factsOnly) {
+            this.label = label;
+            this.detail = detail;
+            this.factsOnly = factsOnly;
+        }
+
+        /**
+         * Returns the stable CLI label.
+         *
+         * @return label
+         */
+        String label() {
+            return label;
+        }
+
+        /**
+         * Returns the preset detail level.
+         *
+         * @return detail level
+         */
+        PositionDescriptionDetail detail() {
+            return detail;
+        }
+
+        /**
+         * Returns whether this preset defaults to structured facts.
+         *
+         * @return true for facts-only presets
+         */
+        boolean factsOnly() {
+            return factsOnly;
+        }
+
+        /**
+         * Parses a CLI audience label.
+         *
+         * @param value raw label
+         * @return parsed audience
+         */
+        static Audience parse(String value) {
+            if (value == null || value.isBlank()) {
+                return CLUB;
+            }
+            return switch (value.trim().toLowerCase(Locale.ROOT)) {
+                case "beginner", "new" -> BEGINNER;
+                case "club", "default" -> CLUB;
+                case "advanced", "expert" -> ADVANCED;
+                case "coach", "coaching" -> COACH;
+                case "researcher", "research" -> RESEARCHER;
+                case "ml", "machine", "data" -> ML;
+                case "engine-debug", "debug" -> ENGINE_DEBUG;
+                default -> throw new CommandFailure(COMMAND + ": unsupported --audience " + value
+                        + " (expected beginner, club, advanced, coach, researcher, ml, or engine-debug)", 2);
             };
         }
     }
@@ -523,6 +743,8 @@ public final class PositionDescribeCommand {
      * @param maxNewTokens T5 generation budget
      * @param evalEngine true to evaluate with a real engine search
      * @param evalDepth engine-evaluation search depth in plies
+     * @param factsOnly true to suppress prose in JSON/JSONL outputs
+     * @param audience selected audience preset
      */
     private record Options(
             boolean verbose,
@@ -537,7 +759,9 @@ public final class PositionDescribeCommand {
             Path modelPath,
             int maxNewTokens,
             boolean evalEngine,
-            int evalDepth) {
+            int evalDepth,
+            boolean factsOnly,
+            Audience audience) {
     }
 
     /**
@@ -547,11 +771,13 @@ public final class PositionDescribeCommand {
      * @param id stable generated row identifier
      * @param input extracted structured signals
      * @param description generated description text
+     * @param verification grounding verifier result
      */
     private record Row(
             int index,
             String id,
             PositionDescriptionInput input,
-            String description) {
+            String description,
+            Verification verification) {
     }
 }

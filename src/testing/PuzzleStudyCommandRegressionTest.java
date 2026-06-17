@@ -3,7 +3,6 @@ package testing;
 import application.cli.PathOps;
 import static testing.TestSupport.*;
 
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -51,7 +50,7 @@ public final class PuzzleStudyCommandRegressionTest {
 	 */
 	private static void testBuildsManifestPdfAndCover() throws Exception {
 		Path input = PathOps.createLocalTempFile(PREFIX, ".json");
-		Files.writeString(input, sampleJson(), StandardCharsets.UTF_8);
+		writeUtf8(input, sampleJson());
 
 		Path manifest = PathOps.createLocalTempFile(PREFIX, ".toml");
 		Path interiorPdf = PathOps.createLocalTempFile(PREFIX, ".pdf");
@@ -68,7 +67,7 @@ public final class PuzzleStudyCommandRegressionTest {
 				"--blurb", "A curated annotated puzzle collection.",
 				"--link", "example.com/art");
 
-		String manifestText = Files.readString(manifest, StandardCharsets.UTF_8);
+		String manifestText = readUtf8(manifest);
 		assertTrue(console.contains("wrote normalized manifest with 2 compositions"), "manifest console");
 		assertTrue(console.contains("wrote interior PDF"), "interior console");
 		assertTrue(console.contains("wrote paperback cover"), "cover console");
@@ -85,16 +84,12 @@ public final class PuzzleStudyCommandRegressionTest {
 		assertEquals("Look at the back rank.", book.getCompositions()[0].getHintLevel1(), "hint import");
 		assertEquals(2, book.getCompositions()[0].getFigureFens().size(), "diagram import");
 
-		byte[] interiorBytes = Files.readAllBytes(interiorPdf);
-		String interiorText = new String(interiorBytes, StandardCharsets.ISO_8859_1);
-		assertTrue(interiorBytes.length > 10_000, "interior pdf size");
+		String interiorText = readLatin1WithMinSize(interiorPdf, 10_000, "interior pdf size");
 		assertTrue(interiorText.contains("/Producer (chess-rtk puzzle study pdf)"), "interior producer");
 		assertTrue(interiorText.contains("/Author (Codex)"), "interior author");
 		assertTrue(interiorText.contains("/Title (Chess Puzzle Studies: Regression Sample)"), "interior title");
 
-		byte[] coverBytes = Files.readAllBytes(coverPdf);
-		String coverText = new String(coverBytes, StandardCharsets.ISO_8859_1);
-		assertTrue(coverBytes.length > 6_000, "cover pdf size");
+		String coverText = readLatin1WithMinSize(coverPdf, 6_000, "cover pdf size");
 		assertTrue(coverText.contains("/Producer (chess-rtk native book cover pdf)"), "cover producer");
 	}
 
@@ -105,7 +100,7 @@ public final class PuzzleStudyCommandRegressionTest {
 	 */
 	private static void testCheckModeSkipsWrites() throws Exception {
 		Path input = PathOps.createLocalTempFile(PREFIX + "check-", ".json");
-		Files.writeString(input, sampleJson(), StandardCharsets.UTF_8);
+		writeUtf8(input, sampleJson());
 
 		Path manifest = PathOps.createLocalTempDirectory(PREFIX + "check-").resolve("art.book.toml");
 		Path interiorPdf = PathOps.createLocalTempDirectory(PREFIX + "check-pdf-").resolve("art.pdf");

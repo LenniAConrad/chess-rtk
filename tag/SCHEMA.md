@@ -9,6 +9,7 @@ This is a technical reference for developers extending the tagger and for datase
 | Command | Output | Notes |
 | --- | --- | --- |
 | `fen tags` | tags for one or more FENs / a PGN | `--analyze` enriches with engine candidate moves and PV; `--delta` emits per-move JSONL diffs; `--sequence` treats input as an ordered line |
+| `fen tags --pgn FILE --analyze-game` | whole-game analysis JSON | engine-free replay of the parsed game, including per-ply `MOVE_EFFECT`, line-level `LINE`, sideline `VARIATION`, and summary `GAME` tags |
 | `puzzle tags` | per-move tags for a puzzle's PVs (JSONL) | expands `--multipv` lines to `--pv-plies` plies and tags every node |
 | `fen text` | T5 natural-language summary of `fen tags` | grounded in the tag set, never in invented prose |
 | `puzzle text` | T5 summary over a puzzle's PVs | same grounding contract as `fen text` |
@@ -33,7 +34,7 @@ Every tag obeys six rules. They are the reason tags can be trusted as ground tru
 
 `chess.tag.Sort` ranks families in this fixed order, and lexicographic order breaks ties within a family:
 
-`FACT` → `META` → `MOVE` → `THREAT` → `CAND` → `PV` → `IDEA` → `TACTIC` → `CHECKMATE` → `PIECE` → `KING` → `PAWN` → `MATERIAL` → `SPACE` → `INITIATIVE` → `DEVELOPMENT` → `MOBILITY` → `OUTPOST` → `ENDGAME` → `OPENING`
+`FACT` → `META` → `MOVE` → `THREAT` → `CAND` → `PV` → `IDEA` → `TACTIC` → `CHECKMATE` → `PIECE` → `KING` → `PAWN` → `MATERIAL` → `SPACE` → `INITIATIVE` → `DEVELOPMENT` → `MOBILITY` → `OUTPOST` → `ENDGAME` → `OPENING` → `MOVE_EFFECT` → `LINE` → `VARIATION` → `GAME`
 
 The authoritative order lives in `chess.tag.Sort`; the family, key, and value string literals live in `chess.tag.core.Literals`. Register every new identifier there.
 
@@ -240,6 +241,35 @@ Each named detector ships a golden fixture and is cross-collision-probed against
 
 - `ENDGAME: type=rook|minor|queenless|opposite_bishops|...`
 - `OPENING: eco=<code>`, `OPENING: name="<name>"` (inherited from the parent ECO line when the child has no exact book match)
+
+### Dynamic game-analysis families
+
+These families are emitted by the whole-game analysis path, not by a single
+static `Generator.tags(position)` call. Use:
+
+```bash
+crtk fen tags --pgn game.pgn --analyze-game
+```
+
+The command parses each game, replays the legal mainline and sidelines through
+the same chess core, and emits one JSON object per game. The fields below are
+still deterministic tag strings; the JSON wrapper only groups them by ply,
+line, variation, and game summary.
+
+- `MOVE_EFFECT: san=<SAN> type=checkmate|check|capture|quiet` is emitted for
+  each replayed mainline ply. Additional `creates="..."` and `removes="..."`
+  forms cite tactical, threat, or checkmate motifs that appeared or disappeared
+  between the parent and child positions.
+- `LINE: motif=<id> ... line="<SAN ...>"` describes multi-move motifs grounded
+  by replaying a legal line. Current motifs include `forcing`, `combination`,
+  `sacrifice`, `perpetual_check`, and `deflection`.
+- `VARIATION: branch_ply=<n> length=<n> line="<SAN ...>"` identifies a replayed
+  PGN sideline. `VARIATION: tactic_shared=<motif> branch_ply=<n> count=<n>
+  detail="<payload>"` reports motifs shared by sibling sidelines from the same
+  branch position.
+- `GAME: phase_transition=<from>-><to> ply=<n> move=<SAN>`, `GAME: eco=<code>`,
+  `GAME: opening="<name>"`, and `GAME: result_cause=<cause>` summarize facts
+  grounded in the replayed game and the static tags of its positions.
 
 ## Per-move deltas (`--delta`)
 

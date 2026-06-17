@@ -697,19 +697,27 @@ public final class BuiltInEngineRegressionTest {
 
 	/**
 	 * Verifies threaded and batched MCTS modes return legal bounded results.
+	 *
+	 * <p>The depth limit must stay above the engine's branching at the start
+	 * position so the node budget is the binding constraint; otherwise search
+	 * exhausts depth first and reports far fewer nodes than requested. The HCE
+	 * Texel tuning on this branch made depth=2 finish in 6&ndash;9 threaded /
+	 * 8 batched nodes, well below the budgets and no longer exercising the
+	 * budget-bound behaviour the test intends. Depth=4 reliably binds both the
+	 * 64- and 16-node budgets at the start position.</p>
 	 */
 	private static void testParallelAndBatchedSearch() {
 		Position start = new Position(START_FEN);
 		try (Mcts searcher = new Mcts()) {
 			searcher.setThreads(2);
-			Result result = searcher.search(start, new Limits(2, 64L, 0L));
+			Result result = searcher.search(start, new Limits(4, 64L, 0L));
 			assertTrue(result.hasBestMove(), "threaded MCTS best move");
 			assertTrue(start.isLegalMove(result.bestMove()), "threaded MCTS legal best move");
 			assertTrue(result.nodes() >= 64L, "threaded MCTS visits node budget");
 		}
 		try (Mcts searcher = new Mcts()) {
 			searcher.setBatchSize(4);
-			Result result = searcher.search(start, new Limits(2, 16L, 0L));
+			Result result = searcher.search(start, new Limits(4, 16L, 0L));
 			assertTrue(result.hasBestMove(), "batched MCTS best move");
 			assertEquals(16L, result.nodes(), "batched MCTS exact node budget");
 		}

@@ -10,6 +10,8 @@ import chess.eval.Classical;
 import chess.tag.MoveEffect;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -68,6 +70,11 @@ public final class GameReviewPanel extends JPanel {
     private final transient Consumer<String> copyText;
 
     /**
+     * Produces CLI-backed review artifacts for the current game.
+     */
+    private final transient ReviewArtifactProducer artifactProducer;
+
+    /**
      * Review table model.
      */
     private final ReviewTableModel tableModel = new ReviewTableModel();
@@ -93,6 +100,11 @@ public final class GameReviewPanel extends JPanel {
     private SwingWorker<List<ReviewFinding>, Void> worker;
 
     /**
+     * Active artifact-production task.
+     */
+    private ReviewArtifactProducer.RunningTask artifactTask = ReviewArtifactProducer.RunningTask.NONE;
+
+    /**
      * Creates a post-game review panel.
      *
      * @param gameSupplier current game supplier
@@ -100,10 +112,24 @@ public final class GameReviewPanel extends JPanel {
      * @param copyText clipboard callback
      */
     public GameReviewPanel(Supplier<GameModel> gameSupplier, IntConsumer jumpToPly, Consumer<String> copyText) {
+        this(gameSupplier, jumpToPly, copyText, ReviewArtifactProducer.unavailable());
+    }
+
+    /**
+     * Creates a post-game review panel.
+     *
+     * @param gameSupplier current game supplier
+     * @param jumpToPly mainline navigation callback
+     * @param copyText clipboard callback
+     * @param artifactProducer review artifact producer
+     */
+    public GameReviewPanel(Supplier<GameModel> gameSupplier, IntConsumer jumpToPly, Consumer<String> copyText,
+            ReviewArtifactProducer artifactProducer) {
         super(new BorderLayout(Theme.SPACE_SM, Theme.SPACE_SM));
         this.gameSupplier = Objects.requireNonNull(gameSupplier, "gameSupplier");
         this.jumpToPly = Objects.requireNonNull(jumpToPly, "jumpToPly");
         this.copyText = Objects.requireNonNull(copyText, "copyText");
+        this.artifactProducer = Objects.requireNonNull(artifactProducer, "artifactProducer");
         configurePanel();
     }
 
@@ -155,11 +181,81 @@ public final class GameReviewPanel extends JPanel {
     }
 
     /**
+     * Loads produced review artifacts into the panel without recomputing verdicts.
+     *
+     * @param reviewJsonl review JSONL path
+     * @param studyJsonl optional study-unit JSONL path, or {@code null}
+     * @throws IOException if an artifact cannot be read
+     */
+    public void loadReviewArtifacts(Path reviewJsonl, Path studyJsonl) throws IOException {
+        if (worker != null && !worker.isDone()) {
+            worker.cancel(true);
+        }
+        if (artifactTask != null && artifactTask.isRunning()) {
+            artifactTask.cancel();
+        }
+        List<ReviewFinding> findings = loadReviewArtifactRows(reviewJsonl, studyJsonl);
+        tableModel.setRows(findings);
+        statusLabel.setText(statusText(findings));
+        if (!findings.isEmpty()) {
+            table.setRowSelectionInterval(0, 0);
+        }
+        updateDetails();
+    }
+
+    /**
+     * Loads produced review artifacts into table-ready rows.
+     *
+     * @param reviewJsonl review JSONL path
+     * @param studyJsonl optional study-unit JSONL path, or {@code null}
+     * @return review findings
+     * @throws IOException if an artifact cannot be read
+     */
+    public static List<ReviewFinding> loadReviewArtifactRows(Path reviewJsonl, Path studyJsonl)
+            throws IOException {
+        return ReviewArtifactLoader.load(reviewJsonl, studyJsonl);
+    }
+
+    /**
+     * Runs the CLI review-to-study path and loads the produced artifacts.
+     *
+     * @return true when artifact production was started
+     */
+    public boolean buildStudyArtifactsFromGame() {
+        if (artifactTask != null && artifactTask.isRunning()) {
+            statusLabel.setText("Review command already running");
+            return false;
+        }
+        GameModel model = gameSupplier.get();
+        if (model == null || model.lastPly() <= 0) {
+            statusLabel.setText("No moves to review");
+            return false;
+        }
+        if (worker != null && !worker.isDone()) {
+            worker.cancel(true);
+        }
+        tableModel.setRows(List.of());
+        detailArea.setText("");
+        statusLabel.setText("Running review command");
+        try {
+            artifactTask = artifactProducer.produce(model.pgn(), this::appendArtifactOutput,
+                    this::applyArtifactResult, this::showArtifactError);
+            return true;
+        } catch (IOException | IllegalArgumentException ex) {
+            showArtifactError(ex);
+            return false;
+        }
+    }
+
+    /**
      * Runs review generation for the current game.
      */
     public void runReview() {
         if (worker != null && !worker.isDone()) {
             worker.cancel(true);
+        }
+        if (artifactTask != null && artifactTask.isRunning()) {
+            artifactTask.cancel();
         }
         statusLabel.setText("Reviewing");
         detailArea.setText("");
@@ -306,14 +402,56 @@ public final class GameReviewPanel extends JPanel {
      * @return toolbar component
      */
     private JComponent createToolbar() {
-        JPanel toolbar = Ui.transparentPanel(new FlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
+        JPanel toolbar = Ui.transparentPanel(new FlowLayout(FlowLayout.RIGHT, Theme.SPACE_SM, 0));
         JButton review = Ui.button("Review Game", true, event -> runReview());
         toolbar.add(review);
+        toolbar.add(Ui.button("Build Study", false, event -> buildStudyArtifactsFromGame()));
         toolbar.add(Ui.button("Retry", false, event -> retrySelected()));
         toolbar.add(Ui.button("Show Move", false, event -> showSelectedMove()));
         toolbar.add(Ui.button("Copy", false, event -> copySelectedReview()));
         toolbar.add(statusLabel);
         return toolbar;
+    }
+
+    /**
+     * Appends live CLI artifact-production output to the detail pane.
+     *
+     * @param chunk output chunk
+     */
+    private void appendArtifactOutput(String chunk) {
+        if (chunk == null || chunk.isEmpty()) {
+            return;
+        }
+        detailArea.append(chunk);
+    }
+
+    /**
+     * Applies the completed review artifact command.
+     *
+     * @param result command result
+     */
+    private void applyArtifactResult(ReviewArtifactProducer.Result result) {
+        if (result.exitCode() != 0) {
+            statusLabel.setText("Review command failed: exit " + result.exitCode());
+            detailArea.setText(result.output());
+            return;
+        }
+        try {
+            loadReviewArtifacts(result.reviewJsonl(), result.studyJsonl());
+            statusLabel.setText(rowCount() + " CLI review rows loaded");
+        } catch (IOException | IllegalArgumentException ex) {
+            showArtifactError(ex);
+        }
+    }
+
+    /**
+     * Shows artifact production errors.
+     *
+     * @param error failure cause
+     */
+    private void showArtifactError(Exception error) {
+        statusLabel.setText("Review command failed");
+        detailArea.setText(error == null ? "" : Objects.toString(error.getMessage(), error.getClass().getName()));
     }
 
     /**

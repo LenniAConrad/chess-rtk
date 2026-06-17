@@ -551,20 +551,6 @@ public final class CoreMoveGenerationRegressionTest {
     }
 
     /**
-     * Verifies that a callback throws an illegal-argument exception.
-     * @param runnable runnable value
-     * @param label label text
-     */
-    private static void assertThrows(Runnable runnable, String label) {
-        try {
-            runnable.run();
-        } catch (IllegalArgumentException expected) {
-            return;
-        }
-        throw new AssertionError(label + ": expected IllegalArgumentException");
-    }
-
-    /**
      * Converts square arrays to stable sets for order-insensitive comparisons.
      * @param squares squares value
      * @return square set result

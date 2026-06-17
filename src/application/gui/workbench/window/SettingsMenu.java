@@ -333,7 +333,7 @@ public final class SettingsMenu {
                 item("Batch", "Ctrl+4", controller::openBatch),
                 item("Datasets", "Ctrl+5", controller::openDatasets),
                 item("Publish", "Ctrl+6", controller::openPublish),
-                item("Evaluator", "Ctrl+7", controller::openNetwork),
+                item("Network", "Ctrl+7", controller::openNetwork),
                 item("MCTS", "Ctrl+8", controller::openMcts),
                 item("Puzzles", "Ctrl+9", controller::openPuzzles),
                 separator(),

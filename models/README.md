@@ -29,6 +29,12 @@ A clean checkout therefore has an empty `models/` directory (apart from this REA
 | `puzzle-classifier_21planes-6blocksx64-head32-logit1.bin` | Classifier | Compact puzzle/position classifier head (21 planes, 6 blocks x 64 channels, single logit). Used as smoke-test weights for classifier dataset work. |
 | `t5.bin` | T5 | Text model for natural-language summaries (`fen text`, `puzzle text`). Default `t5-model-path` in the shipped config. |
 
+OTIS note: the default `otis_policy_wdl_random.bin` is a randomized placeholder,
+not a production-trained network. The 2026-06-02 pawn-channel orientation fix
+therefore does not require any repository-shipped OTIS weight re-export. Any
+private OTIS weights trained before that fix should be retrained and re-exported
+before use.
+
 ## Naming convention
 
 Compact ChessRTK `.bin` networks encode their architecture in the filename so a file is self-describing:
@@ -52,6 +58,15 @@ The installer downloads the default NNUE, both LC0 CNN networks, and the officia
 ```
 
 Pass `--no-models` to skip the download. If you decline, neural backends report a clear "weights missing" error until you add the files (classical evaluation keeps working).
+
+The installer verifies these pinned SHA-256 digests before accepting a fetched file:
+
+| Local file | SHA-256 |
+| --- | --- |
+| `crtk-halfkp.nnue` | `fcf986aea78a22de420ec0f0d1f4cf5b2b8497896aa678ff1e1bee5922fab113` |
+| `leela_112planes-30blocksx384-policyhead80-valuehead32-policy4672-wdl3.bin` | `c4dd6b62acd3c86be3d6199a32d6119d9144f508f84c823f69881ae0bae41034` |
+| `leela_112planes-10blocksx128-policyhead80-valuehead32-policy4672-wdl3.bin` | `b99bec1aba97e96bf03ac8e016578527b983b6653f1adf040452f86c6f3ef348` |
+| `BT4-1024x15x32h-swa-6147500-policytune-332.pb.gz` | `e6ada9d6c4a769bfab3aa0848d82caeb809aa45f83e6c605fc58a31d21bdd618` |
 
 ### Option 2 — download manually
 

@@ -51,6 +51,16 @@ public final class Constants {
 	public static final String CMD_PUZZLE = "puzzle";
 
 	/**
+	 * {@code review} grouped subcommand token.
+	 */
+	public static final String CMD_REVIEW = "review";
+
+	/**
+	 * {@code serve} localhost daemon command token.
+	 */
+	public static final String CMD_SERVE = "serve";
+
+	/**
 	 * {@code uci-smoke} subcommand token.
 	 */
 	public static final String CMD_UCI_SMOKE = "uci-smoke";
@@ -386,6 +396,11 @@ public final class Constants {
 	public static final String OPT_VERBOSE = "--verbose";
 
 	/**
+	 * {@code --row-hashes} option flag.
+	 */
+	public static final String OPT_ROW_HASHES = "--row-hashes";
+
+	/**
 	 * Short {@code --verbose} flag alias.
 	 */
 	public static final String OPT_VERBOSE_SHORT = "-v";
@@ -399,6 +414,26 @@ public final class Constants {
 	 * {@code --no-analyze} option flag.
 	 */
 	public static final String OPT_NO_ANALYZE = "--no-analyze";
+
+	/**
+	 * {@code --offline} option flag.
+	 */
+	public static final String OPT_OFFLINE = "--offline";
+
+	/**
+	 * {@code --to-study} option flag.
+	 */
+	public static final String OPT_TO_STUDY = "--to-study";
+
+	/**
+	 * {@code --study-output} option flag.
+	 */
+	public static final String OPT_STUDY_OUTPUT = "--study-output";
+
+	/**
+	 * {@code --record-output} option flag.
+	 */
+	public static final String OPT_RECORD_OUTPUT = "--record-output";
 
 	/**
 	 * {@code --sequence} option flag.
