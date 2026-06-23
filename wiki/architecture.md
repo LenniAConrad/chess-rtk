@@ -67,7 +67,7 @@ Above the core sit the products a research pipeline actually ships:
 
 - `chess.io` — record readers/writers and exporters: `RecordPgnExporter`, `RecordDatasetExporter`, `RecordLc0Exporter`, `ClassifierDatasetExporter`, `PuzzleEloExporter`. These back `record export *`, `record dataset *`, and `record files`/`stats`.
 - `chess.puzzle` — puzzle scoring and difficulty signals (`Scorer`, `Difficulty`, `Goal`) used by `puzzle mine`.
-- `chess.tag` — deterministic position/tactic/theme tagging (`Generator`, `Detector`, `Emitter`, `Checkmate`, plus `core`, `material`, `move`, `pawn`, `piece`, `position` detectors) behind `fen tags` and `puzzle tags`.
+- `chess.tag` — deterministic position/tactic/theme tagging (`Generator`, `Emitter`, `Checkmate`, plus `core`, `material`, `move`, `pawn`, `piece`, `position` detectors) behind `fen tags` and `puzzle tags`.
 - `chess.describe` — deterministic classical position descriptions behind `position describe`.
 - `chess.eco` — ECO opening lookup.
 
