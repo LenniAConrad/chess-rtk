@@ -45,15 +45,14 @@ final class SplitGroupButton extends JToggleButton {
         setBorderPainted(false);
         setOpaque(false);
         setFocusable(true);
-        setActionCommand("workbench.editor.split.right");
-        setName("workbench.editor.split.right");
+        setActionCommand(EditorLayoutCommands.SPLIT_RIGHT);
+        setName(EditorLayoutCommands.SPLIT_RIGHT);
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         setPreferredSize(new Dimension(SIZE, SIZE));
         setMinimumSize(new Dimension(SIZE, SIZE));
         setMaximumSize(new Dimension(SIZE, SIZE));
-        getAccessibleContext().setAccessibleName("Split active tab right");
-        getAccessibleContext().setAccessibleDescription(
-                "Creates an editor group to the right using the active tab.");
+        getAccessibleContext().setAccessibleName(EditorLayoutCommands.SPLIT_RIGHT_ACCESSIBLE_NAME);
+        getAccessibleContext().setAccessibleDescription(EditorLayoutCommands.SPLIT_RIGHT_ACCESSIBLE_DESCRIPTION);
         addPropertyChangeListener("enabled", event -> {
             setCursor(isEnabled()
                     ? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)

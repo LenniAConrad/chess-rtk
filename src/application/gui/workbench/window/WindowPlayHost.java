@@ -152,4 +152,12 @@ public final class WindowPlayHost extends WindowHost implements PlayHost {
     public void clearPremove() {
         window.board.clearPremove();
     }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void saveGameState(String status) {
+        window.persistCurrentGame(status);
+    }
 }

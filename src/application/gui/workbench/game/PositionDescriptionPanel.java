@@ -3,6 +3,7 @@ package application.gui.workbench.game;
 import application.cli.PathOps;
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.ui.Theme;
+import application.gui.workbench.ui.Toast;
 import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.Ui;
 import application.gui.workbench.ui.WrappingFlowLayout;
@@ -278,6 +279,7 @@ public final class PositionDescriptionPanel extends JPanel {
         }
         Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(text), null);
         statusLabel.setText("Copied");
+        Toast.show(this, Toast.Kind.SUCCESS, "Copied to clipboard");
     }
 
     /**

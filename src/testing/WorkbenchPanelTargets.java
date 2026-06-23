@@ -102,12 +102,12 @@ final class WorkbenchPanelTargets {
     /**
      * Engine tree mode index.
      */
-    private static final int ENGINE_TREE = 2;
+    private static final int ENGINE_TREE = ENGINE_SEARCH;
 
     /**
      * Engine gauntlet mode index.
      */
-    private static final int ENGINE_GAUNTLET = 3;
+    private static final int ENGINE_GAUNTLET = 2;
 
     /**
      * Prevents instantiation.
@@ -147,7 +147,7 @@ final class WorkbenchPanelTargets {
                     "engine-evaluator", "engine-network" -> openEngine(frame, ENGINE_NETWORK);
             case "search", "mcts", "engine:search", "engine:mcts", "engine-search", "engine-mcts" ->
                     openEngine(frame, ENGINE_SEARCH);
-            case "tree", "engine:tree", "engine-tree" -> openEngine(frame, ENGINE_TREE);
+            case "tree", "engine:tree", "engine-tree" -> openEngineGraph(frame);
             case "gauntlet", "selfplay", "self-play", "engine:gauntlet", "engine-gauntlet" ->
                     openEngine(frame, ENGINE_GAUNTLET);
             case "console" -> selectTab(frame, TAB_CONSOLE);
@@ -206,6 +206,15 @@ final class WorkbenchPanelTargets {
     }
 
     /**
+     * Opens the Engine Search workspace on its graph subview.
+     *
+     * @param frame Workbench frame
+     */
+    private static void openEngineGraph(Window frame) {
+        invoke(frame, "openEngineGraph");
+    }
+
+    /**
      * Invokes a protected single-int Workbench method.
      *
      * @param frame Workbench frame
@@ -213,10 +222,32 @@ final class WorkbenchPanelTargets {
      * @param value integer argument
      */
     private static void invoke(Window frame, String name, int value) {
+        invoke(frame, name, new Class<?>[] { int.class }, Integer.valueOf(value));
+    }
+
+    /**
+     * Invokes a protected no-argument Workbench method.
+     *
+     * @param frame Workbench frame
+     * @param name method name
+     */
+    private static void invoke(Window frame, String name) {
+        invoke(frame, name, new Class<?>[0]);
+    }
+
+    /**
+     * Invokes a protected Workbench method.
+     *
+     * @param frame Workbench frame
+     * @param name method name
+     * @param parameterTypes method parameter types
+     * @param args invocation arguments
+     */
+    private static void invoke(Window frame, String name, Class<?>[] parameterTypes, Object... args) {
         try {
-            Method method = findMethod(frame.getClass(), name);
+            Method method = findMethod(frame.getClass(), name, parameterTypes);
             method.setAccessible(true);
-            method.invoke(frame, Integer.valueOf(value));
+            method.invoke(frame, args);
         } catch (IllegalAccessException ex) {
             throw new IllegalStateException("Could not access Workbench target method: " + name, ex);
         } catch (InvocationTargetException ex) {
@@ -230,13 +261,14 @@ final class WorkbenchPanelTargets {
      *
      * @param type starting class
      * @param name method name
+     * @param parameterTypes method parameter types
      * @return matching method
      */
-    private static Method findMethod(Class<?> type, String name) {
+    private static Method findMethod(Class<?> type, String name, Class<?>[] parameterTypes) {
         Class<?> cursor = type;
         while (cursor != null) {
             try {
-                return cursor.getDeclaredMethod(name, int.class);
+                return cursor.getDeclaredMethod(name, parameterTypes);
             } catch (NoSuchMethodException ex) {
                 cursor = cursor.getSuperclass();
             }

@@ -760,8 +760,9 @@ public final class MctsSession implements AutoCloseable {
             recordTreeFrame(frame.tree());
             lastRecordedTree = frame.tree();
         }
+        MctsSearch.TreeSnapshot tree = treeWithCurrentSelection(frame.tree());
         updateSnapshot(new Snapshot(frame.state(), frame.status(), frame.error(),
-                frame.rootFen(), frame.backend(), frame.root(), frame.tree()));
+                frame.rootFen(), frame.backend(), frame.root(), tree));
     }
 
     /**
@@ -819,16 +820,35 @@ public final class MctsSession implements AutoCloseable {
      * Refreshes the tree snapshot around the currently selected node id.
      */
     private void refreshSelectedNode() {
-        MctsSearch.TreeSnapshot tree = snapshot.tree();
+        MctsSearch.TreeSnapshot tree = treeWithCurrentSelection(snapshot.tree());
         if (tree == null) {
             notifyListeners();
             return;
+        }
+        updateSnapshot(new Snapshot(snapshot.state(), snapshot.status(), snapshot.error(),
+                snapshot.rootFen(), snapshot.backend(), snapshot.root(), tree));
+    }
+
+    /**
+     * Returns a tree snapshot whose selected node reflects the current shared
+     * selection id. This keeps queued worker frames from reverting table/graph
+     * synchronization to an older selected node.
+     *
+     * @param tree tree snapshot to retarget, or null
+     * @return retargeted snapshot, or null
+     */
+    private MctsSearch.TreeSnapshot treeWithCurrentSelection(MctsSearch.TreeSnapshot tree) {
+        if (tree == null) {
+            return null;
         }
         MctsSearch.NodeInfo selected = tree.nodes().stream()
                 .filter(node -> node.id().equals(selectedNodeId))
                 .findFirst()
                 .orElse(tree.selectedNode());
-        MctsSearch.TreeSnapshot updated = new MctsSearch.TreeSnapshot(
+        if (selected == tree.selectedNode()) {
+            return tree;
+        }
+        return new MctsSearch.TreeSnapshot(
                 tree.rootFen(),
                 tree.playouts(),
                 tree.elapsedMillis(),
@@ -841,8 +861,6 @@ public final class MctsSession implements AutoCloseable {
                 tree.nodes(),
                 selected,
                 tree.omittedNodes());
-        updateSnapshot(new Snapshot(snapshot.state(), snapshot.status(), snapshot.error(),
-                snapshot.rootFen(), snapshot.backend(), snapshot.root(), updated));
     }
 
     /**

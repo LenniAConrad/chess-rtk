@@ -3,6 +3,7 @@ package application.gui.workbench.ui;
 import java.awt.AlphaComposite;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -11,6 +12,7 @@ import java.awt.Graphics;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.RenderingHints;
+import java.awt.Window;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.ComponentListener;
@@ -115,6 +117,24 @@ public final class Toast {
         }
         recordHistory(kind, message);
         SwingUtilities.invokeLater(() -> showOnEdt(frame, kind, message));
+    }
+
+    /**
+     * Shows a toast notification on the frame that owns one component.
+     *
+     * @param owner component inside the target frame
+     * @param kind severity
+     * @param message message
+     */
+    public static void show(Component owner, Kind kind, String message) {
+        if (owner instanceof JFrame frame) {
+            show(frame, kind, message);
+            return;
+        }
+        Window window = owner == null ? null : SwingUtilities.getWindowAncestor(owner);
+        if (window instanceof JFrame frame) {
+            show(frame, kind, message);
+        }
     }
 
     /**

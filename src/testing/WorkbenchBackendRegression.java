@@ -53,14 +53,17 @@ import application.gui.workbench.game.Positions;
 import application.gui.workbench.mcts.MctsPanel;
 import application.gui.workbench.mcts.MctsSearch;
 import application.gui.workbench.mcts.MctsSession;
+import application.gui.workbench.mcts.MctsWorkspacePanel;
 import application.gui.workbench.mcts.TreeGraphView;
 import application.gui.workbench.mcts.TreeLayout;
+import application.gui.workbench.mcts.TreePanel;
 import application.gui.workbench.session.ArtifactIndex;
 import application.gui.workbench.session.LogPanel;
 import application.gui.workbench.network.NnueDrawing;
 import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.HitRegions;
 import application.gui.workbench.ui.RenderAcceleration;
+import application.gui.workbench.ui.SegmentedSwitcher;
 import application.gui.workbench.ui.Theme;
 
 import chess.core.Move;
@@ -139,12 +142,19 @@ final class WorkbenchBackendRegression {
         testMctsTreeSnapshotCapsAndSelection();
         testMctsSessionLifecyclePublishesSnapshots();
         testMctsPanelInspectorUsesSolidSurface();
+        testMctsWorkspaceDefaultsToTableAndBuildsGraphLazily();
+        testTreePanelFollowsSessionSelection();
+        testTreePanelGraphStyleSwitcherControlsDisplayMode();
+        testTreeLayoutCarriesOmittedNodeCount();
         testTreeGraphLayerGuidesIncludeVerticalDividers();
         testTreeGraphLayerGuidesKeepShortBranchesAtDeeperLevel();
         testTreePanelUsesFixedSvgBoardSize();
         testTreeGraphBoardThumbnailsHaveNoBoardBorder();
         testTreeGraphMoveHighlightsArePixelAlignedFilledRectangles();
         testTreeGraphBoardCacheSeparatesLastMoveHighlights();
+        testTreeGraphMovesDisplayModeUsesMoveCards();
+        testTreeGraphShowsOmittedNodeBadge();
+        testTreeSvgExportShowsOmittedNodeBadge();
         testTreeGraphSelectionRingWrapsFullCard();
         testTreeGraphSelectionRingStaysOutsideCaptionAtHighZoom();
         testTreeGraphSelectedPathDrawsGreenEdges();
@@ -270,6 +280,10 @@ final class WorkbenchBackendRegression {
         String helper = readUtf8(Path.of("src/application/gui/workbench/session/DesktopOpen.java"));
         assertTrue(source.contains("DesktopOpen.open(path)"),
                 "LogPanel delegates desktop opening to the shared helper");
+        assertFalse(source.contains("\"===== "),
+                "LogPanel avoids ASCII fence headers between log files");
+        assertTrue(source.contains("appendSectionHeader(line)"),
+                "LogPanel renders synthetic file headers through the styled console path");
         assertTrue(helper.contains("desktop.isSupported(Desktop.Action.OPEN)"),
                 "DesktopOpen checks desktop OPEN action support");
         Theme.Mode previous = Theme.mode();
@@ -2596,6 +2610,157 @@ final class WorkbenchBackendRegression {
     }
 
     /**
+     * Verifies the combined Engine / Search surface keeps the root-move table as
+     * the default view and materializes the graph only when requested.
+     */
+    private static void testMctsWorkspaceDefaultsToTableAndBuildsGraphLazily() {
+        int[] tableBuilds = { 0 };
+        int[] graphBuilds = { 0 };
+        MctsWorkspacePanel workspace = new MctsWorkspacePanel(
+                () -> {
+                    tableBuilds[0]++;
+                    return new JPanel();
+                },
+                () -> {
+                    graphBuilds[0]++;
+                    return new JPanel();
+                });
+
+        assertEquals(Integer.valueOf(MctsWorkspacePanel.VIEW_TABLE),
+                Integer.valueOf(workspace.viewMode()),
+                "Engine Search workspace opens on the table view");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(tableBuilds[0]),
+                "Engine Search workspace builds the table immediately");
+        assertEquals(Integer.valueOf(0), Integer.valueOf(graphBuilds[0]),
+                "Engine Search workspace keeps the graph lazy");
+        assertTrue(!workspace.graphBuilt(),
+                "Engine Search workspace reports graph as unbuilt initially");
+
+        workspace.setViewMode(MctsWorkspacePanel.VIEW_GRAPH);
+        assertEquals(Integer.valueOf(MctsWorkspacePanel.VIEW_GRAPH),
+                Integer.valueOf(workspace.viewMode()),
+                "Engine Search workspace switches to graph");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(graphBuilds[0]),
+                "Engine Search workspace builds the graph once");
+        assertTrue(workspace.graphBuilt(),
+                "Engine Search workspace reports graph as built after selection");
+
+        workspace.setViewMode(MctsWorkspacePanel.VIEW_TABLE);
+        workspace.setViewMode(MctsWorkspacePanel.VIEW_GRAPH);
+        assertEquals(Integer.valueOf(1), Integer.valueOf(tableBuilds[0]),
+                "Engine Search workspace reuses the table body");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(graphBuilds[0]),
+                "Engine Search workspace reuses the graph body");
+    }
+
+    /**
+     * Verifies the graph/inspector side follows node selections published through
+     * the shared MCTS session, including selections made by the root-move table.
+     */
+    private static void testTreePanelFollowsSessionSelection() {
+        MctsSession session = new MctsSession();
+        TreePanel panel = new TreePanel(session, () -> START_FEN, false);
+        try {
+            TreeGraphView view = (TreeGraphView) field(panel, "view");
+            int viewWidth = 520;
+            int viewHeight = 360;
+            view.setSize(viewWidth, viewHeight);
+            session.start(new MctsSession.Config(
+                    START_FEN,
+                    MctsSession.Backend.CLASSICAL,
+                    80,
+                    0L,
+                    1.25,
+                    true));
+            MctsSession.Snapshot snapshot = waitForMctsSession(session,
+                    next -> next.state() == MctsSession.State.DONE
+                            && next.tree() != null
+                            && !next.tree().rootRows().isEmpty(),
+                    "MCTS session publishes final root rows for tree-panel synchronization");
+            String childId = snapshot.tree().rootRows().get(0).nodeId();
+            session.setSelectedNodeId(childId);
+            waitForMctsSession(session,
+                    next -> next.tree() != null
+                            && next.tree().selectedNode() != null
+                            && childId.equals(next.tree().selectedNode().id()),
+                    "MCTS session adopts table-selected node");
+            flushEdt();
+            assertEquals(childId, field(panel, "inspectorNodeId"),
+                    "Tree panel inspector follows session-selected node");
+            @SuppressWarnings("unchecked")
+            Set<String> selectedPath = (Set<String>) field(view, "selectedPath");
+            assertTrue(!selectedPath.isEmpty(),
+                    "Tree graph paints a selected path after session selection");
+            TreeLayout.Node rendered = renderedNodeByInfoId(view.model(), childId);
+            assertNodeCentered(view, rendered, viewWidth, viewHeight,
+                    "Tree graph centers the externally selected node");
+        } finally {
+            panel.dispose();
+            session.close();
+        }
+    }
+
+    /**
+     * Verifies the Tree toolbar's graph style switcher drives the canvas display
+     * mode instead of being a cosmetic-only control.
+     */
+    private static void testTreePanelGraphStyleSwitcherControlsDisplayMode() {
+        MctsSession session = new MctsSession();
+        TreePanel panel = new TreePanel(session, () -> START_FEN, false);
+        try {
+            TreeGraphView view = (TreeGraphView) field(panel, "view");
+            SegmentedSwitcher switcher = (SegmentedSwitcher) field(panel, "graphStyleSwitcher");
+            assertEquals(TreeGraphView.DisplayMode.BOARDS, view.displayMode(),
+                    "tree graph starts in board-thumbnail mode");
+            assertEquals("Graph node style", switcher.getAccessibleContext().getAccessibleName(),
+                    "tree graph style switcher has a stable accessible name");
+
+            switcher.setSelectedIndex(1);
+            assertEquals(TreeGraphView.DisplayMode.MOVES, view.displayMode(),
+                    "tree graph style switcher selects move-card mode");
+
+            switcher.setSelectedIndex(0);
+            assertEquals(TreeGraphView.DisplayMode.BOARDS, view.displayMode(),
+                    "tree graph style switcher restores board-thumbnail mode");
+        } finally {
+            panel.dispose();
+            session.close();
+        }
+    }
+
+    /**
+     * Verifies the graph layout model preserves aggregate omitted-node
+     * accounting from the bounded tree snapshot.
+     */
+    private static void testTreeLayoutCarriesOmittedNodeCount() {
+        TreeLayout.Model model = TreeLayout.layout(
+                List.of(treeInfo("root", "", 0, 40, 1L)),
+                false,
+                false,
+                "root",
+                64,
+                90,
+                16,
+                28,
+                17);
+        assertEquals(Integer.valueOf(17), Integer.valueOf(model.omittedNodes()),
+                "tree layout model carries omitted-node count");
+
+        TreeLayout.Model empty = TreeLayout.layout(
+                List.of(),
+                false,
+                false,
+                null,
+                64,
+                90,
+                16,
+                28,
+                -5);
+        assertEquals(Integer.valueOf(0), Integer.valueOf(empty.omittedNodes()),
+                "tree layout clamps negative omitted-node counts");
+    }
+
+    /**
      * Verifies the tree uses a larger fixed SVG-era node board size and no
      * longer exposes the old pixel-resolution spinner in the toolbar.
      */
@@ -2985,6 +3150,142 @@ final class WorkbenchBackendRegression {
     }
 
     /**
+     * Verifies the move-card tree display is a distinct render path and does not
+     * populate the board-thumbnail cache.
+     */
+    @SuppressWarnings("unchecked")
+    private static void testTreeGraphMovesDisplayModeUsesMoveCards() {
+        Theme.Mode previous = Theme.mode();
+        try {
+            Theme.setMode(Theme.Mode.DARK);
+            int width = 220;
+            int height = 170;
+            short move = Move.parse("g1f3");
+            MctsSearch.NodeInfo info = treeInfoWithMove("Nf3", "root", move, 1, 128, 20L);
+            TreeLayout.Node node = new TreeLayout.Node("child", info, 70, 24, 80, 114,
+                    1, false, false, false, false, List.of());
+            TreeLayout.Model model = new TreeLayout.Model(List.of(node), List.of(),
+                    width, height, "child", 1, 0);
+
+            TreeGraphView boardView = new TreeGraphView();
+            boardView.setSize(width, height);
+            boardView.setModel(model);
+            setField(boardView, "zoom", Double.valueOf(1.0));
+            setField(boardView, "panX", Double.valueOf(0.0));
+            setField(boardView, "panY", Double.valueOf(0.0));
+            BufferedImage boardImage = paint(boardView, width, height);
+            Map<String, BufferedImage> boardCache = (Map<String, BufferedImage>) field(boardView, "boardCache");
+            assertTrue(!boardCache.isEmpty(),
+                    "board display mode renders through the thumbnail cache");
+
+            TreeGraphView moveView = new TreeGraphView();
+            moveView.setSize(width, height);
+            moveView.setDisplayMode(TreeGraphView.DisplayMode.MOVES);
+            moveView.setModel(model);
+            setField(moveView, "zoom", Double.valueOf(1.0));
+            setField(moveView, "panX", Double.valueOf(0.0));
+            setField(moveView, "panY", Double.valueOf(0.0));
+            BufferedImage moveImage = paint(moveView, width, height);
+            Map<String, BufferedImage> moveCache = (Map<String, BufferedImage>) field(moveView, "boardCache");
+            assertEquals(TreeGraphView.DisplayMode.MOVES, moveView.displayMode(),
+                    "tree graph reports move-card display mode");
+            assertEquals(Integer.valueOf(0), Integer.valueOf(moveCache.size()),
+                    "move-card display mode does not render board thumbnails");
+
+            int differing = countDifferingPixels(boardImage, moveImage,
+                    node.x(), node.y(), node.w(), node.h());
+            assertTrue(differing > 1_200,
+                    "move-card display mode paints a visibly distinct node body");
+        } finally {
+            Theme.setMode(previous);
+        }
+    }
+
+    /**
+     * Verifies capped snapshots paint an explicit omitted-node badge in the
+     * graph overlay.
+     */
+    private static void testTreeGraphShowsOmittedNodeBadge() {
+        Theme.Mode previous = Theme.mode();
+        try {
+            Theme.setMode(Theme.Mode.DARK);
+            int width = 260;
+            int height = 190;
+            TreeLayout.Node node = new TreeLayout.Node(
+                    "root",
+                    treeInfo("root", "", 0, 100, 1L),
+                    98,
+                    24,
+                    64,
+                    98,
+                    0,
+                    true,
+                    false,
+                    false,
+                    false,
+                    List.of());
+
+            TreeLayout.Model plainModel = new TreeLayout.Model(
+                    List.of(node), List.of(), width, 140, "root", 1, 0, 0);
+            TreeGraphView plainView = new TreeGraphView();
+            plainView.setSize(width, height);
+            plainView.setModel(plainModel);
+            setField(plainView, "zoom", Double.valueOf(1.0));
+            setField(plainView, "panX", Double.valueOf(0.0));
+            setField(plainView, "panY", Double.valueOf(0.0));
+            BufferedImage plain = paint(plainView, width, height);
+
+            TreeLayout.Model omittedModel = new TreeLayout.Model(
+                    List.of(node), List.of(), width, 140, "root", 1, 0, 42);
+            TreeGraphView omittedView = new TreeGraphView();
+            omittedView.setSize(width, height);
+            omittedView.setModel(omittedModel);
+            setField(omittedView, "zoom", Double.valueOf(1.0));
+            setField(omittedView, "panX", Double.valueOf(0.0));
+            setField(omittedView, "panY", Double.valueOf(0.0));
+            BufferedImage omitted = paint(omittedView, width, height);
+
+            int badgeDiff = countDifferingPixels(plain, omitted, 0, height - 58, width, 28);
+            assertTrue(badgeDiff > 80,
+                    "tree graph paints an omitted-node badge above the legend");
+        } finally {
+            Theme.setMode(previous);
+        }
+    }
+
+    /**
+     * Verifies SVG tree export preserves capped-snapshot omitted-node accounting.
+     */
+    private static void testTreeSvgExportShowsOmittedNodeBadge() {
+        TreeLayout.Node node = new TreeLayout.Node(
+                "root",
+                treeInfo("root", "", 0, 100, 1L),
+                28,
+                28,
+                64,
+                98,
+                0,
+                true,
+                false,
+                false,
+                false,
+                List.of());
+        TreeLayout.Model plainModel = new TreeLayout.Model(
+                List.of(node), List.of(), 140, 140, "root", 1, 0, 0);
+        TreeLayout.Model omittedModel = new TreeLayout.Model(
+                List.of(node), List.of(), 140, 140, "root", 1, 0, 42);
+
+        String plain = treeSvg(plainModel);
+        String omitted = treeSvg(omittedModel);
+        assertFalse(plain.contains("omitted"),
+                "tree SVG export leaves omitted badge out when the snapshot is uncapped");
+        assertTrue(omitted.contains("+42 omitted"),
+                "tree SVG export includes omitted-node badge text");
+        assertTrue(omitted.contains("fill-opacity=\"0.24\""),
+                "tree SVG export draws the omitted badge as a visible overlay");
+    }
+
+    /**
      * Verifies selecting a node can draw the green path edge back toward the
      * root.
      */
@@ -3109,6 +3410,72 @@ final class WorkbenchBackendRegression {
         } finally {
             Theme.setMode(previous);
         }
+    }
+
+    /**
+     * Exports a tree layout model through the package-private SVG exporter.
+     *
+     * @param model layout model
+     * @return SVG document
+     */
+    private static String treeSvg(TreeLayout.Model model) {
+        return (String) invokeStatic(
+                type("TreeSvgExporter"),
+                "toSvg",
+                new Class<?>[] {
+                        TreeLayout.Model.class,
+                        Color.class,
+                        Color.class,
+                        Color.class,
+                        Color.class,
+                        Color.class,
+                        Color.class,
+                        Color.class
+                },
+                model,
+                Theme.BG,
+                Theme.ACCENT,
+                Theme.MUTED,
+                Theme.LINE,
+                Theme.PANEL_SOLID,
+                Theme.TEXT,
+                Theme.MUTED);
+    }
+
+    /**
+     * Finds the rendered graph node that represents a node-info id.
+     *
+     * @param model graph model
+     * @param id node-info id
+     * @return rendered node
+     */
+    private static TreeLayout.Node renderedNodeByInfoId(TreeLayout.Model model, String id) {
+        for (TreeLayout.Node node : model.nodes()) {
+            if (node.info().id().equals(id)) {
+                return node;
+            }
+        }
+        throw new AssertionError("missing rendered node for " + id);
+    }
+
+    /**
+     * Asserts a rendered graph node is centered in the visible component.
+     *
+     * @param view graph view
+     * @param node rendered node
+     * @param width component width
+     * @param height component height
+     * @param message assertion message
+     */
+    private static void assertNodeCentered(TreeGraphView view, TreeLayout.Node node,
+            int width, int height, String message) {
+        double zoom = ((Double) field(view, "zoom")).doubleValue();
+        double panX = ((Double) field(view, "panX")).doubleValue();
+        double panY = ((Double) field(view, "panY")).doubleValue();
+        double x = node.centerX() * zoom + panX;
+        double y = node.centerY() * zoom + panY;
+        assertTrue(Math.abs(x - width / 2.0) <= 1.0 && Math.abs(y - height / 2.0) <= 1.0,
+                message + " (actual=" + x + "," + y + ")");
     }
 
     /**
@@ -3510,6 +3877,12 @@ final class WorkbenchBackendRegression {
                 "Board follows the Dashboard tab");
         assertEquals(Integer.valueOf(4), staticField(window, "BOARD_DRAW"),
                 "Draw is the fifth board mode");
+        assertEquals(Integer.valueOf(1), staticField(window, "ENGINE_SEARCH"),
+                "Search is the second engine mode");
+        assertEquals(staticField(window, "ENGINE_SEARCH"), staticField(window, "ENGINE_TREE"),
+                "legacy Tree navigation opens the Search mode");
+        assertEquals(Integer.valueOf(2), staticField(window, "ENGINE_GAUNTLET"),
+                "Gauntlet follows the combined Search mode");
     }
 
     /**

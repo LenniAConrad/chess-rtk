@@ -94,6 +94,13 @@ public final class CommandForm extends JPanel {
     private static final int FLAG_ROW_GAP = Theme.SPACE_XS;
 
     /**
+     * Maximum expanded height for optional command flags. Large command
+     * templates scroll inside the Flags section instead of resizing the whole Run
+     * settings card.
+     */
+    private static final int FLAGS_MAX_EXPANDED_HEIGHT = 340;
+
+    /**
      * Corner radius for a flag cell — matches the app-wide control radius so
      * cells read as the same family as buttons and cards.
      */
@@ -459,7 +466,7 @@ public final class CommandForm extends JPanel {
             optionalPanel.add(filterRow);
             optionalPanel.add(Box.createVerticalStrut(Theme.SPACE_XS));
             buildCategorySections(optionalPanel, optional);
-            optionalDisclosure = Ui.collapsible("Flags", optionalPanel, false);
+            optionalDisclosure = Ui.collapsible("Flags", optionalPanel, false, FLAGS_MAX_EXPANDED_HEIGHT);
             body.add(optionalDisclosure);
         }
         body.add(Box.createVerticalGlue());

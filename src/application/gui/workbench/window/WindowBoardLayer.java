@@ -11,6 +11,8 @@ import application.gui.workbench.game.EcoExplorerPanel;
 import application.gui.workbench.game.GameReviewPanel;
 import application.gui.workbench.game.PlayMoveHistoryModel;
 import application.gui.workbench.game.ReviewCliArtifactProducer;
+import application.gui.workbench.game.SavedGame;
+import application.gui.workbench.game.SavedGamesPanel;
 import application.gui.workbench.game.SanRenderer;
 import application.gui.workbench.game.StudyAuthorPanel;
 import application.gui.workbench.game.TablebasePanel;
@@ -398,9 +400,9 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
 
     /**
      * Creates the unified Engine surface: one workspace hosting the neural
-     * network visualizer and the PUCT/MCTS search behind a switcher, replacing
-     * the former Network and MCTS top-level tabs. The Network mode is built
-     * first; the Search mode builds lazily on first selection.
+     * network visualizer, the PUCT/MCTS table/graph Search workspace, and engine
+     * gauntlets. The Network mode is built first; Search and Gauntlet build
+     * lazily on first selection.
      *
      * @return engine workspace component
      */
@@ -408,8 +410,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         engineWorkspace = new SwitchedWorkspace("Engine Lab",
                 List.of(
                         new WorkspaceMode("Network", this::createNetworkTab, this::engineEvaluatorContext),
-                        new WorkspaceMode("MCTS", this::createMctsTab, this::engineSearchContext),
-                        new WorkspaceMode("Tree", this::createTreeTab, this::engineTreeContext),
+                        new WorkspaceMode("Search", this::createMctsTab, this::engineSearchContext),
                         new WorkspaceMode("Gauntlet", this::createGauntletTab, this::engineGauntletContext)),
                 ENGINE_NETWORK);
         return engineWorkspace;
@@ -514,17 +515,8 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * @return context summary
      */
     private String engineSearchContext() {
-        return currentPosition == null ? "No position loaded · PUCT/MCTS inspector"
-                : "Current FEN · PUCT/MCTS inspector";
-    }
-
-    /**
-     * Returns the Engine / Tree context line.
-     *
-     * @return context summary
-     */
-    private String engineTreeContext() {
-        return "Live tree · follows the current search session";
+        return currentPosition == null ? "No position loaded · PUCT/MCTS table and graph"
+                : "Current FEN · PUCT/MCTS table and graph";
     }
 
     /**
@@ -611,9 +603,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         stack.add(Box.createVerticalStrut(Theme.SPACE_MD));
         stack.add(createAnalysisControls());
         stack.add(Box.createVerticalStrut(Theme.SPACE_MD));
-        stack.add(createAnalysisResultCard());
-        stack.add(Box.createVerticalStrut(Theme.SPACE_MD));
-        stack.add(createMovesAndTags());
+        stack.add(createAnalysisWorkspaceCard());
         stack.add(Box.createVerticalGlue());
 
         JScrollPane scrollPane = scroll(fillViewport(stack), () -> Theme.PANEL_SOLID);
@@ -727,8 +717,10 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         JPanel row = transparentPanel(new WrappingFlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
         JButton opening = button("Opening Tree", false, event -> showBoardDetail("ECO"));
         opening.setToolTipText("Show ECO opening tree and candidate line explorer");
-        JButton review = button("Review", false, event -> showBoardDetail("Review"));
-        review.setToolTipText("Show post-game review and retry critical moves");
+        JButton review = button("Review", false, event -> runCurrentGameReview());
+        review.setToolTipText("Review the current game line and retry critical moves");
+        JButton games = button("Games", false, event -> showBoardDetail("Games"));
+        games.setToolTipText("Open saved Workbench games for resume or review");
         JButton endgame = button("Endgame", false, event -> showBoardDetail("Endgame"));
         endgame.setToolTipText("Show tablebase-eligibility and fixed-node endgame analysis");
         JButton study = button("Study", false, event -> showBoardDetail("Study"));
@@ -737,6 +729,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         gauntlet.setToolTipText("Open deterministic built-in engine self-play gauntlets");
         row.add(opening);
         row.add(review);
+        row.add(games);
         row.add(endgame);
         row.add(study);
         row.add(gauntlet);
@@ -967,11 +960,24 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
-     * Creates the analysis-result card.
+     * Creates the merged analysis result and candidate-move workspace.
      *
-     * @return result card
+     * @return analysis workspace card
      */
-    private JComponent createAnalysisResultCard() {
+    private JComponent createAnalysisWorkspaceCard() {
+        JPanel body = verticalBody();
+        body.add(createAnalysisResultPanel());
+        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        body.add(createMovesAndTags());
+        return Ui.card("Analysis", body);
+    }
+
+    /**
+     * Creates the analysis-result panel.
+     *
+     * @return result panel
+     */
+    private JComponent createAnalysisResultPanel() {
         analysisResultCards.setOpaque(false);
 
         JComponent empty = Ui.emptyState("No analysis yet",
@@ -999,7 +1005,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         analysisResultCards.add(populated, "populated");
         analysisGraph.addPropertyChangeListener("analysisSamples", event -> refreshAnalysisResult());
         refreshAnalysisResult();
-        return Ui.card("Analysis Result", analysisResultCards);
+        return analysisResultCards;
     }
 
     /**
@@ -1160,6 +1166,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         boardDetailTabs.addTab("Tags", scroll(tagCloud));
         boardDetailTabs.addTab("ECO", createEcoExplorerPanel());
         boardDetailTabs.addTab("Review", createGameReviewPanel());
+        boardDetailTabs.addTab("Games", createSavedGamesPanel());
         boardDetailTabs.addTab("Study", createStudyAuthorPanel());
         boardDetailTabs.addTab("Endgame", createTablebasePanel());
         boardDetailTabs.addTab("Raw", createAnalysisDataPanel());
@@ -1170,7 +1177,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
             boardDetailTabs.setSelectedIndex(movesTab);
         }
         syncBoardEditorMode();
-        return Ui.card("Candidate Moves / Expert Tabs", boardDetailTabs);
+        return boardDetailTabs;
     }
 
     /**
@@ -1196,6 +1203,44 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         gameReviewPanel = new GameReviewPanel(() -> gameModel, this::jumpGameTo, this::copyText,
                 ReviewCliArtifactProducer.offline());
         return scroll(fillViewport(gameReviewPanel));
+    }
+
+    /**
+     * Creates the saved-game library detail tab.
+     *
+     * @return saved-game library component
+     */
+    protected JComponent createSavedGamesPanel() {
+        savedGamesPanel = new SavedGamesPanel(this::savedGames, this::resumeSavedGame,
+                this::reviewSavedGame, this::copyText, this::saveCurrentGameFromUi);
+        return scroll(fillViewport(savedGamesPanel));
+    }
+
+    /**
+     * Opens Review and analyzes the current game line.
+     */
+    protected void runCurrentGameReview() {
+        showBoardDetail("Review");
+        if (gameReviewPanel != null) {
+            gameReviewPanel.runReview();
+        } else {
+            SwingUtilities.invokeLater(() -> {
+                if (gameReviewPanel != null) {
+                    gameReviewPanel.runReview();
+                }
+            });
+        }
+    }
+
+    /**
+     * Resumes a saved game and immediately runs Review.
+     *
+     * @param game saved game
+     */
+    protected void reviewSavedGame(SavedGame game) {
+        if (resumeSavedGame(game)) {
+            runCurrentGameReview();
+        }
     }
 
     /**
@@ -1259,22 +1304,24 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * @return editor component
      */
     protected JComponent createBoardEditorPanel() {
-        // The editor owns its own board now, so it no longer hijacks the shared
-        // board into setup-edit mode; Apply commits the edited position instead.
         boardEditorPanel = new BoardEditorPanel(this::currentFen, this::applyBoardEditorFen, this::copyText);
+        boardEditorPanel.attachBoard(board);
         return scroll(fillViewport(boardEditorPanel));
     }
 
     /**
-     * Loads the current position into the editor whenever its tab is opened.
+     * Toggles direct setup editing on the shared board when the Editor tab is
+     * opened or closed.
      */
     protected void syncBoardEditorMode() {
         if (boardEditorPanel == null || boardDetailTabs == null) {
             return;
         }
-        if (isBoardEditorSelected()) {
+        boolean selected = isBoardEditorSelected();
+        if (selected) {
             boardEditorPanel.loadFen(currentFen());
         }
+        boardEditorPanel.setEditingBoardActive(selected && !playPositionLocked);
     }
 
     /**
@@ -1315,6 +1362,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         fenField.setEnabled(!locked);
         if (boardEditorPanel != null) {
             boardEditorPanel.setEnabled(!locked);
+            boardEditorPanel.setEditingBoardActive(isBoardEditorSelected() && !locked);
         }
     }
 
@@ -1624,7 +1672,8 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                 button("Copy FENs", false, event -> copyText(gameModel.fenList())));
         JComponent studyTools = buttonRow(FlowLayout.LEFT,
                 button("Opening Tree", false, event -> showBoardDetail("ECO")),
-                button("Review Game", false, event -> showBoardDetail("Review")),
+                button("Review Game", false, event -> runCurrentGameReview()),
+                button("Saved Games", false, event -> showBoardDetail("Games")),
                 button("Author Study", false, event -> showBoardDetail("Study")),
                 button("PGN Database", false, event -> showPgnExplorer()));
 
@@ -1716,12 +1765,12 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
-     * Creates the MCTS inspection tab.
+     * Creates the MCTS Search workspace.
      *
-     * @return MCTS tab
+     * @return MCTS Search workspace
      */
     protected JComponent createMctsTab() {
-        return mctsPanel();
+        return mctsWorkspacePanel();
     }
 
     /**

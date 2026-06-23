@@ -17,9 +17,13 @@ import application.gui.workbench.game.MovesModel;
 import application.gui.workbench.game.PgnExplorerDialog;
 import application.gui.workbench.game.PositionDescriptionPanel;
 import application.gui.workbench.game.PuzzlePanel;
+import application.gui.workbench.game.SavedGame;
+import application.gui.workbench.game.SavedGameStore;
+import application.gui.workbench.game.SavedGamesPanel;
 import application.gui.workbench.layout.EditorSplitArea;
 import application.gui.workbench.mcts.MctsPanel;
 import application.gui.workbench.mcts.MctsSession;
+import application.gui.workbench.mcts.MctsWorkspacePanel;
 import application.gui.workbench.play.MctsOpponent;
 import application.gui.workbench.play.PlayPanel;
 import application.gui.workbench.play.PlaySession;
@@ -199,21 +203,23 @@ public abstract class WindowBase extends JFrame {
     protected static final int ENGINE_SEARCH = 1;
 
     /**
-     * Engine surface mode: the live search-tree graph.
+     * Engine surface mode: the live search-tree graph. Kept as a compatibility
+     * alias for callers that still ask for the old Tree mode; it opens Search and
+     * selects the Graph subview.
      */
-    protected static final int ENGINE_TREE = 2;
+    protected static final int ENGINE_TREE = ENGINE_SEARCH;
 
     /**
      * Engine surface mode: deterministic self-play gauntlets.
      */
-    protected static final int ENGINE_GAUNTLET = 3;
+    protected static final int ENGINE_GAUNTLET = 2;
 
     // Analyze, Play, Solve (puzzles), Relations, and Draw are no longer separate
     // top-level tabs: they are modes of the unified Board surface (TAB_BOARD,
-    // BOARD_* constants). Network and MCTS are likewise modes of the unified
-    // Engine surface (TAB_ENGINE, ENGINE_* constants), and the former CLI tabs
-    // are modes of the Run surface (TAB_RUN, RUN_* constants). All three are
-    // application.gui.workbench.ui.SwitchedWorkspace instances.
+    // BOARD_* constants). Network, Search, and Gauntlet are likewise modes of
+    // the unified Engine surface (TAB_ENGINE, ENGINE_* constants), and the
+    // former CLI tabs are modes of the Run surface (TAB_RUN, RUN_* constants).
+    // All three are application.gui.workbench.ui.SwitchedWorkspace instances.
 
     /**
      * The single shared board view. The Board surface's Analyze, Play, Relations,
@@ -254,6 +260,11 @@ public abstract class WindowBase extends JFrame {
      * Canonical MCTS inspection panel.
      */
     protected MctsPanel mctsPanel;
+
+    /**
+     * Canonical Search workspace that hosts the MCTS table and graph views.
+     */
+    protected MctsWorkspacePanel mctsWorkspacePanel;
 
     /**
      * All materialized MCTS inspection panels, including duplicates.
@@ -513,6 +524,16 @@ public abstract class WindowBase extends JFrame {
     protected final GameModel gameModel = new GameModel();
 
     /**
+     * Local saved-game store for resumable Workbench lines.
+     */
+    protected final SavedGameStore savedGameStore = new SavedGameStore();
+
+    /**
+     * Current saved-game id being updated, or null until the line is first saved.
+     */
+    protected String activeSavedGameId;
+
+    /**
      * Main-line move history table.
      */
     protected final JTable gameTable = new JTable(gameModel);
@@ -695,6 +716,19 @@ public abstract class WindowBase extends JFrame {
     }
 
     /**
+     * Returns the Search workspace, creating it only when Engine / Search is
+     * first opened.
+     *
+     * @return Search workspace
+     */
+    protected MctsWorkspacePanel mctsWorkspacePanel() {
+        if (mctsWorkspacePanel == null) {
+            mctsWorkspacePanel = new MctsWorkspacePanel(this::mctsPanel, this::treePanel);
+        }
+        return mctsWorkspacePanel;
+    }
+
+    /**
      * Returns the Play-vs-engine setup panel, creating it on first use.
      *
      * @return play panel
@@ -702,7 +736,8 @@ public abstract class WindowBase extends JFrame {
     protected PlayPanel playPanel() {
         if (playPanel == null) {
             playPanel = new PlayPanel(playSession(), this::currentFen,
-                    this::runAnalyze, this::refreshWorkspaceHeaders);
+                    this::runAnalyze, this::runCurrentGameReview,
+                    this::saveCurrentGameFromUi, this::refreshWorkspaceHeaders);
         }
         return playPanel;
     }
@@ -1056,9 +1091,125 @@ public abstract class WindowBase extends JFrame {
     }
 
     /**
+     * Loads saved games for the library panel.
+     *
+     * @return saved games, most recent first
+     */
+    protected List<SavedGame> savedGames() {
+        try {
+            return savedGameStore.load();
+        } catch (java.io.IOException ex) {
+            appendConsole("Saved games load failed: " + ex.getMessage() + System.lineSeparator());
+            return List.of();
+        }
+    }
+
+    /**
+     * Persists the current game line silently.
+     *
+     * @param status saved-game status
+     * @return true when a line was saved
+     */
+    protected boolean persistCurrentGame(String status) {
+        return persistCurrentGame(status, false);
+    }
+
+    /**
+     * Persists the current game line.
+     *
+     * @param status saved-game status
+     * @param notify whether to show user feedback
+     * @return true when a line was saved
+     */
+    protected boolean persistCurrentGame(String status, boolean notify) {
+        if (gameModel.lastPly() <= 0) {
+            if (notify) {
+                toast(Toast.Kind.INFO, "No moves to save");
+            }
+            return false;
+        }
+        try {
+            SavedGame existing = activeSavedGameId == null ? null : savedGameStore.find(activeSavedGameId);
+            long now = System.currentTimeMillis();
+            String id = activeSavedGameId == null || activeSavedGameId.isBlank()
+                    ? savedGameStore.nextId()
+                    : activeSavedGameId;
+            long created = existing == null || existing.createdAtMillis() <= 0L
+                    ? now
+                    : existing.createdAtMillis();
+            SavedGame game = SavedGame.capture(id, created, now, status, gameModel);
+            savedGameStore.save(game);
+            activeSavedGameId = game.id();
+            refreshSavedGamesPanel();
+            if (notify) {
+                toast(Toast.Kind.SUCCESS, "Saved game");
+            }
+            return true;
+        } catch (java.io.IOException | RuntimeException ex) {
+            appendConsole("Saved games write failed: " + ex.getMessage() + System.lineSeparator());
+            if (notify) {
+                toast(Toast.Kind.ERROR, "Could not save game");
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Saves the current game from a visible UI action.
+     */
+    protected void saveCurrentGameFromUi() {
+        persistCurrentGame("Saved", true);
+    }
+
+    /**
+     * Reloads one saved game into the shared board line.
+     *
+     * @param game saved game
+     * @return true when resumed
+     */
+    protected boolean resumeSavedGame(SavedGame game) {
+        if (game == null) {
+            return false;
+        }
+        try {
+            persistCurrentGame("Aborted");
+            if (playSession != null && playSession.isActive()) {
+                playSession.stop();
+            }
+            Position start = new Position(game.startFen());
+            List<Short> line = SavedGameStore.parseUciLine(start, game.uciLine());
+            gameModel.loadLine(start, line);
+            activeSavedGameId = game.id();
+            session.clearEvalHistory();
+            showGamePly(Math.max(0, Math.min(game.currentPly(), gameModel.lastPly())));
+            appendConsole("Resumed saved game " + game.title() + System.lineSeparator());
+            toast(Toast.Kind.SUCCESS, "Resumed saved game");
+            refreshSavedGamesPanel();
+            return true;
+        } catch (IllegalArgumentException ex) {
+            showError("Resume game failed", ex.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Refreshes the saved-games panel when present.
+     */
+    protected void refreshSavedGamesPanel() {
+        if (savedGamesPanel != null) {
+            savedGamesPanel.refresh();
+        }
+    }
+
+    /**
      * Board detail tabs on the Analyze/Board side panel.
      */
     protected JTabbedPane boardDetailTabs;
+
+    /**
+     * Local saved-games panel, created with the board detail tabs.
+     */
+    protected SavedGamesPanel savedGamesPanel;
 
     /**
      * Lazy command palette.
@@ -1094,6 +1245,11 @@ public abstract class WindowBase extends JFrame {
      * Runs the analysis action.
      */
     protected abstract void runAnalyze();
+
+    /**
+     * Runs review for the current game line.
+     */
+    protected abstract void runCurrentGameReview();
 
     /**
      * Runs the tag-generation action.
@@ -1449,9 +1605,9 @@ public abstract class WindowBase extends JFrame {
     protected abstract JComponent createDetachedNetworkTab();
 
     /**
-     * Creates the MCTS tab.
+     * Creates the Engine / Search tab.
      *
-     * @return MCTS tab
+     * @return Search tab
      */
     protected abstract JComponent createMctsTab();
 

@@ -871,11 +871,12 @@ public final class BoardExporter {
         }
         svg.append("/>\n");
         svg.append("  <text x=\"").append(format(cx)).append("\" y=\"")
-                .append(format(cy)).append("\" fill=\"").append(colorCss(border)).append("\"");
+                .append(format(glyphTextBaseline(cy, fontSize)))
+                .append("\" fill=\"").append(colorCss(border)).append("\"");
         appendOpacity(svg, border);
         svg.append(" font-family=\"Inter, Segoe UI, sans-serif\" font-size=\"")
                 .append(format(fontSize))
-                .append("\" font-weight=\"700\" text-anchor=\"middle\" dominant-baseline=\"central\">")
+                .append("\" font-weight=\"700\" text-anchor=\"middle\">")
                 .append(escape(glyph)).append("</text>\n");
     }
 
@@ -963,6 +964,17 @@ public final class BoardExporter {
      */
     private static double glyphRadius(int cell, double borderWidth) {
         return Math.max(0.5, cell * GLYPH_DIAMETER_FRACTION / 2.0 - borderWidth / 2.0);
+    }
+
+    /**
+     * Returns the SVG text baseline that visually matches Java2D glyph badges.
+     *
+     * @param centerY badge center y
+     * @param fontSize SVG font size
+     * @return text baseline y
+     */
+    private static double glyphTextBaseline(double centerY, double fontSize) {
+        return centerY + fontSize * 0.35;
     }
 
     /**

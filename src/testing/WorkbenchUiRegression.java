@@ -51,10 +51,12 @@ import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
+import javax.swing.JTree;
 import javax.swing.Timer;
 import javax.swing.UIManager;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.TableCellRenderer;
+import javax.swing.tree.TreeSelectionModel;
 
 import application.gui.workbench.board.BoardPanel;
 import application.gui.workbench.board.BoardExporter;
@@ -65,7 +67,9 @@ import application.gui.workbench.layout.LazyPanel;
 import application.gui.workbench.layout.FlatTabbedPaneUI;
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.board.MarkupBrush;
+import application.gui.workbench.command.CommandForm;
 import application.gui.workbench.command.Console;
+import application.gui.workbench.command.CommandTemplates;
 import application.gui.workbench.dataset.DatasetChart;
 import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.ChipGroup;
@@ -84,6 +88,7 @@ import application.gui.workbench.ui.Ui;
 import application.gui.workbench.ui.WorkspaceHeader;
 import application.gui.workbench.ui.WorkspaceMode;
 import application.gui.workbench.window.LayoutMenu;
+import chess.core.Field;
 import chess.core.Piece;
 import chess.images.assets.PieceSet;
 import chess.images.assets.Shapes;
@@ -141,6 +146,8 @@ final class WorkbenchUiRegression {
         testWorkspaceHeaderPrimitiveAndShellRegistration();
         testDisabledComboUsesThemeBackground();
         testEnabledComboFillsArrowGutter();
+        testComboPopupUsesSharedScrollStyling();
+        testSharedTreeStyling();
         testSpinnerEditorUsesReadableInputColors();
         testStyledSpinnerCommitsValidEdits();
         testSpinnerFillsArrowGutter();
@@ -165,6 +172,7 @@ final class WorkbenchUiRegression {
         testChartsRevealNewData();
         testCommandFormLeadColumnAligns();
         testCommandFormFlagsWrapAcrossColumns();
+        testCommandFormFlagsDisclosureIsBounded();
         testThemeColorContrast();
         testThemeUsesVscodeVisualStudioColorTokens();
         testNetworkPaletteUsesSemanticFocusColor();
@@ -183,6 +191,7 @@ final class WorkbenchUiRegression {
         testToastUsesBottomRightPlacement();
         testToastFadeAppliesToTextAndChromeTogether();
         testCollapsibleInfoSectionTogglesContent();
+        testBoundedCollapsibleSectionScrollsInternally();
         testCollapsibleSectionDefersNestedScrollbarsDuringAnimation();
         testPuzzleHeaderControlsAvoidClippingAtNarrowWidth();
         testLazyPanelDefersConstruction();
@@ -573,14 +582,23 @@ final class WorkbenchUiRegression {
         console.applyConsoleTheme();
         console.appendOutput("plain engine output line\n");
         console.appendOutput("[exit 0] engine bestmove done\n");
+        console.appendSectionHeader("workbench.log    modified 2026-06-23 20:00:00    1.0 KiB");
         javax.swing.text.StyledDocument doc = console.getStyledDocument();
         javax.swing.text.AttributeSet plain = doc.getCharacterElement(1).getAttributes();
         int secondLine = doc.getDefaultRootElement().getElement(1).getStartOffset();
         javax.swing.text.AttributeSet badge = doc.getCharacterElement(secondLine + 1).getAttributes();
+        int thirdLine = doc.getDefaultRootElement().getElement(2).getStartOffset();
+        javax.swing.text.AttributeSet section = doc.getCharacterElement(thirdLine + 1).getAttributes();
         assertTrue(plain.getAttribute(javax.swing.text.StyleConstants.Background) == null,
                 "plain console output carries no badge background");
         assertTrue(badge.getAttribute(javax.swing.text.StyleConstants.Background) instanceof java.awt.Color,
                 "exit-status console line carries a tinted badge background");
+        assertTrue(javax.swing.text.StyleConstants.isBold(section),
+                "console section header uses a stronger text weight");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(console.getHighlighter().getHighlights().length),
+                "console section header installs one full-line highlight");
+        assertFalse(console.getText().contains("===="),
+                "console section headers do not use ASCII fence separators");
     }
 
     /**
@@ -1138,9 +1156,11 @@ final class WorkbenchUiRegression {
         JButton button = new JButton("Open");
         JList<String> list = new JList<>(new String[] { "one" });
         JScrollPane pane = new JScrollPane(list);
+        JTree tree = new JTree();
         root.add(field);
         root.add(button);
         root.add(pane);
+        root.add(tree);
 
         invokeStatic(type("Ui"), "styleComponentTree", new Class<?>[] { Component.class }, root);
 
@@ -1149,6 +1169,7 @@ final class WorkbenchUiRegression {
         assertFalse(button.isContentAreaFilled(), "recursive button content area hidden");
         assertTrue(list.isOpaque(), "recursive list opaque");
         assertEquals(list.getBackground(), pane.getViewport().getBackground(), "recursive scroll viewport background");
+        assertEquals("None", tree.getClientProperty("JTree.lineStyle"), "recursive tree shared style");
     }
 
     /**
@@ -1229,6 +1250,48 @@ final class WorkbenchUiRegression {
         assertInputPixel(image, 276, 10, expected, "combo right input fill");
 
         Theme.setMode(Theme.Mode.LIGHT);
+    }
+
+    /**
+     * Verifies combo dropdown popups use shared list and scrollbar chrome.
+     */
+    private static void testComboPopupUsesSharedScrollStyling() {
+        Theme.setMode(Theme.Mode.DARK);
+        JComboBox<String> combo = new JComboBox<>(new String[] {
+                "record export training-jsonl", "record export csv", "record validate", "record audit",
+                "engine bestmove", "engine analyze", "engine perft", "position view", "position describe",
+                "puzzle mine", "puzzle study", "book render", "book pdf", "config validate", "doctor all" });
+        Ui.styleCombo(combo);
+        Object child = combo.getUI().getAccessibleChild(combo, 0);
+        assertTrue(child instanceof Component, "combo popup accessible child");
+
+        Component popup = (Component) child;
+        JScrollPane scroll = firstDescendant(popup, JScrollPane.class);
+        JList<?> list = firstDescendant(popup, JList.class);
+        assertTrue(scroll != null, "combo popup has a scroll pane");
+        assertTrue(list != null, "combo popup has a list");
+        assertTrue(scroll.getVerticalScrollBar().getUI().getClass().getName().contains("StyledScrollBarUI"),
+                "combo popup uses shared scrollbar UI");
+        assertEquals(themeColor("ELEVATED_SOLID"), list.getBackground(), "combo popup list background");
+        assertEquals(themeColor("SELECTION_SOLID"), list.getSelectionBackground(), "combo popup selection");
+
+        Theme.setMode(Theme.Mode.LIGHT);
+    }
+
+    /**
+     * Verifies tree views use shared Workbench tree styling instead of platform
+     * connector lines and colors.
+     */
+    private static void testSharedTreeStyling() {
+        JTree tree = new JTree();
+        Ui.styleTree(tree);
+
+        assertEquals(themeColor("PANEL_SOLID"), tree.getBackground(), "tree shared background");
+        assertEquals(themeColor("TEXT"), tree.getForeground(), "tree shared foreground");
+        assertEquals("None", tree.getClientProperty("JTree.lineStyle"), "tree connector lines disabled");
+        assertEquals(Integer.valueOf(TreeSelectionModel.SINGLE_TREE_SELECTION),
+                Integer.valueOf(tree.getSelectionModel().getSelectionMode()), "tree single selection");
+        assertTrue(tree.getRowHeight() >= 24, "tree row height is stable");
     }
 
     /**
@@ -1676,6 +1739,7 @@ final class WorkbenchUiRegression {
         int[] splitDown = { 0 };
         int[] splitLeft = { 0 };
         int[] splitUp = { 0 };
+        int[] detachTab = { 0 };
         int[] restoreTabs = { 0 };
         int[] closeOthers = { 0 };
         LayoutMenu menu = new LayoutMenu(new LayoutMenu.Controller() {
@@ -1725,6 +1789,14 @@ final class WorkbenchUiRegression {
             @Override
             public void splitUp() {
                 splitUp[0]++;
+            }
+
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public void detachTab() {
+                detachTab[0]++;
             }
 
             /**
@@ -1793,11 +1865,14 @@ final class WorkbenchUiRegression {
 
         popupItem(popup, "Split Tab Left").doClick();
         popupItem(popup, "Split Tab Up").doClick();
+        popupItem(popup, "Detach Tab to New Window").doClick();
         popupItem(popup, "Close Other Tabs").doClick();
         assertEquals(Integer.valueOf(1), Integer.valueOf(splitLeft[0]),
                 "layout popup split-left item works");
         assertEquals(Integer.valueOf(1), Integer.valueOf(splitUp[0]),
                 "layout popup split-up item works");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(detachTab[0]),
+                "layout popup detach item works");
         assertEquals(Integer.valueOf(1), Integer.valueOf(closeOthers[0]),
                 "layout popup close-others item works");
     }
@@ -2247,6 +2322,34 @@ final class WorkbenchUiRegression {
     }
 
     /**
+     * Verifies the Run command-builder Flags disclosure scrolls internally
+     * instead of expanding the whole settings card to the height of every flag.
+     */
+    private static void testCommandFormFlagsDisclosureIsBounded() {
+        CommandForm form = new CommandForm();
+        CommandTemplates.CommandTemplate template = CommandTemplates.commandTemplates().stream()
+                .filter(candidate -> "Generate FENs".equals(candidate.name()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("missing Generate FENs template"));
+        form.setTemplate(template, new CommandTemplates.TemplateContext(
+                START_FEN, "4s", "5", "3", "6", "config/default.engine.toml", "900", "128"));
+
+        JComponent disclosure = (JComponent) field(form, "optionalDisclosure");
+        assertTrue(Ui.setCollapsibleExpanded(disclosure, true), "command flags uses shared collapsible section");
+        JScrollPane scroll = firstDescendant(disclosure, JScrollPane.class);
+        assertTrue(scroll != null, "command flags disclosure owns a bounded scroll pane");
+        assertEquals(Integer.valueOf(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER),
+                Integer.valueOf(scroll.getHorizontalScrollBarPolicy()),
+                "command flags avoid horizontal scrolling");
+        int cap = (Integer) staticField(type("CommandForm"), "FLAGS_MAX_EXPANDED_HEIGHT");
+        assertTrue(scroll.getPreferredSize().height <= cap,
+                "command flags internal scroll pane respects the shared cap");
+        assertEquals(Integer.valueOf(disclosure.getPreferredSize().height),
+                Integer.valueOf(disclosure.getMaximumSize().height),
+                "command flags disclosure does not absorb spare vertical space");
+    }
+
+    /**
      * Verifies core theme foreground/background pairs meet practical contrast
      * thresholds for extended workbench use.
      */
@@ -2424,6 +2527,14 @@ final class WorkbenchUiRegression {
     private static void testDrawPanelBuildsAnnotationControls() {
         BoardPanel board = new BoardPanel();
         DrawPanel panel = new DrawPanel(board, new JPanel());
+        assertTrue(panel.getPreferredSize().width <= 460,
+                "draw panel uses a bounded inspector width");
+        assertTrue(componentTreeHasLabelText(panel, "Presets"),
+                "draw panel exposes one-click annotation presets");
+        assertEquals("Brush", buttonWithText(panel, "Brush").getText(),
+                "draw panel collapses brush controls");
+        assertEquals("Color", buttonWithText(panel, "Color").getText(),
+                "draw panel collapses color controls");
         assertTrue(componentTreeHasLabelText(panel, "Target"),
                 "draw panel exposes color target picker");
         assertTrue(componentTreeHasLabelText(panel, "Shape"),
@@ -2443,8 +2554,10 @@ final class WorkbenchUiRegression {
         JList<?> annotationList = (JList<?>) field(panel, "annotationList");
         assertTrue(annotationList.getCellRenderer().getClass().getName().contains("AnnotationRenderer"),
                 "draw panel uses a themed annotation row renderer");
-        assertTrue(annotationList.getFixedCellHeight() >= Theme.TABLE_ROW_HEIGHT,
-                "draw panel annotation rows keep a stable Workbench row height");
+        assertTrue(annotationList.getFixedCellHeight() >= 64,
+                "draw panel annotation rows reserve room for detail text");
+        assertTrue(annotationList.getComponentPopupMenu() != null,
+                "draw panel annotation list exposes row context actions");
         assertFalse(componentTreeHasLabelText(panel, "Red"),
                 "draw panel keeps redundant RGB sliders out of the rail");
         assertFalse(componentTreeHasLabelText(panel, "Hue"),
@@ -2453,6 +2566,9 @@ final class WorkbenchUiRegression {
                 "draw panel exposes direct hexadecimal color entry");
         assertTrue(componentTreeHasLabelText(panel, "ARGB"),
                 "draw panel exposes direct ARGB color entry");
+        JComponent colorPlane = (JComponent) field(panel, "colorPlane");
+        assertTrue(colorPlane.getPreferredSize().width <= 430,
+                "draw panel color picker stays within inspector width");
         assertFalse(componentTreeHasTooltip(panel, "Current stroke preview."),
                 "draw panel does not include the removed stroke preview card");
         assertTrue(componentTreeHasLabelText(panel, "Annotations"),
@@ -2466,6 +2582,40 @@ final class WorkbenchUiRegression {
                 "draw panel starts with the default border width");
         assertFalse(board.directAnnotationBrush().displayRoundedRectangle(),
                 "draw panel starts with square rectangle corners");
+        JComponent glyphPicker = (JComponent) field(panel, "glyphPicker");
+        assertFalse(glyphPicker.isEnabled(),
+                "draw panel disables exact glyph choices while shape is not glyph");
+        JButton blunderPreset = buttonWithText(panel, "??");
+        assertEquals(new Color(0xCB, 0x37, 0x37, 212),
+                blunderPreset.getClientProperty("workbench.draw.preset.fill"),
+                "draw panel blunder preset exposes its red fill");
+        assertEquals(BoardMarkupTool.GLYPH, blunderPreset.getClientProperty("workbench.draw.preset.tool"),
+                "draw panel blunder preset exposes glyph tool");
+        assertTrue(blunderPreset.getToolTipText().contains("width"),
+                "draw panel preset tooltip summarizes brush settings");
+        blunderPreset.doClick();
+        assertEquals(BoardMarkupTool.GLYPH, board.markupTool(),
+                "draw panel glyph preset switches to glyph shape");
+        assertEquals("??", board.directAnnotationBrush().glyph(),
+                "draw panel glyph preset applies the selected glyph");
+        assertTrue(glyphPicker.isEnabled(),
+                "draw panel enables exact glyph choices for glyph shape");
+        JButton circlePreset = buttonWithText(panel, "Circle");
+        assertEquals(new Color(0x30, 0x72, 0xE0, 212),
+                circlePreset.getClientProperty("workbench.draw.preset.fill"),
+                "draw panel circle preset exposes its blue fill");
+        assertEquals(BoardMarkupTool.CIRCLE, circlePreset.getClientProperty("workbench.draw.preset.tool"),
+                "draw panel circle preset exposes circle tool");
+        assertEquals(Integer.valueOf(10), circlePreset.getClientProperty("workbench.draw.preset.lineWidth"),
+                "draw panel circle preset exposes line width");
+        circlePreset.doClick();
+        assertEquals(BoardMarkupTool.CIRCLE, board.markupTool(),
+                "draw panel shape preset switches to circle shape");
+        assertFalse(glyphPicker.isEnabled(),
+                "draw panel disables exact glyph choices after leaving glyph shape");
+        JButton roundPreset = buttonWithText(panel, "Round");
+        assertEquals(Boolean.TRUE, roundPreset.getClientProperty("workbench.draw.preset.rounded"),
+                "draw panel round preset exposes rounded rectangle state");
         AbstractButton roundedToggle = (AbstractButton) field(panel, "roundedRectangleToggle");
         roundedToggle.doClick();
         assertTrue(board.directAnnotationBrush().displayRoundedRectangle(),
@@ -2479,20 +2629,61 @@ final class WorkbenchUiRegression {
                 "draw panel compact context shows total annotation count");
         assertFalse(panel.workspaceContext().contains("0 arrows"),
                 "draw panel compact context hides per-shape counts");
+        assertTrue(annotationList.getFixedCellHeight() <= 40,
+                "draw panel compact annotation rows collapse to one readable line");
+        detailsToggle.doClick();
+        assertTrue(annotationList.getFixedCellHeight() >= 64,
+                "draw panel detailed annotation rows restore two-line height");
         JTextField hexField = (JTextField) field(panel, "hexField");
-        JTextField argbField = (JTextField) field(panel, "argbField");
+        JSpinner opacitySpinner = (JSpinner) field(panel, "opacitySpinner");
+        JSpinner alphaSpinner = (JSpinner) field(panel, "alphaSpinner");
+        JSpinner redSpinner = (JSpinner) field(panel, "redSpinner");
+        JSpinner greenSpinner = (JSpinner) field(panel, "greenSpinner");
+        JSpinner blueSpinner = (JSpinner) field(panel, "blueSpinner");
+        assertDrawChannelSpinnerWidth(opacitySpinner, "opacity");
+        assertDrawChannelSpinnerWidth(alphaSpinner, "alpha");
+        assertDrawChannelSpinnerWidth(redSpinner, "red");
+        assertDrawChannelSpinnerWidth(greenSpinner, "green");
+        assertDrawChannelSpinnerWidth(blueSpinner, "blue");
+        opacitySpinner.setValue(Integer.valueOf(96));
+        assertEquals(Integer.valueOf(96), Integer.valueOf(board.directAnnotationBrush().displayColor().getAlpha()),
+                "draw panel opacity spinner updates brush alpha");
         hexField.setText("#80445566");
         hexField.postActionEvent();
         assertEquals(new Color(0x44, 0x55, 0x66, 0x80), board.directAnnotationBrush().displayColor(),
                 "draw panel hexadecimal entry updates fill color and alpha");
-        argbField.setText("96, 17, 34, 51");
-        argbField.postActionEvent();
+        alphaSpinner.setValue(Integer.valueOf(96));
+        redSpinner.setValue(Integer.valueOf(17));
+        greenSpinner.setValue(Integer.valueOf(34));
+        blueSpinner.setValue(Integer.valueOf(51));
         assertEquals(new Color(17, 34, 51, 96), board.directAnnotationBrush().displayColor(),
-                "draw panel ARGB entry updates fill color and alpha");
+                "draw panel ARGB channel spinners update fill color and alpha");
+        board.addArrow(Field.toIndex('b', '1'), Field.toIndex('c', '3'), new Color(0xCB, 0x37, 0x37, 180), 18);
+        invoke(panel, "refreshAnnotationState", new Class<?>[0]);
+        annotationList.clearSelection();
+        annotationList.setSelectedIndex(0);
+        assertEquals(BoardMarkupTool.ARROW, board.markupTool(),
+                "draw panel annotation selection restores the selected shape");
+        assertEquals(new Color(0xCB, 0x37, 0x37, 180), board.directAnnotationBrush().displayColor(),
+                "draw panel annotation selection uses the selected brush as template");
         assertEquals(Theme.BOARD_LIGHT, board.boardLightColor(),
                 "draw panel starts with theme light square color");
         assertEquals(Theme.BOARD_DARK, board.boardDarkColor(),
                 "draw panel starts with theme dark square color");
+    }
+
+    /**
+     * Verifies a Draw color-channel spinner has enough room for 0-255 values
+     * plus the stepper buttons.
+     *
+     * @param spinner spinner to inspect
+     * @param label assertion label
+     */
+    private static void assertDrawChannelSpinnerWidth(JSpinner spinner, String label) {
+        assertTrue(spinner.getPreferredSize().width >= 76,
+                "draw panel " + label + " channel spinner has readable preferred width");
+        assertTrue(spinner.getMinimumSize().width >= 76,
+                "draw panel " + label + " channel spinner has readable minimum width");
     }
 
     /**
@@ -2574,6 +2765,12 @@ final class WorkbenchUiRegression {
         String glyphCircleElement = svg.substring(glyphCircle, svg.indexOf("/>", glyphCircle) + 2);
         assertTrue(glyphCircleElement.contains("cx=\"370\"") && glyphCircleElement.contains("cy=\"146\""),
                 "SVG export centers glyph badges in the top-right quadrant of the square");
+        String glyphTextElement = svg.substring(svg.lastIndexOf("<text", glyphText),
+                svg.indexOf("</text>", glyphText) + "</text>".length());
+        assertFalse(glyphTextElement.contains("dominant-baseline"),
+                "SVG export avoids viewer-dependent central glyph baselines");
+        assertTrue(svgAttribute(glyphTextElement, "y") > svgAttribute(glyphCircleElement, "cy"),
+                "SVG export places glyph text on a Java2D-style baseline below badge center");
         assertTrue(board.canUndoMarkupEdit(), "draw annotations can be undone");
         board.undoMarkupEdit();
         assertEquals(Integer.valueOf(3), Integer.valueOf(board.markupCount()),
@@ -2604,6 +2801,50 @@ final class WorkbenchUiRegression {
         int row = square / 8;
         return new Point(bounds.x + col * cell + cell / 2,
                 bounds.y + row * cell + cell / 2);
+    }
+
+    /**
+     * Finds a button by visible text.
+     *
+     * @param component root component
+     * @param text expected text
+     * @return matching button
+     */
+    private static JButton buttonWithText(Component component, String text) {
+        if (component instanceof JButton button && text.equals(button.getText())) {
+            return button;
+        }
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                try {
+                    return buttonWithText(child, text);
+                } catch (AssertionError ex) {
+                    // Continue searching siblings.
+                }
+            }
+        }
+        throw new AssertionError("missing button text " + text);
+    }
+
+    /**
+     * Reads one numeric SVG attribute from an element.
+     *
+     * @param element SVG element text
+     * @param name attribute name
+     * @return parsed attribute value
+     */
+    private static double svgAttribute(String element, String name) {
+        String marker = name + "=\"";
+        int start = element.indexOf(marker);
+        if (start < 0) {
+            throw new AssertionError("missing SVG attribute " + name + " in " + element);
+        }
+        int valueStart = start + marker.length();
+        int valueEnd = element.indexOf('"', valueStart);
+        if (valueEnd < 0) {
+            throw new AssertionError("unterminated SVG attribute " + name + " in " + element);
+        }
+        return Double.parseDouble(element.substring(valueStart, valueEnd));
     }
 
     /**
@@ -2902,6 +3143,35 @@ final class WorkbenchUiRegression {
     }
 
     /**
+     * Verifies tall disclosure content is capped and handed to a shared styled
+     * scroll pane instead of resizing its parent surface.
+     */
+    private static void testBoundedCollapsibleSectionScrollsInternally() {
+        JPanel content = new JPanel(new java.awt.GridLayout(32, 1, 0, 3));
+        content.setOpaque(false);
+        for (int i = 0; i < 32; i++) {
+            content.add(new JLabel("flag " + i));
+        }
+        JComponent section = Ui.collapsible("Flags", content, true, 120);
+        JScrollPane scroll = firstDescendant(section, JScrollPane.class);
+
+        assertTrue(scroll != null, "bounded collapsible creates one internal scroll pane");
+        assertEquals(Integer.valueOf(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED),
+                Integer.valueOf(scroll.getVerticalScrollBarPolicy()),
+                "bounded collapsible keeps vertical scrolling available");
+        assertEquals(Integer.valueOf(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER),
+                Integer.valueOf(scroll.getHorizontalScrollBarPolicy()),
+                "bounded collapsible does not introduce horizontal scrolling");
+        assertTrue(scroll.getVerticalScrollBar().getUI().getClass().getName().contains("StyledScrollBarUI"),
+                "bounded collapsible uses shared scrollbar UI");
+        assertTrue(scroll.getPreferredSize().height <= 120,
+                "bounded collapsible caps expanded scroll height");
+        assertEquals(Integer.valueOf(section.getPreferredSize().height),
+                Integer.valueOf(section.getMaximumSize().height),
+                "bounded collapsible reports a stable maximum height");
+    }
+
+    /**
      * Verifies nested scroll panes do not show transient scroll bars while a
      * collapsed section is still animating open.
      */
@@ -3031,10 +3301,30 @@ final class WorkbenchUiRegression {
     }
 
     /**
-     * Verifies the workbench split shell keeps separate editor-group tab lists,
-     * so moving a tab into the other pane does not duplicate every tab in both
-     * strips.
+     * Finds the first descendant of the requested component type.
+     *
+     * @param root root component
+     * @param type requested component type
+     * @param <T> component type
+     * @return first matching component, or null
      */
+    private static <T extends Component> T firstDescendant(Component root, Class<T> type) {
+        if (root == null || type == null) {
+            return null;
+        }
+        if (type.isInstance(root)) {
+            return type.cast(root);
+        }
+        if (root instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                T match = firstDescendant(child, type);
+                if (match != null) {
+                    return match;
+                }
+            }
+        }
+        return null;
+    }
 
     /**
      * Runs layout recursively after the root component receives a test size.

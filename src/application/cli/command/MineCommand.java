@@ -165,7 +165,7 @@ public final class MineCommand {
 				seeds = wrapSeeds(Setup.getRandomPositionSeeds(randomSeeds, chess960));
 			}
 		} catch (Exception ex) {
-			LogService.error(ex, "Failed to load seed positions (input=%s)", String.valueOf(input));
+			LogService.error(ex, "Failed to load seed positions.", "Input: " + LogService.pathAbs(input));
 			throw new CommandFailure("Failed to load seed positions; see log for details.", ex, 2, verbose);
 		}
 

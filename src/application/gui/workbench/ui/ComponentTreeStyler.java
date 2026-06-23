@@ -26,6 +26,7 @@ import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.JTree;
 
 /**
  * Recursive styling pass for plain Swing component trees created by dialogs,
@@ -99,6 +100,8 @@ final class ComponentTreeStyler {
         } else if (component instanceof JList<?> list) {
             Theme.list(list);
             list.setFixedCellHeight(Math.max(24, list.getFixedCellHeight()));
+        } else if (component instanceof JTree tree) {
+            Ui.styleTree(tree);
         } else if (component instanceof JTabbedPane tabs) {
             Ui.styleTabs(tabs);
         } else if (component instanceof JCheckBox box) {

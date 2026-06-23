@@ -6,6 +6,7 @@ import java.awt.Dimension;
 import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.border.Border;
 
 /**
@@ -116,6 +117,23 @@ final class UiSurfaces {
     }
 
     /**
+     * Creates an inline collapsible information section whose expanded content is
+     * capped and scrolls internally once it grows past the cap.
+     *
+     * @param title section title
+     * @param content collapsible content
+     * @param expanded initial expansion state
+     * @param maxExpandedHeight maximum height for expanded content
+     * @return collapsible section
+     */
+    static JComponent collapsible(String title, JComponent content, boolean expanded, int maxExpandedHeight) {
+        if (maxExpandedHeight <= 0) {
+            return collapsible(title, content, expanded);
+        }
+        return new CollapsibleSection(title, boundedContent(content, maxExpandedHeight), expanded);
+    }
+
+    /**
      * Sets the expansion state for a collapsible section.
      *
      * @param component possible collapsible component
@@ -128,5 +146,70 @@ final class UiSurfaces {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Wraps oversized disclosure content in the shared Workbench scroll chrome.
+     *
+     * @param content content to scroll
+     * @param maxExpandedHeight maximum scroll-pane height
+     * @return bounded scrollable content
+     */
+    private static JComponent boundedContent(JComponent content, int maxExpandedHeight) {
+        BoundedScrollPane pane = new BoundedScrollPane(UiLayout.fillViewport(content), maxExpandedHeight);
+        pane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        pane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        ScrollPaneStyler.style(pane);
+        return pane;
+    }
+
+    /**
+     * Scroll pane whose preferred height never exceeds a caller-selected cap.
+     */
+    private static final class BoundedScrollPane extends JScrollPane {
+
+        /**
+         * Serialization identifier for Swing scroll-pane compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Maximum preferred height.
+         */
+        private final int maxHeight;
+
+        /**
+         * Creates one bounded scroll pane.
+         *
+         * @param view scrollable view
+         * @param maxHeight maximum preferred height
+         */
+        BoundedScrollPane(JComponent view, int maxHeight) {
+            super(view);
+            this.maxHeight = Math.max(Theme.CONTROL_HEIGHT, maxHeight);
+        }
+
+        /**
+         * Returns the content size capped to the configured height.
+         *
+         * @return capped preferred size
+         */
+        @Override
+        public Dimension getPreferredSize() {
+            Dimension preferred = super.getPreferredSize();
+            return new Dimension(preferred.width, Math.min(preferred.height, maxHeight));
+        }
+
+        /**
+         * Keeps BoxLayout parents from donating extra vertical space to bounded
+         * disclosures.
+         *
+         * @return maximum size
+         */
+        @Override
+        public Dimension getMaximumSize() {
+            Dimension preferred = getPreferredSize();
+            return new Dimension(Integer.MAX_VALUE, preferred.height);
+        }
     }
 }

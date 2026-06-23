@@ -48,6 +48,8 @@ final class ThemeInstaller {
         UIManager.put("Table.selectionForeground", Theme.TEXT);
         UIManager.put("Tree.background", Theme.ELEVATED_SOLID);
         UIManager.put("Tree.foreground", Theme.TEXT);
+        UIManager.put("Tree.line", Theme.LINE);
+        UIManager.put("Tree.hash", Theme.LINE);
         UIManager.put("Tree.selectionBackground", Theme.SELECTION_SOLID);
         UIManager.put("Tree.selectionForeground", Theme.TEXT);
         UIManager.put("ScrollPane.background", Theme.BG);

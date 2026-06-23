@@ -39,6 +39,11 @@ final class TreeSvgExporter {
     private static final Color SELECT_COLOR = new Color(0x3D, 0xD6, 0x7E);
 
     /**
+     * Amber omitted-node badge accent, matching the live canvas search accent.
+     */
+    private static final Color OMITTED_COLOR = new Color(0xFF, 0xB4, 0x54);
+
+    /**
      * Caption move-label font (matches the live canvas: bold 11 sans-serif).
      */
     private static final Font LABEL_FONT = new Font(Font.SANS_SERIF, Font.BOLD, 11);
@@ -84,7 +89,8 @@ final class TreeSvgExporter {
             Color transpositionColor, Color edgeColor, Color captionFill,
             Color textColor, Color mutedColor) {
         int width = Math.max(2 * TreeLayout.MARGIN, model.width());
-        int height = Math.max(2 * TreeLayout.MARGIN, model.height());
+        int footer = model.omittedNodes() > 0 ? 32 : 0;
+        int height = Math.max(2 * TreeLayout.MARGIN, model.height()) + footer;
         StringBuilder sb = new StringBuilder(1 << 16);
         sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
         sb.append("<svg xmlns=\"http://www.w3.org/2000/svg\" ")
@@ -128,8 +134,36 @@ final class TreeSvgExporter {
         for (TreeLayout.Node node : model.nodes()) {
             appendNode(sb, node, accent, captionFill, textColor, mutedColor);
         }
+        appendOmittedBadge(sb, model.omittedNodes(), width, height, textColor);
         sb.append("</svg>\n");
         return sb.toString();
+    }
+
+    /**
+     * Appends a footer badge for aggregate nodes omitted by snapshot caps.
+     *
+     * @param sb output builder
+     * @param omittedNodes omitted-node count
+     * @param width SVG width
+     * @param height SVG height
+     * @param textColor badge text color
+     */
+    private static void appendOmittedBadge(StringBuilder sb, int omittedNodes,
+            int width, int height, Color textColor) {
+        if (omittedNodes <= 0) {
+            return;
+        }
+        String label = "+" + compactCount(omittedNodes) + " omitted";
+        int badgeW = Math.max(82, LABEL_METRICS.stringWidth(label) + 18);
+        int x = Math.max(8, width - badgeW - 12);
+        int y = Math.max(8, height - 28);
+        sb.append("<rect x=\"").append(x).append("\" y=\"").append(y)
+                .append("\" width=\"").append(badgeW).append("\" height=\"20\" rx=\"10\"")
+                .append(" fill=\"").append(hex(OMITTED_COLOR)).append("\" fill-opacity=\"0.24\"")
+                .append(" stroke=\"").append(hex(OMITTED_COLOR)).append("\" stroke-opacity=\"0.85\"/>\n");
+        sb.append("<text x=\"").append(x + 9).append("\" y=\"").append(y + 14)
+                .append("\" font-family=\"sans-serif\" font-size=\"10\" font-weight=\"bold\" fill=\"")
+                .append(hex(textColor)).append("\">").append(escape(label)).append("</text>\n");
     }
 
     /**
@@ -339,6 +373,41 @@ final class TreeSvgExporter {
     private static String fmt(double value) {
         String text = String.format(Locale.ROOT, "%.4f", value);
         return text.contains(".") ? text.replaceAll("0+$", "").replaceAll("\\.$", "") : text;
+    }
+
+    /**
+     * Formats a count for a narrow badge.
+     *
+     * @param value count
+     * @return compact count text
+     */
+    private static String compactCount(long value) {
+        long abs = Math.abs(value);
+        if (abs >= 1_000_000_000L) {
+            return compactDecimal(value / 1_000_000_000.0, "B");
+        }
+        if (abs >= 1_000_000L) {
+            return compactDecimal(value / 1_000_000.0, "M");
+        }
+        if (abs >= 1_000L) {
+            return compactDecimal(value / 1_000.0, "k");
+        }
+        return Long.toString(value);
+    }
+
+    /**
+     * Formats one compact decimal and removes a redundant ".0".
+     *
+     * @param value scaled value
+     * @param suffix count suffix
+     * @return formatted text
+     */
+    private static String compactDecimal(double value, String suffix) {
+        String text = String.format(Locale.ROOT, "%.1f", value);
+        if (text.endsWith(".0")) {
+            text = text.substring(0, text.length() - 2);
+        }
+        return text + suffix;
     }
 
     /**

@@ -107,9 +107,12 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
     protected void startNewGame(String fen) {
         try {
             Position start = new Position(fen.trim());
+            persistCurrentGame("Aborted");
+            activeSavedGameId = null;
             gameModel.reset(start);
             session.clearEvalHistory();
             showGamePly(0);
+            refreshSavedGamesPanel();
             appendConsole("New game from " + start + "\n");
             if (positionLoadSoundArmed) {
                 SoundService.play(SoundCue.POSITION_LOAD);
@@ -162,7 +165,6 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
         }
         if (boardEditorPanel != null) {
             boardEditorPanel.loadFen(currentPosition.toString());
-            boardEditorPanel.setEditingBoardActive(isBoardEditorSelected());
         }
         analysisGraph.resetForPosition(currentPosition.toString());
         for (application.gui.workbench.network.NetworkPanel panel : networkPanels) {

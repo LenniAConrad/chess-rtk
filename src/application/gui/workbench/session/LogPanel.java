@@ -85,6 +85,16 @@ public final class LogPanel extends SurfacePanel {
     private static final String ALL_LOGS_LABEL = "All logs";
 
     /**
+     * Spacing used in rendered log section headers.
+     */
+    private static final String HEADER_FIELD_GAP = "    ";
+
+    /**
+     * Marker separating the file label from modified-time metadata.
+     */
+    private static final String HEADER_MODIFIED_MARKER = HEADER_FIELD_GAP + "modified ";
+
+    /**
      * Message shown when no log files exist yet.
      */
     private static final String NO_LOGS_TEXT =
@@ -644,8 +654,8 @@ public final class LogPanel extends SurfacePanel {
      * @return section header
      */
     private static String headerFor(LogEntry entry) {
-        return "===== " + entry.label() + " | " + TIME_FORMAT.format(entry.modified())
-                + " | " + humanSize(entry.size()) + " =====\n";
+        return entry.label() + HEADER_MODIFIED_MARKER + TIME_FORMAT.format(entry.modified())
+                + HEADER_FIELD_GAP + humanSize(entry.size()) + "\n";
     }
 
     /**
@@ -704,8 +714,85 @@ public final class LogPanel extends SurfacePanel {
      */
     private void showText(String text) {
         logView.clearOutput();
-        logView.appendOutput(text);
+        appendLogText(text == null ? "" : text);
         logView.setCaretPosition(0);
+    }
+
+    /**
+     * Appends loaded log text, rendering synthetic file headers as highlighted
+     * rows while leaving all real log output as terminal text.
+     *
+     * @param text loaded log text
+     */
+    private void appendLogText(String text) {
+        int index = 0;
+        while (index < text.length()) {
+            int newline = text.indexOf('\n', index);
+            boolean hasNewline = newline >= 0;
+            int end = hasNewline ? newline : text.length();
+            String line = text.substring(index, end);
+            if (isLogSectionHeader(line)) {
+                logView.appendSectionHeader(line);
+            } else {
+                logView.appendOutput(line + (hasNewline ? "\n" : ""));
+            }
+            index = hasNewline ? newline + 1 : text.length();
+        }
+    }
+
+    /**
+     * Returns whether a line is one of this panel's synthetic file headers.
+     *
+     * @param line display line
+     * @return true when the line should be rendered as a section header
+     */
+    private static boolean isLogSectionHeader(String line) {
+        if (line == null || line.isBlank()) {
+            return false;
+        }
+        int marker = line.indexOf(HEADER_MODIFIED_MARKER);
+        if (marker <= 0) {
+            return false;
+        }
+        int timestampStart = marker + HEADER_MODIFIED_MARKER.length();
+        int sizeStart = line.indexOf(HEADER_FIELD_GAP, timestampStart);
+        if (sizeStart <= timestampStart) {
+            return false;
+        }
+        String timestamp = line.substring(timestampStart, sizeStart);
+        String size = line.substring(sizeStart + HEADER_FIELD_GAP.length()).trim();
+        return looksLikeTimestamp(timestamp) && !size.isEmpty();
+    }
+
+    /**
+     * Validates the fixed timestamp shape emitted by {@link #TIME_FORMAT}.
+     *
+     * @param value timestamp text
+     * @return true when the timestamp has the expected shape
+     */
+    private static boolean looksLikeTimestamp(String value) {
+        if (value == null || value.length() != 19) {
+            return false;
+        }
+        for (int i = 0; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            if (i == 4 || i == 7) {
+                if (ch != '-') {
+                    return false;
+                }
+            } else if (i == 10) {
+                if (ch != ' ') {
+                    return false;
+                }
+            } else if (i == 13 || i == 16) {
+                if (ch != ':') {
+                    return false;
+                }
+            } else if (ch < '0' || ch > '9') {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

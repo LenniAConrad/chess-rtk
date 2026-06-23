@@ -34,7 +34,7 @@ public final class DonutChart extends JComponent {
     /**
      * Preferred chart height.
      */
-    private static final int PREFERRED_HEIGHT = 172;
+    private static final int PREFERRED_HEIGHT = 204;
 
     /**
      * Gap in degrees rendered between adjacent ring segments. Kept small and
@@ -172,7 +172,7 @@ public final class DonutChart extends JComponent {
      */
     @Override
     public Dimension getMinimumSize() {
-        return new Dimension(180, 120);
+        return new Dimension(180, 150);
     }
 
     /**
@@ -216,11 +216,15 @@ public final class DonutChart extends JComponent {
      */
     private void paintDonut(Graphics2D g, List<Segment> visible, long total) {
         int pad = Theme.SPACE_MD;
-        int height = Math.max(1, getHeight() - 2 * pad);
-        // The ring claims a square on the left; the legend fills the remainder.
-        int ringBox = Math.min(height, Math.max(96, (getWidth() - 2 * pad) * 2 / 5));
-        int ringX = pad;
-        int ringY = pad + Math.max(0, (height - ringBox) / 2);
+        int availableWidth = Math.max(1, getWidth() - 2 * pad);
+        int rowHeight = 20;
+        int legendColumns = legendColumns(visible.size(), availableWidth);
+        int legendRows = Math.max(1, (visible.size() + legendColumns - 1) / legendColumns);
+        int legendHeight = legendRows * rowHeight;
+        int ringAreaHeight = Math.max(72, getHeight() - 2 * pad - legendHeight - Theme.SPACE_SM);
+        int ringBox = Math.max(72, Math.min(availableWidth, ringAreaHeight));
+        int ringX = pad + Math.max(0, (availableWidth - ringBox) / 2);
+        int ringY = pad;
         float thickness = Math.max(10f, ringBox * 0.18f);
         double inset = thickness / 2.0d + 1.0d;
         double arcX = ringX + inset;
@@ -255,7 +259,8 @@ public final class DonutChart extends JComponent {
         }
 
         paintCenter(g, ringX, ringY, ringBox, total);
-        paintLegend(g, visible, total, ringX + ringBox + Theme.SPACE_MD, pad, height);
+        paintLegend(g, visible, total, pad, ringY + ringBox + Theme.SPACE_SM,
+                availableWidth, legendColumns, rowHeight);
     }
 
     /**
@@ -286,39 +291,55 @@ public final class DonutChart extends JComponent {
     }
 
     /**
-     * Paints the swatch legend to the right of the ring.
+     * Paints the swatch legend below the ring.
      *
      * @param g graphics context
      * @param visible visible segments
      * @param total summed value
      * @param x legend left
      * @param y legend top
-     * @param height available height
+     * @param width available width
+     * @param columns legend column count
+     * @param rowHeight legend row height
      */
-    private void paintLegend(Graphics2D g, List<Segment> visible, long total, int x, int y, int height) {
-        int available = Math.max(1, getWidth() - x - Theme.SPACE_MD);
-        int rowHeight = 22;
-        int blockHeight = Math.min(height, visible.size() * rowHeight);
-        int rowY = y + Math.max(0, (height - blockHeight) / 2);
+    private void paintLegend(Graphics2D g, List<Segment> visible, long total, int x, int y,
+            int width, int columns, int rowHeight) {
         int swatch = 9;
+        int cellGap = Theme.SPACE_MD;
+        int cellWidth = Math.max(1, (width - (columns - 1) * cellGap) / Math.max(1, columns));
         g.setFont(Theme.font(11, java.awt.Font.PLAIN));
         FontMetrics metrics = g.getFontMetrics();
-        for (Segment segment : visible) {
-            int centerY = rowY + rowHeight / 2;
+        for (int i = 0; i < visible.size(); i++) {
+            Segment segment = visible.get(i);
+            int column = i % columns;
+            int row = i / columns;
+            int cellX = x + column * (cellWidth + cellGap);
+            int centerY = y + row * rowHeight + rowHeight / 2;
             g.setColor(color(segment.role()));
-            g.fillRoundRect(x, centerY - swatch / 2, swatch, swatch, 3, 3);
-            int textX = x + swatch + Theme.SPACE_SM;
+            g.fillRoundRect(cellX, centerY - swatch / 2, swatch, swatch, 3, 3);
+            int textX = cellX + swatch + Theme.SPACE_SM;
             int percent = (int) Math.round(100.0d * segment.value() / total);
             String value = percent + "%";
             int valueWidth = metrics.stringWidth(value);
             g.setColor(Theme.TEXT);
-            g.drawString(value, x + available - valueWidth, centerY + metrics.getAscent() / 2 - 1);
+            g.drawString(value, cellX + cellWidth - valueWidth, centerY + metrics.getAscent() / 2 - 1);
             g.setColor(Theme.MUTED);
-            int labelRoom = Math.max(1, available - swatch - Theme.SPACE_SM - valueWidth - Theme.SPACE_SM);
+            int labelRoom = Math.max(1, cellWidth - swatch - Theme.SPACE_SM - valueWidth - Theme.SPACE_SM);
             g.drawString(Ui.elide(segment.label(), metrics, labelRoom), textX,
                     centerY + metrics.getAscent() / 2 - 1);
-            rowY += rowHeight;
         }
+    }
+
+    /**
+     * Returns the number of legend columns that can read comfortably below the
+     * ring.
+     *
+     * @param segmentCount visible segment count
+     * @param availableWidth width available to the legend
+     * @return legend columns
+     */
+    private static int legendColumns(int segmentCount, int availableWidth) {
+        return segmentCount > 2 && availableWidth >= 220 ? 2 : 1;
     }
 
     /**

@@ -80,6 +80,7 @@ public final class EditorSplitArea extends JPanel {
     private final transient List<JComponent> panels = new ArrayList<>();
     private final transient List<Supplier<JComponent>> panelFactories = new ArrayList<>();
     private final transient List<Theme.Mode> panelThemeModes = new ArrayList<>();
+    private final transient List<DetachedTabWindow> detachedTabs = new ArrayList<>();
 
     private final transient List<Integer> open = new ArrayList<>();
 
@@ -221,9 +222,11 @@ public final class EditorSplitArea extends JPanel {
             int paneId = pane;
             splitButtons[pane].addActionListener(event -> splitSelectedTabRightFromPane(paneId));
             JToggleButton overflow = new JToggleButton("»");
-            overflow.setName("workbench.editor.tabs.overflow");
-            overflow.setToolTipText("Show all open tabs in this editor group");
-            overflow.getAccessibleContext().setAccessibleName("Show all open tabs");
+            overflow.setName(EditorLayoutCommands.TABS_OVERFLOW);
+            overflow.setActionCommand(EditorLayoutCommands.TABS_OVERFLOW);
+            overflow.setToolTipText(EditorLayoutCommands.OVERFLOW_TOOLTIP);
+            overflow.getAccessibleContext().setAccessibleName(EditorLayoutCommands.OVERFLOW_ACCESSIBLE_NAME);
+            overflow.getAccessibleContext().setAccessibleDescription(EditorLayoutCommands.OVERFLOW_TOOLTIP);
             Theme.commandTab(overflow);
             overflow.setVisible(false);
             overflow.addActionListener(event -> {
@@ -281,6 +284,7 @@ public final class EditorSplitArea extends JPanel {
         panels.add(panel);
         panelFactories.add(duplicateFactory);
         panelThemeModes.add(null);
+        detachedTabs.add(null);
         open.add(index);
         primaryTabs.add(index);
     }
@@ -343,6 +347,7 @@ public final class EditorSplitArea extends JPanel {
         panels.add(panel);
         panelFactories.add(panelFactories.get(index));
         panelThemeModes.add(null);
+        detachedTabs.add(null);
         int targetPane = paneVisible(activePane) ? activePane : firstVisiblePane();
         open.add(copy);
         tabsForPane(targetPane).add(copy);
@@ -376,11 +381,29 @@ public final class EditorSplitArea extends JPanel {
                 Theme.refreshComponentTree(panel);
                 panelThemeModes.set(i, currentMode);
             }
+            DetachedTabWindow detached = detachedWindow(i);
+            if (detached != null) {
+                detached.refreshTheme();
+            }
         }
         relayout();
         applyChromeTheme();
         revalidate();
         repaint();
+    }
+
+    /**
+     * Rescales detached tab windows after a density switch. Attached tabs are
+     * already covered by the main frame's component-tree rescale.
+     *
+     * @param ratio font-scale ratio
+     */
+    public void rescaleDetachedTabs(double ratio) {
+        for (DetachedTabWindow detached : detachedTabs) {
+            if (detached != null && detached.isOpen()) {
+                detached.rescaleFonts(ratio);
+            }
+        }
     }
 
     /**
@@ -469,6 +492,21 @@ public final class EditorSplitArea extends JPanel {
     }
 
     /**
+     * Returns the number of tabs currently hosted in detached OS windows.
+     *
+     * @return detached tab count
+     */
+    public int detachedTabCount() {
+        int count = 0;
+        for (DetachedTabWindow window : detachedTabs) {
+            if (window != null && window.isOpen()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
      * Returns the number of visible editor groups.
      *
      * @return visible editor group count
@@ -538,6 +576,14 @@ public final class EditorSplitArea extends JPanel {
     }
 
     /**
+     * Detaches the selected tab into its own workbench window.
+     */
+    public void detachSelectedTab() {
+        hideOpenMenus();
+        detachTab(selectedIndex());
+    }
+
+    /**
      * Reopens every workbench tab into the active editor group.
      */
     public void reopenAllTabs() {
@@ -596,11 +642,63 @@ public final class EditorSplitArea extends JPanel {
     }
 
     private void closeTab(int index) {
+        if (isDetached(index)) {
+            closeDetachedTab(index);
+            return;
+        }
         open.remove(Integer.valueOf(index));
+        removeFromDockedGroups(index);
+        repairGroups();
+        relayout();
+        notifySelectionChanged();
+    }
+
+    private void detachTab(int index) {
+        if (!validPanel(index)) {
+            return;
+        }
+        DetachedTabWindow existing = detachedWindow(index);
+        if (existing != null) {
+            existing.focus();
+            return;
+        }
+        rememberDividerLocation();
+        open.remove(Integer.valueOf(index));
+        removeFromDockedGroups(index);
+        repairGroups();
+        relayout();
+        DetachedTabWindow detached = DetachedTabWindow.open(names.get(index), panels.get(index),
+                () -> attachDetachedTab(index, activePane),
+                () -> closeDetachedTab(index),
+                this);
+        detachedTabs.set(index, detached);
+        notifySelectionChanged();
+    }
+
+    private void attachDetachedTab(int index, int pane) {
+        if (!validPanel(index)) {
+            return;
+        }
+        disposeDetachedWindow(index);
+        int targetPane = paneVisible(pane) ? pane : firstVisiblePane();
+        setPaneSelection(targetPane, index);
+    }
+
+    private void closeDetachedTab(int index) {
+        if (!validPanel(index)) {
+            return;
+        }
+        disposeDetachedWindow(index);
+        relayout();
+        notifySelectionChanged();
+    }
+
+    private void removeFromDockedGroups(int index) {
         for (int pane = PANE_PRIMARY; pane <= PANE_QUATERNARY; pane++) {
-            tabsForPane(pane).remove(Integer.valueOf(index));
+            List<Integer> tabs = tabsForPane(pane);
+            tabs.remove(Integer.valueOf(index));
             if (paneIndex(pane) == index) {
-                setPaneIndex(pane, tabsForPane(pane).isEmpty() ? -1 : tabsForPane(pane).get(0));
+                setPaneIndex(pane, tabs.isEmpty() ? -1 : tabs.get(0));
             }
         }
         if (primaryIndex < 0 && !open.isEmpty()) {
@@ -609,8 +707,6 @@ public final class EditorSplitArea extends JPanel {
         if (!paneVisible(activePane)) {
             activePane = firstVisiblePane();
         }
-        relayout();
-        notifySelectionChanged();
     }
 
     private void cycleActivePane(int delta) {
@@ -692,6 +788,11 @@ public final class EditorSplitArea extends JPanel {
      * @param anchor button the menu drops from
      */
     private void showTabOverflowMenu(int pane, JComponent anchor) {
+        JPopupMenu menu = tabOverflowMenu(pane);
+        menu.show(anchor, 0, anchor.getHeight());
+    }
+
+    private JPopupMenu tabOverflowMenu(int pane) {
         JPopupMenu menu = new JPopupMenu();
         PopupMenus.style(menu);
         int active = paneIndex(pane);
@@ -700,10 +801,11 @@ public final class EditorSplitArea extends JPanel {
                 continue;
             }
             int panelIndex = index;
-            String name = index == active ? "● " + names.get(index) : names.get(index);
-            menu.add(PopupMenus.item(name, () -> setPaneSelection(pane, panelIndex)));
+            String label = index == active ? "● " + names.get(index) : names.get(index);
+            menu.add(PopupMenus.item(label, EditorLayoutCommands.overflowTabCommand(panelIndex),
+                    () -> setPaneSelection(pane, panelIndex), true, null));
         }
-        menu.show(anchor, 0, anchor.getHeight());
+        return menu;
     }
 
     private boolean needsReopenButton() {
@@ -718,67 +820,80 @@ public final class EditorSplitArea extends JPanel {
         JToggleButton plus = new JToggleButton("+");
         EditorTabStripState.markReopenButton(plus);
         Theme.commandTab(plus);
-        plus.setToolTipText("New duplicate tab or restore a closed tab");
-        plus.setActionCommand("workbench.editor.tabs.newOrRestore");
-        plus.setName("workbench.editor.tabs.newOrRestore");
-        plus.getAccessibleContext().setAccessibleName("New or restore tab");
+        plus.setToolTipText(EditorLayoutCommands.NEW_OR_RESTORE_TOOLTIP);
+        plus.setActionCommand(EditorLayoutCommands.TABS_NEW_OR_RESTORE);
+        plus.setName(EditorLayoutCommands.TABS_NEW_OR_RESTORE);
+        plus.getAccessibleContext().setAccessibleName(EditorLayoutCommands.NEW_OR_RESTORE_ACCESSIBLE_NAME);
         plus.getAccessibleContext().setAccessibleDescription(
-                "Opens another duplicate-capable tab or restores a closed workbench tab.");
+                EditorLayoutCommands.NEW_OR_RESTORE_ACCESSIBLE_DESCRIPTION);
         plus.addActionListener(event -> {
             plus.setSelected(false);
-            JPopupMenu menu = new JPopupMenu();
-            PopupMenus.style(menu);
-            List<String> offered = new ArrayList<>();
-            for (int i = 0; i < panels.size(); i++) {
-                if (panelFactories.get(i) == null || offered.contains(baseNames.get(i))) {
-                    continue;
-                }
-                int index = i;
-                offered.add(baseNames.get(i));
-                menu.add(PopupMenus.item("New " + baseNames.get(i), () -> {
-                    activePane = pane;
-                    duplicate(index);
-                }));
-            }
-            for (int i = 0; i < panels.size(); i++) {
-                if (open.contains(i)) {
-                    continue;
-                }
-                int index = i;
-                menu.add(PopupMenus.item(names.get(i), () -> setPaneSelection(pane, index)));
-            }
+            JPopupMenu menu = newOrRestoreMenu(pane);
             menu.show(plus, 0, plus.getHeight());
         });
         return plus;
+    }
+
+    private JPopupMenu newOrRestoreMenu(int pane) {
+        JPopupMenu menu = new JPopupMenu();
+        PopupMenus.style(menu);
+        List<String> offered = new ArrayList<>();
+        for (int i = 0; i < panels.size(); i++) {
+            if (panelFactories.get(i) == null || offered.contains(baseNames.get(i))) {
+                continue;
+            }
+            int index = i;
+            offered.add(baseNames.get(i));
+            menu.add(PopupMenus.item("New " + baseNames.get(i),
+                    EditorLayoutCommands.duplicateTabCommand(index),
+                    () -> {
+                        activePane = pane;
+                        duplicate(index);
+                    }, true, null));
+        }
+        for (int i = 0; i < panels.size(); i++) {
+            if (open.contains(i)) {
+                continue;
+            }
+            int index = i;
+            boolean detached = isDetached(index);
+            String label = detached ? "Reattach " + names.get(i) : names.get(i);
+            String command = detached
+                    ? EditorLayoutCommands.reattachTabCommand(index)
+                    : EditorLayoutCommands.restoreTabCommand(index);
+            menu.add(PopupMenus.item(label, command, () -> setPaneSelection(pane, index), true, null));
+        }
+        return menu;
     }
 
     private JPopupMenu tabContextMenu(int pane, int panelIndex) {
         JPopupMenu menu = new JPopupMenu();
         PopupMenus.style(menu);
         boolean canSplit = canSplitTab(panelIndex);
-        String splitDisabled = "Open another tab or select a duplicate-capable tab to split this tab.";
-        menu.add(PopupMenus.item("Split Tab Right", "workbench.editor.tab.split.right",
-                () -> splitTabCopy(panelIndex, DROP_RIGHT), canSplit, splitDisabled));
-        menu.add(PopupMenus.item("Split Tab Down", "workbench.editor.tab.split.down",
-                () -> splitTabCopy(panelIndex, DROP_BOTTOM), canSplit, splitDisabled));
-        menu.add(PopupMenus.item("Split Tab Left", "workbench.editor.tab.split.left",
-                () -> splitTabCopy(panelIndex, DROP_LEFT), canSplit, splitDisabled));
-        menu.add(PopupMenus.item("Split Tab Up", "workbench.editor.tab.split.up",
-                () -> splitTabCopy(panelIndex, DROP_TOP), canSplit, splitDisabled));
+        menu.add(PopupMenus.item("Split Tab Right", EditorLayoutCommands.TAB_SPLIT_RIGHT,
+                () -> splitTabCopy(panelIndex, DROP_RIGHT), canSplit, EditorLayoutCommands.SPLIT_DISABLED_TOOLTIP));
+        menu.add(PopupMenus.item("Split Tab Down", EditorLayoutCommands.TAB_SPLIT_DOWN,
+                () -> splitTabCopy(panelIndex, DROP_BOTTOM), canSplit, EditorLayoutCommands.SPLIT_DISABLED_TOOLTIP));
+        menu.add(PopupMenus.item("Split Tab Left", EditorLayoutCommands.TAB_SPLIT_LEFT,
+                () -> splitTabCopy(panelIndex, DROP_LEFT), canSplit, EditorLayoutCommands.SPLIT_DISABLED_TOOLTIP));
+        menu.add(PopupMenus.item("Split Tab Up", EditorLayoutCommands.TAB_SPLIT_UP,
+                () -> splitTabCopy(panelIndex, DROP_TOP), canSplit, EditorLayoutCommands.SPLIT_DISABLED_TOOLTIP));
         if (validPanel(panelIndex) && panelFactories.get(panelIndex) != null) {
-            menu.add(PopupMenus.item("Duplicate Tab", "workbench.editor.tab.duplicate",
+            menu.add(PopupMenus.item("Duplicate Tab", EditorLayoutCommands.TAB_DUPLICATE,
                     () -> duplicate(panelIndex), true, null));
         }
-        menu.add(PopupMenus.item("Close", "workbench.editor.tab.close", () -> closeTab(panelIndex), true, null));
-        menu.add(PopupMenus.item("Close Other Tabs", "workbench.editor.tab.closeOthers",
+        menu.add(PopupMenus.item("Detach to New Window", EditorLayoutCommands.TAB_DETACH,
+                () -> detachTab(panelIndex), true, null));
+        menu.add(PopupMenus.item("Close", EditorLayoutCommands.TAB_CLOSE, () -> closeTab(panelIndex), true, null));
+        menu.add(PopupMenus.item("Close Other Tabs", EditorLayoutCommands.TAB_CLOSE_OTHERS,
                 () -> closeOtherTabs(panelIndex), open.size() > 1,
-                "Open another tab before closing others."));
+                EditorLayoutCommands.CLOSE_OTHERS_DISABLED_TOOLTIP));
         if (open.size() < panels.size()) {
-            menu.add(PopupMenus.item("Restore Closed Tabs", "workbench.editor.tabs.restoreClosed",
+            menu.add(PopupMenus.item("Restore Closed Tabs", EditorLayoutCommands.TABS_RESTORE_CLOSED,
                     () -> reopenAllTabs(pane), true, null));
         }
         if (isSplitActive()) {
-            menu.add(PopupMenus.item("Collapse Editor Groups", "workbench.editor.groups.collapse",
+            menu.add(PopupMenus.item("Collapse Editor Groups", EditorLayoutCommands.GROUPS_COLLAPSE,
                     this::collapseAndRelayout, true, null));
         }
         return menu;
@@ -798,8 +913,9 @@ public final class EditorSplitArea extends JPanel {
     }
 
     private boolean openDuplicateNameTaken(String baseName, String candidate) {
-        for (int index : open) {
+        for (int index = 0; index < panels.size(); index++) {
             if (validPanel(index)
+                    && (open.contains(index) || isDetached(index))
                     && baseName.equals(baseNames.get(index))
                     && candidate.equals(names.get(index))) {
                 return true;
@@ -996,6 +1112,10 @@ public final class EditorSplitArea extends JPanel {
         dropOverlay.repaint();
         if (targetPane >= PANE_PRIMARY) {
             dockDraggedTab(draggedPanelIndex, targetPane, targetIndex);
+            return;
+        }
+        if (zone == DROP_NONE) {
+            detachTab(draggedPanelIndex);
             return;
         }
         splitTab(draggedPanelIndex, zone);
@@ -1244,8 +1364,8 @@ public final class EditorSplitArea extends JPanel {
         button.setEnabled(enabled);
         button.setSelected(enabled && isSplitActive() && activePane == pane);
         button.setToolTipText(enabled
-                ? "Split active tab to the right"
-                : "Open another tab or select a duplicate-capable tab to split right");
+                ? EditorLayoutCommands.SPLIT_RIGHT_TOOLTIP
+                : EditorLayoutCommands.SPLIT_RIGHT_DISABLED_TOOLTIP);
     }
 
     private boolean canSplitTab(int index) {
@@ -1406,8 +1526,40 @@ public final class EditorSplitArea extends JPanel {
     }
 
     private void ensureOpen(int index) {
+        disposeDetachedWindow(index);
         if (!open.contains(index)) {
             open.add(index);
+        }
+    }
+
+    private boolean isDetached(int index) {
+        return detachedWindow(index) != null;
+    }
+
+    private DetachedTabWindow detachedWindow(int index) {
+        if (index < 0 || index >= detachedTabs.size()) {
+            return null;
+        }
+        DetachedTabWindow window = detachedTabs.get(index);
+        return window != null && window.isOpen() ? window : null;
+    }
+
+    private void disposeDetachedWindow(int index) {
+        if (index < 0 || index >= detachedTabs.size()) {
+            return;
+        }
+        DetachedTabWindow window = detachedTabs.get(index);
+        if (window != null) {
+            window.dispose();
+            detachedTabs.set(index, null);
+        }
+    }
+
+    private void disposeDetachedWindowsExcept(int keepIndex) {
+        for (int index = 0; index < detachedTabs.size(); index++) {
+            if (index != keepIndex) {
+                disposeDetachedWindow(index);
+            }
         }
     }
 
@@ -1439,6 +1591,8 @@ public final class EditorSplitArea extends JPanel {
             return;
         }
         rememberDividerLocation();
+        disposeDetachedWindowsExcept(panelIndex);
+        disposeDetachedWindow(panelIndex);
         open.clear();
         primaryTabs.clear();
         secondaryTabs.clear();
@@ -1461,6 +1615,7 @@ public final class EditorSplitArea extends JPanel {
         int targetPane = paneVisible(pane) ? pane : PANE_PRIMARY;
         List<Integer> targetTabs = tabsForPane(targetPane);
         for (int index = 0; index < panels.size(); index++) {
+            disposeDetachedWindow(index);
             ensureOpen(index);
             if (paneContaining(index) < 0) {
                 targetTabs.add(index);
@@ -1715,6 +1870,18 @@ public final class EditorSplitArea extends JPanel {
     @Override
     public Dimension getPreferredSize() {
         return new Dimension(900, 620);
+    }
+
+    /**
+     * Closes detached child windows when the owning split area leaves the Swing
+     * tree.
+     */
+    @Override
+    public void removeNotify() {
+        for (int index = 0; index < detachedTabs.size(); index++) {
+            disposeDetachedWindow(index);
+        }
+        super.removeNotify();
     }
 
     /**

@@ -22,6 +22,7 @@ import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.WrappingFlowLayout;
 import application.gui.workbench.ui.Theme;
+import application.gui.workbench.ui.Toast;
 import application.gui.workbench.ui.Ui;
 import application.gui.workbench.ui.WorkspaceHeader;
 import chess.core.Move;
@@ -56,7 +57,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
-import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingWorker;
@@ -294,6 +294,11 @@ public final class DatasetPanel extends SurfacePanel {
     private final DatasetChart evalChart = new DatasetChart();
 
     /**
+     * Evaluation distribution as an ordered area curve.
+     */
+    private final DatasetAreaChart scoreCurveChart = new DatasetAreaChart();
+
+    /**
      * Tag frequency chart.
      */
     private final DatasetChart tagChart = new DatasetChart();
@@ -346,7 +351,7 @@ public final class DatasetPanel extends SurfacePanel {
     /**
      * Inspector FEN/row text.
      */
-    private final JTextArea inspectorFenArea = new JTextArea();
+    private final JTextField inspectorFenField = new JTextField();
 
     /**
      * Inspector detail values.
@@ -830,6 +835,7 @@ public final class DatasetPanel extends SurfacePanel {
         positionMixChart.setEmpty("No dataset loaded", "Quiet / check / mate mix appears after a scan");
         materialChart.setEmpty("No dataset loaded", "Material spread appears after a scan");
         evalChart.setEmpty("No dataset loaded", "Score bands appear once rows are scored");
+        scoreCurveChart.setEmpty("No dataset loaded", "Score curve appears once rows are scored");
         coverageChart.setEmpty("No dataset loaded", "Tag and score coverage appears after a scan");
         tagChart.setEmpty("No dataset loaded", "The most common tags appear after a scan");
         engineChart.setEmpty("No dataset loaded", "Source engines appear after a scan");
@@ -846,6 +852,7 @@ public final class DatasetPanel extends SurfacePanel {
         charts.add(card("Position Mix", positionMixChart));
         charts.add(card("Material Bands", materialChart));
         charts.add(card("Score Bands", evalChart));
+        charts.add(card("Score Curve", scoreCurveChart));
         charts.add(card("Coverage", coverageChart));
         charts.add(card("Top Tags", tagChart));
         charts.add(card("Engine Sources", engineChart));
@@ -921,16 +928,13 @@ public final class DatasetPanel extends SurfacePanel {
      * @return inspector component
      */
     private JComponent createRowInspector() {
-        inspectorBoard.setPreferredSize(new Dimension(156, 156));
-        inspectorBoard.setMinimumSize(new Dimension(120, 120));
         inspectorBoard.setPositionInstant(new Position(Setup.getStandardStartFEN()), Move.NO_MOVE);
-        Theme.codeBlock(inspectorFenArea);
-        inspectorFenArea.setEditable(false);
-        inspectorFenArea.setFocusable(true);
-        inspectorFenArea.setLineWrap(true);
-        inspectorFenArea.setWrapStyleWord(true);
-        inspectorFenArea.setRows(2);
-        inspectorFenArea.setText("Select a dataset row.");
+        styleFields(inspectorFenField);
+        inspectorFenField.setEditable(false);
+        inspectorFenField.setFocusable(true);
+        inspectorFenField.setFont(Theme.mono(Theme.FONT_MONO));
+        inspectorFenField.setText("Select a dataset row.");
+        inspectorFenField.setToolTipText("Selected row FEN");
 
         JPanel details = transparentPanel(new java.awt.GridLayout(0, 2, Theme.SPACE_MD, Theme.SPACE_XS));
         details.add(detailKeyLabel("Side"));
@@ -942,10 +946,15 @@ public final class DatasetPanel extends SurfacePanel {
         details.add(detailKeyLabel("Issue"));
         details.add(inspectorIssueValue);
 
+        ResponsiveBoardSlot boardSlot = new ResponsiveBoardSlot(inspectorBoard);
+
+        JPanel meta = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
+        meta.add(inspectorFenField, BorderLayout.NORTH);
+        meta.add(details, BorderLayout.CENTER);
+
         JPanel body = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
-        body.add(inspectorBoard, BorderLayout.NORTH);
-        body.add(scroll(inspectorFenArea), BorderLayout.CENTER);
-        body.add(details, BorderLayout.SOUTH);
+        body.add(boardSlot, BorderLayout.CENTER);
+        body.add(meta, BorderLayout.SOUTH);
         updateRowInspector(null);
         return card("Row Inspector", body);
     }
@@ -1020,15 +1029,18 @@ public final class DatasetPanel extends SurfacePanel {
      */
     private void updateRowInspector(DatasetSummary.SampleRow row) {
         if (row == null) {
-            inspectorFenArea.setText("Select a sample or issue row.");
+            inspectorFenField.setText("Select a sample or issue row.");
+            inspectorFenField.setToolTipText("Select a sample or issue row.");
             inspectorSideValue.setText("-");
             inspectorMaterialValue.setText("-");
             inspectorLabelValue.setText("-");
             inspectorIssueValue.setText("-");
+            inspectorBoard.setPositionInstant(null, Move.NO_MOVE);
             return;
         }
-        inspectorFenArea.setText(row.fen());
-        inspectorFenArea.setCaretPosition(0);
+        inspectorFenField.setText(row.fen());
+        inspectorFenField.setToolTipText(row.fen());
+        inspectorFenField.setCaretPosition(0);
         inspectorLabelValue.setText(row.label().isBlank() ? "-" : compactText(row.label(), 52));
         inspectorIssueValue.setText(row.issue().isBlank() ? "none" : compactText(row.issue(), 52));
         inspectorSideValue.setText(row.side().isBlank() ? "-" : row.side());
@@ -1040,6 +1052,7 @@ public final class DatasetPanel extends SurfacePanel {
             inspectorMaterialValue.setText(format(position.countTotalMaterial()) + " cp");
         } catch (RuntimeException ex) {
             inspectorIssueValue.setText(row.issue().isBlank() ? "not a valid FEN" : compactText(row.issue(), 52));
+            inspectorBoard.setPositionInstant(null, Move.NO_MOVE);
         }
     }
 
@@ -1096,6 +1109,7 @@ public final class DatasetPanel extends SurfacePanel {
         }
         Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(row.fen()), null);
         setStatus("FEN copied", Theme.ForegroundRole.SUCCESS);
+        Toast.show(this, Toast.Kind.SUCCESS, "Copied to clipboard");
     }
 
     /**
@@ -1422,6 +1436,7 @@ public final class DatasetPanel extends SurfacePanel {
                 summary.validPositions());
         materialChart.setBuckets(MATERIAL_LABELS, summary.materialBuckets(), DatasetChart.Role.ACCENT);
         evalChart.setBuckets(EVAL_LABELS, summary.evalBuckets(), DatasetChart.Role.ACCENT);
+        scoreCurveChart.setBuckets(EVAL_LABELS, summary.evalBuckets(), DatasetChart.Role.PURPLE);
         tagChart.setBars(namedBars(summary.topTags(), DatasetChart.Role.ACCENT));
         engineChart.setBars(namedBars(summary.topEngines(), DatasetChart.Role.ACCENT));
     }
@@ -1447,6 +1462,7 @@ public final class DatasetPanel extends SurfacePanel {
     private void copyReport() {
         Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(report()), null);
         setStatus("Dataset report copied", Theme.ForegroundRole.SUCCESS);
+        Toast.show(this, Toast.Kind.SUCCESS, "Copied to clipboard");
     }
 
     /**
@@ -1927,7 +1943,7 @@ public final class DatasetPanel extends SurfacePanel {
             setFont(Theme.font(11, Font.BOLD));
             if (!selected) {
                 setForeground(text.isBlank() ? Theme.MUTED : Theme.TEXT);
-                setBackground(table.getBackground());
+                setBackground(tableCellBackground(table, row, selected));
             }
             return component;
         }
@@ -1956,9 +1972,94 @@ public final class DatasetPanel extends SurfacePanel {
             setFont(Theme.mono(12));
             if (!selected) {
                 setForeground(text.isBlank() ? Theme.MUTED : Theme.TEXT);
-                setBackground(table.getBackground());
+                setBackground(tableCellBackground(table, row, selected));
             }
             return component;
+        }
+    }
+
+    /**
+     * Returns the dataset table cell background for custom renderers.
+     *
+     * @param table table
+     * @param row view row
+     * @param selected selected state
+     * @return background color
+     */
+    private static Color tableCellBackground(JTable table, int row, boolean selected) {
+        return selected ? table.getSelectionBackground()
+                : Theme.isHoveredTableRow(table, row) ? Theme.SECONDARY_BUTTON_HOVER : table.getBackground();
+    }
+
+    /**
+     * Board holder that gives the preview all available square space.
+     */
+    private static final class ResponsiveBoardSlot extends JPanel {
+
+        /**
+         * Serialization identifier for Swing component compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Hosted board component.
+         */
+        private final BoardPanel board;
+
+        /**
+         * Creates a responsive board slot.
+         *
+         * @param board board component
+         */
+        ResponsiveBoardSlot(BoardPanel board) {
+            super(null);
+            this.board = board;
+            setOpaque(false);
+            add(board);
+        }
+
+        /**
+         * Lays the board into the largest centered square available.
+         */
+        @Override
+        public void doLayout() {
+            int side = Math.max(0, Math.min(getWidth(), getHeight()));
+            int x = Math.max(0, (getWidth() - side) / 2);
+            int y = Math.max(0, (getHeight() - side) / 2);
+            board.setBounds(x, y, side, side);
+        }
+
+        /**
+         * Returns a useful default size without pinning runtime layout.
+         *
+         * @return preferred size
+         */
+        @Override
+        public Dimension getPreferredSize() {
+            return new Dimension(260, 260);
+        }
+
+        /**
+         * Returns a minimum size that still leaves a readable board.
+         *
+         * @return minimum size
+         */
+        @Override
+        public Dimension getMinimumSize() {
+            return new Dimension(160, 160);
+        }
+
+        /**
+         * Propagates enablement to the hosted board.
+         *
+         * @param enabled true when enabled
+         */
+        @Override
+        public void setEnabled(boolean enabled) {
+            super.setEnabled(enabled);
+            for (Component child : getComponents()) {
+                child.setEnabled(enabled);
+            }
         }
     }
 }

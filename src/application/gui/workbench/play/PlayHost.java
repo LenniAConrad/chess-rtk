@@ -138,4 +138,14 @@ public interface PlayHost {
     default void clearPremove() {
         // optional; the window host clears the premove arrow
     }
+
+    /**
+     * Persists the current game line with a compact status. Defaulted to a no-op
+     * for headless tests and alternate hosts.
+     *
+     * @param status saved-game status
+     */
+    default void saveGameState(String status) {
+        // optional; the Workbench window updates its saved-game library
+    }
 }

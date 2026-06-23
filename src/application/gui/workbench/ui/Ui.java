@@ -30,6 +30,7 @@ import javax.swing.JSpinner;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.JTree;
 import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.JTextComponent;
@@ -512,6 +513,15 @@ public final class Ui {
     }
 
     /**
+     * Styles a tree view with shared Workbench chrome.
+     *
+     * @param tree tree view
+     */
+    public static void styleTree(JTree tree) {
+        TreeStyler.style(tree);
+    }
+
+    /**
      * Creates a flat titled section without adding another card layer.
      *
      * @param title title
@@ -628,6 +638,20 @@ public final class Ui {
      */
     public static JComponent collapsible(String title, JComponent content, boolean expanded) {
         return UiSurfaces.collapsible(title, content, expanded);
+    }
+
+    /**
+     * Creates an inline collapsible information section whose expanded content is
+     * capped and scrolls internally once it grows past the cap.
+     *
+     * @param title section title
+     * @param content collapsible content
+     * @param expanded initial expansion state
+     * @param maxExpandedHeight maximum height for expanded content
+     * @return collapsible section
+     */
+    public static JComponent collapsible(String title, JComponent content, boolean expanded, int maxExpandedHeight) {
+        return UiSurfaces.collapsible(title, content, expanded, maxExpandedHeight);
     }
 
     /**

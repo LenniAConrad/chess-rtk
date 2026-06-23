@@ -22,6 +22,7 @@ import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JTextPane;
+import javax.swing.JTree;
 import javax.swing.border.Border;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.LineBorder;
@@ -106,6 +107,8 @@ final class ThemeRefresh {
             Theme.table(table, Math.max(24, table.getRowHeight()));
         } else if (component instanceof JList<?> list) {
             Theme.list(list);
+        } else if (component instanceof JTree tree) {
+            Ui.styleTree(tree);
         } else if (component instanceof JTabbedPane tabs) {
             Ui.styleTabs(tabs);
         } else if (component instanceof JScrollPane pane) {

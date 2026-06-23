@@ -81,6 +81,16 @@ public final class PlayPanel extends JPanel {
     private final transient Runnable analyzeCurrentPosition;
 
     /**
+     * Reviews the current game line.
+     */
+    private final transient Runnable reviewCurrentGame;
+
+    /**
+     * Saves the current game line.
+     */
+    private final transient Runnable saveCurrentGame;
+
+    /**
      * Notifies the workbench shell that the Play header context changed.
      */
     private final transient Runnable summaryChanged;
@@ -151,6 +161,16 @@ public final class PlayPanel extends JPanel {
      * Opens analysis for the current position without altering Play-session state.
      */
     private final JButton analyzeButton = Ui.button("Analyze current", false, null);
+
+    /**
+     * Runs post-game review for the current game line.
+     */
+    private final JButton reviewButton = Ui.button("Game Review", false, null);
+
+    /**
+     * Saves the current game line to the Workbench game library.
+     */
+    private final JButton saveGameButton = Ui.button("Save Game", false, null);
 
     /**
      * Deterministic toggle: when on, the engine always plays its arg-max move.
@@ -379,7 +399,7 @@ public final class PlayPanel extends JPanel {
      * @param currentFen supplier of the current board FEN
      */
     public PlayPanel(PlaySession session, Supplier<String> currentFen) {
-        this(session, currentFen, null, null);
+        this(session, currentFen, null, null, null, null);
     }
 
     /**
@@ -392,12 +412,34 @@ public final class PlayPanel extends JPanel {
      */
     public PlayPanel(PlaySession session, Supplier<String> currentFen,
             Runnable analyzeCurrentPosition, Runnable summaryChanged) {
+        this(session, currentFen, analyzeCurrentPosition, null, null, summaryChanged);
+    }
+
+    /**
+     * Creates the play panel.
+     *
+     * @param session game session to drive
+     * @param currentFen supplier of the current board FEN
+     * @param analyzeCurrentPosition existing Analyze command callback
+     * @param reviewCurrentGame review callback
+     * @param saveCurrentGame save-game callback
+     * @param summaryChanged callback fired when shell header text should refresh
+     */
+    public PlayPanel(PlaySession session, Supplier<String> currentFen,
+            Runnable analyzeCurrentPosition, Runnable reviewCurrentGame,
+            Runnable saveCurrentGame, Runnable summaryChanged) {
         super(new GridBagLayout());
         this.session = session;
         this.currentFen = currentFen;
         this.analyzeCurrentPosition = analyzeCurrentPosition == null ? () -> {
             // optional callback
         } : analyzeCurrentPosition;
+        this.reviewCurrentGame = reviewCurrentGame == null ? () -> {
+            // optional callback
+        } : reviewCurrentGame;
+        this.saveCurrentGame = saveCurrentGame == null ? () -> {
+            // optional callback
+        } : saveCurrentGame;
         this.summaryChanged = summaryChanged == null ? () -> {
             // optional callback
         } : summaryChanged;
@@ -515,6 +557,8 @@ public final class PlayPanel extends JPanel {
         takebackButton.setEnabled(gameActive && !engineThinking);
         hintButton.setEnabled(gameActive && !engineThinking);
         analyzeButton.setEnabled(currentFen.get() != null && !currentFen.get().isBlank());
+        reviewButton.setEnabled(currentFen.get() != null && !currentFen.get().isBlank());
+        saveGameButton.setEnabled(currentFen.get() != null && !currentFen.get().isBlank());
         newGameButton.setText(gameActive ? "Start New Game" : "Start Game");
         newGameButton.setToolTipText(gameActive
                 ? "Start over with the selected setup"
@@ -634,7 +678,8 @@ public final class PlayPanel extends JPanel {
 
         JPanel inGame = new JPanel(new GridLayout(0, 2, Theme.SPACE_SM, Theme.SPACE_SM));
         inGame.setOpaque(false);
-        for (JComponent button : List.of(takebackButton, hintButton, analyzeButton, drawButton, resignButton)) {
+        for (JComponent button : List.of(takebackButton, hintButton, analyzeButton, reviewButton,
+                saveGameButton, drawButton, resignButton)) {
             button.setPreferredSize(new Dimension(0, Theme.CONTROL_HEIGHT_TALL));
             button.setFont(Theme.font(Theme.FONT_METADATA, Font.BOLD));
             inGame.add(button);
@@ -1406,6 +1451,8 @@ public final class PlayPanel extends JPanel {
             summaryChanged.run();
         });
         analyzeButton.addActionListener(event -> analyzeCurrentPosition.run());
+        reviewButton.addActionListener(event -> reviewCurrentGame.run());
+        saveGameButton.addActionListener(event -> saveCurrentGame.run());
         takebackButton.addActionListener(event -> session.takeback());
         hintButton.addActionListener(event -> session.requestHint());
         drawButton.addActionListener(event -> session.offerDraw());

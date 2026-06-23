@@ -126,7 +126,7 @@ final class DrawAnnotationRenderer extends JComponent implements ListCellRendere
 
     private void paintSwatch(Graphics2D g) {
         int x = Theme.SPACE_SM;
-        int y = Math.max(0, (getHeight() - swatchSize) / 2);
+        int y = row.details() ? Theme.SPACE_SM + 1 : Math.max(0, (getHeight() - swatchSize) / 2);
         MarkupBrush brush = row.markup().brush();
         g.setColor(brush.displayColor());
         g.fillRoundRect(x, y, swatchSize, swatchSize, Theme.RADIUS, Theme.RADIUS);
@@ -138,17 +138,19 @@ final class DrawAnnotationRenderer extends JComponent implements ListCellRendere
     }
 
     private void paintText(Graphics2D g) {
-        int textX = Theme.SPACE_SM + swatchSize + Theme.SPACE_SM;
-        int textWidth = Math.max(0, getWidth() - textX - Theme.SPACE_SM);
+        int textX = Theme.SPACE_SM + swatchSize + Theme.SPACE_MD;
+        int textWidth = Math.max(0, getWidth() - textX - Theme.SPACE_MD);
         g.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
         FontMetrics titleMetrics = g.getFontMetrics();
         if (row.details()) {
+            int titleBaseline = Theme.SPACE_SM + titleMetrics.getAscent();
             g.setColor(Theme.TEXT);
-            g.drawString(Ui.elide(row.title(), titleMetrics, textWidth), textX, 15);
+            g.drawString(Ui.elide(row.title(), titleMetrics, textWidth), textX, titleBaseline);
             g.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
             FontMetrics detailMetrics = g.getFontMetrics();
+            int detailBaseline = titleBaseline + Theme.SPACE_XS + detailMetrics.getAscent();
             g.setColor(selected ? Theme.TEXT : Theme.MUTED);
-            g.drawString(Ui.elide(row.detailWithColor(), detailMetrics, textWidth), textX, 30);
+            g.drawString(Ui.elide(row.detailWithColor(), detailMetrics, textWidth), textX, detailBaseline);
         } else {
             int baseline = (getHeight() - titleMetrics.getHeight()) / 2 + titleMetrics.getAscent();
             g.setColor(Theme.TEXT);

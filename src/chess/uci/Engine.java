@@ -887,8 +887,9 @@ public class Engine implements AutoCloseable {
 					process.destroyForcibly();
 				}
 			} catch (InterruptedException ex) {
+				process.destroyForcibly();
 				Thread.currentThread().interrupt();
-				LogService.error(ex, String.format("%s close interrupted", engineId));
+				LogService.warn(String.format("%s close interrupted; forced process termination requested", engineId));
 			}
 		}
 	}

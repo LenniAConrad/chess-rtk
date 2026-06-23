@@ -16,6 +16,8 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
+import javax.accessibility.AccessibleContext;
+import javax.accessibility.AccessibleRole;
 import javax.swing.AbstractAction;
 import javax.swing.JComponent;
 import javax.swing.KeyStroke;
@@ -184,6 +186,19 @@ public final class SegmentedSwitcher extends JComponent {
      */
     public int getSelectedIndex() {
         return selected;
+    }
+
+    /**
+     * Returns accessibility metadata for assistive technologies.
+     *
+     * @return accessible context
+     */
+    @Override
+    public AccessibleContext getAccessibleContext() {
+        if (accessibleContext == null) {
+            accessibleContext = new AccessibleSegmentedSwitcher();
+        }
+        return accessibleContext;
     }
 
     /**
@@ -614,5 +629,26 @@ public final class SegmentedSwitcher extends JComponent {
      */
     private static int interpolate(int from, int to, double progress) {
         return (int) Math.round(from + (to - from) * progress);
+    }
+
+    /**
+     * Accessibility bridge for segmented switchers.
+     */
+    protected class AccessibleSegmentedSwitcher extends AccessibleJComponent {
+
+        /**
+         * Serialization identifier for Swing accessibility support.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Returns the control role exposed to assistive technologies.
+         *
+         * @return accessible role
+         */
+        @Override
+        public AccessibleRole getAccessibleRole() {
+            return AccessibleRole.PAGE_TAB_LIST;
+        }
     }
 }

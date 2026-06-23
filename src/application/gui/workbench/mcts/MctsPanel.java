@@ -10,6 +10,7 @@ import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.HoldButton;
 import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.Theme;
+import application.gui.workbench.ui.Toast;
 import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.Ui;
 import application.gui.workbench.ui.WrappingFlowLayout;
@@ -404,6 +405,8 @@ public final class MctsPanel extends SurfacePanel implements MctsSession.Listene
         args.add("--cpuct");
         args.add(MctsCliSupport.trimDouble(((Number) cpuctSpinner.getValue()).doubleValue()));
         CommandRunner.copyToClipboard(CommandRunner.displayCommand(args));
+        statusBadge.success("command copied");
+        Toast.show(this, Toast.Kind.SUCCESS, "Copied to clipboard");
     }
 
     /**

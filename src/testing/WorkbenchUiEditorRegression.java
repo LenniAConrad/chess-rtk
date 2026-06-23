@@ -54,6 +54,8 @@ final class WorkbenchUiEditorRegression {
         testSplitAreaThemeRefreshUpdatesHiddenTabs();
         testSplitAreaSupportsCornerEditorGroups();
         testSplitAreaDocksDraggedTabsBackIntoGroup();
+        testSplitAreaDetachesAndReattachesTabs();
+        testSplitAreaDragOutDetachesTabs();
         testSplitAreaDropOverlayStaysAboveContent();
         testSplitAreaShowsOverflowButtonWhenTabsDoNotFit();
         testSplitAreaExposesFlexibleTabActions();
@@ -306,6 +308,69 @@ final class WorkbenchUiEditorRegression {
     }
 
     /**
+     * Verifies a tab can move into a detached workbench window and later reattach
+     * as the same panel instance.
+     */
+    private static void testSplitAreaDetachesAndReattachesTabs() {
+        Object area = construct(type("layout.EditorSplitArea"), new Class<?>[0]);
+        JPanel first = new JPanel();
+        JPanel second = new JPanel();
+        invoke(area, "addPanel", new Class<?>[] { String.class, javax.swing.JComponent.class }, "First", first);
+        invoke(area, "addPanel", new Class<?>[] { String.class, javax.swing.JComponent.class }, "Logs", second);
+        invoke(area, "install", new Class<?>[0]);
+        invoke(area, "select", new Class<?>[] { int.class }, 1);
+
+        invoke(area, "detachSelectedTab", new Class<?>[0]);
+
+        assertEquals(Integer.valueOf(1), invoke(area, "openTabCount", new Class<?>[0]),
+                "detached tab leaves the docked tab strip");
+        assertEquals(Integer.valueOf(1), invoke(area, "detachedTabCount", new Class<?>[0]),
+                "detached tab is tracked as an open detached window");
+        assertFalse(integerList(field(area, "primaryTabs")).contains(1),
+                "detached tab leaves its editor group");
+        List<?> detached = typedList(field(area, "detachedTabs"), Object.class);
+        Object handle = detached.get(1);
+        JComponent root = (JComponent) invoke(handle, "root", new Class<?>[0]);
+        assertTrue(containsDescendant(root, second), "detached window hosts the same tab component");
+
+        JPopupMenu menu = (JPopupMenu) invoke(area, "newOrRestoreMenu", new Class<?>[] { int.class }, 0);
+        JMenuItem reattach = popupItem(menu, "Reattach Logs");
+        assertEquals("workbench.editor.tabs.reattach.1", reattach.getActionCommand(),
+                "detached tab reattach menu item has a stable command id");
+        reattach.doClick();
+
+        assertEquals(Integer.valueOf(2), invoke(area, "openTabCount", new Class<?>[0]),
+                "reattached tab returns to the docked tab strip");
+        assertEquals(Integer.valueOf(0), invoke(area, "detachedTabCount", new Class<?>[0]),
+                "reattach closes the detached window handle");
+        assertTrue((Boolean) invoke(area, "isVisibleInPane", new Class<?>[] { int.class }, 1),
+                "reattached tab becomes visible in an editor group");
+        assertTrue(containsDescendant((Container) field(area, "primaryHost"), second),
+                "reattached tab uses the original panel instance");
+    }
+
+    /**
+     * Verifies dropping a dragged tab outside any dock target detaches it.
+     */
+    private static void testSplitAreaDragOutDetachesTabs() {
+        Class<?> areaType = type("layout.EditorSplitArea");
+        Object area = construct(areaType, new Class<?>[0]);
+        invoke(area, "addPanel", new Class<?>[] { String.class, javax.swing.JComponent.class },
+                "One", new JPanel());
+        invoke(area, "addPanel", new Class<?>[] { String.class, javax.swing.JComponent.class },
+                "Two", new JPanel());
+        invoke(area, "install", new Class<?>[0]);
+
+        setField(area, "dragZone", staticField(areaType, "DROP_NONE"));
+        invoke(area, "finishTabDrag", new Class<?>[] { int.class }, 1);
+
+        assertEquals(Integer.valueOf(1), invoke(area, "detachedTabCount", new Class<?>[0]),
+                "dragging a tab outside the workbench detaches it");
+        assertFalse(integerList(field(area, "primaryTabs")).contains(1),
+                "drag-detached tab leaves the primary strip");
+    }
+
+    /**
      * Verifies the split drag-and-drop preview renders on a dedicated top layer
      * above the editor content, so it can never be painted under tabs, split
      * panes, or hosted panels that repaint independently mid-drag.
@@ -362,6 +427,12 @@ final class WorkbenchUiEditorRegression {
         assertTrue(overflow[0] != null, "primary editor group has an overflow button");
         assertEquals("workbench.editor.tabs.overflow", overflow[0].getName(),
                 "overflow button carries a stable name");
+        assertEquals("workbench.editor.tabs.overflow", overflow[0].getActionCommand(),
+                "overflow button carries a stable command id");
+        assertTrue(overflow[0].getToolTipText().contains("open tabs"),
+                "overflow button tooltip explains reachability");
+        assertEquals("Show all open tabs", overflow[0].getAccessibleContext().getAccessibleName(),
+                "overflow button exposes accessible name");
         assertFalse(overflow[0].isVisible(), "overflow button is hidden before the strip is measured");
 
         JPanel strip = (JPanel) field(area, "primaryStrip");
@@ -369,6 +440,14 @@ final class WorkbenchUiEditorRegression {
         strip.setSize(40, Theme.CONTROL_HEIGHT);
         invoke(area, "updateOverflowButton", new Class<?>[] { int.class }, 0);
         assertTrue(overflow[0].isVisible(), "overflow button shows when tabs do not fit the strip");
+
+        JPopupMenu overflowMenu = (JPopupMenu) invoke(area, "tabOverflowMenu",
+                new Class<?>[] { int.class }, 0);
+        assertEquals("workbench.editor.tabs.overflow.0",
+                ((JMenuItem) overflowMenu.getComponent(0)).getActionCommand(),
+                "overflow menu tab action has a stable command id");
+        assertEquals("● Tab 0", ((JMenuItem) overflowMenu.getComponent(0)).getText(),
+                "overflow menu can decorate the active tab without changing the command id");
 
         // A strip wide enough for every tab must hide it again.
         strip.setSize(4000, Theme.CONTROL_HEIGHT);
@@ -407,9 +486,13 @@ final class WorkbenchUiEditorRegression {
                 "tab split-left action has a stable command id");
         assertEquals("workbench.editor.tab.split.up", ((JMenuItem) menu.getComponent(3)).getActionCommand(),
                 "tab split-up action has a stable command id");
-        assertEquals("Close Other Tabs", ((JMenuItem) menu.getComponent(5)).getText(),
+        assertEquals("Detach to New Window", ((JMenuItem) menu.getComponent(4)).getText(),
+                "tab menu exposes detach action");
+        assertEquals("workbench.editor.tab.detach", ((JMenuItem) menu.getComponent(4)).getActionCommand(),
+                "tab detach action has a stable command id");
+        assertEquals("Close Other Tabs", ((JMenuItem) menu.getComponent(6)).getText(),
                 "tab menu exposes close-others action");
-        assertEquals("workbench.editor.tab.closeOthers", ((JMenuItem) menu.getComponent(5)).getActionCommand(),
+        assertEquals("workbench.editor.tab.closeOthers", ((JMenuItem) menu.getComponent(6)).getActionCommand(),
                 "close-others action has a stable command id");
 
         invoke(area, "closeOtherTabs", new Class<?>[0]);
@@ -465,6 +548,12 @@ final class WorkbenchUiEditorRegression {
                 "restore button exposes stable command id");
         assertTrue(reopen.getToolTipText().contains("restore a closed tab"),
                 "restore button tooltip explains its action");
+
+        JPopupMenu restoreMenu = (JPopupMenu) invoke(single, "newOrRestoreMenu",
+                new Class<?>[] { int.class }, 0);
+        assertEquals("workbench.editor.tabs.restoreClosed.0",
+                ((JMenuItem) restoreMenu.getComponent(0)).getActionCommand(),
+                "restore menu entry has a stable command id independent of tab label");
     }
 
     /**
@@ -1174,5 +1263,21 @@ final class WorkbenchUiEditorRegression {
                     // no-op test listener
                 });
         assertEquals(kind, String.valueOf(field(button.getIcon(), "kind")), label + " icon kind");
+    }
+
+    /**
+     * Finds a popup item by visible text.
+     *
+     * @param popup popup menu
+     * @param text visible text
+     * @return matching item
+     */
+    private static JMenuItem popupItem(JPopupMenu popup, String text) {
+        for (Component component : popup.getComponents()) {
+            if (component instanceof JMenuItem item && text.equals(item.getText())) {
+                return item;
+            }
+        }
+        throw new AssertionError("missing popup item " + text);
     }
 }

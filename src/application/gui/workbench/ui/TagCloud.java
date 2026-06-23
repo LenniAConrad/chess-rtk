@@ -48,42 +48,42 @@ public final class TagCloud extends JComponent implements Scrollable {
     /**
      * Outer content padding.
      */
-    private static final int PAD = 10;
+    private static final int PAD = 8;
 
     /**
      * Gap between adjacent chips.
      */
-    private static final int CHIP_GAP = 6;
+    private static final int CHIP_GAP = 5;
 
     /**
      * Gap between chip rows.
      */
-    private static final int ROW_GAP = 6;
+    private static final int ROW_GAP = 4;
 
     /**
      * Height of one chip.
      */
-    private static final int CHIP_HEIGHT = 23;
+    private static final int CHIP_HEIGHT = 20;
 
     /**
      * Height reserved for a group heading.
      */
-    private static final int HEADING_HEIGHT = 18;
+    private static final int HEADING_HEIGHT = 15;
 
     /**
      * Vertical gap between groups.
      */
-    private static final int GROUP_GAP = 11;
+    private static final int GROUP_GAP = 8;
 
     /**
      * Maximum chip text width in full mode.
      */
-    private static final int FULL_TEXT_WIDTH = 320;
+    private static final int FULL_TEXT_WIDTH = 190;
 
     /**
      * Maximum chip text width in compact mode.
      */
-    private static final int COMPACT_TEXT_WIDTH = 145;
+    private static final int COMPACT_TEXT_WIDTH = 108;
 
     /**
      * Preferred viewport width in full mode.
@@ -98,7 +98,7 @@ public final class TagCloud extends JComponent implements Scrollable {
     /**
      * Preferred fixed preview height in compact mode.
      */
-    private static final int COMPACT_HEIGHT = 68;
+    private static final int COMPACT_HEIGHT = 62;
 
     /**
      * Tag view mode.
@@ -403,10 +403,12 @@ public final class TagCloud extends JComponent implements Scrollable {
     private static void paintHeading(Graphics2D g, String category, int count, CategoryStyle style, int y) {
         g.setFont(Theme.font(10, Font.BOLD));
         g.setColor(style.text());
-        g.drawString(category.toLowerCase(Locale.ROOT), PAD, y + 11);
+        String label = category.toLowerCase(Locale.ROOT);
+        g.drawString(label, PAD, y + 11);
+        int countX = PAD + g.getFontMetrics().stringWidth(label) + 8;
         g.setFont(Theme.font(10, Font.PLAIN));
         g.setColor(Theme.MUTED);
-        g.drawString(Integer.toString(count), PAD + 58, y + 11);
+        g.drawString(Integer.toString(count), countX, y + 11);
     }
 
     /**
@@ -420,28 +422,35 @@ public final class TagCloud extends JComponent implements Scrollable {
      * @param y chip y
      * @param width chip width
      */
-    private static void paintChip(Graphics2D g, FontMetrics metrics, TagItem item,
+    private void paintChip(Graphics2D g, FontMetrics metrics, TagItem item,
             CategoryStyle style, int x, int y, int width) {
-        int arc = 8;
+        int arc = 6;
         g.setColor(style.fill());
         g.fillRoundRect(x, y, width, CHIP_HEIGHT, arc, arc);
         g.setColor(style.border());
         g.drawRoundRect(x, y, width - 1, CHIP_HEIGHT - 1, arc, arc);
 
-        int badgeWidth = Math.max(30, metrics.stringWidth(item.category()) + 12);
-        g.setColor(style.badge());
-        g.fillRoundRect(x + 3, y + 3, badgeWidth, CHIP_HEIGHT - 6, 6, 6);
-        g.setColor(style.badgeText());
-        g.setFont(Theme.font(9, Font.BOLD));
-        FontMetrics badgeMetrics = g.getFontMetrics();
-        g.drawString(item.category(), x + 3 + (badgeWidth - badgeMetrics.stringWidth(item.category())) / 2,
-                y + 15);
-
+        g.setColor(style.text());
+        g.fillRoundRect(x + 3, y + 3, 4, CHIP_HEIGHT - 6, 4, 4);
         g.setFont(Theme.font(11, Font.PLAIN));
         g.setColor(Theme.TEXT);
-        int textX = x + badgeWidth + 10;
-        int textWidth = Math.max(0, width - badgeWidth - 18);
-        g.drawString(Ui.elide(item.display(), metrics, textWidth), textX, y + 15);
+        int textX = x + 11;
+        if (mode == Mode.COMPACT) {
+            String prefix = categoryAbbreviation(item.category());
+            g.setFont(Theme.font(9, Font.BOLD));
+            FontMetrics badgeMetrics = g.getFontMetrics();
+            int badgeWidth = Math.max(22, badgeMetrics.stringWidth(prefix) + 10);
+            g.setColor(style.badge());
+            g.fillRoundRect(x + 8, y + 3, badgeWidth, CHIP_HEIGHT - 6, 5, 5);
+            g.setColor(style.badgeText());
+            g.drawString(prefix, x + 8 + (badgeWidth - badgeMetrics.stringWidth(prefix)) / 2, y + 14);
+            textX = x + badgeWidth + 13;
+        }
+        g.setFont(Theme.font(11, Font.PLAIN));
+        FontMetrics bodyMetrics = g.getFontMetrics();
+        g.setColor(Theme.TEXT);
+        int textWidth = Math.max(0, width - (textX - x) - 8);
+        g.drawString(Ui.elide(item.display(), bodyMetrics, textWidth), textX, y + 14);
     }
 
     /**
@@ -557,8 +566,11 @@ public final class TagCloud extends JComponent implements Scrollable {
     private int chipWidth(FontMetrics metrics, TagItem item, int maxWidth) {
         int bodyLimit = mode == Mode.COMPACT ? COMPACT_TEXT_WIDTH : FULL_TEXT_WIDTH;
         int bodyWidth = Math.min(bodyLimit, metrics.stringWidth(item.display()));
-        int badgeWidth = Math.max(30, metrics.stringWidth(item.category()) + 12);
-        return Math.min(maxWidth, badgeWidth + bodyWidth + 22);
+        if (mode == Mode.COMPACT) {
+            int badgeWidth = Math.max(22, metrics.stringWidth(categoryAbbreviation(item.category())) + 10);
+            return Math.min(maxWidth, badgeWidth + bodyWidth + 21);
+        }
+        return Math.min(maxWidth, bodyWidth + 19);
     }
 
     /**
@@ -686,8 +698,39 @@ public final class TagCloud extends JComponent implements Scrollable {
      */
     private static String compactBody(String value) {
         return value.replace('_', ' ')
+                .replace("center control=", "center ")
+                .replace("king safety=", "king ")
+                .replace("castle rights=", "castling ")
+                .replace("activity=", "")
+                .replace("piece=", "")
+                .replace("square=", "@")
+                .replace("side=", "")
+                .replace("phase=", "")
+                .replace("type=", "")
+                .replace("name=", "")
+                .replace("move=", "")
                 .replaceAll("\\s+", " ")
                 .trim();
+    }
+
+    /**
+     * Returns a short category label for compact chips that have no headings.
+     *
+     * @param category category
+     * @return short label
+     */
+    private static String categoryAbbreviation(String category) {
+        String key = category == null ? "" : category.toUpperCase(Locale.ROOT);
+        return switch (key) {
+            case "DEVELOPMENT" -> "DEV";
+            case "MATERIAL" -> "MAT";
+            case "MOBILITY" -> "MOB";
+            case "OPENING" -> "ECO";
+            case "TACTIC" -> "TAC";
+            case "THREAT" -> "THR";
+            case "STATUS" -> "STAT";
+            default -> key.length() <= 4 ? key : key.substring(0, 4);
+        };
     }
 
     /**
@@ -712,13 +755,62 @@ public final class TagCloud extends JComponent implements Scrollable {
     private static CategoryStyle styleFor(String category) {
         String key = category == null ? "" : category.toUpperCase(Locale.ROOT);
         return switch (key) {
-            case "META", "STATUS" -> style(Theme.NN_POLICY, 42, 205);
-            case "MOVE", "MATERIAL", "OPENING" -> style(Theme.STATUS_SUCCESS_TEXT, 38, 210);
-            case "PIECE", "MOBILITY", "DEVELOPMENT" -> style(Theme.STATUS_WARNING_TEXT, 42, 210);
-            case "TACTIC", "THREAT", "CHECK", "ERROR" -> style(Theme.STATUS_ERROR_TEXT, 42, 215);
-            case "FACT", "INFO", "SPACE" -> style(Theme.STATUS_INFO_TEXT, 36, 210);
-            default -> style(Theme.ACCENT, 34, 210);
+            case "META", "STATUS" -> style(neutralAccent(), 26, 150);
+            case "FACT", "INFO" -> style(Theme.STATUS_INFO_TEXT, 24, 160);
+            case "OPENING" -> style(openingAccent(), 25, 165);
+            case "MATERIAL" -> style(Theme.STATUS_SUCCESS_TEXT, 25, 170);
+            case "PIECE" -> style(pieceAccent(), 26, 165);
+            case "DEVELOPMENT" -> style(developmentAccent(), 27, 170);
+            case "MOBILITY", "SPACE" -> style(mobilityAccent(), 25, 165);
+            case "MOVE" -> style(Theme.STATUS_WARNING_TEXT, 27, 170);
+            case "TACTIC", "THREAT", "CHECK", "ERROR" -> style(Theme.STATUS_ERROR_TEXT, 28, 180);
+            default -> style(Theme.ACCENT, 24, 160);
         };
+    }
+
+    /**
+     * Returns the neutral category accent.
+     *
+     * @return color
+     */
+    private static Color neutralAccent() {
+        return Theme.isDark() ? new Color(0x9AA7B2) : new Color(0x68737D);
+    }
+
+    /**
+     * Returns the opening category accent.
+     *
+     * @return color
+     */
+    private static Color openingAccent() {
+        return Theme.isDark() ? new Color(0xB58CFF) : new Color(0x7C4DCA);
+    }
+
+    /**
+     * Returns the piece category accent.
+     *
+     * @return color
+     */
+    private static Color pieceAccent() {
+        return Theme.isDark() ? new Color(0x64D4C2) : new Color(0x178D7C);
+    }
+
+    /**
+     * Returns the development category accent.
+     *
+     * @return color
+     */
+    private static Color developmentAccent() {
+        return Theme.isDark() ? new Color(0x7BB8FF) : new Color(0x1C6FB7);
+    }
+
+    /**
+     * Returns the mobility category accent.
+     *
+     * @return color
+     */
+    private static Color mobilityAccent() {
+        return Theme.isDark() ? new Color(0xD4B35E) : new Color(0x9A6A12);
     }
 
     /**
@@ -732,7 +824,7 @@ public final class TagCloud extends JComponent implements Scrollable {
     private static CategoryStyle style(Color accent, int fillAlpha, int borderAlpha) {
         Color fill = Theme.withAlpha(accent, Theme.isDark() ? fillAlpha + 10 : fillAlpha);
         Color border = Theme.withAlpha(accent, borderAlpha);
-        Color badge = Theme.withAlpha(accent, Theme.isDark() ? 92 : 58);
+        Color badge = Theme.withAlpha(accent, Theme.isDark() ? 78 : 42);
         return new CategoryStyle(fill, border, accent, badge, Theme.TEXT);
     }
 

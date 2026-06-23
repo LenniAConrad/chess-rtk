@@ -116,9 +116,33 @@ public final class TreeLayout {
      * @param rootKey root node key
      * @param uniquePositions distinct positions shown (including batched leaves)
      * @param transpositionEdges count of dashed transposition edges
+     * @param omittedNodes nodes omitted by the upstream snapshot cap/filtering
      */
     public record Model(List<Node> nodes, List<Edge> edges, int width, int height,
-            String rootKey, int uniquePositions, int transpositionEdges) {
+            String rootKey, int uniquePositions, int transpositionEdges, int omittedNodes) {
+
+        /**
+         * Creates a model with no omitted-node accounting.
+         *
+         * @param nodes positioned nodes
+         * @param edges directed edges
+         * @param width total width including margins
+         * @param height total height including margins
+         * @param rootKey root node key
+         * @param uniquePositions distinct positions shown
+         * @param transpositionEdges count of dashed transposition edges
+         */
+        public Model(List<Node> nodes, List<Edge> edges, int width, int height,
+                String rootKey, int uniquePositions, int transpositionEdges) {
+            this(nodes, edges, width, height, rootKey, uniquePositions, transpositionEdges, 0);
+        }
+
+        /**
+         * Normalizes snapshot accounting.
+         */
+        public Model {
+            omittedNodes = Math.max(0, omittedNodes);
+        }
 
         /**
          * Returns whether the model has any node.
@@ -145,8 +169,28 @@ public final class TreeLayout {
      */
     public static Model layout(List<MctsSearch.NodeInfo> infos, boolean merge, boolean collapseLeaves,
             String selectedId, int nodeW, int nodeH, int hGap, int vGap) {
+        return layout(infos, merge, collapseLeaves, selectedId, nodeW, nodeH, hGap, vGap, 0);
+    }
+
+    /**
+     * Lays out a tree snapshot and carries aggregate omitted-node accounting
+     * through the view/export model.
+     *
+     * @param infos flat node list from {@link MctsSearch.TreeSnapshot#nodes()}
+     * @param merge collapse transpositions by signature
+     * @param collapseLeaves batch childless siblings into blob nodes
+     * @param selectedId id of the inspected node, or null
+     * @param nodeW node width
+     * @param nodeH node height
+     * @param hGap horizontal gap between sibling columns
+     * @param vGap vertical gap between layers
+     * @param omittedNodes nodes omitted by the upstream snapshot cap/filtering
+     * @return positioned model
+     */
+    public static Model layout(List<MctsSearch.NodeInfo> infos, boolean merge, boolean collapseLeaves,
+            String selectedId, int nodeW, int nodeH, int hGap, int vGap, int omittedNodes) {
         if (infos == null || infos.isEmpty()) {
-            return new Model(List.of(), List.of(), 2 * MARGIN, 2 * MARGIN, null, 0, 0);
+            return new Model(List.of(), List.of(), 2 * MARGIN, 2 * MARGIN, null, 0, 0, omittedNodes);
         }
         Map<String, MctsSearch.NodeInfo> idToNode = new HashMap<>();
         for (MctsSearch.NodeInfo n : infos) {
@@ -314,7 +358,7 @@ public final class TreeLayout {
         }
         int width = maxX + MARGIN;
         int height = maxLayer * rowStride + nodeH + 2 * MARGIN;
-        return new Model(nodes, edges, width, height, rootKey, reps.size(), transpositionEdges);
+        return new Model(nodes, edges, width, height, rootKey, reps.size(), transpositionEdges, omittedNodes);
     }
 
     /**

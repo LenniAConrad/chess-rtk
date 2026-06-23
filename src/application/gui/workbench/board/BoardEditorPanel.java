@@ -3,7 +3,7 @@ package application.gui.workbench.board;
 import application.gui.workbench.ui.RenderAcceleration;
 import application.gui.workbench.ui.HoldButton;
 import application.gui.workbench.ui.Theme;
-import chess.core.Move;
+import chess.core.Field;
 import chess.core.Piece;
 import chess.core.Position;
 import chess.core.Setup;
@@ -19,7 +19,9 @@ import java.awt.Image;
 import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -38,13 +40,10 @@ import javax.swing.SpinnerNumberModel;
 import static application.gui.workbench.ui.Ui.button;
 import static application.gui.workbench.ui.Ui.buttonRow;
 import static application.gui.workbench.ui.Ui.controlRow;
-import static application.gui.workbench.ui.Ui.caption;
-import static application.gui.workbench.ui.Ui.changeListener;
 import static application.gui.workbench.ui.Ui.constraints;
 import static application.gui.workbench.ui.Ui.flow;
 import static application.gui.workbench.ui.Ui.grid;
 import static application.gui.workbench.ui.Ui.label;
-import static application.gui.workbench.ui.Ui.placeholder;
 import static application.gui.workbench.ui.Ui.styleCheckBox;
 import static application.gui.workbench.ui.Ui.styleCombos;
 import static application.gui.workbench.ui.Ui.styleFields;
@@ -77,7 +76,7 @@ public final class BoardEditorPanel extends JPanel {
     private static final int TOOL_ICON_SIZE = 30;
 
     /**
-     * Board-colored tile size used behind palette piece icons.
+     * Transparent canvas size used for palette piece icons.
      */
     private static final int TOOL_TILE_SIZE = 36;
 
@@ -87,9 +86,10 @@ public final class BoardEditorPanel extends JPanel {
     private static final Dimension TOOL_BUTTON_SIZE = new Dimension(52, 46);
 
     /**
-     * Preferred edge of the embedded editing board.
+     * Fixed width for the live FEN preview. Its content changes length as the
+     * board is edited, so it must not dictate the panel width.
      */
-    private static final int EDITOR_BOARD_SIZE = 344;
+    private static final int FEN_PREVIEW_WIDTH = 260;
 
     /**
      * FEN marker for an unavailable optional field.
@@ -167,9 +167,9 @@ public final class BoardEditorPanel extends JPanel {
     private final JCheckBox blackQueenSideBox = new JCheckBox("q");
 
     /**
-     * En-passant target square field.
+     * En-passant target square selector.
      */
-    private final JTextField enPassantField = new JTextField(FEN_NONE);
+    private final JComboBox<String> enPassantBox = new JComboBox<>();
 
     /**
      * Halfmove-clock spinner.
@@ -197,13 +197,8 @@ public final class BoardEditorPanel extends JPanel {
     private byte selectedPiece = Piece.WHITE_KING;
 
     /**
-     * The editor's own interactive board, edited in place inside the panel.
-     */
-    private final transient BoardPanel editorBoard = new BoardPanel();
-
-    /**
-     * Board currently driven by setup edits; the embedded {@link #editorBoard}
-     * by default, or a host-supplied board when one is attached.
+     * Board currently driven by setup edits. This is the shared main board,
+     * never a small duplicate board inside the editor rail.
      */
     private transient BoardPanel hostBoard;
 
@@ -238,33 +233,11 @@ public final class BoardEditorPanel extends JPanel {
         this.currentFenSupplier = Objects.requireNonNull(currentFenSupplier, "currentFenSupplier");
         this.applyFenConsumer = Objects.requireNonNull(applyFenConsumer, "applyFenConsumer");
         this.copyTextConsumer = Objects.requireNonNull(copyTextConsumer, "copyTextConsumer");
-        configureEditorBoard();
         configurePanel();
         installControlListeners();
-        // Drive setup edits onto the editor's own board so the position is set
-        // right here in the panel; the host commits it to the game on Apply.
-        attachBoard(editorBoard);
-        setEditingBoardActive(true);
         if (!loadFen(this.currentFenSupplier.get())) {
             loadFen(Setup.getStandardStartFEN());
         }
-    }
-
-    /**
-     * Configures the embedded editing board.
-     */
-    private void configureEditorBoard() {
-        editorBoard.setShowNotation(true);
-        editorBoard.setShowSuggestedMoveArrow(false);
-        editorBoard.setShowLastMoveHighlight(false);
-        editorBoard.setShowLegalMovePreview(false);
-        editorBoard.setPositionInstant(new Position(Setup.getStandardStartFEN()), Move.NO_MOVE);
-        // Pin a square size so the rail scrolls rather than squishing the board
-        // into a non-square strip when vertical space is tight.
-        Dimension square = new Dimension(EDITOR_BOARD_SIZE, EDITOR_BOARD_SIZE);
-        editorBoard.setPreferredSize(square);
-        editorBoard.setMinimumSize(square);
-        editorBoard.setMaximumSize(square);
     }
 
     /**
@@ -330,40 +303,21 @@ public final class BoardEditorPanel extends JPanel {
         validateSquare(square);
         validatePiece(piece);
         editedBoard[square] = piece;
+        pruneMetadataAfterBoardChange();
         updateFenPreview();
-        if (hostBoard != null) {
-            hostBoard.setSetupEditPieceAt(square, piece);
-        }
+        syncHostBoard();
     }
 
     /**
-     * Returns the piece currently placed on a square.
-     *
-     * @param square square index
-     * @return piece code
-     */
-    public byte pieceAt(byte square) {
-        validateSquare(square);
-        return editedBoard[square];
-    }
-
-    /**
-     * Sets the side to move.
-     *
-     * @param whiteToMove true for White to move
-     */
-    public void setWhiteToMove(boolean whiteToMove) {
-        sideToMoveBox.setSelectedItem(whiteToMove ? WHITE_TO_MOVE : BLACK_TO_MOVE);
-        updateFenPreview();
-    }
-
-    /**
-     * Attaches the editor to the main board so piece edits happen directly on
-     * the visible chessboard.
+     * Attaches this editor to the shared board surface.
      *
      * @param board main workbench board, or null to detach
      */
     public void attachBoard(BoardPanel board) {
+        if (hostBoard == board) {
+            syncHostBoard();
+            return;
+        }
         if (hostBoard != null) {
             hostBoard.setSetupEditMode(false);
             hostBoard.setSetupEditObserver(null);
@@ -376,18 +330,25 @@ public final class BoardEditorPanel extends JPanel {
     }
 
     /**
-     * Enables or disables direct editing on the attached main board.
+     * Enables or disables direct editing on the shared board.
      *
-     * @param active true while the Editor tab is selected
+     * @param active true while the Editor tab is selected and editable
      */
     public void setEditingBoardActive(boolean active) {
-        if (editingBoardActive == active) {
-            syncHostBoard();
-            return;
-        }
         editingBoardActive = active;
         syncHostBoard();
-        setStatus(active ? "Editing main board" : "Ready", Theme.ForegroundRole.MUTED);
+        setStatus(active ? "Editing board" : "Ready", Theme.ForegroundRole.MUTED);
+    }
+
+    /**
+     * Keeps the shared board edit mode in sync with this panel's enabled state.
+     *
+     * @param enabled true when editor controls are enabled
+     */
+    @Override
+    public void setEnabled(boolean enabled) {
+        super.setEnabled(enabled);
+        syncHostBoard();
     }
 
     /**
@@ -403,8 +364,6 @@ public final class BoardEditorPanel extends JPanel {
         int row = 0;
         c.insets = new Insets(0, 0, Theme.SPACE_SM, 0);
         grid(this, createHeader(), c, 0, row++, 1, 1);
-        c.insets = new Insets(0, 0, Theme.SPACE_MD, 0);
-        grid(this, createEditorBoardPanel(), c, 0, row++, 1, 1);
         c.insets = new Insets(0, 0, Theme.SPACE_MD, 0);
         grid(this, createPalettePanel(), c, 0, row++, 1, 1);
         c.insets = new Insets(0, 0, Theme.SPACE_MD, 0);
@@ -426,20 +385,7 @@ public final class BoardEditorPanel extends JPanel {
     private JComponent createHeader() {
         JPanel header = transparentPanel(new BorderLayout(0, 2));
         header.add(Theme.section("Position editor"), BorderLayout.NORTH);
-        header.add(caption("Pick a piece, then click squares. Right-click clears. Apply sets the board."),
-                BorderLayout.SOUTH);
         return header;
-    }
-
-    /**
-     * Wraps the embedded editing board so it stays square and centered.
-     *
-     * @return board panel
-     */
-    private JComponent createEditorBoardPanel() {
-        JPanel wrap = transparentPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
-        wrap.add(editorBoard);
-        return wrap;
     }
 
     /**
@@ -460,7 +406,9 @@ public final class BoardEditorPanel extends JPanel {
      * Flips the editing board orientation.
      */
     private void flipBoard() {
-        editorBoard.setWhiteDown(!editorBoard.isWhiteDown());
+        if (hostBoard != null) {
+            hostBoard.setWhiteDown(!hostBoard.isWhiteDown());
+        }
     }
 
     /**
@@ -526,8 +474,7 @@ public final class BoardEditorPanel extends JPanel {
     }
 
     /**
-     * Renders a palette piece icon on a board-colored tile for contrast in
-     * both light and dark modes.
+     * Renders a palette piece icon on a transparent canvas.
      *
      * @param piece piece code
      * @return palette icon image
@@ -537,10 +484,6 @@ public final class BoardEditorPanel extends JPanel {
         Graphics2D graphics = icon.createGraphics();
         try {
             graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            graphics.setColor(Theme.BOARD_LIGHT);
-            graphics.fillRect(0, 0, TOOL_TILE_SIZE, TOOL_TILE_SIZE);
-            graphics.setColor(Theme.withAlpha(Theme.TEXT, 120));
-            graphics.drawRect(0, 0, TOOL_TILE_SIZE - 1, TOOL_TILE_SIZE - 1);
             Image image = imageCache.pieceImage(piece, TOOL_ICON_SIZE);
             if (image != null) {
                 int inset = (TOOL_TILE_SIZE - TOOL_ICON_SIZE) / 2;
@@ -562,12 +505,10 @@ public final class BoardEditorPanel extends JPanel {
         GridBagConstraints c = constraints();
         c.insets = new Insets(3, 0, 3, 0);
 
-        styleCombos(sideToMoveBox);
-        styleFields(enPassantField, fenPreviewField);
+        styleCombos(sideToMoveBox, enPassantBox);
+        styleFields(fenPreviewField);
         styleIntegerSpinner(halfmoveSpinner);
         styleIntegerSpinner(fullmoveSpinner);
-        enPassantField.setColumns(4);
-        placeholder(enPassantField, "- or e3");
 
         grid(state, label("turn"), c, 0, 0, 1, 1);
         grid(state, sideToMoveBox, c, 1, 0, 2, 1);
@@ -576,7 +517,7 @@ public final class BoardEditorPanel extends JPanel {
         grid(state, createCastlingRow(), c, 1, 1, 2, 1);
 
         grid(state, label("ep"), c, 0, 2, 1, 1);
-        grid(state, enPassantField, c, 1, 2, 1, 1);
+        grid(state, enPassantBox, c, 1, 2, 1, 1);
         grid(state, label("half"), c, 0, 3, 1, 1);
         grid(state, halfmoveSpinner, c, 1, 3, 1, 1);
         grid(state, label("full"), c, 0, 4, 1, 1);
@@ -610,8 +551,10 @@ public final class BoardEditorPanel extends JPanel {
         c.insets = new Insets(3, 0, 3, 0);
         fenPreviewField.setEditable(false);
         fenPreviewField.setFont(Theme.mono(12));
+        applyFixedSize(fenPreviewField, new Dimension(FEN_PREVIEW_WIDTH, Theme.CONTROL_HEIGHT));
         Theme.foreground(statusLabel, Theme.ForegroundRole.MUTED);
         statusLabel.setFont(Theme.font(11, Font.PLAIN));
+        applyFixedSize(statusLabel, new Dimension(FEN_PREVIEW_WIDTH, Theme.CONTROL_HEIGHT));
         grid(preview, label("fen"), c, 0, 0, 1, 1);
         grid(preview, fenPreviewField, c, 1, 0, 3, 1);
         grid(preview, statusLabel, c, 1, 1, 3, 1);
@@ -637,7 +580,7 @@ public final class BoardEditorPanel extends JPanel {
     }
 
     /**
-     * Accepts a square edit from the main board.
+     * Accepts a square edit from the shared board.
      *
      * @param square boxed board square
      * @param piece boxed piece code
@@ -651,12 +594,14 @@ public final class BoardEditorPanel extends JPanel {
         validateSquare(squareValue);
         validatePiece(pieceValue);
         editedBoard[squareValue] = pieceValue;
+        pruneMetadataAfterBoardChange();
         updateFenPreview();
         setStatus(pieceValue == Piece.EMPTY ? "Square cleared" : pieceLabel(pieceValue), Theme.ForegroundRole.MUTED);
     }
 
     /**
-     * Pushes the editor board and mode into the attached main board.
+     * Pushes the edited position, selected piece, and active state into the
+     * shared board.
      */
     private void syncHostBoard() {
         if (hostBoard == null) {
@@ -664,11 +609,11 @@ public final class BoardEditorPanel extends JPanel {
         }
         hostBoard.setSetupEditBoard(editedBoard);
         syncHostBoardSelection();
-        hostBoard.setSetupEditMode(editingBoardActive);
+        hostBoard.setSetupEditMode(editingBoardActive && isEnabled());
     }
 
     /**
-     * Pushes the current piece tool into the attached main board.
+     * Pushes the current piece tool into the shared board.
      */
     private void syncHostBoardSelection() {
         if (hostBoard != null) {
@@ -680,8 +625,13 @@ public final class BoardEditorPanel extends JPanel {
      * Wires live FEN preview updates.
      */
     private void installControlListeners() {
-        sideToMoveBox.addActionListener(event -> updateFenPreview());
-        enPassantField.getDocument().addDocumentListener(changeListener(this::updateFenPreview));
+        sideToMoveBox.addActionListener(event -> {
+            if (!suppressPreviewUpdates) {
+                refreshEnPassantOptions(enPassantText());
+            }
+            updateFenPreview();
+        });
+        enPassantBox.addActionListener(event -> updateFenPreview());
         halfmoveSpinner.addChangeListener(event -> updateFenPreview());
         fullmoveSpinner.addChangeListener(event -> updateFenPreview());
         for (JCheckBox box : new JCheckBox[] {
@@ -706,7 +656,7 @@ public final class BoardEditorPanel extends JPanel {
             System.arraycopy(board, 0, editedBoard, 0, editedBoard.length);
             sideToMoveBox.setSelectedItem("w".equals(parts[1]) ? WHITE_TO_MOVE : BLACK_TO_MOVE);
             populateCastling(parts[2]);
-            enPassantField.setText(parts[3]);
+            refreshEnPassantOptions(parts[3]);
             halfmoveSpinner.setValue(Integer.valueOf(parts[4]));
             fullmoveSpinner.setValue(Integer.valueOf(parts[5]));
         } finally {
@@ -714,6 +664,212 @@ public final class BoardEditorPanel extends JPanel {
         }
         updateFenPreview();
         syncHostBoard();
+    }
+
+    /**
+     * Removes FEN metadata that no longer matches the edited board.
+     */
+    private void pruneMetadataAfterBoardChange() {
+        pruneCastlingRights();
+        pruneEnPassantTarget();
+    }
+
+    /**
+     * Removes castling rights whose king or rook is no longer present.
+     */
+    private void pruneCastlingRights() {
+        if (customCastlingRights != null) {
+            customCastlingRights = pruneChess960Castling(customCastlingRights);
+            return;
+        }
+        whiteKingSideBox.setSelected(whiteKingSideBox.isSelected()
+                && hasPiece(Field.E1, Piece.WHITE_KING)
+                && hasPiece(Field.H1, Piece.WHITE_ROOK));
+        whiteQueenSideBox.setSelected(whiteQueenSideBox.isSelected()
+                && hasPiece(Field.E1, Piece.WHITE_KING)
+                && hasPiece(Field.A1, Piece.WHITE_ROOK));
+        blackKingSideBox.setSelected(blackKingSideBox.isSelected()
+                && hasPiece(Field.E8, Piece.BLACK_KING)
+                && hasPiece(Field.H8, Piece.BLACK_ROOK));
+        blackQueenSideBox.setSelected(blackQueenSideBox.isSelected()
+                && hasPiece(Field.E8, Piece.BLACK_KING)
+                && hasPiece(Field.A8, Piece.BLACK_ROOK));
+    }
+
+    /**
+     * Keeps only Chess960 castling letters whose current king and rook still
+     * form a valid back-rank castling pair.
+     *
+     * @param castling current castling field
+     * @return pruned castling field
+     */
+    private String pruneChess960Castling(String castling) {
+        if (castling == null || castling.isBlank() || FEN_NONE.equals(castling)) {
+            return FEN_NONE;
+        }
+        StringBuilder kept = new StringBuilder(castling.length());
+        for (int index = 0; index < castling.length(); index++) {
+            char ch = castling.charAt(index);
+            if (validChess960CastlingLetter(ch)) {
+                kept.append(ch);
+            }
+        }
+        return kept.length() == 0 ? FEN_NONE : kept.toString();
+    }
+
+    /**
+     * Returns whether one Chess960 castling letter is still physically valid.
+     *
+     * @param ch castling letter
+     * @return true when the right can remain advertised
+     */
+    private boolean validChess960CastlingLetter(char ch) {
+        if (ch >= 'A' && ch <= 'H') {
+            return validChess960CastlingPair(Piece.WHITE_KING, Piece.WHITE_ROOK,
+                    Field.A1 + (ch - 'A'), Field.A1, Field.H1);
+        }
+        if (ch >= 'a' && ch <= 'h') {
+            return validChess960CastlingPair(Piece.BLACK_KING, Piece.BLACK_ROOK,
+                    Field.A8 + (ch - 'a'), Field.A8, Field.H8);
+        }
+        return false;
+    }
+
+    /**
+     * Returns whether one Chess960 king/rook pair is still present and separated
+     * on the home rank.
+     *
+     * @param king king piece code
+     * @param rook rook piece code
+     * @param rookSquare advertised rook square
+     * @param rankStart first square on the home rank
+     * @param rankEnd last square on the home rank
+     * @return true when the pair is physically valid
+     */
+    private boolean validChess960CastlingPair(byte king, byte rook, int rookSquare, int rankStart, int rankEnd) {
+        if (!hasPiece(rookSquare, rook)) {
+            return false;
+        }
+        int kingSquare = findPieceOnRank(king, rankStart, rankEnd);
+        return kingSquare >= rankStart && kingSquare <= rankEnd && kingSquare != rookSquare;
+    }
+
+    /**
+     * Keeps the en-passant selector aligned with targets that are still possible
+     * from the edited board.
+     */
+    private void pruneEnPassantTarget() {
+        refreshEnPassantOptions(enPassantText());
+    }
+
+    /**
+     * Rebuilds the en-passant dropdown from the currently possible targets.
+     *
+     * @param preferred preferred FEN target, if still possible
+     */
+    private void refreshEnPassantOptions(String preferred) {
+        String normalized = preferred != null && Field.isField(preferred) ? preferred : FEN_NONE;
+        List<String> targets = possibleEnPassantTargets();
+        boolean oldSuppress = suppressPreviewUpdates;
+        suppressPreviewUpdates = true;
+        try {
+            enPassantBox.removeAllItems();
+            if (!targets.isEmpty()) {
+                enPassantBox.addItem(FEN_NONE);
+                for (String target : targets) {
+                    enPassantBox.addItem(target);
+                }
+                enPassantBox.setSelectedItem(targets.contains(normalized) ? normalized : FEN_NONE);
+            }
+            enPassantBox.setEnabled(!targets.isEmpty());
+        } finally {
+            suppressPreviewUpdates = oldSuppress;
+        }
+    }
+
+    /**
+     * Returns all en-passant target squares available to the side to move.
+     *
+     * @return target-square labels
+     */
+    private List<String> possibleEnPassantTargets() {
+        List<String> targets = new ArrayList<>(2);
+        if (WHITE_TO_MOVE.equals(sideToMoveBox.getSelectedItem())) {
+            for (int square = Field.A5; square <= Field.H5; square++) {
+                if (hasPiece(square, Piece.BLACK_PAWN)) {
+                    maybeAddEnPassantTarget(targets, square, square - BOARD_EDGE, Piece.WHITE_PAWN);
+                }
+            }
+        } else {
+            for (int square = Field.A4; square <= Field.H4; square++) {
+                if (hasPiece(square, Piece.WHITE_PAWN)) {
+                    maybeAddEnPassantTarget(targets, square, square + BOARD_EDGE, Piece.BLACK_PAWN);
+                }
+            }
+        }
+        return targets;
+    }
+
+    /**
+     * Adds one en-passant target when the passed pawn and at least one capturing
+     * pawn are present.
+     *
+     * @param targets target list
+     * @param passedPawnSquare square containing the capturable pawn
+     * @param targetSquare empty target square behind the passed pawn
+     * @param capturingPawn side-to-move pawn that can capture
+     */
+    private void maybeAddEnPassantTarget(List<String> targets, int passedPawnSquare,
+            int targetSquare, byte capturingPawn) {
+        if (!hasPiece(targetSquare, Piece.EMPTY) || !hasAdjacentPawn(passedPawnSquare, capturingPawn)) {
+            return;
+        }
+        String target = Field.toString((byte) targetSquare);
+        if (!targets.contains(target)) {
+            targets.add(target);
+        }
+    }
+
+    /**
+     * Returns whether a pawn of the side to move is horizontally adjacent to the
+     * passed pawn.
+     *
+     * @param square passed-pawn square
+     * @param pawn capturing pawn code
+     * @return true when an adjacent capturer is present
+     */
+    private boolean hasAdjacentPawn(int square, byte pawn) {
+        int file = square % BOARD_EDGE;
+        return (file > 0 && hasPiece(square - 1, pawn))
+                || (file < BOARD_EDGE - 1 && hasPiece(square + 1, pawn));
+    }
+
+    /**
+     * Returns whether a square currently contains one piece.
+     *
+     * @param square board square
+     * @param piece expected piece
+     * @return true when the piece is present
+     */
+    private boolean hasPiece(int square, byte piece) {
+        return square >= 0 && square < editedBoard.length && editedBoard[square] == piece;
+    }
+
+    /**
+     * Finds one piece on a rank.
+     *
+     * @param piece piece code
+     * @param rankStart first square on the rank
+     * @param rankEnd last square on the rank
+     * @return square or -1
+     */
+    private int findPieceOnRank(byte piece, int rankStart, int rankEnd) {
+        for (int square = rankStart; square <= rankEnd; square++) {
+            if (hasPiece(square, piece)) {
+                return square;
+            }
+        }
+        return -1;
     }
 
     /**
@@ -750,7 +906,7 @@ public final class BoardEditorPanel extends JPanel {
             whiteQueenSideBox.setSelected(false);
             blackKingSideBox.setSelected(false);
             blackQueenSideBox.setSelected(false);
-            enPassantField.setText(FEN_NONE);
+            refreshEnPassantOptions(FEN_NONE);
             halfmoveSpinner.setValue(Integer.valueOf(0));
             fullmoveSpinner.setValue(Integer.valueOf(1));
         } finally {
@@ -864,8 +1020,9 @@ public final class BoardEditorPanel extends JPanel {
      * @return en-passant FEN token
      */
     private String enPassantText() {
-        String text = enPassantField.getText() == null ? "" : enPassantField.getText().trim();
-        return text.isEmpty() ? FEN_NONE : text;
+        Object selected = enPassantBox.getSelectedItem();
+        String text = selected == null ? "" : selected.toString().trim();
+        return Field.isField(text) ? text : FEN_NONE;
     }
 
     /**
@@ -881,6 +1038,18 @@ public final class BoardEditorPanel extends JPanel {
             spinner.getToolkit().beep();
         }
         return ((Number) spinner.getValue()).intValue();
+    }
+
+    /**
+     * Applies a fixed footprint to a component.
+     *
+     * @param component component to size
+     * @param size fixed size
+     */
+    private static void applyFixedSize(JComponent component, Dimension size) {
+        component.setPreferredSize(new Dimension(size));
+        component.setMinimumSize(new Dimension(size));
+        component.setMaximumSize(new Dimension(size));
     }
 
     /**

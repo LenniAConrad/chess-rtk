@@ -5,6 +5,7 @@ import static testing.WorkbenchTestSupport.*;
 
 import java.awt.Component;
 import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -115,8 +116,8 @@ final class WorkbenchBoardRegression {
     }
 
     /**
-     * Verifies the setup editor emits legal FEN and applies through its host
-     * callback.
+     * Verifies the setup editor drives the shared board, keeps the FEN preview
+     * stable, prunes stale FEN metadata, and applies through its host callback.
      */
     private static void testBoardEditorBuildsAndAppliesFen() {
         String base = "4k3/8/8/8/8/8/8/4K3 w - - 0 1";
@@ -138,35 +139,72 @@ final class WorkbenchBoardRegression {
         invoke(editor, "attachBoard", new Class<?>[] { type("BoardPanel") }, board);
         invoke(editor, "setEditingBoardActive", new Class<?>[] { boolean.class }, Boolean.TRUE);
         assertTrue((Boolean) invoke(board, "isSetupEditMode", new Class<?>[0]),
-                "board editor activates direct editing on the main board");
+                "board editor activates direct editing on the shared board");
+        JTextField fenPreview = (JTextField) field(editor, "fenPreviewField");
+        @SuppressWarnings("unchecked")
+        JComboBox<String> enPassant = (JComboBox<String>) field(editor, "enPassantBox");
+        Dimension previewSize = fenPreview.getPreferredSize();
         invoke(editor, "setPieceAt", new Class<?>[] { byte.class, byte.class },
                 Field.H4, Piece.WHITE_QUEEN);
         assertEquals(Byte.valueOf(Piece.WHITE_QUEEN),
-                invoke(editor, "pieceAt", new Class<?>[] { byte.class }, Field.H4),
-                "board editor stores placed piece");
-        assertEquals(Byte.valueOf(Piece.WHITE_QUEEN),
                 invoke(board, "setupEditPieceAt", new Class<?>[] { byte.class }, Field.H4),
-                "board editor paints pieces on the main board");
+                "board editor paints pieces on the shared board");
         assertEquals("4k3/8/8/8/7Q/8/8/4K3 w - - 0 1",
                 invoke(editor, "fen", new Class<?>[0]), "board editor FEN placement");
+        assertEquals(previewSize, fenPreview.getPreferredSize(), "FEN preview width stays fixed after edit");
         invoke(board, "setSetupEditPieceAt", new Class<?>[] { byte.class, byte.class },
                 Field.A8, Piece.BLACK_ROOK);
-        assertEquals(Byte.valueOf(Piece.BLACK_ROOK),
-                invoke(editor, "pieceAt", new Class<?>[] { byte.class }, Field.A8),
-                "main board direct edit updates editor model");
+        assertEquals("r3k3/8/8/8/7Q/8/8/4K3 w - - 0 1",
+                invoke(editor, "fen", new Class<?>[0]), "shared board edit updates editor FEN");
+        assertTrue((Boolean) invoke(editor, "loadFen", new Class<?>[] { String.class },
+                "r3k3/8/8/8/8/8/8/4K3 w - - 0 1"),
+                "board editor reloads after position changes");
+        assertTrue((Boolean) invoke(board, "isSetupEditMode", new Class<?>[0]),
+                "board editor remains editable after reload");
+        assertTrue((Boolean) invoke(editor, "loadFen", new Class<?>[] { String.class }, START_FEN),
+                "board editor loads start position for metadata pruning");
+        assertFalse(enPassant.isEnabled(), "en-passant dropdown disables when no target is possible");
+        assertEquals(Integer.valueOf(0), Integer.valueOf(enPassant.getItemCount()),
+                "en-passant dropdown has no choices when no target is possible");
+        invoke(board, "setSetupEditPieceAt", new Class<?>[] { byte.class, byte.class },
+                Field.H1, Piece.EMPTY);
+        assertEquals("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBN1 w Qkq - 0 1",
+                invoke(editor, "fen", new Class<?>[0]), "removing rook clears matching castling right");
+        assertEquals(previewSize, fenPreview.getPreferredSize(), "FEN preview width stays fixed after castling prune");
+        assertTrue((Boolean) invoke(editor, "loadFen", new Class<?>[] { String.class },
+                "4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1"),
+                "board editor loads en-passant setup");
+        assertTrue(enPassant.isEnabled(), "en-passant dropdown enables for legal target");
+        assertEquals(Integer.valueOf(2), Integer.valueOf(enPassant.getItemCount()),
+                "en-passant dropdown offers none plus the target square");
+        assertEquals("d6", enPassant.getSelectedItem(), "en-passant dropdown selects loaded target");
+        invoke(board, "setSetupEditPieceAt", new Class<?>[] { byte.class, byte.class },
+                Field.D5, Piece.EMPTY);
+        assertEquals("4k3/8/8/4P3/8/8/8/4K3 w - - 0 1",
+                invoke(editor, "fen", new Class<?>[0]), "removing passed pawn clears en-passant target");
+        assertFalse(enPassant.isEnabled(), "en-passant dropdown disables after target is removed");
+        assertEquals(Integer.valueOf(0), Integer.valueOf(enPassant.getItemCount()),
+                "en-passant dropdown clears choices after target is removed");
+        assertEquals(previewSize, fenPreview.getPreferredSize(), "FEN preview width stays fixed after en-passant prune");
 
-        invoke(editor, "setWhiteToMove", new Class<?>[] { boolean.class }, false);
+        @SuppressWarnings("unchecked")
+        JComboBox<String> sideToMove = (JComboBox<String>) field(editor, "sideToMoveBox");
+        sideToMove.setSelectedItem("Black");
         assertTrue((Boolean) invoke(editor, "applyEditedFen", new Class<?>[0]),
                 "board editor applies legal FEN");
-        assertEquals("r3k3/8/8/8/7Q/8/8/4K3 b - - 0 1", applied[0],
+        assertEquals("4k3/8/8/4P3/8/8/8/4K3 b - - 0 1", applied[0],
                 "board editor normalizes applied FEN");
+        assertTrue((Boolean) invoke(board, "isSetupEditMode", new Class<?>[0]),
+                "applying keeps the shared board editable");
         invoke(editor, "setEditingBoardActive", new Class<?>[] { boolean.class }, Boolean.FALSE);
         assertFalse((Boolean) invoke(board, "isSetupEditMode", new Class<?>[0]),
-                "leaving editor disables direct board editing");
+                "leaving editor disables shared-board setup editing");
         assertFalse(readWorkbenchSource("board/BoardEditorPanel.java").contains("white bottom"),
                 "board editor does not show the old orientation label");
         assertFalse(readWorkbenchSource("board/BoardEditorPanel.java").contains("label(\"main board\")"),
                 "board editor does not replace orientation text with another board label");
+        assertFalse(readWorkbenchSource("board/BoardEditorPanel.java").contains("new BoardPanel"),
+                "board editor does not create a small embedded board");
         assertFalse(readWorkbenchSource("window/WindowBoardLayer.java").contains("Theme.section(\"Position\")"),
                 "position controls no longer show a redundant position title");
         assertPaintsOpaqueCorner((JComponent) editor, 360, 560, "board editor opaque background");

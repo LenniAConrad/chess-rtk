@@ -472,6 +472,7 @@ public final class PlaySession {
         awaitingEngine = false;
         host.clearHint();
         clearPremove();
+        host.saveGameState("Aborted");
         host.setPositionEntryLocked(false);
         host.setInputGate(true);
         notifyStatus("No game");
@@ -887,6 +888,7 @@ public final class PlaySession {
         host.setPositionEntryLocked(false);
         host.setInputGate(true);
         host.toast(kind, message);
+        host.saveGameState("Finished");
         notifyStatus(message);
         notifyResult(message, kind);
     }

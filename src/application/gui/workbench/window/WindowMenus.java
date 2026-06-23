@@ -423,6 +423,16 @@ final class WindowMenus {
             }
 
             /**
+             * Detaches the selected tab into a separate window.
+             */
+            @Override
+            public void detachTab() {
+                if (owner.tabs != null) {
+                    owner.tabs.detachSelectedTab();
+                }
+            }
+
+            /**
              * Reopens all tabs.
              */
             @Override

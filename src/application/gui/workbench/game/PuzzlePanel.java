@@ -10,6 +10,7 @@ import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.Theme;
+import application.gui.workbench.ui.Toast;
 import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.Ui;
 import chess.core.Move;
@@ -1686,6 +1687,7 @@ public final class PuzzlePanel extends SurfacePanel {
     private void copyPgn() {
         CommandRunner.copyToClipboard(pgnInput.getText());
         setStatus("Copied PGN.");
+        Toast.show(this, Toast.Kind.SUCCESS, "Copied to clipboard");
     }
 
     /**

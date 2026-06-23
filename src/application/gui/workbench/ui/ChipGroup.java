@@ -125,6 +125,9 @@ public final class ChipGroup extends JComponent {
              */
             @Override
             public void mousePressed(MouseEvent event) {
+                if (!isEnabled()) {
+                    return;
+                }
                 int hit = chipAt(event.getX());
                 if (hit >= 0 && hit != selected) {
                     setSelectedIndex(hit);
@@ -152,6 +155,15 @@ public final class ChipGroup extends JComponent {
         onSelect = listener == null ? index -> {
             // no-op
         } : listener;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setEnabled(boolean enabled) {
+        super.setEnabled(enabled);
+        repaint();
     }
 
     /**
@@ -275,9 +287,10 @@ public final class ChipGroup extends JComponent {
             int h = HEIGHT;
             // VS Code-style segmented input: white field, hairline border,
             // and a pale active option instead of a saturated pill.
-            g.setColor(Theme.INPUT);
+            boolean enabled = isEnabled();
+            g.setColor(enabled ? Theme.INPUT : Theme.PANEL_SOLID);
             g.fillRoundRect(0, 0, w, h, Theme.RADIUS, Theme.RADIUS);
-            g.setColor(Theme.INPUT_BORDER);
+            g.setColor(enabled ? Theme.INPUT_BORDER : Theme.LINE);
             g.drawRoundRect(0, 0, w - 1, h - 1, Theme.RADIUS, Theme.RADIUS);
             for (int i = 1; i < labels.size(); i++) {
                 g.setColor(Theme.LINE);
@@ -285,17 +298,17 @@ public final class ChipGroup extends JComponent {
             }
             // Sliding active option.
             int innerArc = Math.max(3, Theme.RADIUS - 2);
-            g.setColor(Theme.SELECTION_SOLID);
+            g.setColor(enabled ? Theme.SELECTION_SOLID : Theme.INPUT_BORDER);
             g.fillRoundRect((int) Math.round(indicatorX) + 2, 2,
                     (int) Math.round(indicatorW) - 4, h - 4, innerArc, innerArc);
-            g.setColor(Theme.ACCENT);
+            g.setColor(enabled ? Theme.ACCENT : Theme.LINE);
             g.drawRoundRect((int) Math.round(indicatorX) + 2, 2,
                     (int) Math.round(indicatorW) - 5, h - 5, innerArc, innerArc);
             // Labels.
             g.setFont(Theme.font(12, Font.BOLD));
             FontMetrics fm = g.getFontMetrics();
             for (int i = 0; i < labels.size(); i++) {
-                g.setColor(i == selected ? Theme.TEXT : Theme.MUTED);
+                g.setColor(enabled && i == selected ? Theme.TEXT : Theme.MUTED);
                 String label = labels.get(i);
                 int tx = chipX[i] + (chipW[i] - fm.stringWidth(label)) / 2;
                 int ty = (h + fm.getAscent() - fm.getDescent()) / 2;

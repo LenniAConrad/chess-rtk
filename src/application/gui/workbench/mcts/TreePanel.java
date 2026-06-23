@@ -8,6 +8,7 @@ import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.network.Prefs;
 import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.HoldButton;
+import application.gui.workbench.ui.SegmentedSwitcher;
 import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.Theme;
@@ -292,6 +293,11 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
             "Show or hide the node-inspector panel on the right");
 
     /**
+     * Graph node rendering style.
+     */
+    private final SegmentedSwitcher graphStyleSwitcher = Ui.segmentedControl("Boards", "Moves");
+
+    /**
      * Status badge.
      */
     private final StatusBadge statusBadge = new StatusBadge();
@@ -376,6 +382,21 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
      * Inspector's selected node id (null when a blob is selected).
      */
     private String inspectorNodeId;
+
+    /**
+     * Last session-selected node id adopted by this panel. Used to distinguish a
+     * real cross-surface selection change from a local blob inspection, which
+     * intentionally does not update {@link MctsSession}.
+     */
+    private String lastSessionSelectedNodeId;
+
+    /**
+     * Graph key that should be centered once the next laid-out model contains
+     * it. This bridges session selections from the table and graph clicks
+     * through the synchronous snapshot refresh without turning the canvas into a
+     * session-aware component.
+     */
+    private String pendingFocusKey;
 
     /**
      * Recorded search-tree growth controller.
@@ -591,6 +612,9 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
         batchLeavesToggle.addActionListener(event -> rebuildAndReset());
         detailsToggle.addActionListener(event -> setInspectorVisible(detailsToggle.isSelected()));
         layersToggle.addActionListener(event -> view.setShowLayers(layersToggle.isSelected()));
+        graphStyleSwitcher.setToolTipText("Switch graph nodes between chessboard thumbnails and move-stat cards");
+        graphStyleSwitcher.getAccessibleContext().setAccessibleName("Graph node style");
+        graphStyleSwitcher.addActionListener(event -> applyGraphDisplayMode());
         // Default states (the ToggleBox second arg is "compact", not "selected",
         // so these must be set explicitly): merge transpositions and batch leaves
         // keep the tree compact, and Details matches the inspector being shown.
@@ -599,6 +623,7 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
         detailsToggle.setSelected(true);
         layersToggle.setSelected(true);
         view.setShowLayers(true);
+        applyGraphDisplayMode();
         syncGuideLevelControl();
 
         depthLabel.setFont(Theme.font(11, Font.BOLD));
@@ -697,6 +722,16 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
     }
 
     /**
+     * Applies the selected graph node style to the canvas.
+     */
+    private void applyGraphDisplayMode() {
+        TreeGraphView.DisplayMode mode = graphStyleSwitcher.getSelectedIndex() == 1
+                ? TreeGraphView.DisplayMode.MOVES
+                : TreeGraphView.DisplayMode.BOARDS;
+        view.setDisplayMode(mode);
+    }
+
+    /**
      * Adjusts the vertical-guide layer.
      *
      * @param delta level delta
@@ -753,6 +788,7 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
         limitsRow.add(Ui.labeledControl("Branches", branchesSpinner));
 
         JPanel viewRow = toolbarRow();
+        viewRow.add(Ui.labeledControl("Graph", graphStyleSwitcher));
         viewRow.add(mergeToggle);
         viewRow.add(batchLeavesToggle);
         viewRow.add(layersToggle);
@@ -923,8 +959,8 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
      */
     private void renderLive(MctsSession.Snapshot snapshot) {
         MctsSearch.TreeSnapshot tree = snapshot == null ? null : snapshot.tree();
-        rebuildModel(tree, snapshot);
-        if (autoFitToggle.isSelected() && snapshot != null && snapshot.running()) {
+        boolean selectedFocusApplied = rebuildModel(tree, snapshot);
+        if (!selectedFocusApplied && autoFitToggle.isSelected() && snapshot != null && snapshot.running()) {
             view.fit();
         }
     }
@@ -936,7 +972,7 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
      * @param pathSnapshot live session snapshot whose exploring line is overlaid
      *     as the search path, or null (scrubbing) to show no live path
      */
-    private void rebuildModel(MctsSearch.TreeSnapshot tree, MctsSession.Snapshot pathSnapshot) {
+    private boolean rebuildModel(MctsSearch.TreeSnapshot tree, MctsSession.Snapshot pathSnapshot) {
         if (tree == null) {
             // No tree (idle / starting / stopped): clear the canvas AND the
             // inspector, so stale node statistics from a prior search don't
@@ -944,6 +980,8 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
             currentInfos = List.of();
             inspectorKey = null;
             inspectorNodeId = null;
+            lastSessionSelectedNodeId = null;
+            pendingFocusKey = null;
             inspectorSummary.setText("No node selected");
             inspectorSummary.setCaretPosition(0);
             childHeading.setText("Children");
@@ -954,14 +992,23 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
             view.setSearchPath(Set.of(), Set.of());
             view.setTargetPath(Set.of(), Set.of(), false);
             view.setSelectedPath(Set.of(), Set.of());
-            return;
+            return false;
         }
         currentInfos = tree.nodes();
         String selectedId = tree.selectedNode() == null ? null : tree.selectedNode().id();
+        if (selectedId != null && !selectedId.equals(lastSessionSelectedNodeId)) {
+            inspectorNodeId = selectedId;
+            inspectorKey = null;
+            lastSessionSelectedNodeId = selectedId;
+            MctsSearch.NodeInfo selected = findById(selectedId);
+            if (selected != null) {
+                pendingFocusKey = graphKey(selected);
+            }
+        }
         String activeSelectedId = inspectorNodeId != null ? inspectorNodeId : selectedId;
         TreeLayout.Model model = TreeLayout.layout(currentInfos, mergeToggle.isSelected(),
                 batchLeavesToggle.isSelected(), activeSelectedId, NODE_BOARD_SIZE, NODE_BOARD_SIZE + CAPTION_HEIGHT,
-                H_GAP, V_GAP);
+                H_GAP, V_GAP, tree.omittedNodes());
         view.setModel(model);
         // Compute the search-path and target overlays after currentInfos is
         // updated, so they map the live exploring line / target line against the
@@ -972,19 +1019,36 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
         view.setSearchPath(searchPath.keys(), searchPath.segments());
         view.setTargetPath(targetPath.keys(), targetPath.segments(), targetTracker.hasMoves());
         view.setSelectedPath(selectedPath.keys(), selectedPath.segments());
+        boolean selectedFocusApplied = applyPendingFocus(model);
         if (inspectorKey == null) {
-            // Default the inspector to the root so children are immediately
-            // listed. This only populates the inspector; it must not push the
-            // session selection (that would re-enter rebuildModel before
-            // inspectorKey is set and recurse).
-            for (TreeLayout.Node node : model.nodes()) {
-                if (node.root()) {
-                    showNodeInInspector(node.info());
-                    break;
-                }
-            }
+            showInitialInspectorNode(model, activeSelectedId);
         } else {
             refreshInspectorAfterRebuild();
+        }
+        return selectedFocusApplied;
+    }
+
+    /**
+     * Populates the inspector after a model rebuild when no local inspector key
+     * exists yet. An explicit session selection wins; otherwise the root is shown
+     * so children are immediately listed.
+     *
+     * @param model current layout model
+     * @param selectedId selected node id, or null
+     */
+    private void showInitialInspectorNode(TreeLayout.Model model, String selectedId) {
+        if (selectedId != null && !selectedId.isBlank()) {
+            MctsSearch.NodeInfo selected = findById(selectedId);
+            if (selected != null) {
+                showNodeInInspector(selected);
+                return;
+            }
+        }
+        for (TreeLayout.Node node : model.nodes()) {
+            if (node.root()) {
+                showNodeInInspector(node.info());
+                break;
+            }
         }
     }
 
@@ -1161,12 +1225,14 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
      */
     private void onNodeSelected(TreeLayout.Node node) {
         if (node.blob()) {
+            view.focusNode(node.key());
             showBlobInInspector(node);
         } else {
             // Populate the inspector (sets inspectorKey) before pushing the
             // session selection: setSelectedNodeId re-enters rebuildModel
             // synchronously, and it must see the new key to take the refresh
             // path rather than re-selecting and recursing.
+            requestSelectionFocus(node.key());
             showNodeInInspector(node.info());
             session.setSelectedNodeId(node.info().id());
         }
@@ -1179,7 +1245,7 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
      */
     private void showNodeInInspector(MctsSearch.NodeInfo info) {
         inspectorNodeId = info.id();
-        inspectorKey = mergeToggle.isSelected() ? Long.toString(info.signature()) : info.id();
+        inspectorKey = graphKey(info);
         selectedFen = info.fen();
         updateOpenButton();
         wdlBar.set(info.win(), info.draw(), info.loss(), info.q());
@@ -1254,10 +1320,73 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
      * @param info node to select
      */
     private void navigateTo(MctsSearch.NodeInfo info) {
-        String key = mergeToggle.isSelected() ? Long.toString(info.signature()) : info.id();
+        String key = graphKey(info);
         showNodeInInspector(info);
-        view.focusNode(key);
+        requestSelectionFocus(key);
         session.setSelectedNodeId(info.id());
+    }
+
+    /**
+     * Returns the graph key for a node under the current merge setting.
+     *
+     * @param info node info
+     * @return visible graph key before leaf batching is applied
+     */
+    private String graphKey(MctsSearch.NodeInfo info) {
+        return mergeToggle.isSelected() ? Long.toString(info.signature()) : info.id();
+    }
+
+    /**
+     * Centers a selection immediately when possible and carries the same request
+     * through the next model refresh, where merge/batching may shift the node's
+     * rendered position.
+     *
+     * @param key graph key to center
+     */
+    private void requestSelectionFocus(String key) {
+        pendingFocusKey = key;
+        view.focusNode(key);
+    }
+
+    /**
+     * Applies a pending selected-node focus to the current model, falling back to
+     * the model's selected visible node when leaf batching replaced the original
+     * requested key with a blob.
+     *
+     * @param model current layout model
+     * @return true when a visible node was centered
+     */
+    private boolean applyPendingFocus(TreeLayout.Model model) {
+        if (pendingFocusKey == null) {
+            return false;
+        }
+        String focusKey = resolvedFocusKey(model, pendingFocusKey);
+        if (!view.focusNode(focusKey)) {
+            return false;
+        }
+        pendingFocusKey = null;
+        return true;
+    }
+
+    /**
+     * Resolves the pending focus key against the visible layout model.
+     *
+     * @param model current layout model
+     * @param requestedKey graph key requested before layout
+     * @return visible node key to focus
+     */
+    private static String resolvedFocusKey(TreeLayout.Model model, String requestedKey) {
+        for (TreeLayout.Node node : model.nodes()) {
+            if (node.key().equals(requestedKey)) {
+                return requestedKey;
+            }
+        }
+        for (TreeLayout.Node node : model.nodes()) {
+            if (node.selected()) {
+                return node.key();
+            }
+        }
+        return requestedKey;
     }
 
     /**
@@ -1598,7 +1727,7 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
         args.add(Integer.toString(((Number) minVisitsSpinner.getValue()).intValue()));
         CommandRunner.copyToClipboard(CommandRunner.displayCommand(args));
         statusBadge.success("command copied");
-        toast(Toast.Kind.SUCCESS, "Command copied");
+        toast(Toast.Kind.SUCCESS, "Copied to clipboard");
     }
 
     /**

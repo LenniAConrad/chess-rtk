@@ -11,9 +11,14 @@ import static testing.WorkbenchTestSupport.maxAlpha;
 import static testing.WorkbenchTestSupport.paint;
 
 import application.gui.workbench.dataset.DatasetAnalyzer;
+import application.gui.workbench.dataset.DatasetAreaChart;
 import application.gui.workbench.dataset.DatasetChart;
 import application.gui.workbench.dataset.DatasetPanel;
 import application.gui.workbench.dataset.DatasetSummary;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Container;
+import java.awt.event.MouseEvent;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -21,6 +26,7 @@ import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JSplitPane;
+import javax.swing.JTable;
 import javax.swing.JTextField;
 
 /**
@@ -111,6 +117,19 @@ final class WorkbenchDatasetRegression {
         assertTrue(((javax.swing.plaf.basic.BasicSplitPaneUI) split.getUI()).getDivider()
                 .getClass().getName().contains("SplitPaneStyler"),
                 "dataset split pane uses themed divider");
+        JComponent inspectorBoard = (JComponent) field(panel, "inspectorBoard");
+        JTextField inspectorFen = (JTextField) field(panel, "inspectorFenField");
+        JComponent boardSlot = (JComponent) inspectorBoard.getParent();
+        boardSlot.setSize(420, 260);
+        boardSlot.doLayout();
+        assertEquals(Integer.valueOf(260), Integer.valueOf(inspectorBoard.getWidth()),
+                "dataset row inspector board uses available height");
+        boardSlot.setSize(180, 340);
+        boardSlot.doLayout();
+        assertEquals(Integer.valueOf(180), Integer.valueOf(inspectorBoard.getWidth()),
+                "dataset row inspector board shrinks to available width");
+        assertFalse(inspectorFen.getText().contains("\n"),
+                "dataset row inspector FEN preview is single-line");
         panel.applySummary(new DatasetSummary(Path.of("sample.fen"), 1, 2L, 2L, 0L, 0L, 1L, 1L,
                 0L, 0L, 0L, 1L, 1L, 0, 8_000, 4_000.0d,
                 new int[] { 0, 0, 0, 0, 1, 0, 0, 1 },
@@ -127,6 +146,7 @@ final class WorkbenchDatasetRegression {
                 "dataset quality insight summarizes clean scans");
         assertTrue(coverageInsight.getText().contains("Tags 50%"),
                 "dataset coverage insight reports tag ratio");
+        assertTableHoverCoversCustomCells((JTable) field(panel, "sampleTable"));
         paintPanel(panel, 980, 680, "dataset panel paints surface");
 
         // The chart is transparent by design; the shared elevated card paints
@@ -152,6 +172,21 @@ final class WorkbenchDatasetRegression {
         donutCard.doLayout();
         assertEquals(Integer.valueOf(255), Integer.valueOf(maxAlpha(paint(donutCard, 340, 180))),
                 "dataset donut card paints surface");
+
+        DatasetAreaChart area = new DatasetAreaChart();
+        area.setBuckets(new String[] { "< -900", "equal", "> +900" }, new int[] { 1, 3, 2 },
+                DatasetChart.Role.PURPLE);
+        assertEquals(Integer.valueOf(chart.getPreferredSize().height),
+                Integer.valueOf(donut.getPreferredSize().height),
+                "dataset bar and donut chart cards share height");
+        assertEquals(Integer.valueOf(chart.getPreferredSize().height),
+                Integer.valueOf(area.getPreferredSize().height),
+                "dataset area and bar chart cards share height");
+        javax.swing.JComponent areaCard = application.gui.workbench.ui.Ui.card("Area", area);
+        areaCard.setSize(340, 180);
+        areaCard.doLayout();
+        assertEquals(Integer.valueOf(255), Integer.valueOf(maxAlpha(paint(areaCard, 340, 180))),
+                "dataset area chart card paints surface");
     }
 
     /**
@@ -250,5 +285,25 @@ final class WorkbenchDatasetRegression {
         component.setSize(width, height);
         paint(component, width, height);
         assertPaintsOpaqueCorner(component, width, height, message);
+    }
+
+    /**
+     * Verifies row hover covers custom label and FEN renderers.
+     *
+     * @param table dataset sample table
+     */
+    private static void assertTableHoverCoversCustomCells(JTable table) {
+        table.setSize(900, 180);
+        table.doLayout();
+        java.awt.Rectangle cell = table.getCellRect(0, 6, true);
+        MouseEvent event = new MouseEvent(table, MouseEvent.MOUSE_MOVED, System.currentTimeMillis(),
+                0, cell.x + Math.max(1, cell.width / 2), cell.y + Math.max(1, cell.height / 2), 0, false);
+        table.dispatchEvent(event);
+        Color labelBackground = table.prepareRenderer(table.getCellRenderer(0, 5), 0, 5).getBackground();
+        Color fenBackground = table.prepareRenderer(table.getCellRenderer(0, 6), 0, 6).getBackground();
+        assertEquals(labelBackground, fenBackground,
+                "dataset label and FEN cells share hover background");
+        assertFalse(fenBackground.equals(table.getBackground()),
+                "dataset FEN hover background differs from resting table background");
     }
 }

@@ -462,5 +462,6 @@ public final class InspectorPanel extends JPanel {
         }
         Toolkit.getDefaultToolkit().getSystemClipboard()
                 .setContents(new StringSelection(clipboardPayload), null);
+        Toast.show(this, Toast.Kind.SUCCESS, "Copied to clipboard");
     }
 }

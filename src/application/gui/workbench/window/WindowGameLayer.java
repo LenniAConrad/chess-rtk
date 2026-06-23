@@ -80,9 +80,13 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
         // In Play mode, let the session react to the move just applied (human
         // or engine) and schedule the engine reply or end the game. Outside a
         // Play game this is a no-op. The engine reply re-enters this same method.
-        if (playSession != null && playSession.isActive() && currentPosition != null) {
+        boolean playWasActive = playSession != null && playSession.isActive();
+        if (playWasActive && currentPosition != null) {
             playSession.onMovePlayed(currentPosition.copy());
         }
+        persistCurrentGame(playWasActive && playSession != null && playSession.isActive()
+                ? "In progress"
+                : playWasActive ? "Finished" : "Saved");
     }
 
     /**
@@ -628,6 +632,7 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
             }
             runningJob = null;
             maybeHighlightMove(args, result.output());
+            maybeRecordAnalysisResult(args, result.exitCode(), result.output());
             if (!healthCheckQueue.isEmpty()) {
                 SwingUtilities.invokeLater(this::runNextHealthCheck);
             }
@@ -690,6 +695,36 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
     private void finishRunCommandOutput(List<String> args, int exitCode, String output, long millis) {
         runParsedOutput.setText(CommandResultParser.detail(args, exitCode, output, millis));
         runParsedOutput.setCaretPosition(0);
+    }
+
+    /**
+     * Feeds completed engine command output into the Analyze result graph.
+     *
+     * @param args command arguments
+     * @param exitCode process exit code
+     * @param output command output
+     */
+    private void maybeRecordAnalysisResult(List<String> args, int exitCode, String output) {
+        if (exitCode != 0 || currentPosition == null || !shouldRecordAnalysisResult(args)) {
+            return;
+        }
+        analysisGraph.addCommandOutput(currentPosition.isWhiteToMove(), output);
+    }
+
+    /**
+     * Returns whether one command can produce analysis-result samples.
+     *
+     * @param args command arguments
+     * @return true for engine search or analysis commands
+     */
+    private static boolean shouldRecordAnalysisResult(List<String> args) {
+        if (args == null || args.size() < 2 || !"engine".equals(args.get(0))) {
+            return false;
+        }
+        return switch (args.get(1)) {
+            case "analyze", "bestmove", "builtin" -> true;
+            default -> false;
+        };
     }
 
     /**
@@ -908,12 +943,15 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
         Position start = game.getStartPosition() == null ? new Position(Game.STANDARD_START_FEN)
                 : game.getStartPosition().copy();
         validateGameTree(start, game);
+        persistCurrentGame("Aborted");
+        activeSavedGameId = null;
         gameModel.loadGame(start, game);
         if (gameModel.getRowCount() == 0) {
     throw new IllegalArgumentException("No legal moves found.");
         }
         session.clearEvalHistory();
         showGamePly(gameModel.lastPly());
+        persistCurrentGame("Imported");
         int variations = gameModel.variationRowCount();
         appendConsole("Loaded PGN with " + gameModel.lastPly() + " mainline plies"
                 + (variations > 0 ? " and " + variations + " variation plies" : "") + "\n");
@@ -973,8 +1011,11 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
             line.add(move);
             cursor.play(move);
         }
+        persistCurrentGame("Aborted");
+        activeSavedGameId = null;
         gameModel.loadLine(start, line);
         showGamePly(gameModel.lastPly());
+        persistCurrentGame("Imported");
         appendConsole("Loaded move line with " + gameModel.lastPly() + " plies\n");
     }
 

@@ -30,7 +30,7 @@ public final class DatasetChart extends JComponent {
     /**
      * Preferred chart height.
      */
-    private static final int PREFERRED_HEIGHT = 168;
+    private static final int PREFERRED_HEIGHT = 204;
 
     /**
      * Preferred label column width.

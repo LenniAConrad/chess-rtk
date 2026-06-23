@@ -1319,6 +1319,7 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
     protected void copyText(String text) {
         Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(text == null ? "" : text),
                 null);
+        toast(Toast.Kind.SUCCESS, "Copied to clipboard");
     }
 
     /**

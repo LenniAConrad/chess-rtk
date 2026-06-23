@@ -10,6 +10,8 @@ import chess.nn.lc0.cnn.Network;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.StampedLock;
 
@@ -58,6 +60,16 @@ public final class Evaluator implements AutoCloseable {
      * JVM property that disables the optional LC0 evaluator path.
      */
     public static final String LC0_DISABLED_PROPERTY = "crtk.lc0.disabled";
+
+    /**
+     * Process-wide LC0 fallback log keys already emitted.
+     */
+    private static final Set<String> LC0_FALLBACK_LOG_KEYS = ConcurrentHashMap.newKeySet();
+
+    /**
+     * Process-wide backend selections already emitted.
+     */
+    private static final Set<String> EVALUATOR_BACKEND_LOG_KEYS = ConcurrentHashMap.newKeySet();
 
     /**
      * Lock guarding model creation, use, and shutdown.
@@ -309,7 +321,7 @@ public final class Evaluator implements AutoCloseable {
             baseline = scoreForAblation(evaluateLc0(position));
         } catch (IllegalStateException ex) {
             useLc0 = false;
-            LogService.warn("LC0 ablation unavailable; falling back to classical.");
+            logAblationFallbackOnce(position, ex);
             baseline = scoreForAblation(evaluate(position));
         }
         int[][] matrix = new int[8][8];
@@ -435,10 +447,80 @@ public final class Evaluator implements AutoCloseable {
         lastEvalCache.set(null);
         lastLc0Cache.set(null);
         if (lc0Failure.compareAndSet(null, t)) {
-            LogService.error(t, "LC0 disabled; falling back to classical.", "Weights: " + weights.toAbsolutePath());
+            logLc0FallbackOnce("evaluator", null, t);
         }
         // Ensure we release resources if the model was partially/fully initialized.
         close();
+    }
+
+    /**
+     * Logs the piece-ablation fallback with useful context, deduplicated across evaluator instances.
+     *
+     * @param position position that first needed the fallback
+     * @param cause fallback cause
+     */
+    private void logAblationFallbackOnce(Position position, Throwable cause) {
+        logLc0FallbackOnce("evaluator.ablation", position, unwrapFallbackCause(cause));
+    }
+
+    /**
+     * Logs one contextual LC0 fallback line for a context/weights/reason tuple.
+     *
+     * @param context logical evaluator context
+     * @param position optional first position that triggered the fallback
+     * @param cause fallback cause
+     */
+    private void logLc0FallbackOnce(String context, Position position, Throwable cause) {
+        String reason = fallbackReason(cause);
+        String weightsPath = LogService.pathAbs(weights);
+        String key = context + '|' + weightsPath + '|' + reason;
+        if (!LC0_FALLBACK_LOG_KEYS.add(key)) {
+            return;
+        }
+
+        if (position == null) {
+            LogService.warn("LC0 unavailable in " + context + "; using classical fallback.",
+                    "Weights: " + weightsPath,
+                    "Reason: " + reason,
+                    "Further identical LC0 fallback messages are suppressed.");
+        } else {
+            LogService.warn("LC0 unavailable in " + context + "; using classical fallback.",
+                    "Weights: " + weightsPath,
+                    "First FEN: " + position,
+                    "Reason: " + reason,
+                    "Further identical LC0 fallback messages are suppressed.");
+        }
+    }
+
+    /**
+     * Returns the useful root cause from the public LC0 exception wrapper.
+     *
+     * @param cause fallback cause
+     * @return unwrapped cause when present
+     */
+    private static Throwable unwrapFallbackCause(Throwable cause) {
+        if (cause instanceof IllegalStateException && cause.getCause() != null) {
+            return cause.getCause();
+        }
+        return cause;
+    }
+
+    /**
+     * Formats a compact fallback reason for logs and deduplication keys.
+     *
+     * @param cause fallback cause
+     * @return compact reason text
+     */
+    private static String fallbackReason(Throwable cause) {
+        if (cause == null) {
+            return "unknown";
+        }
+        String type = cause.getClass().getSimpleName();
+        String message = cause.getMessage();
+        if (message == null || message.isBlank()) {
+            return type;
+        }
+        return type + ": " + message;
     }
 
     /**
@@ -499,17 +581,22 @@ public final class Evaluator implements AutoCloseable {
         loggedBackend = backend;
         String msg;
         if (backend == Backend.LC0_CUDA) {
-            msg = "Evaluator backend: LC0 (cuda), weights=" + weights;
+            msg = "Evaluator backend: LC0 (cuda), weights=" + LogService.pathAbs(weights);
         } else if (backend == Backend.LC0_ROCM) {
-            msg = "Evaluator backend: LC0 (rocm), weights=" + weights;
+            msg = "Evaluator backend: LC0 (rocm), weights=" + LogService.pathAbs(weights);
         } else if (backend == Backend.LC0_ONEAPI) {
-            msg = "Evaluator backend: LC0 (oneapi), weights=" + weights;
+            msg = "Evaluator backend: LC0 (oneapi), weights=" + LogService.pathAbs(weights);
         } else if (backend == Backend.LC0_CPU) {
-            msg = "Evaluator backend: LC0 (cpu), weights=" + weights;
+            msg = "Evaluator backend: LC0 (cpu), weights=" + LogService.pathAbs(weights);
         } else {
             msg = "Evaluator backend: classical";
         }
-        LogService.info(msg);
+        String key = backend == Backend.CLASSICAL
+                ? "backend|classical"
+                : "backend|" + backend + '|' + LogService.pathAbs(weights);
+        if (EVALUATOR_BACKEND_LOG_KEYS.add(key)) {
+            LogService.info(msg);
+        }
     }
 
     /**

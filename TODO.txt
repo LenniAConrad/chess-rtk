@@ -55,6 +55,9 @@ panels inherit the same controls, resize handles, scrollbars, and visual rules.
     focus flows.
   - Fix any remaining unclear tab/layout controls with clear tooltips,
     accessible names, action ids, disabled states, and focus/hover feedback.
+  - DONE: editor overflow and restore/new-tab menus now use stable command ids
+    independent of visible labels, active-tab decoration, and future copy changes;
+    `WorkbenchUiEditorRegression` pins the button/menu contracts.
 - Unify Workbench styling:
   - Audit toolbar buttons and inspector panes for unstyled or inconsistently
     styled native Swing defaults.
@@ -80,8 +83,15 @@ advance incrementally instead of jumping from initial to final state.
     sorting, comparing visits/scores, and inspecting candidate moves.
   - Keep selected-node details and board preview synchronized with table
     selection.
+  - DONE: root-table/graph synchronization is enforced through `MctsSession`;
+    queued worker frames are retargeted to the current selected node, and
+    `TreePanel` follows session-selected nodes while preserving local blob
+    inspection.
   - Add a clear view switcher for `Table` and `Graph` rather than replacing the
     table with the graph.
+  - DONE: Engine Lab now exposes one `Search` mode with a local `Table`/`Graph`
+    switcher; `Table` remains the default first-class root-move workflow, while
+    `Graph` builds lazily from the same shared `MctsSession`.
 - Build the zoomable node/branch graph:
   - Add a custom Swing `JComponent` canvas for the explored MCTS graph.
   - Draw connected parent/child branches with highlighted PV and selected line.
@@ -89,10 +99,19 @@ advance incrementally instead of jumping from initial to final state.
     - `Boards`: each node is a small chessboard thumbnail.
     - `Moves`: each node is a compact box/card with algebraic move text,
       visits, score, and key metrics.
+    - DONE: `Boards` and `Moves` are explicit graph display modes exposed by the
+      Tree toolbar, with the move-card renderer avoiding board-thumbnail cache
+      work and headless regressions covering the switcher and render path.
     - `Hybrid` if it proves useful: board thumbnails for selected/PV nodes and
       compact move boxes elsewhere.
   - Implement zoom, pan, fit-to-view, selected-node centering, omitted-node
     badges, and stable viewport across refreshes.
+  - DONE: Bounded MCTS graph snapshots now carry aggregate omitted-node counts
+    through `TreeLayout.Model`, paint an explicit graph badge, and include the
+    same badge in SVG export.
+  - DONE: Session/table selections, graph clicks, and inspector navigation now
+    share one-shot selected-node centering that survives the synchronous layout
+    refresh without turning the graph canvas into a session-aware component.
   - Keep large trees bounded with depth/node/min-visit filters while making
     omitted branches obvious.
   - Keep graph selection synchronized with the table, selected-node details, and

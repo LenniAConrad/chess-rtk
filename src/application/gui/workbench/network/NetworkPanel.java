@@ -1046,7 +1046,7 @@ public final class NetworkPanel extends SurfacePanel {
         traceBackendArgs(args, (String) archCombo.getSelectedItem());
         CommandRunner.copyToClipboard(CommandRunner.displayCommand(args));
         statusBadge.success("command copied");
-        toast(Toast.Kind.SUCCESS, "Command copied");
+        toast(Toast.Kind.SUCCESS, "Copied to clipboard");
     }
 
     /**

@@ -2,6 +2,10 @@ package testing;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
 import chess.core.Move;
 import chess.core.MoveList;
@@ -32,6 +36,7 @@ public final class TaggingRegressionTest {
      */
      public static void main(String[] args) {
         System.setProperty(Evaluator.LC0_DISABLED_PROPERTY, "true");
+        testLc0AblationFallbackLogIsContextualAndDeduplicated();
         testStartPosition();
         testOpeningEcoTagsAndInheritance();
         testBackRankMate();
@@ -107,6 +112,45 @@ public final class TaggingRegressionTest {
         testGeneratedTacticalTagsHaveStableFieldsAndIdentities();
         testCanonicalOutputShapeAcrossRepresentativePositions();
         System.out.println("TaggingRegressionTest: all checks passed");
+    }
+
+     /**
+     * Verifies missing LC0 ablation does not spam logs during batch tagging.
+     */
+    private static void testLc0AblationFallbackLogIsContextualAndDeduplicated() {
+        Logger logger = Logger.getLogger("chess.debug.LogService");
+        CaptureLogHandler handler = new CaptureLogHandler();
+        logger.addHandler(handler);
+
+        try {
+            try (Evaluator evaluator = new Evaluator()) {
+                Position start = new Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+                evaluator.ablation(start);
+                evaluator.ablation(start);
+            }
+        } finally {
+            logger.removeHandler(handler);
+        }
+
+        int fallbackCount = 0;
+        String fallback = "";
+        for (LogEntry entry : handler.entries()) {
+            if (entry.message().contains("LC0 unavailable in evaluator.ablation")) {
+                fallbackCount++;
+                fallback = entry.message();
+            }
+            if (Level.SEVERE.equals(entry.level()) && entry.message().contains("LC0")) {
+                throw new AssertionError("LC0 fallback should not be logged as SEVERE: " + entry.message());
+            }
+        }
+        if (fallbackCount != 1) {
+            throw new AssertionError("LC0 ablation fallback log expected once but was " + fallbackCount
+                    + ": " + handler.entries());
+        }
+        assertTextContains(fallback, "Weights:");
+        assertTextContains(fallback, "First FEN:");
+        assertTextContains(fallback, "Reason: IllegalStateException: LC0 disabled by " + Evaluator.LC0_DISABLED_PROPERTY);
+        assertTextContains(fallback, "Further identical LC0 fallback messages are suppressed.");
     }
 
      /**
@@ -1288,6 +1332,17 @@ public final class TaggingRegressionTest {
     }
 
      /**
+     * Asserts that a text contains a snippet.
+     * @param text text
+     * @param expected expected snippet
+     */
+    private static void assertTextContains(String text, String expected) {
+        if (text == null || !text.contains(expected)) {
+            throw new AssertionError("missing text: " + expected + "\nactual: " + text);
+        }
+    }
+
+     /**
      * Handles assert contains prefix.
      * @param tags tags
      * @param prefix prefix
@@ -1744,5 +1799,84 @@ public final class TaggingRegressionTest {
             }
         }
         throw new AssertionError("illegal move " + uci + " in " + fen);
+    }
+
+    /**
+     * Captured log entry.
+     *
+     * @param level log level
+     * @param message formatted message
+     */
+    private record LogEntry(Level level, String message) {
+    }
+
+    /**
+     * Captures LogService messages during the logging regression.
+     */
+    private static final class CaptureLogHandler extends Handler {
+
+        /**
+         * Captured entries.
+         */
+        private final List<LogEntry> entries = new ArrayList<>();
+
+        /**
+         * Creates a handler that accepts all log levels.
+         */
+        CaptureLogHandler() {
+            setLevel(Level.ALL);
+        }
+
+        /**
+         * Publishes one log record.
+         *
+         * @param record record to publish
+         */
+        @Override
+        public void publish(LogRecord record) {
+            if (record == null || !isLoggable(record)) {
+                return;
+            }
+            entries.add(new LogEntry(record.getLevel(), formatMessage(record)));
+        }
+
+        /**
+         * Flushes the handler.
+         */
+        @Override
+        public void flush() {
+            // no buffer
+        }
+
+        /**
+         * Closes the handler.
+         */
+        @Override
+        public void close() {
+            // no resources
+        }
+
+        /**
+         * Returns captured entries.
+         *
+         * @return entries
+         */
+        List<LogEntry> entries() {
+            return entries;
+        }
+
+        /**
+         * Formats LogService's parameterized message.
+         *
+         * @param record log record
+         * @return formatted message
+         */
+        private static String formatMessage(LogRecord record) {
+            Object[] parameters = record.getParameters();
+            if ("{0}".equals(record.getMessage()) && parameters != null && parameters.length > 0) {
+                return String.valueOf(parameters[0]);
+            }
+            return record.getMessage();
+        }
     }
 }

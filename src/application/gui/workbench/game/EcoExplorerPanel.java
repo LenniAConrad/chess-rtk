@@ -1,18 +1,24 @@
 package application.gui.workbench.game;
 
+import application.gui.workbench.ui.NotationPainter;
 import application.gui.workbench.ui.Theme;
 import chess.core.Position;
 import chess.core.Setup;
 import chess.eco.Encyclopedia;
 import chess.eco.Entry;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.RenderingHints;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -34,10 +40,9 @@ import javax.swing.ListSelectionModel;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableColumnModel;
 import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.DefaultTreeCellRenderer;
 import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreeCellRenderer;
 import javax.swing.tree.TreePath;
-import javax.swing.tree.TreeSelectionModel;
 
 import static application.gui.workbench.ui.Ui.button;
 import static application.gui.workbench.ui.Ui.buttonRow;
@@ -49,6 +54,7 @@ import static application.gui.workbench.ui.Ui.label;
 import static application.gui.workbench.ui.Ui.placeholder;
 import static application.gui.workbench.ui.Ui.scroll;
 import static application.gui.workbench.ui.Ui.styleFields;
+import static application.gui.workbench.ui.Ui.styleTree;
 import static application.gui.workbench.ui.Ui.tabbedPane;
 import static application.gui.workbench.ui.Ui.transparentPanel;
 
@@ -460,11 +466,7 @@ public final class EcoExplorerPanel extends JPanel {
         openingTree.setRootVisible(true);
         openingTree.setShowsRootHandles(true);
         openingTree.setModel(treeModel);
-        openingTree.setOpaque(true);
-        openingTree.setBackground(Theme.PANEL_SOLID);
-        openingTree.setForeground(Theme.TEXT);
-        openingTree.setFont(Theme.font(12, Font.PLAIN));
-        openingTree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
+        styleTree(openingTree);
         openingTree.setCellRenderer(new EcoTreeRenderer());
         openingTree.setToolTipText("ECO opening tree for the current board prefix");
 
@@ -1142,12 +1144,27 @@ public final class EcoExplorerPanel extends JPanel {
     /**
      * Workbench-coloured renderer for the ECO opening tree.
      */
-    private static final class EcoTreeRenderer extends DefaultTreeCellRenderer {
+    private static final class EcoTreeRenderer extends JComponent implements TreeCellRenderer {
 
         /**
          * Serialization identifier for Swing renderer compatibility.
          */
         private static final long serialVersionUID = 1L;
+
+        /**
+         * Horizontal row padding.
+         */
+        private static final int PAD_X = 8;
+
+        /**
+         * Current node label.
+         */
+        private transient String text = "";
+
+        /**
+         * Current foreground colour.
+         */
+        private transient Color textColor = Theme.TEXT;
 
         /**
          * Renders one tree node in the Workbench palette.
@@ -1164,22 +1181,55 @@ public final class EcoExplorerPanel extends JPanel {
         @Override
         public Component getTreeCellRendererComponent(JTree tree, Object value, boolean selected,
                 boolean expanded, boolean leaf, int row, boolean hasFocus) {
-            Component component = super.getTreeCellRendererComponent(tree, value, selected, expanded, leaf, row,
-                    hasFocus);
-            setFont(Theme.font(12, Font.PLAIN));
+            text = value == null ? "" : value.toString();
+            setFont(tree == null ? Theme.font(12, Font.PLAIN) : tree.getFont());
             setOpaque(true);
-            setIcon(null);
-            setLeafIcon(null);
-            setOpenIcon(null);
-            setClosedIcon(null);
+            textColor = Theme.TEXT;
             if (selected) {
-                setForeground(Theme.TEXT);
-                setBackground(Theme.SELECTION);
+                setBackground(Theme.SELECTION_SOLID);
             } else {
-                setForeground(Theme.TEXT);
-                setBackground(Theme.PANEL_SOLID);
+                Color treeBackground = tree == null ? null : tree.getBackground();
+                setBackground(treeBackground == null ? Theme.PANEL_SOLID : treeBackground);
             }
-            return component;
+            return this;
+        }
+
+        /**
+         * Paints the tree row with inline SAN piece artwork.
+         *
+         * @param graphics graphics context
+         */
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            Graphics2D g = (Graphics2D) graphics.create();
+            try {
+                g.setColor(getBackground());
+                g.fillRect(0, 0, getWidth(), getHeight());
+                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                g.setFont(getFont());
+                FontMetrics metrics = g.getFontMetrics();
+                int baseline = (getHeight() + metrics.getAscent() - metrics.getDescent()) / 2;
+                int iconSize = Math.min(18, NotationPainter.iconSize(metrics));
+                NotationPainter.draw(g, text, PAD_X, baseline, Math.max(1, getWidth() - PAD_X * 2),
+                        textColor, iconSize);
+            } finally {
+                g.dispose();
+            }
+        }
+
+        /**
+         * Returns the preferred tree-row size.
+         *
+         * @return preferred size
+         */
+        @Override
+        public Dimension getPreferredSize() {
+            FontMetrics metrics = getFontMetrics(getFont());
+            int iconSize = Math.min(18, NotationPainter.iconSize(metrics));
+            int width = PAD_X * 2 + NotationPainter.width(text, metrics, iconSize);
+            int height = Math.max(Theme.TABLE_ROW_HEIGHT, metrics.getHeight() + 8);
+            return new Dimension(width, height);
         }
     }
 

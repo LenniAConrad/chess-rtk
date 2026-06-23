@@ -8,12 +8,17 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.Shape;
+import java.awt.geom.Rectangle2D;
 import java.util.Locale;
 import javax.swing.JTextPane;
 import javax.swing.text.BadLocationException;
+import javax.swing.text.JTextComponent;
+import javax.swing.text.LayeredHighlighter;
 import javax.swing.text.SimpleAttributeSet;
 import javax.swing.text.StyleConstants;
 import javax.swing.text.StyledDocument;
+import javax.swing.text.View;
 
 /**
  * Console output view for the workbench. Beyond a plain text area it adds two
@@ -95,9 +100,40 @@ public final class Console extends JTextPane implements Theme.ConsoleLike {
      */
     public void clearOutput() {
         setText("");
+        getHighlighter().removeAllHighlights();
         currentLine.setLength(0);
         column = 0;
         lineStart = 0;
+    }
+
+    /**
+     * Appends one visually separated section header. The text remains selectable
+     * and copyable, while a full-width highlight behind the line replaces ASCII
+     * fence markers in views such as the persisted-log browser.
+     *
+     * @param text header text without a trailing newline
+     */
+    public void appendSectionHeader(String text) {
+        String line = text == null ? "" : text.stripTrailing();
+        if (line.isEmpty()) {
+            return;
+        }
+        if (currentLine.length() > 0 || column > 0) {
+            commitNewline();
+        }
+        StyledDocument doc = getStyledDocument();
+        try {
+            int start = doc.getLength();
+            doc.insertString(start, line + "\n", sectionHeaderStyle());
+            int end = doc.getLength();
+            getHighlighter().addHighlight(start, Math.max(start, end - 1),
+                    new FullLineHighlightPainter(Theme.withAlpha(Theme.ACCENT, 42)));
+            currentLine.setLength(0);
+            column = 0;
+            lineStart = doc.getLength();
+        } catch (BadLocationException ignored) {
+            // Offsets are derived from the document itself.
+        }
     }
 
     /**
@@ -238,6 +274,17 @@ public final class Console extends JTextPane implements Theme.ConsoleLike {
     }
 
     /**
+     * Builds the section-header text style. The full-row background is painted
+     * by {@link FullLineHighlightPainter}; this only controls the foreground
+     * and weight.
+     *
+     * @return attribute set
+     */
+    private static SimpleAttributeSet sectionHeaderStyle() {
+        return style(Theme.TERMINAL_TEXT, true);
+    }
+
+    /**
      * Builds an attribute set for a colour and weight.
      *
      * @param color text colour
@@ -249,6 +296,80 @@ public final class Console extends JTextPane implements Theme.ConsoleLike {
         StyleConstants.setForeground(attributes, color);
         StyleConstants.setBold(attributes, bold);
         return attributes;
+    }
+
+    /**
+     * Highlighter that fills the whole visible text row instead of only the
+     * glyph bounds.
+     */
+    private static final class FullLineHighlightPainter extends LayeredHighlighter.LayerPainter {
+
+        /**
+         * Highlight fill.
+         */
+        private final Color color;
+
+        /**
+         * Creates a painter.
+         *
+         * @param color highlight fill
+         */
+        private FullLineHighlightPainter(Color color) {
+            this.color = color;
+        }
+
+        /**
+         * Paints non-layered highlights.
+         *
+         * @param graphics graphics context
+         * @param p0 start offset
+         * @param p1 end offset
+         * @param bounds component bounds
+         * @param component text component
+         */
+        @Override
+        public void paint(Graphics graphics, int p0, int p1, Shape bounds, JTextComponent component) {
+            paintLine(graphics, p0, component);
+        }
+
+        /**
+         * Paints a layered highlight.
+         *
+         * @param graphics graphics context
+         * @param p0 start offset
+         * @param p1 end offset
+         * @param bounds allocation bounds
+         * @param component text component
+         * @param view text view
+         * @return painted bounds
+         */
+        @Override
+        public Shape paintLayer(Graphics graphics, int p0, int p1, Shape bounds,
+                JTextComponent component, View view) {
+            return paintLine(graphics, p0, component);
+        }
+
+        /**
+         * Paints one full-width row for the model offset.
+         *
+         * @param graphics graphics context
+         * @param offset model offset
+         * @param component text component
+         * @return painted row bounds
+         */
+        private Shape paintLine(Graphics graphics, int offset, JTextComponent component) {
+            try {
+                Rectangle2D rect = component.modelToView2D(offset);
+                int y = (int) Math.floor(rect.getY());
+                int height = Math.max(component.getFontMetrics(component.getFont()).getHeight(),
+                        (int) Math.ceil(rect.getHeight()));
+                graphics.setColor(color);
+                graphics.fillRect(0, y, component.getWidth(), height);
+                return new java.awt.Rectangle(0, y, component.getWidth(), height);
+            } catch (BadLocationException ex) {
+                return null;
+            }
+        }
     }
 
     /**

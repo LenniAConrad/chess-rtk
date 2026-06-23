@@ -41,14 +41,15 @@ import javax.swing.ToolTipManager;
 /**
  * Pan/zoom canvas that renders a laid-out MCTS search tree.
  *
- * <p>Each node shows a mini board for its position; parent/child edges are drawn
- * as solid links, transpositions as dashed links, and the principal variation is
- * accented. To stay smooth on very large trees (hundreds of thousands of nodes),
- * the view caches a key lookup and a per-layer spatial index when the model
- * changes, culls to the visible layer/x-span on every frame instead of scanning
- * the whole tree, reuses a single edge path, and renders each position's board
- * once into a FEN-keyed high-resolution tile that is bilinear-downscaled to the
- * on-screen size (so thumbnails stay crisp at any zoom).</p>
+ * <p>Each node can show either a mini board or a move-stat card for its
+ * position; parent/child edges are drawn as solid links, transpositions as
+ * dashed links, and the principal variation is accented. To stay smooth on very
+ * large trees (hundreds of thousands of nodes), the view caches a key lookup and
+ * a per-layer spatial index when the model changes, culls to the visible
+ * layer/x-span on every frame instead of scanning the whole tree, reuses a
+ * single edge path, and renders each position's board once into a FEN-keyed
+ * high-resolution tile that is bilinear-downscaled to the on-screen size (so
+ * thumbnails stay crisp at any zoom).</p>
  */
 public final class TreeGraphView extends JComponent {
 
@@ -216,6 +217,21 @@ public final class TreeGraphView extends JComponent {
     }
 
     /**
+     * Graph node rendering mode.
+     */
+    public enum DisplayMode {
+        /**
+         * Render normal nodes as chessboard thumbnails with a caption strip.
+         */
+        BOARDS,
+
+        /**
+         * Render normal nodes as compact move/stat cards.
+         */
+        MOVES
+    }
+
+    /**
      * Keys on the path to the leaf the search is currently evaluating.
      */
     private transient java.util.Set<String> searchPath = java.util.Set.of();
@@ -257,6 +273,11 @@ public final class TreeGraphView extends JComponent {
      * row is.
      */
     private transient boolean showLayers;
+
+    /**
+     * Current node rendering mode.
+     */
+    private DisplayMode displayMode = DisplayMode.BOARDS;
 
     /**
      * Layer whose nodes define the vertical guide partitions. Layer 0 disables
@@ -468,6 +489,28 @@ public final class TreeGraphView extends JComponent {
     }
 
     /**
+     * Sets the graph node rendering mode.
+     *
+     * @param mode display mode, or null for the default board mode
+     */
+    public void setDisplayMode(DisplayMode mode) {
+        DisplayMode next = mode == null ? DisplayMode.BOARDS : mode;
+        if (displayMode != next) {
+            displayMode = next;
+            repaint();
+        }
+    }
+
+    /**
+     * Returns the current graph node rendering mode.
+     *
+     * @return display mode
+     */
+    public DisplayMode displayMode() {
+        return displayMode;
+    }
+
+    /**
      * Replaces the layout model and repaints.
      *
      * @param next next model
@@ -616,17 +659,20 @@ public final class TreeGraphView extends JComponent {
      * Used by the navigation inspector to jump to a chosen node.
      *
      * @param key node key
+     * @return true when a visible node was focused
      */
-    public void focusNode(String key) {
-        if (key == null) {
-            return;
+    public boolean focusNode(String key) {
+        if (key == null || getWidth() <= 0 || getHeight() <= 0) {
+            return false;
         }
         TreeLayout.Node node = byKey.get(key);
         if (node != null) {
             panX = getWidth() / 2.0 - node.centerX() * zoom;
             panY = getHeight() / 2.0 - node.centerY() * zoom;
             repaint();
+            return true;
         }
+        return false;
     }
 
     /**
@@ -977,6 +1023,7 @@ public final class TreeGraphView extends JComponent {
             }
         }
         boolean compact = boardPx < BOARD_PIXEL_THRESHOLD;
+        boolean moveCards = displayMode == DisplayMode.MOVES;
         int viewRight = view.x + view.width;
         int viewBottom = view.y + view.height;
         for (TreeLayout.Node[] row : rowsByLayer.values()) {
@@ -1001,7 +1048,9 @@ public final class TreeGraphView extends JComponent {
                     nodeGraphics.setComposite(targetFocus && !targetPath.contains(node.key())
                             ? DIM_COMPOSITE : java.awt.AlphaComposite.SrcOver);
                     if (node.blob()) {
-                        drawBlobNode(nodeGraphics, node, compact);
+                        drawBlobNode(nodeGraphics, node, compact || moveCards);
+                    } else if (moveCards) {
+                        drawMoveNode(nodeGraphics, node);
                     } else if (compact) {
                         drawCompactNode(nodeGraphics, node);
                     } else {
@@ -1150,6 +1199,52 @@ public final class TreeGraphView extends JComponent {
     }
 
     /**
+     * Draws a move/stat card node.
+     *
+     * @param g world-space graphics
+     * @param node node to draw
+     */
+    private void drawMoveNode(Graphics2D g, TreeLayout.Node node) {
+        Rectangle box = nodeBounds(node);
+        Graphics2D card = (Graphics2D) g.create();
+        try {
+            card.clipRect(box.x, box.y, box.width, box.height);
+            card.setColor(Theme.withAlpha(Theme.ELEVATED_SOLID, 245));
+            card.fillRoundRect(box.x, box.y, box.width, box.height, 8, 8);
+
+            int stripe = Math.max(3, Math.min(6, box.width / 12));
+            card.setColor(Theme.withAlpha(accentFor(node), 230));
+            card.fillRect(box.x, box.y, stripe, box.height);
+
+            int pad = Math.max(6, Math.min(10, box.width / 9));
+            int textX = box.x + pad + stripe;
+            int textW = Math.max(0, box.width - pad * 2 - stripe);
+            if (textW > 0) {
+                card.setFont(Theme.font(12, Font.BOLD));
+                FontMetrics labelMetrics = card.getFontMetrics();
+                int labelBaseline = box.y + Math.max(labelMetrics.getAscent() + 5,
+                        Math.min(18, box.height - 6));
+                NotationPainter.draw(card, moveLabel(node), textX, labelBaseline, textW, Theme.TEXT);
+
+                int dividerY = Math.min(box.y + box.height - 8, labelBaseline + 7);
+                card.setColor(Theme.withAlpha(Theme.LINE, 150));
+                card.drawLine(textX, dividerY, textX + textW, dividerY);
+
+                card.setFont(Theme.font(10, Font.PLAIN));
+                int baseline = dividerY + card.getFontMetrics().getAscent() + 5;
+                baseline = drawMoveCardLine(card, visitLine(node.info()), textX, baseline, textW, Theme.MUTED);
+                baseline = drawMoveCardLine(card, valueLine(node.info()), textX, baseline, textW, Theme.TEXT);
+                if (baseline + card.getFontMetrics().getDescent() < box.y + box.height - 5) {
+                    drawMoveCardLine(card, scoreLine(node.info()), textX, baseline, textW, Theme.MUTED);
+                }
+            }
+        } finally {
+            card.dispose();
+        }
+        drawNodeBorder(g, node);
+    }
+
+    /**
      * Draws a compact box node for zoomed-out views.
      *
      * @param g world-space graphics
@@ -1164,13 +1259,90 @@ public final class TreeGraphView extends JComponent {
             compactGraphics.fillRoundRect(box.x, box.y, box.width, box.height, 8, 8);
             compactGraphics.setFont(Theme.font(Math.max(9, node.w() / 5), Font.BOLD));
             compactGraphics.setColor(Theme.TEXT);
-            String label = node.root() ? "root" : node.info().san();
-            NotationPainter.draw(compactGraphics, label, box.x + 4,
+            NotationPainter.draw(compactGraphics, moveLabel(node), box.x + 4,
                     box.y + box.height / 2 + 4, box.width - 8, Theme.TEXT);
         } finally {
             compactGraphics.dispose();
         }
         drawNodeBorder(g, node);
+    }
+
+    /**
+     * Draws one elided move-card metric line.
+     *
+     * @param g graphics context
+     * @param text metric text
+     * @param x text x
+     * @param baseline text baseline
+     * @param width available width
+     * @param color text color
+     * @return next baseline
+     */
+    private static int drawMoveCardLine(Graphics2D g, String text, int x, int baseline,
+            int width, Color color) {
+        FontMetrics metrics = g.getFontMetrics();
+        g.setColor(color);
+        g.drawString(Ui.elide(text, metrics, width), x, baseline);
+        return baseline + metrics.getHeight() + 1;
+    }
+
+    /**
+     * Returns the display label for a tree node.
+     *
+     * @param node tree node
+     * @return move label
+     */
+    private static String moveLabel(TreeLayout.Node node) {
+        if (node.root()) {
+            return "root";
+        }
+        String san = node.info().san();
+        if (san != null && !san.isBlank()) {
+            return san;
+        }
+        String uci = node.info().uci();
+        return uci == null || uci.isBlank() ? "?" : uci;
+    }
+
+    /**
+     * Formats the visit/prior line for a move card.
+     *
+     * @param info node info
+     * @return visit/prior line
+     */
+    private static String visitLine(MctsSearch.NodeInfo info) {
+        return String.format(Locale.ROOT, "N %s  prior %s",
+                compactCount(info.visits()), compactPercent(info.prior()));
+    }
+
+    /**
+     * Formats the value/exploration line for a move card.
+     *
+     * @param info node info
+     * @return value/exploration line
+     */
+    private static String valueLine(MctsSearch.NodeInfo info) {
+        return String.format(Locale.ROOT, "Q %+.2f  U %.2f", info.q(), info.u());
+    }
+
+    /**
+     * Formats the PUCT score line for a move card.
+     *
+     * @param info node info
+     * @return score line
+     */
+    private static String scoreLine(MctsSearch.NodeInfo info) {
+        return String.format(Locale.ROOT, "PUCT %+.2f", info.score());
+    }
+
+    /**
+     * Formats a probability as a compact percentage.
+     *
+     * @param value probability in [0, 1]
+     * @return percent text
+     */
+    private static String compactPercent(double value) {
+        return String.format(Locale.ROOT, "%.0f%%", value * 100.0);
     }
 
     /**
@@ -1687,16 +1859,49 @@ public final class TreeGraphView extends JComponent {
      * @param g device-space graphics
      */
     private void drawLegend(Graphics2D g) {
-        String text = String.format("%,d positions · %,d transpositions · %.0f%%",
-                model.uniquePositions(), model.transpositionEdges(), zoom * 100.0);
+        String mode = displayMode == DisplayMode.MOVES ? "Moves" : "Boards";
+        String text = String.format(Locale.ROOT, "%,d positions · %,d transpositions · %.0f%% · %s",
+                model.uniquePositions(), model.transpositionEdges(), zoom * 100.0, mode);
         g.setFont(Theme.font(10, Font.BOLD));
-        int w = g.getFontMetrics().stringWidth(text) + 18;
-        int x = getWidth() - w - 12;
+        FontMetrics metrics = g.getFontMetrics();
+        int maxTextW = Math.max(32, getWidth() - 42);
+        text = Ui.elide(text, metrics, maxTextW);
+        int w = metrics.stringWidth(text) + 18;
+        int x = Math.max(12, getWidth() - w - 12);
         int y = getHeight() - 28;
+        drawOmittedBadge(g, x, y, w);
         g.setColor(Theme.withAlpha(Theme.PANEL_SOLID, 230));
         g.fillRoundRect(x, y, w, 20, 10, 10);
         g.setColor(Theme.MUTED);
         g.drawString(text, x + 9, y + 14);
+    }
+
+    /**
+     * Draws the aggregate omitted-node badge above the graph legend.
+     *
+     * @param g device-space graphics
+     * @param legendX legend left coordinate
+     * @param legendY legend top coordinate
+     * @param legendW legend width
+     */
+    private void drawOmittedBadge(Graphics2D g, int legendX, int legendY, int legendW) {
+        if (model.omittedNodes() <= 0) {
+            return;
+        }
+        String text = "+" + compactCount(model.omittedNodes()) + " omitted";
+        Font previous = g.getFont();
+        g.setFont(Theme.font(10, Font.BOLD));
+        FontMetrics metrics = g.getFontMetrics();
+        int w = metrics.stringWidth(text) + 18;
+        int x = Math.max(12, legendX + legendW - w);
+        int y = Math.max(8, legendY - 24);
+        g.setColor(Theme.withAlpha(SEARCH_COLOR, Theme.isDark() ? 54 : 42));
+        g.fillRoundRect(x, y, w, 20, 10, 10);
+        g.setColor(Theme.withAlpha(SEARCH_COLOR, 210));
+        g.drawRoundRect(x, y, w - 1, 19, 10, 10);
+        g.setColor(Theme.TEXT);
+        g.drawString(text, x + 9, y + 14);
+        g.setFont(previous);
     }
 
     /**

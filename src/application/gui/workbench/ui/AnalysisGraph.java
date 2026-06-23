@@ -21,6 +21,8 @@ import java.awt.print.PrinterJob;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.swing.JComponent;
 import javax.swing.SwingConstants;
 
@@ -78,6 +80,42 @@ public final class AnalysisGraph extends JComponent {
      * Inner edge reserved for the chart border.
      */
     private static final int PLOT_EDGE_INSET = 1;
+
+    /**
+     * Evaluation line emitted by the text-mode engine analysis command.
+     */
+    private static final Pattern SUMMARY_EVAL_PATTERN =
+            Pattern.compile("(?m)^\\s*eval:\\s*(#-?\\d+|[+-]?\\d+)\\b");
+
+    /**
+     * Search-depth line emitted by the text-mode engine analysis command.
+     */
+    private static final Pattern SUMMARY_DEPTH_PATTERN =
+            Pattern.compile("(?m)^\\s*depth:\\s*(\\d+)\\b");
+
+    /**
+     * Search work line emitted by the text-mode engine analysis command.
+     */
+    private static final Pattern SUMMARY_WORK_PATTERN =
+            Pattern.compile("(?m)^\\s*nodes:\\s*([^\\s]+)\\s+nps:\\s*([^\\s]+)\\s+time:\\s*([^\\s]+)");
+
+    /**
+     * Best-move line emitted by the text-mode engine analysis command.
+     */
+    private static final Pattern SUMMARY_BEST_PATTERN =
+            Pattern.compile("(?m)^\\s*best:\\s*([a-h][1-8][a-h][1-8][qrbn]?)\\b");
+
+    /**
+     * Raw UCI score pattern used by bestmove-style command output.
+     */
+    private static final Pattern UCI_SCORE_PATTERN =
+            Pattern.compile("\\bscore\\s+(cp|mate)\\s+(-?\\d+)\\b");
+
+    /**
+     * Raw UCI bestmove pattern.
+     */
+    private static final Pattern UCI_BESTMOVE_PATTERN =
+            Pattern.compile("\\bbestmove\\s+([a-h][1-8][a-h][1-8][qrbn]?)\\b");
 
     /**
      * Printable graph snapshot width.
@@ -171,15 +209,18 @@ public final class AnalysisGraph extends JComponent {
             return;
         }
         Sample sample = sampleFrom(whiteToMove, output, bestMove);
-        if (sample == null || isDuplicate(sample)) {
-            return;
-        }
-        samples.add(sample);
-        while (samples.size() > MAX_SAMPLES) {
-            samples.remove(0);
-        }
-        firePropertyChange("analysisSamples", null, Integer.valueOf(samples.size()));
-        repaint();
+        addSample(sample);
+    }
+
+    /**
+     * Adds one completed command sample parsed from text output.
+     *
+     * @param whiteToMove true when White was to move in the analyzed position
+     * @param output completed command output
+     * @return true when a visible sample was added
+     */
+    public boolean addCommandOutput(boolean whiteToMove, String output) {
+        return addSample(sampleFromCommandOutput(whiteToMove, output));
     }
 
     /**
@@ -802,6 +843,25 @@ public final class AnalysisGraph extends JComponent {
     }
 
     /**
+     * Adds one graph sample after duplicate filtering.
+     *
+     * @param sample candidate sample
+     * @return true when stored
+     */
+    private boolean addSample(Sample sample) {
+        if (sample == null || isDuplicate(sample)) {
+            return false;
+        }
+        samples.add(sample);
+        while (samples.size() > MAX_SAMPLES) {
+            samples.remove(0);
+        }
+        firePropertyChange("analysisSamples", null, Integer.valueOf(samples.size()));
+        repaint();
+        return true;
+    }
+
+    /**
      * Returns x coordinate for a sample index.
      *
      * @param x chart x
@@ -909,6 +969,293 @@ public final class AnalysisGraph extends JComponent {
         long timeMs = output.hasTime() && output.getTime() > 0L ? output.getTime() : lastTimeMs;
         rememberValues(evalCp, depth, nodes, nps, timeMs);
     return new Sample(evalCp, depth, nodes, nps, timeMs, bestMove);
+    }
+
+    /**
+     * Creates a graph sample from completed CLI engine output.
+     *
+     * @param whiteToMove true when White was to move
+     * @param output command output
+     * @return graph sample or null when output is not plottable
+     */
+    private Sample sampleFromCommandOutput(boolean whiteToMove, String output) {
+        if (output == null || output.isBlank()) {
+            return null;
+        }
+        Integer eval = summaryEvaluation(output);
+        if (eval == null) {
+            eval = uciEvaluation(output);
+        }
+        if (eval == null) {
+            return null;
+        }
+        int evalCp = whiteToMove ? eval.intValue() : -eval.intValue();
+        int depth = firstInt(SUMMARY_DEPTH_PATTERN, output, lastTokenInt(output, "depth", lastDepth));
+        long nodes = firstWorkCount(output, 1, lastTokenCount(output, "nodes", lastNodes));
+        long nps = firstWorkCount(output, 2, lastTokenCount(output, "nps", lastNps));
+        long timeMs = firstWorkDuration(output, 3, lastTokenDuration(output, "time", lastTimeMs));
+        short bestMove = firstMove(SUMMARY_BEST_PATTERN, output, firstMove(UCI_BESTMOVE_PATTERN, output, Move.NO_MOVE));
+        rememberValues(evalCp, depth, nodes, nps, timeMs);
+        return new Sample(evalCp, depth, nodes, nps, timeMs, bestMove);
+    }
+
+    /**
+     * Parses the first formatted summary evaluation.
+     *
+     * @param output command output
+     * @return side-to-move centipawns, or null
+     */
+    private static Integer summaryEvaluation(String output) {
+        Matcher matcher = SUMMARY_EVAL_PATTERN.matcher(output);
+        if (!matcher.find()) {
+            return null;
+        }
+        return evalTokenCentipawns(matcher.group(1));
+    }
+
+    /**
+     * Parses the last raw UCI score token in command output.
+     *
+     * @param output command output
+     * @return side-to-move centipawns, or null
+     */
+    private static Integer uciEvaluation(String output) {
+        Integer result = null;
+        Matcher matcher = UCI_SCORE_PATTERN.matcher(output);
+        while (matcher.find()) {
+            int value = parseInt(matcher.group(2), 0);
+            result = "mate".equals(matcher.group(1))
+                    ? Integer.valueOf(value >= 0 ? MATE_CP : -MATE_CP)
+                    : Integer.valueOf(value);
+        }
+        return result;
+    }
+
+    /**
+     * Converts one formatted eval token to plottable centipawns.
+     *
+     * @param token eval token
+     * @return centipawns, or null
+     */
+    private static Integer evalTokenCentipawns(String token) {
+        if (token == null || token.isBlank() || "-".equals(token)) {
+            return null;
+        }
+        try {
+            if (token.startsWith("#")) {
+                int mate = Integer.parseInt(token.substring(1));
+                return Integer.valueOf(mate >= 0 ? MATE_CP : -MATE_CP);
+            }
+            return Integer.valueOf(Integer.parseInt(token));
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    /**
+     * Reads the first integer captured by a pattern.
+     *
+     * @param pattern pattern with an integer group 1
+     * @param text input text
+     * @param fallback fallback value
+     * @return parsed value
+     */
+    private static int firstInt(Pattern pattern, String text, int fallback) {
+        Matcher matcher = pattern.matcher(text);
+        return matcher.find() ? parseInt(matcher.group(1), fallback) : fallback;
+    }
+
+    /**
+     * Reads one count from the formatted work line.
+     *
+     * @param text command output
+     * @param group regex group
+     * @param fallback fallback value
+     * @return parsed count
+     */
+    private static long firstWorkCount(String text, int group, long fallback) {
+        Matcher matcher = SUMMARY_WORK_PATTERN.matcher(text);
+        return matcher.find() ? parseCount(matcher.group(group), fallback) : fallback;
+    }
+
+    /**
+     * Reads one duration from the formatted work line.
+     *
+     * @param text command output
+     * @param group regex group
+     * @param fallback fallback value
+     * @return parsed duration in milliseconds
+     */
+    private static long firstWorkDuration(String text, int group, long fallback) {
+        Matcher matcher = SUMMARY_WORK_PATTERN.matcher(text);
+        return matcher.find() ? parseDurationMillis(matcher.group(group), fallback) : fallback;
+    }
+
+    /**
+     * Reads the last count-like token following a marker word.
+     *
+     * @param text command output
+     * @param marker marker word
+     * @param fallback fallback value
+     * @return parsed count
+     */
+    private static long lastTokenCount(String text, String marker, long fallback) {
+        String token = lastTokenAfter(text, marker);
+        return token.isEmpty() ? fallback : parseCount(token, fallback);
+    }
+
+    /**
+     * Reads the last integer token following a marker word.
+     *
+     * @param text command output
+     * @param marker marker word
+     * @param fallback fallback value
+     * @return parsed integer
+     */
+    private static int lastTokenInt(String text, String marker, int fallback) {
+        String token = lastTokenAfter(text, marker);
+        return token.isEmpty() ? fallback : parseInt(token, fallback);
+    }
+
+    /**
+     * Reads the last duration token following a marker word.
+     *
+     * @param text command output
+     * @param marker marker word
+     * @param fallback fallback value
+     * @return parsed duration in milliseconds
+     */
+    private static long lastTokenDuration(String text, String marker, long fallback) {
+        String token = lastTokenAfter(text, marker);
+        return token.isEmpty() ? fallback : parseDurationMillis(token, fallback);
+    }
+
+    /**
+     * Finds the last token following one marker.
+     *
+     * @param text command output
+     * @param marker marker word
+     * @return token, or empty
+     */
+    private static String lastTokenAfter(String text, String marker) {
+        String result = "";
+        for (String line : text.split("\\R")) {
+            String[] parts = line.trim().split("\\s+");
+            for (int i = 0; i < parts.length - 1; i++) {
+                if (marker.equals(parts[i])) {
+                    result = parts[i + 1];
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Parses a move captured by a pattern.
+     *
+     * @param pattern pattern with move group 1
+     * @param text input text
+     * @param fallback fallback move
+     * @return parsed move or fallback
+     */
+    private static short firstMove(Pattern pattern, String text, short fallback) {
+        Matcher matcher = pattern.matcher(text);
+        if (!matcher.find()) {
+            return fallback;
+        }
+        String token = matcher.group(1);
+        return Move.isMove(token) ? Move.parse(token) : fallback;
+    }
+
+    /**
+     * Parses an integer token.
+     *
+     * @param token token
+     * @param fallback fallback value
+     * @return parsed integer
+     */
+    private static int parseInt(String token, int fallback) {
+        try {
+            return Integer.parseInt(stripNumericToken(token));
+        } catch (NumberFormatException ex) {
+            return fallback;
+        }
+    }
+
+    /**
+     * Parses a count token, including comma-separated and compact suffix forms.
+     *
+     * @param token token
+     * @param fallback fallback value
+     * @return parsed count
+     */
+    private static long parseCount(String token, long fallback) {
+        String compact = stripNumericToken(token);
+        if (compact.isEmpty()) {
+            return fallback;
+        }
+        char suffix = Character.toLowerCase(compact.charAt(compact.length() - 1));
+        long multiplier = switch (suffix) {
+            case 'k' -> 1_000L;
+            case 'm' -> 1_000_000L;
+            case 'b' -> 1_000_000_000L;
+            default -> 1L;
+        };
+        if (multiplier != 1L) {
+            compact = compact.substring(0, compact.length() - 1);
+        }
+        try {
+            return Math.max(0L, Math.round(Double.parseDouble(compact) * multiplier));
+        } catch (NumberFormatException ex) {
+            return fallback;
+        }
+    }
+
+    /**
+     * Parses a duration token into milliseconds.
+     *
+     * @param token token
+     * @param fallback fallback value
+     * @return parsed milliseconds
+     */
+    private static long parseDurationMillis(String token, long fallback) {
+        String compact = token == null ? "" : token.trim().toLowerCase(Locale.ROOT).replace(",", "");
+        if (compact.isEmpty()) {
+            return fallback;
+        }
+        if (compact.endsWith("ms")) {
+            return parseScaledDuration(compact.substring(0, compact.length() - 2), 1.0, fallback);
+        }
+        if (compact.endsWith("s")) {
+            return parseScaledDuration(compact.substring(0, compact.length() - 1), 1_000.0, fallback);
+        }
+        return parseScaledDuration(compact, 1.0, fallback);
+    }
+
+    /**
+     * Parses one scaled decimal duration.
+     *
+     * @param token numeric token
+     * @param scale scale factor
+     * @param fallback fallback value
+     * @return scaled long
+     */
+    private static long parseScaledDuration(String token, double scale, long fallback) {
+        try {
+            return Math.max(0L, Math.round(Double.parseDouble(token) * scale));
+        } catch (NumberFormatException ex) {
+            return fallback;
+        }
+    }
+
+    /**
+     * Removes punctuation that appears in formatted numeric tokens.
+     *
+     * @param token token
+     * @return compact token
+     */
+    private static String stripNumericToken(String token) {
+        return token == null ? "" : token.trim().replace(",", "").replace("_", "");
     }
 
     /**

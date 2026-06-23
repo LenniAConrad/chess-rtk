@@ -36,7 +36,9 @@ public record MarkupBrush(String name, Color color, Color borderColor, int lineW
     /**
      * Chess annotation glyphs exposed in the Draw rail.
      */
-    private static final List<String> GLYPHS = List.of("!!", "!", "!?", "?!", "?", "??", "+", "#");
+    private static final List<String> GLYPHS = List.of(
+            "!!", "!", "!?", "?!", "?", "??", "+", "#", "=",
+            "+=", "=+", "+-", "-+", "N");
 
     /**
      * Custom brush name.

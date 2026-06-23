@@ -148,6 +148,18 @@ final class CollapsibleSection extends JPanel {
     }
 
     /**
+     * Keeps vertical BoxLayout parents from assigning spare height to a
+     * collapsible section.
+     *
+     * @return maximum size
+     */
+    @Override
+    public Dimension getMaximumSize() {
+        Dimension preferred = getPreferredSize();
+        return new Dimension(Integer.MAX_VALUE, preferred.height);
+    }
+
+    /**
      * Updates the expansion state, optionally animating visible sections.
      *
      * @param value true when expanded

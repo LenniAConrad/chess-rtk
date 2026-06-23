@@ -31,6 +31,8 @@ import application.gui.workbench.game.PuzzleLibrary;
 import application.gui.workbench.game.PuzzlePanel;
 import application.gui.workbench.game.PuzzleSession;
 import application.gui.workbench.game.ReviewCliArtifactProducer;
+import application.gui.workbench.game.SavedGame;
+import application.gui.workbench.game.SavedGameStore;
 import application.gui.workbench.game.SanRenderer;
 import application.gui.workbench.game.StudyAuthorPanel;
 import application.gui.workbench.game.TablebasePanel;
@@ -100,6 +102,7 @@ final class WorkbenchGameRegression {
         testGameReviewPanelFindsStaticSwings();
         testGameReviewPanelLoadsProducedReviewArtifacts();
         testGameReviewPanelBuildsStudyArtifactsViaCli();
+        testSavedGameStoreRoundTripsAndValidatesMoves();
         testStudyAuthorPanelBuildsManifestFromGameLine();
         testAccessibilityLabelsForNewWorkbenchPanels();
         testEvalBarMapping();
@@ -111,6 +114,7 @@ final class WorkbenchGameRegression {
         testLiveEngineStatusFormatting();
         testOptionalPositiveIntegerParsing();
         testAnalysisGraphStoresSamples();
+        testAnalysisGraphStoresCompletedCommandOutput();
         testAnalysisGraphExportsReportData();
         testExportToastMessageSummarizesArtifacts();
         testAnalysisGraphPaintsOpaqueSurface();
@@ -936,6 +940,51 @@ final class WorkbenchGameRegression {
     }
 
     /**
+     * Verifies local Workbench game storage round-trips enough state to resume.
+     */
+    private static void testSavedGameStoreRoundTripsAndValidatesMoves() {
+        try {
+            Path dir = Files.createTempDirectory("crtk-workbench-saved-games-");
+            SavedGameStore store = new SavedGameStore(dir.resolve("games.jsonl"));
+            GameModel model = new GameModel();
+            Position cursor = new Position(START_FEN);
+            for (String uci : List.of("e2e4", "e7e5")) {
+                short move = Move.parse(uci);
+                Position next = cursor.copy();
+                next.play(move);
+                model.append(cursor, move, next);
+                cursor = next;
+            }
+
+            SavedGame saved = SavedGame.capture("saved-fixture", 10L, 20L, "In progress", model);
+            store.save(saved);
+            List<SavedGame> loaded = store.load();
+            assertEquals(Integer.valueOf(1), Integer.valueOf(loaded.size()), "saved game row count");
+            SavedGame roundTrip = loaded.get(0);
+            assertEquals("saved-fixture", roundTrip.id(), "saved game id");
+            assertEquals("e2e4 e7e5", roundTrip.uciLine(), "saved game UCI line");
+            assertEquals(Integer.valueOf(2), Integer.valueOf(roundTrip.currentPly()),
+                    "saved game current ply");
+            assertTrue(roundTrip.pgn().contains("1. e4 e5"), "saved game keeps PGN export");
+
+            List<Short> moves = SavedGameStore.parseUciLine(new Position(roundTrip.startFen()),
+                    roundTrip.uciLine());
+            assertEquals(Integer.valueOf(2), Integer.valueOf(moves.size()), "saved game replay move count");
+            assertEquals("e2e4", Move.toString(moves.get(0).shortValue()), "saved game first move");
+
+            boolean rejected = false;
+            try {
+                SavedGameStore.parseUciLine(new Position(roundTrip.startFen()), "e2e5");
+            } catch (IllegalArgumentException ex) {
+                rejected = true;
+            }
+            assertTrue(rejected, "saved game replay rejects illegal UCI");
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("saved-game fixture failed", ex);
+        }
+    }
+
+    /**
      * Builds a produced-row fixture matching the review-to-study contract.
      *
      * @return review row with a stable study-unit id
@@ -1218,6 +1267,34 @@ final class WorkbenchGameRegression {
                 "analysis graph sparse sample count");
         assertEquals("+0.42", invoke(graph, "latestEvalLabel", new Class<?>[0]),
                 "analysis graph eval label");
+    }
+
+    /**
+     * Verifies completed engine analyze output populates graph samples.
+     */
+    private static void testAnalysisGraphStoresCompletedCommandOutput() {
+        Object graph = construct(type("AnalysisGraph"), new Class<?>[0]);
+        invoke(graph, "resetForPosition", new Class<?>[] { String.class }, START_FEN);
+        String output = """
+                Engine: stockfish
+                FEN: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+
+                PV1
+                  eval: +42
+                  depth: 12 (sel 20)
+                  nodes: 1,000  nps: 5,000  time: 90ms
+                  best: e2e4 (e4)
+                """;
+        assertTrue((Boolean) invoke(graph, "addCommandOutput",
+                new Class<?>[] { boolean.class, String.class }, Boolean.TRUE, output),
+                "completed analyze output adds graph sample");
+        assertEquals(Integer.valueOf(1), invoke(graph, "sampleCount", new Class<?>[0]),
+                "completed analyze output sample count");
+        assertEquals("+0.42", invoke(graph, "latestEvalLabel", new Class<?>[0]),
+                "completed analyze output eval label");
+        String csv = (String) invoke(graph, "csvText", new Class<?>[0]);
+        assertTrue(csv.contains("e2e4"), "completed analyze output stores best move");
+        assertTrue(csv.contains(",1000,5000,90,"), "completed analyze output stores work metrics");
     }
 
     /**

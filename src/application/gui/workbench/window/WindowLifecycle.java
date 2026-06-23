@@ -10,6 +10,7 @@ import application.gui.workbench.layout.EditorSplitArea;
 import application.gui.workbench.layout.LazyPanel;
 import application.gui.workbench.layout.ViewRegistry;
 import application.gui.workbench.layout.RegisteredView;
+import application.gui.workbench.mcts.MctsWorkspacePanel;
 import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.session.Job;
 import application.gui.workbench.session.JobStatus;
@@ -285,6 +286,9 @@ public abstract class WindowLifecycle extends WindowBase {
         // components — so nothing can be scaled off an already-updated default.
         Theme.rescaleFonts(this, ratio);
         rescaleDetachedWindows(ratio);
+        if (tabs != null) {
+            tabs.rescaleDetachedTabs(ratio);
+        }
         Theme.refreshFontDefaults();
         revalidate();
         repaint();
@@ -1137,7 +1141,6 @@ public abstract class WindowLifecycle extends WindowBase {
             return;
         }
         copyText(currentPosition.toString());
-        toast(Toast.Kind.SUCCESS, "FEN copied");
     }
 
     private void toggleStatusBarPlyJump() {
@@ -1554,6 +1557,17 @@ public abstract class WindowLifecycle extends WindowBase {
         selectTab(TAB_ENGINE);
         if (engineWorkspace != null) {
             engineWorkspace.setMode(mode);
+        }
+    }
+
+    /**
+     * Opens Engine / Search and selects its Graph subview. This preserves legacy
+     * tree entry points after Table and Graph became local Search views.
+     */
+    protected void openEngineGraph() {
+        openEngine(ENGINE_SEARCH);
+        if (mctsWorkspacePanel != null) {
+            mctsWorkspacePanel.setViewMode(MctsWorkspacePanel.VIEW_GRAPH);
         }
     }
 

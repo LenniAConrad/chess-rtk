@@ -77,6 +77,7 @@ public final class BoardExportActions {
             BufferedImage image = BoardExporter.renderPng(board, BoardExporter.DEFAULT_BOARD_SIZE);
             Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
             clipboard.setContents(new ImageTransferable(image), null);
+            toast(owner, Toast.Kind.SUCCESS, "Copied to clipboard");
         } catch (RuntimeException ex) {
             toast(owner, Toast.Kind.ERROR, "Copy failed: " + ex.getMessage());
         }
@@ -96,6 +97,7 @@ public final class BoardExportActions {
             String svg = BoardExporter.toSvg(board, BoardExporter.DEFAULT_BOARD_SIZE);
             Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
             clipboard.setContents(new StringSelection(svg), null);
+            toast(owner, Toast.Kind.SUCCESS, "Copied to clipboard");
         } catch (RuntimeException ex) {
             toast(owner, Toast.Kind.ERROR, "Copy failed: " + ex.getMessage());
         }

@@ -88,6 +88,11 @@ public final class LayoutMenu {
         void splitUp();
 
         /**
+         * Detaches the selected editor tab into a new window.
+         */
+        void detachTab();
+
+        /**
          * Reopens every workbench tab.
          */
         void reopenAllTabs();
@@ -265,6 +270,7 @@ public final class LayoutMenu {
         popup.add(actionItem("Split Tab Down", "Ctrl + Shift + \\", controller::splitDown));
         popup.add(actionItem("Split Tab Left", null, controller::splitLeft));
         popup.add(actionItem("Split Tab Up", null, controller::splitUp));
+        popup.add(actionItem("Detach Tab to New Window", null, controller::detachTab));
         popup.add(actionItem("Close Other Tabs", null, controller::closeOtherTabs));
         popup.add(actionItem("Restore Closed Tabs", null, controller::reopenAllTabs));
         popup.add(new JSeparator());

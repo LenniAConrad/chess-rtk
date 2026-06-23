@@ -100,6 +100,9 @@ final class ScrollPaneStyler {
      * @param bar scroll bar
      */
     private static void styleScrollBar(JScrollBar bar) {
+        if (bar == null) {
+            return;
+        }
         bar.setOpaque(false);
         bar.setBorder(BorderFactory.createEmptyBorder());
         bar.setPreferredSize(new Dimension(SCROLLBAR_THICKNESS, SCROLLBAR_THICKNESS));
