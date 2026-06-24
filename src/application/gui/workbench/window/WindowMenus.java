@@ -15,6 +15,12 @@ final class WindowMenus {
         // utility
     }
 
+    /**
+     * Updates the tings menu.
+     *
+     * @param owner owning component or type
+     * @return tings menu
+     */
     static SettingsMenu settingsMenu(WindowLifecycle owner) {
         return new SettingsMenu(new SettingsMenu.Controller() {
             /**
@@ -368,6 +374,12 @@ final class WindowMenus {
         });
     }
 
+    /**
+     * Lays out the window menus.
+     *
+     * @param owner owning component or type
+     * @return layout menu
+     */
     static LayoutMenu layoutMenu(WindowLifecycle owner) {
         return new LayoutMenu(new LayoutMenu.Controller() {
             /**

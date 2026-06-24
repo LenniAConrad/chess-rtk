@@ -7,6 +7,9 @@ import java.awt.Color;
  */
 final class DrawColorFormat {
 
+    /**
+     * Creates the draw color format.
+     */
     private DrawColorFormat() {
     }
 
@@ -23,7 +26,7 @@ final class DrawColorFormat {
     /**
      * Returns a #RRGGBB label for a color.
      *
-     * @param color color
+     * @param color display color
      * @return color label
      */
     static String colorLabel(Color color) {
@@ -34,7 +37,7 @@ final class DrawColorFormat {
     /**
      * Returns a hex label for a color.
      *
-     * @param color color
+     * @param color display color
      * @param includeAlpha true to include alpha as AARRGGBB
      * @return normalized hex label
      */
@@ -110,6 +113,13 @@ final class DrawColorFormat {
         return new Color(channels[1], channels[2], channels[3], channels[0]);
     }
 
+    /**
+     * Parses the parse short hex color.
+     *
+     * @param text text to render or parse
+     * @param fallbackAlpha fallback alpha value
+     * @return parse short hex color
+     */
     private static Color parseShortHexColor(String text, int fallbackAlpha) {
         int offset = text.length() == 4 ? 1 : 0;
         int alpha = offset == 1 ? hexNibble(text.charAt(0)) * 17 : clampByte(fallbackAlpha);
@@ -122,6 +132,12 @@ final class DrawColorFormat {
         return new Color(red, green, blue, alpha);
     }
 
+    /**
+     * Returns the hex nibble.
+     *
+     * @param ch source ch
+     * @return hex nibble
+     */
     private static int hexNibble(char ch) {
         if (ch >= '0' && ch <= '9') {
             return ch - '0';
@@ -135,6 +151,12 @@ final class DrawColorFormat {
         return -1;
     }
 
+    /**
+     * Returns the clamp byte.
+     *
+     * @param value candidate value
+     * @return clamp byte
+     */
     private static int clampByte(int value) {
         return Math.max(0, Math.min(255, value));
     }

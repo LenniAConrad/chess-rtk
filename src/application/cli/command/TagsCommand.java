@@ -73,7 +73,7 @@ public final class TagsCommand {
 
      /**
      * Runs the tags workflow.
-     * @param a a
+     * @param a first value
      */
      public static void runTags(Argv a) {
         TagsOptions opts = parseOptions(a);
@@ -113,8 +113,8 @@ public final class TagsCommand {
 
      /**
      * Parses the options.
-     * @param a a
-     * @return computed value
+     * @param a first value
+     * @return parsed the options
      */
      private static TagsOptions parseOptions(Argv a) {
         boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
@@ -170,8 +170,8 @@ public final class TagsCommand {
 
      /**
      * Handles load inputs.
-     * @param opts opts
-     * @return computed value
+     * @param opts parsed options
+     * @return handles load inputs
      */
      private static TagsInputs loadInputs(TagsOptions opts) {
         if (opts.inputConfig.pgn != null) {
@@ -187,8 +187,8 @@ public final class TagsCommand {
 
      /**
      * Handles load pgn inputs.
-     * @param opts opts
-     * @return computed value
+     * @param opts parsed options
+     * @return handles load pgn inputs
      */
      private static TagsInputs loadPgnInputs(TagsOptions opts) {
         List<Game> games = PgnOps.readPgnOrExit(opts.inputConfig.pgn, opts.flags.verbose, CMD_TAGS);
@@ -203,8 +203,8 @@ public final class TagsCommand {
 
      /**
      * Handles include pgn sidelines.
-     * @param flags flags
-     * @return computed value
+     * @param flags option flags
+     * @return handles include pgn sidelines
      */
      private static boolean includePgnSidelines(TagsOptions.Flags flags) {
         if (flags.mainline) {
@@ -215,10 +215,10 @@ public final class TagsCommand {
 
      /**
      * Handles add game records.
-     * @param records records
-     * @param game game
-     * @param gameIndex game index
-     * @param includeSidelines include sidelines
+     * @param records record list
+     * @param game game metadata
+     * @param gameIndex zero-based game index
+     * @param includeSidelines whether to include PGN sidelines
      */
      private static void addGameRecords(List<Record> records, Game game, int gameIndex, boolean includeSidelines) {
         List<Record> extracted = includeSidelines
@@ -232,8 +232,8 @@ public final class TagsCommand {
 
      /**
      * Handles load record inputs.
-     * @param opts opts
-     * @return computed value
+     * @param opts parsed options
+     * @return handles load record inputs
      */
      private static TagsInputs loadRecordInputs(TagsOptions opts) {
         List<Record> records = readInputRecordsOrExit(opts);
@@ -245,8 +245,8 @@ public final class TagsCommand {
 
      /**
      * Reads the input records or exit.
-     * @param opts opts
-     * @return computed value
+     * @param opts parsed options
+     * @return reads the input records or exit
      */
      private static List<Record> readInputRecordsOrExit(TagsOptions opts) {
         try {
@@ -259,7 +259,7 @@ public final class TagsCommand {
 
      /**
      * Handles apply sequence parents.
-     * @param records records
+     * @param records record list
      */
      private static void applySequenceParents(List<Record> records) {
         Position prev = null;
@@ -274,8 +274,8 @@ public final class TagsCommand {
 
      /**
      * Handles load single fen input.
-     * @param opts opts
-     * @return computed value
+     * @param opts parsed options
+     * @return handles load single fen input
      */
      private static TagsInputs loadSingleFenInput(TagsOptions opts) {
         if (opts.inputConfig.fen == null || opts.inputConfig.fen.isBlank()) {
@@ -289,8 +289,8 @@ public final class TagsCommand {
 
      /**
      * Runs the without analysis workflow.
-     * @param opts opts
-     * @param inputs inputs
+     * @param opts parsed options
+     * @param inputs input paths
      */
      private static void runWithoutAnalysis(TagsOptions opts, TagsInputs inputs) {
         Map<String, List<String>> cache = new HashMap<>();
@@ -326,8 +326,8 @@ public final class TagsCommand {
 
      /**
      * Runs the with analysis workflow.
-     * @param opts opts
-     * @param inputs inputs
+     * @param opts parsed options
+     * @param inputs input paths
      */
      private static void runWithAnalysis(TagsOptions opts, TagsInputs inputs) {
         Protocol protocol = EngineSupport.loadProtocolOrExit(opts.protoPath, opts.flags.verbose);
@@ -361,9 +361,9 @@ public final class TagsCommand {
 
      /**
      * Handles record progress bar.
-     * @param inputs inputs
-     * @param label label
-     * @return computed value
+     * @param inputs input paths
+     * @param label display label
+     * @return handles record progress bar
      */
      private static Bar recordProgressBar(TagsInputs inputs, String label) {
         int size = inputs == null || inputs.records == null ? 0 : inputs.records.size();
@@ -372,14 +372,14 @@ public final class TagsCommand {
 
      /**
      * Handles process analyzed record.
-     * @param rec rec
-     * @param index index
-     * @param engine engine
-     * @param opts opts
-     * @param cache cache
-     * @param effectiveCache effective cache
-     * @param includeTagFen include tag fen
-     * @return computed value
+     * @param rec source record
+     * @param index zero-based index
+     * @param engine engine name or instance
+     * @param opts parsed options
+     * @param cache analysis cache
+     * @param effectiveCache source effective cache
+     * @param includeTagFen whether to include FEN text in tags
+     * @return handles process analyzed record
      */
      private static long processAnalyzedRecord(Record rec, long index, Engine engine, TagsOptions opts,
             Map<String, TagEntry> cache, Map<String, List<String>> effectiveCache, boolean includeTagFen) {
@@ -464,12 +464,12 @@ public final class TagsCommand {
 
      /**
      * Handles tags for.
-     * @param pos pos
-     * @param engine engine
-     * @param opts opts
-     * @param cache cache
-     * @param includeFen include fen
-     * @return computed value
+     * @param pos chess position
+     * @param engine engine name or instance
+     * @param opts parsed options
+     * @param cache analysis cache
+     * @param includeFen whether to include FEN text
+     * @return handles tags for
      */
      private static List<String> tagsFor(Position pos, Engine engine, TagsOptions opts, Map<String, TagEntry> cache,
             boolean includeFen) {
@@ -504,11 +504,11 @@ public final class TagsCommand {
 
      /**
      * Handles tags for.
-     * @param pos pos
-     * @param analysis analysis
-     * @param cache cache
-     * @param includeFen include fen
-     * @return computed value
+     * @param pos chess position
+     * @param analysis analysis result
+     * @param cache analysis cache
+     * @param includeFen whether to include FEN text
+     * @return handles tags for
      */
      private static List<String> tagsFor(Position pos, Analysis analysis, Map<String, List<String>> cache,
             boolean includeFen) {
@@ -524,9 +524,9 @@ public final class TagsCommand {
 
      /**
      * Handles with fen.
-     * @param tags tags
-     * @param fen fen
-     * @return computed value
+     * @param tags tag collection
+     * @param fen FEN string
+     * @return handles with fen
      */
      private static List<String> withFen(List<String> tags, String fen) {
         List<String> withFen = new ArrayList<>(tags.size() + 1);
@@ -537,7 +537,7 @@ public final class TagsCommand {
 
      /**
      * Handles override initiative.
-     * @param tags tags
+     * @param tags tag collection
      */
      private static void overrideInitiative(List<String> tags) {
         boolean threatWhite = false;
@@ -564,9 +564,9 @@ public final class TagsCommand {
 
      /**
      * Handles initiative side.
-     * @param threatWhite threat white
-     * @param threatBlack threat black
-     * @return computed value
+     * @param threatWhite source threat white
+     * @param threatBlack source threat black
+     * @return handles initiative side
      */
      private static String initiativeSide(boolean threatWhite, boolean threatBlack) {
         if (threatWhite && !threatBlack) {
@@ -580,10 +580,10 @@ public final class TagsCommand {
 
      /**
      * Handles print delta json.
-     * @param index index
-     * @param rec rec
-     * @param tags tags
-     * @param delta delta
+     * @param index zero-based index
+     * @param rec source record
+     * @param tags tag collection
+     * @param delta signed change amount
      */
      private static void printDeltaJson(long index, Record rec, List<String> tags, Delta delta) {
         Position parent = rec.getParent();
@@ -604,13 +604,13 @@ public final class TagsCommand {
 
      /**
      * Handles threat tags.
-     * @param base base
-     * @param baseAnalysis base analysis
-     * @param engine engine
-     * @param nodesCap nodes cap
-     * @param durMs dur ms
-     * @param verbose verbose
-     * @return computed value
+     * @param base base value for comparison
+     * @param baseAnalysis source base analysis
+     * @param engine engine name or instance
+     * @param nodesCap engine node cap
+     * @param durMs duration cap in milliseconds
+     * @param verbose whether verbose output is enabled
+     * @return handles threat tags
      */
      private static List<String> threatTags(Position base, Analysis baseAnalysis, Engine engine, long nodesCap,
             long durMs, boolean verbose) {
@@ -658,7 +658,7 @@ public final class TagsCommand {
 
      /**
      * Returns whether threat strong.
-     * @param eval eval
+     * @param eval engine evaluation
      * @return true when threat strong
      */
      private static boolean isThreatStrong(Evaluation eval) {
@@ -673,10 +673,10 @@ public final class TagsCommand {
 
      /**
      * Returns whether equalizing threat.
-     * @param base base
-     * @param baseAnalysis base analysis
-     * @param threatPos threat pos
-     * @param threatAnalysis threat analysis
+     * @param base base value for comparison
+     * @param baseAnalysis source base analysis
+     * @param threatPos source threat pos
+     * @param threatAnalysis source threat analysis
      * @return true when equalizing threat
      */
      private static boolean isEqualizingThreat(Position base, Analysis baseAnalysis, Position threatPos,
@@ -709,8 +709,8 @@ public final class TagsCommand {
 
      /**
      * Handles classify threat move.
-     * @param move move
-     * @return computed value
+     * @param move encoded chess move
+     * @return handles classify threat move
      */
      private static ThreatInfo classifyThreatMove(String move) {
         if (move.contains("#")) {
@@ -727,9 +727,9 @@ public final class TagsCommand {
 
      /**
      * Handles eval to white cp.
-     * @param analysis analysis
-     * @param whiteToMove white to move
-     * @return computed value
+     * @param analysis analysis result
+     * @param whiteToMove true when White is to move
+     * @return handles eval to white cp
      */
      private static Integer evalToWhiteCp(Analysis analysis, boolean whiteToMove) {
         if (analysis == null) {
@@ -749,8 +749,8 @@ public final class TagsCommand {
 
      /**
      * Handles mate as cp.
-     * @param mateValue mate value
-     * @return computed value
+     * @param mateValue source mate value
+     * @return handles mate as cp
      */
      private static int mateAsCp(int mateValue) {
         if (mateValue == 0) {
@@ -761,9 +761,9 @@ public final class TagsCommand {
 
      /**
      * Handles append field.
-     * @param sb sb
-     * @param name name
-     * @param value value
+     * @param sb source sb
+     * @param name display name
+     * @param value candidate value
      */
      private static void appendField(StringBuilder sb, String name, String value) {
         if (sb.length() > 1) {
@@ -774,8 +774,8 @@ public final class TagsCommand {
 
      /**
      * Handles json string.
-     * @param value value
-     * @return computed value
+     * @param value candidate value
+     * @return handles json string
      */
      private static String jsonString(String value) {
         if (value == null) {
@@ -795,7 +795,7 @@ public final class TagsCommand {
 
          /**
          * Creates a new tags inputs instance.
-         * @param records records
+         * @param records record list
          */
          private TagsInputs(List<Record> records) {
             this.records = records;
@@ -812,7 +812,7 @@ public final class TagsCommand {
          private final List<String> tags;
 	         /**
 	         * Creates a new tag entry instance.
-	         * @param tags tags
+	         * @param tags tag collection
 	         */
 	         private TagEntry(List<String> tags) {
 	            this.tags = tags;
@@ -851,12 +851,12 @@ public final class TagsCommand {
 
          /**
          * Creates a new tags options instance.
-         * @param flags flags
-         * @param protoPath proto path
-         * @param limits limits
-         * @param engineConfig engine config
-         * @param wdlConfig wdl config
-         * @param inputConfig input config
+         * @param flags option flags
+         * @param protoPath external engine protocol path
+         * @param limits search limits
+         * @param engineConfig source engine config
+         * @param wdlConfig WDL configuration
+         * @param inputConfig source input config
          */
          private TagsOptions(Flags flags, String protoPath, Limits limits, EngineConfig engineConfig,
                 WdlConfig wdlConfig, InputConfig inputConfig) {
@@ -907,13 +907,13 @@ public final class TagsCommand {
 
              /**
              * Creates a new flags instance.
-             * @param verbose verbose
-             * @param analyze analyze
-             * @param sequence sequence
-             * @param delta delta
-             * @param includeFen include fen
-             * @param mainline mainline
-             * @param sidelines sidelines
+             * @param verbose whether verbose output is enabled
+             * @param analyze source analyze
+             * @param sequence move sequence
+             * @param delta signed change amount
+             * @param includeFen whether to include FEN text
+             * @param mainline mainline flag
+             * @param sidelines sideline moves
              * @param analyzeGame analyze-game (whole-game analysis JSON)
              */
              private Flags(boolean verbose, boolean analyze, boolean sequence, boolean delta, boolean includeFen,
@@ -944,8 +944,8 @@ public final class TagsCommand {
 
              /**
              * Creates a new limits instance.
-             * @param nodesCap nodes cap
-             * @param durMs dur ms
+             * @param nodesCap engine node cap
+             * @param durMs duration cap in milliseconds
              */
              private Limits(long nodesCap, long durMs) {
                 this.nodesCap = nodesCap;
@@ -972,9 +972,9 @@ public final class TagsCommand {
 
              /**
              * Creates a new engine config instance.
-             * @param multipv multipv
-             * @param threads threads
-             * @param hash hash
+             * @param multipv requested MultiPV count
+             * @param threads worker thread count
+             * @param hash engine hash size in megabytes
              */
              private EngineConfig(Integer multipv, Integer threads, Integer hash) {
                 this.multipv = multipv;
@@ -998,8 +998,8 @@ public final class TagsCommand {
 
              /**
              * Creates a new wdl config instance.
-             * @param wdl wdl
-             * @param noWdl no wdl
+             * @param wdl whether WDL output is enabled
+             * @param noWdl whether WDL output is disabled
              */
              private WdlConfig(boolean wdl, boolean noWdl) {
                 this.wdl = wdl;
@@ -1026,9 +1026,9 @@ public final class TagsCommand {
 
              /**
              * Creates a new input config instance.
-             * @param fen fen
-             * @param input input
-             * @param pgn pgn
+             * @param fen FEN string
+             * @param input input path or text
+             * @param pgn PGN text
              */
              private InputConfig(String fen, Path input, Path pgn) {
                 this.fen = fen;
@@ -1053,8 +1053,8 @@ public final class TagsCommand {
 
          /**
          * Creates a new threat info instance.
-         * @param severity severity
-         * @param type type
+         * @param severity severity score
+         * @param type type discriminator
          */
          private ThreatInfo(String severity, String type) {
             this.severity = severity;

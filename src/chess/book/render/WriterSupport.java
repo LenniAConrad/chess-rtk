@@ -173,7 +173,7 @@ final class WriterSupport {
 	 * Returns a non-null string fallback.
 	 *
 	 * @param value source value
-	 * @param fallback fallback value
+	 * @param fallback default used when input is absent or invalid
 	 * @return non-null string
 	 */
 	private static String blankTo(String value, String fallback) {

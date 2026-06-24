@@ -28,9 +28,9 @@ public final class HalfKpFeature {
     /**
      * Creates a decoded HalfKP feature descriptor.
      *
-     * @param kingSquare king square
-     * @param pieceCode piece code
-     * @param pieceSquare piece square
+     * @param kingSquare source king square
+     * @param pieceCode encoded piece
+     * @param pieceSquare source piece square
      * @param valid true when decoded successfully
      */
     public HalfKpFeature(int kingSquare, int pieceCode, int pieceSquare, boolean valid) {

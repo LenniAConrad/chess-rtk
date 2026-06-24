@@ -219,6 +219,8 @@ public final class ChipGroup extends JComponent {
 
     /**
      * Computes per-chip bounds from the label widths.
+     *
+     * @return computed per-chip bounds from the label widths
      */
     private int layoutChips() {
         FontMetrics fm = getFontMetrics(Theme.font(12, Font.BOLD));

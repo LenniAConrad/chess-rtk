@@ -50,6 +50,12 @@ final class BoardPanelPainter {
         this.boardPanel = boardPanel;
     }
 
+    /**
+     * Draws the paint.
+     *
+     * @param g graphics context
+     * @param board board state
+     */
     void paint(Graphics2D g, Rectangle board) {
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
@@ -63,6 +69,11 @@ final class BoardPanelPainter {
         drawDraggedPiece(g, board);
     }
 
+    /**
+     * Returns the checked king square.
+     *
+     * @return checked king square
+     */
     byte checkedKingSquare() {
         if (boardPanel.position == null || !boardPanel.position.inCheck()) {
             return Field.NO_SQUARE;
@@ -77,6 +88,11 @@ final class BoardPanelPainter {
         return Field.NO_SQUARE;
     }
 
+    /**
+     * Primes the piece-image cache used during drag painting.
+     *
+     * @param piece encoded piece
+     */
     void warmDragPieceImage(byte piece) {
         Rectangle board = boardPanel.boardBounds();
         int cell = board.width / 8;
@@ -86,6 +102,12 @@ final class BoardPanelPainter {
         }
     }
 
+    /**
+     * Draws the draw board content.
+     *
+     * @param g graphics context
+     * @param board board state
+     */
     private void drawBoardContent(Graphics2D g, Rectangle board) {
         Graphics2D copy = (Graphics2D) g.create();
         try {
@@ -128,6 +150,12 @@ final class BoardPanelPainter {
         }
     }
 
+    /**
+     * Draws the draw flip overlay.
+     *
+     * @param g graphics context
+     * @param board board state
+     */
     private void drawFlipOverlay(Graphics2D g, Rectangle board) {
         double flipProgress = boardPanel.animationState.flipAnimationProgress();
         if (Double.isNaN(flipProgress)) {
@@ -149,6 +177,12 @@ final class BoardPanelPainter {
         }
     }
 
+    /**
+     * Draws the draw square highlights.
+     *
+     * @param g graphics context
+     * @param board board state
+     */
     private void drawSquareHighlights(Graphics2D g, Rectangle board) {
         if (boardPanel.squareHighlights.isEmpty()) {
             return;
@@ -162,6 +196,12 @@ final class BoardPanelPainter {
         }
     }
 
+    /**
+     * Draws the draw snap animation.
+     *
+     * @param g graphics context
+     * @param board board state
+     */
     private void drawSnapAnimation(Graphics2D g, Rectangle board) {
         SnapAnimation snap = boardPanel.animationState.snapAnimation();
         if (snap == null) {
@@ -175,12 +215,24 @@ final class BoardPanelPainter {
         drawPieceAt(g, cell, x, y, snap.piece);
     }
 
+    /**
+     * Draws the draw shell.
+     *
+     * @param g graphics context
+     * @param board board state
+     */
     private void drawShell(Graphics2D g, Rectangle board) {
         g.setColor(Theme.BOARD_EDGE);
         g.fillRect(board.x - BoardStyle.BORDER_WIDTH, board.y - BoardStyle.BORDER_WIDTH,
                 board.width + BoardStyle.BORDER_WIDTH * 2, board.height + BoardStyle.BORDER_WIDTH * 2);
     }
 
+    /**
+     * Draws the draw board texture.
+     *
+     * @param g graphics context
+     * @param board board state
+     */
     private void drawBoardTexture(Graphics2D g, Rectangle board) {
         BufferedImage texture = boardPanel.imageCache.boardTexture(board.width,
                 boardPanel.boardLightColor(), boardPanel.boardDarkColor());
@@ -201,6 +253,12 @@ final class BoardPanelPainter {
                 null);
     }
 
+    /**
+     * Draws the draw coordinates.
+     *
+     * @param g graphics context
+     * @param board board state
+     */
     private void drawCoordinates(Graphics2D g, Rectangle board) {
         if (!boardPanel.showNotation) {
             return;
@@ -209,6 +267,12 @@ final class BoardPanelPainter {
                 boardPanel.boardLightColor(), boardPanel.boardDarkColor());
     }
 
+    /**
+     * Draws the draw move highlights.
+     *
+     * @param g graphics context
+     * @param board board state
+     */
     private void drawMoveHighlights(Graphics2D g, Rectangle board) {
         if (!boardPanel.showLastMoveHighlight || boardPanel.lastMove == Move.NO_MOVE) {
             return;
@@ -224,6 +288,12 @@ final class BoardPanelPainter {
         }
     }
 
+    /**
+     * Draws the draw selection.
+     *
+     * @param g graphics context
+     * @param board board state
+     */
     private void drawSelection(Graphics2D g, Rectangle board) {
         byte selectedSquare = boardPanel.pieceInput.selectedSquare();
         if (boardPanel.position == null || selectedSquare == Field.NO_SQUARE) {
@@ -244,6 +314,12 @@ final class BoardPanelPainter {
         }
     }
 
+    /**
+     * Draws the draw check highlight.
+     *
+     * @param g graphics context
+     * @param board board state
+     */
     private void drawCheckHighlight(Graphics2D g, Rectangle board) {
         byte square = checkedKingSquare();
         if (square == Field.NO_SQUARE) {
@@ -276,6 +352,12 @@ final class BoardPanelPainter {
         }
     }
 
+    /**
+     * Draws the draw legal targets.
+     *
+     * @param g graphics context
+     * @param board board state
+     */
     private void drawLegalTargets(Graphics2D g, Rectangle board) {
         Rectangle clip = g.getClipBounds();
         byte selectedSquare = boardPanel.pieceInput.selectedSquare();
@@ -289,6 +371,12 @@ final class BoardPanelPainter {
         }
     }
 
+    /**
+     * Draws the draw premove targets.
+     *
+     * @param g graphics context
+     * @param board board state
+     */
     private void drawPremoveTargets(Graphics2D g, Rectangle board) {
         Rectangle clip = g.getClipBounds();
         byte selectedSquare = boardPanel.pieceInput.selectedSquare();
@@ -302,6 +390,12 @@ final class BoardPanelPainter {
         }
     }
 
+    /**
+     * Draws the draw setup edit highlight.
+     *
+     * @param g graphics context
+     * @param board board state
+     */
     private void drawSetupEditHighlight(Graphics2D g, Rectangle board) {
         if (boardPanel.setupEditor.lastSquare() == Field.NO_SQUARE) {
             return;
@@ -322,6 +416,12 @@ final class BoardPanelPainter {
         }
     }
 
+    /**
+     * Draws the draw wrong move marker.
+     *
+     * @param g graphics context
+     * @param board board state
+     */
     private void drawWrongMoveMarker(Graphics2D g, Rectangle board) {
         byte wrongMoveMarkerSquare = boardPanel.animationState.wrongMoveMarkerSquare();
         if (wrongMoveMarkerSquare == Field.NO_SQUARE) {
@@ -366,6 +466,12 @@ final class BoardPanelPainter {
         }
     }
 
+    /**
+     * Draws the draw pieces.
+     *
+     * @param g graphics context
+     * @param board board state
+     */
     private void drawPieces(Graphics2D g, Rectangle board) {
         byte[] pieces = boardPanel.setupEditor.active() ? boardPanel.setupEditor.board()
                 : boardPanel.position == null ? null : boardPanel.position.getBoard();
@@ -399,6 +505,15 @@ final class BoardPanelPainter {
         }
     }
 
+    /**
+     * Draws the draw piece at.
+     *
+     * @param g graphics context
+     * @param cell board cell
+     * @param x x coordinate in pixels
+     * @param y y coordinate in pixels
+     * @param piece encoded piece
+     */
     private void drawPieceAt(Graphics2D g, int cell, int x, int y, byte piece) {
         BufferedImage image = boardPanel.imageCache.pieceImage(piece, cell);
         if (image != null) {
@@ -406,6 +521,12 @@ final class BoardPanelPainter {
         }
     }
 
+    /**
+     * Draws the draw suggested move.
+     *
+     * @param g graphics context
+     * @param board board state
+     */
     private void drawSuggestedMove(Graphics2D g, Rectangle board) {
         if (!boardPanel.showSuggestedMoveArrow
                 || boardPanel.suggestedMove == Move.NO_MOVE
@@ -418,6 +539,12 @@ final class BoardPanelPainter {
                 boardPanel.center(board, Move.getToIndex(boardPanel.suggestedMove)), gap);
     }
 
+    /**
+     * Draws the draw premove.
+     *
+     * @param g graphics context
+     * @param board board state
+     */
     private void drawPremove(Graphics2D g, Rectangle board) {
         if (boardPanel.pendingPremove == Move.NO_MOVE || !BoardPanel.legalPremoveShape(boardPanel.pendingPremove)) {
             return;
@@ -433,6 +560,12 @@ final class BoardPanelPainter {
         }
     }
 
+    /**
+     * Draws the draw animated move.
+     *
+     * @param g graphics context
+     * @param board board state
+     */
     private void drawAnimatedMove(Graphics2D g, Rectangle board) {
         if (!boardPanel.animationState.moveAnimationActive()) {
             return;
@@ -447,6 +580,15 @@ final class BoardPanelPainter {
                 boardPanel.animationState.animatedSecondaryMoveTo());
     }
 
+    /**
+     * Draws the draw animated piece.
+     *
+     * @param g graphics context
+     * @param board board state
+     * @param piece encoded piece
+     * @param from source square or start value
+     * @param to target square or end value
+     */
     private void drawAnimatedPiece(Graphics2D g, Rectangle board, byte piece, byte from, byte to) {
         if (piece == Piece.EMPTY || from == Field.NO_SQUARE || to == Field.NO_SQUARE) {
             return;
@@ -460,6 +602,12 @@ final class BoardPanelPainter {
         drawPieceAt(g, cell, x, y, piece);
     }
 
+    /**
+     * Draws the draw animated capture.
+     *
+     * @param g graphics context
+     * @param board board state
+     */
     private void drawAnimatedCapture(Graphics2D g, Rectangle board) {
         byte animatedCapturePiece = boardPanel.animationState.animatedCapturePiece();
         byte animatedCaptureSquare = boardPanel.animationState.animatedCaptureSquare();
@@ -480,6 +628,12 @@ final class BoardPanelPainter {
         }
     }
 
+    /**
+     * Draws the draw drop target.
+     *
+     * @param g graphics context
+     * @param board board state
+     */
     private void drawDropTarget(Graphics2D g, Rectangle board) {
         if (!boardPanel.pieceInput.isDragging()) {
             return;
@@ -497,6 +651,12 @@ final class BoardPanelPainter {
         }
     }
 
+    /**
+     * Draws the draw dragged piece.
+     *
+     * @param g graphics context
+     * @param board board state
+     */
     private void drawDraggedPiece(Graphics2D g, Rectangle board) {
         byte draggedPiece = boardPanel.pieceInput.draggedPiece();
         if (!boardPanel.pieceInput.isDragging() || draggedPiece == Piece.EMPTY) {
@@ -534,6 +694,14 @@ final class BoardPanelPainter {
         }
     }
 
+    /**
+     * Clamps a floating-point value into a closed range.
+     *
+     * @param value candidate value
+     * @param min lower bound
+     * @param max upper bound
+     * @return clamped value
+     */
     private static int clamped(int value, int min, int max) {
         if (min > max) {
             return (min + max) / 2;

@@ -97,9 +97,9 @@ public final class AnalyzeCommand {
 
 	/**
 	 * Handles position progress bar.
-	 * @param fens fens
-	 * @param label label
-	 * @return computed value
+	 * @param fens FEN strings
+	 * @param label display label
+	 * @return handles position progress bar
 	 */
 	private static Bar positionProgressBar(List<String> fens, String label) {
 		return fens != null && fens.size() > 1 ? new Bar(fens.size(), label, false, System.err) : null;

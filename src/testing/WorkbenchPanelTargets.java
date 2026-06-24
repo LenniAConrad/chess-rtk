@@ -30,11 +30,6 @@ final class WorkbenchPanelTargets {
     private static final int TAB_DASHBOARD = 0;
 
     /**
-     * Top-level board tab index.
-     */
-    private static final int TAB_BOARD = 1;
-
-    /**
      * Top-level command/run tab index.
      */
     private static final int TAB_RUN = 2;
@@ -48,11 +43,6 @@ final class WorkbenchPanelTargets {
      * Top-level publishing tab index.
      */
     private static final int TAB_PUBLISH = 4;
-
-    /**
-     * Top-level engine tab index.
-     */
-    private static final int TAB_ENGINE = 5;
 
     /**
      * Top-level console tab index.
@@ -98,11 +88,6 @@ final class WorkbenchPanelTargets {
      * Engine search mode index.
      */
     private static final int ENGINE_SEARCH = 1;
-
-    /**
-     * Engine tree mode index.
-     */
-    private static final int ENGINE_TREE = ENGINE_SEARCH;
 
     /**
      * Engine gauntlet mode index.

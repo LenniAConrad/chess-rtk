@@ -47,9 +47,9 @@ record Volatility(
      * @param depthSamples number of depth samples
      * @param scoreSources score source count
      * @param startDepth starting depth
-     * @param finalDepth final depth
+     * @param finalDepth source final depth
      * @param startScore starting score
-     * @param finalScore final score
+     * @param finalScore source final score
      * @param minScore minimum score
      * @param minDepth depth at the minimum score
      * @param maxScore maximum score
@@ -69,7 +69,7 @@ record Volatility(
      * @param direction volatility direction label
      * @param severity volatility severity label
      * @param startBestMove starting best move
-     * @param finalBestMove final best move
+     * @param finalBestMove source final best move
      * @param finalSecondBestMove final second-best move
      * @param finalSecondScore final second-best score
      * @param finalMargin final score margin
@@ -90,7 +90,7 @@ record Volatility(
 
     /**
      * Empty volatility for records with no usable depth timeline.
-     * @return empty result
+     * @return empty aggregate
      */
     static Volatility empty() {
         return new Volatility(

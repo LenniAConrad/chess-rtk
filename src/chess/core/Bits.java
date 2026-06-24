@@ -120,7 +120,7 @@ public final class Bits {
     /**
      * Returns whether a bitboard contains a square.
      *
-     * @param bitboard bitboard
+     * @param bitboard bitboard mask
      * @param square square to test
      * @return true when occupied
      */
@@ -154,7 +154,7 @@ public final class Bits {
      * walking all set bits in a mask.
      * </p>
      *
-     * @param bitboard bitboard
+     * @param bitboard bitboard mask
      * @return bitboard without its least significant bit
      */
     public static long withoutLsb(long bitboard) {
@@ -164,7 +164,7 @@ public final class Bits {
     /**
      * Counts set bits in a bitboard.
      *
-     * @param bitboard bitboard
+     * @param bitboard bitboard mask
      * @return population count
      */
     public static int popcount(long bitboard) {

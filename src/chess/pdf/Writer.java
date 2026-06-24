@@ -145,7 +145,7 @@ public final class Writer {
 	 * Writes several compositions into one PDF document.
 	 *
 	 * @param output        output file path
-	 * @param documentTitle document title
+	 * @param documentTitle source document title
 	 * @param compositions  compositions to render
 	 * @throws IOException if writing fails
 	 */
@@ -158,7 +158,7 @@ public final class Writer {
 	 * Writes several compositions into one PDF document with custom options.
 	 *
 	 * @param output        output file path
-	 * @param documentTitle document title
+	 * @param documentTitle source document title
 	 * @param compositions  compositions to render
 	 * @param options       layout options
 	 * @throws IOException if writing fails
@@ -187,7 +187,7 @@ public final class Writer {
 	 * Writes a simple diagram sheet from FEN strings.
 	 *
 	 * @param output        output file path
-	 * @param documentTitle document title
+	 * @param documentTitle source document title
 	 * @param fens          position list
 	 * @throws IOException if writing fails
 	 */
@@ -199,7 +199,7 @@ public final class Writer {
 	 * Writes a simple diagram sheet from FEN strings with custom options.
 	 *
 	 * @param output        output file path
-	 * @param documentTitle document title
+	 * @param documentTitle source document title
 	 * @param fens          position list
 	 * @param options       layout options
 	 * @throws IOException if writing fails
@@ -453,7 +453,7 @@ public final class Writer {
 	 * @param list source list
 	 * @param index requested figure index
 	 * @param total total figure count
-	 * @param fallback fallback value
+	 * @param fallback default used when input is absent or invalid
 	 * @return resolved value
 	 */
 	private static String valueForFigure(List<String> list, int index, int total, String fallback) {

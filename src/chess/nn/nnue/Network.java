@@ -257,7 +257,7 @@ public final class Network implements AutoCloseable {
      * makes the true impact non-decomposable).
      *
      * @param sink activation collector
-     * @param position position
+     * @param position chess position
      * @param whiteToMove true when White is the side to move
      */
     private void captureFeatures(chess.nn.ActivationSink sink, Position position, boolean whiteToMove) {
@@ -780,12 +780,12 @@ public final class Network implements AutoCloseable {
         /**
          * Packs validated arrays.
          *
-         * @param hiddenSize hidden size
+         * @param hiddenSize source hidden size
          * @param featureBias hidden bias vector
          * @param featureWeights feature-major transformer weights
-         * @param outputWeights output weights
-         * @param outputBias output bias
-         * @param outputScale output scale
+         * @param outputWeights source output weights
+         * @param outputBias source output bias
+         * @param outputScale source output scale
          */
         Weights(
                 int hiddenSize,

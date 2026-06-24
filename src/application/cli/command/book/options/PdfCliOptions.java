@@ -81,7 +81,7 @@ public final class PdfCliOptions {
 		 * Parses diagram layout flags with command-specific defaults.
 		 *
 		 * @param a argument parser
-		 * @param defaultDiagramsPerRow default diagrams per row
+		 * @param defaultDiagramsPerRow source default diagrams per row
 		 * @param defaultBoardPixels default board raster size
 		 * @return parsed layout
 		 */

@@ -11,22 +11,22 @@ import chess.gpu.SharedLibrarySupport;
 public final class Support {
 
     /**
-     * L i b  b a s e  n a m e.
+     * Native ROCm library base name.
      */
     private static final String LIB_BASE_NAME = "lc0_rocm";
 
     /**
-     * E n v  r o c m  l i b.
+     * Environment override for the ROCm library path.
      */
     private static final String ENV_ROCM_LIB = "CRTK_ROCM_LIB";
 
     /**
-     * D i r  n a t i v e  r o c m.
+     * Repository-relative ROCm native library directory.
      */
     private static final String DIR_NATIVE_ROCM = "native/rocm";
 
     /**
-     * S t a t e.
+     * Loaded native ROCm backend state.
      */
     private static final SharedLibrarySupport.State STATE =
             SharedLibrarySupport.load(
@@ -59,7 +59,7 @@ public final class Support {
 
     /**
      * Device count.
-     * @return device count result
+     * @return device count
      */
     public static int deviceCount() {
         return STATE.deviceCount();
@@ -67,7 +67,7 @@ public final class Support {
 
     /**
      * Native device count.
-     * @return native device count result
+     * @return native device count
      */
     private static native int nativeDeviceCount();
 }

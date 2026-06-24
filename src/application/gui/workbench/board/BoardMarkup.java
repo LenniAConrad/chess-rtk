@@ -25,6 +25,11 @@ public record BoardMarkup(BoardMarkupTool tool, byte from, byte to, MarkupBrush 
 
     /**
      * Normalizes nullable shapes.
+     *
+     * @param tool markup drawing tool
+     * @param from source square index
+     * @param to destination square index
+     * @param brush markup brush style
      */
     public BoardMarkup {
         tool = tool == null ? (to == Field.NO_SQUARE ? BoardMarkupTool.CIRCLE : BoardMarkupTool.ARROW) : tool;

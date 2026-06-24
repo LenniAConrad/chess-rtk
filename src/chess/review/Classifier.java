@@ -313,6 +313,9 @@ public final class Classifier {
 
         /**
          * Creates and validates a score.
+         *
+         * @param centipawns centipawn score
+         * @param winShare win-share expectation
          */
         public Score {
             if (winShare != null && (winShare < 0.0d || winShare > 1.0d || winShare.isNaN())) {
@@ -368,6 +371,16 @@ public final class Classifier {
 
         /**
          * Creates and validates thresholds.
+         *
+         * @param inaccuracyCp centipawn loss threshold for inaccuracies
+         * @param mistakeCp centipawn loss threshold for mistakes
+         * @param blunderCp centipawn loss threshold for blunders
+         * @param mistakeWdlLoss WDL loss threshold for mistakes
+         * @param blunderWdlLoss WDL loss threshold for blunders
+         * @param decidedCp centipawn threshold for decided positions
+         * @param drawBandCp centipawn band treated as drawish
+         * @param onlyMoveGapCp centipawn gap used to detect only moves
+         * @param blunderReferenceCp centipawn reference threshold for blunders
          */
         public Thresholds {
             if (inaccuracyCp <= 0 || mistakeCp <= inaccuracyCp || blunderCp <= mistakeCp) {
@@ -442,6 +455,12 @@ public final class Classifier {
 
         /**
          * Creates and normalizes a request.
+         *
+         * @param before position before the move
+         * @param after position after the move
+         * @param secondBest second-best move assessment
+         * @param thresholds review classification thresholds
+         * @param theoryPosition whether the position is still in opening theory
          */
         public Request {
             Objects.requireNonNull(before, "before");

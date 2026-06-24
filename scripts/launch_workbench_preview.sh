@@ -128,6 +128,10 @@ fi
 if [[ "$DUMP_COMPONENTS" != "1" ]]; then
   COMPONENTS_FILE=""
 fi
+mkdir -p "$(dirname "$LOG_FILE")"
+if [[ -n "$COMPONENTS_FILE" ]]; then
+  mkdir -p "$(dirname "$COMPONENTS_FILE")"
+fi
 
 JAVA_PROPS=(
   "-Duser.home=$STATE_DIR/home"

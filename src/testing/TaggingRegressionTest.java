@@ -32,7 +32,7 @@ public final class TaggingRegressionTest {
 
      /**
      * Handles main.
-     * @param args args
+     * @param args command-line arguments
      */
      public static void main(String[] args) {
         System.setProperty(Evaluator.LC0_DISABLED_PROPERTY, "true");
@@ -1322,8 +1322,8 @@ public final class TaggingRegressionTest {
 
      /**
      * Handles assert contains.
-     * @param tags tags
-     * @param expected expected
+     * @param tags tag collection
+     * @param expected expected test value
      */
      private static void assertContains(List<String> tags, String expected) {
         if (!tags.contains(expected)) {
@@ -1333,7 +1333,7 @@ public final class TaggingRegressionTest {
 
      /**
      * Asserts that a text contains a snippet.
-     * @param text text
+     * @param text text to render or parse
      * @param expected expected snippet
      */
     private static void assertTextContains(String text, String expected) {
@@ -1344,8 +1344,8 @@ public final class TaggingRegressionTest {
 
      /**
      * Handles assert contains prefix.
-     * @param tags tags
-     * @param prefix prefix
+     * @param tags tag collection
+     * @param prefix filename prefix
      */
      private static void assertContainsPrefix(List<String> tags, String prefix) {
         for (String tag : tags) {
@@ -1358,7 +1358,7 @@ public final class TaggingRegressionTest {
 
      /**
      * Handles assert move specific tactic fields.
-     * @param tags tags
+     * @param tags tag collection
      */
     private static void assertMoveSpecificTacticFields(List<String> tags) {
         for (String tag : tags) {
@@ -1380,7 +1380,7 @@ public final class TaggingRegressionTest {
 
      /**
      * Handles assert requested tag fields.
-     * @param tags tags
+     * @param tags tag collection
      */
      private static void assertRequestedTagFields(List<String> tags) {
         for (String tag : tags) {
@@ -1419,7 +1419,7 @@ public final class TaggingRegressionTest {
 
      /**
      * Handles assert move fact fields.
-     * @param tag tag
+     * @param tag tag text
      */
     private static void assertMoveFactFields(String tag) {
         String key = firstFieldKey(tag);
@@ -1442,7 +1442,7 @@ public final class TaggingRegressionTest {
 
      /**
      * Handles assert checkmate fields.
-     * @param tag tag
+     * @param tag tag text
      */
     private static void assertCheckmateFields(String tag) {
         String key = firstFieldKey(tag);
@@ -1463,7 +1463,7 @@ public final class TaggingRegressionTest {
 
      /**
      * Handles assert pawn structure fields.
-     * @param tag tag
+     * @param tag tag text
      */
      private static void assertPawnStructureFields(String tag) {
         String structure = field(tag, "structure");
@@ -1487,7 +1487,7 @@ public final class TaggingRegressionTest {
 
      /**
      * Handles assert tactical fields.
-     * @param tag tag
+     * @param tag tag text
      */
      private static void assertTacticalFields(String tag) {
         String motif = field(tag, "motif");
@@ -1533,7 +1533,7 @@ public final class TaggingRegressionTest {
 
      /**
      * Handles assert side field.
-     * @param tag tag
+     * @param tag tag text
      */
      private static void assertSideField(String tag) {
         assertFieldOneOf(tag, "side", List.of("white", "black"));
@@ -1541,8 +1541,8 @@ public final class TaggingRegressionTest {
 
      /**
      * Handles assert square field.
-     * @param tag tag
-     * @param key key
+     * @param tag tag text
+     * @param key lookup key
      */
      private static void assertSquareField(String tag, String key) {
         if (!isSquare(field(tag, key))) {
@@ -1552,9 +1552,9 @@ public final class TaggingRegressionTest {
 
      /**
      * Handles assert field one of.
-     * @param tag tag
-     * @param key key
-     * @param allowed allowed
+     * @param tag tag text
+     * @param key lookup key
+     * @param allowed whether to allow ed
      */
      private static void assertFieldOneOf(String tag, String key, List<String> allowed) {
         String value = field(tag, key);
@@ -1565,8 +1565,8 @@ public final class TaggingRegressionTest {
 
      /**
      * Handles assert target field.
-     * @param tag tag
-     * @param key key
+     * @param tag tag text
+     * @param key lookup key
      */
      private static void assertTargetField(String tag, String key) {
         String value = field(tag, key);
@@ -1582,9 +1582,9 @@ public final class TaggingRegressionTest {
 
      /**
      * Handles assert size.
-     * @param values values
-     * @param expected expected
-     * @param label label
+     * @param values input values
+     * @param expected expected test value
+     * @param label display label
      */
      private static void assertSize(List<?> values, int expected, String label) {
         if (values.size() != expected) {
@@ -1595,7 +1595,7 @@ public final class TaggingRegressionTest {
 
      /**
      * Handles assert canonical tags.
-     * @param tags tags
+     * @param tags tag collection
      */
      private static void assertCanonicalTags(List<String> tags) {
         List<String> canonical = Sort.sort(tags);
@@ -1606,8 +1606,8 @@ public final class TaggingRegressionTest {
 
      /**
      * Handles assert not contains.
-     * @param tags tags
-     * @param unexpected unexpected
+     * @param tags tag collection
+     * @param unexpected source unexpected
      */
      private static void assertNotContains(List<String> tags, String unexpected) {
         if (tags.contains(unexpected)) {
@@ -1617,8 +1617,8 @@ public final class TaggingRegressionTest {
 
      /**
      * Handles assert no prefix.
-     * @param tags tags
-     * @param prefix prefix
+     * @param tags tag collection
+     * @param prefix filename prefix
      */
      private static void assertNoPrefix(List<String> tags, String prefix) {
         for (String tag : tags) {
@@ -1630,8 +1630,8 @@ public final class TaggingRegressionTest {
 
      /**
      * Handles assert no tag containing.
-     * @param tags tags
-     * @param text text
+     * @param tags tag collection
+     * @param text text to render or parse
      */
      private static void assertNoTagContaining(List<String> tags, String text) {
         for (String tag : tags) {
@@ -1643,7 +1643,7 @@ public final class TaggingRegressionTest {
 
      /**
      * Handles assert piece tier fields.
-     * @param tags tags
+     * @param tags tag collection
      */
      private static void assertPieceTierFields(List<String> tags) {
         for (String tag : tags) {
@@ -1660,9 +1660,9 @@ public final class TaggingRegressionTest {
 
      /**
      * Handles field.
-     * @param tag tag
-     * @param key key
-     * @return computed value
+     * @param tag tag text
+     * @param key lookup key
+     * @return handles field
      */
     private static String field(String tag, String key) {
         String prefix = key + "=";
@@ -1676,7 +1676,7 @@ public final class TaggingRegressionTest {
 
      /**
      * Returns the first key used by a tag.
-     * @param tag tag
+     * @param tag tag text
      * @return first field key
      */
     private static String firstFieldKey(String tag) {
@@ -1694,7 +1694,7 @@ public final class TaggingRegressionTest {
 
      /**
      * Returns whether piece.
-     * @param value value
+     * @param value candidate value
      * @return true when piece
      */
      private static boolean isPiece(String value) {
@@ -1703,7 +1703,7 @@ public final class TaggingRegressionTest {
 
      /**
      * Returns whether uci move.
-     * @param value value
+     * @param value candidate value
      * @return true when uci move
      */
      private static boolean isUciMove(String value) {
@@ -1718,7 +1718,7 @@ public final class TaggingRegressionTest {
 
      /**
      * Returns whether square.
-     * @param value value
+     * @param value candidate value
      * @return true when square
      */
      private static boolean isSquare(String value) {
@@ -1729,7 +1729,7 @@ public final class TaggingRegressionTest {
 
      /**
      * Returns whether target label.
-     * @param value value
+     * @param value candidate value
      * @return true when target label
      */
     private static boolean isTargetLabel(String value) {
@@ -1742,7 +1742,7 @@ public final class TaggingRegressionTest {
 
      /**
      * Returns whether file.
-     * @param value value
+     * @param value candidate value
      * @return true when file
      */
      private static boolean isFile(String value) {
@@ -1751,7 +1751,7 @@ public final class TaggingRegressionTest {
 
      /**
      * Returns whether non negative integer.
-     * @param value value
+     * @param value candidate value
      * @return true when non negative integer
      */
      private static boolean isNonNegativeInteger(String value) {
@@ -1769,8 +1769,8 @@ public final class TaggingRegressionTest {
 
      /**
      * Returns tags with prefix.
-     * @param tags tags
-     * @param prefix prefix
+     * @param tags tag collection
+     * @param prefix filename prefix
      * @return filtered tags
      */
      private static List<String> tagsWithPrefix(List<String> tags, String prefix) {
@@ -1785,8 +1785,8 @@ public final class TaggingRegressionTest {
 
      /**
      * Returns a position after applying one UCI move.
-     * @param fen fen
-     * @param uci uci
+     * @param fen FEN string
+     * @param uci source uci
      * @return position after move
      */
      private static Position after(String fen, String uci) {

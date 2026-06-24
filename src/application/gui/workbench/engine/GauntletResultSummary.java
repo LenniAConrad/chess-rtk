@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
  *
  * @param complete true when a process result has arrived
  * @param wins candidate wins
- * @param draws draws
+ * @param draws source draws
  * @param losses candidate losses
  * @param games total games
  * @param scorePercent score percentage
@@ -107,7 +107,7 @@ record GauntletResultSummary(
      * when it is not yet defined (no wins or no losses).
      *
      * @param wins candidate wins
-     * @param draws draws
+     * @param draws source draws
      * @param losses candidate losses
      * @return point Elo string, or {@code "-"}
      */
@@ -370,7 +370,7 @@ record GauntletResultSummary(
     /**
      * Returns the square of a value.
      *
-     * @param value input
+     * @param value candidate value
      * @return value squared
      */
     private static double square(double value) {

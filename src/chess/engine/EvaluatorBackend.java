@@ -17,7 +17,7 @@ final class EvaluatorBackend implements SearchBackend {
 
     /**
      * Evaluator backend.
-     * @param evaluator evaluator value
+     * @param evaluator position evaluator
      */
     EvaluatorBackend(CentipawnEvaluator evaluator) {
         this.evaluator = evaluator;

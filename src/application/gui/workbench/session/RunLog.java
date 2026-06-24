@@ -7,7 +7,7 @@ import java.time.Instant;
 import java.util.Locale;
 
 /**
- * Persists full plain-text logs for workbench command runs.
+ * Persists deterministic plain-text logs for workbench command runs.
  */
 public final class RunLog {
 
@@ -24,7 +24,7 @@ public final class RunLog {
     }
 
     /**
-     * Writes a command log into the default session directory.
+     * Writes a command log into the default dump-backed log directory.
      *
      * @param job finished or cancelled job
      * @param workingDirectory process working directory
@@ -32,11 +32,12 @@ public final class RunLog {
      * @throws IOException when writing fails
      */
     public static Path write(Job job, Path workingDirectory) throws IOException {
-    return write(DEFAULT_DIR, job, workingDirectory);
+        return write(DEFAULT_DIR, job, workingDirectory);
     }
 
     /**
-     * Writes a command log into a supplied directory.
+     * Writes a command log into a supplied directory. The directory parameter is
+     * injectable for tests and falls back to {@link #DEFAULT_DIR} when null.
      *
      * @param directory log directory
      * @param job finished or cancelled job
@@ -46,16 +47,16 @@ public final class RunLog {
      */
     public static Path write(Path directory, Job job, Path workingDirectory) throws IOException {
         if (job == null) {
-    throw new IllegalArgumentException("job is required");
+            throw new IllegalArgumentException("job is required");
         }
         Path dir = directory == null ? DEFAULT_DIR : directory;
         return SessionFiles.writeString(dir, fileName(job), logText(job, workingDirectory));
     }
 
     /**
-     * Builds a stable log filename.
+     * Builds a filename from stable job metadata only.
      *
-     * @param job job
+     * @param job source job
      * @return filename
      */
     private static String fileName(Job job) {
@@ -64,9 +65,10 @@ public final class RunLog {
     }
 
     /**
-     * Builds the full plain-text log.
+     * Builds the full log body. The output stream is preserved verbatim, while
+     * metadata fields stay deterministic and omit wall-clock write time.
      *
-     * @param job job
+     * @param job source job
      * @param workingDirectory process working directory
      * @return log text
      */
@@ -75,12 +77,14 @@ public final class RunLog {
         sb.append("CRTK Workbench Command Log\n");
         sb.append("job: ").append(job.id()).append('\n');
         sb.append("created: ").append(Instant.ofEpochMilli(job.createdAtMillis())).append('\n');
-        sb.append("written: ").append(Instant.now()).append('\n');
         sb.append("status: ").append(job.status().name().toLowerCase(Locale.ROOT)).append('\n');
         sb.append("exitCode: ").append(job.hasExitCode() ? Integer.toString(job.exitCode()) : "n/a").append('\n');
         sb.append("durationMillis: ").append(job.durationMillis()).append('\n');
         sb.append("workingDirectory: ").append(normalize(workingDirectory)).append('\n');
         sb.append("command: ").append(job.displayCommand()).append("\n\n");
+        if (!job.resultSummary().isBlank()) {
+            sb.append("summary: ").append(oneLine(job.resultSummary())).append("\n\n");
+        }
         sb.append("----- output -----\n");
         sb.append(job.output());
         if (!job.output().endsWith("\n") && !job.output().endsWith("\r")) {
@@ -90,12 +94,23 @@ public final class RunLog {
     }
 
     /**
-     * Normalizes a path for display.
+     * Canonicalizes the working directory field for reproducible log text.
      *
-     * @param path path
+     * @param path file-system path
      * @return normalized string
      */
     private static String normalize(Path path) {
         return path == null ? "" : path.toAbsolutePath().normalize().toString();
+    }
+
+    /**
+     * Keeps summary metadata on one line without touching raw command output.
+     *
+     * @param value metadata value
+     * @return one-line value
+     */
+    private static String oneLine(String value) {
+        return value == null ? ""
+                : value.replace('\r', ' ').replace('\n', ' ').strip();
     }
 }

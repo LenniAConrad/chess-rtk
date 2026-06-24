@@ -479,8 +479,8 @@ public final class GameReviewPanel extends JPanel {
     /**
      * Converts a side-to-move evaluation into White-relative centipawns.
      *
-     * @param evaluator evaluator
-     * @param position position
+     * @param evaluator position evaluator
+     * @param position chess position
      * @return White-relative centipawn score
      */
     private static int whiteCentipawns(Classical evaluator, Position position) {
@@ -659,7 +659,7 @@ public final class GameReviewPanel extends JPanel {
         /**
          * Replaces review rows.
          *
-         * @param nextRows next rows
+         * @param nextRows source next rows
          */
         private void setRows(List<ReviewFinding> nextRows) {
             rows = List.copyOf(nextRows);
@@ -710,7 +710,7 @@ public final class GameReviewPanel extends JPanel {
         /**
          * Returns a column type.
          *
-         * @param columnIndex column index
+         * @param columnIndex zero-based column index
          * @return column class
          */
         @Override
@@ -721,8 +721,8 @@ public final class GameReviewPanel extends JPanel {
         /**
          * Returns a table value.
          *
-         * @param rowIndex row index
-         * @param columnIndex column index
+         * @param rowIndex zero-based row index
+         * @param columnIndex zero-based column index
          * @return cell value
          */
         @Override

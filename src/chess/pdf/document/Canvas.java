@@ -116,7 +116,7 @@ public final class Canvas {
 	 *
 	 * @param x        left edge
 	 * @param y        top edge
-	 * @param font     font
+	 * @param font     font used for measurement or drawing
 	 * @param fontSize font size in points
 	 * @param color    fill color
 	 * @param text     text content
@@ -141,7 +141,7 @@ public final class Canvas {
 	 * @param angleDegrees clockwise-positive angle in top-left page coordinates
 	 * @param pivotX rotation pivot x coordinate
 	 * @param pivotY rotation pivot y coordinate
-	 * @param font font
+	 * @param font font used for measurement or drawing
 	 * @param fontSize font size in points
 	 * @param color fill color, including alpha
 	 * @param text text content
@@ -182,7 +182,7 @@ public final class Canvas {
 	 * @param angleDegrees clockwise-positive angle in top-left page coordinates
 	 * @param pivotX rotation pivot x coordinate
 	 * @param pivotY rotation pivot y coordinate
-	 * @param font font
+	 * @param font font used for measurement or drawing
 	 * @param fontSize font size in points
 	 * @param color fill color, including alpha
 	 * @param text text content
@@ -257,7 +257,7 @@ public final class Canvas {
 	 *
 	 * @param x left edge
 	 * @param y top edge
-	 * @param font font
+	 * @param font font used for measurement or drawing
 	 * @param fontSize font size in points
 	 * @param color fill color
 	 * @param text already-normalized base-font text
@@ -280,7 +280,7 @@ public final class Canvas {
 	 * @param b text matrix x scale/rotation y
 	 * @param c text matrix y scale/rotation x
 	 * @param d text matrix y scale/rotation y
-	 * @param font font
+	 * @param font font used for measurement or drawing
 	 * @param fontSize font size in points
 	 * @param color fill color, including alpha
 	 * @param text already-normalized base-font text
@@ -300,7 +300,7 @@ public final class Canvas {
 	 * @param b text matrix x scale/rotation y
 	 * @param c text matrix y scale/rotation x
 	 * @param d text matrix y scale/rotation y
-	 * @param font font
+	 * @param font font used for measurement or drawing
 	 * @param fontSize font size in points
 	 * @param color fill color, including alpha
 	 * @param text already-normalized base-font text
@@ -365,7 +365,7 @@ public final class Canvas {
 	 *
 	 * @param x left edge
 	 * @param y top edge
-	 * @param font font
+	 * @param font font used for measurement or drawing
 	 * @param fontSize font size in points
 	 * @param color fill color
 	 * @param text normalized text containing at least one vector-only character
@@ -394,7 +394,7 @@ public final class Canvas {
 	 *
 	 * @param x left edge
 	 * @param y top edge
-	 * @param font font
+	 * @param font font used for measurement or drawing
 	 * @param fontSize font size in points
 	 * @param color fill color
 	 * @param text run text
@@ -466,8 +466,8 @@ public final class Canvas {
 	 * @param x        left edge
 	 * @param y        top edge
 	 * @param width    wrap width
-	 * @param font     font
-	 * @param fontSize font size
+	 * @param font     font used for measurement or drawing
+	 * @param fontSize font size in points
 	 * @param leading  line advance
 	 * @param color    fill color
 	 * @param text     paragraph text
@@ -505,8 +505,8 @@ public final class Canvas {
 	 * Measures wrapped text height without drawing it.
 	 *
 	 * @param width    wrap width
-	 * @param font     font
-	 * @param fontSize font size
+	 * @param font     font used for measurement or drawing
+	 * @param fontSize font size in points
 	 * @param leading  line advance
 	 * @param text     paragraph text
 	 * @return wrapped height
@@ -519,8 +519,8 @@ public final class Canvas {
 	 * Wraps text into layout lines.
 	 *
 	 * @param text     source text
-	 * @param font     font
-	 * @param fontSize font size
+	 * @param font     font used for measurement or drawing
+	 * @param fontSize font size in points
 	 * @param width    wrap width
 	 * @return wrapped lines
 	 */
@@ -557,8 +557,8 @@ public final class Canvas {
 	/**
 	 * Measures a single text run.
 	 *
-	 * @param font     font
-	 * @param fontSize font size
+	 * @param font     font used for measurement or drawing
+	 * @param fontSize font size in points
 	 * @param text     text content
 	 * @return measured width
 	 */
@@ -569,8 +569,8 @@ public final class Canvas {
 	/**
 	 * Returns a line height suggestion for the given font and size.
 	 *
-	 * @param font     font
-	 * @param fontSize font size
+	 * @param font     font used for measurement or drawing
+	 * @param fontSize font size in points
 	 * @return measured line height
 	 */
 	public double lineHeight(Font font, double fontSize) {

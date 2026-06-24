@@ -200,6 +200,9 @@ public final class PuzzlePanel extends SurfacePanel {
      * Branch progress label, painted as a compact accent-tinted count pill.
      */
     private final JLabel progressLabel = new JLabel("0 / 0") {
+        /**
+         * Serialization identifier for Swing compatibility.
+         */
         private static final long serialVersionUID = 1L;
 
         /**
@@ -492,7 +495,7 @@ public final class PuzzlePanel extends SurfacePanel {
         JPanel stack = verticalPanel();
         addStackSection(stack, createPuzzleSection());
         addStackSection(stack, createControlsSection());
-        addStackSection(stack, createPgnSection());
+        addStackSection(stack, collapsible("PGN / source", createPgnSection(), false));
         addStackSection(stack, createSolutionSection());
         addStackSection(stack, createAdvancedSection());
         stack.add(Box.createVerticalGlue());
@@ -629,7 +632,7 @@ public final class PuzzlePanel extends SurfacePanel {
      * Creates one labelled group of buttons.
      *
      * @param title group label
-     * @param buttons buttons
+     * @param buttons button components
      * @return control group
      */
     private static JComponent controlGroup(String title, javax.swing.JButton... buttons) {
@@ -1718,7 +1721,7 @@ public final class PuzzlePanel extends SurfacePanel {
     /**
      * Formats a move list as UCI text.
      *
-     * @param moves moves
+     * @param moves move list
      * @return move list text
      */
     private static String moveList(List<Short> moves) {

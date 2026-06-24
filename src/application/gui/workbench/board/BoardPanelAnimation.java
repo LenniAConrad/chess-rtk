@@ -65,11 +65,27 @@ final class BoardPanelAnimation {
         dragRepaintTimer.setRepeats(false);
     }
 
+    /**
+     * Stops active timers and background work.
+     */
     void stop() {
         animationTimer.stop();
         dragRepaintTimer.stop();
     }
 
+    /**
+     * Computes the dirty region covering drag origin, hover target, and floating
+     * dragged piece.
+     *
+     * @param board board bounds
+     * @param targetSquare legal drop target square
+     * @param hoverSquare square currently under the pointer
+     * @param pointerX pointer x coordinate
+     * @param pointerY pointer y coordinate
+     * @param includeDraggedPiece whether to include the floating piece bounds
+     * @param includeOriginSquare whether to include the source square
+     * @return dirty repaint bounds, or {@code null}
+     */
     Rectangle dragRepaintBounds(
             Rectangle board,
             byte targetSquare,
@@ -101,6 +117,11 @@ final class BoardPanelAnimation {
         return dirty;
     }
 
+    /**
+     * Schedules a coalesced repaint for drag feedback.
+     *
+     * @param dirty dirty region to add
+     */
     void scheduleDragRepaint(Rectangle dirty) {
         if (dirty == null) {
             return;
@@ -120,22 +141,42 @@ final class BoardPanelAnimation {
         }
     }
 
+    /**
+     * Schedules a coalesced repaint for two dirty drag regions.
+     *
+     * @param first first dirty region
+     * @param second second dirty region
+     */
     void scheduleDragRepaint(Rectangle first, Rectangle second) {
         scheduleDragRepaint(union(first, second));
     }
 
+    /**
+     * Cancels any pending delayed drag repaint.
+     */
     void cancelPendingDragRepaint() {
         pendingDragDirty = null;
         lastDragRepaintNanos = 0L;
         dragRepaintTimer.stop();
     }
 
+    /**
+     * Starts the shared animation timer when it is not already running.
+     */
     void startAnimation() {
         if (!animationTimer.isRunning()) {
             animationTimer.start();
         }
     }
 
+    /**
+     * Starts a piece move animation from old and new board arrays.
+     *
+     * @param oldBoard board before the move
+     * @param newBoard board after the move
+     * @param move encoded move
+     * @param reverseMoveAnimation whether to animate from destination to source
+     */
     void startMoveAnimation(byte[] oldBoard, byte[] newBoard, short move, boolean reverseMoveAnimation) {
         if (!boardPanel.animationState.canAnimateMove()) {
             clearMoveAnimation();
@@ -166,10 +207,16 @@ final class BoardPanelAnimation {
         startAnimation();
     }
 
+    /**
+     * Clears the active move animation.
+     */
     void clearMoveAnimation() {
         boardPanel.animationState.clearMoveAnimation();
     }
 
+    /**
+     * Clears every active animation and commits pending board flips.
+     */
     void clearAllAnimations() {
         if (boardPanel.animationState.clearAllAnimations()) {
             // Commit a pending flip so disabling animations mid-flight does not
@@ -179,18 +226,34 @@ final class BoardPanelAnimation {
         animationTimer.stop();
     }
 
+    /**
+     * Returns normalized progress for the active move animation.
+     *
+     * @return progress in the range {@code 0.0..1.0}
+     */
     double moveAnimationProgress() {
         return boardPanel.animationState.moveAnimationProgress(System.currentTimeMillis());
     }
 
+    /**
+     * Returns normalized progress for the wrong-move marker.
+     *
+     * @return progress in the range {@code 0.0..1.0}
+     */
     double wrongMoveMarkerProgress() {
         return boardPanel.animationState.wrongMoveMarkerProgress(System.currentTimeMillis());
     }
 
+    /**
+     * Clears the wrong-move marker animation.
+     */
     void clearWrongMoveMarkerState() {
         boardPanel.animationState.clearWrongMoveMarker();
     }
 
+    /**
+     * Flushes the coalesced drag repaint region.
+     */
     private void flushPendingDragRepaint() {
         Rectangle dirty = pendingDragDirty;
         pendingDragDirty = null;
@@ -201,6 +264,9 @@ final class BoardPanelAnimation {
         }
     }
 
+    /**
+     * Advances active board animations and stops the timer when idle.
+     */
     private void tickAnimation() {
         if (boardPanel.animationState.moveAnimationActive() && moveAnimationProgress() >= 1.0) {
             clearMoveAnimation();
@@ -227,10 +293,24 @@ final class BoardPanelAnimation {
         boardPanel.repaint();
     }
 
+    /**
+     * Returns whether any animation still needs timer ticks.
+     *
+     * @return true while animation state is active
+     */
     private boolean hasActiveAnimation() {
         return boardPanel.animationState.hasActiveAnimation();
     }
 
+    /**
+     * Returns the piece that should be drawn for the main move animation.
+     *
+     * @param oldBoard board before the move
+     * @param newBoard board after the move
+     * @param from source square
+     * @param to target square
+     * @return encoded piece, or {@link Piece#EMPTY}
+     */
     private static byte animatedPiece(byte[] oldBoard, byte[] newBoard, byte from, byte to) {
         byte source = oldBoard[from];
         byte target = newBoard[to];
@@ -240,6 +320,15 @@ final class BoardPanelAnimation {
         return target;
     }
 
+    /**
+     * Configures captured-piece animation, including en-passant captures.
+     *
+     * @param oldBoard board before the move
+     * @param newBoard board after the move
+     * @param from source square
+     * @param to target square
+     * @param movingPiece encoded moving piece
+     */
     private void configureAnimatedCapture(byte[] oldBoard, byte[] newBoard, byte from, byte to, byte movingPiece) {
         byte direct = oldBoard[to];
         if (direct != Piece.EMPTY && Piece.isWhite(direct) != Piece.isWhite(movingPiece)) {
@@ -256,6 +345,15 @@ final class BoardPanelAnimation {
         }
     }
 
+    /**
+     * Configures the rook animation that accompanies castling.
+     *
+     * @param oldBoard board before the move
+     * @param newBoard board after the move
+     * @param moveFrom original king source
+     * @param moveTo original king target
+     * @param reverseMoveAnimation whether the main animation is reversed
+     */
     private void configureSecondaryMove(byte[] oldBoard, byte[] newBoard, byte moveFrom, byte moveTo,
             boolean reverseMoveAnimation) {
         byte kingFrom = reverseMoveAnimation ? moveTo : moveFrom;
@@ -282,11 +380,25 @@ final class BoardPanelAnimation {
         boardPanel.animationState.setAnimatedSecondaryMove(rookPiece, rookFrom, rookTo);
     }
 
+    /**
+     * Returns a rectangle expanded by the same padding on every side.
+     *
+     * @param bounds component bounds
+     * @param padding expansion in pixels
+     * @return expanded rectangle
+     */
     private static Rectangle expanded(Rectangle bounds, int padding) {
         return new Rectangle(bounds.x - padding, bounds.y - padding,
                 bounds.width + padding * 2, bounds.height + padding * 2);
     }
 
+    /**
+     * Returns a null-safe union of two dirty regions.
+     *
+     * @param first first region, or {@code null}
+     * @param second second region, or {@code null}
+     * @return union region, or {@code null}
+     */
     private static Rectangle union(Rectangle first, Rectangle second) {
         if (first == null) {
             return second == null ? null : new Rectangle(second);

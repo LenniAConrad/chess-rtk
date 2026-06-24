@@ -58,9 +58,21 @@ public final class StudyAuthorPanel extends JPanel {
      * Editable study fields.
      */
     private final JTextField bookTitleField = new JTextField("Workbench Study");
+    /**
+     * Text field for composition title.
+     */
     private final JTextField compositionTitleField = new JTextField("Current Line");
+    /**
+     * Text area for description.
+     */
     private final JTextArea descriptionArea = new JTextArea("Study the critical line from the current board.");
+    /**
+     * Text area for analysis.
+     */
     private final JTextArea analysisArea = new JTextArea();
+    /**
+     * Text area for hint.
+     */
     private final JTextArea hintArea = new JTextArea();
 
     /**
@@ -322,7 +334,7 @@ public final class StudyAuthorPanel extends JPanel {
      *
      * @param out output builder
      * @param key TOML key
-     * @param value value
+     * @param value candidate value
      */
     private static void appendOptional(StringBuilder out, String key, String value) {
         if (value != null && !value.isBlank()) {
@@ -335,7 +347,7 @@ public final class StudyAuthorPanel extends JPanel {
      *
      * @param out output builder
      * @param key TOML key
-     * @param values values
+     * @param values input values
      */
     private static void appendArray(StringBuilder out, String key, List<String> values) {
         out.append(key).append(" = [\n");
@@ -348,7 +360,7 @@ public final class StudyAuthorPanel extends JPanel {
     /**
      * Returns text from a text field.
      *
-     * @param field field
+     * @param field record field
      * @return text
      */
     private static String text(JTextField field) {
@@ -359,7 +371,7 @@ public final class StudyAuthorPanel extends JPanel {
     /**
      * Returns text from a text area.
      *
-     * @param area area
+     * @param area target area
      * @return text
      */
     private static String text(JTextArea area) {
@@ -382,15 +394,15 @@ public final class StudyAuthorPanel extends JPanel {
     /**
      * Study authoring draft.
      *
-     * @param bookTitle book title
-     * @param compositionTitle composition title
+     * @param bookTitle source book title
+     * @param compositionTitle source composition title
      * @param description description text
      * @param analysis analysis text
      * @param hint first hint text
      * @param figureMovesAlgebraic figure labels
      * @param figureMovesDetail figure details
-     * @param figureFens figure FENs
-     * @param figureArrows figure arrows
+     * @param figureFens source figure fens
+     * @param figureArrows source figure arrows
      */
     public record StudyDraft(
             String bookTitle,

@@ -170,7 +170,7 @@ public final class SAN {
      *
      * @param start starting position
      * @param movetext SAN move text
-     * @return parsed line result
+     * @return parsed line
      */
     public static PlayedLine playLine(Position start, String movetext) {
         if (start == null) {
@@ -383,7 +383,7 @@ public final class SAN {
      * @param move encoded move
      * @param moving moving piece index
      * @return minimal file/rank disambiguation
-     * @param legalMoves legal moves value
+     * @param legalMoves legal move list
      */
     private static String disambiguation(Position context, short move, int moving, MoveList legalMoves) {
         if (moving == WHITE_PAWN || moving == BLACK_PAWN) {
@@ -634,7 +634,7 @@ public final class SAN {
          * @param pliesPlayed number of plies parsed
          * @param parsed true when all tokens parsed
          * @param invalidToken first invalid token
-         * @param progress progress value
+         * @param progress progress callback
          */
         private PlayedLine(
                 Position start,

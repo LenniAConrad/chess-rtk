@@ -81,8 +81,8 @@ public final class NnueDrawing {
      *
      * @param g graphics
      * @param r chip bounds
-     * @param label label
-     * @param value value
+     * @param label display label
+     * @param value candidate value
      * @param accent accent strip colour
      */
     public static void paintHeaderChip(Graphics2D g, Rectangle r,
@@ -269,7 +269,7 @@ public final class NnueDrawing {
     /**
      * Returns compact stats text for a Trace ribbon strip.
      *
-     * @param values values
+     * @param values input values
      * @param signed true when the strip is signed
      * @return stats label
      */
@@ -288,7 +288,7 @@ public final class NnueDrawing {
     /**
      * Safe array length helper.
      *
-     * @param values values
+     * @param values input values
      * @return length, or 0 for null
      */
     public static int safeLength(float[] values) {
@@ -320,7 +320,7 @@ public final class NnueDrawing {
      * @param y title baseline
      * @param width maximum label width
      * @param number stage number
-     * @param title title
+     * @param title display title
      * @param detail detail line
      */
     public static void drawStageHeader(Graphics2D g, int cx, int y, int width,
@@ -426,7 +426,7 @@ public final class NnueDrawing {
      * label width.
      *
      * @param fm font metrics
-     * @param text text
+     * @param text text to render or parse
      * @param maxWidth maximum width
      * @return fitted text
      */
@@ -452,7 +452,7 @@ public final class NnueDrawing {
     /**
      * Returns the index with the largest absolute value.
      *
-     * @param values values
+     * @param values input values
      * @return index or -1
      */
     public static int strongestAbsIndex(float[] values) {
@@ -503,7 +503,7 @@ public final class NnueDrawing {
     /**
      * Computes a non-zero absolute scale for a dense matrix/vector.
      *
-     * @param values values
+     * @param values input values
      * @return scale
      */
     public static float matrixScale(float[] values) {
@@ -535,7 +535,7 @@ public final class NnueDrawing {
     /**
      * Computes a robust visible-slot scale for one signed vector.
      *
-     * @param values values
+     * @param values input values
      * @param slots visible slots
      * @return non-zero scale
      */
@@ -556,8 +556,8 @@ public final class NnueDrawing {
      * Reads an array value, returning zero when the array is absent or too
      * short for a selected slot.
      *
-     * @param values values
-     * @param index index
+     * @param values input values
+     * @param index zero-based index
      * @return value or 0
      */
     public static float valueAt(float[] values, int index) {
@@ -567,7 +567,7 @@ public final class NnueDrawing {
     /**
      * Delegates to the shared network-view absolute maximum helper.
      *
-     * @param data data
+     * @param data source data
      * @return maximum absolute value
      */
     private static float maxAbs(float[] data) {

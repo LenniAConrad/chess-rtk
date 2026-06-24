@@ -102,7 +102,7 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
     /**
      * Starts a fresh game line from a FEN.
      *
-     * @param fen FEN
+     * @param fen FEN string
      */
     protected void startNewGame(String fen) {
         try {
@@ -113,8 +113,8 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
             session.clearEvalHistory();
             showGamePly(0);
             refreshSavedGamesPanel();
-            appendConsole("New game from " + start + "\n");
             if (positionLoadSoundArmed) {
+                appendConsole("New game from " + start + "\n");
                 SoundService.play(SoundCue.POSITION_LOAD);
             } else {
                 positionLoadSoundArmed = true;
@@ -128,8 +128,8 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
     /**
      * Sets the visible current position.
      *
-     * @param position position
-     * @param lastMove last move
+     * @param position chess position
+     * @param lastMove source last move
      */
     protected void setPosition(Position position, short lastMove) {
         setPosition(position, lastMove, false);
@@ -138,8 +138,8 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
     /**
      * Sets the visible current position.
      *
-     * @param position position
-     * @param lastMove last move
+     * @param position chess position
+     * @param lastMove source last move
      * @param reverseMoveAnimation true to reverse the board move glide
      */
     protected void setPosition(Position position, short lastMove, boolean reverseMoveAnimation) {
@@ -149,8 +149,8 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
     /**
      * Sets the visible current position.
      *
-     * @param position position
-     * @param lastMove last move
+     * @param position chess position
+     * @param lastMove source last move
      * @param reverseMoveAnimation true to reverse the board move glide
      * @param animateMove true to run a move animation when the transition supports it
      */
@@ -292,7 +292,7 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
     /**
      * Applies an engine result to the eval bar when it is still current.
      *
-     * @param requestId request id
+     * @param requestId source request id
      * @param whiteToMove true when White was to move in the analyzed position
      * @param output engine command output
      */
@@ -323,7 +323,7 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
     /**
      * Handles automatic eval-bar command failures.
      *
-     * @param requestId request id
+     * @param requestId source request id
      * @param exception failure
      */
     protected void handleEvalFailure(long requestId, Exception exception) {
@@ -865,7 +865,7 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
     /**
      * Streamed live-analysis UI update.
      *
-     * @param requestId request id
+     * @param requestId source request id
      * @param whiteToMove true when White was to move
      * @param output latest best output
      * @param bestMove latest best move

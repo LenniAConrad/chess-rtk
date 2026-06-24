@@ -30,6 +30,11 @@ final class ThemeComponents {
         // utility
     }
 
+    /**
+     * Applies the standard transparent panel background and inner spacing.
+     *
+     * @param component Swing component
+     */
     static void stylePanel(JComponent component) {
         component.setOpaque(false);
         component.setBackground(Theme.PANEL);
@@ -37,6 +42,11 @@ final class ThemeComponents {
         component.setBorder(Theme.pad(Theme.SPACE_MD));
     }
 
+    /**
+     * Styles a text field with the workbench input chrome.
+     *
+     * @param field text field to style
+     */
     static void field(JTextField field) {
         field.setUI(new PlaceholderTextFieldUI());
         field.setOpaque(true);
@@ -52,6 +62,11 @@ final class ThemeComponents {
         installEnabledBackground(field, Theme.INPUT);
     }
 
+    /**
+     * Styles a text area with the workbench input chrome.
+     *
+     * @param area text area to style
+     */
     static void area(JTextArea area) {
         area.setUI(new PlaceholderTextAreaUI());
         area.setOpaque(true);
@@ -67,6 +82,11 @@ final class ThemeComponents {
         installEnabledBackground(area, Theme.TEXT_AREA);
     }
 
+    /**
+     * Styles a text area as a code block.
+     *
+     * @param area text area to style
+     */
     static void codeBlock(JTextArea area) {
         area.putClientProperty(Theme.CLIENT_CODE_BLOCK, Boolean.TRUE);
         area.setOpaque(true);
@@ -83,6 +103,12 @@ final class ThemeComponents {
         installEnabledBackground(area, Theme.CODE_BLOCK_BG);
     }
 
+    /**
+     * Stores placeholder text and refreshes the text component.
+     *
+     * @param component Swing component
+     * @param text placeholder text
+     */
     static void placeholder(JTextComponent component, String text) {
         String value = text == null ? "" : text;
         component.putClientProperty(Theme.PLACEHOLDER_PROPERTY, value);
@@ -92,6 +118,11 @@ final class ThemeComponents {
         component.repaint();
     }
 
+    /**
+     * Styles a text area as terminal output.
+     *
+     * @param area text area to style
+     */
     static void styleTerminal(JTextArea area) {
         area.setOpaque(true);
         area.setBackground(Theme.TERMINAL);
@@ -104,10 +135,22 @@ final class ThemeComponents {
         installFocusBorder(area);
     }
 
+    /**
+     * Styles a button for the requested variant.
+     *
+     * @param button button to style
+     * @param primary whether primary
+     */
     static void button(AbstractButton button, boolean primary) {
         button(button, primary ? Theme.ButtonVariant.PRIMARY : Theme.ButtonVariant.SECONDARY);
     }
 
+    /**
+     * Styles a button for the requested variant.
+     *
+     * @param button button to style
+     * @param variant requested visual variant
+     */
     static void button(AbstractButton button, Theme.ButtonVariant variant) {
         Theme.ButtonVariant requested = buttonVariant(variant);
         Theme.ButtonVariant resolved = requested == Theme.ButtonVariant.PRIMARY
@@ -138,6 +181,12 @@ final class ThemeComponents {
         button.setBorder(Theme.pad(5, 8, 5, 8));
     }
 
+    /**
+     * Returns whether a command label should use destructive button styling.
+     *
+     * @param text command label
+     * @return true when the label names a destructive action
+     */
     static boolean destructiveActionLabel(String text) {
         if (text == null) {
             return false;
@@ -167,6 +216,12 @@ final class ThemeComponents {
                 || normalized.equals("cancel gauntlet");
     }
 
+    /**
+     * Returns the normal fill color for a button variant.
+     *
+     * @param variant requested button variant
+     * @return fill color
+     */
     static Color buttonBackground(Theme.ButtonVariant variant) {
         return switch (buttonVariant(variant)) {
             case PRIMARY -> Theme.ACCENT;
@@ -176,6 +231,12 @@ final class ThemeComponents {
         };
     }
 
+    /**
+     * Returns the hover fill color for a button variant.
+     *
+     * @param variant requested button variant
+     * @return hover fill color
+     */
     static Color buttonHover(Theme.ButtonVariant variant) {
         return switch (buttonVariant(variant)) {
             case PRIMARY -> Theme.ACCENT_HOVER;
@@ -185,6 +246,12 @@ final class ThemeComponents {
         };
     }
 
+    /**
+     * Returns the pressed fill color for a button variant.
+     *
+     * @param variant requested button variant
+     * @return pressed fill color
+     */
     static Color buttonPressed(Theme.ButtonVariant variant) {
         return switch (buttonVariant(variant)) {
             case PRIMARY -> Theme.ACCENT_PRESSED;
@@ -194,6 +261,12 @@ final class ThemeComponents {
         };
     }
 
+    /**
+     * Returns the border color for a button variant.
+     *
+     * @param variant requested button variant
+     * @return border color
+     */
     static Color buttonBorder(Theme.ButtonVariant variant) {
         return switch (buttonVariant(variant)) {
             case PRIMARY -> Theme.ACCENT_PRESSED;
@@ -203,6 +276,12 @@ final class ThemeComponents {
         };
     }
 
+    /**
+     * Returns the foreground color for a button variant.
+     *
+     * @param variant requested button variant
+     * @return text color
+     */
     static Color buttonText(Theme.ButtonVariant variant) {
         return switch (buttonVariant(variant)) {
             case PRIMARY -> Theme.PRIMARY_BUTTON_TEXT;
@@ -212,6 +291,12 @@ final class ThemeComponents {
         };
     }
 
+    /**
+     * Returns the resolved variant stored on a button.
+     *
+     * @param button button to inspect
+     * @return stored variant, or secondary when unset
+     */
     static Theme.ButtonVariant buttonVariant(AbstractButton button) {
         if (button != null
                 && button.getClientProperty(Theme.CLIENT_BUTTON_VARIANT) instanceof Theme.ButtonVariant variant) {
@@ -223,6 +308,11 @@ final class ThemeComponents {
         return Theme.ButtonVariant.SECONDARY;
     }
 
+    /**
+     * Styles a list with the workbench table colors.
+     *
+     * @param list list to style
+     */
     static void list(JList<?> list) {
         list.setOpaque(true);
         list.setBackground(Theme.ELEVATED_SOLID);
@@ -233,6 +323,12 @@ final class ThemeComponents {
         list.setFixedCellHeight(23);
     }
 
+    /**
+     * Creates a small section label.
+     *
+     * @param text label text
+     * @return styled section label
+     */
     static JLabel section(String text) {
         JLabel label = new JLabel(text == null ? "" : text);
         Theme.foreground(label, Theme.ForegroundRole.TEXT);
@@ -241,6 +337,12 @@ final class ThemeComponents {
         return label;
     }
 
+    /**
+     * Creates a bold section title label.
+     *
+     * @param text label text
+     * @return styled section title
+     */
     static JLabel sectionTitle(String text) {
         JLabel label = new JLabel(text == null ? "" : text);
         Theme.foreground(label, Theme.ForegroundRole.TEXT);
@@ -248,6 +350,13 @@ final class ThemeComponents {
         return label;
     }
 
+    /**
+     * Creates a compact card header row.
+     *
+     * @param title header title
+     * @param trailing optional trailing control
+     * @return header component
+     */
     static JComponent cardHeader(String title, JComponent trailing) {
         JPanel row = new JPanel(new BorderLayout(Theme.SPACE_SM, 0));
         row.setOpaque(false);
@@ -261,6 +370,11 @@ final class ThemeComponents {
         return row;
     }
 
+    /**
+     * Styles a command tab and wires selection-state repainting.
+     *
+     * @param tab command tab button
+     */
     static void commandTab(AbstractButton tab) {
         tab.putClientProperty(Theme.CLIENT_COMMAND_TAB, Boolean.TRUE);
         tab.setFocusPainted(false);
@@ -273,6 +387,11 @@ final class ThemeComponents {
         tab.addItemListener(event -> applyCommandTabState(tab));
     }
 
+    /**
+     * Applies selected or unselected colors and font weight to a command tab.
+     *
+     * @param tab command tab button
+     */
     static void applyCommandTabState(AbstractButton tab) {
         boolean on = tab.isSelected();
         tab.setBackground(on ? Theme.SELECTION_SOLID : Theme.ELEVATED_SOLID);
@@ -283,10 +402,21 @@ final class ThemeComponents {
                 Theme.pad(4, 11, 4, 11)));
     }
 
+    /**
+     * Returns the button variant.
+     *
+     * @param variant layout or network variant
+     * @return button variant
+     */
     private static Theme.ButtonVariant buttonVariant(Theme.ButtonVariant variant) {
         return variant == null ? Theme.ButtonVariant.SECONDARY : variant;
     }
 
+    /**
+     * Pins command tab dimensions to prevent selection jitter.
+     *
+     * @param tab command tab button
+     */
     private static void reserveCommandTabSize(AbstractButton tab) {
         Font previousFont = tab.getFont();
         Border previousBorder = tab.getBorder();
@@ -301,14 +431,31 @@ final class ThemeComponents {
         tab.setBorder(previousBorder);
     }
 
+    /**
+     * Returns the input border.
+     *
+     * @param focused whether focused
+     * @return input border
+     */
     private static Border inputBorder(boolean focused) {
         return InputChrome.border(focused, false, false);
     }
 
+    /**
+     * Installs focus border.
+     *
+     * @param component Swing component
+     */
     private static void installFocusBorder(JComponent component) {
         InputChrome.install(component, false);
     }
 
+    /**
+     * Installs enabled background.
+     *
+     * @param component Swing component
+     * @param enabledBackground whether to enable d background
+     */
     private static void installEnabledBackground(JTextComponent component, Color enabledBackground) {
         InputChrome.installEnabledBackground(component, enabledBackground);
     }

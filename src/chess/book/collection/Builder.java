@@ -245,7 +245,7 @@ public final class Builder {
 	 * Returns one non-blank string or a fallback.
 	 *
 	 * @param value source value
-	 * @param fallback fallback value
+	 * @param fallback default used when input is absent or invalid
 	 * @return normalized string
 	 */
 	private static String blankTo(String value, String fallback) {

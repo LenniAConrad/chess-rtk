@@ -144,6 +144,11 @@ public final class GameReviewer {
 	 * @param gameIndex one-based game index in the input source
 	 * @param options review options
 	 * @param rows destination rows
+	 * @param backend review engine backend
+	 * @param limit maximum games or rows to process
+	 * @param sourceLabel label for the reviewed input source
+	 * @param thresholds review classification thresholds
+	 * @throws java.io.IOException if external I/O or engine communication fails
 	 */
 	private static void reviewGame(
 			ReviewBackend backend,
@@ -191,7 +196,10 @@ public final class GameReviewer {
 	 * @param ply zero-based ply index
 	 * @param options review options
 	 * @param sourceOpeningTags opening tags from the game start
+	 * @param backend review engine backend
+	 * @param thresholds review classification thresholds
 	 * @return review row
+	 * @throws java.io.IOException if external I/O or engine communication fails
 	 */
 	private static ReviewRow reviewPly(
 			ReviewBackend backend,
@@ -673,6 +681,11 @@ public final class GameReviewer {
 
 		/**
 		 * Creates a backend analysis record.
+		 *
+		 * @param bestScore best-move score
+		 * @param bestMove engine best move
+		 * @param pvBest principal variation for the best move
+		 * @param secondBestScore second-best move score
 		 */
 		private BackendAnalysis {
 			Objects.requireNonNull(bestScore, "bestScore");
@@ -691,6 +704,10 @@ public final class GameReviewer {
 
 		/**
 		 * Creates a raw score.
+		 *
+		 * @param cp centipawn score
+		 * @param mate mate score, or null when absent
+		 * @param wdl win-draw-loss probabilities
 		 */
 		private RawScore {
 			if (cp == null && mate == null) {
@@ -829,6 +846,12 @@ public final class GameReviewer {
 
 		/**
 		 * Creates and validates options.
+		 *
+		 * @param limits search limits
+		 * @param limit maximum games or rows to process
+		 * @param sourceLabel label for the reviewed input source
+		 * @param thresholds review classification thresholds
+		 * @param crtkVersion ChessRTK version string
 		 */
 		public Options {
 			Objects.requireNonNull(limits, "limits");
@@ -873,6 +896,19 @@ public final class GameReviewer {
 
 		/**
 		 * Creates and validates UCI options.
+		 *
+		 * @param protocol engine protocol name
+		 * @param protocolPath external engine protocol path
+		 * @param maxNodes maximum search node budget
+		 * @param maxDurationMillis maximum search duration in milliseconds
+		 * @param multipv number of principal variations to request
+		 * @param threads engine thread count
+		 * @param hash engine hash size in megabytes
+		 * @param showWdl whether WDL output is requested
+		 * @param limit maximum games or rows to process
+		 * @param sourceLabel label for the reviewed input source
+		 * @param thresholds review classification thresholds
+		 * @param crtkVersion ChessRTK version string
 		 */
 		public UciOptions {
 			Objects.requireNonNull(protocol, "protocol");
@@ -899,6 +935,9 @@ public final class GameReviewer {
 
 		/**
 		 * Creates a review output.
+		 *
+		 * @param rows review rows
+		 * @param gamesRead number of games read from the source
 		 */
 		public Review {
 			rows = rows == null ? List.of() : List.copyOf(rows);

@@ -34,7 +34,7 @@ package chess.nn.lc0.bt4;
  * @param smolgenGlobalSize attention-bias size produced by smolgen (tokens*tokens)
  * @param defaultActivation default activation for body MISH/RELU/NONE
  * @param smolgenActivation smolgen-internal activation
- * @param ffnActivation FFN activation
+ * @param ffnActivation source ffn activation
  * @param hasInputPreproc whether per-square preproc dense is present
  * @param hasInputEmbFfn whether an FFN follows the input embedding
  * @param hasInputGates whether mult/add gates follow the input embedding
@@ -111,21 +111,21 @@ public record Architecture(
 
     /**
      * Validates architecture metadata.
-     * @param name name value
+     * @param name display name
      * @param inputFormat input encoding format
      * @param inputEmbedding input embedding type
      * @param inputChannels number of input channels
      * @param tokens token values
-     * @param embeddingSize embedding size
+     * @param embeddingSize source embedding size
      * @param encoderLayers number of encoder layers
      * @param attentionHeads attention head count
      * @param policySize policy output size
      * @param layerNormEpsilon layer normalization epsilon
      * @param ffnHiddenSize feed-forward hidden size
      * @param smolgenHiddenChannels Smolgen hidden channel count
-     * @param smolgenHiddenSize Smolgen hidden size
+     * @param smolgenHiddenSize source smolgen hidden size
      * @param smolgenPerHeadDim Smolgen per-head dimension
-     * @param smolgenGlobalSize Smolgen global size
+     * @param smolgenGlobalSize source smolgen global size
      * @param defaultActivation default activation function
      * @param smolgenActivation Smolgen activation function
      * @param ffnActivation feed-forward activation function

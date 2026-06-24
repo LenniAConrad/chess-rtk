@@ -1219,12 +1219,12 @@ public abstract class NnueAtlasView extends NnueViewBase {
          * @param output output weights
          * @param compareSnapshot comparison snapshot
          * @param compareAtlas comparison atlas data
-         * @param sortMode sort mode
+         * @param sortMode source sort mode
          * @param selectedSquare selected board square
          * @param hidden hidden slot count
          * @param planes piece-plane count
          * @param squares square count
-         * @param paletteKey palette key
+         * @param paletteKey source palette key
          * @param paintingData data to paint
          * @param subtitle header subtitle
          * @param order slot render order

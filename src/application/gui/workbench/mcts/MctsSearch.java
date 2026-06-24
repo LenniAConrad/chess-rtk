@@ -480,7 +480,7 @@ public final class MctsSearch implements AutoCloseable {
     /**
      * Returns the depth-biased emission score for tree-snapshot ordering.
      *
-     * @param node node
+     * @param node tree node
      * @return visits scaled by a per-ply depth bonus
      */
     private static double emitScore(Node node) {
@@ -652,6 +652,9 @@ public final class MctsSearch implements AutoCloseable {
 
     /**
      * Returns the single principal-variation child for PV-spine traversal.
+     *
+     * @param parent parent node
+     * @return single principal-variation child for PV-spine traversal
      */
     private List<Node> pvChildren(Node parent) {
         Node child = mostVisitedChild(parent);
@@ -660,6 +663,10 @@ public final class MctsSearch implements AutoCloseable {
 
     /**
      * Counts descendants omitted by traversal controls.
+     *
+     * @param start starting search position
+     * @param options search options
+     * @return number of descendants omitted by traversal controls
      */
     private int countVisibleDescendants(Node start, TreeOptions options) {
         if (start.depth > options.maxDepth()) {
@@ -688,6 +695,10 @@ public final class MctsSearch implements AutoCloseable {
 
     /**
      * Counts children that traversal would expose below a depth-limited node.
+     *
+     * @param node tree node
+     * @param options search options
+     * @return number of children that traversal would expose below a depth-limited node
      */
     private int visibleChildCount(Node node, TreeOptions options) {
         int count = 0;
@@ -701,6 +712,9 @@ public final class MctsSearch implements AutoCloseable {
 
     /**
      * Builds one immutable node-inspection row.
+     *
+     * @param node tree node
+     * @return built one immutable node-inspection row
      */
     private NodeInfo nodeInfo(Node node) {
         String id = nodeId(node);
@@ -742,6 +756,9 @@ public final class MctsSearch implements AutoCloseable {
 
     /**
      * Returns the current root principal variation.
+     *
+     * @param maxMoves maximum number of moves to sample
+     * @return current root principal variation
      */
     private short[] rootPrincipalVariation(int maxMoves) {
         RootDecision decision = immediateRootDecision;
@@ -758,7 +775,7 @@ public final class MctsSearch implements AutoCloseable {
      * @param decision immediate root decision, or null
      * @param left left child
      * @param right right child
-     * @return comparison result
+     * @return comparison
      */
     private static int compareRootChildren(RootDecision decision, Node left, Node right) {
         if (decision != null && decision.bestMove() != Move.NO_MOVE) {
@@ -1321,6 +1338,9 @@ public final class MctsSearch implements AutoCloseable {
 
     /**
      * Returns the stable UCI-line id for a node.
+     *
+     * @param node tree node
+     * @return stable UCI-line id for a node
      */
     private static String nodeId(Node node) {
         return MctsSearchFormatter.nodeId(lineTo(node, 128));
@@ -1328,6 +1348,9 @@ public final class MctsSearch implements AutoCloseable {
 
     /**
      * Returns compact terminal-state text for tree inspection.
+     *
+     * @param node tree node
+     * @return compact terminal-state text for tree inspection
      */
     private static String terminalState(Node node) {
         if (node.proof != ProofState.UNKNOWN) {
@@ -1608,6 +1631,8 @@ public final class MctsSearch implements AutoCloseable {
     public record TreeOptions(int maxDepth, int maxNodes, int minVisits, int maxBranching, boolean pvOnly) {
         /**
          * Default compact tree controls for interactive Swing rendering.
+         *
+         * @return default compact tree controls for interactive Swing rendering
          */
         public static TreeOptions defaults() {
             return new TreeOptions(3, 256, 0, 0, false);
@@ -1615,6 +1640,8 @@ public final class MctsSearch implements AutoCloseable {
 
         /**
          * Returns clamped traversal controls.
+         *
+         * @return clamped traversal controls
          */
         public TreeOptions normalized() {
             int depth = Math.max(0, Math.min(256, maxDepth));

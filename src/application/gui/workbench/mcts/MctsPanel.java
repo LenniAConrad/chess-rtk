@@ -171,7 +171,9 @@ public final class MctsPanel extends SurfacePanel implements MctsSession.Listene
      * Idle state shown before a search streams root rows.
      */
     private final JComponent rootEmptyState =
-            Ui.emptyState("No search yet", "Press Start to stream root moves and PUCT scores.");
+            Ui.emptyState("No search yet", "Stream root moves and PUCT scores from the selected backend.",
+                    Ui.button("Start search", true, event -> start()),
+                    Ui.button("Copy command", false, event -> copyCliCommand()));
 
     /**
      * Selected-node detail area.
@@ -222,7 +224,7 @@ public final class MctsPanel extends SurfacePanel implements MctsSession.Listene
     /**
      * Updates the main-board FEN observed by this panel.
      *
-     * @param fen FEN
+     * @param fen FEN string
      */
     public void setBoardFen(String fen) {
         if (fen == null || fen.isBlank()) {
@@ -442,7 +444,7 @@ public final class MctsPanel extends SurfacePanel implements MctsSession.Listene
         if (selected == null && !rows.isEmpty()) {
             selected = rowAsNode(rows.get(0), snapshot.rootFen());
         }
-        boardPreview.setNode(selected);
+        boardPreview.setPosition(snapshot.rootFen(), selected);
         detailArea.setText(detailText(snapshot, tree, selected));
         detailArea.setCaretPosition(0);
     }
@@ -538,7 +540,7 @@ public final class MctsPanel extends SurfacePanel implements MctsSession.Listene
      * Converts a root-row summary into a selected-node fallback.
      *
      * @param row root row
-     * @param rootFen root FEN
+     * @param rootFen source root fen
      * @return node info
      */
     private static MctsSearch.NodeInfo rowAsNode(MctsSearch.Row row, String rootFen) {
@@ -629,7 +631,7 @@ public final class MctsPanel extends SurfacePanel implements MctsSession.Listene
     /**
      * Formats a signed decimal value.
      *
-     * @param value value
+     * @param value candidate value
      * @return signed text
      */
     private static String signed(double value) {
@@ -694,7 +696,7 @@ public final class MctsPanel extends SurfacePanel implements MctsSession.Listene
         /**
          * Finds the row index for a tree node id.
          *
-         * @param nodeId node id
+         * @param nodeId source node id
          * @return model row index, or {@code -1}
          */
         int indexOf(String nodeId) {
@@ -740,8 +742,8 @@ public final class MctsPanel extends SurfacePanel implements MctsSession.Listene
         /**
          * Returns a formatted cell value.
          *
-         * @param rowIndex row index
-         * @param columnIndex column index
+         * @param rowIndex zero-based row index
+         * @param columnIndex zero-based column index
          * @return cell value
          */
         @Override
@@ -763,7 +765,7 @@ public final class MctsPanel extends SurfacePanel implements MctsSession.Listene
         /**
          * Returns the preferred cell class for sorting/rendering.
          *
-         * @param columnIndex column index
+         * @param columnIndex zero-based column index
          * @return cell class
          */
         @Override
@@ -782,6 +784,11 @@ public final class MctsPanel extends SurfacePanel implements MctsSession.Listene
         private static final long serialVersionUID = 1L;
 
         /**
+         * Root FEN used before the search has produced a selected node.
+         */
+        private String rootFen = Game.STANDARD_START_FEN;
+
+        /**
          * Currently selected node.
          */
         private MctsSearch.NodeInfo node;
@@ -795,11 +802,13 @@ public final class MctsPanel extends SurfacePanel implements MctsSession.Listene
         }
 
         /**
-         * Updates the selected node and repaints.
+         * Updates the preview root and selected node.
          *
+         * @param root next root FEN
          * @param next next selected node
          */
-        void setNode(MctsSearch.NodeInfo next) {
+        void setPosition(String root, MctsSearch.NodeInfo next) {
+            rootFen = root == null || root.isBlank() ? Game.STANDARD_START_FEN : root;
             node = next;
             repaint();
         }
@@ -822,9 +831,10 @@ public final class MctsPanel extends SurfacePanel implements MctsSession.Listene
                 g.setFont(Theme.font(12, Font.BOLD));
                 g.drawString("Board preview", board.x, 18);
                 BoardStyle.drawBoardSurface(g, board, true);
-                if (node != null && node.fen() != null) {
-                    boolean whiteDown = TensorViz.whiteDownForSideToMove(node.fen());
-                    short[] line = node.line();
+                String fen = node != null && node.fen() != null ? node.fen() : rootFen;
+                if (fen != null && !fen.isBlank()) {
+                    boolean whiteDown = TensorViz.whiteDownForSideToMove(fen);
+                    short[] line = node == null ? null : node.line();
                     if (line != null && line.length > 0) {
                         short last = line[line.length - 1];
                         BoardStyle.drawInsetSquareHighlight(g,
@@ -834,7 +844,7 @@ public final class MctsPanel extends SurfacePanel implements MctsSession.Listene
                                 BoardStyle.fieldSquareBounds(board, Move.getToIndex(last), whiteDown),
                                 Theme.withAlpha(TensorViz.POSITIVE, 230));
                     }
-                    TensorViz.drawPositionPieces(g, board, node.fen(), whiteDown);
+                    TensorViz.drawPositionPieces(g, board, fen, whiteDown);
                     TensorViz.drawBoardCoordinates(g, board, whiteDown);
                 }
             } finally {

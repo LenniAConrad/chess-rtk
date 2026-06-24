@@ -369,7 +369,7 @@ public final class DatasetManifest {
 	 * Renders the manifest JSON for the given component values.
 	 *
 	 * @param exporter      logical exporter identifier
-	 * @param crtkVersion   CRTK version
+	 * @param crtkVersion   source crtk version
 	 * @param gitCommit     git commit hash or {@code null}
 	 * @param argv          verbatim argv tokens
 	 * @param metadata      optional exporter-owned metadata values

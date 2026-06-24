@@ -25,12 +25,21 @@ final class WindowTitleBarSearch {
         // utility
     }
 
+    /**
+     * Creates the create.
+     *
+     * @param onOpenPalette source on open palette
+     * @return create
+     */
     static JComponent create(Runnable onOpenPalette) {
         final int radius = Theme.RADIUS + 2;
         final int preferredWidth = 380;
         final int preferredHeight = 24;
         final boolean[] hovered = { false };
         JComponent box = new JComponent() {
+            /**
+             * Serialization identifier for Swing compatibility.
+             */
             private static final long serialVersionUID = 1L;
 
             /**
@@ -106,6 +115,12 @@ final class WindowTitleBarSearch {
         return box;
     }
 
+    /**
+     * Draws the paint search icon.
+     *
+     * @param g graphics context
+     * @param height height in pixels
+     */
     private static void paintSearchIcon(Graphics2D g, int height) {
         int iconCx = 12;
         int iconCy = height / 2;
@@ -117,6 +132,13 @@ final class WindowTitleBarSearch {
                 iconCx + circleR + 3, iconCy + circleR + 3);
     }
 
+    /**
+     * Draws the paint label.
+     *
+     * @param g graphics context
+     * @param width width in pixels
+     * @param height height in pixels
+     */
     private static void paintLabel(Graphics2D g, int width, int height) {
         g.setFont(Theme.font(11, Font.PLAIN));
         g.setColor(Theme.MUTED);

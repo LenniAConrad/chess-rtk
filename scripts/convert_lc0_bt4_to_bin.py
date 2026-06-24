@@ -9,8 +9,8 @@ Usage::
 
     ./scripts/convert_lc0_bt4_to_bin.py --in models/BT4-...pb.gz --out models/bt4.bin
 
-Requires the ``protobuf`` Python package; ``net_pb2.py`` is generated lazily
-from ``scripts/proto/net.proto``.
+Conversion requires the ``numpy`` and ``protobuf`` Python packages;
+``net_pb2.py`` is generated lazily from ``scripts/proto/net.proto``.
 """
 
 import argparse
@@ -20,11 +20,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-import numpy as np
-
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROTO_DIR = SCRIPT_DIR / "proto"
+np = None
+net_pb2 = None
 
 
 def ensure_proto_module():
@@ -37,8 +37,17 @@ def ensure_proto_module():
     sys.path.insert(0, str(PROTO_DIR))
 
 
-ensure_proto_module()
-import net_pb2  # noqa: E402  (deferred import after path setup)
+def load_converter_dependencies():
+    """Load optional conversion dependencies after argparse has handled --help."""
+    global np
+    global net_pb2
+    if np is None:
+        import numpy as numpy_module
+        np = numpy_module
+    if net_pb2 is None:
+        ensure_proto_module()
+        import net_pb2 as net_pb2_module
+        net_pb2 = net_pb2_module
 
 
 MAGIC = 0x4A345442  # "BT4J"
@@ -346,6 +355,7 @@ def main():
     parser.add_argument("--value-head", default="winner",
                         choices=["winner", "q", "st"])
     args = parser.parse_args()
+    load_converter_dependencies()
 
     in_path = Path(args.input).expanduser().resolve()
     out_path = Path(args.output).expanduser().resolve()

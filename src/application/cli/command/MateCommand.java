@@ -62,27 +62,27 @@ public final class MateCommand {
 	 */
 	private enum OutputFormat {
 		/**
-		 * S u m m a r y,.
+		 * Human-readable mate summary.
 		 */
 		SUMMARY,
 		/**
-		 * U c i,.
+		 * UCI move sequence.
 		 */
 		UCI,
 		/**
-		 * S a n,.
+		 * SAN move sequence.
 		 */
 		SAN,
 		/**
-		 * B o t h,.
+		 * UCI and SAN move sequences.
 		 */
 		BOTH,
 		/**
-		 * J s o n,.
+		 * Single JSON response.
 		 */
 		JSON,
 		/**
-		 * J s o n l.
+		 * JSON Lines response.
 		 */
 		JSONL
 	}
@@ -119,7 +119,7 @@ public final class MateCommand {
 	/**
 	 * Parses command options.
 	 * @param a first value
-	 * @return parse options result
+	 * @return parsed command options
 	 */
 	private static Options parseOptions(Argv a) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
@@ -149,7 +149,7 @@ public final class MateCommand {
 	/**
 	 * Parses output format.
 	 * @param value value to use
-	 * @return parse format result
+	 * @return parsed output format
 	 */
 	private static OutputFormat parseFormat(String value) {
 		if (value == null || value.isBlank()) {
@@ -169,7 +169,7 @@ public final class MateCommand {
 
 	/**
 	 * Searches one position and prints the requested output.
-	 * @param entry entry value
+	 * @param entry input entry
 	 * @param opts command options
 	 * @param separate true to separate output sections
 	 */
@@ -183,9 +183,9 @@ public final class MateCommand {
 
 	/**
 	 * Prints one proof-search result.
-	 * @param entry entry value
+	 * @param entry input entry
 	 * @param position chess position
-	 * @param result result value
+	 * @param result result label
 	 * @param elapsedMillis elapsed time in milliseconds
 	 * @param opts command options
 	 * @param separate true to separate output sections
@@ -223,9 +223,9 @@ public final class MateCommand {
 
 	/**
 	 * Prints a human-readable summary.
-	 * @param entry entry value
+	 * @param entry input entry
 	 * @param position chess position
-	 * @param result result value
+	 * @param result result label
 	 * @param elapsedMillis elapsed time in milliseconds
 	 * @param opts command options
 	 * @param separate true to separate output sections
@@ -260,9 +260,9 @@ public final class MateCommand {
 
 	/**
 	 * Prints a JSON object.
-	 * @param entry entry value
+	 * @param entry input entry
 	 * @param position chess position
-	 * @param result result value
+	 * @param result result label
 	 * @param elapsedMillis elapsed time in milliseconds
 	 * @param opts command options
 	 */

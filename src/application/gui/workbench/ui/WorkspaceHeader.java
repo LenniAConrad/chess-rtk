@@ -35,6 +35,9 @@ public final class WorkspaceHeader extends JPanel {
      * Header border that repaints from current theme tokens after a theme change.
      */
     private static final Border HEADER_BORDER = new AbstractBorder() {
+        /**
+         * Serialization identifier for Swing compatibility.
+         */
         private static final long serialVersionUID = 1L;
 
         /**
@@ -187,6 +190,9 @@ public final class WorkspaceHeader extends JPanel {
      * push action buttons off the header.
      */
     private static final class ElidingLabel extends JLabel {
+        /**
+         * Serialization identifier for Swing compatibility.
+         */
         private static final long serialVersionUID = 1L;
 
         /**

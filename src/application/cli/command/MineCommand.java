@@ -333,8 +333,8 @@ public final class MineCommand {
 
 	/**
 	 * Handles mining progress bar.
-	 * @param config config
-	 * @return computed value
+	 * @param config configuration object
+	 * @return handles mining progress bar
 	 */
 	private static Bar miningProgressBar(MiningConfig config) {
 		if (config == null || config.infinite() || config.maxTotal() == Long.MAX_VALUE) {
@@ -345,13 +345,13 @@ public final class MineCommand {
 
 	/**
 	 * Handles update mining progress.
-	 * @param bar bar
-	 * @param processed processed
-	 * @param wave wave
-	 * @param frontier frontier
-	 * @param puzzles puzzles
-	 * @param nonpuzzles nonpuzzles
-	 * @param phase phase
+	 * @param bar progress bar
+	 * @param processed processed item count
+	 * @param wave search wave
+	 * @param frontier frontier size
+	 * @param puzzles puzzle records
+	 * @param nonpuzzles non-puzzle count
+	 * @param phase pipeline phase
 	 */
 	private static void updateMiningProgress(
 			Bar bar,
@@ -377,7 +377,7 @@ public final class MineCommand {
 
 	/**
 	 * Handles finish progress.
-	 * @param bar bar
+	 * @param bar progress bar
 	 */
 	private static void finishProgress(Bar bar) {
 		if (bar != null) {
@@ -550,8 +550,8 @@ public final class MineCommand {
 			this.map = new LinkedHashMap<>(initialCapacity, 0.75f, true) {
 				 /**
 				 * Handles remove eldest entry.
-				 * @param eldest eldest
-				 * @return computed value
+				 * @param eldest eldest cache entry
+				 * @return handles remove eldest entry
 				 */
 				 @Override
 				protected boolean removeEldestEntry(Map.Entry<String, Boolean> eldest) {

@@ -24,7 +24,7 @@ final class OptionPaneStyler {
      * @param owner owner component
      * @param content dialog content
      * @param title dialog title
-     * @return {@link JOptionPane} result
+     * @return JOptionPane
      */
     static int showConfirmDialog(Component owner, JComponent content, String title) {
         JOptionPane pane = new JOptionPane(content, JOptionPane.PLAIN_MESSAGE, JOptionPane.OK_CANCEL_OPTION);

@@ -69,7 +69,7 @@ final class VolatilityAccumulator {
 
     /**
      * Creates an accumulator.
-     * @param maxPuzzles max puzzles value
+     * @param maxPuzzles maximum puzzle count
      */
     VolatilityAccumulator(int maxPuzzles) {
         this.maxPuzzles = Math.max(0, maxPuzzles);
@@ -136,7 +136,7 @@ final class VolatilityAccumulator {
     /**
      * Converts a verified record into an indexed puzzle node.
      * @param rec record value
-     * @return puzzle node result
+     * @return converted a verified record into an indexed puzzle node
      */
     private PuzzleNode puzzleNode(Record rec) {
         try {
@@ -161,7 +161,7 @@ final class VolatilityAccumulator {
     /**
      * Builds one explicit puzzle-stack tree report.
      * @param root root position or node
-     * @return build tree report result
+     * @return built one explicit puzzle-stack tree report
      */
     private TreeReport buildTreeReport(PuzzleNode root) {
         List<NodeReport> nodes = new ArrayList<>();
@@ -202,8 +202,8 @@ final class VolatilityAccumulator {
 
     /**
      * Builds an aggregate root report.
-     * @param tree tree value
-     * @return root report result
+     * @param tree source tree
+     * @return built an aggregate root report
      */
     private static RootReport rootReport(TreeReport tree) {
         NodeReport root = tree.nodes().get(0);
@@ -248,7 +248,7 @@ final class VolatilityAccumulator {
     /**
      * Deduplicates child records by analyzed position signature.
      * @param children child nodes
-     * @return unique children result
+     * @return unique children
      */
     private static List<PuzzleNode> uniqueChildren(List<PuzzleNode> children) {
         if (children == null || children.isEmpty()) {

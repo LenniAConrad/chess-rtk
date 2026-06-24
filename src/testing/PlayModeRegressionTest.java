@@ -73,6 +73,7 @@ public final class PlayModeRegressionTest {
         testThreefoldRepetition();
         testFiftyMoveRule();
         testPresetBotsUseAlphaBetaClassical();
+        testPanelContextUsesCorePosition();
         testOpponentSelection();
         testAllBackendCombinations();
         testOpeningBook();
@@ -373,6 +374,9 @@ public final class PlayModeRegressionTest {
         CountDownLatch secondSearchEntered = new CountDownLatch(1);
         CountDownLatch releaseSecondSearch = new CountDownLatch(1);
         PlaySession.OpponentProvider blocking = config -> new Opponent() {
+            /**
+             * Number of scripted engine searches completed by this stub.
+             */
             private int callCount;
 
             /**
@@ -872,6 +876,33 @@ public final class PlayModeRegressionTest {
     }
 
     /**
+     * Verifies the Play panel derives side-to-move and material summaries from a
+     * core-parsed position, including deterministic fallback for malformed FEN.
+     */
+    private static void testPanelContextUsesCorePosition() {
+        FakeHost host = new FakeHost();
+        PlaySession session = new PlaySession(host, new StrengthModel(), firstLegalOpponent());
+        host.bind(session);
+        try {
+            PlayPanel valid = new PlayPanel(session,
+                    () -> "4k3/8/8/8/8/8/8/4KQ2 b - - 0 1");
+            String validContext = valid.workspaceContext();
+            check("panel: context uses core side to move", validContext.contains("Black to move"));
+            check("panel: context uses core material units",
+                    validContext.contains("Material +9") || validContext.contains("Material -9"));
+
+            PlayPanel malformed = new PlayPanel(session, () -> "Q b - - 0 1");
+            String malformedContext = malformed.workspaceContext();
+            check("panel: malformed FEN does not leak side token",
+                    malformedContext.contains("White to move"));
+            check("panel: malformed FEN falls back to material even",
+                    malformedContext.contains("Material even"));
+        } finally {
+            session.dispose();
+        }
+    }
+
+    /**
      * Returns a provider whose opponent plays a fixed sequence of UCI moves, one
      * per call, for scripting deterministic controller scenarios.
      *
@@ -880,6 +911,9 @@ public final class PlayModeRegressionTest {
      */
     private static PlaySession.OpponentProvider scriptedOpponent(String... ucis) {
         return config -> new Opponent() {
+            /**
+             * Index of the next scripted UCI move to return.
+             */
             private int index;
 
             /**
@@ -1077,7 +1111,7 @@ public final class PlayModeRegressionTest {
     /**
      * Finds a legal move by UCI text.
      *
-     * @param position position
+     * @param position chess position
      * @param uci UCI move text
      * @return encoded move, or {@link Move#NO_MOVE}
      */
@@ -1094,8 +1128,8 @@ public final class PlayModeRegressionTest {
     /**
      * Returns whether a move is legal in a position.
      *
-     * @param position position
-     * @param move move
+     * @param position chess position
+     * @param move encoded chess move
      * @return true when legal
      */
     private static boolean isLegal(Position position, short move) {
@@ -1224,7 +1258,7 @@ public final class PlayModeRegressionTest {
         /**
          * Binds the session this host drives.
          *
-         * @param session session
+         * @param session workbench session
          */
         void bind(PlaySession session) {
             this.session = session;

@@ -70,7 +70,7 @@ final class TranspositionTable {
      * @param depth search depth
      * @param score alpha-beta score to store
      * @param flag bound flag
-     * @param bestMove best move
+     * @param bestMove source best move
      * @param generation iterative-deepening generation
      */
     void store(long key, int depth, int score, byte flag, short bestMove, int generation) {

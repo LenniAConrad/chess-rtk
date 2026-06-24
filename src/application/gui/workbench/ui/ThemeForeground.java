@@ -8,10 +8,19 @@ import javax.swing.JComponent;
  */
 final class ThemeForeground {
 
+    /**
+     * Creates the theme foreground.
+     */
     private ThemeForeground() {
         // utility
     }
 
+    /**
+     * Applies value.
+     *
+     * @param component Swing component
+     * @param role semantic role
+     */
     static void apply(JComponent component, Theme.ForegroundRole role) {
         if (component == null) {
             return;
@@ -21,6 +30,12 @@ final class ThemeForeground {
         component.setForeground(color(resolved));
     }
 
+    /**
+     * Resolves the foreground color for a semantic role.
+     *
+     * @param role foreground role, or {@code null} for normal text
+     * @return resolved color
+     */
     static Color color(Theme.ForegroundRole role) {
         return switch (role == null ? Theme.ForegroundRole.TEXT : role) {
             case MUTED -> Theme.MUTED;

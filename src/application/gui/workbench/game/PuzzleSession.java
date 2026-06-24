@@ -784,7 +784,7 @@ public final class PuzzleSession {
      *
      * @param input input cursor
      * @param skipSimilarVariations true to skip duplicate continuations
-     * @return sync result
+     * @return sync
      */
     private SyncResult sync(Cursor input, boolean skipSimilarVariations) {
         Cursor work = normalize(input);
@@ -902,8 +902,8 @@ public final class PuzzleSession {
     /**
      * Returns a continuation signature for duplicate-branch detection.
      *
-     * @param lineIndex line index
-     * @param cursorIndex cursor index
+     * @param lineIndex zero-based line index
+     * @param cursorIndex zero-based cursor index
      * @return signature, or null
      */
     private String positionContinuationSignature(int lineIndex, int cursorIndex) {
@@ -919,7 +919,7 @@ public final class PuzzleSession {
      * Returns the remaining user move signature from one line index.
      *
      * @param line line node identifiers
-     * @param cursorIndex cursor index
+     * @param cursorIndex zero-based cursor index
      * @return signature
      */
     private String remainingUserMoveSignature(List<Integer> line, int cursorIndex) {
@@ -937,7 +937,7 @@ public final class PuzzleSession {
      * Returns whether a cursor is a solver decision or branch end.
      *
      * @param line line node identifiers
-     * @param cursorIndex cursor index
+     * @param cursorIndex zero-based cursor index
      * @return true when the cursor is a decision
      */
     private boolean decisionCursor(List<Integer> line, int cursorIndex) {
@@ -961,7 +961,7 @@ public final class PuzzleSession {
     /**
      * Returns a line by index.
      *
-     * @param lineIndex line index
+     * @param lineIndex zero-based line index
      * @return line node identifiers
      */
     private List<Integer> lineAt(int lineIndex) {
@@ -974,7 +974,7 @@ public final class PuzzleSession {
     /**
      * Returns a FEN key ignoring halfmove and fullmove counters.
      *
-     * @param fen FEN
+     * @param fen FEN string
      * @return comparable key
      */
     private static String fenStateKey(String fen) {
@@ -996,8 +996,14 @@ public final class PuzzleSession {
      * @return true when white is to move
      */
     private static boolean whiteToMove(String fen) {
-        String[] parts = fen == null ? new String[0] : fen.trim().split("\\s+");
-        return parts.length < 2 || !"b".equals(parts[1]);
+        if (fen == null || fen.isBlank()) {
+            return true;
+        }
+        try {
+            return new Position(fen.trim()).isWhiteToMove();
+        } catch (RuntimeException ex) {
+            return true;
+        }
     }
 
     /**
@@ -1096,7 +1102,7 @@ public final class PuzzleSession {
          * Creates a builder with a root node.
          *
          * @param userWhite whether the solver plays white
-         * @param rootFen root FEN
+         * @param rootFen source root fen
          */
         TreeBuilder(boolean userWhite, String rootFen) {
             this.userWhite = userWhite;

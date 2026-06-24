@@ -186,7 +186,7 @@ public final class Gauntlet {
          * @param index zero-based game index
          * @param candidateWhite whether the candidate played White
          * @param result candidate-perspective result label
-         * @param openingFen opening FEN
+         * @param openingFen source opening fen
          * @param moves UCI moves in order
          */
         public GameRecord {
@@ -540,7 +540,7 @@ public final class Gauntlet {
          * @param history pre-root core-position history
          * @param clock game-clock state when the side to move plays on a
          *              clock, or {@code null} for a fixed per-move budget
-         * @return search result
+         * @return search
          */
         Result search(Position position, Limits limits, long[] history, ClockState clock);
 
@@ -595,7 +595,13 @@ public final class Gauntlet {
          * Engine threads, hash, and extra UCI options applied at startup.
          */
         private final int threads;
+        /**
+         * UCI hash option in megabytes, or zero when unset.
+         */
         private final int hashMb;
+        /**
+         * Extra semicolon-separated UCI option assignments.
+         */
         private final String options;
 
         /**
@@ -1866,7 +1872,7 @@ public final class Gauntlet {
      * @param position current position
      * @param square home square
      * @param piece expected undeveloped piece
-     * @param penalty penalty value
+     * @param penalty source penalty
      * @return penalty when the piece is on the home square
      */
     private static int undeveloped(Position position, int square, byte piece, int penalty) {

@@ -1145,15 +1145,15 @@ final class Svg {
 		 * @param fillReference referenced gradient fill id
 		 * @param stroke stroke color
 		 * @param opacity inherited opacity
-		 * @param fillOpacity fill opacity
-		 * @param strokeOpacity stroke opacity
-		 * @param strokeWidth stroke width
-		 * @param fillRule fill rule
+		 * @param fillOpacity source fill opacity
+		 * @param strokeOpacity source stroke opacity
+		 * @param strokeWidth source stroke width
+		 * @param fillRule source fill rule
 		 * @param lineJoin line-join style
 		 * @param lineCap line-cap style
-		 * @param fontFamily font family
-		 * @param fontSize font size
-		 * @param fontWeight font weight
+		 * @param fontFamily source font family
+		 * @param fontSize font size in points
+		 * @param fontWeight source font weight
 		 */
 		private StyleState(Color fill, String fillReference, Color stroke, double opacity, double fillOpacity,
 				double strokeOpacity, double strokeWidth, String fillRule, String lineJoin, String lineCap,

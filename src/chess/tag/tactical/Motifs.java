@@ -493,9 +493,9 @@ public final class Motifs {
 
     /**
      * Holds one target discovered during ray scans.
- * @author Lennart A. Conrad
- * @since 2026
- */
+     * @author Lennart A. Conrad
+     * @since 2026
+     */
     private static final class LineTarget {
 
         /**
@@ -945,6 +945,9 @@ private static boolean isMeaningfulXRayPiece(byte piece) {
      * Field.getY(sq)==0 is rank 1 / white's back rank, ==7 is rank 8 / black's
      * back rank; Field.getX is the file (0=a..7=h); Piece.isWhite(raw) gives the
      * colour; index == Field.toIndex(x,y).
+     *
+     * @param position chess position
+     * @param out destination buffer
      */
     private static void addBackRankWeakness(Position position, List<String> out) {
         byte[] board = position.getBoard();
@@ -1067,6 +1070,12 @@ private static boolean isMeaningfulXRayPiece(byte piece) {
 // attacking side hits the square STRICTLY more times than the defender guards it
 // (the adjacent king itself counts as a defender -> conservative).
 
+/**
+ * Adds the add f7 weakness.
+ *
+ * @param position chess position
+ * @param out destination stream or buffer
+ */
 private static void addF7Weakness(Position position, List<String> out) {
     addF7WeaknessForKing(position, out, false); // Black king -> f7
     addF7WeaknessForKing(position, out, true);  // White king -> f2
@@ -1075,6 +1084,8 @@ private static void addF7Weakness(Position position, List<String> out) {
 /**
  * @param defenderIsWhite true to inspect the White king's f2 soft spot,
  *                        false to inspect the Black king's f7 soft spot.
+ * @param position chess position
+ * @param out destination buffer
  */
 private static void addF7WeaknessForKing(Position position, List<String> out, boolean defenderIsWhite) {
     byte kingSq = position.kingSquare(defenderIsWhite);
@@ -1225,6 +1236,13 @@ private static void addF7WeaknessForKing(Position position, List<String> out, bo
      * reply's from-square (the reply was generated against {@code afterSac}, so its
      * indices match that board). Reading the sacked piece off {@code afterSac}
      * would mislabel it because of the frame flip (verified at runtime).</p>
+     *
+     * @param position chess position
+     * @param sac candidate sacrifice move
+     * @param afterSac position after the sacrificial move
+     * @param reply opponent reply move
+     * @param sacTo sacrifice destination square
+     * @return built the concrete decoy phrase naming the sacrificed and lured pieces
      */
     private static String decoyDetail(Position position, short sac,
             Position afterSac, short reply, int sacTo) {
@@ -1238,6 +1256,9 @@ private static void addF7WeaknessForKing(Position position, List<String> out, bo
     /**
      * Returns the mover's capturing move with the highest strictly-positive See in
      * the given position, or {@link Move#NO_MOVE} if no capture has See &gt; 0.
+     *
+     * @param position chess position
+     * @return mover's capturing move with the highest strictly-positive See in the given position, or Move#NO_MOVE if no capture has See &gt; 0
      */
     private static short bestWinningCapture(Position position) {
         MoveList moves = position.legalMoves();
@@ -1259,6 +1280,9 @@ private static void addF7WeaknessForKing(Position position, List<String> out, bo
 
     /**
      * Lower-case piece name for decoy detail strings.
+     *
+     * @param piece encoded piece
+     * @return lower-case piece name for decoy detail strings
      */
     private static String decoyPieceName(byte piece) {
         if (Piece.isQueen(piece)) {
@@ -1284,6 +1308,9 @@ private static void addF7WeaknessForKing(Position position, List<String> out, bo
 
     /**
      * Square name derived from X/Y deltas.
+     *
+     * @param index zero-based index
+     * @return square name derived from X/Y deltas
      */
     private static String decoySquareName(int index) {
         int x = Field.getX((byte) index);

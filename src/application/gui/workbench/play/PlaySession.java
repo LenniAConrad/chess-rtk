@@ -966,7 +966,7 @@ public final class PlaySession {
      * Builds a result message for a terminal position.
      *
      * @param pos final position
-     * @return human-readable result
+     * @return built a result message for a terminal position
      */
     private String resultMessage(Position pos) {
         if (pos == null) {

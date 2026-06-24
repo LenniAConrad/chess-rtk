@@ -49,8 +49,8 @@ final class Layout {
     /**
      * Creates a layout.
      *
-     * @param variant variant
-     * @param size size
+     * @param variant layout or network variant
+     * @param size size in pixels or points
      */
     Layout(Variant variant, Size size) {
         this.variant = variant;
@@ -64,8 +64,8 @@ final class Layout {
     /**
      * Returns a layout.
      *
-     * @param variant variant
-     * @param size size
+     * @param variant layout or network variant
+     * @param size size in pixels or points
      * @return layout
      */
     static Layout of(Variant variant, Size size) {
@@ -170,7 +170,7 @@ final class Layout {
      * Computes a Stockfish affine-layer hash.
      *
      * @param previous previous layer hash
-     * @param outputDimensions output dimensions
+     * @param outputDimensions source output dimensions
      * @return layer hash
      */
     private static int affineHash(int previous, int outputDimensions) {

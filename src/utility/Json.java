@@ -17,14 +17,14 @@ import java.util.function.LongConsumer;
 
 /**
  * Utility class for basic JSON operations including parsing and formatting.
- * 
+ *
  * This class provides methods to:
  * - Convert arrays to JSON string representations.
  * - Parse JSON strings into arrays or individual fields.
  * - Split JSON arrays into individual objects.
- * 
+ *
  * It supports a limited subset of JSON syntax and is not a full parser.
- * 
+ *
  * @since 2025
  * @author Lennart A. Conrad
  */
@@ -35,7 +35,7 @@ public class Json {
      * It grows automatically once the incoming object exceeds this starting size.
      */
     private static final int STREAM_OBJ_INITIAL_CAPACITY = 1 << 20; // ~1 MiB chars
-    
+
     /**
      * Ceiling on the per-object buffer size to keep memory usage bounded for malformed input.
      * The stream reader refuses to grow beyond this limit and throws if more space is required.
@@ -106,7 +106,7 @@ public class Json {
      * <p>
      * Expected input shape (whitespace allowed):
      * </p>
-     * 
+     *
      * <pre>
      *   [ { ... }, { ... }, ... ]
      * </pre>
@@ -158,7 +158,7 @@ public class Json {
      *
      * <p>
      * <strong>Expected input shape:</strong>
-     * 
+     *
      * <pre>{@code
      * [ { ... }, { ... }, ... ]
      * }</pre>
@@ -243,9 +243,9 @@ public class Json {
 
     /**
      * Wraps an input stream with cumulative byte progress reporting.
-     * @param in in value
+     * @param in source stream
      * @param byteProgress progress byte value
-     * @return progress input result
+     * @return progress input
      */
     public static InputStream progressInput(InputStream in, LongConsumer byteProgress) {
         if (byteProgress == null) {
@@ -276,7 +276,7 @@ public class Json {
 
         /**
          * Creates a progress-reporting input stream.
-         * @param in in value
+         * @param in source stream
          * @param byteProgress progress byte value
          */
         private ProgressInputStream(InputStream in, LongConsumer byteProgress) {
@@ -286,7 +286,7 @@ public class Json {
 
          /**
          * Reads the value.
-         * @return computed value
+         * @return reads the value
          * @throws IOException if the operation fails
          */
          @Override
@@ -302,10 +302,10 @@ public class Json {
 
          /**
          * Reads the value.
-         * @param b b
-         * @param off off
-         * @param len len
-         * @return computed value
+         * @param b second value
+         * @param off start offset
+         * @param len number of bytes to process
+         * @return reads the value
          * @throws IOException if the operation fails
          */
          @Override
@@ -321,7 +321,7 @@ public class Json {
 
          /**
          * Handles add.
-         * @param delta delta
+         * @param delta signed change amount
          */
          private void add(long delta) {
             bytes += delta;
@@ -892,8 +892,8 @@ public class Json {
      * before the separator, the first quote is treated as literal detail text and
      * the second quote closes the array element.
      * </p>
-     * @param json json value
-     * @param quoteIndex quote index value
+     * @param json JSON payload or flag
+     * @param quoteIndex quote character index
      * @return true when is string array terminator
      */
     private static boolean isStringArrayTerminator(String json, int quoteIndex) {
@@ -914,9 +914,9 @@ public class Json {
 
     /**
      * Finds the next non-whitespace index.
-     * @param json json value
-     * @param from from value
-     * @return next non whitespace result
+     * @param json JSON payload or flag
+     * @param from source square or start value
+     * @return next non whitespace
      */
     private static int nextNonWhitespace(String json, int from) {
         int i = Math.max(0, from);

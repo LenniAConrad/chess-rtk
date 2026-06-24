@@ -135,9 +135,9 @@ public final class RecordAnalysisDeltaCommand {
 
 	/**
 	 * Handles file progress bar.
-	 * @param input input
-	 * @param label label
-	 * @return computed value
+	 * @param input input path or text
+	 * @param label display label
+	 * @return handles file progress bar
 	 */
 	private static Bar fileProgressBar(Path input, String label) {
 		try {
@@ -150,7 +150,7 @@ public final class RecordAnalysisDeltaCommand {
 
 	/**
 	 * Handles finish progress.
-	 * @param bar bar
+	 * @param bar progress bar
 	 */
 	private static void finishProgress(Bar bar) {
 		if (bar != null) {
@@ -182,7 +182,7 @@ public final class RecordAnalysisDeltaCommand {
 
 		 /**
 		 * Creates a new delta writer instance.
-		 * @param out out
+		 * @param out destination stream or buffer
 		 */
 		 private DeltaWriter(BufferedWriter out) {
 			this.out = out;
@@ -190,7 +190,7 @@ public final class RecordAnalysisDeltaCommand {
 
 		 /**
 		 * Handles accept.
-		 * @param rec rec
+		 * @param rec source record
 		 */
 		 @Override
 		public void accept(Record rec) {
@@ -214,7 +214,7 @@ public final class RecordAnalysisDeltaCommand {
 
 		 /**
 		 * Handles written count.
-		 * @return computed value
+		 * @return handles written count
 		 */
 		 private long writtenCount() {
 			return written;
@@ -222,7 +222,7 @@ public final class RecordAnalysisDeltaCommand {
 
 		 /**
 		 * Handles invalid count.
-		 * @return computed value
+		 * @return handles invalid count
 		 */
 		 private long invalidCount() {
 			return invalid;
@@ -231,9 +231,9 @@ public final class RecordAnalysisDeltaCommand {
 
 	/**
 	 * Handles build json line.
-	 * @param rec rec
-	 * @param index index
-	 * @return computed value
+	 * @param rec source record
+	 * @param index zero-based index
+	 * @return handles build json line
 	 */
 	private static String buildJsonLine(Record rec, long index) {
 		Analysis analysis = (rec == null) ? null : rec.getAnalysis();
@@ -282,8 +282,8 @@ public final class RecordAnalysisDeltaCommand {
 
 	/**
 	 * Handles first sample.
-	 * @param samples samples
-	 * @return computed value
+	 * @param samples sample rows
+	 * @return handles first sample
 	 */
 	private static Output firstSample(List<Output> samples) {
 		return samples.isEmpty() ? null : samples.get(0);
@@ -291,8 +291,8 @@ public final class RecordAnalysisDeltaCommand {
 
 	/**
 	 * Handles last sample.
-	 * @param samples samples
-	 * @return computed value
+	 * @param samples sample rows
+	 * @return handles last sample
 	 */
 	private static Output lastSample(List<Output> samples) {
 		return samples.isEmpty() ? null : samples.get(samples.size() - 1);
@@ -300,9 +300,9 @@ public final class RecordAnalysisDeltaCommand {
 
 	/**
 	 * Handles compute delta.
-	 * @param initialEval initial eval
-	 * @param finalEval final eval
-	 * @return computed value
+	 * @param initialEval source initial eval
+	 * @param finalEval source final eval
+	 * @return handles compute delta
 	 */
 	private static DeltaInfo computeDelta(Evaluation initialEval, Evaluation finalEval) {
 		String deltaType = DELTA_NONE;
@@ -320,10 +320,10 @@ public final class RecordAnalysisDeltaCommand {
 
 	/**
 	 * Handles compute fluctuation.
-	 * @param samples samples
-	 * @param finalEval final eval
-	 * @param deltaType delta type
-	 * @return computed value
+	 * @param samples sample rows
+	 * @param finalEval source final eval
+	 * @param deltaType source delta type
+	 * @return handles compute fluctuation
 	 */
 	private static FluctuationInfo computeFluctuation(List<Output> samples, Evaluation finalEval, String deltaType) {
 		FluctuationInfo info = new FluctuationInfo();
@@ -425,8 +425,8 @@ public final class RecordAnalysisDeltaCommand {
 
 		 /**
 		 * Creates a new delta info instance.
-		 * @param type type
-		 * @param value value
+		 * @param type type discriminator
+		 * @param value candidate value
 		 */
 		 private DeltaInfo(String type, Integer value) {
 			this.type = type;
@@ -470,8 +470,8 @@ public final class RecordAnalysisDeltaCommand {
 
 	/**
 	 * Handles collect samples.
-	 * @param analysis analysis
-	 * @return computed value
+	 * @param analysis analysis result
+	 * @return handles collect samples
 	 */
 	private static List<Output> collectSamples(Analysis analysis) {
 		Output[] outputs = analysis.getOutputs();
@@ -495,7 +495,7 @@ public final class RecordAnalysisDeltaCommand {
 
 	/**
 	 * Returns whether valid.
-	 * @param eval eval
+	 * @param eval engine evaluation
 	 * @return true when valid
 	 */
 	private static boolean isValid(Evaluation eval) {
@@ -504,9 +504,9 @@ public final class RecordAnalysisDeltaCommand {
 
 	/**
 	 * Handles same eval.
-	 * @param a a
-	 * @param b b
-	 * @return computed value
+	 * @param a first value
+	 * @param b second value
+	 * @return handles same eval
 	 */
 	private static boolean sameEval(Evaluation a, Evaluation b) {
 		if (!isValid(a) || !isValid(b)) {
@@ -517,8 +517,8 @@ public final class RecordAnalysisDeltaCommand {
 
 	/**
 	 * Handles eval label.
-	 * @param eval eval
-	 * @return computed value
+	 * @param eval engine evaluation
+	 * @return handles eval label
 	 */
 	private static String evalLabel(Evaluation eval) {
 		if (!isValid(eval)) {
@@ -532,7 +532,7 @@ public final class RecordAnalysisDeltaCommand {
 
 	/**
 	 * Returns whether mate.
-	 * @param eval eval
+	 * @param eval engine evaluation
 	 * @return true when mate
 	 */
 	private static Boolean isMate(Evaluation eval) {
@@ -541,8 +541,8 @@ public final class RecordAnalysisDeltaCommand {
 
 	/**
 	 * Handles eval value.
-	 * @param eval eval
-	 * @return computed value
+	 * @param eval engine evaluation
+	 * @return handles eval value
 	 */
 	private static Integer evalValue(Evaluation eval) {
 		return isValid(eval) ? eval.getValue() : null;
@@ -550,8 +550,8 @@ public final class RecordAnalysisDeltaCommand {
 
 	/**
 	 * Handles depth of.
-	 * @param out out
-	 * @return computed value
+	 * @param out destination stream or buffer
+	 * @return handles depth of
 	 */
 	private static Integer depthOf(Output out) {
 		return out == null ? null : (int) out.getDepth();
@@ -559,8 +559,8 @@ public final class RecordAnalysisDeltaCommand {
 
 	/**
 	 * Handles time of.
-	 * @param out out
-	 * @return computed value
+	 * @param out destination stream or buffer
+	 * @return handles time of
 	 */
 	private static Long timeOf(Output out) {
 		if (out == null) {
@@ -572,9 +572,9 @@ public final class RecordAnalysisDeltaCommand {
 
 	/**
 	 * Handles append field.
-	 * @param sb sb
-	 * @param name name
-	 * @param value value
+	 * @param sb source sb
+	 * @param name display name
+	 * @param value candidate value
 	 */
 	private static void appendField(StringBuilder sb, String name, String value) {
 		if (sb.length() > 1) {
@@ -585,8 +585,8 @@ public final class RecordAnalysisDeltaCommand {
 
 	/**
 	 * Handles json string.
-	 * @param value value
-	 * @return computed value
+	 * @param value candidate value
+	 * @return handles json string
 	 */
 	private static String jsonString(String value) {
 		if (value == null) {
@@ -597,8 +597,8 @@ public final class RecordAnalysisDeltaCommand {
 
 	/**
 	 * Handles json boolean.
-	 * @param value value
-	 * @return computed value
+	 * @param value candidate value
+	 * @return handles json boolean
 	 */
 	private static String jsonBoolean(Boolean value) {
 		if (value == null) {
@@ -609,8 +609,8 @@ public final class RecordAnalysisDeltaCommand {
 
 	/**
 	 * Handles json int.
-	 * @param value value
-	 * @return computed value
+	 * @param value candidate value
+	 * @return handles json int
 	 */
 	private static String jsonInt(Integer value) {
 		return value == null ? "null" : Integer.toString(value);
@@ -618,8 +618,8 @@ public final class RecordAnalysisDeltaCommand {
 
 	/**
 	 * Handles json long.
-	 * @param value value
-	 * @return computed value
+	 * @param value candidate value
+	 * @return handles json long
 	 */
 	private static String jsonLong(Long value) {
 		return value == null ? "null" : Long.toString(value);

@@ -1028,7 +1028,7 @@ public final class BoardEditorPanel extends JPanel {
     /**
      * Reads an integer spinner value.
      *
-     * @param spinner spinner
+     * @param spinner spinner component
      * @return integer value
      */
     private static int spinnerInt(JSpinner spinner) {

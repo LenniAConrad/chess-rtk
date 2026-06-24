@@ -99,7 +99,7 @@ public final class MoveGenerator {
      * exceptional cases.
      * </p>
      *
-     * @param position position
+     * @param position chess position
      * @return legal moves
      */
     public static MoveList generateLegalMoves(Position position) {
@@ -118,7 +118,7 @@ public final class MoveGenerator {
      * calls, which helps search hot paths avoid per-node allocations.
      * </p>
      *
-     * @param position position
+     * @param position chess position
      * @param pseudo caller-owned pseudo-legal move scratch list
      * @param legal caller-owned legal move output list
      * @param state caller-owned undo state for legality validation
@@ -139,7 +139,7 @@ public final class MoveGenerator {
      * check status, so a caller that already knows whether the side to move is in
      * check does not pay a second king-attack scan.
      *
-     * @param position position
+     * @param position chess position
      * @param pseudo caller-owned pseudo-legal move scratch list
      * @param legal caller-owned legal move output list
      * @param state caller-owned undo state for legality validation
@@ -171,7 +171,7 @@ public final class MoveGenerator {
      * Filters a pseudo-legal list down to fully legal moves, using the cheap
      * pin/king test where possible and a play/undo king-safety check otherwise.
      *
-     * @param position position
+     * @param position chess position
      * @param pseudo pseudo-legal moves to filter
      * @param legal cleared and filled with the legal subset
      * @param state caller-owned undo state
@@ -205,7 +205,7 @@ public final class MoveGenerator {
      * quiet moves. The caller is responsible for stalemate detection (an empty
      * result does not imply no legal moves).
      *
-     * @param position position
+     * @param position chess position
      * @param pseudo caller-owned pseudo scratch list
      * @param legal caller-owned legal output list (returned filled)
      * @param state caller-owned undo state
@@ -223,7 +223,7 @@ public final class MoveGenerator {
      * the capture/promotion lines of {@link #generatePseudoLegalMoves} exactly and
      * omits only the quiet (non-promoting) pawn pushes and quiet piece moves.
      *
-     * @param position position
+     * @param position chess position
      * @param moves cleared and filled with pseudo-legal tactical moves
      */
     public static void generatePseudoLegalTacticals(Position position, MoveList moves) {
@@ -253,7 +253,7 @@ public final class MoveGenerator {
      * Adds capture moves for one piece type by intersecting its attacks with the
      * capturable (enemy non-king) mask.
      *
-     * @param position position
+     * @param position chess position
      * @param moves target list
      * @param pieceIndex moving piece index
      * @param attackTable precomputed attack table for non-sliders, else null
@@ -281,7 +281,7 @@ public final class MoveGenerator {
      * Adds pseudo-legal tactical White pawn moves: diagonal captures (with
      * capture-promotions and en passant) and quiet push-promotions.
      *
-     * @param position position
+     * @param position chess position
      * @param moves target list
      */
     private static void addWhitePawnTacticals(Position position, MoveList moves) {
@@ -297,7 +297,7 @@ public final class MoveGenerator {
     /**
      * Adds pseudo-legal tactical Black pawn moves (see {@link #addWhitePawnTacticals}).
      *
-     * @param position position
+     * @param position chess position
      * @param moves target list
      */
     private static void addBlackPawnTacticals(Position position, MoveList moves) {
@@ -318,7 +318,7 @@ public final class MoveGenerator {
      * leave the moving side's king in check.
      * </p>
      *
-     * @param position position
+     * @param position chess position
      * @return pseudo-legal moves
      */
     public static MoveList generatePseudoLegalMoves(Position position) {
@@ -334,7 +334,7 @@ public final class MoveGenerator {
      * The target list is cleared before moves are added.
      * </p>
      *
-     * @param position position
+     * @param position chess position
      * @param moves target list
      */
     public static void generatePseudoLegalMoves(Position position, MoveList moves) {
@@ -367,7 +367,7 @@ public final class MoveGenerator {
      * with bit-identical move encodings. Built for a staged move picker that
      * defers quiet generation until the tactical stages are exhausted.
      *
-     * @param position position
+     * @param position chess position
      * @param moves cleared and filled with pseudo-legal quiet moves
      */
     public static void generatePseudoLegalQuiets(Position position, MoveList moves) {
@@ -398,7 +398,7 @@ public final class MoveGenerator {
      * Adds quiet moves for one piece type by intersecting its attacks with the
      * empty-square mask, mirroring {@link #addCaptureTargets} exactly.
      *
-     * @param position position
+     * @param position chess position
      * @param moves target list
      * @param pieceIndex moving piece index
      * @param attackTable precomputed attack table for non-sliders, else null
@@ -426,7 +426,7 @@ public final class MoveGenerator {
      * Adds pseudo-legal quiet White pawn moves: non-promoting single pushes and
      * double pushes, mirroring the quiet lines of {@link #addWhitePawnMoves}.
      *
-     * @param position position
+     * @param position chess position
      * @param moves target list
      */
     private static void addWhitePawnQuiets(Position position, MoveList moves) {
@@ -440,7 +440,7 @@ public final class MoveGenerator {
     /**
      * Adds pseudo-legal quiet Black pawn moves (see {@link #addWhitePawnQuiets}).
      *
-     * @param position position
+     * @param position chess position
      * @param moves target list
      */
     private static void addBlackPawnQuiets(Position position, MoveList moves) {
@@ -459,7 +459,7 @@ public final class MoveGenerator {
      * detailed counters such as captures and checks are required.
      * </p>
      *
-     * @param position position
+     * @param position chess position
      * @param depth non-negative perft depth
      * @return leaf count
      */
@@ -477,7 +477,7 @@ public final class MoveGenerator {
     /**
      * Counts legal moves without allocating a returned move list.
      *
-     * @param position position
+     * @param position chess position
      * @return legal move count
      */
     public static int legalMoveCount(Position position) {
@@ -489,7 +489,7 @@ public final class MoveGenerator {
     /**
      * Returns whether the side to move has at least one legal move.
      *
-     * @param position position
+     * @param position chess position
      * @return true when a legal move exists
      */
     public static boolean hasLegalMove(Position position) {
@@ -1047,7 +1047,7 @@ public final class MoveGenerator {
     /**
      * Returns whether one color's king is currently attacked.
      *
-     * @param position position
+     * @param position chess position
      * @param whiteKing true for White king
      * @return true when attacked
      */
@@ -1059,7 +1059,7 @@ public final class MoveGenerator {
     /**
      * Returns whether a square is attacked by one side.
      *
-     * @param position position
+     * @param position chess position
      * @param square target square
      * @param byWhite true for White attackers
      * @return true when attacked
@@ -1094,7 +1094,7 @@ public final class MoveGenerator {
     /**
      * Returns whether a square is attacked using a supplied occupancy.
      *
-     * @param position position
+     * @param position chess position
      * @param square target square
      * @param byWhite true for White attackers
      * @param occupancy occupied-square mask used for slider attacks
@@ -1114,7 +1114,7 @@ public final class MoveGenerator {
     /**
      * Returns whether pawns, knights, or kings of one side attack a square.
      *
-     * @param position position
+     * @param position chess position
      * @param square target square
      * @param byWhite true for White attackers
      * @return true when a non-slider attacks the square
@@ -1132,7 +1132,7 @@ public final class MoveGenerator {
     /**
      * Returns whether bishops, rooks, or queens of one side attack a square.
      *
-     * @param position position
+     * @param position chess position
      * @param square target square
      * @param byWhite true for White attackers
      * @param occupancy occupied-square mask used for slider attacks
@@ -1205,7 +1205,7 @@ public final class MoveGenerator {
     /**
      * Adds pseudo-legal White pawn moves.
      *
-     * @param position position
+     * @param position chess position
      * @param moves target list
      */
     private static void addWhitePawnMoves(Position position, MoveList moves) {
@@ -1228,7 +1228,7 @@ public final class MoveGenerator {
     /**
      * Adds pseudo-legal Black pawn moves.
      *
-     * @param position position
+     * @param position chess position
      * @param moves target list
      */
     private static void addBlackPawnMoves(Position position, MoveList moves) {

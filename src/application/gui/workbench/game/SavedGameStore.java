@@ -91,7 +91,7 @@ public final class SavedGameStore {
     /**
      * Finds one saved game by id.
      *
-     * @param id id
+     * @param id source id
      * @return saved game, or null
      * @throws IOException when reading fails
      */
@@ -141,6 +141,12 @@ public final class SavedGameStore {
         return List.copyOf(moves);
     }
 
+    /**
+     * Reads the read all.
+     *
+     * @return read all
+     * @throws java.io.IOException if external I/O or engine communication fails
+     */
     private Map<String, SavedGame> readAll() throws IOException {
         Map<String, SavedGame> byId = new LinkedHashMap<>();
         if (path == null || !Files.exists(path)) {
@@ -155,6 +161,12 @@ public final class SavedGameStore {
         return byId;
     }
 
+    /**
+     * Writes the write all.
+     *
+     * @param games game list
+     * @throws java.io.IOException if external I/O or engine communication fails
+     */
     private void writeAll(Iterable<SavedGame> games) throws IOException {
         if (path == null) {
             return;
@@ -176,6 +188,13 @@ public final class SavedGameStore {
         }
     }
 
+    /**
+     * Returns the legal move by UCI.
+     *
+     * @param position chess position
+     * @param uci UCI move string
+     * @return legal move by UCI
+     */
     private static short legalMoveByUci(Position position, String uci) {
         MoveList legal = position.legalMoves();
         for (int i = 0; i < legal.size(); i++) {

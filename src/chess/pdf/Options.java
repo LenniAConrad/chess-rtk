@@ -72,7 +72,7 @@ public final class Options {
 	/**
 	 * Sets the PDF page size.
 	 *
-	 * @param pageSize page size
+	 * @param pageSize source page size
 	 * @return this options object
 	 */
 	public Options setPageSize(PageSize pageSize) {
@@ -115,7 +115,7 @@ public final class Options {
 	/**
 	 * Sets the number of diagrams per row.
 	 *
-	 * @param diagramsPerRow diagrams per row
+	 * @param diagramsPerRow source diagrams per row
 	 * @return this options object
 	 */
 	public Options setDiagramsPerRow(int diagramsPerRow) {

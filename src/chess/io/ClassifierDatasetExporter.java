@@ -113,14 +113,14 @@ public final class ClassifierDatasetExporter {
 
         /**
          * Creates a normalized option set.
-         * @param rowFilter row filter value
-         * @param rowFilterDsl row filter dsl value
-         * @param labelFilter label filter value
-         * @param labelFilterDsl label filter dsl value
-         * @param fallbackLabelFilter fallback label filter value
-         * @param fallbackLabelFilterDsl fallback label filter dsl value
-         * @param maxPositives max positives value
-         * @param maxNegatives max negatives value
+         * @param rowFilter source row filter
+         * @param rowFilterDsl source row filter dsl
+         * @param labelFilter source label filter
+         * @param labelFilterDsl source label filter dsl
+         * @param fallbackLabelFilter source fallback label filter
+         * @param fallbackLabelFilterDsl source fallback label filter dsl
+         * @param maxPositives maximum positive sample count
+         * @param maxNegatives maximum negative sample count
          */
         public Options {
             if (maxPositives < 0) {
@@ -136,7 +136,7 @@ public final class ClassifierDatasetExporter {
      * Export counters.
      *
      * @param seen input objects seen
-     * @param rowsWritten rows written
+     * @param rowsWritten source rows written
      * @param positives positive labels written
      * @param negatives negative labels written
      * @param skippedInvalid records that failed to parse
@@ -341,10 +341,10 @@ public final class ClassifierDatasetExporter {
 
     /**
      * Invokes the optional file-level progress callback.
-     * @param fileProgress file progress value
-     * @param file file value
-     * @param completedFiles completed files value
-     * @param totalFiles total files value
+     * @param fileProgress source file progress
+     * @param file file index or file path
+     * @param completedFiles source completed files
+     * @param totalFiles source total files
      * @param stats statistics data
      */
     private static void notifyFileProgress(
@@ -362,8 +362,8 @@ public final class ClassifierDatasetExporter {
      * Exports one JSON record object if it has a position and label.
      * @param objJson JSON object text
      * @param options command options
-     * @param inputsWriter inputs writer value
-     * @param labelsWriter labels writer value
+     * @param inputsWriter feature output writer
+     * @param labelsWriter label output writer
      * @param stats statistics data
      * @return true when a classifier row was written
      * @throws java.io.IOException if IOException is raised by the underlying operation
@@ -435,7 +435,7 @@ public final class ClassifierDatasetExporter {
      * @param objJson JSON object text
      * @param rec record value
      * @param options command options
-     * @return resolve label result
+     * @return resolve label
      */
     private static Optional<Boolean> resolveLabel(String objJson, Record rec, Options options) {
         if (options.labelFilter() != null) {
@@ -470,7 +470,7 @@ public final class ClassifierDatasetExporter {
     /**
      * Streams raw record JSON objects while reporting cumulative bytes for this
      * input.
-     * @param input input value
+     * @param input input path or text
      * @param consumer result consumer
      * @param byteProgress progress byte value
      * @throws java.io.IOException if IOException is raised by the underlying operation
@@ -498,9 +498,9 @@ public final class ClassifierDatasetExporter {
 
      /**
      * Handles add base.
-     * @param progress progress
-     * @param base base
-     * @return computed value
+     * @param progress progress callback
+     * @param base base value for comparison
+     * @return handles add base
      */
      private static LongConsumer addBase(LongConsumer progress, long base) {
         return progress == null ? null : done -> progress.accept(base + done);
@@ -508,8 +508,8 @@ public final class ClassifierDatasetExporter {
 
      /**
      * Handles file size.
-     * @param input input
-     * @return computed value
+     * @param input input path or text
+     * @return handles file size
      */
      private static long fileSize(Path input) {
         try {
@@ -521,7 +521,7 @@ public final class ClassifierDatasetExporter {
 
     /**
      * Detects whether a file starts with a JSON array.
-     * @param input input value
+     * @param input input path or text
      * @return true when is json array file
      * @throws java.io.IOException if IOException is raised by the underlying operation
      */
@@ -542,11 +542,11 @@ public final class ClassifierDatasetExporter {
 
     /**
      * Writes metadata next to the tensors.
-     * @param metaPath meta path value
-     * @param recordFiles record files value
-     * @param inputsPath inputs path value
-     * @param labelsPath labels path value
-     * @param summary summary value
+     * @param metaPath metadata output path
+     * @param recordFiles source record files
+     * @param inputsPath feature output path
+     * @param labelsPath label output path
+     * @param summary summary text
      * @param options command options
      * @throws java.io.IOException if IOException is raised by the underlying operation
      */
@@ -616,11 +616,11 @@ public final class ClassifierDatasetExporter {
 
     /**
      * Appends an indented JSON string field with a trailing comma when requested.
-     * @param builder builder value
-     * @param indent indent value
-     * @param name name value
+     * @param builder string builder
+     * @param indent indentation text
+     * @param name display name
      * @param value value to use
-     * @param comma comma value
+     * @param comma whether to prefix a comma
      */
     private static void appendJsonField(StringBuilder builder, int indent, String name, String value, boolean comma) {
         builder.append(" ".repeat(indent));
@@ -635,7 +635,7 @@ public final class ClassifierDatasetExporter {
 
     /**
      * Appends a JSON string or {@code null}.
-     * @param builder builder value
+     * @param builder string builder
      * @param value value to use
      */
     private static void appendJsonString(StringBuilder builder, String value) {
@@ -673,7 +673,7 @@ public final class ClassifierDatasetExporter {
     /**
      * Returns a metadata string describing the label source.
      * @param options command options
-     * @return label source result
+     * @return metadata string describing the label source
      */
     public static String labelSource(Options options) {
         if (options.labelFilter() != null) {
@@ -688,7 +688,7 @@ public final class ClassifierDatasetExporter {
     /**
      * Returns a metadata string describing what the positive class means.
      * @param options command options
-     * @return positive definition result
+     * @return metadata string describing what the positive class means
      */
     public static String positiveDefinition(Options options) {
         if (options.labelFilter() != null) {
@@ -703,7 +703,7 @@ public final class ClassifierDatasetExporter {
     /**
      * Formats a class cap for metadata.
      * @param value value to use
-     * @return format cap result
+     * @return formatted a class cap for metadata
      */
     private static String formatCap(long value) {
         return value == NO_CLASS_CAP ? "null" : Long.toString(value);
@@ -711,9 +711,9 @@ public final class ClassifierDatasetExporter {
 
     /**
      * Returns a sibling file path from an output stem and suffix.
-     * @param outStem out stem value
-     * @param suffix suffix value
-     * @return sibling result
+     * @param outStem output filename stem
+     * @param suffix filename suffix
+     * @return sibling file path from an output stem and suffix
      */
     private static Path sibling(Path outStem, String suffix) {
         return outStem.resolveSibling(outStem.getFileName().toString() + suffix);
@@ -762,8 +762,8 @@ public final class ClassifierDatasetExporter {
 
          /**
          * Handles class caps reached.
-         * @param options options
-         * @return computed value
+         * @param options parsed options
+         * @return handles class caps reached
          */
          private boolean classCapsReached(Options options) {
             if (options.maxPositives() == NO_CLASS_CAP || options.maxNegatives() == NO_CLASS_CAP) {
@@ -774,7 +774,7 @@ public final class ClassifierDatasetExporter {
 
          /**
          * Converts this value to summary.
-         * @return computed value
+         * @return converted this value to summary
          */
          private Summary toSummary() {
             return new Summary(

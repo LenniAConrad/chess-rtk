@@ -39,6 +39,9 @@ import utility.Json;
  */
 public final class GameAnalyzer {
 
+    /**
+     * Creates the game analyzer.
+     */
     private GameAnalyzer() {
         // utility
     }

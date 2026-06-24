@@ -492,8 +492,8 @@ public final class GameModel extends AbstractTableModel {
     /**
      * Returns a table cell value.
      *
-     * @param rowIndex row index
-     * @param columnIndex column index
+     * @param rowIndex zero-based row index
+     * @param columnIndex zero-based column index
      * @return cell value
      */
     @Override

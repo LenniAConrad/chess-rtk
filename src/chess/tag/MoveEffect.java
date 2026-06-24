@@ -44,8 +44,14 @@ import chess.core.Position;
  */
 public final class MoveEffect {
 
+    /**
+     * Stable tag prefix shared by every move-effect row.
+     */
     private static final String PREFIX = MOVE_EFFECT + ": san=";
 
+    /**
+     * Utility class; prevent instantiation.
+     */
     private MoveEffect() {
         // utility
     }

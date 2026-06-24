@@ -59,7 +59,7 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
     /**
      * Plays a move on the board.
      *
-     * @param move move
+     * @param move encoded chess move
      */
     protected void playMove(short move) {
         if (currentPosition == null) {
@@ -271,7 +271,7 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
     /**
      * Tests whether a move is legal in a position.
      *
-     * @param position position
+     * @param position chess position
      * @param move encoded move
      * @return true when legal
      */
@@ -591,8 +591,8 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
     /**
      * Runs one command.
      *
-     * @param args args
-     * @param stdin stdin
+     * @param args command-line arguments
+     * @param stdin standard-input text
      */
     protected void runCommand(List<String> args, String stdin) {
         if (args == null || args.isEmpty()) {
@@ -688,7 +688,7 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
      * Updates the Run tab's parsed output after a command completes.
      *
      * @param args command arguments
-     * @param exitCode exit code
+     * @param exitCode source exit code
      * @param output combined output
      * @param millis elapsed milliseconds
      */
@@ -1051,7 +1051,7 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
     /**
      * Builds a compact PGN game label.
      *
-     * @param game game
+     * @param game game metadata
      * @param index one-based index
      * @return label
      */
@@ -1149,7 +1149,7 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
     /**
      * Returns whether a token is a game result.
      *
-     * @param token token
+     * @param token input token
      * @return true for result tokens
      */
     protected static boolean isResultToken(String token) {

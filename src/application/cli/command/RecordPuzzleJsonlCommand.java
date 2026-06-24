@@ -582,10 +582,10 @@ final class RecordPuzzleJsonlCommand {
 
 	/**
 	 * Converts this value to puzzle jsonl line.
-	 * @param rec rec
-	 * @param network network
-	 * @param policyMapInverse policy map inverse
-	 * @return computed value
+	 * @param rec source record
+	 * @param network network model
+	 * @param policyMapInverse source policy map inverse
+	 * @return converted this value to puzzle jsonl line
 	 */
 	private static String toPuzzleJsonlLine(Record rec, Network network, int[] policyMapInverse) {
 		if (rec == null || rec.getPosition() == null || rec.getAnalysis() == null) {
@@ -630,8 +630,8 @@ final class RecordPuzzleJsonlCommand {
 	}
 	/**
 	 * Converts this value to critical move.
-	 * @param moves moves
-	 * @return computed value
+	 * @param moves move list
+	 * @return converted this value to critical move
 	 */
 	private static Short toCriticalMove(short[] moves) {
 		if (moves == null || moves.length == 0) {
@@ -648,8 +648,8 @@ final class RecordPuzzleJsonlCommand {
 
 	/**
 	 * Converts this value to wdl json.
-	 * @param chances chances
-	 * @return computed value
+	 * @param chances win-draw-loss chances
+	 * @return converted this value to wdl json
 	 */
 	private static String toWdlJson(Chances chances) {
 		if (chances == null) {
@@ -668,8 +668,8 @@ final class RecordPuzzleJsonlCommand {
 
 	/**
 	 * Handles format engine eval.
-	 * @param eval eval
-	 * @return computed value
+	 * @param eval engine evaluation
+	 * @return handles format engine eval
 	 */
 	private static String formatEngineEval(Evaluation eval) {
 		if (eval == null || !eval.isValid()) {
@@ -683,8 +683,8 @@ final class RecordPuzzleJsonlCommand {
 
 	/**
 	 * Handles invert policy map.
-	 * @param policyMap policy map
-	 * @return computed value
+	 * @param policyMap source policy map
+	 * @return handles invert policy map
 	 */
 	private static int[] invertPolicyMap(int[] policyMap) {
 		if (policyMap == null || policyMap.length == 0) {
@@ -712,11 +712,11 @@ final class RecordPuzzleJsonlCommand {
 
 	/**
 	 * Handles lc0 policy eval.
-	 * @param position position
-	 * @param network network
-	 * @param rawPolicyIndex raw policy index
-	 * @param policyMapInverse policy map inverse
-	 * @return computed value
+	 * @param position chess position
+	 * @param network network model
+	 * @param rawPolicyIndex zero-based raw policy index
+	 * @param policyMapInverse source policy map inverse
+	 * @return handles lc0 policy eval
 	 */
 	private static Lc0PolicyEval lc0PolicyEval(
 			chess.core.Position position,
@@ -762,8 +762,8 @@ final class RecordPuzzleJsonlCommand {
 
 	/**
 	 * Converts this value to wdl json.
-	 * @param wdl wdl
-	 * @return computed value
+	 * @param wdl whether WDL output is enabled
+	 * @return converted this value to wdl json
 	 */
 	private static String toWdlJson(float[] wdl) {
 		if (wdl == null || wdl.length < 3) {
@@ -782,8 +782,8 @@ final class RecordPuzzleJsonlCommand {
 
 	/**
 	 * Handles format percent.
-	 * @param value value
-	 * @return computed value
+	 * @param value candidate value
+	 * @return handles format percent
 	 */
 	private static String formatPercent(double value) {
 		return String.format(Locale.ROOT, "%.6f", value);
@@ -804,8 +804,8 @@ final class RecordPuzzleJsonlCommand {
 
 		 /**
 		 * Creates a new lc0 policy eval instance.
-		 * @param policyPercent policy percent
-		 * @param wdlJson wdl json
+		 * @param policyPercent source policy percent
+		 * @param wdlJson JSON payload for WDL
 		 */
 		 private Lc0PolicyEval(Double policyPercent, String wdlJson) {
 			this.policyPercent = policyPercent;

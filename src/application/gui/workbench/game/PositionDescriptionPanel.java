@@ -209,7 +209,7 @@ public final class PositionDescriptionPanel extends JPanel {
             /**
              * Generates description text away from the event-dispatch thread.
              *
-             * @return generation result
+             * @return generation
              */
             @Override
             protected Result doInBackground() {

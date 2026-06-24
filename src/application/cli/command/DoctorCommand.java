@@ -141,6 +141,8 @@ public final class DoctorCommand {
 	 * @param warnings collected warnings
 	 * @param errors   collected errors
 	 * @param strict   whether warnings should fail the command
+	 * @param report doctor report to emit
+	 * @param json whether JSON output is requested
 	 */
 	private static void printDoctorReport(DoctorReport report, boolean json) {
 		if (json) {

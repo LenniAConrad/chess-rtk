@@ -143,6 +143,13 @@ final class PublishingPreviewPlanner {
         // utility
     }
 
+    /**
+     * Builds the publishing preview for the current form context.
+     *
+     * @param context publishing form context
+     * @param issue preflight issue text, or {@code null}
+     * @return preview model for the selected publishing mode
+     */
     static PublishPreview.Preview preview(Context context, String issue) {
         PublishTask task = context.task();
         String title = context.title();
@@ -162,11 +169,24 @@ final class PublishingPreviewPlanner {
                 previewItems(context));
     }
 
+    /**
+     * Returns the context line.
+     *
+     * @param context source context
+     * @param issue issue description
+     * @return context line text
+     */
     static String contextLine(Context context, String issue) {
         return context.task() + " · " + context.source() + " · "
                 + (issue == null ? "Ready to publish" : "Needs attention");
     }
 
+    /**
+     * Returns the preflight issue.
+     *
+     * @param context source context
+     * @return preflight issue text
+     */
     static String preflightIssue(Context context) {
         if (context.task() != PublishTask.DIAGRAMS) {
             return null;
@@ -179,6 +199,12 @@ final class PublishingPreviewPlanner {
         };
     }
 
+    /**
+     * Returns the pdf path.
+     *
+     * @param context source context
+     * @return pdf path
+     */
     static Path currentPdfPath(Context context) {
         String value = switch (context.task()) {
             case DIAGRAMS, RENDER, STUDY -> context.outputPath();
@@ -188,11 +214,23 @@ final class PublishingPreviewPlanner {
         return value == null || value.isBlank() ? null : Path.of(value);
     }
 
+    /**
+     * Returns the uses sample title.
+     *
+     * @param task background task
+     * @return true when uses sample title
+     */
     private static boolean usesSampleTitle(PublishTask task) {
         return task == PublishTask.COLLECTION || task == PublishTask.STUDY
                 || task == PublishTask.RENDER || task == PublishTask.COVER;
     }
 
+    /**
+     * Returns the preview items.
+     *
+     * @param context source context
+     * @return preview items
+     */
     private static List<SampleItem> previewItems(Context context) {
         if (context.task() == PublishTask.DIAGRAMS) {
             return diagramPreviewItems(context);
@@ -203,6 +241,12 @@ final class PublishingPreviewPlanner {
         return PublishSampleData.studyItems();
     }
 
+    /**
+     * Returns the diagram preview items.
+     *
+     * @param context source context
+     * @return diagram preview items
+     */
     private static List<SampleItem> diagramPreviewItems(Context context) {
         List<SampleItem> items = switch (context.source()) {
             case CURRENT_FEN -> {
@@ -217,6 +261,13 @@ final class PublishingPreviewPlanner {
         return items.isEmpty() ? PublishSampleData.studyItems() : items;
     }
 
+    /**
+     * Returns the FEN list items.
+     *
+     * @param text text to render or parse
+     * @param captionPrefix source caption prefix
+     * @return FEN list items
+     */
     private static List<SampleItem> fenListItems(String text, String captionPrefix) {
         if (text == null || text.isBlank()) {
             return List.of();
@@ -235,6 +286,12 @@ final class PublishingPreviewPlanner {
         return items;
     }
 
+    /**
+     * Returns the source preview.
+     *
+     * @param context source context
+     * @return source preview text
+     */
     private static String sourcePreview(Context context) {
         if (context.task() != PublishTask.DIAGRAMS) {
             return pathOrMissing("input file", context.inputPath());
@@ -249,6 +306,12 @@ final class PublishingPreviewPlanner {
         };
     }
 
+    /**
+     * Returns the output preview.
+     *
+     * @param context source context
+     * @return output preview text
+     */
     private static String outputPreview(Context context) {
         return switch (context.task()) {
             case DIAGRAMS, RENDER, STUDY -> pathOrMissing("PDF", context.outputPath())
@@ -262,6 +325,12 @@ final class PublishingPreviewPlanner {
         };
     }
 
+    /**
+     * Returns the estimated pages.
+     *
+     * @param context source context
+     * @return estimated pages
+     */
     private static int estimatedPages(Context context) {
         PublishTask task = context.task();
         Integer explicitPages = optionalPositiveInteger(context.pages());
@@ -278,6 +347,12 @@ final class PublishingPreviewPlanner {
         };
     }
 
+    /**
+     * Returns the estimated diagram pages.
+     *
+     * @param context source context
+     * @return estimated diagram pages
+     */
     private static int estimatedDiagramPages(Context context) {
         return switch (context.source()) {
             case CURRENT_FEN -> 1;
@@ -287,6 +362,12 @@ final class PublishingPreviewPlanner {
         };
     }
 
+    /**
+     * Returns the optional positive integer.
+     *
+     * @param raw raw input text
+     * @return optional positive integer
+     */
     private static Integer optionalPositiveInteger(String raw) {
         String value = raw == null ? "" : raw.trim();
         if (!value.matches("[1-9]\\d*")) {
@@ -299,11 +380,24 @@ final class PublishingPreviewPlanner {
         }
     }
 
+    /**
+     * Returns the optional positive integer.
+     *
+     * @param raw raw input text
+     * @param fallback default used when input is absent or invalid
+     * @return optional positive integer
+     */
     private static int optionalPositiveInteger(String raw, int fallback) {
         Integer value = optionalPositiveInteger(raw);
         return value == null ? fallback : value.intValue();
     }
 
+    /**
+     * Returns the batch FEN preview.
+     *
+     * @param context source context
+     * @return batch FEN preview text
+     */
     private static String batchFenPreview(Context context) {
         String text = context.batchInputText() == null ? "" : context.batchInputText().trim();
         if (text.isEmpty()) {
@@ -317,6 +411,12 @@ final class PublishingPreviewPlanner {
         return scan.validRows() + " valid FEN row" + (scan.validRows() == 1 ? "" : "s");
     }
 
+    /**
+     * Returns the batch FEN issue.
+     *
+     * @param context source context
+     * @return batch FEN issue text
+     */
     private static String batchFenIssue(Context context) {
         String text = context.batchInputText() == null ? "" : context.batchInputText().trim();
         if (text.isEmpty()) {
@@ -327,11 +427,26 @@ final class PublishingPreviewPlanner {
         return scan.hasError() ? "Batch FEN line " + scan.firstErrorLine() + ": " + scan.firstError() : null;
     }
 
+    /**
+     * Returns the path or missing.
+     *
+     * @param label display label
+     * @param value candidate value
+     * @return path or missing text
+     */
     private static String pathOrMissing(String label, String value) {
         String text = value == null ? "" : value.trim();
         return text.isEmpty() ? "missing " + label : label + " " + text;
     }
 
+    /**
+     * Returns the optional output.
+     *
+     * @param label display label
+     * @param value candidate value
+     * @param enabled whether enabled
+     * @return optional output text
+     */
     private static String optionalOutput(String label, String value, boolean enabled) {
         String text = value == null ? "" : value.trim();
         return enabled && !text.isEmpty() ? "; " + label + " " + text : "";

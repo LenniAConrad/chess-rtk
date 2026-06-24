@@ -4,7 +4,7 @@ package application.gui.workbench.engine;
  * One running candidate-perspective W-D-L point in a gauntlet.
  *
  * @param wins candidate wins
- * @param draws draws
+ * @param draws source draws
  * @param losses candidate losses
  */
 record GauntletProgressPoint(int wins, int draws, int losses) {

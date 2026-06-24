@@ -279,8 +279,8 @@ final class WriterVisuals {
 	 * @param text text to fit
 	 * @param preferredSize starting font size
 	 * @param minimumSize minimum accepted font size
-	 * @param pageWidth page width
-	 * @param pageHeight page height
+	 * @param pageWidth source page width
+	 * @param pageHeight source page height
 	 * @param margin required clear margin
 	 * @return fitted font size
 	 */
@@ -318,7 +318,7 @@ final class WriterVisuals {
 	 *
 	 * @param font font to measure
 	 * @param text text to fit
-	 * @param fontSize font size
+	 * @param fontSize font size in points
 	 * @param maxWidth available width
 	 * @param maxHeight available height
 	 * @return true when the rotated text fits
@@ -339,7 +339,7 @@ final class WriterVisuals {
 	 *
 	 * @param width page width
 	 * @param height page height
-	 * @param pageNumber page number
+	 * @param pageNumber source page number
 	 * @param documentKey document key used to vary the pattern between books
 	 * @return SVG noise overlay
 	 */
@@ -365,7 +365,7 @@ final class WriterVisuals {
 	 *
 	 * @param width page width
 	 * @param height page height
-	 * @param pageNumber page number
+	 * @param pageNumber source page number
 	 * @param watermarkId visible watermark identifier
 	 * @return SVG corner-mark overlay
 	 */
@@ -412,7 +412,7 @@ final class WriterVisuals {
 	 *
 	 * @param width page width
 	 * @param height page height
-	 * @param pageNumber page number
+	 * @param pageNumber source page number
 	 * @param documentKey document key used to vary the pattern between books
 	 * @return SVG scratch overlay
 	 */
@@ -447,7 +447,7 @@ final class WriterVisuals {
 	/**
 	 * Creates a deterministic pseudo-random generator for one watermark layer.
 	 *
-	 * @param pageNumber page number
+	 * @param pageNumber source page number
 	 * @param documentKey document key used to vary the pattern between books
 	 * @param salt layer salt
 	 * @return seeded random generator
@@ -671,7 +671,7 @@ final class WriterVisuals {
 	 * @param id gradient id
 	 * @param cx center x
 	 * @param cy center y
-	 * @param radius radius
+	 * @param radius radius in pixels
 	 */
 	static void appendRadialGradient(StringBuilder svg, String id, double cx, double cy, double radius) {
 		svg.append("    <radialGradient id=\"").append(id)
@@ -699,9 +699,9 @@ final class WriterVisuals {
 	 * @param svg target SVG builder
 	 * @param x left edge
 	 * @param y top edge
-	 * @param width width
-	 * @param height height
-	 * @param gradientId gradient id
+	 * @param width width in pixels
+	 * @param height height in pixels
+	 * @param gradientId source gradient id
 	 */
 	static void appendUrlRect(StringBuilder svg, double x, double y, double width, double height,
 			String gradientId) {

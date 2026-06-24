@@ -66,6 +66,26 @@ public record StudyUnit(
 
 	/**
 	 * Creates and validates one study unit.
+	 *
+	 * @param id stable unit identifier
+	 * @param game game identifier or metadata
+	 * @param ply zero-based ply index
+	 * @param parentFen FEN before the move
+	 * @param positionFen FEN after the move
+	 * @param playedUci played move in UCI notation
+	 * @param playedSan played move in SAN
+	 * @param bestUci best move in UCI notation
+	 * @param bestSan best move in SAN
+	 * @param refutationLine recommended refutation line
+	 * @param mistakeCategory mistake category label
+	 * @param mistakeMotif mistake motif label
+	 * @param recommendedAction training recommendation
+	 * @param severity mistake severity score
+	 * @param cpLoss centipawn loss from the best move
+	 * @param wdlLoss WDL loss from the best move
+	 * @param difficulty study-unit difficulty estimate
+	 * @param tags tag collection to update
+	 * @param repro reproduction command or data
 	 */
 	public StudyUnit {
 		Objects.requireNonNull(id, "id");

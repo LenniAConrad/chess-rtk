@@ -16,7 +16,7 @@ final class CnnBackend implements SearchBackend {
     final chess.nn.lc0.cnn.Model model;
     /**
      * New recent prediction cache.
-     * @return new recent prediction cache result
+     * @return new recent prediction cache
      */
     final Map<Long, chess.nn.lc0.cnn.Network.Prediction> cache = MctsBackendSupport.newRecentPredictionCache();
     /**
@@ -30,7 +30,7 @@ final class CnnBackend implements SearchBackend {
 
     /**
      * Cnn backend.
-     * @param model model value
+     * @param model loaded model
      */
     CnnBackend(chess.nn.lc0.cnn.Model model) {
         this.model = model;
@@ -95,7 +95,7 @@ final class CnnBackend implements SearchBackend {
     /**
      * Predict.
      * @param position chess position
-     * @return predict result
+     * @return predict
      */
     chess.nn.lc0.cnn.Network.Prediction predict(Position position) {
         long key = position.signature();
@@ -115,7 +115,7 @@ final class CnnBackend implements SearchBackend {
     /**
      * Remember.
      * @param key lookup key
-     * @param prediction prediction value
+     * @param prediction network prediction
      */
     void remember(long key, chess.nn.lc0.cnn.Network.Prediction prediction) {
         lastKey = key;

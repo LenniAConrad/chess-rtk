@@ -90,6 +90,7 @@ public final class NnueBench {
      * Runs the golden-eval dump and the nps benchmark.
      *
      * @param args optional NNUE weights path
+     * @throws java.lang.Exception if setup or execution fails
      */
     public static void main(String[] args) throws Exception {
         String path = args.length > 0 ? args[0] : "models/crtk-halfkp.nnue";

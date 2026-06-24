@@ -39,7 +39,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Writes the root-stack swing distribution as SVG.
      * @param path file path
-     * @param svgText svg text value
+     * @param svgText source svg text
      * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     static void writeSvg(Path path, String svgText) throws IOException {
@@ -207,8 +207,8 @@ final class PuzzleVolatilityOutput {
      * @param x x coordinate
      * @param y y coordinate
      * @param width width in pixels
-     * @param cases cases value
-     * @return draw switch timeline cards result
+     * @param cases test cases
+     * @return drawn top switch depth timelines
      */
     private static double drawSwitchTimelineCards(Canvas canvas, double x, double y, double width,
             List<RootReport> cases) {
@@ -232,7 +232,7 @@ final class PuzzleVolatilityOutput {
      * Draws one switch-timeline card.
      * @param canvas SVG canvas builder
      * @param report report data
-     * @param rank rank value
+     * @param rank rank index
      * @param x x coordinate
      * @param y y coordinate
      * @param width width in pixels
@@ -322,11 +322,11 @@ final class PuzzleVolatilityOutput {
     /**
      * Converts search depth to sparkline x-coordinate.
      * @param depth search depth
-     * @param minDepth min depth value
-     * @param maxDepth max depth value
+     * @param minDepth minimum search depth
+     * @param maxDepth maximum search depth
      * @param x x coordinate
      * @param width width in pixels
-     * @return depth x result
+     * @return converted search depth to sparkline x-coordinate
      */
     private static double depthX(int depth, int minDepth, int maxDepth, double x, double width) {
         if (maxDepth <= minDepth) {
@@ -337,12 +337,12 @@ final class PuzzleVolatilityOutput {
 
     /**
      * Converts score to sparkline y-coordinate.
-     * @param score score value
-     * @param minScore min score value
-     * @param maxScore max score value
+     * @param score source score
+     * @param minScore minimum score
+     * @param maxScore maximum score
      * @param y y coordinate
      * @param height height in pixels
-     * @return score y result
+     * @return converted score to sparkline y-coordinate
      */
     private static double scoreY(int score, int minScore, int maxScore, double y, double height) {
         if (maxScore <= minScore) {
@@ -371,10 +371,10 @@ final class PuzzleVolatilityOutput {
     /**
      * Draws the report footer.
      * @param canvas SVG canvas builder
-     * @param pageHeight page height value
+     * @param pageHeight source page height
      * @param pageWidth page width in pixels
      * @param y y coordinate
-     * @param pageLabel page label value
+     * @param pageLabel source page label
      */
     private static void drawReportFooter(Canvas canvas, double pageHeight, double pageWidth, double y,
             String pageLabel) {
@@ -418,7 +418,7 @@ final class PuzzleVolatilityOutput {
      * @param width width in pixels
      * @param label label text
      * @param value value to use
-     * @param note note value
+     * @param note note text
      */
     private static void drawMetricCard(Canvas canvas, double x, double y, double width, String label, String value,
             String note) {
@@ -588,7 +588,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Draws the smoothed distribution trend line.
      * @param canvas SVG canvas builder
-     * @param smoothed smoothed value
+     * @param smoothed smoothed metric series
      * @param left left coordinate
      * @param top top coordinate
      * @param plotWidth plot width in pixels
@@ -717,7 +717,7 @@ final class PuzzleVolatilityOutput {
      * @param x x coordinate
      * @param y y coordinate
      * @param width width in pixels
-     * @param text text value
+     * @param text text to render or parse
      */
     private static void drawBullet(Canvas canvas, double x, double y, double width, String text) {
         canvas.fillRect(x, y + 3.0, 2.0, 2.0, REPORT_ACCENT);
@@ -735,7 +735,7 @@ final class PuzzleVolatilityOutput {
      * @param rows data rows
      * @param columns table columns
      * @param rightAligned true to right-align the value
-     * @return draw section with table result
+     * @return drawn a titled table and returns its bottom edge
      */
     private static double drawSectionWithTable(Canvas canvas, double x, double y, double width, String title,
             String[] headers, String[][] rows, double[] columns, boolean[] rightAligned) {
@@ -767,7 +767,7 @@ final class PuzzleVolatilityOutput {
      * @param rows data rows
      * @param columns table columns
      * @param rightAligned true to right-align the value
-     * @return draw table result
+     * @return drawn a compact report table
      */
     private static double drawTable(Canvas canvas, double x, double y, double width, String[] headers,
             String[][] rows, double[] columns, boolean[] rightAligned) {
@@ -800,11 +800,11 @@ final class PuzzleVolatilityOutput {
      * @param x x coordinate
      * @param y y coordinate
      * @param width width in pixels
-     * @param row row value
+     * @param row row data
      * @param columns table columns
      * @param rightAligned true to right-align the value
      * @param font font name
-     * @param size size value
+     * @param size size in pixels or points
      * @param color display color
      */
     private static void drawRow(Canvas canvas, double x, double y, double width, String[] row, double[] columns,
@@ -825,9 +825,9 @@ final class PuzzleVolatilityOutput {
      * @param y y coordinate
      * @param width width in pixels
      * @param font font name
-     * @param size size value
+     * @param size size in pixels or points
      * @param color display color
-     * @param text text value
+     * @param text text to render or parse
      * @param rightAligned true to right-align the value
      */
     private static void drawCell(Canvas canvas, double x, double y, double width, Font font, double size, Color color,
@@ -933,15 +933,15 @@ final class PuzzleVolatilityOutput {
      * Draws one switch-driver metric row.
      * @param canvas SVG canvas builder
      * @param groups grouped values
-     * @param colors colors value
-     * @param metricName metric name value
+     * @param colors display colors
+     * @param metricName source metric name
      * @param values values to inspect
-     * @param labelX label x value
+     * @param labelX source label x
      * @param plotLeft plot left coordinate
-     * @param rowTop row top value
+     * @param rowTop source row top
      * @param plotWidth plot width in pixels
-     * @param rowHeight row height value
-     * @param metricIndex metric index
+     * @param rowHeight row height in pixels
+     * @param metricIndex zero-based metric index
      */
     private static void drawSwitchMetricRow(Canvas canvas, SwitchGroup[] groups, Color[] colors, String metricName,
             double[] values, double labelX, double plotLeft, double rowTop, double plotWidth, double rowHeight,
@@ -990,7 +990,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Builds switch severity groups.
      * @param changed true when the value changed
-     * @return switch groups result
+     * @return built switch severity groups
      */
     private static SwitchGroup[] switchGroups(List<RootReport> changed) {
         List<RootReport> sharp = changed.stream()
@@ -1007,10 +1007,10 @@ final class PuzzleVolatilityOutput {
 
     /**
      * Builds one switch severity group.
-     * @param name name value
-     * @param shortName short name value
+     * @param name display name
+     * @param shortName short display name
      * @param reports report data rows
-     * @return switch group result
+     * @return built one switch severity group
      */
     private static SwitchGroup switchGroup(String name, String shortName, List<RootReport> reports) {
         if (reports.isEmpty()) {
@@ -1029,7 +1029,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Returns average first-to-final PV common prefix for worst nodes.
      * @param reports report data rows
-     * @return avg first to final lcp result
+     * @return average first-to-final PV common prefix for worst nodes
      */
     private static double avgFirstToFinalLcp(List<RootReport> reports) {
         if (reports.isEmpty()) {
@@ -1045,7 +1045,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Returns percent of worst nodes whose best move changed.
      * @param reports report data rows
-     * @return share with best move change result
+     * @return percent of worst nodes whose best move changed
      */
     private static double shareWithBestMoveChange(List<RootReport> reports) {
         if (reports.isEmpty()) {
@@ -1063,7 +1063,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Returns percent of worst nodes whose outcome bucket changed.
      * @param reports report data rows
-     * @return share with outcome change result
+     * @return percent of worst nodes whose outcome bucket changed
      */
     private static double shareWithOutcomeChange(List<RootReport> reports) {
         if (reports.isEmpty()) {
@@ -1081,8 +1081,8 @@ final class PuzzleVolatilityOutput {
     /**
      * Extracts one metric vector for switch groups.
      * @param groups grouped values
-     * @param metric metric value
-     * @return metric values result
+     * @param metric metric descriptor
+     * @return metric values
      */
     private static double[] metricValues(SwitchGroup[] groups, java.util.function.ToDoubleFunction<SwitchGroup> metric) {
         double[] out = new double[groups.length];
@@ -1094,9 +1094,9 @@ final class PuzzleVolatilityOutput {
 
     /**
      * Formats switch-driver metric values.
-     * @param metricIndex metric index
+     * @param metricIndex zero-based metric index
      * @param value value to use
-     * @return switch metric value label result
+     * @return formatted switch-driver metric values
      */
     private static String switchMetricValueLabel(int metricIndex, double value) {
         if (metricIndex == 0) {
@@ -1111,7 +1111,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Builds the switch-driver summary.
      * @param groups grouped values
-     * @return switch driver summary result
+     * @return built the switch-driver summary
      */
     private static String switchDriverSummary(SwitchGroup[] groups) {
         SwitchGroup sharp = groups[0];
@@ -1127,9 +1127,9 @@ final class PuzzleVolatilityOutput {
     /**
      * Builds top-switch table rows.
      * @param changed true when the value changed
-     * @param kind kind value
-     * @param limit limit value
-     * @return top switch rows result
+     * @param kind kind label
+     * @param limit maximum row or game count
+     * @return built top-switch table rows
      */
     private static String[][] topSwitchRows(List<RootReport> changed, String kind, int limit) {
         List<String[]> rows = new ArrayList<>();
@@ -1167,8 +1167,8 @@ final class PuzzleVolatilityOutput {
     /**
      * Chooses the most important switches for page-two timelines.
      * @param changed true when the value changed
-     * @param limit limit value
-     * @return top evidence cases result
+     * @param limit maximum row or game count
+     * @return top evidence cases
      */
     private static List<RootReport> topEvidenceCases(List<RootReport> changed, int limit) {
         List<RootReport> sorted = new ArrayList<>(changed);
@@ -1182,8 +1182,8 @@ final class PuzzleVolatilityOutput {
     /**
      * Builds rows for the largest adjacent search-depth jumps.
      * @param changed true when the value changed
-     * @param limit limit value
-     * @return top adjacent jump rows result
+     * @param limit maximum row or game count
+     * @return built rows for the largest adjacent search-depth jumps
      */
     private static String[][] topAdjacentJumpRows(List<RootReport> changed, int limit) {
         List<AdjacentJump> jumps = topAdjacentJumps(changed, limit);
@@ -1205,8 +1205,8 @@ final class PuzzleVolatilityOutput {
     /**
      * Builds rows for positions whose PV was most rewritten.
      * @param changed true when the value changed
-     * @param limit limit value
-     * @return top pv rewrite rows result
+     * @param limit maximum row or game count
+     * @return built rows for positions whose PV was most rewritten
      */
     private static String[][] topPvRewriteRows(List<RootReport> changed, int limit) {
         List<RankedNode> nodes = changedRankedNodes(changed);
@@ -1235,8 +1235,8 @@ final class PuzzleVolatilityOutput {
     /**
      * Builds the final triage list combining reversal, jump and PV information.
      * @param changed true when the value changed
-     * @param limit limit value
-     * @return research triage rows result
+     * @param limit maximum row or game count
+     * @return built the final triage list combining reversal, jump and PV information
      */
     private static String[][] researchTriageRows(List<RootReport> changed, int limit) {
         List<RankedNode> nodes = changedRankedNodes(changed);
@@ -1268,7 +1268,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Returns changed nodes with their root-stack rank.
      * @param changed true when the value changed
-     * @return changed ranked nodes result
+     * @return changed nodes with their root-stack rank
      */
     private static List<RankedNode> changedRankedNodes(List<RootReport> changed) {
         List<RankedNode> nodes = new ArrayList<>();
@@ -1286,8 +1286,8 @@ final class PuzzleVolatilityOutput {
     /**
      * Returns the highest adjacent-depth jumps in changed nodes.
      * @param changed true when the value changed
-     * @param limit limit value
-     * @return top adjacent jumps result
+     * @param limit maximum row or game count
+     * @return highest adjacent-depth jumps in changed nodes
      */
     private static List<AdjacentJump> topAdjacentJumps(List<RootReport> changed, int limit) {
         List<AdjacentJump> jumps = new ArrayList<>();
@@ -1308,8 +1308,8 @@ final class PuzzleVolatilityOutput {
 
     /**
      * Returns the largest adjacent jump for one node.
-     * @param item item value
-     * @return worst adjacent jump result
+     * @param item rendered item
+     * @return largest adjacent jump for one node
      */
     private static AdjacentJump worstAdjacentJump(RankedNode item) {
         List<TimelineEntry> timeline = item.node().volatility().timeline();
@@ -1335,7 +1335,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Computes report-wide PDF statistics.
      * @param reports report data rows
-     * @return report stats result
+     * @return report-wide PDF statistics
      */
     private static ReportStats reportStats(List<RootReport> reports) {
         List<RootReport> changed = changedReports(reports);
@@ -1363,7 +1363,7 @@ final class PuzzleVolatilityOutput {
      * Chooses the focused PDF x-axis for the swing chart.
      * @param changed true when the value changed
      * @param stats statistics data
-     * @return report swing axis result
+     * @return report swing axis
      */
     private static SwingAxis reportSwingAxis(List<RootReport> changed, ReportStats stats) {
         if (changed.isEmpty()) {
@@ -1384,7 +1384,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Summarizes score source labels across changed nodes.
      * @param reports report data rows
-     * @return score source summary result
+     * @return score source summary
      */
     private static String scoreSourceSummary(List<RootReport> reports) {
         Set<String> sources = new java.util.TreeSet<>();
@@ -1408,7 +1408,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Returns percent of changed stacks whose worst node changed best move.
      * @param reports report data rows
-     * @return changed best move share result
+     * @return percent of changed stacks whose worst node changed best move
      */
     private static double changedBestMoveShare(List<RootReport> reports) {
         if (reports.isEmpty()) {
@@ -1426,7 +1426,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Returns percent of changed stacks whose worst node changed outcome bucket.
      * @param reports report data rows
-     * @return changed outcome share result
+     * @return percent of changed stacks whose worst node changed outcome bucket
      */
     private static double changedOutcomeShare(List<RootReport> reports) {
         if (reports.isEmpty()) {
@@ -1444,7 +1444,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Returns median first-to-final PV common prefix over changed stacks.
      * @param reports report data rows
-     * @return median first to final lcp result
+     * @return median first-to-final PV common prefix over changed stacks
      */
     private static double medianFirstToFinalLcp(List<RootReport> reports) {
         if (reports.isEmpty()) {
@@ -1462,7 +1462,7 @@ final class PuzzleVolatilityOutput {
      * Returns nearest-rank final-depth percentile over changed stacks.
      * @param reports report data rows
      * @param p point value
-     * @return percentile final depth result
+     * @return nearest-rank final-depth percentile over changed stacks
      */
     private static int percentileFinalDepth(List<RootReport> reports, double p) {
         if (reports.isEmpty()) {
@@ -1479,7 +1479,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Returns the PDF chart y-axis maximum.
      * @param percentages percentage values
-     * @return report y max result
+     * @return pDF chart y-axis maximum
      */
     private static double reportYMax(double[] percentages) {
         double maxPercent = max(percentages);
@@ -1489,11 +1489,11 @@ final class PuzzleVolatilityOutput {
 
     /**
      * Converts a swing value to a PDF plot x-coordinate.
-     * @param swing swing value
+     * @param swing swing amount
      * @param left left coordinate
      * @param plotWidth plot width in pixels
      * @param axis axis label
-     * @return swing x result
+     * @return converted a swing value to a PDF plot x-coordinate
      */
     private static double swingX(int swing, double left, double plotWidth, SwingAxis axis) {
         return left + plotWidth * (swing - axis.min()) / (double) (axis.max() - axis.min() + BIN_WIDTH);
@@ -1502,7 +1502,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Chooses x-axis tick spacing for the PDF swing chart.
      * @param displayMax display maximum value
-     * @return swing tick step result
+     * @return swing tick step
      */
     private static int swingTickStep(int displayMax) {
         if (displayMax <= 1600) {
@@ -1517,8 +1517,8 @@ final class PuzzleVolatilityOutput {
     /**
      * Computes a centered moving average.
      * @param values values to inspect
-     * @param window window value
-     * @return moving average result
+     * @param window window instance
+     * @return a centered moving average
      */
     private static double[] movingAverage(double[] values, int window) {
         if (values.length == 0 || window <= 1) {
@@ -1540,7 +1540,7 @@ final class PuzzleVolatilityOutput {
 
     /**
      * Returns the report creation timestamp.
-     * @return created stamp result
+     * @return report creation timestamp
      */
     private static String createdStamp() {
         return REPORT_TIMESTAMP.format(ZonedDateTime.now());
@@ -1552,9 +1552,9 @@ final class PuzzleVolatilityOutput {
      * @param right right coordinate
      * @param y y coordinate
      * @param font font name
-     * @param size size value
+     * @param size size in pixels or points
      * @param color display color
-     * @param text text value
+     * @param text text to render or parse
      */
     private static void drawRight(Canvas canvas, double right, double y, Font font, double size, Color color,
             String text) {
@@ -1565,12 +1565,12 @@ final class PuzzleVolatilityOutput {
     /**
      * Draws centered text.
      * @param canvas SVG canvas builder
-     * @param center center value
+     * @param center center point
      * @param y y coordinate
      * @param font font name
-     * @param size size value
+     * @param size size in pixels or points
      * @param color display color
-     * @param text text value
+     * @param text text to render or parse
      */
     private static void drawCentered(Canvas canvas, double center, double y, Font font, double size, Color color,
             String text) {
@@ -1580,11 +1580,11 @@ final class PuzzleVolatilityOutput {
 
     /**
      * Fits text into a PDF table cell.
-     * @param text text value
+     * @param text text to render or parse
      * @param font font name
-     * @param size size value
+     * @param size size in pixels or points
      * @param width width in pixels
-     * @return fit text result
+     * @return fit text
      */
     private static String fitText(String text, Font font, double size, double width) {
         String safe = text == null ? "" : text;
@@ -1601,7 +1601,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Formats an empty value as a dash.
      * @param value value to use
-     * @return empty dash result
+     * @return formatted an empty value as a dash
      */
     private static String emptyDash(String value) {
         return value == null || value.isBlank() ? "-" : value;
@@ -1609,9 +1609,9 @@ final class PuzzleVolatilityOutput {
 
     /**
      * Formats a before/after move path.
-     * @param before before value
-     * @param after after value
-     * @return move path result
+     * @param before position before the move
+     * @param after source after
+     * @return formatted a before/after move path
      */
     private static String movePath(String before, String after) {
         return emptyDash(before) + "->" + emptyDash(after);
@@ -1620,7 +1620,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Builds a short stable row identifier from a FEN.
      * @param fen FEN string
-     * @return fen id result
+     * @return built a short stable row identifier from a FEN
      */
     static String fenId(String fen) {
         long hash = 0xcbf29ce484222325L;
@@ -1636,7 +1636,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Formats a signed score.
      * @param value value to use
-     * @return signed result
+     * @return formatted a signed score
      */
     private static String signed(int value) {
         return value > 0 ? "+" + value : Integer.toString(value);
@@ -1644,9 +1644,9 @@ final class PuzzleVolatilityOutput {
 
     /**
      * Truncates a PV by moves rather than characters.
-     * @param pv pv value
-     * @param maxMoves max moves value
-     * @return limit pv result
+     * @param pv principal variation
+     * @param maxMoves maximum move count
+     * @return limit pv
      */
     private static String limitPv(String pv, int maxMoves) {
         String safe = emptyDash(pv);
@@ -1670,8 +1670,8 @@ final class PuzzleVolatilityOutput {
     /**
      * Formats a count percentage.
      * @param count item count
-     * @param total total value
-     * @return pct result
+     * @param total total unit count
+     * @return formatted a count percentage
      */
     private static String pct(long count, long total) {
         return total <= 0 ? "0.0%" : String.format(Locale.ROOT, "%.1f%%", 100.0 * count / total);
@@ -1680,7 +1680,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Formats a percentage value already on a 0-100 scale.
      * @param value value to use
-     * @return pct label result
+     * @return formatted a percentage value already on a 0-100 scale
      */
     private static String pctLabel(double value) {
         return String.format(Locale.ROOT, "%.1f%%", value);
@@ -1689,7 +1689,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Formats one decimal place.
      * @param value value to use
-     * @return one decimal result
+     * @return formatted one decimal place
      */
     private static String oneDecimal(double value) {
         return String.format(Locale.ROOT, "%.1f", value);
@@ -1698,7 +1698,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Formats an integer with grouping.
      * @param value value to use
-     * @return num result
+     * @return formatted an integer with grouping
      */
     private static String num(long value) {
         return String.format(Locale.ROOT, "%,d", value);
@@ -1706,8 +1706,8 @@ final class PuzzleVolatilityOutput {
 
     /**
      * Compact direction label for tables.
-     * @param direction direction value
-     * @return direction short result
+     * @param direction direction vector
+     * @return direction short
      */
     private static String directionShort(String direction) {
         return switch (direction == null ? "" : direction) {
@@ -1728,18 +1728,18 @@ final class PuzzleVolatilityOutput {
     /**
      * Appends one SVG line.
      * @param sb string builder
-     * @param x1 x1 value
-     * @param y1 y1 value
-     * @param x2 x2 value
-     * @param y2 y2 value
-     * @param stroke stroke value
-     * @param dashArray dash array value
+     * @param x1 starting x-coordinate
+     * @param y1 starting y-coordinate
+     * @param x2 ending x-coordinate
+     * @param y2 ending y-coordinate
+     * @param stroke stroke color
+     * @param dashArray source dash array
      */
 
     /**
      * Returns the maximum value in a vector.
      * @param values values to inspect
-     * @return max result
+     * @return maximum value in a vector
      */
     static double max(double[] values) {
         double out = 0.0;
@@ -1753,7 +1753,7 @@ final class PuzzleVolatilityOutput {
      * Builds histogram bins.
      * @param reports report data rows
      * @param displayMax display maximum value
-     * @return bins result
+     * @return built histogram bins
      */
     static int[] bins(List<RootReport> reports, int displayMax) {
         int binCount = (displayMax / BIN_WIDTH) + 1;
@@ -1770,7 +1770,7 @@ final class PuzzleVolatilityOutput {
      * Builds histogram bins inside a focused swing axis.
      * @param reports report data rows
      * @param axis axis label
-     * @return bins result
+     * @return built histogram bins inside a focused swing axis
      */
     private static int[] bins(List<RootReport> reports, SwingAxis axis) {
         int binCount = ((axis.max() - axis.min()) / BIN_WIDTH) + 1;
@@ -1789,8 +1789,8 @@ final class PuzzleVolatilityOutput {
     /**
      * Converts bin counts to percentages.
      * @param bins histogram bins
-     * @param sampleCount sample count value
-     * @return percentages result
+     * @param sampleCount number of sample
+     * @return converted bin counts to percentages
      */
     static double[] percentages(int[] bins, int sampleCount) {
         double[] percentages = new double[bins.length];
@@ -1806,7 +1806,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Chooses a readable percentage tick step.
      * @param maxPercent maximum percentage value
-     * @return percent tick step result
+     * @return percent tick step
      */
     static double percentTickStep(double maxPercent) {
         double target = Math.max(0.01, maxPercent / 5.0);
@@ -1833,8 +1833,8 @@ final class PuzzleVolatilityOutput {
 
     /**
      * Formats a percentage label.
-     * @param percent percent value
-     * @return format percent result
+     * @param percent percentage value
+     * @return formatted a percentage label
      */
     static String formatPercent(double percent) {
         if (Math.abs(percent - Math.rint(percent)) < 0.000_001) {
@@ -1849,7 +1849,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Chooses the displayed swing axis maximum.
      * @param reports report data rows
-     * @return display max swing result
+     * @return display max swing
      */
     static int displayMaxSwing(List<RootReport> reports) {
         int max = 0;
@@ -1863,7 +1863,7 @@ final class PuzzleVolatilityOutput {
      * Rounds a positive integer up to a step.
      * @param value value to use
      * @param step step size
-     * @return round up result
+     * @return round up
      */
     private static int roundUp(int value, int step) {
         return ((value + step - 1) / step) * step;
@@ -1873,7 +1873,7 @@ final class PuzzleVolatilityOutput {
      * Rounds a positive integer down to a step.
      * @param value value to use
      * @param step step size
-     * @return round down result
+     * @return round down
      */
     private static int roundDown(int value, int step) {
         if (step <= 0) {
@@ -1885,7 +1885,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Formats a decimal for SVG coordinates.
      * @param value value to use
-     * @return fmt result
+     * @return formatted a decimal for SVG coordinates
      */
     static String fmt(double value) {
         return String.format(Locale.ROOT, "%.2f", value);
@@ -1895,7 +1895,7 @@ final class PuzzleVolatilityOutput {
      * Returns nearest-rank swing percentile.
      * @param reports report data rows
      * @param p point value
-     * @return percentile swing result
+     * @return nearest-rank swing percentile
      */
     static int percentileSwing(List<RootReport> reports, double p) {
         if (reports.isEmpty()) {
@@ -1911,7 +1911,7 @@ final class PuzzleVolatilityOutput {
      * @param reports report data rows
      * @param start start index
      * @param end end index
-     * @return percent in swing range result
+     * @return percentage of stack reports inside a swing interval
      */
     static double percentInSwingRange(List<RootReport> reports, int start, int end) {
         if (reports.isEmpty()) {
@@ -1930,7 +1930,7 @@ final class PuzzleVolatilityOutput {
     /**
      * Counts root stack severities.
      * @param reports report data rows
-     * @return severity counts result
+     * @return severity counts
      */
     static String severityCounts(List<RootReport> reports) {
         Map<String, Integer> counts = new java.util.LinkedHashMap<>();
@@ -1942,7 +1942,7 @@ final class PuzzleVolatilityOutput {
 
     /**
      * Converts one analysis into depth-by-depth volatility metrics.
-     * @param analysis analysis value
-     * @return volatility result
+     * @param analysis analysis result
+     * @return converted one analysis into depth-by-depth volatility metrics
      */
 }

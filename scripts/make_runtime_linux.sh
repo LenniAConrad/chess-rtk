@@ -30,10 +30,20 @@ DEST_DIR="dist"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --version)
+      if [[ $# -lt 2 || -z "${2:-}" ]]; then
+        echo "Missing value for --version" >&2
+        usage >&2
+        exit 2
+      fi
       VERSION="${2:-}"
       shift 2
       ;;
     --dest)
+      if [[ $# -lt 2 || -z "${2:-}" ]]; then
+        echo "Missing value for --dest" >&2
+        usage >&2
+        exit 2
+      fi
       DEST_DIR="${2:-}"
       shift 2
       ;;

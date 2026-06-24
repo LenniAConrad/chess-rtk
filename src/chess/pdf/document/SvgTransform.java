@@ -97,7 +97,7 @@ final class SvgTransform {
 	 *
 	 * @param args transform argument array
 	 * @param index argument index
-	 * @param fallback fallback value
+	 * @param fallback default used when input is absent or invalid
 	 * @return transform argument or fallback
 	 */
 	private static double transformArg(double[] args, int index, double fallback) {

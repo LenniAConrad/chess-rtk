@@ -366,7 +366,7 @@ final class CollapsibleSection extends JPanel {
     /**
      * Original scroll-bar policies for one nested scroll pane.
      *
-     * @param scrollPane scroll pane
+     * @param scrollPane source scroll pane
      * @param verticalPolicy vertical scroll-bar policy
      * @param horizontalPolicy horizontal scroll-bar policy
      */

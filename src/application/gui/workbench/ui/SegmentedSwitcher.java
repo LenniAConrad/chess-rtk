@@ -244,7 +244,7 @@ public final class SegmentedSwitcher extends JComponent {
      * Registers a listener fired whenever the selection changes via click or
      * {@link #setSelectedIndex(int)}.
      *
-     * @param listener listener
+     * @param listener event listener
      */
     public void addActionListener(ActionListener listener) {
         if (listener != null) {
@@ -417,8 +417,8 @@ public final class SegmentedSwitcher extends JComponent {
      * Handles a mouse press, updating the selection when it lands on an
      * enabled segment.
      *
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      */
     private void onPress(int x, int y) {
         if (segmentBounds == null) {
@@ -534,8 +534,8 @@ public final class SegmentedSwitcher extends JComponent {
      * Updates the hovered segment index and triggers a repaint when it
      * changes.
      *
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      */
     private void updateHover(int x, int y) {
         if (segmentBounds == null) {

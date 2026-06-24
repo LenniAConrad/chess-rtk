@@ -72,7 +72,7 @@ public final class CommandResultParser {
      * @param exitCode process exit code
      * @param output combined stdout/stderr
      * @param millis elapsed time in milliseconds
-     * @return multi-line parsed result
+     * @return built the richer parsed-result text used by the Run command builder
      */
     public static String detail(List<String> args, int exitCode, String output, long millis) {
         String text = output == null ? "" : output;
@@ -276,8 +276,8 @@ public final class CommandResultParser {
      * Appends a label/value pair.
      *
      * @param out destination
-     * @param label label
-     * @param value value
+     * @param label display label
+     * @param value candidate value
      */
     private static void appendField(StringBuilder out, String label, String value) {
         if (out.length() > 0) {
@@ -290,8 +290,8 @@ public final class CommandResultParser {
      * Appends a label/value pair only when a value is present.
      *
      * @param out destination
-     * @param label label
-     * @param value value
+     * @param label display label
+     * @param value candidate value
      */
     private static void appendFieldIfPresent(StringBuilder out, String label, String value) {
         if (value != null && !value.isBlank()) {

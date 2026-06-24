@@ -67,7 +67,7 @@ The regression suite is the source of truth for "does it still work." Prefer it 
 | `jar` | Build `crtk.jar` and smoke the launcher |
 | `recommended` / `ci` / `release` | Composite runs (`ci` also runs `docs`) |
 
-Useful environment overrides: `CRTK_SUITE_JOBS` for parallel composite phases, `CRTK_TEST_JOBS` for parallel Java regression classes (both default to twice the online CPU count), `CRTK_TEST_TIMEOUT` for per-test timeouts, `CRTK_PERFT_THREADS`, `CRTK_PERFT_DEPTH`, `CRTK_PERFT_SUITE_DEPTH`, and `CRTK_REQUIRE_STOCKFISH=1` to fail (instead of skip) the `uci` phase when Stockfish is missing.
+Useful environment overrides: `CRTK_SUITE_JOBS` for parallel composite phases and `CRTK_TEST_JOBS` for parallel Java regression classes (both default to `1` for stable shared `out/` and `out/tmp` use; raise them explicitly to parallelize), `CRTK_TEST_TIMEOUT` for per-test timeouts, `CRTK_PERFT_THREADS`, `CRTK_PERFT_DEPTH`, `CRTK_PERFT_SUITE_DEPTH`, and `CRTK_REQUIRE_STOCKFISH=1` to fail (instead of skip) the `uci` phase when Stockfish is missing.
 
 Tests under `src/testing/` are self-contained classes, each with its own `main(...)`; you can run one directly, e.g. `java -cp out testing.UCIRegressionTest`.
 

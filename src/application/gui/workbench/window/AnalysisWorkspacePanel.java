@@ -8,16 +8,15 @@ import application.gui.workbench.game.SanRenderer;
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.ui.EvalBar;
 import application.gui.workbench.ui.FieldValidator;
-import application.gui.workbench.ui.SurfacePanel;
+import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.Theme;
 import chess.core.Move;
 import chess.core.Position;
 import chess.core.Setup;
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
@@ -26,10 +25,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import javax.swing.AbstractAction;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JSpinner;
 import javax.swing.JTable;
@@ -39,15 +41,14 @@ import javax.swing.ListSelectionModel;
 import javax.swing.SpinnerNumberModel;
 
 import static application.gui.workbench.ui.Ui.button;
-import static application.gui.workbench.ui.Ui.buttonRow;
-import static application.gui.workbench.ui.Ui.constraints;
-import static application.gui.workbench.ui.Ui.grid;
+import static application.gui.workbench.ui.Ui.card;
+import static application.gui.workbench.ui.Ui.controlRow;
+import static application.gui.workbench.ui.Ui.fillViewport;
 import static application.gui.workbench.ui.Ui.iconButton;
-import static application.gui.workbench.ui.Ui.label;
+import static application.gui.workbench.ui.Ui.optionGroup;
 import static application.gui.workbench.ui.Ui.scroll;
 import static application.gui.workbench.ui.Ui.styleFields;
 import static application.gui.workbench.ui.Ui.styleSpinners;
-import static application.gui.workbench.ui.Ui.titled;
 import static application.gui.workbench.ui.Ui.transparentPanel;
 
 /**
@@ -94,6 +95,16 @@ final class AnalysisWorkspacePanel extends JPanel {
      * Local status label.
      */
     private final JLabel statusLabel = new JLabel();
+
+    /**
+     * Compact validity badge for the Position card.
+     */
+    private final StatusBadge positionBadge = new StatusBadge();
+
+    /**
+     * Compact move-count badge for the Legal Moves card.
+     */
+    private final StatusBadge legalMovesBadge = new StatusBadge();
 
     /**
      * Local duration field.
@@ -185,8 +196,8 @@ final class AnalysisWorkspacePanel extends JPanel {
      *
      * @param initialFen starting FEN
      * @param whiteDown true when White is rendered at the bottom
-     * @param commandBuilder command builder
-     * @param commandRunner command runner
+     * @param commandBuilder source command builder
+     * @param commandRunner source command runner
      * @param textCopier clipboard bridge
      */
     AnalysisWorkspacePanel(String initialFen, boolean whiteDown, CommandBuilder commandBuilder,
@@ -213,10 +224,10 @@ final class AnalysisWorkspacePanel extends JPanel {
         JPanel boardStage = transparentPanel(new BorderLayout());
         boardStage.add(board, BorderLayout.CENTER);
 
-        JPanel side = transparentPanel(new BorderLayout(8, 8));
-        side.setPreferredSize(new Dimension(360, 520));
+        JPanel side = transparentPanel(new BorderLayout(0, Theme.SPACE_MD));
+        side.setPreferredSize(new Dimension(390, 520));
         side.add(createControls(), BorderLayout.NORTH);
-        side.add(titled("Legal Moves", scroll(movesTable)), BorderLayout.CENTER);
+        side.add(createLegalMovesCard(), BorderLayout.CENTER);
         configureMovesTable();
 
         JSplitPane split = SplitPaneStyler.styledHorizontalSplit(boardStage, side, 0.68);
@@ -229,21 +240,16 @@ final class AnalysisWorkspacePanel extends JPanel {
      * @return control component
      */
     private JComponent createControls() {
-        JPanel panel = new SurfacePanel(new GridBagLayout());
-        GridBagConstraints c = constraints();
-        grid(panel, Theme.section("Analysis"), c, 0, 0, 4, 1);
         styleFields(fenField, durationField);
+        fenField.setFont(Theme.mono(Theme.FONT_MONO));
         durationField.setToolTipText("Maximum analysis time, e.g. 1s or 500ms");
         FieldValidator.attach(durationField,
                 FieldValidator.numberWithOptionalUnit(true, "ms", "s", "m", "h"));
         styleSpinners(multipvSpinner);
         Theme.foreground(statusLabel, Theme.ForegroundRole.MUTED);
+        statusLabel.setFont(Theme.font(Theme.FONT_METADATA, java.awt.Font.PLAIN));
+        statusLabel.setText("No position loaded");
         fenField.addActionListener(event -> loadFen(fenField.getText()));
-        grid(panel, fenField, c, 0, 1, 4, 1);
-        grid(panel, label("Time"), c, 0, 2, 1, 1);
-        grid(panel, durationField, c, 1, 2, 1, 1);
-        grid(panel, label("Lines"), c, 2, 2, 1, 1);
-        grid(panel, multipvSpinner, c, 3, 2, 1, 1);
         startButton = iconButton("Start", event -> jumpPositionToStart());
         backButton = iconButton("Back", event -> navigatePosition(-1));
         forwardButton = iconButton("Forward", event -> navigatePosition(1));
@@ -252,20 +258,71 @@ final class AnalysisWorkspacePanel extends JPanel {
         WindowBoardLayer.setTransportShortcut(backButton, "Left / Numpad 4 / Alt+Left");
         WindowBoardLayer.setTransportShortcut(forwardButton, "Right / Numpad 6 / Alt+Right");
         WindowBoardLayer.setTransportShortcut(endButton, "Down / End / Numpad 2 / Alt+Down");
-        grid(panel, buttonRow(FlowLayout.LEFT,
+        positionBadge.setFixedTextWidth(72);
+        legalMovesBadge.setFixedTextWidth(72);
+
+        JPanel stack = verticalStack();
+        stack.add(createPositionCard());
+        stack.add(Box.createVerticalStrut(Theme.SPACE_MD));
+        stack.add(createEngineCard());
+        return stack;
+    }
+
+    /**
+     * Creates the local position-loading card.
+     *
+     * @return position card
+     */
+    private JComponent createPositionCard() {
+        JPanel body = verticalStack();
+        JLabel fenCaption = caption("FEN");
+        body.add(fullWidth(fenCaption));
+        body.add(Box.createVerticalStrut(Theme.SPACE_XS));
+        body.add(fullWidth(fenField));
+        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        body.add(fullWidth(statusLabel));
+        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        body.add(fullWidth(controlRow(FlowLayout.LEFT,
                 button("Load", true, event -> loadFen(fenField.getText())),
-                startButton,
-                backButton,
-                forwardButton,
-                endButton,
+                button("Reset", false, event -> loadFen(Setup.getStandardStartFEN())))));
+        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        body.add(transportButtonGroup(startButton, backButton, forwardButton, endButton));
+        return card("Position", positionBadge, body);
+    }
+
+    /**
+     * Creates the local engine-analysis card.
+     *
+     * @return engine card
+     */
+    private JComponent createEngineCard() {
+        JPanel body = verticalStack();
+        body.add(fullWidth(controlRow(FlowLayout.LEFT,
+                optionGroup("Time", durationField),
+                optionGroup("Lines", multipvSpinner))));
+        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        JButton analyze = button("Analyze", true, event -> runAnalyze());
+        analyze.setPreferredSize(new Dimension(112, Theme.CONTROL_HEIGHT));
+        body.add(fullWidth(controlRow(FlowLayout.LEFT,
+                analyze,
                 iconButton("Flip", event -> board.setWhiteDown(!board.isWhiteDown())),
                 iconButton("Copy FEN", event -> textCopier.accept(currentFen())),
                 iconButton("Export PNG", event -> BoardExportActions.exportPng(this, board)),
-                iconButton("Export SVG", event -> BoardExportActions.exportSvg(this, board)),
-                button("Analyze", false, event -> runAnalyze()),
-                button("Reset", false, event -> loadFen(Setup.getStandardStartFEN()))), c, 0, 3, 4, 1);
-        grid(panel, statusLabel, c, 0, 4, 4, 1);
-        return panel;
+                iconButton("Export SVG", event -> BoardExportActions.exportSvg(this, board)))));
+        return card("Engine", body);
+    }
+
+    /**
+     * Creates the legal move list card.
+     *
+     * @return legal-move card
+     */
+    private JComponent createLegalMovesCard() {
+        JScrollPane moveScroll = scroll(movesTable, () -> Theme.CARD);
+        moveScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        JPanel body = transparentPanel(new BorderLayout());
+        body.add(moveScroll, BorderLayout.CENTER);
+        return card("Legal Moves", legalMovesBadge, body);
     }
 
     /**
@@ -274,7 +331,7 @@ final class AnalysisWorkspacePanel extends JPanel {
     private void configureMovesTable() {
         movesTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         Theme.table(movesTable, Theme.TABLE_ROW_HEIGHT);
-        movesTable.setAutoResizeMode(javax.swing.JTable.AUTO_RESIZE_LAST_COLUMN);
+        movesTable.setAutoResizeMode(javax.swing.JTable.AUTO_RESIZE_ALL_COLUMNS);
         movesTable.setAutoCreateColumnsFromModel(false);
         movesTable.getColumnModel().getColumn(1).setCellRenderer(new SanRenderer());
         // Pin the narrow index/SAN/UCI columns so the trailing flags column
@@ -282,9 +339,12 @@ final class AnalysisWorkspacePanel extends JPanel {
         javax.swing.table.TableColumnModel moveColumns = movesTable.getColumnModel();
         moveColumns.getColumn(0).setMaxWidth(46);
         moveColumns.getColumn(0).setPreferredWidth(46);
-        moveColumns.getColumn(1).setPreferredWidth(96);
+        moveColumns.getColumn(1).setPreferredWidth(112);
         if (moveColumns.getColumnCount() > 2) {
-            moveColumns.getColumn(2).setPreferredWidth(82);
+            moveColumns.getColumn(2).setPreferredWidth(108);
+        }
+        if (moveColumns.getColumnCount() > 3) {
+            moveColumns.getColumn(3).setPreferredWidth(116);
         }
         movesTable.addMouseListener(new MouseAdapter() {
             /**
@@ -311,6 +371,8 @@ final class AnalysisWorkspacePanel extends JPanel {
         try {
             setPosition(new Position(fen.trim()), Move.NO_MOVE, true);
         } catch (IllegalArgumentException ex) {
+            positionBadge.error("invalid");
+            legalMovesBadge.notRun("no moves");
             Theme.foreground(statusLabel, Theme.ForegroundRole.ERROR);
             statusLabel.setText("Invalid FEN");
         }
@@ -321,6 +383,7 @@ final class AnalysisWorkspacePanel extends JPanel {
      *
      * @param next position
      * @param move last move
+     * @param recordHistory whether to append the position to local history
      */
     private void setPosition(Position next, short move, boolean recordHistory) {
         if (recordHistory) {
@@ -330,10 +393,71 @@ final class AnalysisWorkspacePanel extends JPanel {
         fenField.setText(currentFen());
         board.setPosition(position.copy(), move);
         visibleMoves = movesModel.setPosition(position);
+        positionBadge.ready("loaded");
+        legalMovesBadge.ready(visibleMoves.length + " moves");
         Theme.foreground(statusLabel, Theme.ForegroundRole.MUTED);
-        statusLabel.setText((position.isWhiteToMove() ? "white" : "black")
+        statusLabel.setText((position.isWhiteToMove() ? "White" : "Black")
                 + " to move - " + visibleMoves.length + " legal moves");
         updateNavigationButtons();
+    }
+
+    /**
+     * Creates a transparent vertical stack.
+     *
+     * @return vertical stack
+     */
+    private static JPanel verticalStack() {
+        JPanel panel = transparentPanel(null);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        return panel;
+    }
+
+    /**
+     * Creates one muted caption.
+     *
+     * @param text caption text
+     * @return caption label
+     */
+    private static JLabel caption(String text) {
+        JLabel label = new JLabel(text);
+        label.setFont(Theme.font(Theme.FONT_METADATA, java.awt.Font.BOLD));
+        Theme.foreground(label, Theme.ForegroundRole.MUTED);
+        label.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return label;
+    }
+
+    /**
+     * Lets a BoxLayout child use the whole card width while preserving its
+     * preferred height.
+     *
+     * @param component child component
+     * @param <T> child component type
+     * @return the same component
+     */
+    private static <T extends JComponent> T fullWidth(T component) {
+        Dimension preferred = component.getPreferredSize();
+        component.setAlignmentX(Component.LEFT_ALIGNMENT);
+        component.setMaximumSize(new Dimension(Integer.MAX_VALUE, preferred.height));
+        return component;
+    }
+
+    /**
+     * Packs navigation buttons into one segmented transport control.
+     *
+     * @param buttons buttons in display order
+     * @return transport control
+     */
+    private static JComponent transportButtonGroup(JButton... buttons) {
+        JPanel group = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        group.setOpaque(true);
+        group.setBackground(Theme.ELEVATED_SOLID);
+        group.setBorder(Theme.lineBorder(Theme.LINE, 1));
+        group.setAlignmentX(Component.LEFT_ALIGNMENT);
+        for (JButton button : buttons) {
+            group.add(button);
+        }
+        group.setMaximumSize(group.getPreferredSize());
+        return group;
     }
 
     /**
@@ -457,7 +581,7 @@ final class AnalysisWorkspacePanel extends JPanel {
     /**
      * Binds one local navigation key.
      *
-     * @param keyCode key code
+     * @param keyCode source key code
      * @param name action name suffix
      * @param action action body
      */

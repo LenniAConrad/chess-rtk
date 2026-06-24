@@ -20,7 +20,7 @@ public final class Model {
    * Tokenizer instance for encoding/decoding text.
    */
   public final Tokenizer tokenizer;
-  
+
   /**
    * Map of layer tensors keyed by export names.
    */
@@ -35,7 +35,7 @@ public final class Model {
    * Creates a model instance.
    *
    * @param config model configuration
-   * @param tokenizer tokenizer
+   * @param tokenizer tokenizer instance
    * @param tensors weight tensors
    * @param sourcePath optional source path to the model .bin file
    */

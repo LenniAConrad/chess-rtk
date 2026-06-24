@@ -89,14 +89,14 @@ public final class ReportPanel {
         /**
          * Copies text to the clipboard.
          *
-         * @param text text
+         * @param text text to render or parse
          */
     void copyText(String text);
 
         /**
          * Appends text to the console.
          *
-         * @param text text
+         * @param text text to render or parse
          */
     void appendConsole(String text);
 
@@ -104,15 +104,15 @@ public final class ReportPanel {
          * Shows a toast.
          *
          * @param kind toast kind
-         * @param message message
+         * @param message diagnostic message
          */
     void toast(Toast.Kind kind, String message);
 
         /**
          * Shows an error.
          *
-         * @param title title
-         * @param message message
+         * @param title display title
+         * @param message diagnostic message
          */
     void showError(String title, String message);
     }
@@ -282,7 +282,7 @@ public final class ReportPanel {
      * Appends legal move details to a report.
      *
      * @param sb target builder
-     * @param currentPosition current position
+     * @param currentPosition source current position
      */
     private static void appendLegalMoves(StringBuilder sb, Position currentPosition) {
         String newline = System.lineSeparator();

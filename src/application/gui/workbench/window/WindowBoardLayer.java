@@ -601,9 +601,9 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         stack.setLayout(new BoxLayout(stack, BoxLayout.Y_AXIS));
         stack.add(createPositionControls());
         stack.add(Box.createVerticalStrut(Theme.SPACE_MD));
-        stack.add(createAnalysisControls());
-        stack.add(Box.createVerticalStrut(Theme.SPACE_MD));
         stack.add(createAnalysisWorkspaceCard());
+        stack.add(Box.createVerticalStrut(Theme.SPACE_MD));
+        stack.add(createAnalysisControls());
         stack.add(Box.createVerticalGlue());
 
         JScrollPane scrollPane = scroll(fillViewport(stack), () -> Theme.PANEL_SOLID);
@@ -1822,11 +1822,12 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         // the move list keeps a stable lower slot. A fixed column avoids the
         // visual collision that came from nesting a vertical split inside the
         // already-split Play workspace.
-        JComponent setup = scroll(fillViewport(controls));
+        JScrollPane setup = scroll(fillViewport(controls));
+        setup.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         JComponent moves = createPlayMoveHistory();
         moves.setPreferredSize(new Dimension(SIDE_RAIL_SIZE.width, 300));
         moves.setMinimumSize(new Dimension(0, 170));
-        JPanel rail = transparentPanel(new BorderLayout(0, Theme.SPACE_MD));
+        JPanel rail = new SurfacePanel(new BorderLayout(0, Theme.SPACE_MD), Theme.Surface.BACKDROP);
         rail.add(setup, BorderLayout.CENTER);
         rail.add(moves, BorderLayout.SOUTH);
         rail.setPreferredSize(SIDE_RAIL_SIZE);
@@ -1903,8 +1904,6 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
             }
         }));
         JComponent section = Ui.card("Move History", scroll(playMoves));
-        section.setOpaque(true);
-        section.setBackground(Theme.BG);
         return section;
     }
 

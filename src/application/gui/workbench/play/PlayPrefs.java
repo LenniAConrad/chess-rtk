@@ -172,7 +172,7 @@ public final class PlayPrefs {
     /**
      * Clamps an integer to a range.
      *
-     * @param value value
+     * @param value candidate value
      * @param min minimum
      * @param max maximum
      * @return clamped value

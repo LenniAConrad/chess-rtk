@@ -91,6 +91,7 @@ final class WorkbenchBackendRegression {
         testJobLifecycleTransitions();
         testRunLogWritesFullOutput();
         testRunLogAvoidsClobberingExistingFile();
+        testRunArtifactFailuresAreContextualAndDeduplicated();
         testLogPanelConstructsHeadlessly();
         testDesktopOpenRejectsMissingPath();
         testSoundServiceProceduralCueSettings();
@@ -124,6 +125,7 @@ final class WorkbenchBackendRegression {
         testNnueRawUsesStableFeatureLanes();
         testNnueHalfKpDecodingUsesFeatureEncoderLayout();
         testNetworkBoardOrientationFollowsSideToMove();
+        testNetworkLoadingPositionDetailUsesCoreSideToMove();
         testNetworkBoardSectionSuppressesSmallLabelsAndKeepsHitOrientation();
         testBt4DetailedBoardUsesSharedTriangleOverlay();
         testNnueForwardSkipUsesNormalLineStyle();
@@ -261,6 +263,8 @@ final class WorkbenchBackendRegression {
             String text = readUtf8(log);
             assertTrue(text.contains("CRTK Workbench Command Log"), "log header");
             assertTrue(text.contains("command: crtk engine bestmove"), "log command");
+            assertTrue(text.contains("summary: bestmove e2e4"), "log parsed summary");
+            assertFalse(text.contains("written:"), "log omits volatile write timestamp");
             assertTrue(text.contains("info depth 1\rinfo depth 2"), "log preserves carriage returns");
             assertTrue(text.contains("bestmove e2e4"), "log output");
 
@@ -342,6 +346,77 @@ final class WorkbenchBackendRegression {
                     "new run log is written");
         } catch (java.io.IOException ex) {
             throw new AssertionError("log clobber test setup failed", ex);
+        }
+    }
+
+    /**
+     * Guards the artifact-diagnostic contract: enough job context to recover,
+     * but one console line per repeated failure.
+     */
+    private static void testRunArtifactFailuresAreContextualAndDeduplicated() {
+        try {
+            Path dir = PathOps.createLocalTempDirectory("crtk-workbench-log-failure-");
+            Path blocked = dir.resolve("logs");
+            writeUtf8(blocked, "not a directory");
+            List<String> console = new ArrayList<>();
+            Object session = construct(type("Session"), new Class<?>[0]);
+            Class<?> hostType = type("RunArtifacts$Host");
+            Object host = Proxy.newProxyInstance(hostType.getClassLoader(), new Class<?>[] { hostType },
+                    (proxy, method, args) -> {
+                        return switch (method.getName()) {
+                            case "session" -> session;
+                            case "appendConsole" -> {
+                                console.add((String) args[0]);
+                                yield null;
+                            }
+                            default -> null;
+                        };
+                    });
+            Object artifacts = construct(type("RunArtifacts"),
+                    new Class<?>[] { hostType, Path.class, Path.class },
+                    host, blocked, dir.resolve("manifests"));
+
+            Object manager = construct(type("JobManager"), new Class<?>[0]);
+            Class<?> jobType = type("Job");
+            Object job = invoke(manager, "create", new Class<?>[] { List.class },
+                    List.of("doctor"));
+            invoke(manager, "markFinished", new Class<?>[] { jobType, int.class, String.class, long.class },
+                    job, 2, "doctor failed", 9L);
+
+            assertEquals(null, invoke(artifacts, "persistLog", new Class<?>[] { jobType }, job),
+                    "failed log write returns null");
+            assertEquals(null, invoke(artifacts, "persistLog", new Class<?>[] { jobType }, job),
+                    "repeated failed log write returns null");
+            assertEquals(Integer.valueOf(1), Integer.valueOf(console.size()),
+                    "repeated log write failure is reported once");
+            String message = console.get(0);
+            assertTrue(message.contains("Run log write failed for job #1"),
+                    "log failure identifies job");
+            assertTrue(message.contains("status=failed"), "log failure includes status");
+            assertTrue(message.contains("command=\"crtk doctor\""), "log failure includes command");
+            assertTrue(message.contains("directory=" + blocked.toAbsolutePath().normalize()),
+                    "log failure includes target directory");
+            assertTrue(message.contains("Check that the directory exists and is writable."),
+                    "log failure gives remediation");
+            List<?> recorded = listValue(invoke(artifacts, "recordFromCommand",
+                    new Class<?>[] { List.class },
+                    List.of("book", "render", "--output", "bad\0path")));
+            assertTrue(recorded.isEmpty(), "invalid artifact path is not recorded");
+            invoke(artifacts, "recordFromCommand", new Class<?>[] { List.class },
+                    List.of("book", "render", "--output", "bad\0path"));
+            assertEquals(Integer.valueOf(2), Integer.valueOf(console.size()),
+                    "repeated invalid artifact path is reported once");
+            String invalidPathMessage = console.get(1);
+            assertTrue(invalidPathMessage.contains("Generated artifact path ignored"),
+                    "invalid artifact path warning names the failure");
+            assertTrue(invalidPathMessage.contains("token=\"bad\\u0000path\""),
+                    "invalid artifact path warning escapes the token");
+            assertFalse(invalidPathMessage.contains("\0"),
+                    "invalid artifact path warning contains no raw control character");
+            assertTrue(invalidPathMessage.contains("Check the output path argument."),
+                    "invalid artifact path warning gives remediation");
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("log failure test setup failed", ex);
         }
     }
 
@@ -646,18 +721,6 @@ final class WorkbenchBackendRegression {
         int expandedHeight = card.getMaximumSize().height;
         assertTrue(expandedHeight > initialHeight,
                 "dashboard card max height follows dynamic content");
-    }
-
-    /**
-     * Returns whether a component tree contains a class with the given simple
-     * name.
-     *
-     * @param component root component
-     * @param simpleName class simple name
-     * @return true when found
-     */
-    private static boolean componentTreeContainsClass(Component component, String simpleName) {
-        return componentTreeFindClass(component, simpleName) != null;
     }
 
     /**
@@ -1517,6 +1580,8 @@ final class WorkbenchBackendRegression {
                 "white-to-move network board has White at the bottom");
         assertTrue(!TensorViz.whiteDownForSideToMove(blackFen),
                 "black-to-move network board has Black at the bottom");
+        assertTrue(TensorViz.whiteDownForSideToMove("Q b - - 0 1"),
+                "malformed network FEN falls back to White at the bottom");
         assertEquals(Integer.valueOf(56),
                 Integer.valueOf(TensorViz.boardSquareAt(board, 5, 5, true)),
                 "white-down top-left is a8");
@@ -1547,6 +1612,22 @@ final class WorkbenchBackendRegression {
                 "white-down overlays use the same top-left square as hit testing");
         assertTrue(boardOverlayChangesTopLeft(7, false),
                 "black-down overlays use the same top-left square as hit testing");
+    }
+
+    /**
+     * Verifies loading-position summaries use the same core-backed side-to-move
+     * rule as the network board orientation helpers.
+     */
+    private static void testNetworkLoadingPositionDetailUsesCoreSideToMove() {
+        Class<?> panelType = type("NetworkPanel");
+        assertEquals("8/8/8/8/8/8/8/4K2k - black to move",
+                invokeStatic(panelType, "loadingPositionDetail",
+                        new Class<?>[] { String.class }, "8/8/8/8/8/8/8/4K2k b - - 0 1"),
+                "network loading detail reports core black-to-move positions");
+        assertEquals("Q - white to move",
+                invokeStatic(panelType, "loadingPositionDetail",
+                        new Class<?>[] { String.class }, "Q b - - 0 1"),
+                "network loading detail falls back for malformed FEN");
     }
 
     /**
@@ -1740,31 +1821,6 @@ final class WorkbenchBackendRegression {
                 },
                 g, hitRegions, board, fen, title, values, Float.valueOf(scale),
                 Integer.valueOf(focusSquare), focusColor, caption, inspection);
-    }
-
-    /**
-     * Reflectively paints a network board helper with a custom overlay hook.
-     *
-     * @param g graphics
-     * @param hitRegions hit registry
-     * @param board board rectangle
-     * @param fen position FEN
-     * @param title title text
-     * @param values optional square values
-     * @param scale overlay scale
-     * @param focusSquare highlighted square
-     * @param focusColor highlighted-square color
-     * @param caption tooltip caption
-     * @param overlay custom board overlay
-     * @param inspection optional inspector binding
-     */
-    private static void paintCustomNetworkBoardSection(Graphics2D g,
-            HitRegions hitRegions, Rectangle board, String fen, String title,
-            float[] values, float scale, int focusSquare, Color focusColor,
-            String caption, Object overlay, Object inspection) {
-        paintLayeredNetworkBoardSection(g, hitRegions, board, fen, title, values,
-                scale, focusSquare, focusColor, caption, null, overlay,
-                inspection);
     }
 
     /**
@@ -1963,7 +2019,7 @@ final class WorkbenchBackendRegression {
      * Verifies synthetic NNUE feature indices stay inside the real encoder's
      * feature domain.
      *
-     * @param snapshot snapshot
+     * @param snapshot captured snapshot
      * @param key tensor key
      */
     private static void assertSyntheticFeatureBounds(Object snapshot, String key) {
@@ -1981,10 +2037,10 @@ final class WorkbenchBackendRegression {
     /**
      * Stores one activation tensor in a reflected snapshot.
      *
-     * @param snapshot snapshot
-     * @param key key
-     * @param shape shape
-     * @param values values
+     * @param snapshot captured snapshot
+     * @param key lookup key
+     * @param shape tensor shape
+     * @param values input values
      */
     private static void put(Object snapshot, String key, int[] shape, float[] values) {
         invoke(snapshot, "put", new Class<?>[] { String.class, int[].class, float[].class },
@@ -1994,8 +2050,8 @@ final class WorkbenchBackendRegression {
     /**
      * Reads one activation tensor from a reflected snapshot.
      *
-     * @param snapshot snapshot
-     * @param key key
+     * @param snapshot captured snapshot
+     * @param key lookup key
      * @return values
      */
     private static float[] data(Object snapshot, String key) {
@@ -2005,7 +2061,7 @@ final class WorkbenchBackendRegression {
     /**
      * Builds a simple descending range used by synthetic trace tests.
      *
-     * @param length length
+     * @param length element count
      * @param start first value
      * @return range
      */
@@ -3482,8 +3538,8 @@ final class WorkbenchBackendRegression {
      * Creates a minimal node-info row for tree view visual regressions.
      *
      * @param id stable node id
-     * @param parentId parent id
-     * @param depth depth
+     * @param parentId source parent id
+     * @param depth search depth
      * @param visits visit count
      * @param signature position signature
      * @return node info
@@ -3497,9 +3553,9 @@ final class WorkbenchBackendRegression {
      * Creates a minimal node-info row with a chosen incoming move.
      *
      * @param id stable node id
-     * @param parentId parent id
+     * @param parentId source parent id
      * @param move incoming move
-     * @param depth depth
+     * @param depth search depth
      * @param visits visit count
      * @param signature position signature
      * @return node info
@@ -3787,7 +3843,7 @@ final class WorkbenchBackendRegression {
     /**
      * Counts pixels in a region that differ from a background color.
      *
-     * @param image image
+     * @param image rendered image
      * @param background expected background
      * @param x x coordinate
      * @param y y coordinate

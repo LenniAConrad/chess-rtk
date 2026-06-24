@@ -30,6 +30,9 @@ public final class PublishSampleData {
      */
     public static final String SAMPLE_AUTHOR = "Lennart A. Conrad";
 
+    /**
+     * Creates the publish sample data.
+     */
     private PublishSampleData() {
     }
 

@@ -116,8 +116,8 @@ public final class JobTableModel extends AbstractTableModel {
     /**
      * Returns one table cell value.
      *
-     * @param rowIndex row index
-     * @param columnIndex column index
+     * @param rowIndex zero-based row index
+     * @param columnIndex zero-based column index
      * @return display value
      */
     @Override
@@ -135,8 +135,8 @@ public final class JobTableModel extends AbstractTableModel {
     /**
      * Returns whether a cell is editable.
      *
-     * @param rowIndex row index
-     * @param columnIndex column index
+     * @param rowIndex zero-based row index
+     * @param columnIndex zero-based column index
      * @return false because job rows are read-only
      */
     @Override

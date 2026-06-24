@@ -336,9 +336,9 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Handles resolve training puzzle filter.
-	 * @param puzzleFilterDsl puzzle filter dsl
-	 * @param verbose verbose
-	 * @return computed value
+	 * @param puzzleFilterDsl source puzzle filter dsl
+	 * @param verbose whether verbose output is enabled
+	 * @return handles resolve training puzzle filter
 	 */
 	private static Filter resolveTrainingPuzzleFilter(String puzzleFilterDsl, boolean verbose) {
 		if (puzzleFilterDsl != null && !puzzleFilterDsl.isEmpty()) {
@@ -355,8 +355,8 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Handles validate training output path.
-	 * @param inputFiles input files
-	 * @param output output
+	 * @param inputFiles source input files
+	 * @param output output path
 	 */
 	private static void validateTrainingOutputPath(List<Path> inputFiles, Path output) {
 		if (Files.isDirectory(output)) {
@@ -388,11 +388,11 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Handles collect puzzle parent fens.
-	 * @param inputFiles input files
-	 * @param puzzleFilter puzzle filter
-	 * @param verbose verbose
-	 * @param bar bar
-	 * @return computed value
+	 * @param inputFiles source input files
+	 * @param puzzleFilter source puzzle filter
+	 * @param verbose whether verbose output is enabled
+	 * @param bar progress bar
+	 * @return handles collect puzzle parent fens
 	 * @throws IOException if the operation fails
 	 */
 	private static Set<String> collectPuzzleParentFens(
@@ -423,17 +423,17 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Writes the training jsonl.
-	 * @param inputFiles input files
-	 * @param writer writer
-	 * @param puzzleFilter puzzle filter
-	 * @param puzzleParents puzzle parents
-	 * @param includeEngineMetadata include engine metadata
-	 * @param maxRecords max records
-	 * @param stats stats
-	 * @param verbose verbose
-	 * @param bar bar
+	 * @param inputFiles source input files
+	 * @param writer output writer
+	 * @param puzzleFilter source puzzle filter
+	 * @param puzzleParents source puzzle parents
+	 * @param includeEngineMetadata whether to include engine metadata
+	 * @param maxRecords maximum records
+	 * @param stats running statistics
+	 * @param verbose whether verbose output is enabled
+	 * @param bar progress bar
 	 * @throws IOException if the operation fails
-	 * @param context context value
+	 * @param context source context
 	 */
 	private static void writeTrainingJsonl(
 			List<Path> inputFiles,
@@ -511,10 +511,10 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Parses the training record.
-	 * @param objJson obj json
-	 * @param verbose verbose
-	 * @param label label
-	 * @return computed value
+	 * @param objJson JSON payload for obj
+	 * @param verbose whether verbose output is enabled
+	 * @param label display label
+	 * @return parsed the training record
 	 */
 	private static Record parseTrainingRecord(String objJson, boolean verbose, String label) {
 		try {
@@ -529,10 +529,10 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Handles training label for.
-	 * @param rec rec
-	 * @param puzzleFilter puzzle filter
-	 * @param puzzleParents puzzle parents
-	 * @return computed value
+	 * @param rec source record
+	 * @param puzzleFilter source puzzle filter
+	 * @param puzzleParents source puzzle parents
+	 * @return handles training label for
 	 */
 	private static TrainingLabel trainingLabelFor(Record rec, Filter puzzleFilter, Set<String> puzzleParents) {
 		if (puzzleFilter.apply(rec.getAnalysis())) {
@@ -546,12 +546,12 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Converts this value to training jsonl line.
-	 * @param rec rec
-	 * @param input input
-	 * @param sourceRecordIndex source record index
-	 * @param label label
-	 * @param includeEngineMetadata include engine metadata
-	 * @return computed value
+	 * @param rec source record
+	 * @param input input path or text
+	 * @param sourceRecordIndex zero-based source record index
+	 * @param label display label
+	 * @param includeEngineMetadata whether to include engine metadata
+	 * @return converted this value to training jsonl line
 	 */
 	private static String toTrainingJsonlLine(
 			Record rec,
@@ -588,8 +588,8 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Handles append training engine metadata.
-	 * @param sb sb
-	 * @param rec rec
+	 * @param sb source sb
+	 * @param rec source record
 	 */
 	private static void appendTrainingEngineMetadata(StringBuilder sb, Record rec) {
 		chess.uci.Analysis analysis = rec.getAnalysis();
@@ -613,8 +613,8 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Handles multipv json.
-	 * @param analysis analysis
-	 * @return computed value
+	 * @param analysis analysis result
+	 * @return handles multipv json
 	 */
 	private static String multipvJson(chess.uci.Analysis analysis) {
 		if (analysis == null || analysis.isEmpty()) {
@@ -644,8 +644,8 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Handles pv moves json.
-	 * @param moves moves
-	 * @return computed value
+	 * @param moves move list
+	 * @return handles pv moves json
 	 */
 	private static String pvMovesJson(short[] moves) {
 		if (moves == null || moves.length == 0) {
@@ -663,8 +663,8 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Handles cp value.
-	 * @param output output
-	 * @return computed value
+	 * @param output output path
+	 * @return handles cp value
 	 */
 	private static Integer cpValue(Output output) {
 		Evaluation eval = output == null ? null : output.getEvaluation();
@@ -673,8 +673,8 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Handles mate value.
-	 * @param output output
-	 * @return computed value
+	 * @param output output path
+	 * @return handles mate value
 	 */
 	private static Integer mateValue(Output output) {
 		Evaluation eval = output == null ? null : output.getEvaluation();
@@ -683,8 +683,8 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Handles first move uci.
-	 * @param output output
-	 * @return computed value
+	 * @param output output path
+	 * @return handles first move uci
 	 */
 	private static String firstMoveUci(Output output) {
 		if (output == null || output.getMoves() == null || output.getMoves().length == 0) {
@@ -695,8 +695,8 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Handles format engine eval with kind.
-	 * @param eval eval
-	 * @return computed value
+	 * @param eval engine evaluation
+	 * @return handles format engine eval with kind
 	 */
 	private static String formatEngineEvalWithKind(Evaluation eval) {
 		if (eval == null || !eval.isValid()) {
@@ -707,9 +707,9 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Handles append json string field.
-	 * @param sb sb
-	 * @param name name
-	 * @param value value
+	 * @param sb source sb
+	 * @param name display name
+	 * @param value candidate value
 	 */
 	private static void appendJsonStringField(StringBuilder sb, String name, String value) {
 		appendJsonFieldName(sb, name);
@@ -718,9 +718,9 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Handles append json int field.
-	 * @param sb sb
-	 * @param name name
-	 * @param value value
+	 * @param sb source sb
+	 * @param name display name
+	 * @param value candidate value
 	 */
 	private static void appendJsonIntField(StringBuilder sb, String name, int value) {
 		appendJsonFieldName(sb, name);
@@ -729,9 +729,9 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Handles append json long field.
-	 * @param sb sb
-	 * @param name name
-	 * @param value value
+	 * @param sb source sb
+	 * @param name display name
+	 * @param value candidate value
 	 */
 	private static void appendJsonLongField(StringBuilder sb, String name, long value) {
 		appendJsonFieldName(sb, name);
@@ -740,9 +740,9 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Handles append json nullable int field.
-	 * @param sb sb
-	 * @param name name
-	 * @param value value
+	 * @param sb source sb
+	 * @param name display name
+	 * @param value candidate value
 	 */
 	private static void appendJsonNullableIntField(StringBuilder sb, String name, Integer value) {
 		appendJsonFieldName(sb, name);
@@ -755,9 +755,9 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Handles append json nullable long field.
-	 * @param sb sb
-	 * @param name name
-	 * @param value value
+	 * @param sb source sb
+	 * @param name display name
+	 * @param value candidate value
 	 */
 	private static void appendJsonNullableLongField(StringBuilder sb, String name, Long value) {
 		appendJsonFieldName(sb, name);
@@ -770,8 +770,8 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Handles append json null field.
-	 * @param sb sb
-	 * @param name name
+	 * @param sb source sb
+	 * @param name display name
 	 */
 	private static void appendJsonNullField(StringBuilder sb, String name) {
 		appendJsonFieldName(sb, name);
@@ -780,9 +780,9 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Handles append json raw field.
-	 * @param sb sb
-	 * @param name name
-	 * @param rawJson raw json
+	 * @param sb source sb
+	 * @param name display name
+	 * @param rawJson raw JSON text
 	 */
 	private static void appendJsonRawField(StringBuilder sb, String name, String rawJson) {
 		appendJsonFieldName(sb, name);
@@ -791,8 +791,8 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Handles append json field name.
-	 * @param sb sb
-	 * @param name name
+	 * @param sb source sb
+	 * @param name display name
 	 */
 	private static void appendJsonFieldName(StringBuilder sb, String name) {
 		if (sb.length() > 1 && sb.charAt(sb.length() - 1) != '{' && sb.charAt(sb.length() - 1) != '[') {
@@ -804,8 +804,8 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Handles append json string value.
-	 * @param sb sb
-	 * @param value value
+	 * @param sb source sb
+	 * @param value candidate value
 	 */
 	private static void appendJsonStringValue(StringBuilder sb, String value) {
 		if (value == null) {
@@ -990,10 +990,10 @@ final class RecordTrainingJsonlCommand {
 
 		 /**
 		 * Creates a new training label instance.
-		 * @param status status
-		 * @param coarse coarse
-		 * @param fine fine
-		 * @param verificationStatus verification status
+		 * @param status status label
+		 * @param coarse source coarse
+		 * @param fine source fine
+		 * @param verificationStatus source verification status
 		 */
 		 private TrainingLabel(String status, int coarse, Integer fine, String verificationStatus) {
 			this.status = status;
@@ -1046,7 +1046,7 @@ final class RecordTrainingJsonlCommand {
 
 		 /**
 		 * Handles record written.
-		 * @param label label
+		 * @param label display label
 		 */
 		 private void recordWritten(TrainingLabel label) {
 			written++;
@@ -1071,11 +1071,11 @@ final class RecordTrainingJsonlCommand {
 	}
 	/**
 	 * Handles collect record inputs or exit.
-	 * @param command command
-	 * @param inputs inputs
-	 * @param recursive recursive
-	 * @param verbose verbose
-	 * @return computed value
+	 * @param command command text
+	 * @param inputs input paths
+	 * @param recursive whether input traversal is recursive
+	 * @param verbose whether verbose output is enabled
+	 * @return handles collect record inputs or exit
 	 */
 	private static List<Path> collectRecordInputsOrExit(
 			String command,
@@ -1091,8 +1091,8 @@ final class RecordTrainingJsonlCommand {
 	}
 	/**
 	 * Handles file name.
-	 * @param path path
-	 * @return computed value
+	 * @param path file-system path
+	 * @return handles file name
 	 */
 	private static String fileName(Path path) {
 		if (path == null || path.getFileName() == null) {
@@ -1103,9 +1103,9 @@ final class RecordTrainingJsonlCommand {
 
 	/**
 	 * Handles progress bar.
-	 * @param totalRecords total records
-	 * @param label label
-	 * @return computed value
+	 * @param totalRecords source total records
+	 * @param label display label
+	 * @return handles progress bar
 	 */
 	private static Bar progressBar(long totalRecords, String label) {
 		if (totalRecords <= 0) {

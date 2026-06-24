@@ -662,7 +662,7 @@ public final class AlphaBeta implements AutoCloseable {
      * Searches a position using default limits.
      *
      * @param position position to search
-     * @return search result
+     * @return search
      */
     public Result search(Position position) {
         return search(position, Limits.defaults());
@@ -673,7 +673,7 @@ public final class AlphaBeta implements AutoCloseable {
      *
      * @param position position to search
      * @param limits resource limits
-     * @return search result
+     * @return search
      * @throws IllegalArgumentException if an argument is null
      */
     public Result search(Position position, Limits limits) {
@@ -687,7 +687,7 @@ public final class AlphaBeta implements AutoCloseable {
      * @param position position to search
      * @param limits resource limits
      * @param listener optional completed-depth listener
-     * @return search result
+     * @return search
      * @throws IllegalArgumentException if an argument is null
      */
     public Result search(Position position, Limits limits, SearchListener listener) {
@@ -861,7 +861,8 @@ public final class AlphaBeta implements AutoCloseable {
      * @param generationStart starting generation for the table
      * @param shared whether the table persists across searches
      * @param manageGeneration whether this worker advances the shared generation
-     * @return this worker's search result
+     * @param threadIndex zero-based Lazy SMP worker index
+     * @return this worker's search
      */
     private Result runWorker(
             Position position,
@@ -1864,6 +1865,7 @@ public final class AlphaBeta implements AutoCloseable {
      * @param beta beta bound
      * @param pvNode true when this node is in the principal variation
      * @param staticEval cached static evaluation
+     * @param improving whether the static evaluation is improving
      * @return cutoff score or {@link #NO_SCORE}
      */
     private static int tryReverseFutilityPruning(
@@ -1999,6 +2001,7 @@ public final class AlphaBeta implements AutoCloseable {
      * @param entry transposition entry, or null
      * @param depth remaining depth
      * @param probCutBeta beta-plus-margin threshold
+     * @param ply zero-based ply index
      * @return true when a fresh enough exact/upper entry is below the threshold
      */
     private static boolean ttRefutesProbCut(Transposition entry, int depth, int probCutBeta, int ply) {
@@ -2554,7 +2557,7 @@ public final class AlphaBeta implements AutoCloseable {
      * @param legalMoves root legal moves
      * @param context search context
      * @param started start time
-     * @return one-ply static result
+     * @return one-ply static
      */
     private static Result staticRootResult(
             Position root,
@@ -2942,6 +2945,7 @@ public final class AlphaBeta implements AutoCloseable {
      *
      * @param position parent position
      * @param move encoded move
+     * @param state caller-owned undo state
      * @return true when the opponent is in check after the move
      */
     private static boolean givesCheck(Position position, short move, Position.State state) {
@@ -3962,6 +3966,7 @@ public final class AlphaBeta implements AutoCloseable {
          * @param table transposition table to use (fresh per-search, or shared)
          * @param generationStart initial generation, so a shared table's entries
          *        from earlier searches are not treated as the current generation
+         * @param features enabled feature flags
          */
         private SearchContext(long started, Limits limits, CentipawnEvaluator evaluator, Position root,
                 TranspositionTable table, int generationStart, Set<Feature> features) {

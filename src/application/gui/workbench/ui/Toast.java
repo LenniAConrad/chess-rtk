@@ -108,8 +108,8 @@ public final class Toast {
      * Shows a toast notification on the supplied frame.
      *
      * @param frame parent frame
-     * @param kind severity
-     * @param message message
+     * @param kind kind label
+     * @param message diagnostic message
      */
     public static void show(JFrame frame, Kind kind, String message) {
         if (frame == null || message == null || message.isBlank()) {
@@ -123,8 +123,8 @@ public final class Toast {
      * Shows a toast notification on the frame that owns one component.
      *
      * @param owner component inside the target frame
-     * @param kind severity
-     * @param message message
+     * @param kind kind label
+     * @param message diagnostic message
      */
     public static void show(Component owner, Kind kind, String message) {
         if (owner instanceof JFrame frame) {
@@ -158,7 +158,7 @@ public final class Toast {
     /**
      * One toast in the history popover.
      *
-     * @param kind severity
+     * @param kind kind label
      * @param message message body
      * @param timestamp epoch millis when the toast fired
      */
@@ -226,8 +226,8 @@ public final class Toast {
      * Implementation that runs on the EDT.
      *
      * @param frame target frame
-     * @param kind severity
-     * @param message message
+     * @param kind kind label
+     * @param message diagnostic message
      */
     private static void showOnEdt(JFrame frame, Kind kind, String message) {
         ToastPanel toast = new ToastPanel(frame, kind, message);
@@ -290,7 +290,7 @@ public final class Toast {
      * Returns the x-coordinate for a toast inside the layered pane.
      *
      * @param layeredWidth layered-pane width
-     * @param toastWidth toast width
+     * @param toastWidth source toast width
      * @return x-coordinate
      */
     private static int toastX(int layeredWidth, int toastWidth) {

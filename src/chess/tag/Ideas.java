@@ -30,13 +30,37 @@ import chess.eval.See;
  */
 public final class Ideas {
 
+    /**
+     * Stable text value for family.
+     */
     private static final String FAMILY = "IDEA: ";
+    /**
+     * Stable text value for side.
+     */
     private static final String SIDE = "side=";
+    /**
+     * Stable text value for type.
+     */
     private static final String TYPE = " type=";
+    /**
+     * Stable text value for move.
+     */
     private static final String MOVE = " move=";
+    /**
+     * Stable text value for detail.
+     */
     private static final String DETAIL = " detail=\"";
+    /**
+     * Stable text value for quote.
+     */
     private static final String QUOTE = "\"";
+    /**
+     * Stable text value for white.
+     */
     private static final String WHITE = "white";
+    /**
+     * Stable text value for black.
+     */
     private static final String BLACK = "black";
 
     /**
@@ -47,12 +71,18 @@ public final class Ideas {
      */
     private static final int SPACE_ADVANCE_THRESHOLD = 4;
 
+    /**
+     * Creates the ideas.
+     */
     private Ideas() {
         // utility
     }
 
     /**
      * Appends all grounded IDEA tags for {@code position} to {@code tags}.
+     *
+     * @param tags tag collection to update
+     * @param position chess position
      */
     public static void addIdeas(List<String> tags, Position position) {
         if (tags == null || position == null) {
@@ -70,6 +100,10 @@ public final class Ideas {
      * See.see > 0 (strict). Grounding is the exact idiom Generator.candidateNote
      * uses for "wins material": the move is in legalMoves(), isCapture(move), and
      * See.see(position, move) > 0. Emits one tag (the best such capture).
+     *
+     * @param tags tag collection to update
+     * @param position chess position
+     * @param seen deduplication set for emitted tags
      */
     private static void addWinMaterial(List<String> tags, Position position, Set<String> seen) {
         MoveList moves = position.legalMoves();
@@ -95,6 +129,10 @@ public final class Ideas {
      * type=promote: any LEGAL promotion move (Move.isPromotion, orientation-free),
      * OR a LEGAL advance of a passed pawn (Position.isPassedPawn on the move's
      * from square). One tag per distinct legal move.
+     *
+     * @param tags tag collection to update
+     * @param position chess position
+     * @param seen deduplication set for emitted tags
      */
     private static void addPromote(List<String> tags, Position position, Set<String> seen) {
         MoveList moves = position.legalMoves();
@@ -124,12 +162,24 @@ public final class Ideas {
      * neighbours), counted via countAttackersBy{White,Black}. No move attached.
      * detail names the concrete open file. One tag per side; both sides can be
      * endangered at once (e.g. both kings stuck on the same open file).
+     *
+     * @param tags tag collection to update
+     * @param position chess position
+     * @param seen deduplication set for emitted tags
      */
     private static void addKingSafety(List<String> tags, Position position, Set<String> seen) {
         kingSafetyFor(tags, position, seen, true);
         kingSafetyFor(tags, position, seen, false);
     }
 
+    /**
+     * Builds king-safety ideas for the requested side.
+     *
+     * @param tags tag collection
+     * @param position chess position
+     * @param seen deduplication set
+     * @param kingWhite whether king white
+     */
     private static void kingSafetyFor(List<String> tags, Position position, Set<String> seen, boolean kingWhite) {
         byte king = position.kingSquare(kingWhite);
         if (king == Field.NO_SQUARE) {
@@ -158,6 +208,11 @@ public final class Ideas {
      * Counts enemy attackers across the king-ring (the king square and each
      * on-board neighbour), summing per-square enemy attacker counts. A concrete,
      * deterministically re-derivable number.
+     *
+     * @param position chess position
+     * @param king king square index
+     * @param kingWhite true when the king is White
+     * @return number of enemy attackers across the king-ring (the king square and each on-board neighbour), summing per-square enemy attacker counts
      */
     private static int ringAttackers(Position position, byte king, boolean kingWhite) {
         int kx = Field.getX(king);
@@ -183,6 +238,10 @@ public final class Ideas {
      * boundary is derived from the two kings' ranks (no absolute rank constant),
      * so it is orientation-robust. Emitted only when strictly positive for the
      * side to move.
+     *
+     * @param tags tag collection to update
+     * @param position chess position
+     * @param seen deduplication set for emitted tags
      */
     private static void addSpace(List<String> tags, Position position, Set<String> seen) {
         boolean white = position.isWhiteToMove();
@@ -198,6 +257,13 @@ public final class Ideas {
         }
     }
 
+    /**
+     * Returns the pieces in enemy half.
+     *
+     * @param position chess position
+     * @param colorWhite whether color white
+     * @return pieces in enemy half
+     */
     private static int piecesInEnemyHalf(Position position, boolean colorWhite) {
         byte[] board = position.getBoard();
         byte ownKing = position.kingSquare(colorWhite);
@@ -227,6 +293,14 @@ public final class Ideas {
      * Emits a move-bearing IDEA tag, de-duplicated by (type,move). The move is
      * rendered in SAN via SAN.toAlgebraic, falling back to UCI if SAN throws (the
      * same defensive idiom Generator.addCandidate uses).
+     *
+     * @param tags tag collection to update
+     * @param seen deduplication set for emitted tags
+     * @param side side identifier
+     * @param type piece type or tag type
+     * @param move encoded chess move
+     * @param position chess position
+     * @param detail human-readable tag detail
      */
     private static void emit(List<String> tags, Set<String> seen, String side, String type, short move,
             Position position, String detail) {
@@ -242,6 +316,12 @@ public final class Ideas {
         tags.add(FAMILY + SIDE + side + TYPE + type + MOVE + san + DETAIL + detail + QUOTE);
     }
 
+    /**
+     * Returns the side to move.
+     *
+     * @param position chess position
+     * @return side to move text
+     */
     private static String sideToMove(Position position) {
         return position.isWhiteToMove() ? WHITE : BLACK;
     }

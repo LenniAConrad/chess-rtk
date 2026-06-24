@@ -227,7 +227,7 @@ public final class DatasetAreaChart extends JComponent {
         area.lineTo(lastX, baseY);
         area.closePath();
 
-        Color series = color(role);
+        Color series = DatasetChart.roleColor(role);
         g.setColor(Theme.withAlpha(series, 48));
         g.fill(area);
         g.setStroke(new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
@@ -283,7 +283,7 @@ public final class DatasetAreaChart extends JComponent {
     private void paintLabels(Graphics2D g, Rectangle plot, long max) {
         g.setFont(Theme.font(10, java.awt.Font.PLAIN));
         FontMetrics metrics = g.getFontMetrics();
-        String maxText = format(max);
+        String maxText = DatasetChart.formatCompactValue(max);
         g.setColor(Theme.MUTED);
         g.drawString(maxText, plot.x + plot.width - metrics.stringWidth(maxText), plot.y + metrics.getAscent());
 
@@ -340,23 +340,6 @@ public final class DatasetAreaChart extends JComponent {
     }
 
     /**
-     * Returns a themed role color matching {@link DatasetChart}.
-     *
-     * @param valueRole role
-     * @return color
-     */
-    private static Color color(DatasetChart.Role valueRole) {
-        return switch (valueRole) {
-            case SUCCESS -> Theme.STATUS_SUCCESS_BORDER;
-            case WARNING -> Theme.STATUS_WARNING_BORDER;
-            case ERROR -> Theme.STATUS_ERROR_BORDER;
-            case PURPLE -> Theme.NN_POLICY;
-            case NEUTRAL -> Theme.MUTED;
-            case ACCENT -> Theme.ACCENT;
-        };
-    }
-
-    /**
      * Starts the reveal animation when the series has visible data.
      */
     private void startReveal() {
@@ -384,19 +367,4 @@ public final class DatasetAreaChart extends JComponent {
         repaint();
     }
 
-    /**
-     * Formats a count for compact chart display.
-     *
-     * @param value count
-     * @return formatted count
-     */
-    private static String format(long value) {
-        if (value >= 1_000_000L) {
-            return String.format(java.util.Locale.ROOT, "%.1fm", value / 1_000_000.0d);
-        }
-        if (value >= 10_000L) {
-            return String.format(java.util.Locale.ROOT, "%.1fk", value / 1_000.0d);
-        }
-        return Long.toString(value);
-    }
 }

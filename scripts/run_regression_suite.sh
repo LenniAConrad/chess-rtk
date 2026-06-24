@@ -372,6 +372,7 @@ run_scripts_lint() {
   else
     echo "==> skipping shellcheck (not on PATH)"
   fi
+  scripts/check_no_weights_tracked.sh
 }
 
 copy_runtime_resources() {

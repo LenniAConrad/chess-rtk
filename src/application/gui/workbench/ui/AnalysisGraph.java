@@ -381,8 +381,8 @@ public final class AnalysisGraph extends JComponent {
      * Paints the full graph surface at the requested size.
      *
      * @param g graphics
-     * @param width width
-     * @param height height
+     * @param width width in pixels
+     * @param height height in pixels
      */
     private void paintSurface(Graphics2D g, int width, int height) {
         paintBackground(g, width, height);
@@ -397,9 +397,9 @@ public final class AnalysisGraph extends JComponent {
     /**
      * Prints the first report page.
      *
-     * @param graphics graphics
+     * @param graphics graphics context
      * @param page page format
-     * @param pageIndex page index
+     * @param pageIndex zero-based page index
      * @return printable page status
      */
     private int printReportPage(Graphics graphics, PageFormat page, int pageIndex) {
@@ -425,8 +425,8 @@ public final class AnalysisGraph extends JComponent {
      * Paints solid background.
      *
      * @param g graphics
-     * @param width width
-     * @param height height
+     * @param width width in pixels
+     * @param height height in pixels
      */
     private void paintBackground(Graphics2D g, int width, int height) {
         g.setColor(getBackground());
@@ -437,7 +437,7 @@ public final class AnalysisGraph extends JComponent {
      * Paints header metrics.
      *
      * @param g graphics
-     * @param width width
+     * @param width width in pixels
      */
     private void paintHeader(Graphics2D g, int width) {
         g.setFont(Theme.font(12, Font.BOLD));
@@ -458,8 +458,8 @@ public final class AnalysisGraph extends JComponent {
      * Paints empty state.
      *
      * @param g graphics
-     * @param width width
-     * @param height height
+     * @param width width in pixels
+     * @param height height in pixels
      */
     private void paintEmpty(Graphics2D g, int width, int height) {
         int x = PAD;
@@ -475,8 +475,8 @@ public final class AnalysisGraph extends JComponent {
      * Paints all chart bands.
      *
      * @param g graphics
-     * @param width width
-     * @param height height
+     * @param width width in pixels
+     * @param height height in pixels
      */
     private void paintCharts(Graphics2D g, int width, int height) {
         int x = PAD;
@@ -506,8 +506,8 @@ public final class AnalysisGraph extends JComponent {
      * Paints evaluation band.
      *
      * @param g graphics
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      * @param w width
      * @param h height
      */
@@ -569,8 +569,8 @@ public final class AnalysisGraph extends JComponent {
      * Paints the search-depth band.
      *
      * @param g graphics
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      * @param w width
      * @param h height
      */
@@ -606,8 +606,8 @@ public final class AnalysisGraph extends JComponent {
      * Paints the node and speed band.
      *
      * @param g graphics
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      * @param w width
      * @param h height
      */
@@ -681,8 +681,8 @@ public final class AnalysisGraph extends JComponent {
      * Paints subtle grid lines.
      *
      * @param g graphics
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      * @param w width
      * @param h height
      * @param rows row count
@@ -767,9 +767,9 @@ public final class AnalysisGraph extends JComponent {
      * Paints a small band label.
      *
      * @param g graphics
-     * @param label label
-     * @param x x
-     * @param y y
+     * @param label display label
+     * @param x x-coordinate
+     * @param y y-coordinate
      */
     private static void paintBandLabel(Graphics2D g, String label, int x, int y) {
         g.setFont(Theme.font(11, Font.BOLD));
@@ -781,7 +781,7 @@ public final class AnalysisGraph extends JComponent {
      * Paints a right-aligned value label constrained to available width.
      *
      * @param g graphics
-     * @param label label
+     * @param label display label
      * @param x right x
      * @param y baseline y
      * @param maxWidth maximum text width
@@ -796,8 +796,8 @@ public final class AnalysisGraph extends JComponent {
      * Paints a small axis label.
      *
      * @param g graphics
-     * @param label label
-     * @param x x
+     * @param label display label
+     * @param x x-coordinate
      * @param y baseline y
      * @param alignment Swing alignment
      */
@@ -812,9 +812,9 @@ public final class AnalysisGraph extends JComponent {
      * Paints latest point.
      *
      * @param g graphics
-     * @param x x
-     * @param y y
-     * @param color color
+     * @param x x-coordinate
+     * @param y y-coordinate
+     * @param color display color
      */
     private static void paintPoint(Graphics2D g, int x, int y, Color color) {
         g.setColor(Theme.withAlpha(color, 50));
@@ -948,7 +948,7 @@ public final class AnalysisGraph extends JComponent {
      *
      * @param whiteToMove true when White was to move
      * @param output engine output
-     * @param bestMove best move
+     * @param bestMove source best move
      * @return graph sample or null when output is not plottable
      */
     private Sample sampleFrom(boolean whiteToMove, Output output, short bestMove) {
@@ -1057,7 +1057,7 @@ public final class AnalysisGraph extends JComponent {
      *
      * @param pattern pattern with an integer group 1
      * @param text input text
-     * @param fallback fallback value
+     * @param fallback default used when input is absent or invalid
      * @return parsed value
      */
     private static int firstInt(Pattern pattern, String text, int fallback) {
@@ -1070,7 +1070,7 @@ public final class AnalysisGraph extends JComponent {
      *
      * @param text command output
      * @param group regex group
-     * @param fallback fallback value
+     * @param fallback default used when input is absent or invalid
      * @return parsed count
      */
     private static long firstWorkCount(String text, int group, long fallback) {
@@ -1083,7 +1083,7 @@ public final class AnalysisGraph extends JComponent {
      *
      * @param text command output
      * @param group regex group
-     * @param fallback fallback value
+     * @param fallback default used when input is absent or invalid
      * @return parsed duration in milliseconds
      */
     private static long firstWorkDuration(String text, int group, long fallback) {
@@ -1096,7 +1096,7 @@ public final class AnalysisGraph extends JComponent {
      *
      * @param text command output
      * @param marker marker word
-     * @param fallback fallback value
+     * @param fallback default used when input is absent or invalid
      * @return parsed count
      */
     private static long lastTokenCount(String text, String marker, long fallback) {
@@ -1109,7 +1109,7 @@ public final class AnalysisGraph extends JComponent {
      *
      * @param text command output
      * @param marker marker word
-     * @param fallback fallback value
+     * @param fallback default used when input is absent or invalid
      * @return parsed integer
      */
     private static int lastTokenInt(String text, String marker, int fallback) {
@@ -1122,7 +1122,7 @@ public final class AnalysisGraph extends JComponent {
      *
      * @param text command output
      * @param marker marker word
-     * @param fallback fallback value
+     * @param fallback default used when input is absent or invalid
      * @return parsed duration in milliseconds
      */
     private static long lastTokenDuration(String text, String marker, long fallback) {
@@ -1170,8 +1170,8 @@ public final class AnalysisGraph extends JComponent {
     /**
      * Parses an integer token.
      *
-     * @param token token
-     * @param fallback fallback value
+     * @param token input token
+     * @param fallback default used when input is absent or invalid
      * @return parsed integer
      */
     private static int parseInt(String token, int fallback) {
@@ -1185,8 +1185,8 @@ public final class AnalysisGraph extends JComponent {
     /**
      * Parses a count token, including comma-separated and compact suffix forms.
      *
-     * @param token token
-     * @param fallback fallback value
+     * @param token input token
+     * @param fallback default used when input is absent or invalid
      * @return parsed count
      */
     private static long parseCount(String token, long fallback) {
@@ -1214,8 +1214,8 @@ public final class AnalysisGraph extends JComponent {
     /**
      * Parses a duration token into milliseconds.
      *
-     * @param token token
-     * @param fallback fallback value
+     * @param token input token
+     * @param fallback default used when input is absent or invalid
      * @return parsed milliseconds
      */
     private static long parseDurationMillis(String token, long fallback) {
@@ -1237,7 +1237,7 @@ public final class AnalysisGraph extends JComponent {
      *
      * @param token numeric token
      * @param scale scale factor
-     * @param fallback fallback value
+     * @param fallback default used when input is absent or invalid
      * @return scaled long
      */
     private static long parseScaledDuration(String token, double scale, long fallback) {
@@ -1251,7 +1251,7 @@ public final class AnalysisGraph extends JComponent {
     /**
      * Removes punctuation that appears in formatted numeric tokens.
      *
-     * @param token token
+     * @param token input token
      * @return compact token
      */
     private static String stripNumericToken(String token) {
@@ -1262,8 +1262,8 @@ public final class AnalysisGraph extends JComponent {
      * Stores values used to smooth sparse engine output.
      *
      * @param evalCp eval in centipawns
-     * @param depth depth
-     * @param nodes nodes
+     * @param depth search depth
+     * @param nodes source nodes
      * @param nps nodes per second
      * @param timeMs time in milliseconds
      */
@@ -1378,7 +1378,7 @@ public final class AnalysisGraph extends JComponent {
     /**
      * Formats a sample evaluation.
      *
-     * @param sample sample
+     * @param sample sample row
      * @return label
      */
     private static String formatEval(Sample sample) {
@@ -1401,7 +1401,7 @@ public final class AnalysisGraph extends JComponent {
     /**
      * Formats a count.
      *
-     * @param value value
+     * @param value candidate value
      * @return compact value
      */
     private static String formatCount(long value) {
@@ -1420,7 +1420,7 @@ public final class AnalysisGraph extends JComponent {
     /**
      * Returns a move label.
      *
-     * @param move move
+     * @param move encoded chess move
      * @return move label
      */
     private static String moveLabel(short move) {
@@ -1435,7 +1435,7 @@ public final class AnalysisGraph extends JComponent {
      * @param nodes searched nodes
      * @param nps nodes per second
      * @param timeMs search time in milliseconds
-     * @param bestMove best move
+     * @param bestMove source best move
      */
     private record Sample(int evalCp, int depth, long nodes, long nps, long timeMs, short bestMove) {
 

@@ -39,12 +39,12 @@ final class SeUnit {
 
     /**
      * Creates an SE unit descriptor.
-     * @param channels channels value
-     * @param hidden hidden value
-     * @param w1 w1 value
-     * @param b1 b1 value
-     * @param w2 w2 value
-     * @param b2 b2 value
+     * @param channels channel count
+     * @param hidden hidden activations
+     * @param w1 first weight matrix
+     * @param b1 first bias vector
+     * @param w2 second weight matrix
+     * @param b2 second bias vector
      */
     SeUnit(int channels, int hidden, float[] w1, float[] b1, float[] w2, float[] b2) {
         this.channels = channels;

@@ -3,11 +3,13 @@ package application.cli.command.book;
 import static application.cli.Constants.CMD_HELP_LONG;
 import static application.cli.Constants.CMD_HELP_SHORT;
 import static application.cli.Constants.OPT_CHECK;
+import static application.cli.Constants.OPT_COVER_OUTPUT;
 import static application.cli.Constants.OPT_INPUT;
 import static application.cli.Constants.OPT_INPUT_SHORT;
 import static application.cli.Constants.OPT_LIMIT;
 import static application.cli.Constants.OPT_OUTPUT;
 import static application.cli.Constants.OPT_OUTPUT_SHORT;
+import static application.cli.Constants.OPT_PDF_OUTPUT;
 import static application.cli.Constants.OPT_SUBTITLE;
 import static application.cli.Constants.OPT_TITLE;
 import static application.cli.Constants.OPT_VALIDATE;
@@ -131,16 +133,6 @@ public final class PuzzleCollectionCommand {
 	 * Puzzle-column override option flag.
 	 */
 	private static final String OPT_PUZZLE_COLUMNS = "--puzzle-columns";
-
-	/**
-	 * Optional interior-PDF output path.
-	 */
-	private static final String OPT_PDF_OUTPUT = "--pdf-output";
-
-	/**
-	 * Optional cover-PDF output path.
-	 */
-	private static final String OPT_COVER_OUTPUT = "--cover-output";
 
 	/**
 	 * Utility class; prevent instantiation.

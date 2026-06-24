@@ -204,6 +204,7 @@ public final class PerftCommand {
 	 * @param position root position
 	 * @param depth perft depth
 	 * @param split optional CPU expansion depth (default chosen from depth)
+	 * @param detailed whether to include detailed output
 	 */
 	private static void runGpuPerft(String heading, Position position, int depth, Integer split,
 			boolean detailed) {
@@ -354,7 +355,7 @@ public final class PerftCommand {
 	 * @param commandName command name for diagnostics
 	 * @param suite suite path
 	 * @param defaultDepth optional default depth
-	 * @param workerThreads worker threads
+	 * @param workerThreads worker thread count
 	 * @param gpu whether to request GPU node counting
 	 * @param split optional CPU expansion depth for GPU mode
 	 */
@@ -494,7 +495,7 @@ public final class PerftCommand {
 	 * @param commandName command name for diagnostics
 	 * @param line suite line
 	 * @param lineNumber one-based line number
-	 * @param fallbackDepth fallback depth
+	 * @param fallbackDepth fallback search depth
 	 * @return parsed case
 	 */
 	private static CustomPerftCase parseCustomPerftCase(
@@ -525,7 +526,7 @@ public final class PerftCommand {
 	 * Parses a three-column custom suite row.
 	 *
 	 * @param parts row parts
-	 * @param fallbackDepth fallback depth
+	 * @param fallbackDepth fallback search depth
 	 * @return parsed case
 	 */
 	private static CustomPerftCase parseThreeColumnCase(String[] parts, int fallbackDepth) {
@@ -570,7 +571,7 @@ public final class PerftCommand {
 	 * Prints a detailed perft result.
 	 *
 	 * @param position root position
-	 * @param result result
+	 * @param result result label
 	 * @param heading heading prefix for output
 	 */
 	private static void printResult(Position position, Result result, String heading) {
@@ -722,7 +723,7 @@ public final class PerftCommand {
 	 * @param statWidths numeric stat column widths
 	 * @param label row label
 	 * @param stats row counters
-	 * @param moveWidth move width value
+	 * @param moveWidth source move width
 	 */
 	private static void printTableStatsRow(int moveWidth, int[] statWidths, String label, Stats stats) {
 		String[] cells = new String[TABLE_COLUMNS.size()];

@@ -63,7 +63,7 @@ public final class TagTextCommand {
 
      /**
      * Runs the tag text workflow.
-     * @param a a
+     * @param a first value
      */
      public static void runTagText(Argv a) {
         TagTextOptions opts = parseOptions(a);
@@ -89,8 +89,8 @@ public final class TagTextCommand {
 
      /**
      * Parses the options.
-     * @param a a
-     * @return computed value
+     * @param a first value
+     * @return parsed the options
      */
      private static TagTextOptions parseOptions(Argv a) {
         boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
@@ -126,8 +126,8 @@ public final class TagTextCommand {
 
      /**
      * Handles load positions.
-     * @param opts opts
-     * @return computed value
+     * @param opts parsed options
+     * @return handles load positions
      */
      private static List<Position> loadPositions(TagTextOptions opts) {
         List<Position> positions = new ArrayList<>();
@@ -157,9 +157,9 @@ public final class TagTextCommand {
 
      /**
      * Runs the without analysis workflow.
-     * @param opts opts
-     * @param positions positions
-     * @param model model
+     * @param opts parsed options
+     * @param positions position list
+     * @param model loaded model
      */
      private static void runWithoutAnalysis(TagTextOptions opts, List<Position> positions, Model model) {
         try (Runner runner = new Runner(model)) {
@@ -188,9 +188,9 @@ public final class TagTextCommand {
 
      /**
      * Runs the with analysis workflow.
-     * @param opts opts
-     * @param positions positions
-     * @param model model
+     * @param opts parsed options
+     * @param positions position list
+     * @param model loaded model
      */
      private static void runWithAnalysis(TagTextOptions opts, List<Position> positions, Model model) {
         Protocol protocol = EngineSupport.loadProtocolOrExit(opts.protoPath, opts.verbose);
@@ -227,9 +227,9 @@ public final class TagTextCommand {
 
      /**
      * Handles position progress bar.
-     * @param positions positions
-     * @param label label
-     * @return computed value
+     * @param positions position list
+     * @param label display label
+     * @return handles position progress bar
      */
      private static Bar positionProgressBar(List<Position> positions, String label) {
         return positions != null && positions.size() > 1 ? new Bar(positions.size(), label, false, System.err) : null;
@@ -237,9 +237,9 @@ public final class TagTextCommand {
 
      /**
      * Handles print summary.
-     * @param includeFen include fen
-     * @param pos pos
-     * @param summary summary
+     * @param includeFen whether to include FEN text
+     * @param pos chess position
+     * @param summary summary text
      */
      private static void printSummary(boolean includeFen, Position pos, String summary) {
         if (!includeFen) {
@@ -319,21 +319,21 @@ public final class TagTextCommand {
 
          /**
          * Creates a new tag text options instance.
-         * @param verbose verbose
-         * @param includeFen include fen
-         * @param analyze analyze
-         * @param protoPath proto path
-         * @param nodesCap nodes cap
-         * @param durMs dur ms
-         * @param multipv multipv
-         * @param threads threads
-         * @param hash hash
-         * @param wdl wdl
-         * @param noWdl no wdl
-         * @param maxNew max new
-         * @param modelPath model path
-         * @param fen fen
-         * @param input input
+         * @param verbose whether verbose output is enabled
+         * @param includeFen whether to include FEN text
+         * @param analyze source analyze
+         * @param protoPath external engine protocol path
+         * @param nodesCap engine node cap
+         * @param durMs duration cap in milliseconds
+         * @param multipv requested MultiPV count
+         * @param threads worker thread count
+         * @param hash engine hash size in megabytes
+         * @param wdl whether WDL output is enabled
+         * @param noWdl whether WDL output is disabled
+         * @param maxNew maximum number of generated tags
+         * @param modelPath configured model path
+         * @param fen FEN string
+         * @param input input path or text
          */
          private TagTextOptions(boolean verbose, boolean includeFen, boolean analyze, String protoPath, long nodesCap,
                 long durMs, Integer multipv, Integer threads, Integer hash, boolean wdl, boolean noWdl, Integer maxNew,

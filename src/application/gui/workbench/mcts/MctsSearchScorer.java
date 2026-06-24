@@ -41,6 +41,11 @@ final class MctsSearchScorer {
      */
     private final SearchBackend backend;
 
+    /**
+     * Creates the MCTS search scorer.
+     *
+     * @param backend engine or network backend
+     */
     MctsSearchScorer(SearchBackend backend) {
         this.backend = backend;
     }
@@ -163,6 +168,14 @@ final class MctsSearchScorer {
         return best;
     }
 
+    /**
+     * Returns the quiescence moves.
+     *
+     * @param position chess position
+     * @param legal legal move list
+     * @param inCheck whether in check
+     * @return quiescence moves
+     */
     private static short[] quiescenceMoves(Position position, MoveList legal, boolean inCheck) {
         if (inCheck) {
             return legal.toArray();
@@ -187,6 +200,13 @@ final class MctsSearchScorer {
         return filtered;
     }
 
+    /**
+     * Returns the mate in one.
+     *
+     * @param position chess position
+     * @param legal legal move list
+     * @return mate in one
+     */
     private static short findMateInOne(Position position, MoveList legal) {
         for (int i = 0; i < legal.size(); i++) {
             short move = legal.raw(i);
@@ -203,10 +223,24 @@ final class MctsSearchScorer {
         return Move.NO_MOVE;
     }
 
+    /**
+     * Returns whether quiescence move.
+     *
+     * @param position chess position
+     * @param move encoded move
+     * @return true when quiescence move
+     */
     private static boolean isQuiescenceMove(Position position, short move) {
         return position.isCapture(move) || position.isPromotion(move);
     }
 
+    /**
+     * Returns the quiescence move score.
+     *
+     * @param position chess position
+     * @param move encoded move
+     * @return quiescence move score
+     */
     private static int quiescenceMoveScore(Position position, short move) {
         int score = promotionValue(Move.getPromotion(move)) * 100;
         int captured = position.capturedPiece(move);
@@ -217,6 +251,13 @@ final class MctsSearchScorer {
         return score;
     }
 
+    /**
+     * Sorts move scores in descending order without allocating.
+     *
+     * @param moves encoded moves
+     * @param scores score array
+     * @param count item count
+     */
     private static void insertionSortDescending(short[] moves, int[] scores, int count) {
         for (int i = 1; i < count; i++) {
             short move = moves[i];
@@ -232,6 +273,14 @@ final class MctsSearchScorer {
         }
     }
 
+    /**
+     * Returns the tactical prior.
+     *
+     * @param position chess position
+     * @param move encoded move
+     * @param childPosition source child position
+     * @return tactical prior
+     */
     private static int tacticalPrior(Position position, short move, Position childPosition) {
         int bonus = 0;
         byte fromPiece = position.pieceAt(Move.getFromIndex(move));
@@ -258,6 +307,12 @@ final class MctsSearchScorer {
         return bonus;
     }
 
+    /**
+     * Returns the promotion value.
+     *
+     * @param promotion promotion piece
+     * @return promotion value
+     */
     private static int promotionValue(int promotion) {
         return switch (promotion) {
             case 1 -> Piece.VALUE_KNIGHT;

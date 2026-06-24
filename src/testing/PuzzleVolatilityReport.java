@@ -147,102 +147,63 @@ public final class PuzzleVolatilityReport {
     static final double REPORT_BOTTOM_MARGIN = 28.0;
 
     /**
-     * Report colors copied from the puzzle difficulty PDF report.
+     * Report primary text color.
      */
     static final Color REPORT_TEXT = new Color(17, 17, 17);
     /**
-     * Color.
-     * @param 74 74 value
-     * @param 85 85 value
-     * @param 98 98 value
+     * Report muted text color.
      */
     static final Color REPORT_MUTED = new Color(74, 85, 98);
     /**
-     * Color.
-     * @param 111 111 value
-     * @param 82 82 value
-     * @param 56 56 value
+     * Report accent color.
      */
     static final Color REPORT_ACCENT = new Color(111, 82, 56);
     /**
-     * Color.
-     * @param 42 42 value
-     * @param 32 32 value
-     * @param 24 24 value
+     * Report rule color.
      */
     static final Color REPORT_RULE = new Color(42, 32, 24);
     /**
-     * Color.
-     * @param 216 216 value
-     * @param 216 216 value
-     * @param 216 216 value
+     * Report grid line color.
      */
     static final Color REPORT_GRID = new Color(216, 216, 216);
     /**
-     * Color.
-     * @param 132 132 value
-     * @param 185 185 value
-     * @param 216 216 value
+     * Report bar color.
      */
     static final Color REPORT_BAR = new Color(132, 185, 216);
     /**
-     * Color.
-     * @param 92 92 value
-     * @param 143 143 value
-     * @param 174 174 value
+     * Report trend line color.
      */
     static final Color REPORT_TREND = new Color(92, 143, 174);
     /**
-     * Color.
-     * @param 226 226 value
-     * @param 211 211 value
-     * @param 193 193 value
+     * Report soft rule color.
      */
     static final Color REPORT_SOFT_RULE = new Color(226, 211, 193);
     /**
-     * Color.
-     * @param 253 253 value
-     * @param 249 249 value
-     * @param 242 242 value
+     * Report card background color.
      */
     static final Color REPORT_CARD = new Color(253, 249, 242);
     /**
-     * Color.
-     * @param 254 254 value
-     * @param 251 251 value
-     * @param 247 247 value
+     * Report panel background color.
      */
     static final Color REPORT_PANEL = new Color(254, 251, 247);
     /**
-     * Color.
-     * @param 247 247 value
-     * @param 236 236 value
-     * @param 220 220 value
+     * Report table header background color.
      */
     static final Color REPORT_TABLE_HEADER = new Color(247, 236, 220);
     /**
-     * Color.
-     * @param 254 254 value
-     * @param 251 251 value
-     * @param 247 247 value
+     * Report table stripe color.
      */
     static final Color REPORT_TABLE_STRIPE = new Color(254, 251, 247);
     /**
-     * Color.
-     * @param 229 229 value
-     * @param 214 214 value
-     * @param 195 195 value
+     * Report table rule color.
      */
     static final Color REPORT_TABLE_RULE = new Color(229, 214, 195);
     /**
-     * Color.
-     * @param 178 178 value
-     * @param 178 178 value
-     * @param 178 178 value
+     * Report quantile line color.
      */
     static final Color REPORT_QUANTILE_LINE = new Color(178, 178, 178);
     /**
-     * R e p o r t  q u a n t i l e  l a b e l.
+     * Report quantile label color.
      */
     static final Color REPORT_QUANTILE_LABEL = REPORT_MUTED;
 
@@ -251,19 +212,19 @@ public final class PuzzleVolatilityReport {
      */
     static final Font REPORT_DISPLAY_FONT = Font.LATIN_MODERN_BOLD;
     /**
-     * R e p o r t  s e c t i o n  f o n t.
+     * Report section heading font.
      */
     static final Font REPORT_SECTION_FONT = Font.LATIN_MODERN_BOLD;
     /**
-     * R e p o r t  b o d y  f o n t.
+     * Report body text font.
      */
     static final Font REPORT_BODY_FONT = Font.LATIN_MODERN_ROMAN;
     /**
-     * R e p o r t  d a t a  f o n t.
+     * Report table and chart label font.
      */
     static final Font REPORT_DATA_FONT = Font.HELVETICA;
     /**
-     * R e p o r t  d a t a  b o l d  f o n t.
+     * Report bold data font.
      */
     static final Font REPORT_DATA_BOLD_FONT = Font.HELVETICA_BOLD;
 
@@ -324,7 +285,7 @@ public final class PuzzleVolatilityReport {
     /**
      * Parses command-line arguments.
      * @param args command arguments
-     * @return parse arguments result
+     * @return parsed command-line arguments
      */
     private static Arguments parseArguments(String[] args) {
         if (args.length < 1) {
@@ -341,7 +302,7 @@ public final class PuzzleVolatilityReport {
     /**
      * Parses flag-based invocations.
      * @param args command arguments
-     * @return parse flagged invocation result
+     * @return parsed flag-based invocations
      */
     private static RawArguments parseFlaggedInvocation(String[] args) {
         RawArgumentsBuilder builder = new RawArgumentsBuilder();
@@ -357,7 +318,7 @@ public final class PuzzleVolatilityReport {
     /**
      * Builds the default output prefix.
      * @param inputs input values
-     * @return default prefix result
+     * @return built the default output prefix
      */
     private static Path defaultPrefix(List<Path> inputs) {
         return inputs.size() == 1 ? defaultPrefix(inputs.get(0)) : Path.of("puzzle-volatility");
@@ -365,8 +326,8 @@ public final class PuzzleVolatilityReport {
 
     /**
      * Builds the default output prefix next to the input file.
-     * @param input input value
-     * @return default prefix result
+     * @param input input path or text
+     * @return built the default output prefix next to the input file
      */
     private static Path defaultPrefix(Path input) {
         Path parent = input.getParent();
@@ -379,9 +340,9 @@ public final class PuzzleVolatilityReport {
 
     /**
      * Replaces the current suffix with an extension.
-     * @param prefix prefix value
-     * @param ext ext value
-     * @return with extension result
+     * @param prefix filename prefix
+     * @param ext file extension
+     * @return with extension
      */
     private static Path withExtension(Path prefix, String ext) {
         return Path.of(prefix.toString() + ext);
@@ -390,12 +351,12 @@ public final class PuzzleVolatilityReport {
     /**
      * Prints the generated report paths and aggregate counts.
      * @param inputs input values
-     * @param rootCsv root csv value
-     * @param nodeCsv node csv value
-     * @param timelineCsv timeline csv value
-     * @param svg svg value
-     * @param pdf pdf value
-     * @param acc acc value
+     * @param rootCsv CSV path for root
+     * @param nodeCsv CSV path for node
+     * @param timelineCsv CSV path for timeline
+     * @param svg SVG text or path
+     * @param pdf PDF path
+     * @param acc accumulator
      */
     private static void printSummary(List<Path> inputs, Path rootCsv, Path nodeCsv, Path timelineCsv, Path svg,
             Path pdf, VolatilityAccumulator acc) {
@@ -435,7 +396,7 @@ public final class PuzzleVolatilityReport {
     /**
      * Returns stacks with any measured depth swing.
      * @param reports report data rows
-     * @return changed reports result
+     * @return stacks with any measured depth swing
      */
     static List<RootReport> changedReports(List<RootReport> reports) {
         return reports.stream()
@@ -446,7 +407,7 @@ public final class PuzzleVolatilityReport {
     /**
      * Returns changed stacks with an actual sign/outcome reversal.
      * @param reports report data rows
-     * @return reversal reports result
+     * @return changed stacks with an actual sign/outcome reversal
      */
     static List<RootReport> reversalReports(List<RootReport> reports) {
         return reports.stream()
@@ -457,7 +418,7 @@ public final class PuzzleVolatilityReport {
     /**
      * Counts stacks whose tree contains a sign/outcome reversal.
      * @param reports report data rows
-     * @return reversal count result
+     * @return reversal count
      */
     static int reversalCount(List<RootReport> reports) {
         int count = 0;
@@ -472,7 +433,7 @@ public final class PuzzleVolatilityReport {
     /**
      * Counts nodes with a measured depth swing.
      * @param reports report data rows
-     * @return changed node count in reports result
+     * @return changed node count in reports
      */
     static int changedNodeCountInReports(List<RootReport> reports) {
         int count = 0;
@@ -485,7 +446,7 @@ public final class PuzzleVolatilityReport {
     /**
      * Counts nodes with a measured depth swing.
      * @param nodes node count
-     * @return changed node count in nodes result
+     * @return changed node count in nodes
      */
     static int changedNodeCountInNodes(List<NodeReport> nodes) {
         int count = 0;
@@ -499,7 +460,7 @@ public final class PuzzleVolatilityReport {
 
     /**
      * Returns whether a node has any measured depth swing.
-     * @param node node value
+     * @param node tree node
      * @return true when is changed node
      */
     static boolean isChangedNode(NodeReport node) {
@@ -509,7 +470,7 @@ public final class PuzzleVolatilityReport {
     /**
      * Returns the node that explains a root stack's highest volatility rank.
      * @param report report data
-     * @return worst node result
+     * @return node that explains a root stack's highest volatility rank
      */
     static NodeReport worstNode(RootReport report) {
         NodeReport worst = report.root();
@@ -521,12 +482,12 @@ public final class PuzzleVolatilityReport {
         return worst;
     }
 
-    /**
-     * Compares node volatility for human-facing root summaries.
-     * @param candidate candidate value
-     * @param current current value
-     * @return true when is more important node
-     */
+     /**
+      * Compares node volatility for human-facing root summaries.
+      * @param candidate node being tested
+      * @param current current best node
+      * @return true when the candidate should replace the current node
+      */
     static boolean isMoreImportantNode(NodeReport candidate, NodeReport current) {
         Volatility c = candidate.volatility();
         Volatility w = current.volatility();
@@ -547,8 +508,8 @@ public final class PuzzleVolatilityReport {
 
     /**
      * Orders severity labels for tie-breaking.
-     * @param severity severity value
-     * @return severity rank result
+     * @param severity severity score
+     * @return severity rank
      */
     static int severityRank(String severity) {
         return switch (severity == null ? "" : severity) {
@@ -575,7 +536,7 @@ public final class PuzzleVolatilityReport {
     /**
      * Escapes one CSV field.
      * @param value value to use
-     * @return csv result
+     * @return CSV text
      */
     static String csv(String value) {
         String v = value == null ? "" : value;
@@ -588,7 +549,7 @@ public final class PuzzleVolatilityReport {
     /**
      * Formats an optional integer CSV field.
      * @param value value to use
-     * @return csv result
+     * @return formatted an optional integer CSV field
      */
     static String csv(Integer value) {
         return value == null ? "" : value.toString();
@@ -597,7 +558,7 @@ public final class PuzzleVolatilityReport {
     /**
      * Formats an optional long CSV field.
      * @param value value to use
-     * @return csv result
+     * @return formatted an optional long CSV field
      */
     static String csv(Long value) {
         return value == null ? "" : value.toString();
@@ -605,7 +566,7 @@ public final class PuzzleVolatilityReport {
 
     /**
      * Computes one analysis depth-volatility summary.
-     * @param analysis analysis value
+     * @param analysis analysis result
      * @return volatility summary
      */
     static Volatility volatility(Analysis analysis) {
@@ -710,8 +671,8 @@ public final class PuzzleVolatilityReport {
 
     /**
      * Builds a sorted PV1 timeline.
-     * @param analysis analysis value
-     * @return timeline result
+     * @param analysis analysis result
+     * @return built a sorted PV1 timeline
      */
     private static List<TimelineEntry> timeline(Analysis analysis) {
         if (analysis == null || analysis.isEmpty()) {
@@ -741,7 +702,7 @@ public final class PuzzleVolatilityReport {
     /**
      * Converts one UCI output into a signed score.
      * @param output output text
-     * @return scored result
+     * @return converted one UCI output into a signed score
      */
     private static ScoredOutput scored(Output output) {
         if (output.hasChances()) {
@@ -762,7 +723,7 @@ public final class PuzzleVolatilityReport {
     /**
      * Formats the raw UCI evaluation field.
      * @param output output text
-     * @return raw eval result
+     * @return formatted the raw UCI evaluation field
      */
     private static String rawEval(Output output) {
         if (output == null || !output.hasEvaluation()) {
@@ -775,7 +736,7 @@ public final class PuzzleVolatilityReport {
     /**
      * Formats the raw WDL field.
      * @param output output text
-     * @return raw wdl result
+     * @return formatted the raw WDL field
      */
     private static String rawWdl(Output output) {
         return output != null && output.hasChances() ? output.getChances().toUciString() : "";
@@ -783,9 +744,9 @@ public final class PuzzleVolatilityReport {
 
     /**
      * Returns an optional long field.
-     * @param present present value
+     * @param present whether the value is present
      * @param value value to use
-     * @return optional long result
+     * @return optional long field
      */
     private static Long optionalLong(boolean present, long value) {
         return present ? value : null;
@@ -794,7 +755,7 @@ public final class PuzzleVolatilityReport {
     /**
      * Builds a compact score-source list.
      * @param timeline timeline values
-     * @return score sources result
+     * @return built a compact score-source list
      */
     private static String scoreSources(List<TimelineEntry> timeline) {
         StringJoiner joiner = new StringJoiner("|");
@@ -809,10 +770,10 @@ public final class PuzzleVolatilityReport {
 
     /**
      * Returns final-depth PV2 information when available.
-     * @param analysis analysis value
-     * @param finalDepth final depth value
-     * @param finalScore final score value
-     * @return second line result
+     * @param analysis analysis result
+     * @param finalDepth source final depth
+     * @param finalScore source final score
+     * @return final-depth PV2 information when available
      */
     private static SecondLine secondLine(Analysis analysis, int finalDepth, int finalScore) {
         Output output = analysis == null ? null : analysis.get(finalDepth, 2);
@@ -833,8 +794,8 @@ public final class PuzzleVolatilityReport {
 
     /**
      * Converts expected score to an Elo-like signed score.
-     * @param expected expected value
-     * @return expected to elo result
+     * @param expected expected test value
+     * @return converted expected score to an Elo-like signed score
      */
     private static int expectedToElo(double expected) {
         double eps = 1e-6;
@@ -844,8 +805,8 @@ public final class PuzzleVolatilityReport {
 
     /**
      * Maps mate distance to the display tail.
-     * @param mateValue mate value value
-     * @return mate to score result
+     * @param mateValue source mate value
+     * @return mate to score
      */
     private static int mateToScore(int mateValue) {
         if (mateValue == 0) {
@@ -860,7 +821,7 @@ public final class PuzzleVolatilityReport {
     /**
      * Clamps score values into the report display range.
      * @param value value to use
-     * @return clamp score result
+     * @return clamp score
      */
     private static int clampScore(int value) {
         return Math.max(-SCORE_CAP, Math.min(SCORE_CAP, value));
@@ -868,8 +829,8 @@ public final class PuzzleVolatilityReport {
 
     /**
      * Classifies one score.
-     * @param score score value
-     * @return outcome result
+     * @param score source score
+     * @return outcome label
      */
     private static Outcome outcome(int score) {
         if (score >= WIN_SCORE) {
@@ -888,7 +849,7 @@ public final class PuzzleVolatilityReport {
      * Returns whether two scores cross opposite decisive signs.
      * @param a first value
      * @param b second value
-     * @return opposite signs result
+     * @return true when two scores cross opposite decisive signs
      */
     private static boolean oppositeSigns(int a, int b) {
         return a >= WIN_SCORE && b <= -WIN_SCORE || a <= -WIN_SCORE && b >= WIN_SCORE;
@@ -896,11 +857,11 @@ public final class PuzzleVolatilityReport {
 
     /**
      * Labels the depth direction.
-     * @param first first value
-     * @param last last value
-     * @param losingToWinning losing to winning value
-     * @param winningToLosing winning to losing value
-     * @return direction result
+     * @param first first item
+     * @param last last item
+     * @param losingToWinning source losing to winning
+     * @param winningToLosing source winning to losing
+     * @return direction label
      */
     private static String direction(Outcome first, Outcome last, boolean losingToWinning, boolean winningToLosing) {
         if (losingToWinning && winningToLosing) {
@@ -920,9 +881,9 @@ public final class PuzzleVolatilityReport {
 
     /**
      * Labels volatility severity.
-     * @param swing swing value
-     * @param direction direction value
-     * @return severity result
+     * @param swing swing amount
+     * @param direction direction vector
+     * @return severity label
      */
     static String severity(int swing, String direction) {
         if (direction.endsWith("_reversals") || "losing_to_winning".equals(direction)
@@ -959,7 +920,7 @@ public final class PuzzleVolatilityReport {
      * Returns longest common prefix in plies.
      * @param a first value
      * @param b second value
-     * @return lcp result
+     * @return longest common prefix in plies
      */
     private static int lcp(short[] a, short[] b) {
         if (a == null || b == null) {
@@ -976,8 +937,8 @@ public final class PuzzleVolatilityReport {
     /**
      * Returns the earliest depth where the final best move becomes stable.
      * @param timeline timeline values
-     * @param finalBest final best value
-     * @return final best stable depth result
+     * @param finalBest source final best
+     * @return earliest depth where the final best move becomes stable
      */
     private static int finalBestStableDepth(List<TimelineEntry> timeline, short finalBest) {
         if (timeline.isEmpty() || finalBest == Move.NO_MOVE) {
@@ -997,7 +958,7 @@ public final class PuzzleVolatilityReport {
     /**
      * Converts a move to UCI text.
      * @param move move encoded in CRTK move format
-     * @return move to string result
+     * @return converted a move to UCI text
      */
     static String moveToString(short move) {
         return move == Move.NO_MOVE ? "" : Move.toString(move);
@@ -1005,8 +966,8 @@ public final class PuzzleVolatilityReport {
 
     /**
      * Converts a PV to UCI text.
-     * @param pv pv value
-     * @return pv to string result
+     * @param pv principal variation
+     * @return converted a PV to UCI text
      */
     static String pvToString(short[] pv) {
         if (pv == null || pv.length == 0) {

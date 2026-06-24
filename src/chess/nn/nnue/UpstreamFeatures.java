@@ -1095,7 +1095,7 @@ final class UpstreamFeatures {
     /**
      * Returns variant-specific threat tables.
      *
-     * @param variant variant
+     * @param variant layout or network variant
      * @return tables
      */
     private static ThreatTables threatTables(UpstreamNetwork.Variant variant) {
@@ -1200,7 +1200,7 @@ final class UpstreamFeatures {
     /**
      * Returns pseudo targets used by Stockfish's threat-index tables.
      *
-     * @param pieceType piece type
+     * @param pieceType absolute piece type
      * @param color piece color
      * @param from origin square
      * @return sorted target squares
@@ -1283,7 +1283,7 @@ final class UpstreamFeatures {
     /**
      * Returns a square's file.
      *
-     * @param square square
+     * @param square square index
      * @return file 0..7
      */
     private static int file(int square) {
@@ -1293,7 +1293,7 @@ final class UpstreamFeatures {
     /**
      * Returns a square's rank.
      *
-     * @param square square
+     * @param square square index
      * @return rank 0..7
      */
     private static int rank(int square) {
@@ -1303,8 +1303,8 @@ final class UpstreamFeatures {
     /**
      * Builds a square from file/rank.
      *
-     * @param file file
-     * @param rank rank
+     * @param file file index or file path
+     * @param rank rank index
      * @return square
      */
     private static int square(int file, int rank) {
@@ -1314,8 +1314,8 @@ final class UpstreamFeatures {
     /**
      * Returns whether coordinates are on the board.
      *
-     * @param file file
-     * @param rank rank
+     * @param file file index or file path
+     * @param rank rank index
      * @return true when valid
      */
     private static boolean onBoard(int file, int rank) {

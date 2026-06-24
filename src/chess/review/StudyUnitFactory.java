@@ -265,6 +265,9 @@ public final class StudyUnitFactory {
 
 		/**
 		 * Creates and normalizes output lists.
+		 *
+		 * @param units study units to merge
+		 * @param records source records indexed by game
 		 */
 		public Output {
 			units = units == null ? List.of() : List.copyOf(units);

@@ -145,6 +145,16 @@ public final class StockfishGauntlet {
 
     /**
      * Runs opening pairs sequentially.
+     *
+     * @param openings gauntlet opening positions
+     * @param stockfishPath path to the Stockfish executable
+     * @param crtkNodes ChessRTK per-move node budget
+     * @param stockfishNodes Stockfish per-move node budget
+     * @param crtkMillis ChessRTK per-move time budget in milliseconds
+     * @param stockfishMillis Stockfish per-move time budget in milliseconds
+     * @param crtkThreads ChessRTK search thread count
+     * @param maxPlies maximum plies per gauntlet game
+     * @return runs opening pairs sequentially
      */
     private static Score runSequential(
             String[] openings,
@@ -166,6 +176,17 @@ public final class StockfishGauntlet {
 
     /**
      * Runs opening pairs concurrently and collects results in opening order.
+     *
+     * @param openings gauntlet opening positions
+     * @param stockfishPath path to the Stockfish executable
+     * @param crtkNodes ChessRTK per-move node budget
+     * @param stockfishNodes Stockfish per-move node budget
+     * @param crtkMillis ChessRTK per-move time budget in milliseconds
+     * @param stockfishMillis Stockfish per-move time budget in milliseconds
+     * @param crtkThreads ChessRTK search thread count
+     * @param maxPlies maximum plies per gauntlet game
+     * @param workers parallel worker count
+     * @return runs opening pairs concurrently and collects results in opening order
      */
     private static Score runParallel(
             String[] openings,
@@ -209,6 +230,16 @@ public final class StockfishGauntlet {
 
     /**
      * Plays both color assignments for one opening.
+     *
+     * @param opening opening position or line
+     * @param stockfishPath path to the Stockfish executable
+     * @param crtkNodes ChessRTK per-move node budget
+     * @param stockfishNodes Stockfish per-move node budget
+     * @param crtkMillis ChessRTK per-move time budget in milliseconds
+     * @param stockfishMillis Stockfish per-move time budget in milliseconds
+     * @param crtkThreads ChessRTK search thread count
+     * @param maxPlies maximum plies per gauntlet game
+     * @return plays both color assignments for one opening
      */
     private static OpeningResult playOpeningPair(
             String opening,
@@ -232,6 +263,18 @@ public final class StockfishGauntlet {
 
     /**
      * Plays one game from an opening.
+     *
+     * @param fen FEN string
+     * @param crtkIsWhite true when ChessRTK plays White
+     * @param stockfish running Stockfish process wrapper
+     * @param crtkNodes ChessRTK per-move node budget
+     * @param stockfishNodes Stockfish per-move node budget
+     * @param crtkMillis ChessRTK per-move time budget in milliseconds
+     * @param stockfishMillis Stockfish per-move time budget in milliseconds
+     * @param crtkThreads ChessRTK search thread count
+     * @param maxPlies maximum plies per gauntlet game
+     * @return plays one game from an opening
+     * @throws java.io.IOException if external I/O or engine communication fails
      */
     private static Outcome playGame(
             String fen,
@@ -279,6 +322,10 @@ public final class StockfishGauntlet {
 
     /**
      * Generates seeded, non-terminal opening positions.
+     *
+     * @param count number of items to generate
+     * @param seed deterministic random seed
+     * @return generates seeded, non-terminal opening positions
      */
     private static String[] generateOpenings(int count, long seed) {
         Random rng = new Random(seed);
@@ -311,6 +358,9 @@ public final class StockfishGauntlet {
 
     /**
      * Records one position occurrence for threefold adjudication.
+     *
+     * @param seen deduplication set for emitted tags
+     * @param position chess position
      */
     private static void countPosition(Map<Long, Integer> seen, Position position) {
         seen.merge(position.signatureCore(), 1, Integer::sum);
@@ -318,6 +368,10 @@ public final class StockfishGauntlet {
 
     /**
      * Returns whether a move is present in the legal move list.
+     *
+     * @param legal legal move list
+     * @param move encoded chess move
+     * @return true when a move is present in the legal move list
      */
     private static boolean isLegal(MoveList legal, short move) {
         for (int i = 0; i < legal.size(); i++) {
@@ -330,6 +384,9 @@ public final class StockfishGauntlet {
 
     /**
      * Adds an opening result to an aggregate score.
+     *
+     * @param score score accumulator or engine score
+     * @param result game result token
      */
     private static void add(int[] score, OpeningResult result) {
         add(score, result.first());
@@ -338,6 +395,9 @@ public final class StockfishGauntlet {
 
     /**
      * Adds one outcome to an aggregate score.
+     *
+     * @param score score accumulator or engine score
+     * @param outcome game outcome label
      */
     private static void add(int[] score, Outcome outcome) {
         switch (outcome) {
@@ -350,6 +410,10 @@ public final class StockfishGauntlet {
 
     /**
      * Prints periodic progress.
+     *
+     * @param completed completed game count
+     * @param total total game count
+     * @param score score accumulator or engine score
      */
     private static void printProgress(int completed, int total, int[] score) {
         if (completed % 5 == 0 || completed == total) {
@@ -360,6 +424,10 @@ public final class StockfishGauntlet {
 
     /**
      * Prints the match score and point Elo estimate.
+     *
+     * @param win win probability or win count
+     * @param draw draw probability or draw count
+     * @param loss loss probability or loss count
      */
     private static void report(int win, int draw, int loss) {
         int games = win + draw + loss;
@@ -378,6 +446,10 @@ public final class StockfishGauntlet {
 
     /**
      * Formats the active search budget.
+     *
+     * @param nodes node collection or node budget
+     * @param millis time budget in milliseconds
+     * @return formatted the active search budget
      */
     private static String budgetLabel(int nodes, long millis) {
         return millis > 0L ? millis + " ms/move" : nodes + " nodes/move";
@@ -385,6 +457,9 @@ public final class StockfishGauntlet {
 
     /**
      * Parses {@code --key value} options.
+     *
+     * @param args command-line arguments
+     * @return parsed gauntlet options
      */
     private static Map<String, String> parseArgs(String[] args) {
         Map<String, String> opts = new HashMap<>();
@@ -419,6 +494,9 @@ public final class StockfishGauntlet {
 
         /**
          * Starts and initializes a UCI engine.
+         *
+         * @param path file-system path
+         * @throws java.io.IOException if external I/O or engine communication fails
          */
         private UciClient(String path) throws IOException {
             process = new ProcessBuilder(path).redirectErrorStream(true).start();
@@ -433,6 +511,8 @@ public final class StockfishGauntlet {
 
         /**
          * Starts a new game for hash/history hygiene.
+         *
+         * @throws java.io.IOException if external I/O or engine communication fails
          */
         private void newGame() throws IOException {
             send("ucinewgame");
@@ -441,6 +521,12 @@ public final class StockfishGauntlet {
 
         /**
          * Searches one position to a fixed node budget and returns the best move.
+         *
+         * @param position chess position
+         * @param nodes node collection or node budget
+         * @param millis time budget in milliseconds
+         * @return searches one position to a fixed node budget and returns the best move
+         * @throws java.io.IOException if external I/O or engine communication fails
          */
         private short bestMove(Position position, int nodes, long millis) throws IOException {
             send("position fen " + position);
@@ -464,6 +550,8 @@ public final class StockfishGauntlet {
 
         /**
          * Sends an isready command and waits for readyok.
+         *
+         * @throws java.io.IOException if external I/O or engine communication fails
          */
         private void ready() throws IOException {
             send("isready");
@@ -472,6 +560,8 @@ public final class StockfishGauntlet {
 
         /**
          * Sends one command.
+         *
+         * @param command command sent to the engine process
          */
         private void send(String command) {
             output.println(command);
@@ -480,6 +570,10 @@ public final class StockfishGauntlet {
 
         /**
          * Waits for an exact response line.
+         *
+         * @param expected expected output text
+         * @param timeoutMs read timeout in milliseconds
+         * @throws java.io.IOException if external I/O or engine communication fails
          */
         private void waitForExact(String expected, long timeoutMs) throws IOException {
             long deadline = System.currentTimeMillis() + timeoutMs;
@@ -494,6 +588,10 @@ public final class StockfishGauntlet {
 
         /**
          * Reads one line before the deadline.
+         *
+         * @param deadline absolute read deadline in milliseconds
+         * @return reads one line before the deadline
+         * @throws java.io.IOException if external I/O or engine communication fails
          */
         private String readLine(long deadline) throws IOException {
             while (System.currentTimeMillis() < deadline) {

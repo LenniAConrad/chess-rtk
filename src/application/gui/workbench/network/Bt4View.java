@@ -140,8 +140,8 @@ public final class Bt4View extends NetworkView {
     /**
      * Handles a mouse click.
      *
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      */
     @Override
     protected void onClick(int x, int y) {
@@ -292,7 +292,7 @@ public final class Bt4View extends NetworkView {
      * Paints the title header.
      *
      * @param g graphics
-     * @param bounds bounds
+     * @param bounds component bounds
      */
     @Override
     protected void paintHeader(Graphics2D g, Rectangle bounds) {
@@ -621,7 +621,7 @@ public final class Bt4View extends NetworkView {
      *
      * @param g graphics
      * @param board board rectangle
-     * @param title title
+     * @param title display title
      * @param values per-square values
      * @param caption tooltip caption
      */
@@ -1303,6 +1303,7 @@ public final class Bt4View extends NetworkView {
      * @param toData per-square attention values for selected → this
      * @param fromData per-square attention values for this → selected
      * @param scale shared colour scale (max value mapped to full opacity)
+     * @param whiteDown whether White is rendered at the bottom
      */
     private static void drawTriangleOverlay(java.awt.Graphics2D g, Rectangle board,
             float[] toData, float[] fromData, float scale, boolean whiteDown) {
@@ -1369,6 +1370,7 @@ public final class Bt4View extends NetworkView {
      * @param board mini-board rectangle
      * @param toData selected → this
      * @param fromData this → selected
+     * @param whiteDown whether White is rendered at the bottom
      */
     private void addTriangleTooltips(Rectangle board, float[] toData, float[] fromData, boolean whiteDown) {
         String selectedLabel = TensorViz.squareLabel(selectedSquare);

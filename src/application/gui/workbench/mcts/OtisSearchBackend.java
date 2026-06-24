@@ -126,7 +126,7 @@ final class OtisSearchBackend implements SearchBackend {
      * Stores a prediction in the recent-position cache.
      *
      * @param key position signature
-     * @param prediction prediction
+     * @param prediction network prediction
      */
     private void remember(long key, chess.nn.otis.Model.Prediction prediction) {
         lastKey = key;

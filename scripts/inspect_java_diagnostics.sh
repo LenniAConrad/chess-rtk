@@ -10,6 +10,31 @@ KNOWN_STALE_MARKERS="$ROOT_DIR/reports/java-diagnostics-known-stale.txt"
 MCP_CONFIG="${MCP_CONFIG:-$CODE_HOME/User/mcp.json}"
 SONARLINT_DB="${SONARLINT_DB:-$HOME/.sonarlint/storage/h2/sq-ide}"
 
+usage() {
+  cat <<'EOF'
+Usage: scripts/inspect_java_diagnostics.sh [options]
+
+Run javac warnings plus local VS Code JDT and SonarQube for IDE diagnostic checks.
+
+Options:
+  -h, --help  Show this help.
+EOF
+}
+
+case "${1:-}" in
+  "")
+    ;;
+  -h|--help)
+    usage
+    exit 0
+    ;;
+  *)
+    echo "Unknown option: $1" >&2
+    echo "Try --help." >&2
+    exit 2
+    ;;
+esac
+
 echo "==> javac -Xlint:all"
 mapfile -t sources < <(find "$ROOT_DIR/src" -name '*.java' | sort)
 if [[ ${#sources[@]} -eq 0 ]]; then

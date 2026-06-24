@@ -215,7 +215,7 @@ final class PuzzleRatingGraph {
     /**
      * Draws a smoothed trend line over the standalone histogram.
      * @param g graphics context
-     * @param smoothed smoothed value
+     * @param smoothed smoothed metric series
      * @param left left coordinate
      * @param top top coordinate
      * @param plotW plot width in pixels
@@ -302,10 +302,10 @@ final class PuzzleRatingGraph {
 
     /**
      * Converts a rating to plot x-coordinate.
-     * @param rating rating value
+     * @param rating rating bucket
      * @param left left coordinate
      * @param plotW plot width in pixels
-     * @return rating x result
+     * @return converted a rating to plot x-coordinate
      */
     private static double ratingX(int rating, int left, int plotW) {
         double range = (double) MAX_RATING - MIN_RATING + 1.0;
@@ -315,8 +315,8 @@ final class PuzzleRatingGraph {
     /**
      * Builds a rating histogram.
      * @param rows data rows
-     * @param binWidth bin width value
-     * @return histogram result
+     * @param binWidth source bin width
+     * @return built a rating histogram
      */
     static int[] histogram(List<PuzzleRatingRow> rows, int binWidth) {
         int safeBinWidth = Math.max(1, binWidth);
@@ -331,8 +331,8 @@ final class PuzzleRatingGraph {
     /**
      * Converts counts to percentages.
      * @param bins histogram bins
-     * @param total total value
-     * @return percentages result
+     * @param total total unit count
+     * @return converted counts to percentages
      */
     static double[] percentages(int[] bins, int total) {
         double[] out = new double[bins.length];
@@ -348,8 +348,8 @@ final class PuzzleRatingGraph {
     /**
      * Smooths a percentage series with a centered moving average.
      * @param values values to inspect
-     * @param window window value
-     * @return moving average result
+     * @param window window instance
+     * @return moving average
      */
     static double[] movingAverage(double[] values, int window) {
         double[] out = new double[values.length];
@@ -376,7 +376,7 @@ final class PuzzleRatingGraph {
 
     /**
      * Converts the configured trend width from Elo points to display bins.
-     * @return distribution trend window bins result
+     * @return converted the configured trend width from Elo points to display bins
      */
     static int distributionTrendWindowBins() {
         int bins = Math.max(1, (int) Math.round(DISTRIBUTION_TREND_POINTS / (double) DISPLAY_BIN_WIDTH));
@@ -386,7 +386,7 @@ final class PuzzleRatingGraph {
     /**
      * Chooses a y-axis max.
      * @param percentages percentage values
-     * @return y max result
+     * @return y max
      */
     static double yMax(double[] percentages) {
         double max = 0.0;
@@ -399,9 +399,9 @@ final class PuzzleRatingGraph {
     /**
      * Returns percentage in a rating interval.
      * @param rows data rows
-     * @param lo lo value
-     * @param hi hi value
-     * @return percent in range result
+     * @param lo lower bound
+     * @param hi upper bound
+     * @return percentage in a rating interval
      */
     static String percentInRange(List<PuzzleRatingRow> rows, int lo, int hi) {
         if (rows.isEmpty()) {
@@ -420,7 +420,7 @@ final class PuzzleRatingGraph {
      * Returns a percentile rating.
      * @param rows data rows
      * @param p point value
-     * @return percentile result
+     * @return percentile rating
      */
     static int percentile(List<PuzzleRatingRow> rows, double p) {
         if (rows.isEmpty()) {
@@ -433,8 +433,8 @@ final class PuzzleRatingGraph {
 
     /**
      * Prints summary statistics.
-     * @param csv csv value
-     * @param png png value
+     * @param csv CSV path
+     * @param png PNG path
      * @param rows data rows
      */
 }

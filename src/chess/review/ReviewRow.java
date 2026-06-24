@@ -45,6 +45,16 @@ public record ReviewRow(
 
 	/**
 	 * Creates and validates a row.
+	 *
+	 * @param game game identifier or metadata
+	 * @param ply zero-based ply index
+	 * @param move encoded chess move
+	 * @param assessment move assessment payload
+	 * @param tags tag collection to update
+	 * @param gamePhase classified game phase
+	 * @param recommendedAction training recommendation
+	 * @param studyUnitId linked study-unit identifier
+	 * @param repro reproduction command or data
 	 */
 	public ReviewRow {
 		Objects.requireNonNull(game, "game");
@@ -123,6 +133,14 @@ public record ReviewRow(
 
 		/**
 		 * Creates and validates game metadata.
+		 *
+		 * @param gameId stable game identifier
+		 * @param source source buffer or source-side selector
+		 * @param event PGN event name
+		 * @param white White player name or side flag
+		 * @param black Black player name
+		 * @param eco ECO opening code
+		 * @param opening opening position or line
 		 */
 		public GameRef {
 			Objects.requireNonNull(gameId, "gameId");
@@ -142,6 +160,11 @@ public record ReviewRow(
 
 		/**
 		 * Creates and validates ply metadata.
+		 *
+		 * @param index zero-based index
+		 * @param moveNumber fullmove number
+		 * @param color display color or side color
+		 * @param fen FEN string
 		 */
 		public Ply {
 			if (index < 0) {
@@ -214,6 +237,13 @@ public record ReviewRow(
 
 		/**
 		 * Creates and validates move metadata.
+		 *
+		 * @param playedUci played move in UCI notation
+		 * @param playedSan played move in SAN
+		 * @param bestUci best move in UCI notation
+		 * @param bestSan best move in SAN
+		 * @param pvBest principal variation for the best move
+		 * @param secondBestCp second-best move score in centipawns
 		 */
 		public MoveChoice {
 			Objects.requireNonNull(playedUci, "playedUci");
@@ -233,6 +263,10 @@ public record ReviewRow(
 
 		/**
 		 * Creates and validates an eval block.
+		 *
+		 * @param cp centipawn score
+		 * @param mate mate score, or null when absent
+		 * @param wdl win-draw-loss probabilities
 		 */
 		public Eval {
 			if (cp == null && mate == null) {
@@ -277,6 +311,10 @@ public record ReviewRow(
 
 		/**
 		 * Creates and validates a WDL tuple.
+		 *
+		 * @param win win probability or win count
+		 * @param draw draw probability or draw count
+		 * @param loss loss probability or loss count
 		 */
 		public Wdl {
 			if (win < 0 || draw < 0 || loss < 0) {
@@ -310,6 +348,11 @@ public record ReviewRow(
 
 		/**
 		 * Creates and validates assessment metadata.
+		 *
+		 * @param evalBefore evaluation before the move
+		 * @param evalAfter evaluation after the move
+		 * @param verdict classification verdict
+		 * @param mistakeMotif mistake motif label
 		 */
 		public Assessment {
 			Objects.requireNonNull(evalBefore, "evalBefore");
@@ -336,6 +379,12 @@ public record ReviewRow(
 
 		/**
 		 * Creates and normalizes tag lists.
+		 *
+		 * @param before position before the move
+		 * @param after position after the move
+		 * @param added added tag names
+		 * @param removed removed tag names
+		 * @param changed changed tag names
 		 */
 		public Tags {
 			before = immutableStrings(before);
@@ -398,6 +447,17 @@ public record ReviewRow(
 
 		/**
 		 * Creates and validates reproducibility metadata.
+		 *
+		 * @param engine engine identifier
+		 * @param protocolPath external engine protocol path
+		 * @param maxNodes maximum search node budget
+		 * @param maxDurationMillis maximum search duration in milliseconds
+		 * @param multipv number of principal variations to request
+		 * @param threads engine thread count
+		 * @param hash engine hash size in megabytes
+		 * @param searchMode engine search mode label
+		 * @param crtkVersion ChessRTK version string
+		 * @param deterministic whether deterministic engine mode was used
 		 */
 		public Repro {
 			Objects.requireNonNull(engine, "engine");

@@ -19,8 +19,8 @@ public final class TagPrompt {
 
      /**
      * Handles build position prompt.
-     * @param tags tags
-     * @return computed value
+     * @param tags tag collection
+     * @return handles build position prompt
      */
      public static String buildPositionPrompt(List<String> tags) {
         StringBuilder sb = new StringBuilder(512);

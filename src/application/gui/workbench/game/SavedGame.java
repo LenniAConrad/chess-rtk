@@ -120,6 +120,13 @@ public record SavedGame(
                 clean(pgn));
     }
 
+    /**
+     * Returns the title from SAN.
+     *
+     * @param san SAN move string
+     * @param fallbackFen FEN string for fallback
+     * @return title from SAN text
+     */
     private static String titleFromSan(String san, String fallbackFen) {
         String text = clean(san);
         if (text.isBlank()) {
@@ -128,6 +135,12 @@ public record SavedGame(
         return text.length() <= 56 ? text : text.substring(0, 53) + "...";
     }
 
+    /**
+     * Returns the compact FEN.
+     *
+     * @param fen FEN string
+     * @return compact FEN text
+     */
     private static String compactFen(String fen) {
         String text = clean(fen);
         int firstSpace = text.indexOf(' ');
@@ -135,6 +148,14 @@ public record SavedGame(
         return board.length() <= 24 ? board : board.substring(0, 21) + "...";
     }
 
+    /**
+     * Appends a JSON string field, cleaning null values and escaping content.
+     *
+     * @param sb destination JSON builder
+     * @param name field name
+     * @param value raw field value
+     * @param comma whether to prepend a comma
+     */
     private static void stringField(StringBuilder sb, String name, String value, boolean comma) {
         if (comma) {
             sb.append(',');
@@ -142,10 +163,25 @@ public record SavedGame(
         sb.append('"').append(name).append("\":\"").append(Json.esc(clean(value))).append('"');
     }
 
+    /**
+     * Appends a JSON numeric field.
+     *
+     * @param sb destination JSON builder
+     * @param name field name
+     * @param value numeric value
+     */
     private static void numberField(StringBuilder sb, String name, long value) {
         sb.append(',').append('"').append(name).append("\":").append(value);
     }
 
+    /**
+     * Parses the parse long.
+     *
+     * @param json JSON payload or flag
+     * @param name display name
+     * @param fallback default used when input is absent or invalid
+     * @return parse long
+     */
     private static long parseLong(String json, String name, long fallback) {
         try {
             return Json.parseLongField(json, name);
@@ -154,11 +190,23 @@ public record SavedGame(
         }
     }
 
+    /**
+     * Returns the count ply.
+     *
+     * @param uciLine source uci line
+     * @return count ply
+     */
     private static int countPly(String uciLine) {
         String text = clean(uciLine);
         return text.isBlank() ? 0 : text.split("\\s+").length;
     }
 
+    /**
+     * Normalizes nullable persisted text to a trimmed non-null value.
+     *
+     * @param text persisted text, or {@code null}
+     * @return trimmed text, or an empty string
+     */
     private static String clean(String text) {
         return text == null ? "" : text.trim();
     }

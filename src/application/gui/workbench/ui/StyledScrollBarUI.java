@@ -1,5 +1,6 @@
 package application.gui.workbench.ui;
 
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -7,6 +8,7 @@ import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.SwingConstants;
 import javax.swing.plaf.basic.BasicScrollBarUI;
 
 /**
@@ -17,7 +19,12 @@ final class StyledScrollBarUI extends BasicScrollBarUI {
     /**
      * Thumb corner radius.
      */
-    private static final int THUMB_RADIUS = Theme.RADIUS;
+    private static final int THUMB_RADIUS = 7;
+
+    /**
+     * Visible thumb thickness inside the reserved scrollbar gutter.
+     */
+    private static final int THUMB_THICKNESS = 6;
 
     /**
      * Creates an invisible scrollbar button.
@@ -42,29 +49,24 @@ final class StyledScrollBarUI extends BasicScrollBarUI {
     }
 
     /**
-     * Paints the transparent track.
+     * Paints an invisible track using the host surface color.
      *
      * @param graphics graphics context
-     * @param component component
+     * @param component Swing component
      * @param bounds track bounds
      */
     @Override
     protected void paintTrack(Graphics graphics, JComponent component, Rectangle bounds) {
-        Graphics2D g = (Graphics2D) graphics.create();
-        try {
-            g.setColor(Theme.SCROLLBAR_TRACK);
-            g.fillRoundRect(bounds.x + 2, bounds.y + 2, Math.max(0, bounds.width - 4),
-                    Math.max(0, bounds.height - 4), THUMB_RADIUS, THUMB_RADIUS);
-        } finally {
-            g.dispose();
-        }
+        Color background = component.getBackground();
+        graphics.setColor(background == null ? Theme.PANEL_SOLID : background);
+        graphics.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
     }
 
     /**
      * Paints the scrollbar thumb.
      *
      * @param graphics graphics context
-     * @param component component
+     * @param component Swing component
      * @param bounds thumb bounds
      */
     @Override
@@ -75,11 +77,16 @@ final class StyledScrollBarUI extends BasicScrollBarUI {
         Graphics2D g = (Graphics2D) graphics.create();
         try {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            boolean vertical = scrollbar.getOrientation() == SwingConstants.VERTICAL;
+            int x = vertical ? bounds.x + Math.max(1, (bounds.width - THUMB_THICKNESS) / 2) : bounds.x + 2;
+            int y = vertical ? bounds.y + 2 : bounds.y + Math.max(1, (bounds.height - THUMB_THICKNESS) / 2);
+            int w = vertical ? THUMB_THICKNESS : Math.max(0, bounds.width - 4);
+            int h = vertical ? Math.max(0, bounds.height - 4) : THUMB_THICKNESS;
+            Color resting = Theme.withAlpha(Theme.SCROLLBAR_THUMB, Theme.isDark() ? 92 : 82);
             g.setColor(isDragging ? Theme.SCROLLBAR_THUMB_HOVER
-                    : isThumbRollover() ? Theme.withAlpha(Theme.SCROLLBAR_THUMB, 190)
-                    : Theme.SCROLLBAR_THUMB);
-            g.fillRoundRect(bounds.x + 2, bounds.y + 2, Math.max(0, bounds.width - 4),
-                    Math.max(0, bounds.height - 4), THUMB_RADIUS, THUMB_RADIUS);
+                    : isThumbRollover() ? Theme.withAlpha(Theme.SCROLLBAR_THUMB_HOVER, Theme.isDark() ? 170 : 150)
+                            : resting);
+            g.fillRoundRect(x, y, w, h, THUMB_RADIUS, THUMB_RADIUS);
         } finally {
             g.dispose();
         }

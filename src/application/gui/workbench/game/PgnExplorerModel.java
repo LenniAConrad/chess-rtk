@@ -202,7 +202,7 @@ public final class PgnExplorerModel {
      *
      * @param tags PGN tags
      * @param key tag key
-     * @param fallback fallback value
+     * @param fallback default used when input is absent or invalid
      * @return tag value or fallback
      */
     private static String tag(Map<String, String> tags, String key, String fallback) {
@@ -286,7 +286,7 @@ public final class PgnExplorerModel {
      * Mainline metadata extracted from a PGN game.
      *
      * @param plyCount mainline ply count
-     * @param startFen start FEN
+     * @param startFen starting FEN
      * @param finalFen final mainline FEN
      * @param positionKeys reached position keys
      * @param sanLine canonical SAN mainline
@@ -313,8 +313,8 @@ public final class PgnExplorerModel {
      * @param eco ECO code
      * @param opening opening name
      * @param plyCount mainline ply count
-     * @param startFen start FEN
-     * @param finalFen final FEN
+     * @param startFen starting FEN
+     * @param finalFen FEN string for final
      * @param positionKeys normalized positions reached by the mainline
      * @param duplicateKey exact duplicate key
      */
@@ -357,10 +357,10 @@ public final class PgnExplorerModel {
          * @param eco ECO tag
          * @param opening opening tag
          * @param plyCount mainline ply count
-         * @param startFen start FEN
-         * @param finalFen final FEN
+         * @param startFen starting FEN
+         * @param finalFen FEN string for final
          * @param positionKeys reached position keys
-         * @param duplicateKey duplicate key
+         * @param duplicateKey source duplicate key
          */
         public Entry {
             positionKeys = positionKeys == null ? List.of() : List.copyOf(positionKeys);

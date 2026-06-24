@@ -12,14 +12,29 @@ import chess.core.Field;
  */
 record DrawAnnotationRow(int number, BoardMarkup markup, boolean details) {
 
+    /**
+     * Returns the numbered title shown for this annotation row.
+     *
+     * @return row title text
+     */
     String title() {
         return number + ". " + compactAnnotationName(markup);
     }
 
+    /**
+     * Returns the tool-specific detail text without the color label.
+     *
+     * @return annotation detail text
+     */
     String detail() {
         return annotationDetail(markup);
     }
 
+    /**
+     * Returns the detail text with the brush color label appended.
+     *
+     * @return detail text with color
+     */
     String detailWithColor() {
         return detail() + " · " + DrawColorFormat.colorLabel(markup.brush().displayColor());
     }
@@ -39,6 +54,12 @@ record DrawAnnotationRow(int number, BoardMarkup markup, boolean details) {
         return title();
     }
 
+    /**
+     * Formats the coordinate payload for one board markup.
+     *
+     * @param markup board markup
+     * @return annotation detail text
+     */
     private static String annotationDetail(BoardMarkup markup) {
         String from = Field.toString(markup.from());
         String target = markup.to() == Field.NO_SQUARE ? from : Field.toString(markup.to());
@@ -50,6 +71,12 @@ record DrawAnnotationRow(int number, BoardMarkup markup, boolean details) {
         };
     }
 
+    /**
+     * Returns the short list label for a markup tool.
+     *
+     * @param markup board markup
+     * @return compact annotation name text
+     */
     private static String compactAnnotationName(BoardMarkup markup) {
         return switch (markup.tool()) {
             case CIRCLE -> "Circle";

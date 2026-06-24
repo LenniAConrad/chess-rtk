@@ -59,8 +59,8 @@ final class MoveCommandSupport {
 
 		 /**
 		 * Creates a new parsed input instance.
-		 * @param position position
-		 * @param moves moves
+		 * @param position chess position
+		 * @param moves move list
 		 */
 		 private ParsedInput(Position position, List<String> moves) {
 			this.position = position;
@@ -192,9 +192,9 @@ final class MoveCommandSupport {
 
 	/**
 	 * Parses the uci.
-	 * @param pos pos
-	 * @param token token
-	 * @return computed value
+	 * @param pos chess position
+	 * @param token input token
+	 * @return parsed the uci
 	 */
 	private static short parseUci(Position pos, String token) {
 		String uci = token.toLowerCase(Locale.ROOT);
@@ -210,10 +210,10 @@ final class MoveCommandSupport {
 
 	/**
 	 * Parses the fen from tokens.
-	 * @param rest rest
-	 * @param cmd cmd
-	 * @param verbose verbose
-	 * @return computed value
+	 * @param rest remaining arguments
+	 * @param cmd CLI command
+	 * @param verbose whether verbose output is enabled
+	 * @return parsed the fen from tokens
 	 */
 	private static ParsedInput parseFenFromTokens(List<String> rest, String cmd, boolean verbose) {
 		int size = rest.size();
@@ -246,9 +246,9 @@ final class MoveCommandSupport {
 
 	/**
 	 * Handles join tokens.
-	 * @param tokens tokens
-	 * @param count count
-	 * @return computed value
+	 * @param tokens input tokens
+	 * @param count item count
+	 * @return handles join tokens
 	 */
 	private static String joinTokens(List<String> tokens, int count) {
 		StringBuilder sb = new StringBuilder();

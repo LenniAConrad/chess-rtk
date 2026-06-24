@@ -33,9 +33,9 @@ final class PuzzleRatingRow {
 
     /**
      * Creates a row.
-     * @param index index value
+     * @param index zero-based index
      * @param fields record fields
-     * @param rawScore raw score value
+     * @param rawScore source raw score
      * @param fen FEN string
      */
     PuzzleRatingRow(int index, List<String> fields, double rawScore, String fen) {
@@ -47,7 +47,7 @@ final class PuzzleRatingRow {
 
     /**
      * Original index.
-     * @return index result
+     * @return index
      */
     int index() {
         return index;
@@ -55,7 +55,7 @@ final class PuzzleRatingRow {
 
     /**
      * CSV fields.
-     * @return fields result
+     * @return fields
      */
     List<String> fields() {
         return fields;
@@ -63,7 +63,7 @@ final class PuzzleRatingRow {
 
     /**
      * Raw score.
-     * @return raw score result
+     * @return raw score
      */
     double rawScore() {
         return rawScore;
@@ -71,7 +71,7 @@ final class PuzzleRatingRow {
 
     /**
      * FEN key.
-     * @return fen result
+     * @return fen
      */
     String fen() {
         return fen;
@@ -79,7 +79,7 @@ final class PuzzleRatingRow {
 
     /**
      * Current rating.
-     * @return rating result
+     * @return rating value
      */
     int rating() {
         return Integer.parseInt(fields.get(2));
@@ -87,7 +87,7 @@ final class PuzzleRatingRow {
 
     /**
      * Goal label.
-     * @return goal result
+     * @return goal label
      */
     String goal() {
         return fields.get(1);
@@ -95,7 +95,7 @@ final class PuzzleRatingRow {
 
     /**
      * Difficulty label.
-     * @return label result
+     * @return display label
      */
     String label() {
         return fields.get(5);
@@ -103,7 +103,7 @@ final class PuzzleRatingRow {
 
     /**
      * Principal solution move or line.
-     * @return solution result
+     * @return solution move text
      */
     String solution() {
         return fields.get(6);
@@ -111,7 +111,7 @@ final class PuzzleRatingRow {
 
     /**
      * Cheap rank.
-     * @return cheap rank result
+     * @return cheap rank
      */
     int cheapRank() {
         return Integer.parseInt(fields.get(8));
@@ -119,7 +119,7 @@ final class PuzzleRatingRow {
 
     /**
      * Legal move count.
-     * @return legal moves result
+     * @return legal moves
      */
     int legalMoves() {
         return Integer.parseInt(fields.get(15));
@@ -127,7 +127,7 @@ final class PuzzleRatingRow {
 
     /**
      * Explicit plies.
-     * @return plies result
+     * @return ply count
      */
     int plies() {
         return Integer.parseInt(fields.get(16));
@@ -135,7 +135,7 @@ final class PuzzleRatingRow {
 
     /**
      * Root replies.
-     * @return replies result
+     * @return reply count
      */
     int replies() {
         return Integer.parseInt(fields.get(17));
@@ -143,7 +143,7 @@ final class PuzzleRatingRow {
 
     /**
      * Tree nodes.
-     * @return nodes result
+     * @return node count
      */
     int nodes() {
         return Integer.parseInt(fields.get(18));
@@ -151,7 +151,7 @@ final class PuzzleRatingRow {
 
     /**
      * Branch point count.
-     * @return branches result
+     * @return branch count
      */
     int branches() {
         return Integer.parseInt(fields.get(19));
@@ -159,7 +159,7 @@ final class PuzzleRatingRow {
 
     /**
      * Raw feature list.
-     * @return features result
+     * @return feature set
      */
     String features() {
         return fields.get(20);
@@ -167,7 +167,7 @@ final class PuzzleRatingRow {
 
     /**
      * Whether this row contains a feature.
-     * @param feature feature value
+     * @param feature feature descriptor
      * @return true when has feature
      */
     boolean hasFeature(String feature) {
@@ -176,7 +176,7 @@ final class PuzzleRatingRow {
 
     /**
      * Feature set.
-     * @return feature set result
+     * @return feature set
      */
     Map<String, Boolean> featureSet() {
         Map<String, Boolean> out = new HashMap<>();

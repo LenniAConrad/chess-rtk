@@ -40,6 +40,7 @@ import java.awt.RenderingHints;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
 import java.io.File;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -79,6 +80,43 @@ public final class DatasetPanel extends SurfacePanel {
      * Default row scan limit.
      */
     private static final int DEFAULT_ROW_LIMIT = 50_000;
+
+    /**
+     * Fixed body width for the scan-progress layout; keeps spinner, title,
+     * detail card, and cancel action aligned as one centered unit.
+     */
+    private static final int LOADING_CONTENT_WIDTH = 680;
+
+    /**
+     * Maximum visible characters for the scan-progress file row before the full
+     * path moves to the tooltip.
+     */
+    private static final int LOADING_FILE_TEXT_CHARS = 60;
+
+    /**
+     * Initial height for the loaded analytics band before the table / inspector.
+     */
+    private static final int OVERVIEW_INITIAL_HEIGHT = 300;
+
+    /**
+     * Lower bound for the loaded analytics band.
+     */
+    private static final int OVERVIEW_MIN_HEIGHT = 240;
+
+    /**
+     * Upper bound for the loaded analytics band; overflow scrolls inside it.
+     */
+    private static final int OVERVIEW_MAX_HEIGHT = 360;
+
+    /**
+     * Approximate minimum useful table/inspector height.
+     */
+    private static final int TABLE_MIN_HEIGHT = 260;
+
+    /**
+     * Maximum share of loaded body height assigned to the analytics band.
+     */
+    private static final double OVERVIEW_MAX_SHARE = 0.42d;
 
     /**
      * Minimum row scan limit.
@@ -465,7 +503,15 @@ public final class DatasetPanel extends SurfacePanel {
             rowLimitField.requestFocusInWindow();
             return;
         }
-        startAnalysis(Path.of(text), rowLimit.longValue());
+        Path source;
+        try {
+            source = Path.of(text);
+        } catch (InvalidPathException ex) {
+            setStatus("Dataset path is not valid: " + oneLine(ex.getMessage()), Theme.ForegroundRole.ERROR);
+            sourceField.requestFocusInWindow();
+            return;
+        }
+        startAnalysis(source, rowLimit.longValue());
     }
 
     /**
@@ -621,7 +667,7 @@ public final class DatasetPanel extends SurfacePanel {
                 .replace("_", "")
                 .trim();
         if (raw.isEmpty()) {
-            return null;
+            return Long.valueOf(DEFAULT_ROW_LIMIT);
         }
         try {
             long value = Long.parseLong(raw);
@@ -639,6 +685,25 @@ public final class DatasetPanel extends SurfacePanel {
      */
     private static String formatRowLimit(long value) {
         return String.format(Locale.ROOT, "%,d", value);
+    }
+
+    /**
+     * Computes the initial vertical divider for the loaded dataset view.
+     *
+     * @param height split-pane height
+     * @param dividerSize split divider size
+     * @return divider location
+     */
+    private static int initialOverviewDivider(int height, int dividerSize) {
+        int min = Theme.scaledPx(OVERVIEW_MIN_HEIGHT);
+        int preferred = Theme.scaledPx(OVERVIEW_INITIAL_HEIGHT);
+        int max = Math.max(min, Math.min(Theme.scaledPx(OVERVIEW_MAX_HEIGHT),
+                (int) Math.round(height * OVERVIEW_MAX_SHARE)));
+        int bottomCap = height - dividerSize - Theme.scaledPx(TABLE_MIN_HEIGHT);
+        if (bottomCap > min) {
+            max = Math.min(max, bottomCap);
+        }
+        return Math.max(min, Math.min(preferred, max));
     }
 
     /**
@@ -665,14 +730,14 @@ public final class DatasetPanel extends SurfacePanel {
             public void doLayout() {
                 if (!dividerPlaced && getHeight() > 0) {
                     dividerPlaced = true;
-                    setDividerLocation(Math.max(300, (int) Math.round(getHeight() * 0.54d)));
+                    setDividerLocation(initialOverviewDivider(getHeight(), getDividerSize()));
                 }
                 super.doLayout();
             }
         };
-        // Give the overview enough height to show the primary chart rows on
-        // common laptop widths while still leaving the row inspector usable.
-        split.setResizeWeight(0.54d);
+        // Extra vertical room belongs to the table/inspector. The overview is a
+        // compact analytics band and can scroll if cards wrap on narrow widths.
+        split.setResizeWeight(0.0d);
         SplitPaneStyler.style(split);
         // Show a focused welcome hero until a dataset is scanned, so the tab is
         // not a wall of repeated "No dataset loaded" placeholders; reveal the
@@ -717,27 +782,40 @@ public final class DatasetPanel extends SurfacePanel {
      * @return loading component
      */
     private JComponent createLoadingCard() {
-        loadingSpinner.setAlignmentX(CENTER_ALIGNMENT);
-        loadingTitle.setAlignmentX(CENTER_ALIGNMENT);
+        loadingTitle.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         loadingTitle.setFont(Theme.font(15, Font.BOLD));
         Theme.foreground(loadingTitle, Theme.ForegroundRole.TEXT);
-        loadingHint.setAlignmentX(CENTER_ALIGNMENT);
+        loadingHint.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         loadingHint.setFont(Theme.font(12, Font.PLAIN));
         Theme.foreground(loadingHint, Theme.ForegroundRole.MUTED);
 
-        JPanel stack = transparentPanel(null);
-        stack.setLayout(new javax.swing.BoxLayout(stack, javax.swing.BoxLayout.Y_AXIS));
-        stack.add(loadingSpinner);
-        stack.add(javax.swing.Box.createVerticalStrut(Theme.SPACE_MD));
-        stack.add(loadingTitle);
-        stack.add(javax.swing.Box.createVerticalStrut(Theme.SPACE_XS));
-        stack.add(loadingHint);
-        stack.add(javax.swing.Box.createVerticalStrut(Theme.SPACE_MD));
-        stack.add(card("Scan Progress", createLoadingDetails()));
-        stack.add(javax.swing.Box.createVerticalStrut(Theme.SPACE_SM));
+        JPanel spinnerRow = transparentPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        spinnerRow.add(loadingSpinner);
+        JPanel header = transparentPanel(new BorderLayout(0, Theme.SPACE_XS));
+        header.add(spinnerRow, BorderLayout.NORTH);
+        header.add(loadingTitle, BorderLayout.CENTER);
+        header.add(loadingHint, BorderLayout.SOUTH);
+
+        JComponent progressCard = card("Scan Progress", createLoadingDetails());
+        fixPreferredWidth(progressCard, Theme.scaledPx(LOADING_CONTENT_WIDTH));
+
         HoldButton cancel = new HoldButton("Cancel Scan", this::cancelAnalysis, true);
-        cancel.setAlignmentX(CENTER_ALIGNMENT);
-        stack.add(cancel);
+        JPanel actions = transparentPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        actions.add(cancel);
+
+        JPanel stack = transparentPanel(new java.awt.GridBagLayout());
+        java.awt.GridBagConstraints constraints = new java.awt.GridBagConstraints();
+        constraints.gridx = 0;
+        constraints.gridy = 0;
+        constraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        constraints.weightx = 1.0d;
+        stack.add(header, constraints);
+        constraints.gridy++;
+        constraints.insets = new java.awt.Insets(Theme.SPACE_MD, 0, 0, 0);
+        stack.add(progressCard, constraints);
+        constraints.gridy++;
+        constraints.insets = new java.awt.Insets(Theme.SPACE_SM, 0, 0, 0);
+        stack.add(actions, constraints);
 
         JPanel center = transparentPanel(new java.awt.GridBagLayout());
         center.add(stack);
@@ -775,7 +853,9 @@ public final class DatasetPanel extends SurfacePanel {
         String name = source == null ? "dataset"
                 : source.getFileName() == null ? source.toString() : source.getFileName().toString();
         loadingTitle.setText("Scanning " + compactText(name, 40) + "…");
-        loadingFileValue.setText(source == null ? "-" : source.toString());
+        String path = source == null ? "" : source.toString();
+        loadingFileValue.setText(path.isBlank() ? "-" : compactText(path, LOADING_FILE_TEXT_CHARS));
+        loadingFileValue.setToolTipText(path.isBlank() ? null : path);
         loadingPhaseValue.setText("reading / validating");
         loadingRowsValue.setText("row limit " + cleanRowLimitText());
         loadingValidValue.setText("available after scan");
@@ -802,7 +882,9 @@ public final class DatasetPanel extends SurfacePanel {
     private JComponent createEmptyHero() {
         return application.gui.workbench.ui.Ui.emptyState("Profile a dataset",
                 "Choose a .pgn or .jsonl file — or a directory — then Analyze to chart validity, "
-                        + "tags, score bands, and material across every position.");
+                        + "tags, score bands, and material across every position.",
+                button("Browse...", true, event -> chooseDatasetPath()),
+                button("Focus path", false, event -> sourceField.requestFocusInWindow()));
     }
 
     /**
@@ -1015,7 +1097,7 @@ public final class DatasetPanel extends SurfacePanel {
      */
     private void updateRowActions() {
         DatasetSummary.SampleRow row = selectedRow();
-        boolean hasFen = row != null && !row.fen().isBlank();
+        boolean hasFen = row != null && !row.fen().isBlank() && positionError(row.fen()) == null;
         copyFenButton.setEnabled(hasFen);
         openInBoardButton.setEnabled(hasFen && openFenInBoard != null);
         openInNewBoardButton.setEnabled(hasFen && openFenInNewBoard != null);
@@ -1045,13 +1127,14 @@ public final class DatasetPanel extends SurfacePanel {
         inspectorIssueValue.setText(row.issue().isBlank() ? "none" : compactText(row.issue(), 52));
         inspectorSideValue.setText(row.side().isBlank() ? "-" : row.side());
         inspectorMaterialValue.setText(format(row.material()) + " cp");
-        try {
-            Position position = new Position(row.fen());
-            inspectorBoard.setPositionInstant(position, Move.NO_MOVE);
+        Position position = parsePosition(row.fen());
+        if (position != null) {
             inspectorSideValue.setText(position.isWhiteToMove() ? "White" : "Black");
             inspectorMaterialValue.setText(format(position.countTotalMaterial()) + " cp");
-        } catch (RuntimeException ex) {
-            inspectorIssueValue.setText(row.issue().isBlank() ? "not a valid FEN" : compactText(row.issue(), 52));
+            inspectorBoard.setPositionInstant(position, Move.NO_MOVE);
+        } else {
+            String issue = row.issue().isBlank() ? "not a valid FEN: " + positionError(row.fen()) : row.issue();
+            inspectorIssueValue.setText(compactText(issue, 52));
             inspectorBoard.setPositionInstant(null, Move.NO_MOVE);
         }
     }
@@ -1088,10 +1171,9 @@ public final class DatasetPanel extends SurfacePanel {
             return;
         }
         String fen = row.fen();
-        try {
-            new Position(fen);
-        } catch (RuntimeException ex) {
-            setStatus("That row is not a valid position", Theme.ForegroundRole.WARNING);
+        String error = positionError(fen);
+        if (error != null) {
+            setStatus("Selected row is not a valid FEN: " + error, Theme.ForegroundRole.WARNING);
             return;
         }
         sink.accept(fen);
@@ -1105,6 +1187,11 @@ public final class DatasetPanel extends SurfacePanel {
         DatasetSummary.SampleRow row = selectedRow();
         if (row == null || row.fen().isBlank()) {
             setStatus("Select a row with a FEN first", Theme.ForegroundRole.WARNING);
+            return;
+        }
+        String error = positionError(row.fen());
+        if (error != null) {
+            setStatus("Selected row is not a valid FEN: " + error, Theme.ForegroundRole.WARNING);
             return;
         }
         Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(row.fen()), null);
@@ -1138,7 +1225,7 @@ public final class DatasetPanel extends SurfacePanel {
     /**
      * Wraps a table in a styled scroll pane.
      *
-     * @param table table
+     * @param table table component
      * @return scroll pane
      */
     private static JScrollPane tableScroll(JTable table) {
@@ -1150,7 +1237,7 @@ public final class DatasetPanel extends SurfacePanel {
     /**
      * Applies table styling and column widths.
      *
-     * @param table table
+     * @param table table component
      */
     private static void configureTable(JTable table) {
         Theme.table(table, TABLE_ROW_HEIGHT);
@@ -1270,7 +1357,7 @@ public final class DatasetPanel extends SurfacePanel {
             Thread.currentThread().interrupt();
             setStatus("Dataset scan interrupted", Theme.ForegroundRole.WARNING);
         } catch (ExecutionException ex) {
-            setStatus(rootMessage(ex), Theme.ForegroundRole.ERROR);
+            setStatus("Dataset scan failed: " + rootMessage(ex), Theme.ForegroundRole.ERROR);
         } finally {
             setBusy(false);
         }
@@ -1542,7 +1629,12 @@ public final class DatasetPanel extends SurfacePanel {
         if (text.isEmpty()) {
             return "dataset";
         }
-        Path path = Path.of(text);
+        Path path;
+        try {
+            path = Path.of(text);
+        } catch (InvalidPathException ex) {
+            return compactText(visibleToken(text), 42);
+        }
         Path name = path.getFileName();
         return compactText(name == null ? text : name.toString(), 42);
     }
@@ -1582,7 +1674,7 @@ public final class DatasetPanel extends SurfacePanel {
      *
      * @param out target builder
      * @param title section title
-     * @param counts counts
+     * @param counts bucket counts
      */
     private static void appendCounts(StringBuilder out, String title, List<DatasetSummary.NamedCount> counts) {
         if (counts.isEmpty()) {
@@ -1633,6 +1725,22 @@ public final class DatasetPanel extends SurfacePanel {
     }
 
     /**
+     * Pins a component to a specific preferred width while keeping its natural
+     * height, useful for centered one-off layouts that must not grow with long
+     * label text.
+     *
+     * @param component target component
+     * @param width preferred width
+     */
+    private static void fixPreferredWidth(JComponent component, int width) {
+        Dimension preferred = component.getPreferredSize();
+        Dimension size = new Dimension(Math.max(1, width), preferred.height);
+        component.setPreferredSize(size);
+        component.setMinimumSize(size);
+        component.setMaximumSize(size);
+    }
+
+    /**
      * Applies insight text and semantic color.
      *
      * @param label target label
@@ -1662,7 +1770,7 @@ public final class DatasetPanel extends SurfacePanel {
     /**
      * Formats a ratio as a compact percentage.
      *
-     * @param ratio ratio value
+     * @param ratio source ratio
      * @return percentage text
      */
     private static String percent(double ratio) {
@@ -1735,7 +1843,7 @@ public final class DatasetPanel extends SurfacePanel {
     }
 
     /**
-     * Returns the root exception message.
+     * Unwraps worker exceptions while keeping status text safe for a single UI line.
      *
      * @param ex exception
      * @return message
@@ -1746,7 +1854,70 @@ public final class DatasetPanel extends SurfacePanel {
             cause = cause.getCause();
         }
         String message = cause.getMessage();
-        return message == null || message.isBlank() ? cause.getClass().getSimpleName() : message;
+        return message == null || message.isBlank() ? cause.getClass().getSimpleName() : oneLine(message);
+    }
+
+    /**
+     * Parses through the shared chess core before row actions copy or open a FEN.
+     *
+     * @param fen FEN text
+     * @return position, or null when invalid
+     */
+    private static Position parsePosition(String fen) {
+        try {
+            return new Position(fen);
+        } catch (RuntimeException ex) {
+            return null;
+        }
+    }
+
+    /**
+     * Returns the shared-core parse failure for a FEN while preserving null as
+     * the valid-position signal.
+     *
+     * @param fen FEN text
+     * @return error text, or null when valid
+     */
+    private static String positionError(String fen) {
+        try {
+            new Position(fen);
+            return null;
+        } catch (RuntimeException ex) {
+            return rootMessage(ex);
+        }
+    }
+
+    /**
+     * Sanitizes exception and path fragments before they enter fixed-height labels.
+     *
+     * @param value source text
+     * @return one-line text
+     */
+    private static String oneLine(String value) {
+        return value == null ? "" : visibleToken(value.replace('\r', ' ').replace('\n', ' ').strip());
+    }
+
+    /**
+     * Escapes control characters so invalid file paths cannot inject invisible
+     * text into workbench status labels.
+     *
+     * @param token raw text
+     * @return printable text
+     */
+    private static String visibleToken(String token) {
+        if (token == null) {
+            return "";
+        }
+        StringBuilder out = new StringBuilder(token.length());
+        for (int i = 0; i < token.length(); i++) {
+            char c = token.charAt(i);
+            if (Character.isISOControl(c)) {
+                out.append(String.format(Locale.ROOT, "\\u%04x", (int) c));
+            } else {
+                out.append(c);
+            }
+        }
+        return out.toString();
     }
 
     /**
@@ -1892,32 +2063,18 @@ public final class DatasetPanel extends SurfacePanel {
                 g.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, Theme.RADIUS, Theme.RADIUS);
                 // On hover, warm the border toward the tile's category colour
                 // as a quiet affordance that the tile carries a detail tooltip.
-                g.setColor(hover ? Theme.lerp(Theme.LINE, roleColor(role), 0.65f) : Theme.LINE);
+                Color border = hover
+                        ? Theme.lerp(Theme.LINE, DatasetChart.roleColor(role), 0.65f)
+                        : Theme.LINE;
+                g.setColor(border);
                 g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, Theme.RADIUS, Theme.RADIUS);
-                g.setColor(roleColor(role));
+                g.setColor(DatasetChart.roleColor(role));
                 g.fillRoundRect(0, 0, hover ? 4 : 3, getHeight() - 1, Theme.RADIUS, Theme.RADIUS);
             } finally {
                 g.dispose();
             }
             super.paintComponent(graphics);
         }
-    }
-
-    /**
-     * Returns a themed chart/metric role color.
-     *
-     * @param role color role
-     * @return themed color
-     */
-    private static Color roleColor(DatasetChart.Role role) {
-        return switch (role == null ? DatasetChart.Role.NEUTRAL : role) {
-            case SUCCESS -> Theme.STATUS_SUCCESS_BORDER;
-            case WARNING -> Theme.STATUS_WARNING_BORDER;
-            case ERROR -> Theme.STATUS_ERROR_BORDER;
-            case PURPLE -> Theme.NN_POLICY;
-            case NEUTRAL -> Theme.MUTED;
-            case ACCENT -> Theme.ACCENT;
-        };
     }
 
     /**
@@ -1981,7 +2138,7 @@ public final class DatasetPanel extends SurfacePanel {
     /**
      * Returns the dataset table cell background for custom renderers.
      *
-     * @param table table
+     * @param table table component
      * @param row view row
      * @param selected selected state
      * @return background color

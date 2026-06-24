@@ -125,11 +125,29 @@ public final class CommandForm extends JPanel {
      * Optional-flag category labels.
      */
     private static final String CAT_INPUT = "Input";
+    /**
+     * Form category for limits controls.
+     */
     private static final String CAT_LIMITS = "Search limits";
+    /**
+     * Form category for engine controls.
+     */
     private static final String CAT_ENGINE = "Engine";
+    /**
+     * Form category for output controls.
+     */
     private static final String CAT_OUTPUT = "Output";
+    /**
+     * Form category for text controls.
+     */
     private static final String CAT_TEXT = "Text";
+    /**
+     * Form category for options controls.
+     */
     private static final String CAT_OPTIONS = "Options";
+    /**
+     * Form category for diagnostics controls.
+     */
     private static final String CAT_DIAGNOSTICS = "Diagnostics";
 
     /**
@@ -1067,8 +1085,8 @@ public final class CommandForm extends JPanel {
     /**
      * Compares option values after normalizing null to the empty string.
      *
-     * @param first first value
-     * @param second second value
+     * @param first first item
+     * @param second source second
      * @return true when equal
      */
     private static boolean valuesEqual(String first, String second) {

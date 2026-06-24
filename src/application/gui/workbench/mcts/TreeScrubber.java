@@ -99,6 +99,13 @@ final class TreeScrubber {
      */
     private transient javax.swing.Timer playTimer;
 
+    /**
+     * Creates the tree scrubber.
+     *
+     * @param session workbench session
+     * @param frameRenderer source frame renderer
+     * @param liveRenderer source live renderer
+     */
     TreeScrubber(MctsSession session, Consumer<MctsSearch.TreeSnapshot> frameRenderer,
             Consumer<MctsSession.Snapshot> liveRenderer) {
         this.session = session;
@@ -233,6 +240,9 @@ final class TreeScrubber {
         frameRenderer.accept(tree);
     }
 
+    /**
+     * Configures controls.
+     */
     private void configureControls() {
         Ui.styleSlider(slider);
         slider.setToolTipText("Scrub through the recorded growth of the tree");
@@ -244,6 +254,9 @@ final class TreeScrubber {
         playButton.setToolTipText("Play back the recorded growth frame by frame");
     }
 
+    /**
+     * Refreshes the update label.
+     */
     private void updateLabel() {
         int frames = session.historySize();
         if (frames == 0) {
@@ -260,6 +273,9 @@ final class TreeScrubber {
                 frame == null ? 0 : frame.nodes().size()));
     }
 
+    /**
+     * Handles scrubber slider changes.
+     */
     private void onSlider() {
         if (adjusting) {
             return;
@@ -272,6 +288,9 @@ final class TreeScrubber {
         renderCurrentFrame();
     }
 
+    /**
+     * Starts play.
+     */
     private void startPlay() {
         if (session.historySize() == 0) {
             return;
@@ -287,6 +306,9 @@ final class TreeScrubber {
         showFrame();
     }
 
+    /**
+     * Advances playback by one scrubber frame.
+     */
     private void advancePlay() {
         int frames = session.historySize();
         if (frames == 0) {
@@ -303,6 +325,9 @@ final class TreeScrubber {
         showFrame();
     }
 
+    /**
+     * Shows frame.
+     */
     private void showFrame() {
         adjusting = true;
         slider.setValue(index);

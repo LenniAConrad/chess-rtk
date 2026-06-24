@@ -22,8 +22,17 @@ final class TreeWdlBar extends JComponent {
      * Win / draw / loss probabilities and mean value of the shown node.
      */
     private double win;
+    /**
+     * Draw probability for the shown node.
+     */
     private double draw;
+    /**
+     * Loss probability for the shown node.
+     */
     private double loss;
+    /**
+     * Mean value for the shown node, in root perspective.
+     */
     private double q;
 
     /**
@@ -31,11 +40,22 @@ final class TreeWdlBar extends JComponent {
      */
     private boolean has;
 
+    /**
+     * Creates the tree WDL bar.
+     */
     TreeWdlBar() {
         setOpaque(false);
         setPreferredSize(new Dimension(0, 36));
     }
 
+    /**
+     * Updates the displayed WDL distribution and mean value.
+     *
+     * @param w win probability
+     * @param d draw probability
+     * @param l loss probability
+     * @param value mean value
+     */
     void set(double w, double d, double l, double value) {
         win = w;
         draw = d;
@@ -45,6 +65,9 @@ final class TreeWdlBar extends JComponent {
         repaint();
     }
 
+    /**
+     * Clears value.
+     */
     void clear() {
         has = false;
         repaint();

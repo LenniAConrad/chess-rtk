@@ -80,7 +80,7 @@ public final class Otis implements CentipawnEvaluator {
      * Evaluates one position and returns the full result.
      *
      * @param position position to evaluate
-     * @return OTIS result
+     * @return OTIS
      */
     public Result result(Position position) {
         chess.nn.otis.Model.Prediction prediction = predict(position);
@@ -253,7 +253,7 @@ public final class Otis implements CentipawnEvaluator {
      *
      * @param position source position
      * @param policy policy logits
-     * @param move move
+     * @param move encoded chess move
      * @return logit or negative infinity
      */
     private static float policyLogit(Position position, float[] policy, short move) {

@@ -36,29 +36,75 @@ import chess.core.Position;
  */
 public final class See {
 
+    /**
+     * Utility class; prevent instantiation.
+     */
     private See() {
     }
 
+    /**
+     * Pawn material value in centipawns for exchange accounting.
+     */
     private static final int PAWN_VALUE = 100;
+    /**
+     * Knight material value in centipawns for exchange accounting.
+     */
     private static final int KNIGHT_VALUE = 300;
+    /**
+     * Bishop material value in centipawns for exchange accounting.
+     */
     private static final int BISHOP_VALUE = 300;
+    /**
+     * Rook material value in centipawns for exchange accounting.
+     */
     private static final int ROOK_VALUE = 500;
+    /**
+     * Queen material value in centipawns for exchange accounting.
+     */
     private static final int QUEEN_VALUE = 900;
+    /**
+     * Sentinel king value used so king captures dominate material ordering.
+     */
     private static final int KING_VALUE = 20000;
 
+    /**
+     * Material values indexed by the normalized piece-type ids below.
+     */
     private static final int[] VALUE_BY_TYPE = {
             0, PAWN_VALUE, KNIGHT_VALUE, BISHOP_VALUE, ROOK_VALUE, QUEEN_VALUE, KING_VALUE,
     };
 
+    /**
+     * Normalized pawn type id used by the local board copy.
+     */
     private static final int PAWN = 1;
+    /**
+     * Normalized knight type id used by the local board copy.
+     */
     private static final int KNIGHT = 2;
+    /**
+     * Normalized bishop type id used by the local board copy.
+     */
     private static final int BISHOP = 3;
+    /**
+     * Normalized rook type id used by the local board copy.
+     */
     private static final int ROOK = 4;
+    /**
+     * Normalized queen type id used by the local board copy.
+     */
     private static final int QUEEN = 5;
+    /**
+     * Normalized king type id used by the local board copy.
+     */
     private static final int KING = 6;
 
     /**
      * Full SEE value of {@code move} in centipawns, from the mover's perspective.
+     *
+     * @param position chess position
+     * @param move encoded chess move
+     * @return full SEE value of move in centipawns, from the mover's perspective
      */
     public static int see(Position position, short move) {
         return evaluate(position, move);
@@ -66,11 +112,24 @@ public final class See {
 
     /**
      * Whether {@code see(position, move) >= threshold}.
+     *
+     * @param position chess position
+     * @param move encoded chess move
+     * @param threshold SEE acceptance threshold
+     * @return whether see(position, move) >= threshold
      */
     public static boolean seeGreaterEqual(Position position, short move, int threshold) {
         return evaluate(position, move) >= threshold;
     }
 
+    /**
+     * Evaluates the material result of the capture sequence from the mover's
+     * perspective.
+     *
+     * @param position chess position
+     * @param move encoded move
+     * @return SEE score in centipawns
+     */
     private static int evaluate(Position position, short move) {
         final int to = position.actualToSquare(move) & 0xFF;
         final int from = Move.getFromIndex(move) & 0xFF;
@@ -152,6 +211,12 @@ public final class See {
         return gain[0];
     }
 
+    /**
+     * Returns the promo to piece type.
+     *
+     * @param promotionCode promotion piece code
+     * @return promo to piece type
+     */
     private static int promoToPieceType(int promotionCode) {
         switch (promotionCode) {
             case 1: return KNIGHT;
@@ -164,11 +229,26 @@ public final class See {
 
     // White pawns advance toward LOW indices on this engine's inverted board, so a
     // white pawn promotes on rank index 0; black on rank index 7.
+    /**
+     * Returns whether promotion rank.
+     *
+     * @param square board square index
+     * @param white whether white
+     * @return true when promotion rank
+     */
     private static boolean isPromotionRank(int square, boolean white) {
         int rank = square >>> 3;
         return white ? rank == 0 : rank == 7;
     }
 
+    /**
+     * Returns the least valuable attacker.
+     *
+     * @param board board state
+     * @param target target object
+     * @param white whether white
+     * @return least valuable attacker
+     */
     private static int leastValuableAttacker(byte[] board, int target, boolean white) {
         int pawnSq = findPawnAttacker(board, target, white);
         if (pawnSq >= 0) {
@@ -206,6 +286,14 @@ public final class See {
 
     // A WHITE pawn (advancing toward low indices) sits one HIGH rank from its
     // target, attacking diagonally; so it is at target+7 or target+9.
+    /**
+     * Returns the pawn attacker.
+     *
+     * @param board board state
+     * @param target target object
+     * @param white whether white
+     * @return pawn attacker
+     */
     private static int findPawnAttacker(byte[] board, int target, boolean white) {
         int tf = target & 7;
         int tr = target >>> 3;
@@ -231,10 +319,21 @@ public final class See {
         return -1;
     }
 
+    /**
+     * Knight attack offsets in the engine's 0..63 board indexing.
+     */
     private static final int[][] KNIGHT_DELTAS = {
             {1, 2}, {2, 1}, {2, -1}, {1, -2}, {-1, -2}, {-2, -1}, {-2, 1}, {-1, 2},
     };
 
+    /**
+     * Returns the knight attacker.
+     *
+     * @param board board state
+     * @param target target object
+     * @param white whether white
+     * @return knight attacker
+     */
     private static int findKnightAttacker(byte[] board, int target, boolean white) {
         int tf = target & 7;
         int tr = target >>> 3;
@@ -252,10 +351,21 @@ public final class See {
         return -1;
     }
 
+    /**
+     * King attack offsets in the engine's 0..63 board indexing.
+     */
     private static final int[][] KING_DELTAS = {
             {1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {1, -1}, {-1, 1}, {-1, -1},
     };
 
+    /**
+     * Returns the king attacker.
+     *
+     * @param board board state
+     * @param target target object
+     * @param white whether white
+     * @return king attacker
+     */
     private static int findKingAttacker(byte[] board, int target, boolean white) {
         int tf = target & 7;
         int tr = target >>> 3;
@@ -273,8 +383,19 @@ public final class See {
         return -1;
     }
 
+    /**
+     * Diagonal slider directions for bishop and queen x-ray scans.
+     */
     private static final int[][] DIAG_DIRS = {{1, 1}, {1, -1}, {-1, 1}, {-1, -1}};
 
+    /**
+     * Returns the diagonal attacker.
+     *
+     * @param board board state
+     * @param target target object
+     * @param white whether white
+     * @return diagonal attacker
+     */
     private static int findDiagonalAttacker(byte[] board, int target, boolean white) {
         int tf = target & 7;
         int tr = target >>> 3;
@@ -304,8 +425,19 @@ public final class See {
         return found;
     }
 
+    /**
+     * Orthogonal slider directions for rook and queen x-ray scans.
+     */
     private static final int[][] ORTHO_DIRS = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
 
+    /**
+     * Returns the orthogonal attacker.
+     *
+     * @param board board state
+     * @param target target object
+     * @param white whether white
+     * @return orthogonal attacker
+     */
     private static int findOrthogonalAttacker(byte[] board, int target, boolean white) {
         int tf = target & 7;
         int tr = target >>> 3;

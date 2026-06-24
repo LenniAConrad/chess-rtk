@@ -65,7 +65,7 @@ public final class PuzzleTagsCommand {
 
      /**
      * Runs the puzzle tags workflow.
-     * @param a a
+     * @param a first value
      */
      public static void runPuzzleTags(Argv a) {
         PuzzleOptions opts = parseOptions(a);
@@ -106,10 +106,10 @@ public final class PuzzleTagsCommand {
 
     /**
      * Emits tag delta rows for all extracted puzzle records.
-     * @param records records value
-     * @param engine engine value
+     * @param records record list
+     * @param engine engine name or instance
      * @param opts command options
-     * @param puzzleDifficulty puzzle difficulty value
+     * @param puzzleDifficulty puzzle difficulty score
      */
     private static void emitPuzzleRecords(List<chess.struct.Record> records, Engine engine, PuzzleOptions opts,
             Difficulty puzzleDifficulty) {
@@ -125,14 +125,14 @@ public final class PuzzleTagsCommand {
 
     /**
      * Emits one puzzle record when it can be tagged.
-     * @param index index value
+     * @param index zero-based index
      * @param rec record value
-     * @param engine engine value
+     * @param engine engine name or instance
      * @param opts command options
-     * @param cache cache value
-     * @param effectiveCache effective cache value
-     * @param puzzleDifficulty puzzle difficulty value
-     * @return emit puzzle record result
+     * @param cache analysis cache
+     * @param effectiveCache source effective cache
+     * @param puzzleDifficulty puzzle difficulty score
+     * @return emit puzzle record
      */
     private static boolean emitPuzzleRecord(long index, chess.struct.Record rec, Engine engine, PuzzleOptions opts,
             Map<String, TagEntry> cache, Map<String, List<String>> effectiveCache, Difficulty puzzleDifficulty) {
@@ -196,8 +196,8 @@ public final class PuzzleTagsCommand {
 
      /**
      * Parses the options.
-     * @param a a
-     * @return computed value
+     * @param a first value
+     * @return parsed the options
      */
      private static PuzzleOptions parseOptions(Argv a) {
         boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
@@ -237,9 +237,9 @@ public final class PuzzleTagsCommand {
 
      /**
      * Parses the position or exit.
-     * @param fen fen
-     * @param verbose verbose
-     * @return computed value
+     * @param fen FEN string
+     * @param verbose whether verbose output is enabled
+     * @return parsed the position or exit
      */
      private static Position parsePositionOrExit(String fen, boolean verbose) {
         Position pos = parsePositionOrNull(fen, COMMAND_LABEL, verbose);
@@ -251,11 +251,11 @@ public final class PuzzleTagsCommand {
 
      /**
      * Handles tags for.
-     * @param pos pos
-     * @param engine engine
-     * @param opts opts
-     * @param cache cache
-     * @return computed value
+     * @param pos chess position
+     * @param engine engine name or instance
+     * @param opts parsed options
+     * @param cache analysis cache
+     * @return handles tags for
      */
      private static List<String> tagsFor(Position pos, Engine engine, PuzzleOptions opts, Map<String, TagEntry> cache) {
         String fen = pos.toString();
@@ -306,7 +306,7 @@ public final class PuzzleTagsCommand {
 
      /**
      * Handles override initiative for puzzle.
-     * @param tags tags
+     * @param tags tag collection
      */
      static void overrideInitiativeForPuzzle(List<String> tags) {
         boolean threatWhite = false;
@@ -350,13 +350,13 @@ public final class PuzzleTagsCommand {
 
      /**
      * Handles threat tags for puzzle.
-     * @param base base
-     * @param baseAnalysis base analysis
-     * @param engine engine
-     * @param nodesCap nodes cap
-     * @param durMs dur ms
-     * @param verbose verbose
-     * @return computed value
+     * @param base base value for comparison
+     * @param baseAnalysis source base analysis
+     * @param engine engine name or instance
+     * @param nodesCap engine node cap
+     * @param durMs duration cap in milliseconds
+     * @param verbose whether verbose output is enabled
+     * @return handles threat tags for puzzle
      */
      static List<String> threatTagsForPuzzle(Position base, Analysis baseAnalysis, Engine engine, long nodesCap,
             long durMs, boolean verbose) {
@@ -404,7 +404,7 @@ public final class PuzzleTagsCommand {
 
      /**
      * Returns whether threat strong.
-     * @param eval eval
+     * @param eval engine evaluation
      * @return true when threat strong
      */
      private static boolean isThreatStrong(Evaluation eval) {
@@ -419,10 +419,10 @@ public final class PuzzleTagsCommand {
 
      /**
      * Returns whether equalizing threat.
-     * @param base base
-     * @param baseAnalysis base analysis
-     * @param threatPos threat pos
-     * @param threatAnalysis threat analysis
+     * @param base base value for comparison
+     * @param baseAnalysis source base analysis
+     * @param threatPos source threat pos
+     * @param threatAnalysis source threat analysis
      * @return true when equalizing threat
      */
      private static boolean isEqualizingThreat(Position base, Analysis baseAnalysis, Position threatPos,
@@ -458,8 +458,8 @@ public final class PuzzleTagsCommand {
 
      /**
      * Handles classify threat move.
-     * @param move move
-     * @return computed value
+     * @param move encoded chess move
+     * @return handles classify threat move
      */
      private static ThreatInfo classifyThreatMove(String move) {
         if (move.contains("#")) {
@@ -476,9 +476,9 @@ public final class PuzzleTagsCommand {
 
      /**
      * Handles eval to white cp.
-     * @param analysis analysis
-     * @param whiteToMove white to move
-     * @return computed value
+     * @param analysis analysis result
+     * @param whiteToMove true when White is to move
+     * @return handles eval to white cp
      */
      private static Integer evalToWhiteCp(Analysis analysis, boolean whiteToMove) {
         if (analysis == null) {
@@ -498,8 +498,8 @@ public final class PuzzleTagsCommand {
 
      /**
      * Handles mate as cp.
-     * @param mateValue mate value
-     * @return computed value
+     * @param mateValue source mate value
+     * @return handles mate as cp
      */
      private static int mateAsCp(int mateValue) {
         if (mateValue == 0) {
@@ -510,10 +510,10 @@ public final class PuzzleTagsCommand {
 
      /**
      * Handles print delta json.
-     * @param index index
-     * @param rec rec
-     * @param tags tags
-     * @param delta delta
+     * @param index zero-based index
+     * @param rec source record
+     * @param tags tag collection
+     * @param delta signed change amount
      */
      private static void printDeltaJson(long index, chess.struct.Record rec, List<String> tags, Delta delta) {
         Position parent = rec.getParent();
@@ -533,9 +533,9 @@ public final class PuzzleTagsCommand {
 
      /**
      * Handles append field.
-     * @param sb sb
-     * @param name name
-     * @param value value
+     * @param sb source sb
+     * @param name display name
+     * @param value candidate value
      */
      private static void appendField(StringBuilder sb, String name, String value) {
         if (sb.length() > 1) {
@@ -546,8 +546,8 @@ public final class PuzzleTagsCommand {
 
      /**
      * Handles json string.
-     * @param value value
-     * @return computed value
+     * @param value candidate value
+     * @return handles json string
      */
      private static String jsonString(String value) {
         if (value == null) {
@@ -615,19 +615,19 @@ public final class PuzzleTagsCommand {
 
          /**
          * Creates a new puzzle options instance.
-         * @param verbose verbose
-         * @param analyzeTags analyze tags
-         * @param protoPath proto path
-         * @param nodesCap nodes cap
-         * @param durMs dur ms
-         * @param multipv multipv
-         * @param tagMultipv tag multipv
-         * @param pvPlies pv plies
-         * @param threads threads
-         * @param hash hash
-         * @param wdl wdl
-         * @param noWdl no wdl
-         * @param fen fen
+         * @param verbose whether verbose output is enabled
+         * @param analyzeTags whether to run engine-backed tag analysis
+         * @param protoPath external engine protocol path
+         * @param nodesCap engine node cap
+         * @param durMs duration cap in milliseconds
+         * @param multipv requested MultiPV count
+         * @param tagMultipv MultiPV count used for tag analysis
+         * @param pvPlies source pv plies
+         * @param threads worker thread count
+         * @param hash engine hash size in megabytes
+         * @param wdl whether WDL output is enabled
+         * @param noWdl whether WDL output is disabled
+         * @param fen FEN string
          */
          private PuzzleOptions(boolean verbose, boolean analyzeTags, String protoPath, long nodesCap, long durMs,
                 int multipv, int tagMultipv, int pvPlies, Integer threads, Integer hash, boolean wdl, boolean noWdl,
@@ -658,7 +658,7 @@ public final class PuzzleTagsCommand {
          private final List<String> tags;
          /**
          * Creates a new tag entry instance.
-         * @param tags tags
+         * @param tags tag collection
          */
          private TagEntry(List<String> tags) {
             this.tags = tags;
@@ -680,8 +680,8 @@ public final class PuzzleTagsCommand {
 
          /**
          * Creates a new threat info instance.
-         * @param severity severity
-         * @param type type
+         * @param severity severity score
+         * @param type type discriminator
          */
          private ThreatInfo(String severity, String type) {
             this.severity = severity;

@@ -585,7 +585,7 @@ public final class EvalTune {
     /**
      * Logistic sigmoid.
      *
-     * @param x input
+     * @param x x-coordinate
      * @return value in (0, 1)
      */
     private static double sigmoid(double x) {

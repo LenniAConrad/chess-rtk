@@ -485,7 +485,7 @@ public final class UpstreamRegressionTest {
      * @param out output stream
      * @param input input dimensions
      * @param output output dimensions
-     * @param biases biases
+     * @param biases bias vectors
      * @param weights padded row-major weights
      * @throws IOException if writing fails
      */
@@ -507,8 +507,8 @@ public final class UpstreamRegressionTest {
     /**
      * Computes a Stockfish network hash.
      *
-     * @param variant variant
-     * @param size size
+     * @param variant layout or network variant
+     * @param size size in pixels or points
      * @return hash
      */
     private static int networkHash(UpstreamNetwork.Variant variant, UpstreamNetwork.Size size) {
@@ -520,8 +520,8 @@ public final class UpstreamRegressionTest {
     /**
      * Computes a Stockfish feature-transformer hash.
      *
-     * @param variant variant
-     * @param size size
+     * @param variant layout or network variant
+     * @param size size in pixels or points
      * @return hash
      */
     private static int featureHash(UpstreamNetwork.Variant variant, UpstreamNetwork.Size size) {
@@ -540,7 +540,7 @@ public final class UpstreamRegressionTest {
     /**
      * Converts a position into the internal Stockfish board representation.
      *
-     * @param position position
+     * @param position chess position
      * @return board
      */
     private static int[] upstreamBoard(Position position) {
@@ -550,7 +550,7 @@ public final class UpstreamRegressionTest {
     /**
      * Counts pieces through the internal upstream feature helper.
      *
-     * @param board board
+     * @param board board state
      * @return count
      */
     private static int upstreamPieceCount(int[] board) {
@@ -560,7 +560,7 @@ public final class UpstreamRegressionTest {
     /**
      * Returns active HalfKAv2_hm features through the internal helper.
      *
-     * @param board board
+     * @param board board state
      * @param perspective perspective color
      * @return active features
      */
@@ -572,7 +572,7 @@ public final class UpstreamRegressionTest {
     /**
      * Returns active FullThreats features through the internal helper.
      *
-     * @param board board
+     * @param board board state
      * @param perspective perspective color
      * @param variant upstream architecture variant
      * @return active features
@@ -589,7 +589,7 @@ public final class UpstreamRegressionTest {
      * @param name method name
      * @param parameterTypes method parameter types
      * @param args method arguments
-     * @return method result
+     * @return reflected method
      */
     private static Object invokeUpstreamFeatures(String name, Class<?>[] parameterTypes, Object... args) {
         try {
@@ -712,7 +712,7 @@ public final class UpstreamRegressionTest {
      * Writes a short array as a Stockfish LEB128 block.
      *
      * @param out output
-     * @param values values
+     * @param values input values
      * @throws IOException if writing fails
      */
     private static void writeLeb(ByteArrayOutputStream out, short[] values) throws IOException {
@@ -727,7 +727,7 @@ public final class UpstreamRegressionTest {
      * Writes an int array as a Stockfish LEB128 block.
      *
      * @param out output
-     * @param values values
+     * @param values input values
      * @throws IOException if writing fails
      */
     private static void writeLeb(ByteArrayOutputStream out, int[] values) throws IOException {
@@ -755,7 +755,7 @@ public final class UpstreamRegressionTest {
      * Writes one signed LEB128 value.
      *
      * @param out output
-     * @param value value
+     * @param value candidate value
      */
     private static void writeSignedLeb(ByteArrayOutputStream out, int value) {
         boolean more;
@@ -774,7 +774,7 @@ public final class UpstreamRegressionTest {
      * Writes a little-endian int32.
      *
      * @param out output
-     * @param value value
+     * @param value candidate value
      */
     private static void writeInt(ByteArrayOutputStream out, int value) {
         out.write(value & 0xff);
@@ -802,9 +802,9 @@ public final class UpstreamRegressionTest {
     /**
      * Verifies equality for ints.
      *
-     * @param expected expected
-     * @param actual actual
-     * @param label label
+     * @param expected expected test value
+     * @param actual actual test value
+     * @param label display label
      */
     private static void assertEquals(int expected, int actual, String label) {
         if (expected != actual) {
@@ -815,9 +815,9 @@ public final class UpstreamRegressionTest {
     /**
      * Verifies equality for objects.
      *
-     * @param expected expected
-     * @param actual actual
-     * @param label label
+     * @param expected expected test value
+     * @param actual actual test value
+     * @param label display label
      */
     private static void assertEquals(Object expected, Object actual, String label) {
         if (!expected.equals(actual)) {
@@ -829,7 +829,7 @@ public final class UpstreamRegressionTest {
      * Verifies a boolean condition.
      *
      * @param condition condition to verify
-     * @param label label
+     * @param label display label
      */
     private static void assertTrue(boolean condition, String label) {
         if (!condition) {
@@ -840,8 +840,8 @@ public final class UpstreamRegressionTest {
     /**
      * Verifies a positive integer.
      *
-     * @param actual actual value
-     * @param label label
+     * @param actual actual test value
+     * @param label display label
      */
     private static void assertPositive(int actual, String label) {
         if (actual <= 0) {
@@ -852,8 +852,8 @@ public final class UpstreamRegressionTest {
     /**
      * Verifies non-null value.
      *
-     * @param value value
-     * @param label label
+     * @param value candidate value
+     * @param label display label
      */
     private static void assertNotNull(Object value, String label) {
         if (value == null) {
@@ -882,7 +882,7 @@ public final class UpstreamRegressionTest {
         /**
          * Returns one captured tensor.
          *
-         * @param key key
+         * @param key lookup key
          * @return tensor data
          */
         private float[] data(String key) {

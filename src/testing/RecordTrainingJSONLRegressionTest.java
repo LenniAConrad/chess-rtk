@@ -25,7 +25,7 @@ public final class RecordTrainingJSONLRegressionTest {
 
 	/**
 	 * Handles main.
-	 * @param args args
+	 * @param args command-line arguments
 	 * @throws Exception if the operation fails
 	 */
 	public static void main(String[] args) throws Exception {
@@ -79,10 +79,10 @@ public final class RecordTrainingJSONLRegressionTest {
 
 	/**
 	 * Handles record.
-	 * @param parent parent
-	 * @param position position
-	 * @param analysis analysis
-	 * @return computed value
+	 * @param parent source parent
+	 * @param position chess position
+	 * @param analysis analysis result
+	 * @return handles record
 	 */
 	private static String recordJson(String parent, String position, String analysis) {
 		return "{\"created\":1,\"engine\":\"Stockfish\",\"parent\":\"" + parent

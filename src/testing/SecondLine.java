@@ -10,7 +10,7 @@ record SecondLine(String bestMove, Integer score, Integer margin) {
 
     /**
      * Empty second-line summary.
-     * @return empty result
+     * @return empty aggregate
      */
     static SecondLine empty() {
         return new SecondLine("", null, null);

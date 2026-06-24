@@ -48,7 +48,7 @@ public final class CommandRunner {
             /**
              * Executes the child JVM process and captures its merged output.
              *
-             * @return command result
+             * @return command
              * @throws IOException on process or stream failure
              * @throws InterruptedException when waiting for the process is interrupted
              */
@@ -421,7 +421,7 @@ public final class CommandRunner {
     /**
      * Returns whether a token looks like a shell option.
      *
-     * @param token token
+     * @param token input token
      * @return true for option-like tokens
      */
     private static boolean isOptionToken(String token) {
@@ -472,7 +472,7 @@ public final class CommandRunner {
     /**
      * Joins tokens with shell-style quoting.
      *
-     * @param tokens tokens
+     * @param tokens input tokens
      * @return command line
      */
     public static String join(List<String> tokens) {

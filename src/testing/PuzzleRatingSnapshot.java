@@ -139,7 +139,7 @@ final class PuzzleRatingSnapshot {
      *
      * @param line source line
      * @param font measurement font for ordinary characters
-     * @param fontSize font size
+     * @param fontSize font size in points
      * @param width wrap width in PDF points
      * @return shortened line ending with {@code ...}
      */
@@ -156,7 +156,7 @@ final class PuzzleRatingSnapshot {
      *
      * @param text source movetext
      * @param font measurement font for ordinary characters
-     * @param fontSize font size
+     * @param fontSize font size in points
      * @param width wrap width in PDF points
      * @return wrapped notation lines
      */
@@ -195,7 +195,7 @@ final class PuzzleRatingSnapshot {
      * @param line current line buffer
      * @param word notation word
      * @param font measurement font for ordinary characters
-     * @param fontSize font size
+     * @param fontSize font size in points
      * @param width wrap width in PDF points
      */
     private static void appendWrappedNotationWord(List<String> lines, StringBuilder line, String word, Font font,
@@ -225,7 +225,7 @@ final class PuzzleRatingSnapshot {
      * @param scratch reusable line buffer
      * @param word notation word
      * @param font measurement font for ordinary characters
-     * @param fontSize font size
+     * @param fontSize font size in points
      * @param width wrap width in PDF points
      */
     private static void appendBrokenNotationWord(List<String> lines, StringBuilder scratch, String word, Font font,
@@ -329,7 +329,7 @@ final class PuzzleRatingSnapshot {
      * Measures chess notation with SVG piece advances.
      *
      * @param font measurement font for ordinary characters
-     * @param fontSize font size
+     * @param fontSize font size in points
      * @param text figurine-formatted notation text
      * @return measured width in PDF points
      */
@@ -1029,14 +1029,14 @@ final class PuzzleRatingSnapshot {
      * Draws one normalized metric strip for the difficulty-driver chart.
      * @param canvas SVG canvas builder
      * @param bands rating bands
-     * @param colors colors value
-     * @param metricName metric name value
+     * @param colors display colors
+     * @param metricName source metric name
      * @param values values to inspect
-     * @param labelX label x value
+     * @param labelX source label x
      * @param plotLeft plot left coordinate
-     * @param rowTop row top value
+     * @param rowTop source row top
      * @param plotWidth plot width in pixels
-     * @param rowHeight row height value
-     * @param metricIndex metric index
+     * @param rowHeight row height in pixels
+     * @param metricIndex zero-based metric index
      */
 }

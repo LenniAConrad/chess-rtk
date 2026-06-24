@@ -20,7 +20,7 @@ public final class PositionText {
     /**
      * Formats the tactical status of a position.
      *
-     * @param position position
+     * @param position chess position
      * @return status text
      */
     public static String status(Position position) {

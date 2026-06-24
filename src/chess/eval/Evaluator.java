@@ -169,7 +169,7 @@ public final class Evaluator implements AutoCloseable {
 
      /**
      * Handles resolve default weights.
-     * @return computed value
+     * @return handles resolve default weights
      */
      private static Path resolveDefaultWeights() {
         String configured = System.getProperty(PROP_LC0_WEIGHTS);
@@ -238,7 +238,7 @@ public final class Evaluator implements AutoCloseable {
      * Evaluate a position using LC0 only.
      *
      * @param position position to evaluate (non-null)
-     * @return LC0-backed evaluation result
+     * @return LC0-backed evaluation
      * @throws IllegalStateException if LC0 is unavailable or initialization fails
      * @throws IllegalArgumentException if {@code position} is null
      */

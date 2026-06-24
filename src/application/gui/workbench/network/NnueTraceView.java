@@ -318,7 +318,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
      *
      * @param g graphics
      * @param wire trace body rectangle
-     * @param layout layout
+     * @param layout layout model
      */
     protected void drawTraceBackdrop(Graphics2D g, Rectangle wire, NnueTraceLayout layout) {
         int top = wire.y + 4;
@@ -394,7 +394,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
      * Draws column labels.
      *
      * @param g graphics
-     * @param layout layout
+     * @param layout layout model
      */
     protected void drawColumnLabels(Graphics2D g, NnueTraceLayout layout) {
         int y = layout.labelY;
@@ -523,7 +523,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
      * Draws the feature node column.
      *
      * @param g graphics
-     * @param layout layout
+     * @param layout layout model
      */
     protected void drawFeatureColumn(Graphics2D g, NnueTraceLayout layout) {
         float[] indices = snapshot.data("nnue.features.us.indices");
@@ -598,7 +598,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
      * clipped ReLU gate.
      *
      * @param g graphics
-     * @param layout layout
+     * @param layout layout model
      */
     protected void drawAccumulatorColumn(Graphics2D g, NnueTraceLayout layout) {
         if (isStockfishSnapshot()) {
@@ -642,7 +642,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
      * Draws the clipped-ReLU trunk column.
      *
      * @param g graphics
-     * @param layout layout
+     * @param layout layout model
      */
     protected void drawClippedColumn(Graphics2D g, NnueTraceLayout layout) {
         if (isStockfishSnapshot()) {
@@ -675,7 +675,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
      * Draws each visible slot's weighted output-head contribution.
      *
      * @param g graphics
-     * @param layout layout
+     * @param layout layout model
      */
     protected void drawContributionColumn(Graphics2D g, NnueTraceLayout layout) {
         if (isStockfishSnapshot()) {
@@ -704,7 +704,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
      * Draws Stockfish feature-transformer lanes.
      *
      * @param g graphics
-     * @param layout layout
+     * @param layout layout model
      */
     protected void drawStockfishTransformerColumn(Graphics2D g, NnueTraceLayout layout) {
         float[] transformed = snapshot.data("nnue.stockfish.transformed.us");
@@ -729,7 +729,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
      * Draws Stockfish FC0 raw outputs.
      *
      * @param g graphics
-     * @param layout layout
+     * @param layout layout model
      */
     protected void drawStockfishFc0Column(Graphics2D g, NnueTraceLayout layout) {
         float[] fc0 = snapshot.data("nnue.stockfish.fc0.raw");
@@ -772,7 +772,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
      * Draws Stockfish FC1 clipped outputs.
      *
      * @param g graphics
-     * @param layout layout
+     * @param layout layout model
      */
     protected void drawStockfishFc1Column(Graphics2D g, NnueTraceLayout layout) {
         float[] fc1 = snapshot.data("nnue.stockfish.fc1.clipped");
@@ -798,7 +798,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
      * Draws the output column (single node, bar to the right).
      *
      * @param g graphics
-     * @param layout layout
+     * @param layout layout model
      */
     protected void drawOutputColumn(Graphics2D g, NnueTraceLayout layout) {
         float[] cp = snapshot.data("nnue.output.centipawns");
@@ -971,7 +971,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
      * accumulator slots, emphasising the selected slot's edges.
      *
      * @param g graphics
-     * @param layout layout
+     * @param layout layout model
      */
     protected void drawEdges(Graphics2D g, NnueTraceLayout layout) {
         if (isStockfishSnapshot()) {
@@ -1069,7 +1069,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
      * Draws Stockfish NNUE layer-stack edges.
      *
      * @param g graphics
-     * @param layout layout
+     * @param layout layout model
      */
     protected void drawStockfishEdges(Graphics2D g, NnueTraceLayout layout) {
         float[] featureWeights = snapshot.data("nnue.features.us.weights");
@@ -1193,7 +1193,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
      *
      * @param g graphics
      * @param body body rectangle
-     * @param layout layout
+     * @param layout layout model
      */
     protected void drawDetailedReadout(Graphics2D g, Rectangle body, NnueTraceLayout layout) {
         if (selectedSlot < 0 || selectedSlot >= visibleSlots.length) {

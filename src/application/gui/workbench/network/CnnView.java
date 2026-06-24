@@ -88,8 +88,8 @@ public final class CnnView extends NetworkView {
     /**
      * Handles a click in detailed mode (block selection).
      *
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      */
     @Override
     protected void onClick(int x, int y) {
@@ -185,7 +185,7 @@ public final class CnnView extends NetworkView {
      * Paints the title header.
      *
      * @param g graphics
-     * @param bounds bounds
+     * @param bounds component bounds
      */
     @Override
     protected void paintHeader(Graphics2D g, Rectangle bounds) {
@@ -590,7 +590,7 @@ public final class CnnView extends NetworkView {
      *
      * @param g graphics
      * @param board board rectangle
-     * @param title title
+     * @param title display title
      * @param values per-square values
      * @param caption tooltip caption
      */
@@ -1368,7 +1368,7 @@ public final class CnnView extends NetworkView {
      *
      * @param g graphics
      * @param r rectangle
-     * @param values values
+     * @param values input values
      */
     private void paintBarStrip(Graphics2D g, Rectangle r, float[] values) {
         int n = Math.min(values.length, r.width);
@@ -1414,7 +1414,7 @@ public final class CnnView extends NetworkView {
     /**
      * Returns the index of the named layer or -1.
      *
-     * @param name name
+     * @param name display name
      * @return index
      */
     private int indexOf(String name) {
@@ -1429,7 +1429,7 @@ public final class CnnView extends NetworkView {
     /**
      * Returns the named layer info or null.
      *
-     * @param name name
+     * @param name display name
      * @return layer info or null
      */
     private LayerInfo findLayer(String name) {
@@ -1463,7 +1463,7 @@ public final class CnnView extends NetworkView {
      * Returns the rms/scale activity for an info, or 0 when missing.
      *
      * @param info layer info or null
-     * @param scale scale
+     * @param scale scale factor
      * @return activity
      */
     private static float activity(LayerInfo info, float scale) {
@@ -1476,7 +1476,7 @@ public final class CnnView extends NetworkView {
     /**
      * Returns the accent color for a layer label.
      *
-     * @param name name
+     * @param name display name
      * @return color
      */
     private static Color colorFor(String name) {
@@ -1704,8 +1704,8 @@ public final class CnnView extends NetworkView {
         /**
          * Creates a scored CNN policy move row.
          *
-         * @param move move
-         * @param policyIndex policy index
+         * @param move encoded chess move
+         * @param policyIndex zero-based policy index
          * @param logit raw logit
          * @param probability legal-move probability
          */

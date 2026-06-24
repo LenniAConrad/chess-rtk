@@ -108,9 +108,9 @@ public final class Network implements AutoCloseable {
     /**
      * Internal constructor selecting the active backend.
      * @param weights network weights
-     * @param cuda cuda value
-     * @param rocm rocm value
-     * @param oneapi oneapi value
+     * @param cuda CUDA backend metadata
+     * @param rocm ROCm backend metadata
+     * @param oneapi oneAPI backend metadata
      */
     private Network(Weights weights, Backend cuda, chess.nn.lc0.cnn.rocm.Backend rocm, chess.nn.lc0.cnn.oneapi.Backend oneapi) {
         this.weights = weights;
@@ -442,7 +442,7 @@ public final class Network implements AutoCloseable {
 
          /**
          * Creates a new rocm backend holder instance.
-         * @param backend backend
+         * @param backend engine or network backend
          */
          private RocmBackendHolder(chess.nn.lc0.cnn.rocm.Backend backend) {
             this.backend = backend;
@@ -478,7 +478,7 @@ public final class Network implements AutoCloseable {
 
          /**
          * Creates a new oneapi backend holder instance.
-         * @param backend backend
+         * @param backend engine or network backend
          */
          private OneapiBackendHolder(chess.nn.lc0.cnn.oneapi.Backend backend) {
             this.backend = backend;
@@ -636,8 +636,8 @@ public final class Network implements AutoCloseable {
 
     /**
      * Runs batch prediction through single-position backend calls.
-     * @param encodedBatch encoded batch value
-     * @return predict encoded batch sequential result
+     * @param encodedBatch source encoded batch
+     * @return predict encoded batch sequential
      */
     private List<Prediction> predictEncodedBatchSequential(List<float[]> encodedBatch) {
         List<Prediction> out = new ArrayList<>(encodedBatch.size());

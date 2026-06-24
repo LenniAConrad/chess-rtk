@@ -26,11 +26,11 @@ import java.util.Objects;
 /**
  * Utility class for displaying a {@code BufferedImage} in a {@code JFrame}
  * whilst keeping its aspect ratio.
- * 
+ *
  * @implSpec Use {@code System.setProperty("sun.java2d.uiScale", "1.0");} as the
  *           very first command in your {@code main()} method if you want to
  *           remove uiScaling by the operating system
- * 
+ *
  * @since 2024
  * @author Lennart A. Conrad
  */
@@ -138,7 +138,7 @@ public class Display extends JFrame {
 			return region;
 		}
 	}
-	
+
 	/**
 	 * Constructor method for {@code Display}.
 	 *
@@ -173,7 +173,7 @@ public class Display extends JFrame {
 		this.setVisible(true);
 		this.setIconImages(buildIconVariants(iconSource));
 	}
-	
+
 	/**
 	 * Constructor method for {@code Display}.
 	 *
@@ -198,7 +198,7 @@ public class Display extends JFrame {
 	public Display(ImageSource source, int width, int height) {
 		this(source, width, height, true);
 	}
-	
+
 	/**
 	 * Used for displaying an image in a 400x400 {@code JFrame} with optional light/dark theme.
 	 *
@@ -221,7 +221,7 @@ public class Display extends JFrame {
 	public Display(ImageSource source, boolean light) {
 		this(source, 400, 400, light);
 	}
-	
+
 	/**
 	 * Constructor method for {@code Display}.
 	 *
@@ -351,7 +351,7 @@ public class Display extends JFrame {
 
 		 /**
 		 * Handles width.
-		 * @return computed value
+		 * @return handles width
 		 */
 		 @Override
 		public int width() {
@@ -360,7 +360,7 @@ public class Display extends JFrame {
 
 		 /**
 		 * Handles height.
-		 * @return computed value
+		 * @return handles height
 		 */
 		 @Override
 		public int height() {
@@ -369,9 +369,9 @@ public class Display extends JFrame {
 
 		 /**
 		 * Handles render.
-		 * @param width width
-		 * @param height height
-		 * @return computed value
+		 * @param width width in pixels
+		 * @param height height in pixels
+		 * @return handles render
 		 */
 		 @Override
 		public BufferedImage render(int width, int height) {
@@ -385,13 +385,13 @@ public class Display extends JFrame {
 
 		 /**
 		 * Handles render region.
-		 * @param scaledWidth scaled width
-		 * @param scaledHeight scaled height
-		 * @param sourceX source x
-		 * @param sourceY source y
-		 * @param width width
-		 * @param height height
-		 * @return computed value
+		 * @param scaledWidth source scaled width
+		 * @param scaledHeight source scaled height
+		 * @param sourceX source source x
+		 * @param sourceY source source y
+		 * @param width width in pixels
+		 * @param height height in pixels
+		 * @return handles render region
 		 */
 		 @Override
 		public BufferedImage renderRegion(int scaledWidth, int scaledHeight, int sourceX, int sourceY,
@@ -515,7 +515,7 @@ public class Display extends JFrame {
 		}
 		return value;
 	}
-	
+
 	/**
 	 * Build multiple high-quality scaled variants of the icon to avoid blurry scaling in the system tray.
 	 *
@@ -571,42 +571,42 @@ public class Display extends JFrame {
 		 * Used for defining light mode background color.
 		 */
 		private static final Color LIGHT_BACKGROUND = new Color(255, 255, 255);
-		
+
 		/**
 		 * Used for defining light mode border color.
 		 */
 		private static final Color LIGHT_BORDER = new Color(192, 192, 192);
-		
+
 		/**
 		 * Used for defining light mode transparent tile color 1.
 		 */
 		private static final Color LIGHT_TRANSPARENT_1 = new Color(230, 230, 230);
-		
+
 		/**
 		 * Used for defining light mode transparent tile color 2.
 		 */
 		private static final Color LIGHT_TRANSPARENT_2 = new Color(245, 245, 245);
-		
+
 		/**
 		 * Used for defining dark mode background color.
 		 */
 		private static final Color DARK_BACKGROUND = new Color(25, 25, 25);
-		
+
 		/**
 		 * Used for defining dark mode border color.
 		 */
 		private static final Color DARK_BORDER = new Color(75, 75, 75);
-		
+
 		/**
 		 * Used for defining dark mode transparent tile color 1.
 		 */
 		private static final Color DARK_TRANSPARENT_1 = new Color(100, 100, 100);
-		
+
 		/**
 		 * Used for defining dark mode transparent tile color 2.
 		 */
 		private static final Color DARK_TRANSPARENT_2 = new Color(150, 150, 150);
-		
+
 		/**
 		 * Pixel size for the transparent background tiles
 		 */
@@ -661,7 +661,7 @@ public class Display extends JFrame {
 		 * Per-notch zoom multiplier for mouse wheel input.
 		 */
 		private static final double ZOOM_STEP = 1.1;
-		
+
 		/**
 		 * Base title shown in the window manager.
 		 */
@@ -721,7 +721,7 @@ public class Display extends JFrame {
 		 * Last mouse position for drag-based panning.
 		 */
 		private Point lastDragPoint = null;
-		
+
 		/**
 		 * Cached scaled image to avoid resampling on every repaint.
 		 */
@@ -806,7 +806,7 @@ public class Display extends JFrame {
 		 * Used for holding the second transparent tile color depending on light/dark mode.
 		 */
 		private Color transparentColor2 = null;
-		
+
 		/**
 		 * Constructs a display panel for rendering the given image.
 		 *

@@ -77,6 +77,7 @@ public record Limits(
      * @param depth maximum iterative-deepening depth in plies
      * @param maxNodes maximum visited-node budget, or zero for unlimited
      * @param maxDurationMillis maximum wall-clock budget, or zero for unlimited
+     * @param softMillis soft per-move time target in milliseconds
      * @throws IllegalArgumentException if depth is outside the supported range or
      *         either budget is negative
      */

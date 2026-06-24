@@ -27,7 +27,7 @@ final class UiMotion {
     /**
      * Clamps a value to an inclusive range.
      *
-     * @param value value
+     * @param value candidate value
      * @param min minimum
      * @param max maximum
      * @return clamped value

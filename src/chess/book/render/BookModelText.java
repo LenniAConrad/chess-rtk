@@ -19,7 +19,7 @@ final class BookModelText {
 	 * Returns a fallback for null or blank text.
 	 *
 	 * @param value source value
-	 * @param fallback fallback value
+	 * @param fallback default used when input is absent or invalid
 	 * @return value or fallback
 	 */
 	static String blankTo(String value, String fallback) {

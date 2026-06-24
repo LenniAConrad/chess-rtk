@@ -38,12 +38,15 @@ final class UiSurfaces {
     /**
      * Creates a flat titled section without adding another card layer.
      *
-     * @param title title
-     * @param child child
+     * @param title display title
+     * @param child child component
      * @return panel
      */
     static JPanel titled(String title, JComponent child) {
         JPanel panel = new JPanel(new BorderLayout(6, 6)) {
+            /**
+             * Serialization identifier for Swing compatibility.
+             */
             private static final long serialVersionUID = 1L;
 
             /**

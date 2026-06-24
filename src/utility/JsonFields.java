@@ -47,7 +47,7 @@ public final class JsonFields {
 	 *
 	 * @param json source object text
 	 * @param name field name
-	 * @param fallback fallback value
+	 * @param fallback default used when input is absent or invalid
 	 * @return parsed integer or fallback
 	 */
 	public static int intField(String json, String name, int fallback) {
@@ -71,7 +71,7 @@ public final class JsonFields {
 	 *
 	 * @param json source object text
 	 * @param name field name
-	 * @param fallback fallback value
+	 * @param fallback default used when input is absent or invalid
 	 * @return parsed double or fallback
 	 */
 	public static double doubleField(String json, String name, double fallback) {
@@ -95,7 +95,7 @@ public final class JsonFields {
 	 *
 	 * @param json source object text
 	 * @param name field name
-	 * @param fallback fallback value
+	 * @param fallback default used when input is absent or invalid
 	 * @return parsed boolean or fallback
 	 */
 	public static boolean booleanField(String json, String name, boolean fallback) {

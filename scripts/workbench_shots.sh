@@ -150,14 +150,22 @@ if [[ "$ALLOW_SKIP" != "1" ]] && grep -q '^SKIP ' "$LOG"; then
   exit 1
 fi
 
-COUNT="$(find "$OUT_DIR" -maxdepth 1 -type f -name '*.png' -size +1024c | wc -l | tr -d ' ')"
+COUNT="$(awk '/^OK / { print substr($0, 4) }' "$LOG" | while IFS= read -r file; do
+  if [[ -f "$file" && "$(wc -c < "$file")" -gt 1024 ]]; then
+    echo "$file"
+  fi
+done | wc -l | tr -d ' ')"
 if [[ "$COUNT" -eq 0 ]]; then
-  echo "No non-empty PNG screenshots were written to $OUT_DIR" >&2
+  echo "No non-empty PNG screenshots were produced by this run in $OUT_DIR" >&2
   exit 1
 fi
 
 echo "Workbench screenshots: $COUNT PNG files in $OUT_DIR"
 if [[ "$DUMP_COMPONENTS" == "1" ]]; then
-  DUMP_COUNT="$(find "$DUMP_DIR" -maxdepth 1 -type f -name '*.components.txt' -size +128c | wc -l | tr -d ' ')"
+  DUMP_COUNT="$(awk '/^DUMP / { print substr($0, 6) }' "$LOG" | while IFS= read -r file; do
+    if [[ -f "$file" && "$(wc -c < "$file")" -gt 128 ]]; then
+      echo "$file"
+    fi
+  done | wc -l | tr -d ' ')"
   echo "Workbench component dumps: $DUMP_COUNT files in $DUMP_DIR"
 fi

@@ -48,7 +48,7 @@ public record PositionDescriptionInput(
     /**
      * Creates an input from a position using cheap deterministic extraction.
      *
-     * @param position position
+     * @param position chess position
      * @return extracted input
      */
     public static PositionDescriptionInput from(Position position) {
@@ -67,6 +67,18 @@ public record PositionDescriptionInput(
 
     /**
      * Normalizes nullable list fields.
+     *
+     * @param fen FEN string
+     * @param sideToMove side-to-move label
+     * @param status position status label
+     * @param inCheck whether the side to move is in check
+     * @param phase game phase label
+     * @param material material summary
+     * @param moves moves to render or describe
+     * @param evaluation engine evaluation summary
+     * @param tags tag collection to update
+     * @param threats detected threat descriptions
+     * @param candidates candidate move descriptions
      */
     public PositionDescriptionInput {
         tags = List.copyOf(tags == null ? List.of() : tags);
@@ -155,12 +167,12 @@ public record PositionDescriptionInput(
     /**
      * Per-side piece counts.
      *
-     * @param kings kings
-     * @param queens queens
-     * @param rooks rooks
-     * @param bishops bishops
-     * @param knights knights
-     * @param pawns pawns
+     * @param kings king count
+     * @param queens queen count
+     * @param rooks rook count
+     * @param bishops bishop count
+     * @param knights knight count
+     * @param pawns pawn count
      */
     public record PieceCounts(
             int kings,
@@ -204,10 +216,10 @@ public record PositionDescriptionInput(
      * Legal-move summary for the side to move.
      *
      * @param legal legal moves
-     * @param captures captures
+     * @param captures capture count
      * @param checks checking moves
      * @param mates mate-in-one moves
-     * @param promotions promotions
+     * @param promotions promotion count
      * @param castles castling moves
      * @param enPassant en-passant captures
      * @param quiet quiet moves
@@ -300,7 +312,7 @@ public record PositionDescriptionInput(
          * Appends a JSON string value.
          *
          * @param sb target
-         * @param value value
+         * @param value candidate value
          * @return target
          */
         private static StringBuilder appendTo(StringBuilder sb, String value) {

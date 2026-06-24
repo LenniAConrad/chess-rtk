@@ -37,7 +37,7 @@ public final class OtisView extends NetworkView {
      * Paints the title header.
      *
      * @param g graphics
-     * @param bounds bounds
+     * @param bounds component bounds
      */
     @Override
     protected void paintHeader(Graphics2D g, Rectangle bounds) {
@@ -277,8 +277,8 @@ public final class OtisView extends NetworkView {
     /**
      * Handles mouse clicks.
      *
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      */
     @Override
     protected void onClick(int x, int y) {
@@ -472,7 +472,7 @@ public final class OtisView extends NetworkView {
      * @param g graphics
      * @param r bounds
      * @param key snapshot key
-     * @param title title
+     * @param title display title
      * @param tint heatmap tint
      * @param maxChannels maximum channels to paint
      */
@@ -519,7 +519,7 @@ public final class OtisView extends NetworkView {
      * @param g graphics
      * @param r bounds
      * @param key snapshot key
-     * @param title title
+     * @param title display title
      * @param tint accent tint
      */
     private void paintDenseMatrix(Graphics2D g, Rectangle r, String key, String title, Color tint) {
@@ -548,6 +548,10 @@ public final class OtisView extends NetworkView {
 
     /**
      * Returns matrix rows for a snapshot tensor.
+     *
+     * @param shape tensor shape
+     * @param values input values
+     * @return matrix rows for a snapshot tensor
      */
     private static int matrixRows(int[] shape, float[] values) {
         if (values == null || values.length == 0) {
@@ -567,6 +571,10 @@ public final class OtisView extends NetworkView {
 
     /**
      * Returns matrix columns for a snapshot tensor.
+     *
+     * @param shape tensor shape
+     * @param values input values
+     * @return matrix columns for a snapshot tensor
      */
     private static int matrixCols(int[] shape, float[] values) {
         if (values == null || values.length == 0) {
@@ -583,6 +591,9 @@ public final class OtisView extends NetworkView {
 
     /**
      * Formats a tensor shape.
+     *
+     * @param shape tensor shape
+     * @return formatted a tensor shape
      */
     private static String shapeText(int[] shape) {
         if (shape == null || shape.length == 0) {
@@ -687,7 +698,7 @@ public final class OtisView extends NetworkView {
     /**
      * Reads snapshot data.
      *
-     * @param key key
+     * @param key lookup key
      * @return data or null
      */
     private float[] data(String key) {
@@ -699,7 +710,7 @@ public final class OtisView extends NetworkView {
      *
      * @param key tensor key
      * @param index dimension index
-     * @param fallback fallback value
+     * @param fallback default used when input is absent or invalid
      * @return dimension value
      */
     private int shapeOr(String key, int index, int fallback) {

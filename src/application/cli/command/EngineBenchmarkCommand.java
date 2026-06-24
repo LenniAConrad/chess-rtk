@@ -85,7 +85,7 @@ public final class EngineBenchmarkCommand {
 	 * @param depth perft depth
 	 * @param iterations iteration count
 	 * @param threads worker threads
-	 * @return benchmark result
+	 * @return benchmark
 	 * @throws InterruptedException when interrupted
 	 */
 	private static BenchmarkResult runBenchmark(

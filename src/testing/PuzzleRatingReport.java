@@ -65,7 +65,7 @@ final class PuzzleRatingReport {
     /**
      * Maps earlier markdown report names to the native PDF artifact.
      * @param output output text
-     * @return report pdf path result
+     * @return report pdf path
      */
     private static Path reportPdfPath(Path output) {
         String name = output.getFileName().toString();
@@ -84,8 +84,8 @@ final class PuzzleRatingReport {
      * @param page page index
      * @param rows data rows
      * @param stats statistics data
-     * @param snapshot snapshot value
-     * @param snapshotDetail snapshot detail value
+     * @param snapshot captured snapshot
+     * @param snapshotDetail source snapshot detail
      */
     private static void drawReportPage(Page page, List<PuzzleRatingRow> rows, PuzzleRatingStats stats, PuzzleRatingRow snapshot,
             PuzzleRatingDetail snapshotDetail) {
@@ -212,7 +212,7 @@ final class PuzzleRatingReport {
      * @param contentWidth available content width
      * @param top top coordinate
      * @param title title text
-     * @param subtitle subtitle value
+     * @param subtitle display subtitle
      */
     private static void drawReportHeader(Canvas canvas, double pageWidth, double contentWidth, double top,
             String title, String subtitle) {
@@ -227,9 +227,9 @@ final class PuzzleRatingReport {
     /**
      * Draws the report footer when there is room below the main content.
      * @param canvas SVG canvas builder
-     * @param pageHeight page height value
+     * @param pageHeight source page height
      * @param pageWidth page width in pixels
-     * @param contentBottom content bottom value
+     * @param contentBottom source content bottom
      */
     private static void drawReportFooter(Canvas canvas, double pageHeight, double pageWidth, double contentBottom) {
         double y = Math.max(contentBottom, pageHeight - REPORT_BOTTOM_MARGIN - 12.0);
@@ -300,7 +300,7 @@ final class PuzzleRatingReport {
      * @param width width in pixels
      * @param label label text
      * @param value value to use
-     * @param note note value
+     * @param note note text
      */
     private static void drawMetricCard(Canvas canvas, double x, double y, double width, String label, String value,
             String note) {
@@ -375,7 +375,7 @@ final class PuzzleRatingReport {
     /**
      * Builds the first dynamic reading-curve bullet.
      * @param rows data rows
-     * @return reading distribution bullet result
+     * @return built the first dynamic reading-curve bullet
      */
     private static String readingDistributionBullet(List<PuzzleRatingRow> rows) {
         PuzzleRatingDifficultyBand dominant = dominantDifficultyBand(rows);
@@ -389,7 +389,7 @@ final class PuzzleRatingReport {
     /**
      * Builds the second dynamic reading-curve bullet.
      * @param rows data rows
-     * @return coverage shape bullet result
+     * @return built the second dynamic reading-curve bullet
      */
     private static String coverageShapeBullet(List<PuzzleRatingRow> rows) {
         return "Observed range " + percentile(rows, 0.00) + "-" + percentile(rows, 1.00)
@@ -400,7 +400,7 @@ final class PuzzleRatingReport {
     /**
      * Builds the first dynamic scoring-note bullet.
      * @param rows data rows
-     * @return direct scoring bullet result
+     * @return built the first dynamic scoring-note bullet
      */
     private static String directScoringBullet(List<PuzzleRatingRow> rows) {
         return "No subset calibration: each row is scored independently; p10/median/p90 = "
@@ -412,7 +412,7 @@ final class PuzzleRatingReport {
      * Builds the second dynamic scoring-note bullet.
      * @param rows data rows
      * @param stats statistics data
-     * @return raw score bullet result
+     * @return built the second dynamic scoring-note bullet
      */
     private static String rawScoreBullet(List<PuzzleRatingRow> rows, PuzzleRatingStats stats) {
         return "CSV keeps exact ratings; chart uses " + DISPLAY_BIN_WIDTH + "-point bins and a "
@@ -425,7 +425,7 @@ final class PuzzleRatingReport {
      * @param x x coordinate
      * @param y y coordinate
      * @param width width in pixels
-     * @param text text value
+     * @param text text to render or parse
      */
     private static void drawBullet(Canvas canvas, double x, double y, double width, String text) {
         canvas.fillRect(x, y + 3.0, 2.0, 2.0, REPORT_ACCENT);
@@ -564,7 +564,7 @@ final class PuzzleRatingReport {
     /**
      * Draws the smoothed distribution trend line over the PDF histogram.
      * @param canvas SVG canvas builder
-     * @param smoothed smoothed value
+     * @param smoothed smoothed metric series
      * @param left left coordinate
      * @param top top coordinate
      * @param plotWidth plot width in pixels
@@ -708,6 +708,16 @@ final class PuzzleRatingReport {
      * @param y top edge in PDF points
      * @param width panel width in PDF points
      * @param height panel height in PDF points
+     * @param bands rating or metric bands to plot
+     * @param colors colors paired with the plotted series
+     * @param metricName source metric name
+     * @param values input values
+     * @param labelX x-coordinate for the metric label
+     * @param plotLeft left edge of the plot area
+     * @param rowTop top edge of the metric row
+     * @param plotWidth plot width in pixels
+     * @param rowHeight row height in pixels
+     * @param metricIndex zero-based metric index
      */
 
     private static void drawDriverMetricRow(Canvas canvas, PuzzleRatingComplexityBand[] bands, Color[] colors, String metricName,
@@ -753,7 +763,7 @@ final class PuzzleRatingReport {
     /**
      * Builds the dynamic summary under the difficulty-driver chart.
      * @param bands rating bands
-     * @return complexity summary result
+     * @return built the dynamic summary under the difficulty-driver chart
      */
     private static String complexitySummary(PuzzleRatingComplexityBand[] bands) {
         PuzzleRatingComplexityBand medium = bands[2];
@@ -768,9 +778,9 @@ final class PuzzleRatingReport {
 
     /**
      * Formats a metric value for the difficulty-driver chart.
-     * @param metricIndex metric index
+     * @param metricIndex zero-based metric index
      * @param value value to use
-     * @return metric value label result
+     * @return formatted a metric value for the difficulty-driver chart
      */
     private static String metricValueLabel(int metricIndex, double value) {
         if (metricIndex == 3) {
@@ -790,7 +800,7 @@ final class PuzzleRatingReport {
      * @param rows data rows
      * @param columns table columns
      * @param rightAligned true to right-align the value
-     * @return draw section with table result
+     * @return drawn a titled table and returns its bottom edge
      */
     private static double drawSectionWithTable(Canvas canvas, double x, double y, double width, String title,
             String[] headers, String[][] rows, double[] columns, boolean[] rightAligned) {
@@ -811,7 +821,7 @@ final class PuzzleRatingReport {
      * @param rows data rows
      * @param columns table columns
      * @param rightAligned true to right-align the value
-     * @return draw table result
+     * @return drawn a compact report table
      */
     private static double drawTable(Canvas canvas, double x, double y, double width, String[] headers,
             String[][] rows, double[] columns, boolean[] rightAligned) {
@@ -847,11 +857,11 @@ final class PuzzleRatingReport {
      * @param x x coordinate
      * @param y y coordinate
      * @param width width in pixels
-     * @param row row value
+     * @param row row data
      * @param columns table columns
      * @param rightAligned true to right-align the value
      * @param font font name
-     * @param size size value
+     * @param size size in pixels or points
      * @param color display color
      */
     private static void drawRow(Canvas canvas, double x, double y, double width, String[] row, double[] columns,
@@ -872,9 +882,9 @@ final class PuzzleRatingReport {
      * @param y y coordinate
      * @param width width in pixels
      * @param font font name
-     * @param size size value
+     * @param size size in pixels or points
      * @param color display color
-     * @param text text value
+     * @param text text to render or parse
      * @param rightAligned true to right-align the value
      */
     private static void drawCell(Canvas canvas, double x, double y, double width, Font font, double size, Color color,
@@ -916,7 +926,7 @@ final class PuzzleRatingReport {
     /**
      * Builds difficulty bucket rows.
      * @param rows data rows
-     * @return difficulty rows result
+     * @return built difficulty bucket rows
      */
     private static String[][] difficultyRows(List<PuzzleRatingRow> rows) {
         String[] names = { "Very easy", "Easy", "Medium", "Hard", "Very hard" };
@@ -939,7 +949,7 @@ final class PuzzleRatingReport {
     /**
      * Builds top feature rows.
      * @param rows data rows
-     * @return feature rows result
+     * @return built top feature rows
      */
     private static String[][] featureRows(List<PuzzleRatingRow> rows) {
         String[] features = {
@@ -958,7 +968,7 @@ final class PuzzleRatingReport {
      * Builds structure rows.
      * @param rows data rows
      * @param stats statistics data
-     * @return structure rows result
+     * @return built structure rows
      */
     private static String[][] structureRows(List<PuzzleRatingRow> rows, PuzzleRatingStats stats) {
         return new String[][] {

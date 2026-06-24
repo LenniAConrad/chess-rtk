@@ -28,7 +28,7 @@ fi
 
 usage() {
   cat <<EOF
-Usage: ./update.sh [--no-pull] [install.sh options...]
+Usage: ./scripts/update.sh [--no-pull] [install.sh options...]
 
 Run from repo root as:
   ./scripts/update.sh [--no-pull] [install.sh options...]

@@ -87,11 +87,11 @@ final class GauntletDistributionChart extends JComponent {
      * Paints one segment.
      *
      * @param g graphics
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      * @param w width
      * @param h height
-     * @param color color
+     * @param color display color
      */
     private static void paintSegment(Graphics2D g, int x, int y, int w, int h, Color color) {
         if (w <= 0) {

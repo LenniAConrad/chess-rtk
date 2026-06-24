@@ -22,6 +22,9 @@ final class ThemeInstaller {
         // utility
     }
 
+    /**
+     * Installs value.
+     */
     static void install() {
         try {
             UIManager.setLookAndFeel(preferredLookAndFeelClassName());
@@ -131,12 +134,22 @@ final class ThemeInstaller {
         UIManager.put("ToolTip.border", BorderFactory.createLineBorder(Theme.TOOLTIP_BORDER));
     }
 
+    /**
+     * Returns the concise preferred look and feel class name.
+     *
+     * @return preferred look and feel class name text
+     */
     private static String preferredLookAndFeelClassName() {
         return isMacOs()
                 ? UIManager.getSystemLookAndFeelClassName()
                 : UIManager.getCrossPlatformLookAndFeelClassName();
     }
 
+    /**
+     * Returns whether mac os.
+     *
+     * @return true when mac os
+     */
     private static boolean isMacOs() {
         return System.getProperty("os.name", "")
                 .toLowerCase(java.util.Locale.ROOT)

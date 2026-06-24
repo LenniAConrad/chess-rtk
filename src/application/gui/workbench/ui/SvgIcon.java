@@ -143,7 +143,7 @@ public final class SvgIcon implements Icon {
      * falling back to a label-based mapping.
      *
      * @param button source button
-     * @param iconColor icon color
+     * @param iconColor source icon color
      * @return icon, or null when no icon applies
      */
     private static Icon iconForButton(AbstractButton button, Color iconColor) {

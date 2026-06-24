@@ -43,7 +43,7 @@ final class Architecture {
     /**
      * Creates an architecture.
      *
-     * @param layout layout
+     * @param layout layout model
      * @param fc0 first layer
      * @param fc1 second layer
      * @param fc2 output layer
@@ -70,7 +70,7 @@ final class Architecture {
      * Reads a layer stack.
      *
      * @param cursor source cursor
-     * @param layout layout
+     * @param layout layout model
      * @return layer stack
      */
     static Architecture read(Cursor cursor, Layout layout) {
@@ -83,7 +83,7 @@ final class Architecture {
     /**
      * Propagates transformed features through this layer stack.
      *
-     * @param transformedFeatures transformed features
+     * @param transformedFeatures transformed feature vector
      * @return scaled Stockfish positional output
      */
     int propagate(int[] transformedFeatures) {
@@ -94,7 +94,7 @@ final class Architecture {
      * Propagates transformed features through this layer stack using reusable
      * workspace.
      *
-     * @param transformedFeatures transformed features
+     * @param transformedFeatures transformed feature vector
      * @param scratch reusable dense-layer workspace
      * @return scaled Stockfish positional output
      */
@@ -108,7 +108,7 @@ final class Architecture {
      * wide first layer; bit-identical to
      * {@link #propagate(int[], Scratch)}.
      *
-     * @param transformedFeatures transformed features
+     * @param transformedFeatures transformed feature vector
      * @param nonZero ascending indices of nonzero transformed lanes
      * @param nonZeroCount number of valid indices in {@code nonZero}
      * @param scratch reusable dense-layer workspace

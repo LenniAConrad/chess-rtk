@@ -41,7 +41,7 @@ public final class Reader {
   /**
    * Reads a JSON file containing a top-level JSON array of objects and parses
    * each object into a Record instance.
-   * 
+   *
    * @param path the path to the JSON file
    * @return a list of Record instances parsed from the file, or an empty list if
    *         the file doesn't exist or is empty
@@ -127,8 +127,8 @@ public final class Reader {
 
    /**
    * Handles open fast reader.
-   * @param path path
-   * @return computed value
+   * @param path file-system path
+   * @return handles open fast reader
    * @throws IOException if the operation fails
    */
    private static BufferedReader openFastReader(Path path) throws IOException {
@@ -139,7 +139,7 @@ public final class Reader {
 
    /**
    * Returns whether data line.
-   * @param line line
+   * @param line input line
    * @return true when data line
    */
    private static boolean isDataLine(String line) {
@@ -148,8 +148,8 @@ public final class Reader {
 
    /**
    * Handles add position record.
-   * @param records records
-   * @param line line
+   * @param records record list
+   * @param line input line
    */
    private static void addPositionRecord(List<Record> records, String line) {
     List<String> fens = extractFens(line);
@@ -252,5 +252,5 @@ public final class Reader {
   public static List<Game> readPgn(Path path) throws IOException {
     return Pgn.read(path);
   }
-  
+
 }

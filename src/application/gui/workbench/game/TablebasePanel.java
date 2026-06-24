@@ -75,8 +75,17 @@ public final class TablebasePanel extends JPanel {
      * State labels.
      */
     private final JLabel piecesLabel = Ui.label("");
+    /**
+     * Label showing the current status.
+     */
     private final JLabel statusLabel = Ui.label("");
+    /**
+     * Label showing hits.
+     */
     private final JLabel hitsLabel = Ui.label("");
+    /**
+     * Label showing best.
+     */
     private final JLabel bestLabel = Ui.label("");
 
     /**
@@ -235,7 +244,7 @@ public final class TablebasePanel extends JPanel {
     /**
      * Applies a parsed summary to labels.
      *
-     * @param summary summary
+     * @param summary summary text
      */
     private void applySummary(Summary summary) {
         piecesLabel.setText("Pieces: " + summary.pieces()
@@ -302,8 +311,8 @@ public final class TablebasePanel extends JPanel {
     /**
      * Counts pattern matches.
      *
-     * @param pattern pattern
-     * @param text text
+     * @param pattern source pattern
+     * @param text text to render or parse
      * @return match count
      */
     private static int countMatches(Pattern pattern, String text) {

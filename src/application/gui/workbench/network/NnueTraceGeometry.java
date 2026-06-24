@@ -22,7 +22,7 @@ public final class NnueTraceGeometry {
     /**
      * Returns Trace column centers in display order.
      *
-     * @param layout layout
+     * @param layout layout model
      * @return center x coordinates
      */
     public static int[] traceColumnCenters(NnueTraceLayout layout) {
@@ -33,7 +33,7 @@ public final class NnueTraceGeometry {
     /**
      * Computes a responsive stage-band width from the current column spacing.
      *
-     * @param layout layout
+     * @param layout layout model
      * @return band width in pixels
      */
     public static int traceBandWidth(NnueTraceLayout layout) {
@@ -68,7 +68,7 @@ public final class NnueTraceGeometry {
     /**
      * Returns a centered y coordinate for a column with its own row count.
      *
-     * @param layout layout
+     * @param layout layout model
      * @param row row index
      * @param count row count
      * @return center y

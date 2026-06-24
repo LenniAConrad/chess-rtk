@@ -101,7 +101,7 @@ public final class ServeRegressionTest {
      * Performs a GET request.
      *
      * @param uri target URI
-     * @return HTTP result
+     * @return HTTP
      * @throws IOException if the request fails
      */
     private static HttpResult get(URI uri) throws IOException {
@@ -115,7 +115,7 @@ public final class ServeRegressionTest {
      *
      * @param uri target URI
      * @param body request body
-     * @return HTTP result
+     * @return HTTP
      * @throws IOException if the request fails
      */
     private static HttpResult post(URI uri, String body) throws IOException {
@@ -135,7 +135,7 @@ public final class ServeRegressionTest {
      * Reads an HTTP response.
      *
      * @param connection opened connection
-     * @return HTTP result
+     * @return parsed an HTTP response
      * @throws IOException if reading fails
      */
     private static HttpResult read(HttpURLConnection connection) throws IOException {

@@ -377,7 +377,7 @@ public final class NNUERegressionTest {
 		/**
 		 * Data.
 		 * @param key lookup key
-		 * @return data result
+		 * @return data payload
 		 */
 		private float[] data(String key) {
 			float[] out = values.get(key);
@@ -424,12 +424,12 @@ public final class NNUERegressionTest {
 
 		/**
 		 * Model arrays.
-		 * @param hiddenSize hidden size value
-		 * @param featureBias feature bias value
-		 * @param featureWeights feature weights value
-		 * @param outputWeights output weights value
-		 * @param outputBias output bias value
-		 * @param outputScale output scale value
+		 * @param hiddenSize source hidden size
+		 * @param featureBias source feature bias
+		 * @param featureWeights source feature weights
+		 * @param outputWeights source output weights
+		 * @param outputBias source output bias
+		 * @param outputScale source output scale
 		 */
 		private ModelArrays(
 				int hiddenSize,

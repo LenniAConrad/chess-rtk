@@ -14,6 +14,9 @@ final class ThemePalette {
         // utility
     }
 
+    /**
+     * Applies light.
+     */
     static void applyLight() {
         Theme.BG = Theme.PASTEL_CHROME;
         Theme.TRANSPARENT = new Color(Theme.PASTEL_DOCUMENT.getRed(), Theme.PASTEL_DOCUMENT.getGreen(),
@@ -130,6 +133,9 @@ final class ThemePalette {
         Theme.NN_HEAT_ZERO = Theme.PASTEL_SUBTLE;
     }
 
+    /**
+     * Applies dark.
+     */
     static void applyDark() {
         Theme.BG = Theme.DARK_CHROME;
         Theme.TRANSPARENT = new Color(Theme.DARK_DOCUMENT.getRed(), Theme.DARK_DOCUMENT.getGreen(),
@@ -245,6 +251,9 @@ final class ThemePalette {
         Theme.NN_HEAT_ZERO = Theme.DARK_SUBTLE;
     }
 
+    /**
+     * Updates the fixed board and eval colors.
+     */
     private static void setFixedBoardAndEvalColors() {
         Theme.BOARD_LIGHT = new Color(240, 217, 181);
         Theme.BOARD_DARK = new Color(181, 136, 99);

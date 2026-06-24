@@ -28,7 +28,7 @@ final class PuzzleBlock {
 	 *
 	 * @param startIndex first puzzle index
 	 * @param count puzzle count
-	 * @param spreadCount spread count
+	 * @param spreadCount number of spread
 	 */
 	PuzzleBlock(int startIndex, int count, int spreadCount) {
 		this.startIndex = startIndex;

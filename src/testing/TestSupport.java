@@ -196,8 +196,8 @@ final class TestSupport {
     /**
      * Verifies integer equality.
      *
-     * @param expected expected value
-     * @param actual actual value
+     * @param expected expected test value
+     * @param actual actual test value
      * @param label assertion label
      */
     static void assertEquals(int expected, int actual, String label) {
@@ -209,8 +209,8 @@ final class TestSupport {
     /**
      * Verifies long equality.
      *
-     * @param expected expected value
-     * @param actual actual value
+     * @param expected expected test value
+     * @param actual actual test value
      * @param label assertion label
      */
     static void assertEquals(long expected, long actual, String label) {
@@ -222,8 +222,8 @@ final class TestSupport {
     /**
      * Verifies byte equality.
      *
-     * @param expected expected value
-     * @param actual actual value
+     * @param expected expected test value
+     * @param actual actual test value
      * @param label assertion label
      */
     static void assertEquals(byte expected, byte actual, String label) {
@@ -235,8 +235,8 @@ final class TestSupport {
     /**
      * Verifies string equality.
      *
-     * @param expected expected value
-     * @param actual actual value
+     * @param expected expected test value
+     * @param actual actual test value
      * @param label assertion label
      */
     static void assertEquals(String expected, String actual, String label) {
@@ -248,8 +248,8 @@ final class TestSupport {
     /**
      * Verifies object equality.
      *
-     * @param expected expected value
-     * @param actual actual value
+     * @param expected expected test value
+     * @param actual actual test value
      * @param label assertion label
      */
     static void assertEquals(Object expected, Object actual, String label) {
@@ -356,8 +356,8 @@ final class TestSupport {
     /**
      * Verifies approximate float equality.
      *
-     * @param expected expected value
-     * @param actual actual value
+     * @param expected expected test value
+     * @param actual actual test value
      * @param label assertion label
      */
     static void assertClose(float expected, float actual, String label) {
@@ -369,8 +369,8 @@ final class TestSupport {
     /**
      * Verifies approximate double equality.
      *
-     * @param expected expected value
-     * @param actual actual value
+     * @param expected expected test value
+     * @param actual actual test value
      * @param tolerance accepted absolute difference
      * @param label assertion label
      */

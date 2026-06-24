@@ -24,9 +24,9 @@ public final class MathOps {
 
    /**
    * Handles use parallel.
-   * @param workItems work items
-   * @param threshold threshold
-   * @return computed value
+   * @param workItems source work items
+   * @param threshold decision threshold
+   * @return handles use parallel
    */
    private static boolean useParallel(int workItems, int threshold) {
     int cores = Runtime.getRuntime().availableProcessors();
@@ -35,9 +35,9 @@ public final class MathOps {
 
    /**
    * Handles use matmul parallel.
-   * @param m m
-   * @param n n
-   * @return computed value
+   * @param m move count
+   * @param n item count
+   * @return handles use matmul parallel
    */
    private static boolean useMatmulParallel(int m, int n) {
     int cores = Runtime.getRuntime().availableProcessors();
@@ -206,12 +206,12 @@ public final class MathOps {
 
    /**
    * Handles matmul naive.
-   * @param aData a data
-   * @param bData b data
-   * @param outData out data
-   * @param m m
-   * @param n n
-   * @param k k
+   * @param aData source a data
+   * @param bData source b data
+   * @param outData source out data
+   * @param m move count
+   * @param n item count
+   * @param k table key
    */
    private static void matmulNaive(float[] aData, float[] bData, float[] outData, int m, int n, int k) {
     int unroll = k - (k % 4);
@@ -238,12 +238,12 @@ public final class MathOps {
 
    /**
    * Handles matmul parallel rows.
-   * @param aData a data
-   * @param bData b data
-   * @param outData out data
-   * @param m m
-   * @param n n
-   * @param k k
+   * @param aData source a data
+   * @param bData source b data
+   * @param outData source out data
+   * @param m move count
+   * @param n item count
+   * @param k table key
    */
    private static void matmulParallelRows(float[] aData, float[] bData, float[] outData, int m, int n, int k) {
     int unroll = k - (k % 4);

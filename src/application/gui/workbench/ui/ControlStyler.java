@@ -95,7 +95,7 @@ final class ControlStyler {
     /**
      * Styles a spinner and its text editor.
      *
-     * @param spinner spinner
+     * @param spinner spinner component
      */
     static void styleSpinner(JSpinner spinner) {
         spinner.setUI(new StyledSpinnerUI());
@@ -113,7 +113,7 @@ final class ControlStyler {
     /**
      * Styles a spinner whose editor should accept only integer values.
      *
-     * @param spinner spinner
+     * @param spinner spinner component
      */
     static void styleIntegerSpinner(JSpinner spinner) {
         spinner.setEditor(new JSpinner.NumberEditor(spinner, "#,##0"));
@@ -181,7 +181,7 @@ final class ControlStyler {
     /**
      * Styles multiple spinners.
      *
-     * @param spinners spinners
+     * @param spinners spinner components
      */
     static void styleSpinners(JSpinner... spinners) {
         for (JSpinner spinner : spinners) {

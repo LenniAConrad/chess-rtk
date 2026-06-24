@@ -90,7 +90,7 @@ public final class PositionDescriptionVerifier {
      *
      * @param input structured description input
      * @param text generated text
-     * @return verification result
+     * @return verification
      */
     public static Verification verify(PositionDescriptionInput input, String text) {
         if (input == null) {
@@ -381,6 +381,8 @@ public final class PositionDescriptionVerifier {
 
         /**
          * Creates a verification result.
+         *
+         * @param violations detected grounding violations
          */
         public Verification {
             violations = List.copyOf(violations == null ? List.of() : violations);

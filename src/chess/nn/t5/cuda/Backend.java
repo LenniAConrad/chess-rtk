@@ -22,7 +22,7 @@ public final class Backend implements NativeGenerationBackend {
 
    /**
    * Creates a new backend instance.
-   * @param handle handle
+   * @param handle native handle
    */
    private Backend(long handle) {
     this.handle = handle;

@@ -288,7 +288,7 @@ final class WorkbenchBoardRegression {
      * Verifies a key-stroke array contains one unmodified key.
      *
      * @param keys key-stroke array
-     * @param keyCode key code
+     * @param keyCode source key code
      * @param label assertion label
      */
     private static void assertKeyStrokePresent(KeyStroke[] keys, int keyCode, String label) {

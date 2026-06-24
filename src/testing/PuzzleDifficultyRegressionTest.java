@@ -343,7 +343,7 @@ public final class PuzzleDifficultyRegressionTest {
 
     /**
      * Returns a compact root analysis for {@link #LONG_CONVERSION_FEN}.
-     * @return long conversion analysis result
+     * @return compact root analysis for #LONG_CONVERSION_FEN
      */
     private static Analysis longConversionAnalysis() {
         return new Analysis()

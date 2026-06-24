@@ -87,7 +87,7 @@ final class GauntletCumulativeScoreChart extends JComponent {
     /**
      * Returns y coordinate for a score.
      *
-     * @param point point
+     * @param point point in component coordinates
      * @param top chart top
      * @param height chart height
      * @return y

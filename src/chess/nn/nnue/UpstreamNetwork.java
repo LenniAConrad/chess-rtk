@@ -97,7 +97,7 @@ public final class UpstreamNetwork implements AutoCloseable {
         /**
          * Creates a variant.
          *
-         * @param label label
+         * @param label display label
          * @param combinedBigFeatureHash true for current master
          * @param scaleSmallTransformer true for Stockfish 18 small nets
          * @param threatDimensions FullThreats dimensions
@@ -168,10 +168,10 @@ public final class UpstreamNetwork implements AutoCloseable {
     /**
      * Creates a loaded Stockfish NNUE network.
      *
-     * @param variant variant
+     * @param variant layout or network variant
      * @param size big/small size
      * @param description file description
-     * @param networkHash network hash
+     * @param networkHash source network hash
      * @param transformer feature transformer
      * @param layerStacks bucketed architecture stacks
      */
@@ -345,7 +345,7 @@ public final class UpstreamNetwork implements AutoCloseable {
      * Captures intermediate activations for Workbench-style inspection.
      *
      * @param sink activation collector
-     * @param position position
+     * @param position chess position
      * @param board Stockfish-order board
      * @param bucket material bucket
      * @param transformed feature-transform output
@@ -553,7 +553,7 @@ public final class UpstreamNetwork implements AutoCloseable {
     /**
      * Converts an int array to floats.
      *
-     * @param values values
+     * @param values input values
      * @return converted values
      */
     private static float[] toFloats(int[] values) {
@@ -563,7 +563,7 @@ public final class UpstreamNetwork implements AutoCloseable {
     /**
      * Converts an int array slice to floats.
      *
-     * @param values values
+     * @param values input values
      * @param offset first index
      * @param length slice length
      * @return converted values
@@ -1411,7 +1411,7 @@ public final class UpstreamNetwork implements AutoCloseable {
     /**
      * Returns the Stockfish bucket for a piece count.
      *
-     * @param pieceCount piece count
+     * @param pieceCount number of piece
      * @return bucket index
      */
     private static int bucket(int pieceCount) {
@@ -1660,7 +1660,7 @@ public final class UpstreamNetwork implements AutoCloseable {
     /**
      * Stockfish NNUE metadata.
      *
-     * @param variant variant
+     * @param variant layout or network variant
      * @param size big/small size
      * @param inputFeatures total input feature dimensions
      * @param transformedDimensions transformed feature dimensions
@@ -1744,8 +1744,8 @@ public final class UpstreamNetwork implements AutoCloseable {
     /**
      * Checks a length fits an int.
      *
-     * @param length length
-     * @param label label
+     * @param length element count
+     * @param label display label
      * @return int length
      */
     static int checkedLength(long length, String label) {

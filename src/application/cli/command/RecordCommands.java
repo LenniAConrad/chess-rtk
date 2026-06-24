@@ -497,8 +497,8 @@ public final class RecordCommands {
 
 	/**
 	 * Handles derive classifier output or exit.
-	 * @param inputs inputs
-	 * @return computed value
+	 * @param inputs input paths
+	 * @return handles derive classifier output or exit
 	 */
 	private static Path deriveClassifierOutputOrExit(List<String> inputs) {
 		if (inputs.size() == 1) {
@@ -514,11 +514,11 @@ public final class RecordCommands {
 
 	/**
 	 * Parses the filter or exit.
-	 * @param command command
-	 * @param option option
-	 * @param filterDsl filter dsl
-	 * @param verbose verbose
-	 * @return computed value
+	 * @param command command text
+	 * @param option CLI option
+	 * @param filterDsl source filter dsl
+	 * @param verbose whether verbose output is enabled
+	 * @return parsed the filter or exit
 	 */
 	private static Filter parseFilterOrExit(String command, String option, String filterDsl, boolean verbose) {
 		if (filterDsl == null || filterDsl.isEmpty()) {
@@ -712,8 +712,8 @@ public final class RecordCommands {
 
 	/**
 	 * Builds a default output for the Elo-rated puzzle exporter.
-	 * @param inputFiles input files value
-	 * @return default puzzle elo output result
+	 * @param inputFiles source input files
+	 * @return built a default output for the Elo-rated puzzle exporter
 	 */
 	private static Path defaultPuzzleEloOutput(List<Path> inputFiles) {
 		if (inputFiles.size() == 1) {
@@ -739,7 +739,7 @@ public final class RecordCommands {
 
 	/**
 	 * Prevents accidental in-place exports.
-	 * @param inputFiles input files value
+	 * @param inputFiles source input files
 	 * @param output output text
 	 */
 	private static void validatePuzzleEloOutput(List<Path> inputFiles, Path output) {
@@ -845,8 +845,8 @@ public final class RecordCommands {
 
 	/**
 	 * Parses the records request.
-	 * @param a a
-	 * @return computed value
+	 * @param a first value
+	 * @return parsed the records request
 	 */
 	private static RecordsRequest parseRecordsRequest(Argv a) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
@@ -887,8 +887,8 @@ public final class RecordCommands {
 
 	/**
 	 * Handles build records filters.
-	 * @param request request
-	 * @return computed value
+	 * @param request command request
+	 * @return handles build records filters
 	 */
 	private static RecordsFilters buildRecordsFilters(RecordsRequest request) {
 		Filter dslFilter = null;
@@ -910,10 +910,10 @@ public final class RecordCommands {
 
 	/**
 	 * Handles collect record inputs or exit.
-	 * @param inputs inputs
-	 * @param recursive recursive
-	 * @param verbose verbose
-	 * @return computed value
+	 * @param inputs input paths
+	 * @param recursive whether input traversal is recursive
+	 * @param verbose whether verbose output is enabled
+	 * @return handles collect record inputs or exit
 	 */
 	private static List<Path> collectRecordInputsOrExit(List<String> inputs, boolean recursive, boolean verbose) {
 		return collectRecordInputsOrExit("records", inputs, recursive, verbose);
@@ -921,11 +921,11 @@ public final class RecordCommands {
 
 	/**
 	 * Handles collect record inputs or exit.
-	 * @param command command
-	 * @param inputs inputs
-	 * @param recursive recursive
-	 * @param verbose verbose
-	 * @return computed value
+	 * @param command command text
+	 * @param inputs input paths
+	 * @param recursive whether input traversal is recursive
+	 * @param verbose whether verbose output is enabled
+	 * @return handles collect record inputs or exit
 	 */
 	private static List<Path> collectRecordInputsOrExit(
 			String command,
@@ -942,9 +942,9 @@ public final class RecordCommands {
 
 	/**
 	 * Handles validate output path for inputs.
-	 * @param inputFiles input files
-	 * @param output output
-	 * @param maxRecords max records
+	 * @param inputFiles source input files
+	 * @param output output path
+	 * @param maxRecords maximum records
 	 */
 	private static void validateOutputPathForInputs(List<Path> inputFiles, Path output, int maxRecords) {
 		if (maxRecords > 0) {
@@ -960,12 +960,12 @@ public final class RecordCommands {
 
 	/**
 	 * Handles process record inputs.
-	 * @param inputFiles input files
-	 * @param writer writer
-	 * @param stats stats
-	 * @param request request
-	 * @param filters filters
-	 * @param filesBar files bar
+	 * @param inputFiles source input files
+	 * @param writer output writer
+	 * @param stats running statistics
+	 * @param request command request
+	 * @param filters record filters
+	 * @param filesBar source files bar
 	 */
 	private static void processRecordInputs(
 			List<Path> inputFiles,
@@ -993,11 +993,11 @@ public final class RecordCommands {
 
 	/**
 	 * Handles handle record json.
-	 * @param objJson obj json
-	 * @param writer writer
-	 * @param stats stats
-	 * @param request request
-	 * @param filters filters
+	 * @param objJson JSON payload for obj
+	 * @param writer output writer
+	 * @param stats running statistics
+	 * @param request command request
+	 * @param filters record filters
 	 */
 	private static void handleRecordJson(
 			String objJson,
@@ -1038,8 +1038,8 @@ public final class RecordCommands {
 
 	/**
 	 * Handles close record writer or exit.
-	 * @param writer writer
-	 * @param verbose verbose
+	 * @param writer output writer
+	 * @param verbose whether verbose output is enabled
 	 */
 	private static void closeRecordWriterOrExit(RecordBatchWriter writer, boolean verbose) {
 		try {
@@ -1088,9 +1088,9 @@ public final class RecordCommands {
 
 		 /**
 		 * Creates a new records request instance.
-		 * @param options options
-		 * @param output output
-		 * @param inputs inputs
+		 * @param options parsed options
+		 * @param output output path
+		 * @param inputs input paths
 		 */
 		 private RecordsRequest(
 				RecordsRequestOptions options,
@@ -1138,12 +1138,12 @@ public final class RecordCommands {
 
 		 /**
 		 * Creates a new records request options instance.
-		 * @param verbose verbose
-		 * @param filterDsl filter dsl
-		 * @param maxRecords max records
-		 * @param puzzles puzzles
-		 * @param nonpuzzles nonpuzzles
-		 * @param recursive recursive
+		 * @param verbose whether verbose output is enabled
+		 * @param filterDsl source filter dsl
+		 * @param maxRecords maximum records
+		 * @param puzzles puzzle records
+		 * @param nonpuzzles non-puzzle count
+		 * @param recursive whether input traversal is recursive
 		 */
 		 private RecordsRequestOptions(
 				boolean verbose,
@@ -1176,8 +1176,8 @@ public final class RecordCommands {
 
 		 /**
 		 * Creates a new records filters instance.
-		 * @param dslFilter dsl filter
-		 * @param puzzleVerify puzzle verify
+		 * @param dslFilter source dsl filter
+		 * @param puzzleVerify puzzle verification filter
 		 */
 		 private RecordsFilters(Filter dslFilter, Filter puzzleVerify) {
 			this.dslFilter = dslFilter;
@@ -1238,14 +1238,14 @@ public final class RecordCommands {
 
 	/**
 	 * Handles derive training jsonl output or exit.
-	 * @param inputs inputs
-	 * @return computed value
+	 * @param inputs input paths
+	 * @return handles derive training jsonl output or exit
 	 */
 
 	/**
 	 * Handles update classifier progress.
-	 * @param bar bar
-	 * @param progress progress
+	 * @param bar progress bar
+	 * @param progress progress callback
 	 */
 	private static void updateClassifierProgress(
 			Bar bar,
@@ -1262,9 +1262,9 @@ public final class RecordCommands {
 
 	/**
 	 * Handles update records progress.
-	 * @param bar bar
-	 * @param input input
-	 * @param stats stats
+	 * @param bar progress bar
+	 * @param input input path or text
+	 * @param stats running statistics
 	 */
 	private static void updateRecordsProgress(Bar bar, Path input, RecordStats stats) {
 		if (bar == null) {
@@ -1280,8 +1280,8 @@ public final class RecordCommands {
 
 	/**
 	 * Handles file name.
-	 * @param path path
-	 * @return computed value
+	 * @param path file-system path
+	 * @return handles file name
 	 */
 	private static String fileName(Path path) {
 		if (path == null || path.getFileName() == null) {
@@ -1292,9 +1292,9 @@ public final class RecordCommands {
 
 	/**
 	 * Handles progress bar.
-	 * @param totalRecords total records
-	 * @param label label
-	 * @return computed value
+	 * @param totalRecords source total records
+	 * @param label display label
+	 * @return handles progress bar
 	 */
 	private static Bar progressBar(long totalRecords, String label) {
 		if (totalRecords <= 0) {

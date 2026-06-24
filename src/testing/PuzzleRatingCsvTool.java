@@ -145,109 +145,67 @@ public final class PuzzleRatingCsvTool {
     static final double REPORT_BOTTOM_MARGIN = 28.0;
 
     /**
-     * Report colors.
+     * Report primary text color.
      */
     static final Color REPORT_TEXT = new Color(17, 17, 17);
     /**
-     * Color.
-     * @param 74 74 value
-     * @param 85 85 value
-     * @param 98 98 value
+     * Report muted text color.
      */
     static final Color REPORT_MUTED = new Color(74, 85, 98);
     /**
-     * Color.
-     * @param 111 111 value
-     * @param 82 82 value
-     * @param 56 56 value
+     * Report accent color.
      */
     static final Color REPORT_ACCENT = new Color(111, 82, 56);
     /**
-     * Color.
-     * @param 42 42 value
-     * @param 32 32 value
-     * @param 24 24 value
+     * Report rule color.
      */
     static final Color REPORT_RULE = new Color(42, 32, 24);
     /**
-     * Color.
-     * @param 216 216 value
-     * @param 216 216 value
-     * @param 216 216 value
+     * Report grid line color.
      */
     static final Color REPORT_GRID = new Color(216, 216, 216);
     /**
-     * Color.
-     * @param 132 132 value
-     * @param 185 185 value
-     * @param 216 216 value
+     * Report bar color.
      */
     static final Color REPORT_BAR = new Color(132, 185, 216);
     /**
-     * Color.
-     * @param 92 92 value
-     * @param 143 143 value
-     * @param 174 174 value
+     * Report trend line color.
      */
     static final Color REPORT_TREND = new Color(92, 143, 174);
     /**
-     * Color.
-     * @param 226 226 value
-     * @param 211 211 value
-     * @param 193 193 value
+     * Report soft rule color.
      */
     static final Color REPORT_SOFT_RULE = new Color(226, 211, 193);
     /**
-     * Color.
-     * @param 253 253 value
-     * @param 249 249 value
-     * @param 242 242 value
+     * Report card background color.
      */
     static final Color REPORT_CARD = new Color(253, 249, 242);
     /**
-     * Color.
-     * @param 254 254 value
-     * @param 251 251 value
-     * @param 247 247 value
+     * Report panel background color.
      */
     static final Color REPORT_PANEL = new Color(254, 251, 247);
     /**
-     * Color.
-     * @param 247 247 value
-     * @param 236 236 value
-     * @param 220 220 value
+     * Report table header background color.
      */
     static final Color REPORT_TABLE_HEADER = new Color(247, 236, 220);
     /**
-     * Color.
-     * @param 254 254 value
-     * @param 251 251 value
-     * @param 247 247 value
+     * Report table stripe color.
      */
     static final Color REPORT_TABLE_STRIPE = new Color(254, 251, 247);
     /**
-     * Color.
-     * @param 229 229 value
-     * @param 214 214 value
-     * @param 195 195 value
+     * Report table rule color.
      */
     static final Color REPORT_TABLE_RULE = new Color(229, 214, 195);
     /**
-     * Color.
-     * @param 138 138 value
-     * @param 104 104 value
-     * @param 72 72 value
+     * Report board accent color.
      */
     static final Color REPORT_BOARD_ACCENT = new Color(138, 104, 72);
     /**
-     * Color.
-     * @param 178 178 value
-     * @param 178 178 value
-     * @param 178 178 value
+     * Report quantile line color.
      */
     static final Color REPORT_QUANTILE_LINE = new Color(178, 178, 178);
     /**
-     * R e p o r t  q u a n t i l e  l a b e l.
+     * Report quantile label color.
      */
     static final Color REPORT_QUANTILE_LABEL = REPORT_MUTED;
 
@@ -262,23 +220,23 @@ public final class PuzzleRatingCsvTool {
      */
     static final Font REPORT_DISPLAY_FONT = Font.LATIN_MODERN_BOLD;
     /**
-     * R e p o r t  s e c t i o n  f o n t.
+     * Report section heading font.
      */
     static final Font REPORT_SECTION_FONT = Font.LATIN_MODERN_BOLD;
     /**
-     * R e p o r t  b o d y  f o n t.
+     * Report body text font.
      */
     static final Font REPORT_BODY_FONT = Font.LATIN_MODERN_ROMAN;
     /**
-     * R e p o r t  b o d y  b o l d  f o n t.
+     * Report bold body text font.
      */
     static final Font REPORT_BODY_BOLD_FONT = Font.LATIN_MODERN_BOLD;
     /**
-     * R e p o r t  d a t a  f o n t.
+     * Report table and chart label font.
      */
     static final Font REPORT_DATA_FONT = Font.HELVETICA;
     /**
-     * R e p o r t  d a t a  b o l d  f o n t.
+     * Report bold data font.
      */
     static final Font REPORT_DATA_BOLD_FONT = Font.HELVETICA_BOLD;
 
@@ -343,7 +301,7 @@ public final class PuzzleRatingCsvTool {
     /**
      * Parses command-line arguments.
      * @param args command arguments
-     * @return parse arguments result
+     * @return parsed command-line arguments
      */
     static PuzzleRatingArguments parseArguments(String[] args) {
         if (args.length == 0) {
@@ -393,8 +351,8 @@ public final class PuzzleRatingCsvTool {
 
     /**
      * Reads CSV rows.
-     * @param input input value
-     * @return read rows result
+     * @param input input path or text
+     * @return parsed CSV rows
      * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     static List<PuzzleRatingRow> readRows(Path input) throws IOException {
@@ -448,6 +406,8 @@ public final class PuzzleRatingCsvTool {
      * Writes a native Java-rendered PNG histogram.
      * @param output output text
      * @param rows data rows
+     * @param csv CSV output path
+     * @param png PNG output path
      * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     static void printSummary(Path csv, Path png, List<PuzzleRatingRow> rows) {
@@ -469,7 +429,7 @@ public final class PuzzleRatingCsvTool {
 
     /**
      * Returns the report creation timestamp.
-     * @return created stamp result
+     * @return report creation timestamp
      */
     static String createdStamp() {
         return REPORT_TIMESTAMP.format(ZonedDateTime.now());
@@ -477,10 +437,10 @@ public final class PuzzleRatingCsvTool {
 
     /**
      * Converts a rating to a PDF plot x-coordinate.
-     * @param rating rating value
+     * @param rating rating bucket
      * @param left left coordinate
      * @param plotWidth plot width in pixels
-     * @return rating x result
+     * @return converted a rating to a PDF plot x-coordinate
      */
     static double ratingX(int rating, double left, double plotWidth) {
         double range = (double) MAX_RATING - MIN_RATING + 1.0;
@@ -492,7 +452,7 @@ public final class PuzzleRatingCsvTool {
      * @param g graphics context
      * @param right right coordinate
      * @param y y coordinate
-     * @param text text value
+     * @param text text to render or parse
      */
     static void drawRight(Graphics2D g, double right, double y, String text) {
         String safe = text == null ? "" : text;
@@ -502,9 +462,9 @@ public final class PuzzleRatingCsvTool {
     /**
      * Draws centered Java2D text.
      * @param g graphics context
-     * @param center center value
+     * @param center center point
      * @param y y coordinate
-     * @param text text value
+     * @param text text to render or parse
      */
     static void drawCentered(Graphics2D g, double center, double y, String text) {
         String safe = text == null ? "" : text;
@@ -517,9 +477,9 @@ public final class PuzzleRatingCsvTool {
      * @param right right coordinate
      * @param y y coordinate
      * @param font font name
-     * @param size size value
+     * @param size size in pixels or points
      * @param color display color
-     * @param text text value
+     * @param text text to render or parse
      */
     static void drawRight(Canvas canvas, double right, double y, Font font, double size, Color color,
             String text) {
@@ -530,12 +490,12 @@ public final class PuzzleRatingCsvTool {
     /**
      * Draws centered text.
      * @param canvas SVG canvas builder
-     * @param center center value
+     * @param center center point
      * @param y y coordinate
      * @param font font name
-     * @param size size value
+     * @param size size in pixels or points
      * @param color display color
-     * @param text text value
+     * @param text text to render or parse
      */
     static void drawCentered(Canvas canvas, double center, double y, Font font, double size, Color color,
             String text) {
@@ -546,7 +506,7 @@ public final class PuzzleRatingCsvTool {
     /**
      * Builds report-wide stats.
      * @param rows data rows
-     * @return report stats result
+     * @return built report-wide stats
      */
     static PuzzleRatingStats reportStats(List<PuzzleRatingRow> rows) {
         double mean = mean(rows);
@@ -597,7 +557,7 @@ public final class PuzzleRatingCsvTool {
     /**
      * Returns the largest adjacent-count jump between two neighboring display bins.
      * @param rows data rows
-     * @return max adjacent bin difference result
+     * @return largest adjacent-count jump between two neighboring display bins
      */
     static int maxAdjacentBinDifference(List<PuzzleRatingRow> rows) {
         int[] bins = PuzzleRatingGraph.histogram(rows, DISPLAY_BIN_WIDTH);
@@ -611,7 +571,7 @@ public final class PuzzleRatingCsvTool {
     /**
      * Returns arithmetic mean.
      * @param rows data rows
-     * @return mean result
+     * @return arithmetic mean
      */
     static double mean(List<PuzzleRatingRow> rows) {
         if (rows.isEmpty()) {
@@ -627,7 +587,7 @@ public final class PuzzleRatingCsvTool {
     /**
      * Returns population skewness.
      * @param rows data rows
-     * @return skewness result
+     * @return population skewness
      */
     static double skewness(List<PuzzleRatingRow> rows) {
         if (rows.isEmpty()) {
@@ -650,7 +610,7 @@ public final class PuzzleRatingCsvTool {
     /**
      * Parses one CSV line.
      * @param line line text
-     * @return parse csv result
+     * @return parsed one CSV line
      */
     static List<String> parseCsv(String line) {
         List<String> fields = new ArrayList<>();
@@ -685,7 +645,7 @@ public final class PuzzleRatingCsvTool {
     /**
      * Converts fields to CSV.
      * @param fields record fields
-     * @return to csv line result
+     * @return converted fields to CSV
      */
     static String toCsvLine(List<String> fields) {
         StringBuilder sb = new StringBuilder();
@@ -701,7 +661,7 @@ public final class PuzzleRatingCsvTool {
     /**
      * Escapes one CSV field.
      * @param value value to use
-     * @return csv result
+     * @return CSV text
      */
     static String csv(String value) {
         String v = value == null ? "" : value;
@@ -714,7 +674,7 @@ public final class PuzzleRatingCsvTool {
     /**
      * Formats compact graph coordinates.
      * @param value value to use
-     * @return fmt result
+     * @return formatted compact graph coordinates
      */
     static String fmt(double value) {
         return String.format(Locale.ROOT, "%.2f", value);
@@ -723,7 +683,7 @@ public final class PuzzleRatingCsvTool {
     /**
      * Formats a percentage.
      * @param value value to use
-     * @return percent result
+     * @return formatted a percentage
      */
     static String percent(double value) {
         if (Math.abs(value) < 0.000_001) {
@@ -735,8 +695,8 @@ public final class PuzzleRatingCsvTool {
     /**
      * Formats a count percentage.
      * @param count item count
-     * @param total total value
-     * @return pct result
+     * @param total total unit count
+     * @return formatted a count percentage
      */
     static String pct(long count, long total) {
         return total <= 0 ? "0.0%" : String.format(Locale.ROOT, "%.1f%%", 100.0 * count / total);
@@ -745,7 +705,7 @@ public final class PuzzleRatingCsvTool {
     /**
      * Formats rare-event percentages without rounding nonzero values to 0.0%.
      *
-     * @param count count
+     * @param count item count
      * @param total total rows
      * @return percentage label
      */
@@ -763,7 +723,7 @@ public final class PuzzleRatingCsvTool {
     /**
      * Formats a percentage value that is already on a 0-100 scale.
      * @param value value to use
-     * @return pct label result
+     * @return formatted a percentage value that is already on a 0-100 scale
      */
     static String pctLabel(double value) {
         return String.format(Locale.ROOT, "%.1f%%", value);
@@ -772,7 +732,7 @@ public final class PuzzleRatingCsvTool {
     /**
      * Formats a one-decimal number.
      * @param value value to use
-     * @return one decimal result
+     * @return formatted a one-decimal number
      */
     static String oneDecimal(double value) {
         return String.format(Locale.ROOT, "%.1f", value);
@@ -781,7 +741,7 @@ public final class PuzzleRatingCsvTool {
     /**
      * Formats an integer with grouping.
      * @param value value to use
-     * @return num result
+     * @return formatted an integer with grouping
      */
     static String num(long value) {
         return String.format(Locale.ROOT, "%,d", value);
@@ -790,9 +750,9 @@ public final class PuzzleRatingCsvTool {
     /**
      * Rows inside a rating range.
      * @param rows data rows
-     * @param lo lo value
-     * @param hi hi value
-     * @return rows in range result
+     * @param lo lower bound
+     * @param hi upper bound
+     * @return rows in range
      */
     static List<PuzzleRatingRow> rowsInRange(List<PuzzleRatingRow> rows, int lo, int hi) {
         return rows.stream().filter(row -> row.rating() >= lo && row.rating() <= hi).toList();
@@ -801,8 +761,8 @@ public final class PuzzleRatingCsvTool {
     /**
      * Counts rows at or below a rating.
      * @param rows data rows
-     * @param rating rating value
-     * @return rows at or below result
+     * @param rating rating bucket
+     * @return rows at or below
      */
     static int rowsAtOrBelow(List<PuzzleRatingRow> rows, int rating) {
         int count = 0;
@@ -817,8 +777,8 @@ public final class PuzzleRatingCsvTool {
     /**
      * Counts rows with a feature.
      * @param rows data rows
-     * @param feature feature value
-     * @return count feature result
+     * @param feature feature descriptor
+     * @return count feature
      */
     static int countFeature(List<PuzzleRatingRow> rows, String feature) {
         int count = 0;
@@ -847,8 +807,8 @@ public final class PuzzleRatingCsvTool {
     /**
      * Highest rating for a feature.
      * @param rows data rows
-     * @param feature feature value
-     * @return highest feature rating result
+     * @param feature feature descriptor
+     * @return highest feature rating
      */
     static int highestFeatureRating(List<PuzzleRatingRow> rows, String feature) {
         return rows.stream()
@@ -1016,7 +976,7 @@ public final class PuzzleRatingCsvTool {
     /**
      * Returns the most populated difficulty band.
      * @param rows data rows
-     * @return dominant difficulty band result
+     * @return most populated difficulty band
      */
     static PuzzleRatingDifficultyBand dominantDifficultyBand(List<PuzzleRatingRow> rows) {
         String[] names = { "Very easy", "Easy", "Medium", "Hard", "Very hard" };
@@ -1037,7 +997,7 @@ public final class PuzzleRatingCsvTool {
     /**
      * Builds per-band aggregates for the difficulty-driver chart.
      * @param rows data rows
-     * @return complexity bands result
+     * @return built per-band aggregates for the difficulty-driver chart
      */
     static PuzzleRatingComplexityBand[] complexityBands(List<PuzzleRatingRow> rows) {
         String[] names = { "Very easy", "Easy", "Medium", "Hard", "Very hard" };
@@ -1063,8 +1023,8 @@ public final class PuzzleRatingCsvTool {
     /**
      * Extracts one metric from all difficulty-band aggregates.
      * @param bands rating bands
-     * @param metric metric value
-     * @return metric values result
+     * @param metric metric descriptor
+     * @return metric values
      */
     static double[] metricValues(PuzzleRatingComplexityBand[] bands, PuzzleRatingDoubleMetric metric) {
         double[] values = new double[bands.length];
@@ -1077,7 +1037,7 @@ public final class PuzzleRatingCsvTool {
     /**
      * Returns the total row count represented by difficulty bands.
      * @param bands rating bands
-     * @return total band count result
+     * @return total row count represented by difficulty bands
      */
     static int totalBandCount(PuzzleRatingComplexityBand[] bands) {
         int total = 0;
@@ -1090,7 +1050,7 @@ public final class PuzzleRatingCsvTool {
     /**
      * Returns the maximum value in an array.
      * @param values values to inspect
-     * @return max result
+     * @return maximum value in an array
      */
     static double max(double[] values) {
         double max = 0.0;
@@ -1103,8 +1063,8 @@ public final class PuzzleRatingCsvTool {
     /**
      * Averages a row integer field as a numeric value.
      * @param rows data rows
-     * @param field field value
-     * @return avg value result
+     * @param field record field
+     * @return avg value
      */
     static double avgValue(List<PuzzleRatingRow> rows, PuzzleRatingIntField field) {
         if (rows.isEmpty()) {
@@ -1120,7 +1080,7 @@ public final class PuzzleRatingCsvTool {
     /**
      * Returns the percentage of rows that have branch points.
      * @param rows data rows
-     * @return share with branches result
+     * @return percentage of rows that have branch points
      */
     static double shareWithBranches(List<PuzzleRatingRow> rows) {
         if (rows.isEmpty()) {
@@ -1133,8 +1093,8 @@ public final class PuzzleRatingCsvTool {
     /**
      * Averages a row integer field.
      * @param rows data rows
-     * @param field field value
-     * @return avg result
+     * @param field record field
+     * @return average value
      */
     static String avg(List<PuzzleRatingRow> rows, PuzzleRatingIntField field) {
         if (rows.isEmpty()) {

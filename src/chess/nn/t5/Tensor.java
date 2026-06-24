@@ -9,7 +9,7 @@ import java.util.Arrays;
  * @author Lennart A. Conrad
  */
 public final class Tensor {
-  
+
   /**
    * Flat data buffer in row-major order.
    */
@@ -71,7 +71,7 @@ public final class Tensor {
   /**
    * Returns a new tensor view with a different shape.
    *
-   * @param newShape new shape
+   * @param newShape source new shape
    * @return reshaped tensor
    * @throws IllegalArgumentException if the element count changes
    */

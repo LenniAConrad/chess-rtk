@@ -17,6 +17,12 @@ final class WindowPaletteActions {
         // utility
     }
 
+    /**
+     * Builds the command-palette actions for one workbench window.
+     *
+     * @param owner owning workbench window
+     * @return palette action list
+     */
     static List<PaletteAction> actions(WindowLifecycle owner) {
         return Arrays.asList(
                 new PaletteAction("Engine", "Analyze board", "Run built-in search on the current FEN",

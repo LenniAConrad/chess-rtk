@@ -19,7 +19,7 @@ final class DocumentChangeSupport {
     /**
      * Creates a document listener from a runnable.
      *
-     * @param runnable runnable
+     * @param runnable action to execute
      * @return listener
      */
     static DocumentListener changeListener(Runnable runnable) {

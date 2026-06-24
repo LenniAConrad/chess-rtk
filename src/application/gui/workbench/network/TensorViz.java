@@ -5,6 +5,7 @@ import application.gui.workbench.ui.NotationPainter;
 import application.gui.workbench.ui.RenderAcceleration;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
+import chess.core.Position;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Font;
@@ -638,7 +639,7 @@ public final class TensorViz {
      * @param r destination rectangle
      * @param value signed value
      * @param scale absolute max (auto if &lt;= 0)
-     * @param label label
+     * @param label display label
      */
     public static void drawHorizontalBar(Graphics2D g, Rectangle r, float value, float scale, String label) {
         float s = scale;
@@ -851,16 +852,19 @@ public final class TensorViz {
         if (fen == null || fen.isBlank()) {
             return false;
         }
-        String[] parts = fen.trim().split("\\s+");
-        return parts.length >= 2 && "b".equals(parts[1]);
+        try {
+            return !new Position(fen.trim()).isWhiteToMove();
+        } catch (RuntimeException ex) {
+            return false;
+        }
     }
 
     /**
      * Returns the LERF square at a point inside a board.
      *
      * @param board board bounds
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      * @param whiteDown whether White is rendered at the bottom
      * @return 0..63 square, or -1 when outside
      */
@@ -1207,7 +1211,7 @@ public final class TensorViz {
     /**
      * Clamps a float to a range.
      *
-     * @param value value
+     * @param value candidate value
      * @param min minimum
      * @param max maximum
      * @return clamped value

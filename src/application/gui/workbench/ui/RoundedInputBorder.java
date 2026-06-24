@@ -69,8 +69,8 @@ final class RoundedInputBorder implements Border {
      * @param graphics graphics context
      * @param x left
      * @param y top
-     * @param width width
-     * @param height height
+     * @param width width in pixels
+     * @param height height in pixels
      */
     @Override
     public void paintBorder(Component component, Graphics graphics, int x, int y, int width, int height) {

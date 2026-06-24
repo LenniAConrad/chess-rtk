@@ -79,7 +79,12 @@ fi
 echo "== Building Java (crtk.jar) =="
 rm -rf out
 mkdir -p out
-find src -name "*.java" -print0 | xargs -0 javac --release 17 -d out
+mapfile -d '' sources < <(find src -name "*.java" -print0 | sort -z)
+if [[ "${#sources[@]}" -eq 0 ]]; then
+  echo "No Java sources found under src/" >&2
+  exit 1
+fi
+javac --release 17 -d out "${sources[@]}"
 if [[ -d schemas ]]; then
   mkdir -p out/schemas
   find schemas -type f -name '*.schema.json' -print0 \

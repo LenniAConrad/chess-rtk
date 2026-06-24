@@ -836,7 +836,7 @@ final class Checkmate {
      *
      * @param board board snapshot
      * @param defenderWhite whether the mated side is White
-     * @param kingFile king file
+     * @param kingFile source king file
      * @return number of friendly blockers on the escape rank
      */
     private static int operaMateEscapeRankBlockers(byte[] board, boolean defenderWhite, int kingFile) {
@@ -1698,7 +1698,7 @@ final class Checkmate {
      *
      * @param board board snapshot
      * @param defenderWhite whether the blocked king belongs to White
-     * @param kingFile king file
+     * @param kingFile source king file
      * @return number of friendly blockers on the three escape files
      */
     private static int friendlyEscapeRankBlockers(byte[] board, boolean defenderWhite, int kingFile) {

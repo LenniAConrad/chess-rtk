@@ -298,7 +298,7 @@ public final class TomlHighlighter {
     /**
      * Finds the first non-whitespace character in a range.
      *
-     * @param text text
+     * @param text text to render or parse
      * @param start range start
      * @param end range end
      * @return index or end
@@ -314,7 +314,7 @@ public final class TomlHighlighter {
     /**
      * Finds the exclusive end of the last non-whitespace character in a range.
      *
-     * @param text text
+     * @param text text to render or parse
      * @param start range start
      * @param end range end
      * @return exclusive end

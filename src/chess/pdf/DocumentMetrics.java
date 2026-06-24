@@ -31,9 +31,9 @@ public record DocumentMetrics(
 
 	/**
 	 * Validates the extracted geometry.
-	 * @param pageCount page count value
-	 * @param pageWidthPoints page width points value
-	 * @param pageHeightPoints page height points value
+	 * @param pageCount number of page
+	 * @param pageWidthPoints page width in PDF points
+	 * @param pageHeightPoints page height in PDF points
 	 */
 	public DocumentMetrics {
 		if (pageCount <= 0) {

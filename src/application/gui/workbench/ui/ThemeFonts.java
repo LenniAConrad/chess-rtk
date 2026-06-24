@@ -99,6 +99,9 @@ final class ThemeFonts {
         // utility
     }
 
+    /**
+     * Installs defaults.
+     */
     static void installDefaults() {
         Font uiFont = font(Theme.FONT_CONTROL, Font.PLAIN);
         Font smallUiFont = font(Theme.FONT_DENSE_TABLE, Font.PLAIN);
@@ -132,28 +135,62 @@ final class ThemeFonts {
         UIManager.put("ToolTip.font", smallUiFont);
     }
 
+    /**
+     * Returns a cached UI font scaled for the active density.
+     *
+     * @param size base font size
+     * @param style AWT font style
+     * @return scaled UI font
+     */
     static Font font(float size, int style) {
         return cachedFont(UI_FONT_CACHE, UI_FONT_FAMILY, style, scaledSize(size));
     }
 
+    /**
+     * Returns a cached monospaced font scaled for the active density.
+     *
+     * @param size base font size
+     * @return scaled monospaced font
+     */
     static Font mono(float size) {
         return cachedFont(MONO_FONT_CACHE, MONO_FONT_FAMILY, Font.PLAIN, scaledSize(size));
     }
 
+    /**
+     * Returns a cached console monospaced font scaled for the active density.
+     *
+     * @param size base font size
+     * @return scaled console font
+     */
     static Font consoleMono(float size) {
         return cachedFont(CONSOLE_FONT_CACHE, CONSOLE_FONT_FAMILY, Font.PLAIN, scaledSize(size));
     }
 
+    /**
+     * Clears caches.
+     */
     static void clearCaches() {
         clearFontCache(UI_FONT_CACHE);
         clearFontCache(MONO_FONT_CACHE);
         clearFontCache(CONSOLE_FONT_CACHE);
     }
 
+    /**
+     * Returns a pixel value scaled by the active density.
+     *
+     * @param px base pixel value
+     * @return scaled pixel value
+     */
     static int scaledPx(int px) {
         return Math.round(px * Theme.density().fontScale());
     }
 
+    /**
+     * Rescales a component subtree after a density change.
+     *
+     * @param component Swing component
+     * @param ratio old-to-new font-size ratio
+     */
     static void rescaleFonts(Component component, double ratio) {
         if (component == null || ratio <= 0 || ratio == 1.0) {
             return;
@@ -170,6 +207,11 @@ final class ThemeFonts {
         }
     }
 
+    /**
+     * Returns the resolve console font family.
+     *
+     * @return resolve console font family text
+     */
     private static String resolveConsoleFontFamily() {
         try {
             String[] available = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment()
@@ -188,6 +230,13 @@ final class ThemeFonts {
         return Font.MONOSPACED;
     }
 
+    /**
+     * Returns the resolve font family.
+     *
+     * @param candidates source candidates
+     * @param fallback default used when input is absent or invalid
+     * @return resolve font family text
+     */
     private static String resolveFontFamily(String[] candidates, String fallback) {
         try {
             String[] available = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment()
@@ -205,6 +254,15 @@ final class ThemeFonts {
         return fallback;
     }
 
+    /**
+     * Returns the cached font.
+     *
+     * @param cache analysis cache
+     * @param family font family
+     * @param style font style
+     * @param size size in pixels or points
+     * @return cached font
+     */
     private static Font cachedFont(Map<Long, Font> cache, String family, int style, int size) {
         Long key = fontCacheKey(style, size);
         synchronized (cache) {
@@ -218,16 +276,34 @@ final class ThemeFonts {
         }
     }
 
+    /**
+     * Returns the font cache key.
+     *
+     * @param style font style
+     * @param size size in pixels or points
+     * @return font cache key
+     */
     private static Long fontCacheKey(int style, int size) {
         return Long.valueOf((((long) style) << Integer.SIZE) ^ (size & 0xffff_ffffL));
     }
 
+    /**
+     * Clears font cache.
+     *
+     * @param cache analysis cache
+     */
     private static void clearFontCache(Map<Long, Font> cache) {
         synchronized (cache) {
             cache.clear();
         }
     }
 
+    /**
+     * Returns the scaled size.
+     *
+     * @param size size in pixels or points
+     * @return scaled size
+     */
     private static int scaledSize(float size) {
         return Math.max(7, Math.round(size * Theme.density().fontScale()));
     }

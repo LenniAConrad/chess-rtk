@@ -19,8 +19,8 @@ interface SearchBackend extends AutoCloseable {
 
     /**
      * Evaluates non-terminal positions as one backend batch.
-     * @param positions positions value
-     * @return evaluate batch result
+     * @param positions position list
+     * @return evaluate batch
      */
     default List<Evaluation> evaluateBatch(List<Position> positions) {
         List<Evaluation> out = new ArrayList<>(positions.size());
@@ -52,8 +52,8 @@ interface SearchBackend extends AutoCloseable {
      * Replaces fallback priors when direct policy logits are available.
      * @param position chess position
      * @param moves candidate moves
-     * @param fallback fallback value
-     * @return priors result
+     * @param fallback default used when input is absent or invalid
+     * @return priors
      */
     default double[] priors(Position position, short[] moves, double[] fallback) {
         return fallback;
@@ -61,13 +61,13 @@ interface SearchBackend extends AutoCloseable {
 
     /**
      * Returns the backend name.
-     * @return name result
+     * @return backend name
      */
     String name();
 
     /**
      * Returns whether backend calls are safe from multiple worker threads.
-     * @return thread safe result
+     * @return true when backend calls are safe from multiple worker threads
      */
     default boolean threadSafe() {
         return false;

@@ -188,7 +188,7 @@ public final class SettingsDialog extends JPanel {
     /**
      * Selects the section with the supplied title when present.
      *
-     * @param sectionTitle section title
+     * @param sectionTitle source section title
      */
     public void selectSection(String sectionTitle) {
         contentLayout.show(content, sectionTitle);

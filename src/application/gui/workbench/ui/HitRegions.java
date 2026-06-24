@@ -78,9 +78,9 @@ public final class HitRegions {
          * @param description tooltip description
          * @param value formatted value
          * @param dataKey activation snapshot key
-         * @param dataOffset data offset
-         * @param dataLength data length
-         * @param dataStride data stride
+         * @param dataOffset source data offset
+         * @param dataLength source data length
+         * @param dataStride source data stride
          * @param shapeText optional shape text
          */
         Region(Rectangle bounds, String title, String description, String value,
@@ -99,9 +99,9 @@ public final class HitRegions {
          * @param value formatted value
          * @param dataKey activation snapshot key
          * @param inlineData inline tensor values
-         * @param dataOffset data offset
-         * @param dataLength data length
-         * @param dataStride data stride
+         * @param dataOffset source data offset
+         * @param dataLength source data length
+         * @param dataStride source data stride
          * @param shapeText optional shape text
          */
         Region(Rectangle bounds, String title, String description, String value,

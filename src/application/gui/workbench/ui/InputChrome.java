@@ -84,7 +84,9 @@ final class InputChrome {
         // An invalid value overrides the focus/hover/resting colours so the
         // error reads the same whether or not the field is being edited.
         Color lineColor = invalid ? Theme.STATUS_ERROR_BORDER
-                : focused ? Theme.INPUT_FOCUS : hovered ? Theme.ACCENT_HOVER : Theme.INPUT_BORDER;
+                : focused ? Theme.INPUT_FOCUS
+                        : hovered ? Theme.lerp(Theme.INPUT_BORDER, Theme.ACCENT, Theme.isDark() ? 0.36f : 0.28f)
+                                : Theme.INPUT_BORDER;
         // Rounded outline (RADIUS) so inputs match buttons, cards, and chips.
         Border line = new RoundedInputBorder(lineColor);
         Border inner = compact ? Theme.pad(4, 8, 4, 8) : Theme.pad(7, 9, 7, 9);

@@ -157,9 +157,9 @@ public final class Encyclopedia {
     ) {
          /**
          * Creates a new row instance.
-         * @param eco eco
-         * @param name name
-         * @param movetext movetext
+         * @param eco ECO code
+         * @param name display name
+         * @param movetext PGN movetext
          */
          private Row {
             Objects.requireNonNull(eco, KEY_ECO);
@@ -244,7 +244,7 @@ public final class Encyclopedia {
      *
      * @see #getName(Position)
      * @param pos position value
-     * @return name result
+     * @return opening name from the default ECO book
      */
     public static String name(Position pos) {
         return defaultBook().getName(pos);
@@ -255,7 +255,7 @@ public final class Encyclopedia {
      *
      * @see #getECO(Position)
      * @param pos position value
-     * @return eco result
+     * @return ECO code from the default ECO book
      */
     public static String eco(Position pos) {
         return defaultBook().getECO(pos);
@@ -266,7 +266,7 @@ public final class Encyclopedia {
      *
      * @see #getNode(Position)
      * @param pos position value
-     * @return node result
+     * @return ECO entry from the default ECO book
      */
     public static Entry node(Position pos) {
         return defaultBook().getNode(pos);
@@ -294,8 +294,8 @@ public final class Encyclopedia {
 
      /**
      * Reads the toml.
-     * @param file file
-     * @return computed value
+     * @param file file index or file path
+     * @return reads the toml
      * @throws IOException if the operation fails
      */
      private static String readToml(Path file) throws IOException {
@@ -304,8 +304,8 @@ public final class Encyclopedia {
 
      /**
      * Parses the toml arrays.
-     * @param tomlContent toml content
-     * @return computed value
+     * @param tomlContent TOML source text
+     * @return parsed the toml arrays
      * @throws IOException if the operation fails
      */
      private static Map<String, List<Map<String, Object>>> parseTomlArrays(String tomlContent) throws IOException {
@@ -315,8 +315,8 @@ public final class Encyclopedia {
 
      /**
      * Handles load entries.
-     * @param arrays arrays
-     * @return computed value
+     * @param arrays parsed array set
+     * @return handles load entries
      */
      private static Entry[] loadEntries(Map<String, List<Map<String, Object>>> arrays) {
         ArrayList<Entry> tmp = new ArrayList<>();
@@ -332,7 +332,7 @@ public final class Encyclopedia {
 
      /**
      * Handles should parallel parse.
-     * @return computed value
+     * @return handles should parallel parse
      */
      private static boolean shouldParallelParse() {
         return parallelParseEnabled() && Runtime.getRuntime().availableProcessors() > 1;
@@ -340,8 +340,8 @@ public final class Encyclopedia {
 
      /**
      * Handles collect rows.
-     * @param arrays arrays
-     * @return computed value
+     * @param arrays parsed array set
+     * @return handles collect rows
      */
      private static List<Row> collectRows(Map<String, List<Map<String, Object>>> arrays) {
         List<Row> rows = new ArrayList<>();
@@ -360,8 +360,8 @@ public final class Encyclopedia {
 
      /**
      * Parses the rows.
-     * @param rows rows
-     * @return computed value
+     * @param rows row collection
+     * @return parsed the rows
      */
      private static RowParseResult[] parseRows(List<Row> rows) {
         RowParseResult[] parsed = new RowParseResult[rows.size()];
@@ -377,9 +377,9 @@ public final class Encyclopedia {
 
      /**
      * Handles append parsed rows.
-     * @param rows rows
-     * @param parsed parsed
-     * @param tmp tmp
+     * @param rows row collection
+     * @param parsed parsed rows
+     * @param tmp temporary buffer
      */
      private static void appendParsedRows(List<Row> rows, RowParseResult[] parsed, ArrayList<Entry> tmp) {
         tmp.ensureCapacity(rows.size());
@@ -399,8 +399,8 @@ public final class Encyclopedia {
 
      /**
      * Parses the sequential.
-     * @param arrays arrays
-     * @param tmp tmp
+     * @param arrays parsed array set
+     * @param tmp temporary buffer
      */
      private static void parseSequential(Map<String, List<Map<String, Object>>> arrays, ArrayList<Entry> tmp) {
         for (Map.Entry<String, List<Map<String, Object>>> entry : arrays.entrySet()) {
@@ -422,8 +422,8 @@ public final class Encyclopedia {
 
      /**
      * Handles build by position.
-     * @param entries entries
-     * @return computed value
+     * @param entries entry collection
+     * @return handles build by position
      */
      private static Map<Position, Entry> buildByPosition(Entry[] entries) {
         Map<Position, Entry> map = new HashMap<>(entries.length * 2);
@@ -435,8 +435,8 @@ public final class Encyclopedia {
 
      /**
      * Handles build by core signature.
-     * @param entries entries
-     * @return computed value
+     * @param entries entry collection
+     * @return handles build by core signature
      */
      private static Map<Long, Entry> buildByCoreSignature(Entry[] entries) {
         Map<Long, Entry> coreMap = new HashMap<>(entries.length * 2);
@@ -458,8 +458,8 @@ public final class Encyclopedia {
 
      /**
      * Parses the row.
-     * @param row row
-     * @return computed value
+     * @param row row data
+     * @return parsed the row
      */
      private static RowParseResult parseRow(Row row) {
         try {
@@ -471,7 +471,7 @@ public final class Encyclopedia {
 
      /**
      * Handles parallel parse enabled.
-     * @return computed value
+     * @return handles parallel parse enabled
      */
      private static boolean parallelParseEnabled() {
         String prop = System.getProperty(PROP_PARALLEL_PARSE);

@@ -177,6 +177,9 @@ public final class TreeGraphView extends JComponent {
      */
     private final transient Map<String, BufferedImage> boardCache =
             new LinkedHashMap<>(64, 0.75f, true) {
+                /**
+                 * Serialization identifier for Swing compatibility.
+                 */
                 private static final long serialVersionUID = 1L;
 
                 /**
@@ -425,6 +428,7 @@ public final class TreeGraphView extends JComponent {
      * the line you are looking for.
      *
      * @param keys node keys on the target line
+     * @param focus focus point in graph coordinates
      */
     public void setTargetPath(java.util.Set<String> keys, boolean focus) {
         setTargetPath(keys, java.util.Set.of(), focus);
@@ -1371,6 +1375,8 @@ public final class TreeGraphView extends JComponent {
      * @param g graphics context
      * @param node node being drawn
      * @param caption caption rectangle
+     * @param deviceBoard board bounds in device pixels
+     * @param deviceFull full view bounds in device pixels
      */
     private void drawCaption(Graphics2D g, TreeLayout.Node node, Rectangle caption,
             Rectangle deviceBoard, Rectangle deviceFull) {
@@ -1435,7 +1441,7 @@ public final class TreeGraphView extends JComponent {
      * on the board edge reads as a gray border laid over the chessboard.</p>
      *
      * @param g world-space graphics
-     * @param node node
+     * @param node tree node
      */
     private void drawNodeBorder(Graphics2D g, TreeLayout.Node node) {
         Rectangle highlight = nodeBounds(node);
@@ -1458,7 +1464,7 @@ public final class TreeGraphView extends JComponent {
     /**
      * Returns a node's full allocated bounds.
      *
-     * @param node node
+     * @param node tree node
      * @return bounds
      */
     private static Rectangle nodeBounds(TreeLayout.Node node) {
@@ -1552,7 +1558,7 @@ public final class TreeGraphView extends JComponent {
     /**
      * Returns the accent color for a node caption strip.
      *
-     * @param node node
+     * @param node tree node
      * @return accent color
      */
     private static Color accentFor(TreeLayout.Node node) {
@@ -1578,6 +1584,7 @@ public final class TreeGraphView extends JComponent {
      * zoom never thrashes the cache and each position is rendered at most once.
      *
      * @param fen position FEN
+     * @param move encoded chess move
      * @return rendered board tile, or null when the FEN is missing
      */
     private BufferedImage boardImage(String fen, short move) {

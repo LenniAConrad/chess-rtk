@@ -295,7 +295,7 @@ public final class ClassicalView extends JComponent {
      * @param w width
      * @param h height
      * @param value signed normalized value
-     * @param label label
+     * @param label display label
      * @param mid bar midpoint x
      */
     private void drawSignedBar(Graphics2D g, int x, int y, int w, int h,

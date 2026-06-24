@@ -67,32 +67,32 @@ public final class DatasetChart extends JComponent {
      */
     public enum Role {
         /**
-         * Accent/info role.
+         * Default informational series.
          */
         ACCENT,
 
         /**
-         * Success role.
+         * Valid, complete, or otherwise healthy counts.
          */
         SUCCESS,
 
         /**
-         * Warning role.
+         * Recoverable data-quality or coverage issues.
          */
         WARNING,
 
         /**
-         * Error role.
+         * Invalid rows or failed processing outcomes.
          */
         ERROR,
 
         /**
-         * Purple neural-network role.
+         * Neural-network or model-derived series.
          */
         PURPLE,
 
         /**
-         * Muted neutral role.
+         * Baseline or background comparison series.
          */
         NEUTRAL
     }
@@ -402,7 +402,7 @@ public final class DatasetChart extends JComponent {
      * @param max maximum value
      * @param x row x coordinate
      * @param y row y coordinate
-     * @param rowHeight row height
+     * @param rowHeight row height in pixels
      * @param labelWidth label column width
      * @param barX bar x coordinate
      * @param barW available bar width
@@ -419,22 +419,23 @@ public final class DatasetChart extends JComponent {
         g.fillRoundRect(barX, barY, barW, BAR_HEIGHT, Theme.RADIUS, Theme.RADIUS);
         int filled = (int) Math.round((double) bar.value() * (double) barW
                 / (double) Math.max(1L, max) * Ui.easeOutCubic(barRevealProgress));
-        g.setColor(color(bar.role()));
+        g.setColor(roleColor(bar.role()));
         g.fillRoundRect(barX, barY, Math.max(1, Math.min(barW, filled)), BAR_HEIGHT, Theme.RADIUS, Theme.RADIUS);
 
-        String value = format(bar.value());
+        String value = formatCompactValue(bar.value());
         g.setColor(Theme.TEXT);
         g.drawString(value, getWidth() - VALUE_WIDTH + Theme.SPACE_XS, textY);
     }
 
     /**
-     * Returns a themed role color.
+     * Shared palette for all dataset chart variants. A missing role maps to
+     * neutral so optional metrics do not accidentally render as primary accent.
      *
-     * @param role bar role
+     * @param role chart role
      * @return color
      */
-    private static Color color(Role role) {
-        return switch (role) {
+    static Color roleColor(Role role) {
+        return switch (role == null ? Role.NEUTRAL : role) {
             case SUCCESS -> Theme.STATUS_SUCCESS_BORDER;
             case WARNING -> Theme.STATUS_WARNING_BORDER;
             case ERROR -> Theme.STATUS_ERROR_BORDER;
@@ -474,12 +475,13 @@ public final class DatasetChart extends JComponent {
     }
 
     /**
-     * Formats a count for compact chart display.
+     * Shared compact value format for dataset charts. Four-digit counts remain
+     * exact; suffixes start at {@code 10k} to keep small scan sizes readable.
      *
      * @param value count
      * @return formatted count
      */
-    private static String format(long value) {
+    static String formatCompactValue(long value) {
         if (value >= 1_000_000L) {
             return String.format(java.util.Locale.ROOT, "%.1fm", value / 1_000_000.0d);
         }

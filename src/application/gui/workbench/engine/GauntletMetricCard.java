@@ -38,7 +38,7 @@ final class GauntletMetricCard extends JPanel {
     /**
      * Creates a metric card.
      *
-     * @param label label
+     * @param label display label
      */
     GauntletMetricCard(String label) {
         super(new BorderLayout(0, 3));

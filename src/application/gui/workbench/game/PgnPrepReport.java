@@ -56,7 +56,7 @@ public final class PgnPrepReport {
     /**
      * Computes player score.
      *
-     * @param entries entries
+     * @param entries entry collection
      * @param player normalized player
      * @return score
      */
@@ -85,7 +85,7 @@ public final class PgnPrepReport {
     /**
      * Counts results.
      *
-     * @param entries entries
+     * @param entries entry collection
      * @return result counts
      */
     private static Map<String, Integer> resultCounts(List<PgnExplorerModel.Entry> entries) {
@@ -99,7 +99,7 @@ public final class PgnPrepReport {
     /**
      * Counts openings.
      *
-     * @param entries entries
+     * @param entries entry collection
      * @return opening counts
      */
     private static Map<String, Integer> openingCounts(List<PgnExplorerModel.Entry> entries) {
@@ -113,7 +113,7 @@ public final class PgnPrepReport {
     /**
      * Counts ECO codes.
      *
-     * @param entries entries
+     * @param entries entry collection
      * @return ECO counts
      */
     private static Map<String, Integer> ecoCounts(List<PgnExplorerModel.Entry> entries) {
@@ -128,7 +128,7 @@ public final class PgnPrepReport {
      * Appends weak-line candidates for one player.
      *
      * @param out output
-     * @param entries entries
+     * @param entries entry collection
      * @param player normalized player
      */
     private static void appendWeakLines(StringBuilder out, List<PgnExplorerModel.Entry> entries, String player) {
@@ -170,7 +170,7 @@ public final class PgnPrepReport {
      *
      * @param out output
      * @param title section title
-     * @param counts counts
+     * @param counts bucket counts
      * @param limit max rows
      */
     private static void appendCounts(StringBuilder out, String title, Map<String, Integer> counts, int limit) {
@@ -192,8 +192,8 @@ public final class PgnPrepReport {
     /**
      * Adds one count.
      *
-     * @param counts counts
-     * @param key key
+     * @param counts bucket counts
+     * @param key lookup key
      */
     private static void add(Map<String, Integer> counts, String key) {
         counts.merge(key, 1, Integer::sum);
@@ -202,7 +202,7 @@ public final class PgnPrepReport {
     /**
      * Returns a line label.
      *
-     * @param entry entry
+     * @param entry input entry
      * @return line label
      */
     private static String lineKey(PgnExplorerModel.Entry entry) {
@@ -230,7 +230,7 @@ public final class PgnPrepReport {
     /**
      * Formats a score.
      *
-     * @param score score
+     * @param score source score
      * @return text
      */
     private static String formatScore(Score score) {
@@ -264,8 +264,8 @@ public final class PgnPrepReport {
     /**
      * Returns fallback for blank values.
      *
-     * @param value value
-     * @param fallback fallback
+     * @param value candidate value
+     * @param fallback default used when input is absent or invalid
      * @return value or fallback
      */
     private static String blankAs(String value, String fallback) {
@@ -275,10 +275,10 @@ public final class PgnPrepReport {
     /**
      * Player score aggregate.
      *
-     * @param games games
+     * @param games game list
      * @param whiteGames games as White
      * @param blackGames games as Black
-     * @param points points
+     * @param points source points
      */
     private record Score(int games, int whiteGames, int blackGames, double points) {
     }

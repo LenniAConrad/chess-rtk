@@ -175,7 +175,7 @@ public final class RecordSplitCommand {
 	/**
 	 * Opens an output writer for each declared split.
 	 *
-	 * @param outputPrefix output prefix
+	 * @param outputPrefix source output prefix
 	 * @param spec         split spec
 	 * @param outputs      destination map (name → path)
 	 * @param writers      destination map (name → writer)
@@ -205,6 +205,7 @@ public final class RecordSplitCommand {
 	 * @param splitRaw raw split spec string
 	 * @param seed     deterministic seed
 	 * @param strategy group-key strategy
+	 * @param rowHashOutputs row-hash output sinks
 	 * @throws IOException when writing a manifest fails
 	 */
 	private static void writeManifests(Path input, LinkedHashMap<String, Path> outputs,
@@ -277,7 +278,7 @@ public final class RecordSplitCommand {
 	 * Writes the top-level split manifest covering all split outputs.
 	 *
 	 * @param input input record file
-	 * @param outputPrefix output prefix
+	 * @param outputPrefix source output prefix
 	 * @param outputs per-split output map
 	 * @param splitRaw raw split spec string
 	 * @param seed deterministic seed
@@ -327,7 +328,7 @@ public final class RecordSplitCommand {
 	/**
 	 * Computes the top-level split manifest path.
 	 *
-	 * @param outputPrefix output prefix
+	 * @param outputPrefix source output prefix
 	 * @return aggregate manifest path
 	 */
 	private static Path aggregateManifestPath(Path outputPrefix) {
@@ -353,7 +354,7 @@ public final class RecordSplitCommand {
 	 * Renders the agent-consumable JSON summary printed on standard output.
 	 *
 	 * @param input        input record file
-	 * @param outputPrefix output prefix
+	 * @param outputPrefix source output prefix
 	 * @param spec         split spec
 	 * @param totalSeen    total record count seen across the input
 	 * @param counts       per-split record counts

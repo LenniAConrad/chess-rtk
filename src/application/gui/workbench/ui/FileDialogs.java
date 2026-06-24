@@ -103,7 +103,7 @@ public final class FileDialogs {
      * their parent directory.
      *
      * @param chooser chooser to update
-     * @param selectedFile selected file
+     * @param selectedFile source selected file
      */
     private static void applySelectedFile(JFileChooser chooser, File selectedFile) {
         File parent = selectedFile.getParentFile();

@@ -27,7 +27,7 @@ final class UiFormControls {
     /**
      * Creates a muted bold label.
      *
-     * @param text text
+     * @param text text to render or parse
      * @return label
      */
     static JLabel label(String text) {

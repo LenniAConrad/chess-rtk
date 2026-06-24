@@ -28,7 +28,7 @@ public final class MovesModel extends DefaultTableModel {
     /**
      * Replaces rows with the legal moves for a position.
      *
-     * @param position position
+     * @param position chess position
      * @return visible moves
      */
     public short[] setPosition(Position position) {
@@ -81,8 +81,8 @@ public final class MovesModel extends DefaultTableModel {
     /**
      * Returns move flags.
      *
-     * @param position position
-     * @param move move
+     * @param position chess position
+     * @param move encoded chess move
      * @return flags
      */
     private static String moveFlags(Position position, short move) {

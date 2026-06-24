@@ -79,7 +79,7 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
     /**
      * Appends console text on the EDT.
      *
-     * @param text text
+     * @param text text to render or parse
      */
     protected void appendConsole(String text) {
         if (SwingUtilities.isEventDispatchThread()) {
@@ -963,7 +963,7 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
      * Returns a flag value from args.
      *
      * @param args command args
-     * @param flag flag
+     * @param flag boolean flag
      * @return value after flag, or blank
      */
     private static String valueAfter(List<String> args, String flag) {
@@ -1314,7 +1314,7 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
     /**
      * Copies text to clipboard.
      *
-     * @param text text
+     * @param text text to render or parse
      */
     protected void copyText(String text) {
         Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(text == null ? "" : text),
@@ -1325,8 +1325,8 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
     /**
      * Shows a warning in the workbench notification layer.
      *
-     * @param title title
-     * @param message message
+     * @param title display title
+     * @param message diagnostic message
      */
     protected void showWarning(String title, String message) {
         showNotice(Toast.Kind.WARNING, title, message);
@@ -1335,8 +1335,8 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
     /**
      * Shows an error in the workbench notification layer.
      *
-     * @param title title
-     * @param message message
+     * @param title display title
+     * @param message diagnostic message
      */
     protected void showError(String title, String message) {
         showNotice(Toast.Kind.ERROR, title, message);
@@ -1345,7 +1345,7 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
     /**
      * Shows an inline bottom notice without opening a modal dialog.
      *
-     * @param kind severity
+     * @param kind kind label
      * @param title fallback title
      * @param message primary message
      */

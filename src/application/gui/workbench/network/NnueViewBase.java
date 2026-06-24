@@ -481,8 +481,8 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
      * toggles it off so the user can return to the overview. Clicking empty
      * space outside any hit region also clears the current selection.
      *
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      */
     @Override
     protected void onClick(int x, int y) {
@@ -837,11 +837,7 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
      * @return true for White to move or unknown FENs
      */
     protected boolean sideToMoveWhite() {
-        if (fen == null || fen.isBlank()) {
-            return true;
-        }
-        String[] parts = fen.trim().split("\\s+");
-        return parts.length < 2 || !"b".equals(parts[1]);
+        return TensorViz.whiteDownForSideToMove(fen);
     }
 
     /**

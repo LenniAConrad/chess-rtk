@@ -21,7 +21,7 @@ final class PlaceholderPainter {
     /**
      * Paints placeholder copy for an empty text component.
      *
-     * @param graphics graphics
+     * @param graphics graphics context
      * @param component text component
      * @param verticalCenter true to center vertically
      */

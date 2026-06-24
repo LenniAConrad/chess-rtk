@@ -217,7 +217,7 @@ public final class Chess960Command {
 	 * Raises a usage error.
 	 *
 	 * @param message diagnostic text.
-	 * @return fail usage result
+	 * @return fail usage
 	 */
 	private static int failUsage(String message) {
 		throw new IllegalArgumentException(CMD_CHESS960 + ": " + message);

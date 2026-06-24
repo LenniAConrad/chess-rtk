@@ -278,7 +278,7 @@ public class Position implements Comparable<Position> {
     /**
      * Builds a position from a FEN string.
      *
-     * @param fen FEN
+     * @param fen FEN string
      * @return parsed position
      */
     public static Position fromFen(String fen) {
@@ -314,7 +314,7 @@ public class Position implements Comparable<Position> {
      * </p>
      *
      * @param other position to compare
-     * @return comparison result
+     * @return comparison
      * @throws NullPointerException when {@code other} is null
      */
     @Override
@@ -1339,7 +1339,7 @@ public class Position implements Comparable<Position> {
     /**
      * Returns whether any piece stands strictly between two aligned squares.
      *
-     * @param kingFile king file
+     * @param kingFile source king file
      * @param kingRow king rank
      * @param pieceFile candidate piece file
      * @param pieceRow candidate piece rank
@@ -1880,7 +1880,7 @@ public class Position implements Comparable<Position> {
      * Places one piece on a square and updates all cached occupancy data.
      *
      * @param piece piece index
-     * @param square square
+     * @param square square index
      */
     void setPiece(int piece, int square) {
         PositionStateSupport.setPiece(this, piece, square);
@@ -1915,7 +1915,7 @@ public class Position implements Comparable<Position> {
      * Removes one piece from a square and updates all cached occupancy data.
      *
      * @param piece piece index
-     * @param square square
+     * @param square square index
      */
 
     /**

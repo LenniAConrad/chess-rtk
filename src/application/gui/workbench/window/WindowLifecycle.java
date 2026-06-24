@@ -71,6 +71,9 @@ public abstract class WindowLifecycle extends WindowBase {
      */
     protected transient LayoutMenu layoutMenu;
 
+    /**
+     * Listener that mirrors global sound settings into window controls.
+     */
     private final transient Runnable soundSettingsListener = this::syncSoundSettingsControls;
 
     /**
@@ -175,22 +178,34 @@ public abstract class WindowLifecycle extends WindowBase {
      */
     protected static final int MIN_WINDOW_HEIGHT = 700;
 
+    /**
+     * Keyboard shortcuts that navigate to the previous move.
+     */
     private static final KeyStroke[] PREVIOUS_POSITION_KEYS = keyStrokes(
             KeyEvent.VK_LEFT,
             KeyEvent.VK_KP_LEFT,
             KeyEvent.VK_NUMPAD4);
 
+    /**
+     * Keyboard shortcuts that navigate to the next move.
+     */
     private static final KeyStroke[] NEXT_POSITION_KEYS = keyStrokes(
             KeyEvent.VK_RIGHT,
             KeyEvent.VK_KP_RIGHT,
             KeyEvent.VK_NUMPAD6);
 
+    /**
+     * Keyboard shortcuts that jump to the first move.
+     */
     private static final KeyStroke[] FIRST_POSITION_KEYS = keyStrokes(
             KeyEvent.VK_UP,
             KeyEvent.VK_KP_UP,
             KeyEvent.VK_NUMPAD8,
             KeyEvent.VK_HOME);
 
+    /**
+     * Keyboard shortcuts that jump to the last move.
+     */
     private static final KeyStroke[] LAST_POSITION_KEYS = keyStrokes(
             KeyEvent.VK_DOWN,
             KeyEvent.VK_KP_DOWN,
@@ -514,6 +529,9 @@ public abstract class WindowLifecycle extends WindowBase {
         }
     }
 
+    /**
+     * Synchronizes sound settings controls.
+     */
     private void syncSoundSettingsControls() {
         if (settingsMenu != null) {
             settingsMenu.syncMode();
@@ -752,6 +770,9 @@ public abstract class WindowLifecycle extends WindowBase {
         }
     }
 
+    /**
+     * Installs FEN PGN drop target.
+     */
     private void installFenPgnDropTarget() {
         new java.awt.dnd.DropTarget(getRootPane(), java.awt.dnd.DnDConstants.ACTION_COPY,
                 new java.awt.dnd.DropTargetAdapter() {
@@ -779,6 +800,14 @@ public abstract class WindowLifecycle extends WindowBase {
                 }, true);
     }
 
+    /**
+     * Reads the read dropped FEN or PGN.
+     *
+     * @param t normalized interpolation value
+     * @return read dropped FEN or PGN text
+     * @throws java.io.IOException if external I/O or engine communication fails
+     * @throws java.awt.datatransfer.UnsupportedFlavorException if clipboard data has an unsupported flavor
+     */
     private static String readDroppedFenOrPgn(java.awt.datatransfer.Transferable t)
             throws java.io.IOException, java.awt.datatransfer.UnsupportedFlavorException {
         if (t.isDataFlavorSupported(java.awt.datatransfer.DataFlavor.javaFileListFlavor)) {
@@ -799,6 +828,12 @@ public abstract class WindowLifecycle extends WindowBase {
         return null;
     }
 
+    /**
+     * Returns whether supported dropped game file.
+     *
+     * @param path file-system path
+     * @return true when supported dropped game file
+     */
     private static boolean isSupportedDroppedGameFile(java.nio.file.Path path) {
         if (path == null || !java.nio.file.Files.isRegularFile(path) || path.getFileName() == null) {
             return false;
@@ -928,10 +963,18 @@ public abstract class WindowLifecycle extends WindowBase {
         return bar;
     }
 
+    /**
+     * Builds the build notification bell.
+     *
+     * @return build notification bell
+     */
     private JComponent buildNotificationBell() {
         final boolean[] hovered = { false };
         final boolean[] unread = { false };
         JComponent bell = new JComponent() {
+            /**
+             * Serialization identifier for Swing compatibility.
+             */
             private static final long serialVersionUID = 1L;
 
             /**
@@ -1016,6 +1059,11 @@ public abstract class WindowLifecycle extends WindowBase {
         return bell;
     }
 
+    /**
+     * Shows notification history.
+     *
+     * @param anchor text anchor
+     */
     private void showNotificationHistory(JComponent anchor) {
         java.util.List<Toast.Entry> entries = Toast.history();
         javax.swing.JPopupMenu popup = new javax.swing.JPopupMenu();
@@ -1051,9 +1099,20 @@ public abstract class WindowLifecycle extends WindowBase {
         popup.show(anchor, -width + anchor.getWidth(), -popup.getPreferredSize().height);
     }
 
+    /**
+     * Returns the status click cell.
+     *
+     * @param content source content
+     * @param tooltip tooltip text
+     * @param onClick source on click
+     * @return status click cell
+     */
     private JPanel statusClickCell(JComponent content, String tooltip, Runnable onClick) {
         final boolean[] hovered = { false };
         JPanel cell = new JPanel(new BorderLayout()) {
+            /**
+             * Serialization identifier for Swing compatibility.
+             */
             private static final long serialVersionUID = 1L;
 
             /**
@@ -1120,6 +1179,13 @@ public abstract class WindowLifecycle extends WindowBase {
         return cell;
     }
 
+    /**
+     * Installs status cell interaction.
+     *
+     * @param component Swing component
+     * @param tooltip tooltip text
+     * @param listener event listener
+     */
     private static void installStatusCellInteraction(
             java.awt.Component component,
             String tooltip,
@@ -1136,6 +1202,9 @@ public abstract class WindowLifecycle extends WindowBase {
         }
     }
 
+    /**
+     * Copies status bar FEN.
+     */
     private void copyStatusBarFen() {
         if (currentPosition == null) {
             return;
@@ -1143,6 +1212,9 @@ public abstract class WindowLifecycle extends WindowBase {
         copyText(currentPosition.toString());
     }
 
+    /**
+     * Toggles status bar ply jump.
+     */
     private void toggleStatusBarPlyJump() {
         if (isBoardMode(BOARD_SOLVE)) {
             if (puzzlePanel != null) {
@@ -1208,6 +1280,11 @@ public abstract class WindowLifecycle extends WindowBase {
                 + (currentPosition.isWhiteToMove() ? "white to move" : "black to move"));
     }
 
+    /**
+     * Returns the position status label.
+     *
+     * @return position status label text
+     */
     private String positionStatusLabel() {
         int ply = gameModel.currentPly();
         if (ply <= 0) {
@@ -1447,11 +1524,25 @@ public abstract class WindowLifecycle extends WindowBase {
         return out;
     }
 
+    /**
+     * Returns the copy keys.
+     *
+     * @param source source object
+     * @param target target object
+     * @param offset start offset
+     * @return copy keys
+     */
     private static int copyKeys(KeyStroke[] source, KeyStroke[] target, int offset) {
         System.arraycopy(source, 0, target, offset, source.length);
         return offset + source.length;
     }
 
+    /**
+     * Returns the key strokes.
+     *
+     * @param keyCodes source key codes
+     * @return key strokes
+     */
     private static KeyStroke[] keyStrokes(int... keyCodes) {
         KeyStroke[] keys = new KeyStroke[keyCodes.length];
         for (int i = 0; i < keyCodes.length; i++) {
@@ -1763,6 +1854,11 @@ public abstract class WindowLifecycle extends WindowBase {
         selectBoardDetailTab(title);
     }
 
+    /**
+     * Shows analyze card.
+     *
+     * @param card source card
+     */
     private void showAnalyzeCard(String card) {
         if (analysisCards == null || !(analysisCards.getLayout() instanceof CardLayout layout)) {
             return;
@@ -1770,6 +1866,11 @@ public abstract class WindowLifecycle extends WindowBase {
         layout.show(analysisCards, card);
     }
 
+    /**
+     * Selects board detail tab.
+     *
+     * @param title display title
+     */
     private void selectBoardDetailTab(String title) {
         if (boardDetailTabs == null || title == null) {
             return;

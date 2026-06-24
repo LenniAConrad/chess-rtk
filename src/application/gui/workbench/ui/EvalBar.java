@@ -122,7 +122,12 @@ public final class EvalBar extends JComponent {
     /**
      * Current score label.
      */
-    String label = "0.00";
+    String label = "";
+
+    /**
+     * True after a real engine score has arrived.
+     */
+    private boolean hasEvaluation;
 
     /**
      * Animation timer.
@@ -179,6 +184,7 @@ public final class EvalBar extends JComponent {
      * Marks the bar as waiting for engine output.
      */
     public void setThinking() {
+        hasEvaluation = false;
         label = "";
         targetWhiteShare = displayedWhiteShare;
         animationStartedAt = 0L;
@@ -192,6 +198,7 @@ public final class EvalBar extends JComponent {
      * @param message status text
      */
     public void setUnavailable(String message) {
+        hasEvaluation = false;
         label = message == null || message.isBlank() ? "n/a" : message;
         setTargetWhiteShare(0.5);
     }
@@ -202,6 +209,7 @@ public final class EvalBar extends JComponent {
      * @param whiteCentipawns centipawns from White's perspective
      */
     public void setCentipawns(int whiteCentipawns) {
+        hasEvaluation = true;
         label = formatCentipawns(whiteCentipawns);
         setTargetWhiteShare(whiteShareForCentipawns(whiteCentipawns));
     }
@@ -212,6 +220,7 @@ public final class EvalBar extends JComponent {
      * @param whiteMate signed mate distance from White's perspective
      */
     public void setMate(int whiteMate) {
+        hasEvaluation = true;
         // whiteMate == 0 is ambiguous from this signature alone (engines emit
         // "mate 0" to mean "side to move has just been mated"); render the bar
         // centered rather than guessing white wins. Callers that know who got
@@ -234,6 +243,7 @@ public final class EvalBar extends JComponent {
      * @param whiteWasMated true when White is the side that has been mated
      */
     public void setMateDelivered(boolean whiteWasMated) {
+        hasEvaluation = true;
         label = "#0";
         setTargetWhiteShare(whiteShareForCentipawns(whiteWasMated ? -MATE_CP : MATE_CP));
     }
@@ -302,6 +312,10 @@ public final class EvalBar extends JComponent {
             int x = Math.max(0, (getWidth() - w) / 2);
             int y = 0;
             int h = Math.max(MIN_RENDERED_HEIGHT, getHeight());
+            if (!hasEvaluation) {
+                paintInactiveBar(g, x, y, w, h);
+                return;
+            }
             int whiteHeight = (int) Math.round(h * displayedWhiteShare);
             int split = y + h - whiteHeight;
 
@@ -317,6 +331,59 @@ public final class EvalBar extends JComponent {
         } finally {
             g.dispose();
         }
+    }
+
+    /**
+     * Paints the calm waiting/unavailable rail before an engine score exists.
+     *
+     * @param g graphics context
+     * @param x rail x
+     * @param y rail y
+     * @param w rail width
+     * @param h rail height
+     */
+    private void paintInactiveBar(Graphics2D g, int x, int y, int w, int h) {
+        Shape oldClip = g.getClip();
+        clipRect.setRoundRect(x, y, w, h, BAR_ARC, BAR_ARC);
+        g.clip(clipRect);
+        g.setColor(Theme.withAlpha(Theme.MUTED, Theme.isDark() ? 58 : 36));
+        g.fillRect(x, y, w, h);
+        g.setStroke(GUIDE_STROKE);
+        g.setColor(Theme.withAlpha(Theme.EVAL_DIVIDER, Theme.isDark() ? 70 : 54));
+        for (double fraction : GUIDE_FRACTIONS) {
+            int gy = y + (int) Math.round(h * fraction);
+            g.drawLine(x + 1, gy, x + w - 2, gy);
+        }
+        g.setClip(oldClip);
+        g.setStroke(FRAME_STROKE);
+        g.setColor(Theme.EVAL_FRAME);
+        g.drawRoundRect(x, y, w - 1, h - 1, BAR_ARC, BAR_ARC);
+        drawInactiveLabel(g, x, y, w, h);
+    }
+
+    /**
+     * Draws a short inactive status label when it fits.
+     *
+     * @param g graphics context
+     * @param x rail x
+     * @param y rail y
+     * @param w rail width
+     * @param h rail height
+     */
+    private void drawInactiveLabel(Graphics2D g, int x, int y, int w, int h) {
+        String text = compactLabel();
+        if (text.isEmpty() || h < 56) {
+            return;
+        }
+        g.setFont(Theme.font(LABEL_FONT_SIZE, Font.BOLD));
+        FontMetrics metrics = g.getFontMetrics();
+        if (metrics.stringWidth(text) > w - 2) {
+            return;
+        }
+        int textX = x + (w - metrics.stringWidth(text)) / 2;
+        int textY = y + h / 2 + metrics.getAscent() / 2;
+        g.setColor(Theme.MUTED);
+        g.drawString(text, textX, textY);
     }
 
     /**
@@ -380,8 +447,8 @@ public final class EvalBar extends JComponent {
      * Paints the clipped two-color bar fill without a rounded middle seam.
      *
      * @param g graphics context
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      * @param w width
      * @param h height
      * @param split split y coordinate
@@ -401,8 +468,8 @@ public final class EvalBar extends JComponent {
      * Paints evenly-spaced horizontal guide lines across the rail.
      *
      * @param g graphics context
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      * @param w width
      * @param h height
      * @param split animated score split y coordinate
@@ -453,7 +520,7 @@ public final class EvalBar extends JComponent {
     /**
      * Clamps a value.
      *
-     * @param value value
+     * @param value candidate value
      * @param min minimum
      * @param max maximum
      * @return clamped value

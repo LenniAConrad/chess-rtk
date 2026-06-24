@@ -611,7 +611,7 @@ public final class PuzzleLibrary {
      * Reads one PGN tag value from a source block.
      *
      * @param pgnText source PGN block
-     * @param tagName tag name
+     * @param tagName source tag name
      * @return unescaped tag value, or an empty string
      */
     private static String tagValue(String pgnText, String tagName) {
@@ -627,8 +627,8 @@ public final class PuzzleLibrary {
     /**
      * Returns the first non-blank value.
      *
-     * @param preferred preferred value
-     * @param fallback fallback value
+     * @param preferred source preferred
+     * @param fallback default used when input is absent or invalid
      * @return selected value
      */
     private static String firstNonBlank(String preferred, String fallback) {

@@ -47,7 +47,7 @@ final class WorkbenchShotPanels {
     /**
      * Sample arrow color used by the Draw screenshot fixture.
      */
-    private static final Color SAMPLE_ARROW_COLOR = new Color(0x21, 0x9E, 0x3C, 212);
+    private static final Color SAMPLE_ARROW_COLOR = new Color(0x2F, 0x6F, 0x5E, 204);
 
     /**
      * Sample arrow stroke width used by the Draw screenshot fixture.
@@ -153,11 +153,13 @@ final class WorkbenchShotPanels {
             Theme.table(moves, Theme.TABLE_ROW_HEIGHT);
             JPanel rail = new JPanel(new java.awt.BorderLayout(0, Theme.SPACE_MD));
             rail.setOpaque(false);
-            rail.add(playPanel, java.awt.BorderLayout.NORTH);
+            rail.add(Ui.scroll(Ui.fillViewport(playPanel)), java.awt.BorderLayout.CENTER);
             JComponent moveHistory = Ui.titled("Move history", new JScrollPane(moves));
             moveHistory.setOpaque(true);
             moveHistory.setBackground(Theme.BG);
-            rail.add(moveHistory, java.awt.BorderLayout.CENTER);
+            moveHistory.setPreferredSize(new Dimension(RAIL_WIDTH, 220));
+            moveHistory.setMinimumSize(new Dimension(0, 150));
+            rail.add(moveHistory, java.awt.BorderLayout.SOUTH);
             rail.setPreferredSize(new Dimension(RAIL_WIDTH, RAIL_HEIGHT));
 
             return boardSplit(stage, rail);

@@ -307,9 +307,10 @@ public final class RecordPgnExporter {
      * @param badEdges   counter for missing SAN links.
      * @param totalRecords estimated record count for progress reporting
      * @param include    predicate to decide whether to include a record
+     * @param progressFactory factory for progress callbacks
      * @return {@link IndexData} holding map views used by {@link #buildPgnForStart}
      * @throws IOException if the stream fails.
-     * @param totalBytes total bytes value
+     * @param totalBytes source total bytes
      */
     private static IndexData indexRecords(
             Path recordFile,
@@ -1564,7 +1565,7 @@ public final class RecordPgnExporter {
 
         /**
          * Returns the SAN at the current index.
-         * @return current san result
+         * @return sAN at the current index
          */
         private String currentSan() {
             return (sans == null || index >= sans.length) ? "" : sans[index];
@@ -1572,7 +1573,7 @@ public final class RecordPgnExporter {
 
         /**
          * Advances to the next SAN token and returns a new {@code PathOption}.
-         * @return advance result
+         * @return advance
          */
         private PathOption advance() {
             return new PathOption(destSig, sans, index + 1);
@@ -1786,7 +1787,7 @@ public final class RecordPgnExporter {
 
     /**
      * Streams JSON objects and reports cumulative bytes read.
-     * @param recordFile record file value
+     * @param recordFile source record file
      * @param consumer result consumer
      * @param byteProgress progress byte value
      * @throws java.io.IOException if IOException is raised by the underlying operation
@@ -1838,10 +1839,10 @@ public final class RecordPgnExporter {
     }
 
      /**
-     * Handles file size.
-     * @param recordFile record file
-     * @return computed value
-     */
+      * Handles file size.
+      * @param recordFile source record file
+      * @return handles file size
+      */
      private static long fileSize(Path recordFile) {
         try {
             return recordFile == null ? 0L : Files.size(recordFile);

@@ -975,7 +975,7 @@ public final class Network implements AutoCloseable {
          *
          * @param weights       parsed weights
          * @param encodedInput  classifier planes
-         * @return inference result
+         * @return inference
          */
         static Prediction evaluate(Weights weights, float[] encodedInput) {
             Workspace workspace = WORKSPACE.get();

@@ -34,6 +34,19 @@ public record MarkupBrush(String name, Color color, Color borderColor, int lineW
     public static final String DEFAULT_GLYPH = "!!";
 
     /**
+     * Standard annotation opacity for built-in brushes.
+     */
+    private static final int PRESET_ALPHA = 204;
+
+    /**
+     * Built-in annotation palette tuned for board readability without neon hues.
+     */
+    private static final int GREEN_RGB = 0x2F6F5E,
+            RED_RGB = 0xA34843,
+            BLUE_RGB = 0x2F5F8F,
+            AMBER_RGB = 0xA36F2A;
+
+    /**
      * Chess annotation glyphs exposed in the Draw rail.
      */
     private static final List<String> GLYPHS = List.of(
@@ -48,16 +61,16 @@ public record MarkupBrush(String name, Color color, Color borderColor, int lineW
     /**
      * Immutable built-in annotation brushes in display order.
      *
-     * <p>These saturated, semi-transparent overlays read cleanly as bold
-     * arrows/circles over the wood board. They are fixed colors rather than
-     * theme-resolved tokens, so an annotation's color stays stable in light and
-     * dark themes.</p>
+     * <p>These muted, semi-transparent overlays read cleanly over the wood
+     * board without looking like status badges. They are fixed colors rather
+     * than theme-resolved tokens, so an annotation's color stays stable in light
+     * and dark themes.</p>
      */
     private static final List<MarkupBrush> PRESET_BRUSHES = List.of(
-            named("green", new Color(0x21, 0x9E, 0x3C, 212)),
-            named("red", new Color(0xCB, 0x37, 0x37, 212)),
-            named("blue", new Color(0x30, 0x72, 0xE0, 212)),
-            named("yellow", new Color(0xE8, 0x9B, 0x16, 212))
+            named("green", presetColor(GREEN_RGB)),
+            named("red", presetColor(RED_RGB)),
+            named("blue", presetColor(BLUE_RGB)),
+            named("yellow", presetColor(AMBER_RGB))
     );
 
     /**
@@ -65,7 +78,7 @@ public record MarkupBrush(String name, Color color, Color borderColor, int lineW
      *
      * @param name brush name
      * @param color fill color
-     * @param lineWidth line width
+     * @param lineWidth stroke width in pixels
      */
     public MarkupBrush(String name, Color color, int lineWidth) {
         this(name, color, automaticBorder(color), lineWidth, DEFAULT_BORDER_WIDTH, DEFAULT_GLYPH, false);
@@ -77,7 +90,7 @@ public record MarkupBrush(String name, Color color, Color borderColor, int lineW
      * @param name brush name
      * @param color fill color
      * @param borderColor outline color
-     * @param lineWidth line width
+     * @param lineWidth stroke width in pixels
      * @param borderWidth outline width
      * @param glyph chess annotation glyph
      */
@@ -87,10 +100,18 @@ public record MarkupBrush(String name, Color color, Color borderColor, int lineW
 
     /**
      * Normalizes brush state.
+     *
+     * @param name display name
+     * @param color display color or side color
+     * @param borderColor outline color
+     * @param lineWidth stroke width
+     * @param borderWidth outline stroke width
+     * @param glyph optional marker glyph
+     * @param roundedRectangle whether the brush draws rounded rectangles
      */
     public MarkupBrush {
         name = name == null || name.isBlank() ? CUSTOM_NAME : name;
-        color = color == null ? new Color(0x21, 0x9E, 0x3C, 212) : color;
+        color = color == null ? presetColor(GREEN_RGB) : color;
         borderColor = borderColor == null ? automaticBorder(color) : borderColor;
         lineWidth = Math.max(1, lineWidth);
         borderWidth = Math.max(0, borderWidth);
@@ -181,7 +202,7 @@ public record MarkupBrush(String name, Color color, Color borderColor, int lineW
      *
      * @param color fill color
      * @param borderColor outline color
-     * @param lineWidth line width
+     * @param lineWidth stroke width in pixels
      * @param glyph chess annotation glyph
      * @return custom annotation brush
      */
@@ -194,7 +215,7 @@ public record MarkupBrush(String name, Color color, Color borderColor, int lineW
      *
      * @param color fill color
      * @param borderColor outline color
-     * @param lineWidth line width
+     * @param lineWidth stroke width in pixels
      * @param borderWidth outline width
      * @param glyph chess annotation glyph
      * @return custom annotation brush
@@ -208,7 +229,7 @@ public record MarkupBrush(String name, Color color, Color borderColor, int lineW
      *
      * @param color fill color
      * @param borderColor outline color
-     * @param lineWidth line width
+     * @param lineWidth stroke width in pixels
      * @param borderWidth outline width
      * @param glyph chess annotation glyph
      * @param roundedRectangle true for rounded rectangle corners
@@ -296,9 +317,19 @@ public record MarkupBrush(String name, Color color, Color borderColor, int lineW
     }
 
     /**
+     * Creates one built-in brush color with the shared annotation opacity.
+     *
+     * @param rgb opaque RGB value
+     * @return semi-transparent preset color
+     */
+    private static Color presetColor(int rgb) {
+        return new Color((rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff, PRESET_ALPHA);
+    }
+
+    /**
      * Returns the preset for a built-in brush name.
      *
-     * @param brushName brush name
+     * @param brushName source brush name
      * @return preset, or null when the brush is custom
      */
     private static MarkupBrush presetNamed(String brushName) {

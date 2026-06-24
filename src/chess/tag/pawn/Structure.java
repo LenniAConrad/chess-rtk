@@ -357,8 +357,8 @@ public final class Structure {
 
          /**
          * Handles equals.
-         * @param obj obj
-         * @return computed value
+         * @param obj object to compare
+         * @return handles equals
          */
          @Override
         public boolean equals(Object obj) {
@@ -375,7 +375,7 @@ public final class Structure {
 
          /**
          * Handles hash code.
-         * @return computed value
+         * @return handles hash code
          */
          @Override
         public int hashCode() {
@@ -388,7 +388,7 @@ public final class Structure {
 
          /**
          * Converts this value to string.
-         * @return computed value
+         * @return converted this value to string
          */
          @Override
         public String toString() {

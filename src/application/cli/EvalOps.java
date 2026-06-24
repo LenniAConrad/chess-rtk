@@ -15,7 +15,7 @@ import static application.cli.Format.formatWdl;
 
 /**
  * Evaluation helpers for the CLI.
- * 
+ *
  * @since 2025
  * @author Lennart A. Conrad
  */
@@ -64,13 +64,13 @@ public final class EvalOps {
 	/**
 	 * Evaluates a list of FEN strings using the classical backend with optional
 	 * per-entry progress.
-	 * @param fens fens value
-	 * @param terminalAware terminal aware value
-	 * @param includeFen include fen value
-	 * @param verbose verbose value
+	 * @param fens FEN strings
+	 * @param terminalAware whether terminal formatting should be detected
+	 * @param includeFen whether to include FEN text
+	 * @param verbose whether verbose output is enabled
 	 * @param cmdLabel command label
-	 * @param progress progress value
-	 * @return eval classical entries result
+	 * @param progress progress callback
+	 * @return eval classical entries
 	 */
 	public static boolean evalClassicalEntries(
 			List<String> fens,
@@ -124,14 +124,14 @@ public final class EvalOps {
 	/**
 	 * Evaluates a list of FEN strings using an {@link Evaluator} with optional
 	 * per-entry progress.
-	 * @param fens fens value
-	 * @param evaluator evaluator value
-	 * @param lc0Only lc0 only value
-	 * @param includeFen include fen value
-	 * @param verbose verbose value
+	 * @param fens FEN strings
+	 * @param evaluator position evaluator
+	 * @param lc0Only source lc0 only
+	 * @param includeFen whether to include FEN text
+	 * @param verbose whether verbose output is enabled
 	 * @param cmdLabel command label
-	 * @param progress progress value
-	 * @return eval evaluator entries result
+	 * @param progress progress callback
+	 * @return eval evaluator entries
 	 */
 	public static boolean evalEvaluatorEntries(
 			List<String> fens,
@@ -213,7 +213,7 @@ public final class EvalOps {
 
 	/**
 	 * Handles advance.
-	 * @param progress progress
+	 * @param progress progress callback
 	 */
 	private static void advance(Runnable progress) {
 		if (progress != null) {

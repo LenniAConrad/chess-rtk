@@ -185,8 +185,8 @@ final class WorkbenchTestSupport {
      * Paints a component into an ARGB image.
      *
      * @param component component to paint
-     * @param width width
-     * @param height height
+     * @param width width in pixels
+     * @param height height in pixels
      * @return painted image
      */
     static BufferedImage paint(Component component, int width, int height) {
@@ -202,12 +202,12 @@ final class WorkbenchTestSupport {
 
     /**
      * Sums alpha values over a rectangular image region.
-     * @param image image value
+     * @param image rendered image
      * @param x x coordinate
      * @param y y coordinate
      * @param width width in pixels
      * @param height height in pixels
-     * @return alpha sum result
+     * @return alpha sum
      */
     static int alphaSum(BufferedImage image, int x, int y, int width, int height) {
         int sum = 0;
@@ -222,7 +222,7 @@ final class WorkbenchTestSupport {
     /**
      * Returns the highest alpha value painted into an image.
      *
-     * @param image image value
+     * @param image rendered image
      * @return maximum alpha channel value
      */
     static int maxAlpha(BufferedImage image) {
@@ -318,8 +318,8 @@ final class WorkbenchTestSupport {
      * Paints a component and verifies the top-left pixel was cleared opaquely.
      *
      * @param component component to paint
-     * @param width width
-     * @param height height
+     * @param width width in pixels
+     * @param height height in pixels
      * @param label assertion label
      */
     static void assertPaintsOpaqueCorner(JComponent component, int width, int height, String label) {
@@ -528,7 +528,7 @@ final class WorkbenchTestSupport {
      * Returns whether an argument list contains a flag.
      *
      * @param args argument list
-     * @param flag flag
+     * @param flag boolean flag
      * @return true when present
      */
     static boolean hasFlag(List<String> args, String flag) {
@@ -539,7 +539,7 @@ final class WorkbenchTestSupport {
      * Returns the token immediately after a flag in an argument list.
      *
      * @param args argument list
-     * @param flag flag
+     * @param flag boolean flag
      * @return following value, or empty string
      */
     static String valueAfterFlag(List<String> args, String flag) {
@@ -676,11 +676,11 @@ final class WorkbenchTestSupport {
     /**
      * Creates a workbench template context.
      *
-     * @param fen FEN
-     * @param duration duration
-     * @param depth depth
-     * @param multipv MultiPV
-     * @param threads threads
+     * @param fen FEN string
+     * @param duration source duration
+     * @param depth search depth
+     * @param multipv requested MultiPV count
+     * @param threads worker thread count
      * @return template context
      */
     static Object templateContext(String fen, String duration, String depth, String multipv, String threads) {
@@ -690,11 +690,11 @@ final class WorkbenchTestSupport {
     /**
      * Creates a workbench template context.
      *
-     * @param fen FEN
-     * @param duration duration
-     * @param depth depth
-     * @param multipv MultiPV
-     * @param threads threads
+     * @param fen FEN string
+     * @param duration source duration
+     * @param depth search depth
+     * @param multipv requested MultiPV count
+     * @param threads worker thread count
      * @param protocolPath engine protocol path
      * @param nodes node budget
      * @param hash hash MB
@@ -753,7 +753,7 @@ final class WorkbenchTestSupport {
     /**
      * Formats a centipawn value through the workbench eval bar.
      *
-     * @param centipawns centipawns
+     * @param centipawns centipawn score
      * @return formatted score
      */
     static String formatCentipawns(int centipawns) {
@@ -764,7 +764,7 @@ final class WorkbenchTestSupport {
     /**
      * Maps centipawns to white's bar share through the workbench eval bar.
      *
-     * @param centipawns centipawns
+     * @param centipawns centipawn score
      * @return white share
      */
     static double whiteShareForCentipawns(int centipawns) {
@@ -796,7 +796,7 @@ final class WorkbenchTestSupport {
     /**
      * Finds the first line color in a Swing border tree.
      *
-     * @param border border
+     * @param border border color
      * @return first line color, or null when no line color exists
      */
     static Color firstBorderColor(Border border) {
@@ -839,7 +839,7 @@ final class WorkbenchTestSupport {
     /**
      * Constructs a package-private workbench type.
      *
-     * @param type type
+     * @param type type discriminator
      * @param parameterTypes constructor parameter types
      * @param args constructor arguments
      * @return instance
@@ -862,9 +862,9 @@ final class WorkbenchTestSupport {
      *
      * @param owner declaring type
      * @param name method name
-     * @param parameterTypes parameter types
+     * @param parameterTypes source parameter types
      * @param args method arguments
-     * @return method result
+     * @return reflected method
      */
     static Object invokeStatic(Class<?> owner, String name, Class<?>[] parameterTypes, Object... args) {
         return invokeMethod(null, owner, name, parameterTypes, args);
@@ -875,9 +875,9 @@ final class WorkbenchTestSupport {
      *
      * @param target target instance
      * @param name method name
-     * @param parameterTypes parameter types
+     * @param parameterTypes source parameter types
      * @param args method arguments
-     * @return method result
+     * @return reflected method
      */
     static Object invoke(Object target, String name, Class<?>[] parameterTypes, Object... args) {
         return invokeMethod(target, target.getClass(), name, parameterTypes, args);
@@ -889,9 +889,9 @@ final class WorkbenchTestSupport {
      * @param owner declaring type
      * @param target target instance
      * @param name method name
-     * @param parameterTypes parameter types
+     * @param parameterTypes source parameter types
      * @param args method arguments
-     * @return method result
+     * @return reflected method
      */
     static Object invokeOn(
             Class<?> owner,
@@ -992,9 +992,9 @@ final class WorkbenchTestSupport {
      * @param target target instance or null for static methods
      * @param owner declaring type
      * @param name method name
-     * @param parameterTypes parameter types
+     * @param parameterTypes source parameter types
      * @param args method arguments
-     * @return method result
+     * @return reflected method
      */
     static Object invokeMethod(
             Object target,
@@ -1033,7 +1033,7 @@ final class WorkbenchTestSupport {
     /**
      * Verifies a condition is true.
      *
-     * @param condition condition
+     * @param condition wait condition
      * @param label assertion label
      */
     static void assertTrue(boolean condition, String label) {
@@ -1045,7 +1045,7 @@ final class WorkbenchTestSupport {
     /**
      * Verifies a condition is false.
      *
-     * @param condition condition
+     * @param condition wait condition
      * @param label assertion label
      */
     static void assertFalse(boolean condition, String label) {
@@ -1057,8 +1057,8 @@ final class WorkbenchTestSupport {
     /**
      * Verifies floating-point closeness.
      *
-     * @param expected expected value
-     * @param actual actual value
+     * @param expected expected test value
+     * @param actual actual test value
      * @param tolerance accepted absolute tolerance
      * @param label assertion label
      */
@@ -1134,7 +1134,7 @@ final class WorkbenchTestSupport {
     /**
      * Calculates relative luminance for an sRGB color.
      *
-     * @param color color
+     * @param color display color
      * @return relative luminance
      */
     static double relativeLuminance(Color color) {
@@ -1201,7 +1201,7 @@ final class WorkbenchTestSupport {
     /**
      * Returns a compact RGB color label.
      *
-     * @param color color
+     * @param color display color
      * @return RGB label
      */
     static String colorText(Color color) {
@@ -1211,8 +1211,8 @@ final class WorkbenchTestSupport {
     /**
      * Verifies object equality.
      *
-     * @param expected expected value
-     * @param actual actual value
+     * @param expected expected test value
+     * @param actual actual test value
      * @param label assertion label
      */
     static void assertEquals(Object expected, Object actual, String label) {

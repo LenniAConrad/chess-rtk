@@ -32,24 +32,50 @@ final class TreeTargetTracker {
      */
     private long foundVisits;
 
+    /**
+     * Parses the parse.
+     *
+     * @param nextRootFen FEN string for next root
+     * @param text text to render or parse
+     */
     void parse(String nextRootFen, String text) {
         rootFen = nextRootFen;
         moves = parseLine(nextRootFen, text);
     }
 
+    /**
+     * Clears target-found timing and visit counters.
+     */
     void resetTracking() {
         foundMillis = -1L;
         foundVisits = 0L;
     }
 
+    /**
+     * Returns the target move path being tracked.
+     *
+     * @return encoded moves from root to target
+     */
     short[] moves() {
         return moves;
     }
 
+    /**
+     * Returns whether a non-empty target path is configured.
+     *
+     * @return true when at least one move is tracked
+     */
     boolean hasMoves() {
         return moves.length > 0;
     }
 
+    /**
+     * Refreshes the update status.
+     *
+     * @param snapshot captured snapshot
+     * @param text text to render or parse
+     * @return update status text
+     */
     String updateStatus(MctsSession.Snapshot snapshot, String text) {
         if (snapshot != null && !Objects.equals(snapshot.rootFen(), rootFen)) {
             parse(snapshot.rootFen(), text);
@@ -76,6 +102,13 @@ final class TreeTargetTracker {
         return "searching · " + pv;
     }
 
+    /**
+     * Parses the parse line.
+     *
+     * @param rootFen source root fen
+     * @param text text to render or parse
+     * @return parse line
+     */
     private static short[] parseLine(String rootFen, String text) {
         if (rootFen == null || rootFen.isBlank() || text == null || text.isBlank()) {
             return new short[0];
@@ -109,6 +142,13 @@ final class TreeTargetTracker {
         return out;
     }
 
+    /**
+     * Parses the parse UCI.
+     *
+     * @param pos chess position
+     * @param token input token
+     * @return parse UCI
+     */
     private static short parseUci(Position pos, String token) {
         if (!Move.isMove(token)) {
             return Move.NO_MOVE;
@@ -123,6 +163,13 @@ final class TreeTargetTracker {
         return Move.NO_MOVE;
     }
 
+    /**
+     * Returns the common prefix.
+     *
+     * @param a first value
+     * @param b second value
+     * @return common prefix
+     */
     private static int commonPrefix(short[] a, short[] b) {
         if (a == null) {
             return 0;

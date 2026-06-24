@@ -139,7 +139,7 @@ final class AttackInfo {
      * @param pos current position
      * @param white side to scan
      * @param occupancy occupied-square mask
-     * @param enemyPawnAttacks enemy pawn attacks
+     * @param enemyPawnAttacks source enemy pawn attacks
      */
     private void scanSide(Position pos, boolean white, long occupancy, long enemyPawnAttacks) {
         int side = sideIndex(white);

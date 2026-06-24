@@ -104,9 +104,9 @@ public final class StatsCommand {
 
 	/**
 	 * Handles file progress bar.
-	 * @param input input
-	 * @param label label
-	 * @return computed value
+	 * @param input input path or text
+	 * @param label display label
+	 * @return handles file progress bar
 	 */
 	private static Bar fileProgressBar(Path input, String label) {
 		try {
@@ -119,7 +119,7 @@ public final class StatsCommand {
 
 	/**
 	 * Handles finish progress.
-	 * @param bar bar
+	 * @param bar progress bar
 	 */
 	private static void finishProgress(Bar bar) {
 		if (bar != null) {

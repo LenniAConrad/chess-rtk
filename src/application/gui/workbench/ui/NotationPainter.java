@@ -414,7 +414,7 @@ public final class NotationPainter {
      *
      * @param metrics font metrics
      * @param baseline text baseline
-     * @param iconSize icon size
+     * @param iconSize source icon size
      * @return icon y coordinate
      */
     private static int iconY(FontMetrics metrics, int baseline, int iconSize) {

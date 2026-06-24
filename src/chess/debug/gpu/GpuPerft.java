@@ -208,7 +208,7 @@ public final class GpuPerft {
      * @param depth total perft depth
      * @param splitDepth CPU expansion depth measured from the root
      * @param detailed true to return capture/check/etc counters, false for node-only
-     * @return timed divide result
+     * @return timed divide
      */
     public static Perft.DivideResult divide(Position root, int depth, int splitDepth, boolean detailed) {
         if (depth < 0) {

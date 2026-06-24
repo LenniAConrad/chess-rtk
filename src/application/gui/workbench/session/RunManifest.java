@@ -1,5 +1,27 @@
 package application.gui.workbench.session;
 
+import static application.cli.Constants.OPT_COVER_OUTPUT;
+import static application.cli.Constants.OPT_DEPTH;
+import static application.cli.Constants.OPT_FEN;
+import static application.cli.Constants.OPT_HASH;
+import static application.cli.Constants.OPT_INPUT;
+import static application.cli.Constants.OPT_INPUT_SHORT;
+import static application.cli.Constants.OPT_ITERATIONS;
+import static application.cli.Constants.OPT_MAX_DURATION;
+import static application.cli.Constants.OPT_MAX_NODES;
+import static application.cli.Constants.OPT_MULTIPV;
+import static application.cli.Constants.OPT_NODES;
+import static application.cli.Constants.OPT_OUTPUT;
+import static application.cli.Constants.OPT_OUTPUT_DIR;
+import static application.cli.Constants.OPT_OUTPUT_SHORT;
+import static application.cli.Constants.OPT_PDF;
+import static application.cli.Constants.OPT_PDF_OUTPUT;
+import static application.cli.Constants.OPT_PGN;
+import static application.cli.Constants.OPT_PROTOCOL_PATH;
+import static application.cli.Constants.OPT_SUITE;
+import static application.cli.Constants.OPT_THREADS;
+import static application.cli.Constants.OPT_WEIGHTS;
+
 import application.cli.PathOps;
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,26 +59,26 @@ public final class RunManifest {
      * Command options whose following token names an input/config file.
      */
     private static final List<String> INPUT_PATH_FLAGS = List.of(
-            "--input", "-i", "--pgn", "--suite", "--protocol-path", "--weights", "--pdf");
+            OPT_INPUT, OPT_INPUT_SHORT, OPT_PGN, OPT_SUITE, OPT_PROTOCOL_PATH, OPT_WEIGHTS, OPT_PDF);
 
     /**
      * Command options whose following token names an output path.
      */
     private static final List<String> OUTPUT_PATH_FLAGS = List.of(
-            "--output", "-o", "--output-dir", "--pdf-output", "--cover-output");
+            OPT_OUTPUT, OPT_OUTPUT_SHORT, OPT_OUTPUT_DIR, OPT_PDF_OUTPUT, OPT_COVER_OUTPUT);
 
     /**
      * Command options worth lifting into a compact "limits" object.
      */
     private static final List<String> LIMIT_FLAGS = List.of(
-            "--depth", "--nodes", "--max-nodes", "--max-duration", "--duration",
-            "--threads", "--hash", "--multipv", "--iterations");
+            OPT_DEPTH, OPT_NODES, OPT_MAX_NODES, OPT_MAX_DURATION, "--duration",
+            OPT_THREADS, OPT_HASH, OPT_MULTIPV, OPT_ITERATIONS);
 
     /**
      * Command options worth lifting into a compact "engine" object.
      */
     private static final List<String> ENGINE_FLAGS = List.of(
-            "--protocol-path", "--threads", "--hash");
+            OPT_PROTOCOL_PATH, OPT_THREADS, OPT_HASH);
 
     /**
      * Maximum captured-output preview stored in the manifest.
@@ -82,7 +104,7 @@ public final class RunManifest {
      */
     public static Path write(Job job, List<Path> artifacts, String stdin,
             Path workingDirectory) throws IOException {
-    return write(DEFAULT_DIR, job, artifacts, stdin, workingDirectory);
+        return write(DEFAULT_DIR, job, artifacts, stdin, workingDirectory);
     }
 
     /**
@@ -99,7 +121,7 @@ public final class RunManifest {
     public static Path write(Path directory, Job job, List<Path> artifacts, String stdin,
             Path workingDirectory) throws IOException {
         if (job == null) {
-    throw new IllegalArgumentException("job is required");
+            throw new IllegalArgumentException("job is required");
         }
         Path dir = directory == null ? DEFAULT_DIR : directory;
         return SessionFiles.writeString(dir, fileName(job),
@@ -109,7 +131,7 @@ public final class RunManifest {
     /**
      * Builds a stable manifest filename.
      *
-     * @param job job
+     * @param job source job
      * @return filename
      */
     private static String fileName(Job job) {
@@ -120,7 +142,7 @@ public final class RunManifest {
     /**
      * Serializes one manifest.
      *
-     * @param job job
+     * @param job source job
      * @param artifacts detected output artifacts
      * @param stdin optional stdin payload
      * @param workingDirectory process working directory
@@ -131,7 +153,7 @@ public final class RunManifest {
         List<Path> outputPaths = artifacts == null ? List.of() : List.copyOf(artifacts);
         Map<String, String> limits = optionMap(job.args(), LIMIT_FLAGS);
         Map<String, String> engine = optionMap(job.args(), ENGINE_FLAGS);
-        String fen = optionValue(job.args(), "--fen");
+        String fen = optionValue(job.args(), OPT_FEN);
 
         StringBuilder sb = new StringBuilder(4096);
         sb.append("{\n");
@@ -375,7 +397,7 @@ public final class RunManifest {
     /**
      * Returns a normalized path string.
      *
-     * @param path path
+     * @param path file-system path
      * @return absolute path string
      */
     private static String normalize(Path path) {
@@ -396,7 +418,7 @@ public final class RunManifest {
     /**
      * Returns UTF-8 byte count.
      *
-     * @param text text
+     * @param text text to render or parse
      * @return byte count
      */
     private static int bytes(String text) {
@@ -490,7 +512,7 @@ public final class RunManifest {
      *
      * @param sb destination
      * @param name field name
-     * @param rawJson raw JSON value
+     * @param rawJson raw JSON text
      * @param comma whether to append a trailing comma
      */
     private static void rawField(StringBuilder sb, String name, String rawJson, boolean comma) {
@@ -518,7 +540,7 @@ public final class RunManifest {
      *
      * @param sb destination
      * @param name field name
-     * @param rawJson raw JSON value
+     * @param rawJson raw JSON text
      * @param comma whether to append comma
      */
     private static void inlineRawField(StringBuilder sb, String name, String rawJson, boolean comma) {
@@ -531,7 +553,7 @@ public final class RunManifest {
     /**
      * Quotes one JSON string.
      *
-     * @param value value
+     * @param value candidate value
      * @return quoted JSON string
      */
     private static String quote(String value) {
@@ -542,7 +564,7 @@ public final class RunManifest {
      * Path entry metadata.
      *
      * @param kind path kind or source flag
-     * @param path path
+     * @param path file-system path
      */
     private record PathEntry(String kind, Path path) {
     }

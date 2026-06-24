@@ -1252,7 +1252,7 @@ public final class GenFensCommand {
 	 * Validates a range endpoint.
 	 *
 	 * @param opt option name
-	 * @param value value
+	 * @param value candidate value
 	 * @param minAllowed minimum legal value
 	 * @param maxAllowed maximum legal value
 	 */
@@ -1316,7 +1316,7 @@ public final class GenFensCommand {
 	/**
 	 * Tests whether any range is active.
 	 *
-	 * @param ranges ranges
+	 * @param ranges range list
 	 * @return true when at least one constrains values
 	 */
 	private static boolean anyActive(IntRange... ranges) {
@@ -1420,7 +1420,7 @@ public final class GenFensCommand {
 	 *
 	 * @param parts destination list
 	 * @param active whether active
-	 * @param label label
+	 * @param label display label
 	 */
 	private static void addFlag(List<String> parts, boolean active, String label) {
 		if (active) {
@@ -1432,8 +1432,8 @@ public final class GenFensCommand {
 	 * Appends a range description when active.
 	 *
 	 * @param parts destination list
-	 * @param range range
-	 * @param label label
+	 * @param range numeric range
+	 * @param label display label
 	 */
 	private static void addRange(List<String> parts, IntRange range, String label) {
 		String description = range.describe(label);

@@ -314,7 +314,7 @@ public final class BoardExporter {
      * @param g graphics context
      * @param board board rectangle
      * @param arrows arrow painter
-     * @param markup markup
+     * @param markup board markup
      */
     private static void paintRasterMarkup(BoardExportSnapshot snapshot, Graphics2D g, Rectangle board,
             BoardArrowPainter arrows, BoardMarkup markup) {
@@ -469,6 +469,7 @@ public final class BoardExporter {
      *
      * @param svg destination builder
      * @param board board rectangle
+     * @param snapshot board export snapshot
      */
     private static void appendSquares(BoardExportSnapshot snapshot, StringBuilder svg, Rectangle board) {
         svg.append("  <g shape-rendering=\"crispEdges\">\n");
@@ -680,7 +681,7 @@ public final class BoardExporter {
      * @param svg destination builder
      * @param from origin point
      * @param to target point
-     * @param lineWidth line width
+     * @param lineWidth stroke width in pixels
      * @param gap distance to pull BOTH endpoints inward by (a quarter square), so
      *     the arrow keeps a clear gap from the start and target piece centres
      * @param color fill color
@@ -696,7 +697,7 @@ public final class BoardExporter {
      * @param svg destination builder
      * @param from origin point
      * @param to target point
-     * @param lineWidth line width
+     * @param lineWidth stroke width in pixels
      * @param gap endpoint gap
      * @param color fill color
      * @param borderColor border color, or null
@@ -712,11 +713,11 @@ public final class BoardExporter {
      * @param svg destination builder
      * @param from origin point
      * @param to target point
-     * @param lineWidth line width
+     * @param lineWidth stroke width in pixels
      * @param gap endpoint gap
      * @param color fill color
      * @param borderColor border color, or null
-     * @param borderWidth border width
+     * @param borderWidth source border width
      */
     private static void appendArrow(StringBuilder svg, Point from, Point to,
             double lineWidth, double gap, Color color, Color borderColor, double borderWidth) {
@@ -995,6 +996,7 @@ public final class BoardExporter {
      * @param svg destination builder
      * @param board board rectangle
      * @param whiteDown board orientation
+     * @param snapshot board export snapshot
      */
     private static void appendCoordinates(BoardExportSnapshot snapshot, StringBuilder svg, Rectangle board,
             boolean whiteDown) {
@@ -1067,7 +1069,7 @@ public final class BoardExporter {
      * @param width rectangle width
      * @param height rectangle height
      * @param color stroke color
-     * @param strokeWidth stroke width
+     * @param strokeWidth source stroke width
      */
     private static void appendRectStroke(StringBuilder svg, double x, double y, double width, double height,
             Color color, double strokeWidth) {
@@ -1145,7 +1147,7 @@ public final class BoardExporter {
     /**
      * Returns a proportional export border width.
      *
-     * @param boardSize board size
+     * @param boardSize source board size
      * @return border width
      */
     private static int borderWidth(int boardSize) {
@@ -1157,6 +1159,8 @@ public final class BoardExporter {
      *
      * @param row visual row
      * @param col visual column
+     * @param light light-square color
+     * @param dark dark-square color
      * @return coordinate text color
      */
     private static Color coordinateColor(int row, int col, Color light, Color dark) {
@@ -1166,7 +1170,7 @@ public final class BoardExporter {
     /**
      * Converts a color to a CSS hex string.
      *
-     * @param color color value
+     * @param color display color
      * @return CSS hex color
      */
     private static String colorCss(Color color) {

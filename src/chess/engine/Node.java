@@ -63,10 +63,10 @@ final class Node {
      * @param parent parent node
      * @param move move encoded in CRTK move format
      * @param position chess position
-     * @param prior prior value
+     * @param prior policy prior
      * @param depth search depth
      * @param key lookup key
-     * @param coreKey core key value
+     * @param coreKey source core key
      * @param stats statistics data
      */
     Node(
@@ -90,7 +90,7 @@ final class Node {
 
     /**
      * Q.
-     * @return q result
+     * @return q
      */
     double q() {
         return stats.q();
@@ -98,7 +98,7 @@ final class Node {
 
     /**
      * Visits.
-     * @return visits result
+     * @return visits
      */
     int visits() {
         return stats.visits;

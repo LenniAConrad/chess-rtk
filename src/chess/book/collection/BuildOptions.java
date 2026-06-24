@@ -108,7 +108,7 @@ public final class BuildOptions {
 	/**
 	 * Sets the title.
 	 *
-	 * @param title title
+	 * @param title display title
 	 * @return this options object
 	 */
 	public BuildOptions setTitle(String title) {
@@ -128,7 +128,7 @@ public final class BuildOptions {
 	/**
 	 * Sets the subtitle.
 	 *
-	 * @param subtitle subtitle
+	 * @param subtitle display subtitle
 	 * @return this options object
 	 */
 	public BuildOptions setSubtitle(String subtitle) {
@@ -148,7 +148,7 @@ public final class BuildOptions {
 	/**
 	 * Sets the author.
 	 *
-	 * @param author author
+	 * @param author book author name
 	 * @return this options object
 	 */
 	public BuildOptions setAuthor(String author) {
@@ -208,7 +208,7 @@ public final class BuildOptions {
 	/**
 	 * Sets the book language.
 	 *
-	 * @param language language
+	 * @param language book language
 	 * @return this options object
 	 */
 	public BuildOptions setLanguage(Language language) {
@@ -228,7 +228,7 @@ public final class BuildOptions {
 	/**
 	 * Sets the printed page-count hint.
 	 *
-	 * @param pages pages
+	 * @param pages page collection
 	 * @return this options object
 	 */
 	public BuildOptions setPages(int pages) {
@@ -248,7 +248,7 @@ public final class BuildOptions {
 	/**
 	 * Sets the solution-table cadence.
 	 *
-	 * @param tableFrequency table frequency
+	 * @param tableFrequency source table frequency
 	 * @return this options object
 	 */
 	public BuildOptions setTableFrequency(int tableFrequency) {
@@ -268,7 +268,7 @@ public final class BuildOptions {
 	/**
 	 * Sets the puzzle-grid row count.
 	 *
-	 * @param puzzleRows puzzle rows
+	 * @param puzzleRows source puzzle rows
 	 * @return this options object
 	 */
 	public BuildOptions setPuzzleRows(int puzzleRows) {
@@ -288,7 +288,7 @@ public final class BuildOptions {
 	/**
 	 * Sets the puzzle-grid column count.
 	 *
-	 * @param puzzleColumns puzzle columns
+	 * @param puzzleColumns source puzzle columns
 	 * @return this options object
 	 */
 	public BuildOptions setPuzzleColumns(int puzzleColumns) {

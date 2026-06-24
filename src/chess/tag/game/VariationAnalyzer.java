@@ -57,6 +57,9 @@ import utility.Json;
  */
 public final class VariationAnalyzer {
 
+    /**
+     * Creates the variation analyzer.
+     */
     private VariationAnalyzer() {
         // utility
     }

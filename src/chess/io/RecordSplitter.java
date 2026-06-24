@@ -62,8 +62,8 @@ public final class RecordSplitter {
 	/**
 	 * Computes the conventional output path for a named split under a given prefix.
 	 *
-	 * @param outputPrefix output prefix
-	 * @param splitName    split name
+	 * @param outputPrefix source output prefix
+	 * @param splitName    source split name
 	 * @return on-disk path {@code <prefix>.<split>.jsonl}
 	 */
 	public static Path outputPathFor(Path outputPrefix, String splitName) {
@@ -167,7 +167,7 @@ public final class RecordSplitter {
 	 * Returns a stable {@code [0, 1)} score from a seed and group key.
 	 *
 	 * @param seed     deterministic seed
-	 * @param groupKey group key
+	 * @param groupKey source group key
 	 * @return score in {@code [0, 1)}
 	 */
 	private static double scoreFor(long seed, String groupKey) {
@@ -234,6 +234,7 @@ public final class RecordSplitter {
 		 * Constructs a spec from name/weight pairs.
 		 *
 		 * @param entries ordered (name, raw weight) pairs
+		 * @param weights split weights
 		 */
 		private SplitSpec(List<String> entries, List<Double> weights) {
 			if (entries.isEmpty()) {

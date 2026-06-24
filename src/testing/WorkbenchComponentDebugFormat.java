@@ -54,7 +54,7 @@ final class WorkbenchComponentDebugFormat {
     /**
      * Formats a color as RGBA hex.
      *
-     * @param color color value
+     * @param color display color
      * @return RGBA hex text
      */
     static String color(Color color) {
@@ -68,7 +68,7 @@ final class WorkbenchComponentDebugFormat {
     /**
      * Formats a font style.
      *
-     * @param font font value
+     * @param font font used for measurement or drawing
      * @return compact font-style token
      */
     static String fontStyle(Font font) {
@@ -87,7 +87,7 @@ final class WorkbenchComponentDebugFormat {
     /**
      * Formats an icon.
      *
-     * @param icon icon value
+     * @param icon icon image
      * @return icon class and size
      */
     static String icon(Icon icon) {

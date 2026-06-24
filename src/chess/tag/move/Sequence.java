@@ -241,7 +241,7 @@ public final class Sequence {
      *
      * @param plies the plies to render
      * @return the serialized best-continuation tag
-     * @param ply ply value
+     * @param ply ply index
      */
     private static String formatPly(Ply ply) {
         if (ply.whiteToMove) {

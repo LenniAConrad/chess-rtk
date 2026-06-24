@@ -921,7 +921,7 @@ public final class EngineGauntletCommand {
      * Returns the value when present, otherwise a fallback.
      *
      * @param value candidate value
-     * @param fallback fallback value
+     * @param fallback default used when input is absent or invalid
      * @return non-null resolved value
      */
     private static String orDefault(String value, String fallback) {

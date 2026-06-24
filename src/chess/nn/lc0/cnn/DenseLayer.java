@@ -29,10 +29,10 @@ final class DenseLayer {
 
     /**
      * Builds a dense layer descriptor.
-     * @param inDim in dim value
-     * @param outDim out dim value
+     * @param inDim input dimension
+     * @param outDim output dimension
      * @param weights network weights
-     * @param bias bias value
+     * @param bias bias vector
      */
     DenseLayer(int inDim, int outDim, float[] weights, float[] bias) {
         this.inDim = inDim;
@@ -43,7 +43,7 @@ final class DenseLayer {
 
     /**
      * Runs the dense layer and applies the optional activation.
-     * @param input input value
+     * @param input input path or text
      * @param output output text
      * @param activation activation function
      */

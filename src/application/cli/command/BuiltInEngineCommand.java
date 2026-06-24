@@ -132,7 +132,7 @@ public final class BuiltInEngineCommand {
 		 *
 		 * @param position root position
 		 * @param limits search limits
-		 * @return final search result
+		 * @return final search
 		 */
 		Result search(Position position, Limits limits);
 
@@ -141,7 +141,7 @@ public final class BuiltInEngineCommand {
 		 *
 		 * @param position root position
 		 * @param limits search limits
-		 * @return final search result
+		 * @return final search
 		 */
 		Result searchInfo(Position position, Limits limits);
 
@@ -370,10 +370,10 @@ public final class BuiltInEngineCommand {
 
 	/**
 	 * Searches one input FEN and prints the result.
-	 * @param entry entry value
-	 * @param searcher searcher value
+	 * @param entry input entry
+	 * @param searcher search implementation
 	 * @param opts command options
-	 * @param blankBeforeSummary blank before summary value
+	 * @param blankBeforeSummary source blank before summary
 	 */
 	private static void searchAndPrint(String entry, Searcher searcher, Options opts, boolean blankBeforeSummary) {
 		try {
@@ -685,7 +685,7 @@ public final class BuiltInEngineCommand {
 	 * @param searcher searcher instance
 	 * @param position root position
 	 * @param opts parsed options
-	 * @return final search result
+	 * @return final search
 	 */
 	private static Result search(Searcher searcher, Position position, Options opts) {
 		if (opts.format() != OutputFormat.UCI_INFO) {

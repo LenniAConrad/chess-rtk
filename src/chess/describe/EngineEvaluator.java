@@ -52,7 +52,7 @@ public final class EngineEvaluator {
     /**
      * Evaluates a position with the default search depth.
      *
-     * @param position position
+     * @param position chess position
      * @return engine-search evaluation
      */
     public static PositionDescriptionInput.Evaluation evaluate(Position position) {
@@ -62,7 +62,7 @@ public final class EngineEvaluator {
     /**
      * Evaluates a position with the requested search depth.
      *
-     * @param position position
+     * @param position chess position
      * @param depth search depth in plies, clamped to the supported range
      * @return engine-search evaluation
      */

@@ -302,7 +302,7 @@ public final class PositionRelationsCommand {
 	 * hint arrows) shared with {@code fen render}.
 	 *
 	 * @param render renderer
-	 * @param position position
+	 * @param position chess position
 	 * @param overlays overlays to draw
 	 */
 	private static void applyOverlays(Render render, Position position, Overlays overlays) {
@@ -315,7 +315,7 @@ public final class PositionRelationsCommand {
 	/**
 	 * Builds a board renderer for a relation overlay.
 	 *
-	 * @param position position
+	 * @param position chess position
 	 * @param boardStyle board presentation options
 	 * @return configured renderer
 	 */
@@ -365,7 +365,7 @@ public final class PositionRelationsCommand {
 	/**
 	 * Renders a small-multiples montage: one labelled board per channel.
 	 *
-	 * @param position position
+	 * @param position chess position
 	 * @param edges incidence edges
 	 * @param channels channels to render
 	 * @param boardStyle board presentation options

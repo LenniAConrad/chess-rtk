@@ -23,6 +23,9 @@ import chess.core.SAN;
  */
 public final class SanResolver {
 
+    /**
+     * Creates the SAN resolver.
+     */
     private SanResolver() {
         // utility
     }

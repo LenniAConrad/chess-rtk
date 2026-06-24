@@ -187,7 +187,7 @@ public final class BinLoader {
      * Reads the input stack.
      *
      * @param in source buffer
-     * @param architecture architecture
+     * @param architecture network architecture
      * @return input stack
      */
     private static Network.InputStack readInputStack(ByteBuffer in, Architecture architecture) {

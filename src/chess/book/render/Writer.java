@@ -1787,7 +1787,7 @@ public final class Writer {
 	/**
 	 * Parses one source line as a bullet or numbered list item.
 	 *
-	 * @param sourceLine source line
+	 * @param sourceLine source source line
 	 * @return parsed list item, or null when the line is not list syntax
 	 */
 	static ListItem parseListItem(String sourceLine) {

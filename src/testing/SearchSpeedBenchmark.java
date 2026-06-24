@@ -82,7 +82,7 @@ public final class SearchSpeedBenchmark {
      * @param search searcher name
      * @param fen position FEN
      * @param limits fixed search limits
-     * @return search result
+     * @return search
      */
     private static Result searchPosition(String search, String fen, Limits limits) {
         Position position = new Position(fen);

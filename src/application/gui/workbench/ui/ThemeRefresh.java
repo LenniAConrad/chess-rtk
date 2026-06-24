@@ -40,6 +40,11 @@ final class ThemeRefresh {
         // utility
     }
 
+    /**
+     * Refreshes the refresh component tree.
+     *
+     * @param component Swing component
+     */
     static void refreshComponentTree(Component component) {
         if (component == null) {
             return;
@@ -53,6 +58,11 @@ final class ThemeRefresh {
         component.repaint();
     }
 
+    /**
+     * Refreshes the refresh foreground.
+     *
+     * @param component Swing component
+     */
     static void refreshForeground(JComponent component) {
         if (component == null) {
             return;
@@ -65,6 +75,11 @@ final class ThemeRefresh {
         component.setForeground(Theme.foregroundColor(inferForegroundRole(component.getForeground())));
     }
 
+    /**
+     * Refreshes the refresh component.
+     *
+     * @param component Swing component
+     */
     private static void refreshComponent(Component component) {
         if (component instanceof JComponent jComponent) {
             refreshBorder(jComponent);
@@ -143,6 +158,11 @@ final class ThemeRefresh {
         }
     }
 
+    /**
+     * Refreshes the refresh button.
+     *
+     * @param button button component
+     */
     private static void refreshButton(AbstractButton button) {
         if (Boolean.TRUE.equals(button.getClientProperty(Theme.CLIENT_COMMAND_TAB))) {
             ThemeComponents.applyCommandTabState(button);
@@ -156,6 +176,11 @@ final class ThemeRefresh {
         }
     }
 
+    /**
+     * Refreshes the refresh border.
+     *
+     * @param component Swing component
+     */
     private static void refreshBorder(JComponent component) {
         Border border = component.getBorder();
         Border refreshed = refreshedBorder(border);
@@ -164,6 +189,12 @@ final class ThemeRefresh {
         }
     }
 
+    /**
+     * Refreshes the refreshed border.
+     *
+     * @param border border color
+     * @return refreshed border
+     */
     private static Border refreshedBorder(Border border) {
         if (border instanceof CompoundBorder compound) {
             Border outside = refreshedBorder(compound.getOutsideBorder());
@@ -182,6 +213,12 @@ final class ThemeRefresh {
         return border;
     }
 
+    /**
+     * Returns whether workbench line color.
+     *
+     * @param color display color
+     * @return true when workbench line color
+     */
     private static boolean isWorkbenchLineColor(Color color) {
         if (color == null) {
             return false;
@@ -205,6 +242,12 @@ final class ThemeRefresh {
                 || rgb == 0x3c3c3c;
     }
 
+    /**
+     * Returns the line color.
+     *
+     * @param source source object
+     * @return line color
+     */
     private static Color currentLineColor(Color source) {
         if (source == null || source.getAlpha() == Theme.LINE.getAlpha()) {
             return Theme.LINE;
@@ -212,6 +255,12 @@ final class ThemeRefresh {
         return new Color(Theme.LINE.getRed(), Theme.LINE.getGreen(), Theme.LINE.getBlue(), source.getAlpha());
     }
 
+    /**
+     * Returns the infer foreground role.
+     *
+     * @param color display color
+     * @return infer foreground role
+     */
     private static Theme.ForegroundRole inferForegroundRole(Color color) {
         if (sameColor(color, Theme.PASTEL_MUTED) || sameColor(color, Theme.DARK_MUTED)) {
             return Theme.ForegroundRole.MUTED;
@@ -238,6 +287,13 @@ final class ThemeRefresh {
         return Theme.ForegroundRole.TEXT;
     }
 
+    /**
+     * Returns the same color.
+     *
+     * @param first first item
+     * @param second source second
+     * @return true when same color
+     */
     private static boolean sameColor(Color first, Color second) {
         return first != null && second != null && first.getRGB() == second.getRGB();
     }

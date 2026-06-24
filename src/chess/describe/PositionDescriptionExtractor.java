@@ -52,7 +52,7 @@ public final class PositionDescriptionExtractor {
     /**
      * Extracts the shared input from a position.
      *
-     * @param position position
+     * @param position chess position
      * @return description input
      */
     public static PositionDescriptionInput extract(Position position) {

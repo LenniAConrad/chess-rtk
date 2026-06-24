@@ -1,9 +1,11 @@
 package application.gui.workbench.dashboard;
 
 import application.Config;
+import application.gui.workbench.board.BoardStyle;
 import application.gui.workbench.network.NetworkDiagnosticsPanel;
 import application.gui.workbench.network.NetworkPanel;
 import application.gui.workbench.network.RealActivations;
+import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.session.HealthSnapshot;
 import application.gui.workbench.session.Job;
 import application.gui.workbench.session.JobTableModel;
@@ -15,13 +17,19 @@ import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import application.gui.workbench.ui.WorkspaceHeader;
+import chess.core.Position;
+import chess.struct.Game;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.Rectangle;
+import java.awt.RenderingHints;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -91,6 +99,11 @@ public final class DashboardPanel extends SurfacePanel implements SessionListene
      * Current-position card: material summary.
      */
     private final JLabel materialValue = metricValue();
+
+    /**
+     * Current-position card: compact board preview.
+     */
+    private final DashboardBoardPreview positionPreview = new DashboardBoardPreview();
 
     /**
      * Engine card: overall status.
@@ -248,13 +261,19 @@ public final class DashboardPanel extends SurfacePanel implements SessionListene
         fenValue.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JPanel body = cardBody();
-        body.add(fenValue);
-        body.add(Box.createVerticalStrut(Theme.SPACE_SM));
-        body.add(metricGrid(
+        JPanel textStack = cardBody();
+        textStack.add(fenValue);
+        textStack.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        textStack.add(metricGrid(
                 metric("Side", sideValue),
                 metric("Ply", plyValue),
                 metric("Legal", legalValue),
                 metric("Material", materialValue)));
+        JPanel overview = Ui.transparentPanel(new BorderLayout(Theme.SPACE_MD, 0));
+        overview.setAlignmentX(Component.LEFT_ALIGNMENT);
+        overview.add(textStack, BorderLayout.CENTER);
+        overview.add(positionPreview, BorderLayout.EAST);
+        body.add(overview);
         body.add(Box.createVerticalStrut(Theme.SPACE_SM));
         body.add(actionRow(
                 quickButton("Copy FEN", actions::copyCurrentFen),
@@ -403,13 +422,12 @@ public final class DashboardPanel extends SurfacePanel implements SessionListene
             SwingUtilities.invokeLater(this::render);
             return;
         }
-        String fen = session.fen();
-        fenValue.setText(fen.isEmpty() ? "No FEN loaded" : fen);
-        fenValue.setToolTipText(fen.isEmpty() ? null : fen);
-        sideValue.setText(session.whiteToMove() ? "White" : "Black");
-        plyValue.setText(session.ply() + " / " + session.lastPly());
-        legalValue.setText(Integer.toString(session.legalMoveCount()));
-        materialValue.setText(materialStatus(session.tags()));
+        String sessionFen = session.fen();
+        String fen = sessionFen.isEmpty() ? Game.STANDARD_START_FEN : sessionFen;
+        fenValue.setText(fen);
+        fenValue.setToolTipText(fen);
+        positionPreview.setFen(fen);
+        renderPositionMetrics(fen, sessionFen.isEmpty());
 
         String protocol = session.engineProtocolPath();
         enginePathValue.setText(protocol.isEmpty() ? "(CLI default)" : compactPath(protocol));
@@ -427,6 +445,31 @@ public final class DashboardPanel extends SurfacePanel implements SessionListene
         applyHealthBadge(smokeBadge, health.engineSmoke());
         refreshRuntimeSections(health);
         workspaceHeader.setContext(dashboardContext(health));
+    }
+
+    /**
+     * Renders current-position metrics from a FEN, falling back to session values
+     * if a malformed snapshot reaches the dashboard.
+     *
+     * @param fen display FEN
+     * @param defaultStart true when the session has not yet published a FEN
+     */
+    private void renderPositionMetrics(String fen, boolean defaultStart) {
+        try {
+            Position position = new Position(fen);
+            sideValue.setText(position.isWhiteToMove() ? "White" : "Black");
+            plyValue.setText(defaultStart ? "0 / 0" : session.ply() + " / " + session.lastPly());
+            legalValue.setText(Integer.toString(position.legalMoves().size()));
+            String taggedMaterial = defaultStart ? "Pending" : materialStatus(session.tags());
+            materialValue.setText("Pending".equals(taggedMaterial)
+                    ? materialFromCentipawns(position.materialDiscrepancy())
+                    : taggedMaterial);
+        } catch (IllegalArgumentException ex) {
+            sideValue.setText(session.whiteToMove() ? "White" : "Black");
+            plyValue.setText(session.ply() + " / " + session.lastPly());
+            legalValue.setText(Integer.toString(session.legalMoveCount()));
+            materialValue.setText(materialStatus(session.tags()));
+        }
     }
 
     /**
@@ -567,7 +610,7 @@ public final class DashboardPanel extends SurfacePanel implements SessionListene
      * @return context summary
      */
     private String dashboardContext(HealthSnapshot health) {
-        String position = session.fen().isEmpty() ? "No position loaded" : "Loaded position";
+        String position = session.fen().isEmpty() ? "Start position" : "Loaded position";
         String engine = engineContext();
         int issues = setupIssueCount(health);
         String issueText = issues == 0 ? "No setup issues"
@@ -937,6 +980,72 @@ public final class DashboardPanel extends SurfacePanel implements SessionListene
         JPanel body = Ui.transparentPanel(null);
         body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
         return body;
+    }
+
+    /**
+     * Small board thumbnail used by the current-position dashboard card.
+     */
+    private static final class DashboardBoardPreview extends JComponent {
+
+        /**
+         * Serialization identifier for Swing component compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * FEN currently shown by the thumbnail.
+         */
+        private String fen = Game.STANDARD_START_FEN;
+
+        /**
+         * Creates the dashboard board preview.
+         */
+        DashboardBoardPreview() {
+            setOpaque(false);
+            setPreferredSize(new Dimension(118, 118));
+            setMinimumSize(new Dimension(96, 96));
+        }
+
+        /**
+         * Updates the rendered FEN.
+         *
+         * @param next next FEN
+         */
+        void setFen(String next) {
+            fen = next == null || next.isBlank() ? Game.STANDARD_START_FEN : next;
+            repaint();
+        }
+
+        /**
+         * Paints the thumbnail board.
+         *
+         * @param graphics graphics context
+         */
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            Graphics2D g = (Graphics2D) graphics.create();
+            try {
+                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                int pad = Theme.scaledPx(7);
+                int side = Math.max(72, Math.min(getWidth(), getHeight()) - pad * 2);
+                int x = (getWidth() - side) / 2;
+                int y = (getHeight() - side) / 2;
+                g.setColor(Theme.withAlpha(Theme.ACCENT, Theme.isDark() ? 34 : 22));
+                g.fillRoundRect(x - pad, y - pad, side + pad * 2, side + pad * 2,
+                        Theme.scaledPx(10), Theme.scaledPx(10));
+                Rectangle board = new Rectangle(x, y, side, side);
+                BoardStyle.drawBoardSurface(g, board, true);
+                try {
+                    boolean whiteDown = TensorViz.whiteDownForSideToMove(fen);
+                    TensorViz.drawPositionPieces(g, board, fen, whiteDown);
+                    TensorViz.drawBoardCoordinates(g, board, whiteDown);
+                } catch (IllegalArgumentException ignored) {
+                    // The dashboard falls back to textual metrics for malformed snapshots.
+                }
+            } finally {
+                g.dispose();
+            }
+        }
     }
 
     /**

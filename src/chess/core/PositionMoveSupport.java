@@ -206,7 +206,7 @@ final class PositionMoveSupport {
      * @param state undo state to populate
      * @param moving moving piece index
      * @param captured captured piece index, or {@code -1}
-     * @param capturedSquare captured square
+     * @param capturedSquare source captured square
      * @param kingTo king destination for castling metadata
      */
     private static void saveUndoState(Position position, Position.State state, int moving, int captured,

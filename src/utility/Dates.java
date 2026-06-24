@@ -7,11 +7,11 @@ import java.util.Date;
 
 /**
  * Used for providing utility methods for working with dates and times.
- * 
+ *
  * @author Lennart A. Conrad
  */
 public class Dates {
-		
+
 	/**
 	 * Used for converting a {@code Date} into the format of a time stamp.
 	 */
@@ -53,20 +53,20 @@ public class Dates {
 	 * This is a utility Class. Don't let anyone instantiate it.
 	 */
 	private Dates() {
-		
+
 	}
-	
+
 	/**
 	 * Returns a time stamp {@code String} in the format {@code yyyy-MM-dd HH:mm:ss}
 	 * with an ISO-8601 zone offset (for example {@code +02:00}) appended,
 	 * of the current time.
-	 * 
+	 *
 	 * <p>
 	 * Example
 	 * <p>
-	 * 
+	 *
 	 * <blockquote> "2023-08-13 01:08:41 +02:00". </blockquote>
-	 * 
+	 *
 	 * @return A {@code String} representing the current time stamp
 	 * @see getDate()
 	 * @see getYear()
@@ -82,13 +82,13 @@ public class Dates {
 	/**
 	 * Returns a time stamp {@code String} in the format {@code yyyy-MM-dd HH:mm:ss}
 	 * with an ISO-8601 zone offset (for example {@code +02:00}) appended.
-	 * 
+	 *
 	 * <p>
 	 * Example
 	 * <p>
-	 * 
+	 *
 	 * <blockquote> "2023-08-13 01:08:41 +02:00". </blockquote>
-	 * 
+	 *
 	 * @param date the date to extract the time stamp from
 	 * @return A {@code String} representing the current time stamp
 	 * @see getDate()
@@ -102,16 +102,16 @@ public class Dates {
 		return format(TIMESTAMP_FORMAT, date);
 	}
 
-	
+
 	/**
 	 * Returns a date {@code String} in the format "yyyy-MM-dd".
-	 * 
+	 *
 	 * <p>
 	 * Example
 	 * <p>
-	 * 
+	 *
 	 * <blockquote> "2024-08-12". </blockquote>
-	 * 
+	 *
 	 * @param date the date to extract the date from
 	 * @return A {@code String} representing the current date
 	 * @see getTimestamp()
@@ -124,16 +124,16 @@ public class Dates {
 	public static String getDate() {
 		return getDate(new Date());
 	}
-	
+
 	/**
 	 * Returns a date {@code String} in the format "yyyy-MM-dd".
-	 * 
+	 *
 	 * <p>
 	 * Example
 	 * <p>
-	 * 
+	 *
 	 * <blockquote> "2024-08-12". </blockquote>
-	 * 
+	 *
 	 * @param date the date to extract the date from
 	 * @return A {@code String} representing the current date
 	 * @see getTimestamp()
@@ -146,10 +146,10 @@ public class Dates {
 	public static String getDate(Date date) {
 		return format(DATE_FORMAT, date);
 	}
-	
+
 	/**
 	 * Returns the year of the given date as a {@code String} of the current time.
-	 * 
+	 *
 	 * @return The year of the given date as a {@code String}
 	 * @see getTimestamp()
 	 * @see getDate()
@@ -164,7 +164,7 @@ public class Dates {
 
 	/**
 	 * Returns the year of the given date as a {@code String}.
-	 * 
+	 *
 	 * @return The year of the given date as a {@code String}
 	 * @see getTimestamp()
 	 * @see getDate()
@@ -172,7 +172,7 @@ public class Dates {
 	 * @see getDay()
 	 * @see getTime()
 	 * @see getTimezone()
-	 * @param date date value
+	 * @param date date to format or parse
 	 */
 	public static String getYear(Date date) {
 		return format(YEAR_FORMAT, date);
@@ -180,7 +180,7 @@ public class Dates {
 
 	/**
 	 * Returns the month of the given date as a {@code String} of the current time.
-	 * 
+	 *
 	 * @return The month of the given date as a {@code String}
 	 * @see getTimestamp()
 	 * @see getDate()
@@ -195,7 +195,7 @@ public class Dates {
 
 	/**
 	 * Returns the month of the given date as a {@code String}.
-	 * 
+	 *
 	 * @param The date to extract the month from
 	 * @see getTimestamp()
 	 * @see getDate()
@@ -203,8 +203,8 @@ public class Dates {
 	 * @see getDay()
 	 * @see getTime()
 	 * @see getTimezone()
-	 * @param date date value
-	 * @return get month result
+	 * @param date date to format or parse
+	 * @return month of the given date as a String
 	 */
 	public static String getMonth(Date date) {
 		return format(MONTH_FORMAT, date);
@@ -212,7 +212,7 @@ public class Dates {
 
 	/**
 	 * Returns the day of the given date as a {@code String} of the current time.
-	 * 
+	 *
 	 * @return The day of the given date as a {@code String}
 	 * @see getTimestamp()
 	 * @see getDate()
@@ -227,7 +227,7 @@ public class Dates {
 
 	/**
 	 * Returns the day of the given date as a {@code String}.
-	 * 
+	 *
 	 * @param The date to extract the day from
 	 * @return The day of the given date as a {@code String}
 	 * @see getTimestamp()
@@ -236,7 +236,7 @@ public class Dates {
 	 * @see getMonth()
 	 * @see getTime()
 	 * @see getTimezone()
-	 * @param date date value
+	 * @param date date to format or parse
 	 */
 	public static String getDay(Date date) {
 		return format(DAY_FORMAT, date);
@@ -245,7 +245,7 @@ public class Dates {
 	/**
 	 * Returns the time of the given date as a {@code String} in the format
 	 * "HH:mm:ss" of the current time.
-	 * 
+	 *
 	 * @return The time of the given date as a {@code String}
 	 * @see getTimestamp()
 	 * @see getDate()
@@ -261,7 +261,7 @@ public class Dates {
 	/**
 	 * Returns the time of the given date as a {@code String} in the format
 	 * "HH:mm:ss".
-	 * 
+	 *
 	 * @param The date to extract the time from
 	 * @return The time of the given date as a {@code String}
 	 * @see getTimestamp()
@@ -270,7 +270,7 @@ public class Dates {
 	 * @see getMonth()
 	 * @see getDay()
 	 * @see getTimezone()
-	 * @param date date value
+	 * @param date date to format or parse
 	 */
 	public static String getTime(Date date) {
 		return format(TIME_FORMAT, date);
@@ -279,7 +279,7 @@ public class Dates {
 	/**
 	 * Used for retrieving the current time zone of the given date as a
 	 * {@code String} in ISO 8601 format of the current time.
-	 * 
+	 *
 	 * @return The time zone of the given date as a {@code String}
 	 * @see getTimestamp()
 	 * @see getDate()
@@ -295,7 +295,7 @@ public class Dates {
 	/**
 	 * Used for retrieving the current time zone of the given date as a
 	 * {@code String} in ISO 8601 format.
-	 * 
+	 *
 	 * @param The date to extract the time zone from
 	 * @return The time zone of the given date as a {@code String}
 	 * @see getTimestamp()
@@ -304,7 +304,7 @@ public class Dates {
 	 * @see getMonth()
 	 * @see getDay()
 	 * @see getTime()
-	 * @param date date value
+	 * @param date date to format or parse
 	 */
 	public static String getTimezone(Date date) {
 		return format(TIMEZONE_FORMAT, date);

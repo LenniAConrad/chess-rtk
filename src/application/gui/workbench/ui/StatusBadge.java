@@ -299,7 +299,7 @@ public final class StatusBadge extends JComponent {
      * Sets the message text and severity together.
      *
      * @param message message text (null treated as empty)
-     * @param newKind severity
+     * @param newKind legacy status kind
      */
     public void set(String message, Kind newKind) {
         set(message, variantFor(newKind));
@@ -398,12 +398,16 @@ public final class StatusBadge extends JComponent {
             g.setFont(getFont());
             FontMetrics fm = g.getFontMetrics();
             int cy = getHeight() / 2;
+            int pillY = 3;
+            int pillHeight = Math.max(0, getHeight() - 7);
+            int pillArc = Math.max(Theme.RADIUS, pillHeight);
             g.setColor(backgroundColor(variant));
-            g.fillRoundRect(0, 3, Math.max(0, getWidth() - 1), Math.max(0, getHeight() - 7),
-                    Theme.RADIUS, Theme.RADIUS);
+            g.fillRoundRect(0, pillY, Math.max(0, getWidth() - 1), pillHeight, pillArc, pillArc);
+            g.setColor(Theme.withAlpha(Color.WHITE, Theme.isDark() ? 16 : 112));
+            g.drawLine(Math.max(2, pillArc / 2), pillY + 1,
+                    Math.max(Math.max(2, pillArc / 2), getWidth() - Math.max(3, pillArc / 2) - 1), pillY + 1);
             g.setColor(borderColor(variant));
-            g.drawRoundRect(0, 3, Math.max(0, getWidth() - 1), Math.max(0, getHeight() - 7),
-                    Theme.RADIUS, Theme.RADIUS);
+            g.drawRoundRect(0, pillY, Math.max(0, getWidth() - 1), pillHeight, pillArc, pillArc);
             Color dot = currentDotColor();
             int size = animatedDotSize();
             int x = PAD_X + Math.max(0, (DOT - size) / 2);

@@ -16,7 +16,7 @@ import java.util.logging.Logger;
  * Used for centralised application logging that writes to a file using a
  * custom&nbsp;format and
  * flushes after each log entry.
- * 
+ *
  * @author Lennart A. Conrad
  */
 public final class LogService {
@@ -102,7 +102,7 @@ public final class LogService {
 	 * Used for logging a warning message.
 	 *
 	 * @param message the message to log
-	 * @param messages messages value
+	 * @param messages diagnostic messages
 	 */
 	public static void warn(String... messages) {
 		if (messages == null || messages.length == 0) {

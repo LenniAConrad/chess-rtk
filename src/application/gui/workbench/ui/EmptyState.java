@@ -40,7 +40,7 @@ public final class EmptyState extends JPanel {
     /**
      * Title point size for empty states.
      */
-    private static final int TITLE_SIZE = 15;
+    private static final int TITLE_SIZE = 16;
 
     /**
      * Hint point size for empty states.
@@ -50,12 +50,12 @@ public final class EmptyState extends JPanel {
     /**
      * Width of the decorative "empty content" mark drawn above the title.
      */
-    private static final int MARK_WIDTH = 34;
+    private static final int MARK_WIDTH = 48;
 
     /**
      * Height of the decorative mark.
      */
-    private static final int MARK_HEIGHT = 26;
+    private static final int MARK_HEIGHT = 38;
 
     /**
      * Gap between the mark and the title.
@@ -66,7 +66,7 @@ public final class EmptyState extends JPanel {
      * Minimum height (at base density) so an action-bearing block holds the
      * center of a large empty panel.
      */
-    private static final int MIN_HEIGHT = 132;
+    private static final int MIN_HEIGHT = 160;
 
     /**
      * Whether this is a primary (action-bearing) empty state that earns a mark
@@ -153,15 +153,28 @@ public final class EmptyState extends JPanel {
             int w = Theme.scaledPx(MARK_WIDTH);
             int h = Theme.scaledPx(MARK_HEIGHT);
             int x = centerX - w / 2;
-            int pad = Theme.scaledPx(7);
-            scratch.setStroke(new BasicStroke(1.6f));
+            int arc = Theme.scaledPx(13);
+            scratch.setColor(Theme.withAlpha(Theme.ACCENT, Theme.isDark() ? 44 : 30));
+            scratch.fillRoundRect(x, top, w, h, arc, arc);
+            scratch.setStroke(new BasicStroke(1.2f));
+            scratch.setColor(Theme.withAlpha(Theme.ACCENT, Theme.isDark() ? 130 : 96));
+            scratch.drawRoundRect(x, top, w - 1, h - 1, arc, arc);
+
+            int docW = Theme.scaledPx(25);
+            int docH = Theme.scaledPx(20);
+            int docX = centerX - docW / 2;
+            int docY = top + Theme.scaledPx(9);
+            scratch.setColor(Theme.withAlpha(Theme.PANEL_SOLID, Theme.isDark() ? 210 : 235));
+            scratch.fillRoundRect(docX, docY, docW, docH, Theme.scaledPx(6), Theme.scaledPx(6));
             scratch.setColor(Theme.withAlpha(color, 150));
-            scratch.drawRoundRect(x, top, w, h, 8, 8);
-            scratch.setColor(Theme.withAlpha(color, 105));
-            int lineX = x + pad;
-            int lineW = w - 2 * pad;
-            scratch.fillRoundRect(lineX, top + Theme.scaledPx(9), lineW, 2, 2, 2);
-            scratch.fillRoundRect(lineX, top + Theme.scaledPx(15), Math.round(lineW * 0.62f), 2, 2, 2);
+            scratch.drawRoundRect(docX, docY, docW - 1, docH - 1, Theme.scaledPx(6), Theme.scaledPx(6));
+
+            int lineX = docX + Theme.scaledPx(6);
+            int lineW = docW - Theme.scaledPx(12);
+            scratch.setColor(Theme.withAlpha(Theme.ACCENT, Theme.isDark() ? 168 : 140));
+            scratch.fillRoundRect(lineX, docY + Theme.scaledPx(7), lineW, 2, 2, 2);
+            scratch.setColor(Theme.withAlpha(color, 118));
+            scratch.fillRoundRect(lineX, docY + Theme.scaledPx(13), Math.round(lineW * 0.62f), 2, 2, 2);
         } finally {
             scratch.dispose();
         }
@@ -230,8 +243,14 @@ public final class EmptyState extends JPanel {
      */
     private static final class Mark extends JComponent {
 
+        /**
+         * Serialization identifier for Swing compatibility.
+         */
         private static final long serialVersionUID = 1L;
 
+        /**
+         * Creates the mark.
+         */
         Mark() {
             setOpaque(false);
         }

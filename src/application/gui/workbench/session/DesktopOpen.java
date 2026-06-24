@@ -20,7 +20,7 @@ final class DesktopOpen {
      * Opens a file or directory through the platform desktop shell.
      *
      * @param path path to open
-     * @return desktop-open result
+     * @return desktop-open
      */
     static Result open(Path path) {
         if (path == null) {

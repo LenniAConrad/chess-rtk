@@ -1493,7 +1493,7 @@ public abstract class WindowBase extends JFrame {
 
     /**
      * Creates the Analyze tab.
-     * @return computed value
+     * @return created the Analyze tab
      */
     protected abstract JComponent createBoardTab();
 
@@ -1536,7 +1536,7 @@ public abstract class WindowBase extends JFrame {
 
     /**
      * Creates the Commands tab.
-     * @return computed value
+     * @return created the Commands tab
      */
     protected abstract JComponent createCommandTab();
 
@@ -1559,7 +1559,7 @@ public abstract class WindowBase extends JFrame {
 
     /**
      * Creates the Datasets tab.
-     * @return computed value
+     * @return created the Datasets tab
      */
     protected abstract JComponent createDatasetTab();
 
@@ -1572,7 +1572,7 @@ public abstract class WindowBase extends JFrame {
 
     /**
      * Creates the Publish tab.
-     * @return computed value
+     * @return created the Publish tab
      */
     protected abstract JComponent createPublishTab();
 
@@ -1635,13 +1635,13 @@ public abstract class WindowBase extends JFrame {
     /**
      * Creates the Puzzles tab.
      *
-     * @return computed value
+     * @return created the Puzzles tab
      */
     protected abstract JComponent createPuzzleTab();
 
     /**
      * Creates the primary Console surface.
-     * @return computed value
+     * @return created the primary Console surface
      */
     protected abstract JComponent createConsolePanel();
 
@@ -1656,7 +1656,7 @@ public abstract class WindowBase extends JFrame {
     /**
      * Creates the primary Logs surface.
      *
-     * @return computed value
+     * @return created the primary Logs surface
      */
     protected abstract JComponent createLogTab();
 

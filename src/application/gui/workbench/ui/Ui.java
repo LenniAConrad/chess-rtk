@@ -60,9 +60,9 @@ public final class Ui {
     /**
      * Creates a styled button.
      *
-     * @param text text
+     * @param text text to render or parse
      * @param primary primary style
-     * @param listener listener
+     * @param listener event listener
      * @return button
      */
     public static JButton button(String text, boolean primary, ActionListener listener) {
@@ -73,9 +73,9 @@ public final class Ui {
     /**
      * Creates a styled button with an explicit hierarchy variant.
      *
-     * @param text text
+     * @param text text to render or parse
      * @param variant action hierarchy variant
-     * @param listener listener
+     * @param listener event listener
      * @return button
      */
     public static JButton button(String text, Theme.ButtonVariant variant, ActionListener listener) {
@@ -85,8 +85,8 @@ public final class Ui {
     /**
      * Creates a destructive action button.
      *
-     * @param text text
-     * @param listener listener
+     * @param text text to render or parse
+     * @param listener event listener
      * @return button
      */
     public static JButton destructiveButton(String text, ActionListener listener) {
@@ -96,8 +96,8 @@ public final class Ui {
     /**
      * Creates a ghost action button.
      *
-     * @param text text
-     * @param listener listener
+     * @param text text to render or parse
+     * @param listener event listener
      * @return button
      */
     public static JButton ghostButton(String text, ActionListener listener) {
@@ -121,7 +121,7 @@ public final class Ui {
      * Creates a compact icon-only button with an accessible label.
      *
      * @param label tooltip and accessible label
-     * @param listener listener
+     * @param listener event listener
      * @return button
      */
     public static JButton iconButton(String label, ActionListener listener) {
@@ -245,7 +245,7 @@ public final class Ui {
     /**
      * Creates a label.
      *
-     * @param text text
+     * @param text text to render or parse
      * @return label
      */
     public static JLabel label(String text) {
@@ -314,6 +314,9 @@ public final class Ui {
     public static JComponent colorChip(Color color, int size) {
         int side = Math.max(8, size);
         return new JComponent() {
+            /**
+             * Serialization identifier for Swing compatibility.
+             */
             private static final long serialVersionUID = 1L;
 
             {
@@ -524,8 +527,8 @@ public final class Ui {
     /**
      * Creates a flat titled section without adding another card layer.
      *
-     * @param title title
-     * @param child child
+     * @param title display title
+     * @param child child component
      * @return panel
      */
     public static JPanel titled(String title, JComponent child) {
@@ -669,13 +672,13 @@ public final class Ui {
     /**
      * Adds a component to a grid bag panel.
      *
-     * @param panel panel
-     * @param component component
+     * @param panel Swing panel
+     * @param component Swing component
      * @param c constraints
-     * @param x x
-     * @param y y
-     * @param width width
-     * @param height height
+     * @param x x-coordinate
+     * @param y y-coordinate
+     * @param width width in pixels
+     * @param height height in pixels
      */
     public static void grid(JPanel panel, Component component, GridBagConstraints c, int x, int y, int width, int height) {
         c.gridx = x;
@@ -789,7 +792,7 @@ public final class Ui {
     /**
      * Styles a spinner and its text editor.
      *
-     * @param spinner spinner
+     * @param spinner spinner component
      */
     public static void styleSpinner(JSpinner spinner) {
         ControlStyler.styleSpinner(spinner);
@@ -798,7 +801,7 @@ public final class Ui {
     /**
      * Styles a spinner whose editor should accept only integer values.
      *
-     * @param spinner spinner
+     * @param spinner spinner component
      */
     public static void styleIntegerSpinner(JSpinner spinner) {
         ControlStyler.styleIntegerSpinner(spinner);
@@ -826,7 +829,7 @@ public final class Ui {
     /**
      * Styles multiple spinners.
      *
-     * @param spinners spinners
+     * @param spinners spinner components
      */
     public static void styleSpinners(JSpinner... spinners) {
         ControlStyler.styleSpinners(spinners);
@@ -893,7 +896,7 @@ public final class Ui {
      * @param owner owner component
      * @param content dialog content
      * @param title dialog title
-     * @return JOptionPane result
+     * @return JOptionPane
      */
     public static int showConfirmDialog(Component owner, JComponent content, String title) {
         return OptionPaneStyler.showConfirmDialog(owner, content, title);
@@ -922,7 +925,7 @@ public final class Ui {
     /**
      * Creates a document listener from a runnable.
      *
-     * @param runnable runnable
+     * @param runnable action to execute
      * @return listener
      */
     public static DocumentListener changeListener(Runnable runnable) {

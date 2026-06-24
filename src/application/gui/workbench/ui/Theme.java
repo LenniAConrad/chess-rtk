@@ -1404,7 +1404,7 @@ public final class Theme {
     /**
      * Refreshes semantic foreground color for one component.
      *
-     * @param component component
+     * @param component Swing component
      */
     public static void refreshForeground(JComponent component) {
         ThemeRefresh.refreshForeground(component);
@@ -1470,8 +1470,8 @@ public final class Theme {
     /**
      * Returns a color with a replaced alpha channel.
      *
-     * @param color color
-     * @param alpha alpha value
+     * @param color display color
+     * @param alpha opacity value
      * @return color with alpha
      */
     public static Color withAlpha(Color color, int alpha) {
@@ -1511,7 +1511,7 @@ public final class Theme {
     /**
      * Returns a CSS hex string for Swing HTML snippets.
      *
-     * @param color color
+     * @param color display color
      * @return #rrggbb color string
      */
     public static String css(Color color) {
@@ -1666,7 +1666,7 @@ public final class Theme {
     /**
      * Styles a button.
      *
-     * @param button button
+     * @param button button component
      * @param primary whether to use accent styling
      */
     public static void button(AbstractButton button, boolean primary) {
@@ -1676,7 +1676,7 @@ public final class Theme {
     /**
      * Styles a button with an explicit hierarchy variant.
      *
-     * @param button button
+     * @param button button component
      * @param variant action hierarchy variant
      */
     public static void button(AbstractButton button, ButtonVariant variant) {
@@ -1789,7 +1789,7 @@ public final class Theme {
      * Reads a button's explicit variant, falling back to the legacy primary
      * property for components styled before the variant API existed.
      *
-     * @param button button
+     * @param button button component
      * @return resolved variant
      */
     public static ButtonVariant buttonVariant(AbstractButton button) {
@@ -1799,8 +1799,8 @@ public final class Theme {
     /**
      * Styles a table as a compact solid data surface.
      *
-     * @param table table
-     * @param rowHeight row height
+     * @param table table component
+     * @param rowHeight row height in pixels
      */
     public static void table(JTable table, int rowHeight) {
         DataTableStyler.style(table, rowHeight);
@@ -1820,7 +1820,7 @@ public final class Theme {
     /**
      * Styles a list as a solid data surface.
      *
-     * @param list list
+     * @param list list component
      */
     public static void list(JList<?> list) {
         ThemeComponents.list(list);

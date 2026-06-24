@@ -778,7 +778,7 @@ public final class EcoExplorerPanel extends JPanel {
     /**
      * Returns whether an entry continues a path.
      *
-     * @param entryMoves entry moves
+     * @param entryMoves source entry moves
      * @param path current path
      * @return true when the entry has more moves after the path
      */
@@ -1087,6 +1087,14 @@ public final class EcoExplorerPanel extends JPanel {
 
         /**
          * Defensive path copy for immutable record semantics.
+         *
+         * @param label display label
+         * @param path file-system path
+         * @param movetext opening movetext
+         * @param eco ECO opening code
+         * @param name display name
+         * @param lineCount number of opening lines in the node
+         * @param root root node or opening root flag
          */
         private EcoTreeNode {
             path = path == null ? new short[0] : path.clone();
@@ -1355,7 +1363,7 @@ public final class EcoExplorerPanel extends JPanel {
         /**
          * Returns a column type.
          *
-         * @param columnIndex column index
+         * @param columnIndex zero-based column index
          * @return column class
          */
         @Override
@@ -1366,8 +1374,8 @@ public final class EcoExplorerPanel extends JPanel {
         /**
          * Returns a cell value.
          *
-         * @param rowIndex row index
-         * @param columnIndex column index
+         * @param rowIndex zero-based row index
+         * @param columnIndex zero-based column index
          * @return cell value
          */
         @Override

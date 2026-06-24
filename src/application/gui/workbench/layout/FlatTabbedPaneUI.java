@@ -109,8 +109,8 @@ public final class FlatTabbedPaneUI extends BasicTabbedPaneUI {
     /**
      * Returns tab insets.
      *
-     * @param tabPlacement tab placement
-     * @param tabIndex tab index
+     * @param tabPlacement source tab placement
+     * @param tabIndex zero-based tab index
      * @return tab insets
      */
     @Override
@@ -121,9 +121,9 @@ public final class FlatTabbedPaneUI extends BasicTabbedPaneUI {
     /**
      * Calculates tab height.
      *
-     * @param tabPlacement tab placement
-     * @param tabIndex tab index
-     * @param fontHeight font height
+     * @param tabPlacement source tab placement
+     * @param tabIndex zero-based tab index
+     * @param fontHeight source font height
      * @return tab height
      */
     @Override
@@ -134,8 +134,8 @@ public final class FlatTabbedPaneUI extends BasicTabbedPaneUI {
     /**
      * Calculates tab width.
      *
-     * @param tabPlacement tab placement
-     * @param tabIndex tab index
+     * @param tabPlacement source tab placement
+     * @param tabIndex zero-based tab index
      * @param metrics font metrics
      * @return tab width
      */
@@ -147,13 +147,13 @@ public final class FlatTabbedPaneUI extends BasicTabbedPaneUI {
     /**
      * Paints the tab background.
      *
-     * @param graphics graphics
-     * @param tabPlacement tab placement
-     * @param tabIndex tab index
-     * @param x x
-     * @param y y
-     * @param width width
-     * @param height height
+     * @param graphics graphics context
+     * @param tabPlacement source tab placement
+     * @param tabIndex zero-based tab index
+     * @param x x-coordinate
+     * @param y y-coordinate
+     * @param width width in pixels
+     * @param height height in pixels
      * @param selected whether the tab is selected
      */
     @Override
@@ -180,13 +180,13 @@ public final class FlatTabbedPaneUI extends BasicTabbedPaneUI {
     /**
      * Paints the tab border.
      *
-     * @param graphics graphics
-     * @param tabPlacement tab placement
-     * @param tabIndex tab index
-     * @param x x
-     * @param y y
-     * @param width width
-     * @param height height
+     * @param graphics graphics context
+     * @param tabPlacement source tab placement
+     * @param tabIndex zero-based tab index
+     * @param x x-coordinate
+     * @param y y-coordinate
+     * @param width width in pixels
+     * @param height height in pixels
      * @param selected whether the tab is selected
      */
     @Override
@@ -207,8 +207,8 @@ public final class FlatTabbedPaneUI extends BasicTabbedPaneUI {
     /**
      * Skips the default content border.
      *
-     * @param graphics graphics
-     * @param tabPlacement tab placement
+     * @param graphics graphics context
+     * @param tabPlacement source tab placement
      * @param selectedIndex selected tab index
      */
     @Override
@@ -219,10 +219,10 @@ public final class FlatTabbedPaneUI extends BasicTabbedPaneUI {
     /**
      * Skips default dotted focus painting.
      *
-     * @param graphics graphics
-     * @param tabPlacement tab placement
+     * @param graphics graphics context
+     * @param tabPlacement source tab placement
      * @param rectangles tab rectangles
-     * @param tabIndex tab index
+     * @param tabIndex zero-based tab index
      * @param iconRect icon rectangle
      * @param textRect text rectangle
      * @param selected whether selected
@@ -293,7 +293,7 @@ public final class FlatTabbedPaneUI extends BasicTabbedPaneUI {
     /**
      * Returns the fill color for a tab.
      *
-     * @param tabIndex tab index
+     * @param tabIndex zero-based tab index
      * @param selected whether selected
      * @return tab fill
      */
@@ -310,8 +310,8 @@ public final class FlatTabbedPaneUI extends BasicTabbedPaneUI {
     /**
      * Updates component defaults before painting.
      *
-     * @param graphics graphics
-     * @param component component
+     * @param graphics graphics context
+     * @param component Swing component
      */
     @Override
     public void update(Graphics graphics, JComponent component) {

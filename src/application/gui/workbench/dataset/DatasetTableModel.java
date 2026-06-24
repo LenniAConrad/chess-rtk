@@ -93,7 +93,7 @@ public final class DatasetTableModel extends AbstractTableModel {
     /**
      * Returns the class used by a column.
      *
-     * @param columnIndex column index
+     * @param columnIndex zero-based column index
      * @return column class
      */
     @Override
@@ -107,8 +107,8 @@ public final class DatasetTableModel extends AbstractTableModel {
     /**
      * Returns a table value.
      *
-     * @param rowIndex row index
-     * @param columnIndex column index
+     * @param rowIndex zero-based row index
+     * @param columnIndex zero-based column index
      * @return cell value
      */
     @Override
@@ -130,8 +130,8 @@ public final class DatasetTableModel extends AbstractTableModel {
     /**
      * Returns whether a cell can be edited.
      *
-     * @param rowIndex row index
-     * @param columnIndex column index
+     * @param rowIndex zero-based row index
+     * @param columnIndex zero-based column index
      * @return false for every cell
      */
     @Override

@@ -158,13 +158,23 @@ final class StyledButton extends JButton {
             Theme.ButtonVariant variant = Theme.buttonVariant(this);
             Color fill = buttonFill(variant);
             Color border = isEnabled() ? Theme.buttonBorder(variant) : Theme.BUTTON_DISABLED_BORDER;
+            boolean activeGhost = variant != Theme.ButtonVariant.GHOST || getModel().isRollover()
+                    || getModel().isPressed() || isFocusOwner();
             setForeground(isEnabled()
                     ? Theme.buttonText(variant)
                     : Theme.BUTTON_DISABLED_TEXT);
             g.setColor(fill);
             g.fillRoundRect(0, 0, Math.max(0, getWidth() - 1), Math.max(0, getHeight() - 1), RADIUS, RADIUS);
-            g.setColor(border);
-            g.drawRoundRect(0, 0, Math.max(0, getWidth() - 1), Math.max(0, getHeight() - 1), RADIUS, RADIUS);
+            if (isEnabled() && fill.getAlpha() > 0) {
+                int highlightAlpha = variant == Theme.ButtonVariant.PRIMARY ? 58 : Theme.isDark() ? 18 : 128;
+                g.setColor(Theme.withAlpha(Color.WHITE, highlightAlpha));
+                g.drawLine(Math.max(2, RADIUS / 2), 1,
+                        Math.max(Math.max(2, RADIUS / 2), getWidth() - Math.max(3, RADIUS / 2) - 1), 1);
+            }
+            if (activeGhost) {
+                g.setColor(border);
+                g.drawRoundRect(0, 0, Math.max(0, getWidth() - 1), Math.max(0, getHeight() - 1), RADIUS, RADIUS);
+            }
             if (isFocusOwner()) {
                 g.setColor(Theme.FOCUS_RING);
                 g.drawRoundRect(2, 2, Math.max(0, getWidth() - 5), Math.max(0, getHeight() - 5), RADIUS, RADIUS);
@@ -306,7 +316,7 @@ final class StyledButton extends JButton {
     /**
      * Clamps a value.
      *
-     * @param value value
+     * @param value candidate value
      * @param min minimum
      * @param max maximum
      * @return clamped value

@@ -28,6 +28,12 @@ final class TreeChildTableModel extends AbstractTableModel {
      */
     private int shareBase = 1;
 
+    /**
+     * Replaces table rows and updates the visit-share denominator.
+     *
+     * @param next next root-child rows
+     * @param base visit count used as 100 percent share
+     */
     void setRows(List<MctsSearch.NodeInfo> next, int base) {
         rows.clear();
         if (next != null) {
@@ -37,6 +43,12 @@ final class TreeChildTableModel extends AbstractTableModel {
         fireTableDataChanged();
     }
 
+    /**
+     * Returns one row from the current root-child table.
+     *
+     * @param index zero-based index
+     * @return row, or {@code null} when the index is out of range
+     */
     MctsSearch.NodeInfo row(int index) {
         return index < 0 || index >= rows.size() ? null : rows.get(index);
     }
@@ -75,7 +87,7 @@ final class TreeChildTableModel extends AbstractTableModel {
     /**
      * Returns the preferred column value class.
      *
-     * @param columnIndex column index
+     * @param columnIndex zero-based column index
      * @return value class
      */
     @Override
@@ -86,8 +98,8 @@ final class TreeChildTableModel extends AbstractTableModel {
     /**
      * Returns the displayed cell value.
      *
-     * @param rowIndex row index
-     * @param columnIndex column index
+     * @param rowIndex zero-based row index
+     * @param columnIndex zero-based column index
      * @return cell value
      */
     @Override

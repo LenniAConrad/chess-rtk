@@ -169,7 +169,7 @@ public final class LineCommand {
 	 * @param startFen         source FEN
 	 * @param moves            input moves
 	 * @param resultFen        final FEN
-	 * @param intermediateFens intermediate FENs
+	 * @param intermediateFens source intermediate fens
 	 * @param includeSteps     whether to include intermediate positions
 	 * @return JSON object text
 	 */

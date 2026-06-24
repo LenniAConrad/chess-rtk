@@ -90,7 +90,7 @@ public final class Network implements AutoCloseable {
      * @param cuda CUDA backend, or {@code null}
      * @param rocm ROCm backend, or {@code null}
      * @param oneapi oneAPI backend, or {@code null}
-     * @param architecture architecture value
+     * @param architecture network architecture
      */
     private Network(
             Weights weights,
@@ -111,7 +111,7 @@ public final class Network implements AutoCloseable {
     /**
      * Creates a network from in-memory weights.
      *
-     * @param weights weights
+     * @param weights network weights
      * @return network
      */
     public static Network create(Weights weights) {
@@ -662,7 +662,7 @@ public final class Network implements AutoCloseable {
     /**
      * Returns the LC0 DeepNet residual scale used by BT4: {@code (2 * N)^-0.25}.
      *
-     * @param architecture architecture
+     * @param architecture network architecture
      * @return scaling factor
      */
     private static float encoderAlpha(Architecture architecture) {
@@ -681,7 +681,7 @@ public final class Network implements AutoCloseable {
      * @param architecture architecture metadata (LN eps, activations, smolgen flag)
      * @param alpha residual scaling override; pass {@code block.alpha()} for compact blocks
      * @return token-major output
-     * @param blockIndex block index value
+     * @param blockIndex zero-based block index
      */
     private float[] runEncoderBlock(float[] input, EncoderBlock block, int tokens, Architecture architecture,
             float alpha, int blockIndex) {
@@ -870,7 +870,7 @@ public final class Network implements AutoCloseable {
      * @param smolgenActivation smolgen-internal activation
      * @param layerNormEpsilon smolgen layer-norm epsilon
      * @return token-major attention output
-     * @param blockIndex block index value
+     * @param blockIndex zero-based block index
      */
     private float[] attention(float[] input, int tokens, int embedding, Attention attention,
             float[] smolgenW, Activation smolgenActivation, float layerNormEpsilon, int blockIndex) {
@@ -993,7 +993,7 @@ public final class Network implements AutoCloseable {
      * @param input token-major input
      * @param tokens token count
      * @param inDim input width
-     * @param layer layer
+     * @param layer network layer
      * @return token-major output
      */
     private static float[] denseTokens(float[] input, int tokens, int inDim, Dense layer) {
@@ -1011,7 +1011,7 @@ public final class Network implements AutoCloseable {
      * Runs a dense layer over one vector.
      *
      * @param input input vector
-     * @param layer layer
+     * @param layer network layer
      * @return output vector
      */
     private static float[] denseVector(float[] input, Dense layer) {
@@ -1028,7 +1028,7 @@ public final class Network implements AutoCloseable {
      *
      * @param input input data
      * @param inputOffset input row offset
-     * @param layer layer
+     * @param layer network layer
      * @param output output data
      * @param outputOffset output row offset
      */
@@ -1046,8 +1046,8 @@ public final class Network implements AutoCloseable {
     /**
      * Applies activation in-place.
      *
-     * @param values values
-     * @param activation activation
+     * @param values input values
+     * @param activation activation vector
      */
     private static void activate(float[] values, Activation activation) {
         if (activation == Activation.NONE) {
@@ -1061,7 +1061,7 @@ public final class Network implements AutoCloseable {
     /**
      * Scales values in-place.
      *
-     * @param values values
+     * @param values input values
      * @param scale scale factor
      */
     private static void scale(float[] values, float scale) {
@@ -1074,7 +1074,7 @@ public final class Network implements AutoCloseable {
      * Adds source to destination in-place.
      *
      * @param dest destination
-     * @param source source
+     * @param source source object
      */
     private static void addInPlace(float[] dest, float[] source) {
         if (dest.length != source.length) {
@@ -1143,7 +1143,7 @@ public final class Network implements AutoCloseable {
     /**
      * Returns a softmaxed copy.
      *
-     * @param logits logits
+     * @param logits policy logits
      * @return probabilities
      */
     private static float[] softmax(float[] logits) {
@@ -1161,8 +1161,8 @@ public final class Network implements AutoCloseable {
      * @param embeddingSize model width
      * @param encoderLayers encoder count
      * @param attentionHeads attention head count
-     * @param policySize policy size
-     * @param parameterCount parameter count
+     * @param policySize source policy size
+     * @param parameterCount number of parameter
      */
     public record Info(
             String name,
@@ -1247,12 +1247,12 @@ public final class Network implements AutoCloseable {
 
         /**
          * Validates the bundle.
-         * @param architecture architecture value
-         * @param input input value
-         * @param encoders encoders value
-         * @param smolgenW smolgen w value
-         * @param policyHead policy head value
-         * @param valueHead value head value
+         * @param architecture network architecture
+         * @param input input path or text
+         * @param encoders encoder blocks
+         * @param smolgenW Smolgen weights
+         * @param policyHead policy-head weights
+         * @param valueHead value-head weights
          */
         public Weights {
             if (architecture == null || input == null || encoders == null || policyHead == null
@@ -1333,8 +1333,8 @@ public final class Network implements AutoCloseable {
 
         /**
          * Validates the FFN shape.
-         * @param dense1 dense1 value
-         * @param dense2 dense2 value
+         * @param dense1 first dense layer
+         * @param dense2 second dense layer
          */
         public Ffn {
             if (dense1 == null || dense2 == null) {
@@ -1390,13 +1390,13 @@ public final class Network implements AutoCloseable {
 
         /**
          * Validates smolgen shape.
-         * @param compress compress value
-         * @param dense1 dense1 value
-         * @param ln1Gamma ln1 gamma value
-         * @param ln1Beta ln1 beta value
-         * @param dense2 dense2 value
-         * @param ln2Gamma ln2 gamma value
-         * @param ln2Beta ln2 beta value
+         * @param compress compression projection
+         * @param dense1 first dense layer
+         * @param ln1Gamma source ln1 gamma
+         * @param ln1Beta source ln1 beta
+         * @param dense2 second dense layer
+         * @param ln2Gamma source ln2 gamma
+         * @param ln2Beta source ln2 beta
          */
         public Smolgen {
             if (compress == null || dense1 == null || dense2 == null) {
@@ -1458,15 +1458,15 @@ public final class Network implements AutoCloseable {
 
         /**
          * Validates the stack.
-         * @param preproc preproc value
-         * @param embedding embedding value
-         * @param embLnGamma emb ln gamma value
-         * @param embLnBeta emb ln beta value
-         * @param multGate mult gate value
-         * @param addGate add gate value
-         * @param embFfn emb ffn value
-         * @param embFfnLnGamma emb ffn ln gamma value
-         * @param embFfnLnBeta emb ffn ln beta value
+         * @param preproc preprocessing weights
+         * @param embedding embedding weights
+         * @param embLnGamma source emb ln gamma
+         * @param embLnBeta source emb ln beta
+         * @param multGate source mult gate
+         * @param addGate source add gate
+         * @param embFfn source emb ffn
+         * @param embFfnLnGamma source emb ffn ln gamma
+         * @param embFfnLnBeta source emb ffn ln beta
          */
         public InputStack {
             if (embedding == null) {
@@ -1537,10 +1537,10 @@ public final class Network implements AutoCloseable {
 
         /**
          * Validates dense layer shape.
-         * @param inDim in dim value
-         * @param outDim out dim value
+         * @param inDim input dimension
+         * @param outDim output dimension
          * @param weights network weights
-         * @param bias bias value
+         * @param bias bias vector
          */
         public Dense {
             if (inDim <= 0 || outDim <= 0) {
@@ -1580,12 +1580,12 @@ public final class Network implements AutoCloseable {
 
         /**
          * Validates attention dimensions.
-         * @param heads heads value
-         * @param query query value
+         * @param heads attention head count
+         * @param query query vector or text
          * @param key lookup key
          * @param value value to use
-         * @param out out value
-         * @param smolgen smolgen value
+         * @param out destination stream or buffer
+         * @param smolgen Smolgen state
          */
         public Attention {
             if (heads <= 0 || query == null || key == null || value == null || out == null) {
@@ -1659,13 +1659,13 @@ public final class Network implements AutoCloseable {
 
         /**
          * Validates block shape.
-         * @param attention attention value
-         * @param ffnIn ffn in value
-         * @param ffnOut ffn out value
-         * @param ln1Gamma ln1 gamma value
-         * @param ln1Beta ln1 beta value
-         * @param ln2Gamma ln2 gamma value
-         * @param ln2Beta ln2 beta value
+         * @param attention attention weights
+         * @param ffnIn FFN input weights
+         * @param ffnOut FFN output weights
+         * @param ln1Gamma source ln1 gamma
+         * @param ln1Beta source ln1 beta
+         * @param ln2Gamma source ln2 gamma
+         * @param ln2Beta source ln2 beta
          * @param activation activation function
          * @param alpha alpha search bound
          */
@@ -1718,11 +1718,11 @@ public final class Network implements AutoCloseable {
 
         /**
          * Validates head shape.
-         * @param embedding embedding value
-         * @param encoders encoders value
-         * @param query query value
+         * @param embedding embedding weights
+         * @param encoders encoder blocks
+         * @param query query vector or text
          * @param key lookup key
-         * @param promotionWeights promotion weights value
+         * @param promotionWeights source promotion weights
          * @param activation activation function
          */
         public PolicyHead {
@@ -1767,9 +1767,9 @@ public final class Network implements AutoCloseable {
 
         /**
          * Validates value head.
-         * @param embedding embedding value
-         * @param fc1 fc1 value
-         * @param fc2 fc2 value
+         * @param embedding embedding weights
+         * @param fc1 first fully connected layer
+         * @param fc2 second fully connected layer
          * @param activation activation function
          */
         public ValueHead {
@@ -1825,7 +1825,7 @@ public final class Network implements AutoCloseable {
         /**
          * Applies activation to one value.
          *
-         * @param x input
+         * @param x x-coordinate
          * @return activated value
          */
         float apply(float x) {
@@ -1841,7 +1841,7 @@ public final class Network implements AutoCloseable {
         /**
          * Numerically stable softplus.
          *
-         * @param x input
+         * @param x x-coordinate
          * @return softplus
          */
         private static float softplus(float x) {
@@ -1858,7 +1858,7 @@ public final class Network implements AutoCloseable {
     /**
      * Copies a float array.
      *
-     * @param source source
+     * @param source source object
      * @param name field name
      * @return copy
      */

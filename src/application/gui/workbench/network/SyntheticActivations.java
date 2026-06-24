@@ -695,7 +695,7 @@ public final class SyntheticActivations {
      * NNUE-style clipped activation (clamped to [0, 1]).
      *
      * @param input source
-     * @return clipped result
+     * @return clipped
      */
     private static float[] clipped(float[] input) {
         float[] out = new float[input.length];
@@ -708,7 +708,7 @@ public final class SyntheticActivations {
     /**
      * Returns arithmetic mean.
      *
-     * @param values values
+     * @param values input values
      * @return mean, or zero for an empty array
      */
     private static float mean(float[] values) {
@@ -773,7 +773,7 @@ public final class SyntheticActivations {
     /**
      * Converts an int[] of indices into a float[] for snapshot storage.
      *
-     * @param indices indices
+     * @param indices source indices
      * @return float-cast indices
      */
     private static float[] intsToFloats(int[] indices) {

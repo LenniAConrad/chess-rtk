@@ -1,5 +1,25 @@
 package application.gui.workbench.publish;
 
+import static application.cli.Constants.OPT_BOARD_PIXELS;
+import static application.cli.Constants.OPT_CHECK;
+import static application.cli.Constants.OPT_COVER_OUTPUT;
+import static application.cli.Constants.OPT_DIAGRAMS_PER_ROW;
+import static application.cli.Constants.OPT_FEN;
+import static application.cli.Constants.OPT_FLIP;
+import static application.cli.Constants.OPT_FREE_WATERMARK;
+import static application.cli.Constants.OPT_INPUT;
+import static application.cli.Constants.OPT_LIMIT;
+import static application.cli.Constants.OPT_NO_FEN;
+import static application.cli.Constants.OPT_OUTPUT;
+import static application.cli.Constants.OPT_PAGE_SIZE;
+import static application.cli.Constants.OPT_PAGES;
+import static application.cli.Constants.OPT_PDF;
+import static application.cli.Constants.OPT_PDF_OUTPUT;
+import static application.cli.Constants.OPT_PGN;
+import static application.cli.Constants.OPT_SUBTITLE;
+import static application.cli.Constants.OPT_TITLE;
+import static application.cli.Constants.OPT_WATERMARK_ID;
+
 import application.cli.PathOps;
 import application.gui.workbench.Defaults;
 import application.gui.workbench.command.CommandRunner;
@@ -29,6 +49,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
@@ -917,7 +939,7 @@ public final class PublishingPanel {
      *
      * @param panel target panel
      * @param c shared constraints
-     * @param rowLabel row label
+     * @param rowLabel source row label
      * @param control row control
      * @param row target row
      * @return next row
@@ -951,17 +973,20 @@ public final class PublishingPanel {
      * @return template shortcut row
      */
     private JComponent createPublishingTemplatePanel() {
-        JPanel row = flow(FlowLayout.LEFT);
-        row.add(button("Diagram sheet", false, event -> selectPublishTemplate(PublishTask.DIAGRAMS)));
-        row.add(button("Puzzle worksheet", false, event -> selectPublishTemplate(PublishTask.COLLECTION)));
-        row.add(button("Study handout", false, event -> selectPublishTemplate(PublishTask.STUDY)));
-        JButton engineReport = button("Engine report", false, event -> {
-            // disabled below
-        });
-        engineReport.setEnabled(false);
-        engineReport.setToolTipText("Engine-report PDF generation is not implemented by the current backend.");
-        row.add(engineReport);
-        return row;
+        JPanel list = transparentPanel(null);
+        list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
+        JButton diagram = button("Diagram sheet", false, event -> selectPublishTemplate(PublishTask.DIAGRAMS));
+        JButton worksheet = button("Puzzle worksheet", false, event -> selectPublishTemplate(PublishTask.COLLECTION));
+        JButton handout = button("Study handout", false, event -> selectPublishTemplate(PublishTask.STUDY));
+        diagram.setAlignmentX(Component.LEFT_ALIGNMENT);
+        worksheet.setAlignmentX(Component.LEFT_ALIGNMENT);
+        handout.setAlignmentX(Component.LEFT_ALIGNMENT);
+        list.add(diagram);
+        list.add(Box.createVerticalStrut(Theme.SPACE_XS));
+        list.add(worksheet);
+        list.add(Box.createVerticalStrut(Theme.SPACE_XS));
+        list.add(handout);
+        return list;
     }
 
     /**
@@ -1061,11 +1086,11 @@ public final class PublishingPanel {
      *
      * @param panel target panel
      * @param c shared constraints
-     * @param rowLabel row label
+     * @param rowLabel source row label
      * @param field path field
      * @param buttonText chooser button text
      * @param row grid row
-     * @param chooserAction chooser action
+     * @param chooserAction source chooser action
      * @return chooser button
      */
     private JButton addChooserRow(JPanel panel, GridBagConstraints c, JComponent rowLabel, JTextField field,
@@ -1434,86 +1459,137 @@ public final class PublishingPanel {
      */
     private PublishingPreviewPlanner.Context previewContext() {
         return new PublishingPreviewPlanner.Context() {
+            /**
+             * {@inheritDoc}
+             */
             @Override
             PublishTask task() {
                 return selectedPublishTask();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             PublishSource source() {
                 return selectedPublishSource();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             String title() {
                 return trimmed(publishTitleField);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             String subtitle() {
                 return trimmed(publishSubtitleField);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             String inputPath() {
                 return trimmed(publishInputField);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             String outputPath() {
                 return trimmed(publishOutputField);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             String manifestOutputPath() {
                 return trimmed(publishManifestOutputField);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             String pdfOutputPath() {
                 return trimmed(publishPdfOutputField);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             String coverOutputPath() {
                 return trimmed(publishCoverOutputField);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             String limit() {
                 return trimmed(publishLimitField);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             String pages() {
                 return trimmed(publishPagesField);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             boolean flip() {
                 return publishFlipBox.isSelected();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             boolean noFen() {
                 return publishNoFenBox.isSelected();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             String currentFen() {
                 return host.currentFen();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             String gameFenList() {
                 return host.gameModel().fenList();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             int gameLastPly() {
                 return host.gameModel().lastPly();
             }
 
+            /**
+             * {@inheritDoc}
+             */
             @Override
             String batchInputText() {
                 return host.batchInputText();
@@ -1586,26 +1662,26 @@ public final class PublishingPanel {
         PublishSource source = selectedPublishSource();
         switch (source) {
             case CURRENT_FEN -> {
-                args.add("--fen");
+                args.add(OPT_FEN);
                 args.add(host.currentFen());
             }
             case GAME_PGN -> {
-                args.add("--pgn");
+                args.add(OPT_PGN);
                 args.add(materialize ? materializeWorkbenchPgn().toString() : WORKBENCH_GAME_PLACEHOLDER);
             }
             case BATCH_FENS -> {
-                args.add("--input");
+                args.add(OPT_INPUT);
                 args.add(materialize ? materializeWorkbenchFens().toString() : WORKBENCH_FENS_PLACEHOLDER);
             }
             case EXISTING_FILE -> addBookPdfFileInput(args, requiredText(publishInputField, "diagram input path"));
         }
-        addRequiredTextArg(args, "--output", publishOutputField, "output path");
-        addOptionalTextArg(args, "--title", publishTitleField);
-        addOptionalComboArg(args, "--page-size", publishPageSizeCombo);
-        addOptionalPositiveIntegerArg(args, "--diagrams-per-row", publishDiagramsPerRowField);
-        addOptionalPositiveIntegerArg(args, "--board-pixels", publishBoardPixelsField);
-        addToggleArg(args, "--flip", publishFlipBox.isSelected());
-        addToggleArg(args, "--no-fen", publishNoFenBox.isSelected());
+        addRequiredTextArg(args, OPT_OUTPUT, publishOutputField, "output path");
+        addOptionalTextArg(args, OPT_TITLE, publishTitleField);
+        addOptionalComboArg(args, OPT_PAGE_SIZE, publishPageSizeCombo);
+        addOptionalPositiveIntegerArg(args, OPT_DIAGRAMS_PER_ROW, publishDiagramsPerRowField);
+        addOptionalPositiveIntegerArg(args, OPT_BOARD_PIXELS, publishBoardPixelsField);
+        addToggleArg(args, OPT_FLIP, publishFlipBox.isSelected());
+        addToggleArg(args, OPT_NO_FEN, publishNoFenBox.isSelected());
     }
 
     /**
@@ -1615,13 +1691,13 @@ public final class PublishingPanel {
      */
     private void buildRenderPublishArgs(List<String> args) {
         args.add("render");
-        addRequiredTextArg(args, "--input", publishInputField, "manifest input path");
-        addOptionalTextArg(args, "--output", publishOutputField);
-        addOptionalTextArg(args, "--title", publishTitleField);
-        addOptionalTextArg(args, "--subtitle", publishSubtitleField);
-        addOptionalPositiveIntegerArg(args, "--limit", publishLimitField);
+        addRequiredTextArg(args, OPT_INPUT, publishInputField, "manifest input path");
+        addOptionalTextArg(args, OPT_OUTPUT, publishOutputField);
+        addOptionalTextArg(args, OPT_TITLE, publishTitleField);
+        addOptionalTextArg(args, OPT_SUBTITLE, publishSubtitleField);
+        addOptionalPositiveIntegerArg(args, OPT_LIMIT, publishLimitField);
         addWatermarkArgs(args);
-        addToggleArg(args, "--check", publishValidateBox.isSelected());
+        addToggleArg(args, OPT_CHECK, publishValidateBox.isSelected());
     }
 
     /**
@@ -1631,18 +1707,18 @@ public final class PublishingPanel {
      */
     private void buildCollectionPublishArgs(List<String> args) {
         args.add("collection");
-        addRequiredTextArg(args, "--input", publishInputField, "record input path");
-        addOptionalTextArg(args, "--output", publishOutputField);
-        addOptionalTextArg(args, "--pdf-output", publishPdfOutputField);
-        addOptionalTextArg(args, "--cover-output", publishCoverOutputField);
-        addOptionalTextArg(args, "--title", publishTitleField);
-        addOptionalTextArg(args, "--subtitle", publishSubtitleField);
+        addRequiredTextArg(args, OPT_INPUT, publishInputField, "record input path");
+        addOptionalTextArg(args, OPT_OUTPUT, publishOutputField);
+        addOptionalTextArg(args, OPT_PDF_OUTPUT, publishPdfOutputField);
+        addOptionalTextArg(args, OPT_COVER_OUTPUT, publishCoverOutputField);
+        addOptionalTextArg(args, OPT_TITLE, publishTitleField);
+        addOptionalTextArg(args, OPT_SUBTITLE, publishSubtitleField);
         addOptionalTextArg(args, "--author", publishAuthorField);
         addOptionalTextArg(args, "--time", publishTimeField);
         addOptionalTextArg(args, "--location", publishLocationField);
         addOptionalComboArg(args, "--language", publishLanguageCombo);
-        addOptionalPositiveIntegerArg(args, "--limit", publishLimitField);
-        addOptionalPositiveIntegerArg(args, "--pages", publishPagesField);
+        addOptionalPositiveIntegerArg(args, OPT_LIMIT, publishLimitField);
+        addOptionalPositiveIntegerArg(args, OPT_PAGES, publishPagesField);
         addCoverLayoutArgs(args);
         addOptionalPositiveIntegerArg(args, "--table-frequency", publishTableFrequencyField);
         addOptionalPositiveIntegerArg(args, "--puzzle-rows", publishPuzzleRowsField);
@@ -1655,7 +1731,7 @@ public final class PublishingPanel {
         addRepeatedTextArgs(args, "--link", publishLinkArea);
         addRepeatedTextArgs(args, "--afterword", publishAfterwordArea);
         addWatermarkArgs(args);
-        addToggleArg(args, "--check", publishValidateBox.isSelected());
+        addToggleArg(args, OPT_CHECK, publishValidateBox.isSelected());
     }
 
     /**
@@ -1665,26 +1741,26 @@ public final class PublishingPanel {
      */
     private void buildStudyPublishArgs(List<String> args) {
         args.add("study");
-        addRequiredTextArg(args, "--input", publishInputField, "study manifest input path");
-        addOptionalTextArg(args, "--output", publishOutputField);
+        addRequiredTextArg(args, OPT_INPUT, publishInputField, "study manifest input path");
+        addOptionalTextArg(args, OPT_OUTPUT, publishOutputField);
         addOptionalTextArg(args, "--manifest-output", publishManifestOutputField);
-        addOptionalTextArg(args, "--cover-output", publishCoverOutputField);
-        addOptionalTextArg(args, "--title", publishTitleField);
-        addOptionalTextArg(args, "--subtitle", publishSubtitleField);
+        addOptionalTextArg(args, OPT_COVER_OUTPUT, publishCoverOutputField);
+        addOptionalTextArg(args, OPT_TITLE, publishTitleField);
+        addOptionalTextArg(args, OPT_SUBTITLE, publishSubtitleField);
         addOptionalTextArg(args, "--author", publishAuthorField);
         addOptionalTextArg(args, "--time", publishTimeField);
         addOptionalTextArg(args, "--location", publishLocationField);
-        addOptionalComboArg(args, "--page-size", publishPageSizeCombo);
+        addOptionalComboArg(args, OPT_PAGE_SIZE, publishPageSizeCombo);
         addOptionalPositiveDecimalArg(args, "--margin", publishMarginField);
-        addOptionalPositiveIntegerArg(args, "--diagrams-per-row", publishDiagramsPerRowField);
-        addOptionalPositiveIntegerArg(args, "--board-pixels", publishBoardPixelsField);
-        addOptionalPositiveIntegerArg(args, "--pages", publishPagesField);
+        addOptionalPositiveIntegerArg(args, OPT_DIAGRAMS_PER_ROW, publishDiagramsPerRowField);
+        addOptionalPositiveIntegerArg(args, OPT_BOARD_PIXELS, publishBoardPixelsField);
+        addOptionalPositiveIntegerArg(args, OPT_PAGES, publishPagesField);
         addCoverLayoutArgs(args);
         addRepeatedTextArgs(args, "--blurb", publishBlurbArea);
         addRepeatedTextArgs(args, "--link", publishLinkArea);
-        addToggleArg(args, "--flip", publishFlipBox.isSelected());
-        addToggleArg(args, "--no-fen", publishNoFenBox.isSelected());
-        addToggleArg(args, "--check", publishValidateBox.isSelected());
+        addToggleArg(args, OPT_FLIP, publishFlipBox.isSelected());
+        addToggleArg(args, OPT_NO_FEN, publishNoFenBox.isSelected());
+        addToggleArg(args, OPT_CHECK, publishValidateBox.isSelected());
     }
 
     /**
@@ -1694,14 +1770,14 @@ public final class PublishingPanel {
      */
     private void buildCoverPublishArgs(List<String> args) {
         args.add("cover");
-        addRequiredTextArg(args, "--input", publishInputField, "book manifest input path");
-        addOptionalTextArg(args, "--pdf", publishPdfOutputField);
-        addOptionalTextArg(args, "--output", publishOutputField);
-        addOptionalTextArg(args, "--title", publishTitleField);
-        addOptionalTextArg(args, "--subtitle", publishSubtitleField);
-        addOptionalPositiveIntegerArg(args, "--pages", publishPagesField);
+        addRequiredTextArg(args, OPT_INPUT, publishInputField, "book manifest input path");
+        addOptionalTextArg(args, OPT_PDF, publishPdfOutputField);
+        addOptionalTextArg(args, OPT_OUTPUT, publishOutputField);
+        addOptionalTextArg(args, OPT_TITLE, publishTitleField);
+        addOptionalTextArg(args, OPT_SUBTITLE, publishSubtitleField);
+        addOptionalPositiveIntegerArg(args, OPT_PAGES, publishPagesField);
         addCoverLayoutArgs(args);
-        addToggleArg(args, "--check", publishValidateBox.isSelected());
+        addToggleArg(args, OPT_CHECK, publishValidateBox.isSelected());
     }
 
     /**
@@ -1712,7 +1788,7 @@ public final class PublishingPanel {
      */
     private static void addBookPdfFileInput(List<String> args, String input) {
         String lower = input.toLowerCase(Locale.ROOT);
-        args.add(lower.endsWith(".pgn") ? "--pgn" : "--input");
+        args.add(lower.endsWith(".pgn") ? OPT_PGN : OPT_INPUT);
         args.add(input);
     }
 
@@ -1779,8 +1855,8 @@ public final class PublishingPanel {
      * @param args target arguments
      */
     private void addWatermarkArgs(List<String> args) {
-        addToggleArg(args, "--free-watermark", publishWatermarkBox.isSelected());
-        addOptionalTextArg(args, "--watermark-id", publishWatermarkIdField);
+        addToggleArg(args, OPT_FREE_WATERMARK, publishWatermarkBox.isSelected());
+        addOptionalTextArg(args, OPT_WATERMARK_ID, publishWatermarkIdField);
     }
 
     /**
@@ -1805,7 +1881,7 @@ public final class PublishingPanel {
      * Adds a toggle flag when selected.
      *
      * @param args target arguments
-     * @param flag flag
+     * @param flag boolean flag
      * @param selected whether the flag is selected
      */
     private static void addToggleArg(List<String> args, String flag, boolean selected) {

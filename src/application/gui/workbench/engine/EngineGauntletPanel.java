@@ -68,12 +68,18 @@ public final class EngineGauntletPanel extends SurfacePanel {
      * Engine-source labels for the per-side mode selector.
      */
     private static final String MODE_BUILTIN = "Built-in";
+    /**
+     * Mode token for uci.
+     */
     private static final String MODE_UCI = "External (UCI)";
 
     /**
      * Budget-unit labels for the per-side budget selector.
      */
     private static final String BUDGET_NODES = "Nodes";
+    /**
+     * Budget token for time limits.
+     */
     private static final String BUDGET_TIME = "Time (ms)";
 
     /**
@@ -85,36 +91,69 @@ public final class EngineGauntletPanel extends SurfacePanel {
      * Candidate and baseline search selectors.
      */
     private final JComboBox<String> searchA = combo("alpha-beta", "mcts");
+    /**
+     * Selector for search b.
+     */
     private final JComboBox<String> searchB = combo("alpha-beta", "mcts");
 
     /**
      * Candidate and baseline evaluator selectors.
      */
     private final JComboBox<String> evalA = combo("classical", "nnue", "cnn", "bt4", "otis");
+    /**
+     * Selector for eval b.
+     */
     private final JComboBox<String> evalB = combo("classical", "nnue", "cnn", "bt4", "otis");
 
     /**
      * Feature and budget fields.
      */
     private final JTextField featuresA = field("all");
+    /**
+     * Text field for features b.
+     */
     private final JTextField featuresB = field("none");
+    /**
+     * Text field for openings.
+     */
     private final JTextField openings = field("8");
+    /**
+     * Text field for seed.
+     */
     private final JTextField seed = field("20260531");
+    /**
+     * Text field for max plies.
+     */
     private final JTextField maxPlies = field("160");
+    /**
+     * Text field for workers.
+     */
     private final JTextField workers = field("1");
+    /**
+     * Text field for threads a.
+     */
     private final JTextField threadsA = field("1");
+    /**
+     * Text field for threads b.
+     */
     private final JTextField threadsB = field("1");
 
     /**
      * Per-side engine source: the built-in searcher or an external UCI engine.
      */
     private final JComboBox<String> engineModeA = combo(MODE_BUILTIN, MODE_UCI);
+    /**
+     * Selector for engine mode b.
+     */
     private final JComboBox<String> engineModeB = combo(MODE_BUILTIN, MODE_UCI);
 
     /**
      * External UCI engine commands, used when a side's mode is External.
      */
     private final JTextField engineA = field("");
+    /**
+     * Text field for engine b.
+     */
     private final JTextField engineB = field("");
 
     /**
@@ -122,22 +161,43 @@ public final class EngineGauntletPanel extends SurfacePanel {
      * options, used when a side's mode is External.
      */
     private final JTextField hashA = field("");
+    /**
+     * Text field for hash b.
+     */
     private final JTextField hashB = field("");
+    /**
+     * Text field for options a.
+     */
     private final JTextField optionsA = field("");
+    /**
+     * Text field for options b.
+     */
     private final JTextField optionsB = field("");
 
     /**
      * Per-side per-move budget: a unit (nodes or time) and a value.
      */
     private final JComboBox<String> budgetTypeA = combo(BUDGET_NODES, BUDGET_TIME);
+    /**
+     * Selector for budget type b.
+     */
     private final JComboBox<String> budgetTypeB = combo(BUDGET_NODES, BUDGET_TIME);
+    /**
+     * Text field for budget value a.
+     */
     private final JTextField budgetValueA = field("3000");
+    /**
+     * Text field for budget value b.
+     */
     private final JTextField budgetValueB = field("3000");
 
     /**
      * Command and process output views.
      */
     private final JTextArea commandArea = new JTextArea();
+    /**
+     * Text area for output.
+     */
     private final JTextArea outputArea = new JTextArea();
 
     /**
@@ -159,16 +219,34 @@ public final class EngineGauntletPanel extends SurfacePanel {
      * Result metric cards.
      */
     private final GauntletMetricCard scoreMetric = new GauntletMetricCard("Score");
+    /**
+     * Metric card showing wins, draws, and losses.
+     */
     private final GauntletMetricCard wdlMetric = new GauntletMetricCard("W / D / L");
+    /**
+     * Metric card showing the estimated Elo difference.
+     */
     private final GauntletMetricCard eloMetric = new GauntletMetricCard("Elo");
+    /**
+     * Metric card showing completed and scheduled games.
+     */
     private final GauntletMetricCard gamesMetric = new GauntletMetricCard("Games");
+    /**
+     * Metric card showing crashes and protocol errors.
+     */
     private final GauntletMetricCard errorsMetric = new GauntletMetricCard("Crashes / errors");
+    /**
+     * Metric card showing elapsed run time.
+     */
     private final GauntletMetricCard durationMetric = new GauntletMetricCard("Duration");
 
     /**
      * Result charts.
      */
     private final GauntletDistributionChart distributionChart = new GauntletDistributionChart();
+    /**
+     * Chart plotting cumulative candidate score over the game stream.
+     */
     private final GauntletCumulativeScoreChart cumulativeChart = new GauntletCumulativeScoreChart();
 
     /**
@@ -190,8 +268,17 @@ public final class EngineGauntletPanel extends SurfacePanel {
      * Run and stop controls.
      */
     private final JButton runButton = Ui.button("Run Gauntlet", true, event -> runGauntlet());
+    /**
+     * Button that stops the active run.
+     */
     private final HoldButton stopButton = new HoldButton("Stop", this::stopGauntlet, true);
+    /**
+     * Button that reruns the last completed setup.
+     */
     private final JButton runAgainButton = Ui.button("Run again", false, event -> runGauntlet());
+    /**
+     * Button that saves the current result.
+     */
     private final JButton saveResultButton = Ui.button("Save result", false, event -> saveResult());
 
     /**
@@ -219,7 +306,13 @@ public final class EngineGauntletPanel extends SurfacePanel {
      * a gauntlet runs, so the result cards and chart update game by game.
      */
     private int liveWins;
+    /**
+     * Live draw count from the active gauntlet stream.
+     */
     private int liveDraws;
+    /**
+     * Live loss count from the active gauntlet stream.
+     */
     private int liveLosses;
 
     /**
@@ -1239,7 +1332,7 @@ public final class EngineGauntletPanel extends SurfacePanel {
      * Parses an integer with fallback.
      *
      * @param value text
-     * @param fallback fallback
+     * @param fallback default used when input is absent or invalid
      * @return parsed integer
      */
     private static int parseInt(String value, int fallback) {
@@ -1344,7 +1437,7 @@ public final class EngineGauntletPanel extends SurfacePanel {
     /**
      * Returns selected combo value.
      *
-     * @param combo combo
+     * @param combo source combo
      * @return selected string
      */
     private static String selected(JComboBox<String> combo) {
@@ -1356,7 +1449,7 @@ public final class EngineGauntletPanel extends SurfacePanel {
      * Returns field text with fallback.
      *
      * @param field source field
-     * @param fallback fallback
+     * @param fallback default used when input is absent or invalid
      * @return text
      */
     private static String text(JTextField field, String fallback) {

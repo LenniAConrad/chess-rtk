@@ -10,22 +10,22 @@ import java.util.Objects;
  * represents the centipawn evaluation, rather mate in {@code Integer} moves. As
  * well as another {@code boolean} indicating, whether the {@code Evaluation} is
  * valid and can be used.
- * 
+ *
  * @since 2023
  * @author Lennart A. Conrad
  */
 public class Evaluation implements Comparable<Evaluation> {
-	
+
 	/**
 	 * Regex used for identifying if a {@code String} matches the centipawn layout.
 	 */
 	private static final String CENTIPAWNREGEX = "-?\\d+";
-	
+
 	/**
 	 * Regex used for identifying if a {@code String} matches the mate layout.
 	 */
 	private static final String MATEREGEX = "#-?\\d+";
-	
+
 	/**
 	 * Used for indicating if the current {@code Evaluation} is valid and can be
 	 * used for comparison.
@@ -76,7 +76,7 @@ public class Evaluation implements Comparable<Evaluation> {
 	/**
 	 * Used for creating a {@code Evaluation} from a mate {@code Boolean} and a
 	 * {@code Integer} value.
-	 * 
+	 *
 	 * @param mate mate flag
 	 * @param value value to use
 	 */
@@ -110,20 +110,20 @@ public class Evaluation implements Comparable<Evaluation> {
 
 	/**
 	 * Used for inverting the current {@code Evaluation}.
-	 * 
+	 *
 	 * <p>
 	 * Inverting a {@code Evaluation} can be useful if you want to skip evaluating
 	 * certain positions. The following {@code Position}
 	 * '8/p1p5/1p4r1/8/6p1/P7/1P1Q1k2/K7 b - - 0 11' is evaluated with:
 	 * </p>
-	 * 
+	 *
 	 * <pre> info depth 32 seldepth 69 multipv 1 score cp 544 wdl 1000 0 0
 	 * nodes 17065467 nps 1333656 hashfull 998 tbhits 0 time 12796 pv g7h8 f4f3 h2h5
 	 * g5f4 h8d4 f5e4 d4d2 e4e3 d2h2 f4e4 h2e5 e4d3 e5c3 d3e2 c3c2 e3d2 h5e5 e2f1
 	 * c2d2 f3f2 d2d3 f1g2 d3e4 g2g1 e4g6 f2f1q a1a2 f1c4 b2b3 c4f4 g6b1 g1f2 b1c2
 	 * f2g3 e5e2 c7c5 c2d3 g3h4 d3h7 h4g5 h7a7 f4d6 a7g7 g5h4 g7h8 h4g5 h8g8 g5h4
 	 * g8c4 h4g5 c4c1 g5g6 c1e3 d6d4 </pre>
-	 * 
+	 *
 	 * <p>
 	 * A chess {@code Engine}, that is perfect would only ever evaluate a position
 	 * with <i>Mate for White</i>, <i>Draw</i> or <i>Mate for Black</i>. Chess
@@ -132,27 +132,27 @@ public class Evaluation implements Comparable<Evaluation> {
 	 * and can conclude that our synthesized {@code Evaluation} should look like
 	 * this:
 	 * </p>
-	 * 
+	 *
 	 * <pre> info depth 31 seldepth 53 multipv 1 score cp -544 wdl 0 0 1000
 	 * nodes ??? nps 1333656 hashfull 998 tbhits 0 time 12796 pv f4f3 h2h5 g5f4 h8d4
 	 * f5e4 d4d2 e4e3 d2h2 f4e4 h2e5 e4d3 e5c3 d3e2 c3c2 e3d2 h5e5 e2f1 c2d2 f3f2
 	 * d2d3 f1g2 d3e4 g2g1 e4g6 f2f1q a1a2 f1c4 b2b3 c4f4 g6b1 g1f2 b1c2 f2g3 e5e2
 	 * c7c5 c2d3 g3h4 d3h7 h4g5 h7a7 f4d6 a7g7 g5h4 g7h8 h4g5 h8g8 g5h4 g8c4 h4g5
 	 * c4c1 g5g6 c1e3 d6d4 </pre>
-	 * 
+	 *
 	 * <p>
 	 * The {@code Evaluation} has just switched, a {@code Position} that is good for
 	 * White must be bad for Black. The {@code Evaluation} however, is not perfect.
 	 * It is just a conclusion made from the {@code Engine} {@code Output}.
 	 * </p>
-	 * 
+	 *
 	 * <p>
 	 * Inversion examples:
 	 * </p>
-	 * 
+	 *
 	 * <style> table { border-collapse: collapse; } th, td { padding: 3px; }
 	 * </style>
-	 * 
+	 *
 	 * <pre>
 	 * 	<table border=1>
 	 * 		<tr> <th> Original </th> <th> Inverted </th> </tr>
@@ -164,10 +164,10 @@ public class Evaluation implements Comparable<Evaluation> {
 	 *      <tr> <td> -100 </td> <td> 100 </td> </tr>
 	 *      <tr> <td> -1000 </td> <td> 1000 </td> </tr>
 	 *      <tr> <td> M-10 </td> <td> M10 </td> </tr>
-	 *      <tr> <td> M-1 </td> <td> M1 </td> </tr>   
+	 *      <tr> <td> M-1 </td> <td> M1 </td> </tr>
 	 * 	</table>
 	 * </pre>
-	 * @return invert result
+	 * @return invert
 	 */
 	public Evaluation invert() {
 		value = - value;
@@ -177,7 +177,7 @@ public class Evaluation implements Comparable<Evaluation> {
 	/**
 	 * Used for retrieving the validity {@code boolean} of the current
 	 * {@code Evaluation}.
-	 * 
+	 *
 	 * @return The validity {@code boolean} of the current {@code Evaluation}
 	 */
 	public boolean isValid() {
@@ -187,7 +187,7 @@ public class Evaluation implements Comparable<Evaluation> {
 	/**
 	 * Used for retrieving the mate {@code boolean} of the current
 	 * {@code Evaluation}.
-	 * 
+	 *
 	 * @return The mate {@code boolean} of the current {@code Evaluation}
 	 */
 	public boolean isMate() {
@@ -196,7 +196,7 @@ public class Evaluation implements Comparable<Evaluation> {
 
 	/**
 	 * Used for retrieving the value of the current {@code Evaluation}.
-	 * 
+	 *
 	 * @return The value of the current {@code Evaluation}
 	 */
 	public int getValue() {
@@ -205,7 +205,7 @@ public class Evaluation implements Comparable<Evaluation> {
 
 	/**
 	 * Used for comparing {@code Evaluations} to one and another.
-	 * 
+	 *
 	 * <ul>
 	 * <li>If one has mate and the other one does not, it will return
 	 * {@code Discrepancy.Absolute}.</li>
@@ -214,8 +214,8 @@ public class Evaluation implements Comparable<Evaluation> {
 	 * </ul>
 	 * This is especially useful when trying to figure out, if two evaluations are
 	 * not too similar.
-	 * 
-	 * @param evaluation evaluation value
+	 *
+	 * @param evaluation evaluation payload
 	 * @return The {@code Discrepancy} of the two {@code Evaluations}
 	 */
 	public Discrepancy getDiscrepancy(Evaluation evaluation) {
@@ -233,7 +233,7 @@ public class Evaluation implements Comparable<Evaluation> {
 
 	/**
 	 * Used for converting the current {@code Evaluation} to a {@code String}.
-	 * 
+	 *
 	 * @return The current {@code Evaluation} as a human readable {@code String}
 	 */
 	@Override
@@ -370,8 +370,8 @@ public class Evaluation implements Comparable<Evaluation> {
     /**
      * Core mate-based comparison: returns >0 if this is more beneficial,
      * <0 if less, or 0 if equal.
-     * @param other other value
-     * @return compare mate result
+     * @param other source other
+     * @return compare mate
      */
     private int compareMate(Evaluation other) {
         if (this.mate && other.mate) {
@@ -447,5 +447,5 @@ public class Evaluation implements Comparable<Evaluation> {
 		this.mate = other.mate;
 		this.value = other.value;
 	}
-	
+
 }

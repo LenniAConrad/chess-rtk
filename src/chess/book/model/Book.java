@@ -872,8 +872,8 @@ public final class Book {
 	 * Returns one non-null string.
 	 *
 	 * @param value source value
-	 * @param fallback fallback value
-	 * @return non-null result
+	 * @param fallback default used when input is absent or invalid
+	 * @return one non-null string
 	 */
 	private static String fallback(String value, String fallback) {
 		return value == null ? fallback : value;
@@ -938,7 +938,7 @@ public final class Book {
 	 * Returns a finite positive value or a fallback.
 	 *
 	 * @param value source value
-	 * @param fallback fallback value
+	 * @param fallback default used when input is absent or invalid
 	 * @return sanitized value
 	 */
 	private static double positiveOrDefault(double value, double fallback) {
@@ -949,7 +949,7 @@ public final class Book {
 	 * Returns a finite non-negative value or a fallback.
 	 *
 	 * @param value source value
-	 * @param fallback fallback value
+	 * @param fallback default used when input is absent or invalid
 	 * @return sanitized value
 	 */
 	private static double nonNegativeOrDefault(double value, double fallback) {

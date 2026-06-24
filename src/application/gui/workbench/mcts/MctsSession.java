@@ -273,7 +273,7 @@ public final class MctsSession implements AutoCloseable {
      * @param state lifecycle state
      * @param status status text
      * @param error error text
-     * @param rootFen root FEN
+     * @param rootFen source root fen
      * @param backend selected backend
      * @param root root summary
      * @param tree tree snapshot
@@ -289,7 +289,7 @@ public final class MctsSession implements AutoCloseable {
         /**
          * Creates an idle snapshot for a root position.
          *
-         * @param rootFen root FEN
+         * @param rootFen source root fen
          * @return idle snapshot
          */
         static Snapshot idle(String rootFen) {
@@ -323,7 +323,7 @@ public final class MctsSession implements AutoCloseable {
      * @param state lifecycle state
      * @param status status text
      * @param error error text
-     * @param rootFen root FEN
+     * @param rootFen source root fen
      * @param backend selected backend
      * @param root root summary
      * @param tree tree snapshot
@@ -342,7 +342,7 @@ public final class MctsSession implements AutoCloseable {
     /**
      * Adds an observer.
      *
-     * @param listener listener
+     * @param listener event listener
      */
     public void addListener(Listener listener) {
         if (listener == null) {
@@ -356,7 +356,7 @@ public final class MctsSession implements AutoCloseable {
     /**
      * Removes an observer.
      *
-     * @param listener listener
+     * @param listener event listener
      */
     public void removeListener(Listener listener) {
         synchronized (listeners) {
@@ -399,7 +399,7 @@ public final class MctsSession implements AutoCloseable {
     /**
      * Updates the requested root position.
      *
-     * @param fen FEN
+     * @param fen FEN string
      * @param reuse true to reuse an existing subtree when possible
      */
     public void requestRootFen(String fen, boolean reuse) {
@@ -668,7 +668,7 @@ public final class MctsSession implements AutoCloseable {
     /**
      * Updates the selected node id inside the latest bounded snapshot.
      *
-     * @param nodeId node id
+     * @param nodeId source node id
      */
     public void setSelectedNodeId(String nodeId) {
         selectedNodeId = nodeId == null || nodeId.isBlank() ? "root" : nodeId;

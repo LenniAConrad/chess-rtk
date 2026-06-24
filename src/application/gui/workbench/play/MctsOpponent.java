@@ -149,7 +149,7 @@ public final class MctsOpponent implements Opponent {
     /**
      * Returns the weights path for a network via the shared {@link Networks} map.
      *
-     * @param network network
+     * @param network network model
      * @return weights path
      */
     private static Path weightsPath(Network network) {

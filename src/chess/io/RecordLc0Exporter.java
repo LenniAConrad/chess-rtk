@@ -172,13 +172,13 @@ public final class RecordLc0Exporter {
 
      /**
      * Handles export record object.
-     * @param json json
-     * @param inputsWriter inputs writer
-     * @param policyWriter policy writer
-     * @param valueWriter value writer
-     * @param policyBuffer policy buffer
-     * @param policyMapInverse policy map inverse
-     * @return computed value
+     * @param json JSON payload or flag
+     * @param inputsWriter feature output writer
+     * @param policyWriter writer receiving policy
+     * @param valueWriter writer receiving value
+     * @param policyBuffer policy output buffer
+     * @param policyMapInverse source policy map inverse
+     * @return handles export record object
      * @throws IOException if the operation fails
      */
      private static boolean exportRecordObject(
@@ -223,7 +223,7 @@ public final class RecordLc0Exporter {
      /**
      * Returns the best usable engine output for one record.
      *
-     * @param parsedRecord parsed record
+     * @param parsedRecord source parsed record
      * @return best output, or {@code null} when unavailable
      */
      private static Output bestOutput(Record parsedRecord) {
@@ -292,9 +292,9 @@ public final class RecordLc0Exporter {
 
      /**
      * Handles value from evaluation.
-     * @param evaluation evaluation
-     * @param chances chances
-     * @return computed value
+     * @param evaluation evaluation payload
+     * @param chances win-draw-loss chances
+     * @return handles value from evaluation
      */
      private static float valueFromEvaluation(Evaluation evaluation, Chances chances) {
         if (chances != null) {
@@ -315,8 +315,8 @@ public final class RecordLc0Exporter {
 
      /**
      * Handles invert policy map.
-     * @param policyMap policy map
-     * @return computed value
+     * @param policyMap source policy map
+     * @return handles invert policy map
      */
      private static int[] invertPolicyMap(int[] policyMap) {
         int maxIndex = -1;
@@ -338,12 +338,12 @@ public final class RecordLc0Exporter {
 
      /**
      * Writes the metadata.
-     * @param metaPath meta path
-     * @param recordFile record file
-     * @param written written
-     * @param skipped skipped
-     * @param policySize policy size
-     * @param policyMapSource policy map source
+     * @param metaPath metadata output path
+     * @param recordFile source record file
+     * @param written number of rows written
+     * @param skipped skipped row count
+     * @param policySize source policy size
+     * @param policyMapSource source policy map source
      * @throws IOException if the operation fails
      */
      private static void writeMetadata(Path metaPath, Path recordFile, long written, long skipped,
@@ -387,8 +387,8 @@ public final class RecordLc0Exporter {
 
      /**
      * Handles escape json.
-     * @param value value
-     * @return computed value
+     * @param value candidate value
+     * @return handles escape json
      */
      private static String escapeJson(String value) {
         return value

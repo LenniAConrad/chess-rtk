@@ -365,8 +365,8 @@ public final class RelationsPanel extends JPanel {
     /**
      * Builds one preset button.
      *
-     * @param label label
-     * @param tooltip tooltip
+     * @param label display label
+     * @param tooltip tooltip text
      * @param channels channels to enable
      * @return preset button
      */
@@ -782,8 +782,8 @@ public final class RelationsPanel extends JPanel {
     /**
      * Sets the density status.
      *
-     * @param text text
-     * @param variant variant
+     * @param text text to render or parse
+     * @param variant layout or network variant
      */
     private void setStatus(String text, StatusBadge.Variant variant) {
         densityBadge.set(text, variant);
@@ -793,8 +793,8 @@ public final class RelationsPanel extends JPanel {
     /**
      * Configures a shared slider.
      *
-     * @param slider slider
-     * @param tooltip tooltip
+     * @param slider slider component
+     * @param tooltip tooltip text
      */
     private static void configureSlider(JSlider slider, String tooltip) {
         Ui.styleSlider(slider);
@@ -816,7 +816,7 @@ public final class RelationsPanel extends JPanel {
     /**
      * Creates a wrapping button panel.
      *
-     * @param buttons buttons
+     * @param buttons button components
      * @return row
      */
     private static JComponent wrappingButtons(JComponent... buttons) {

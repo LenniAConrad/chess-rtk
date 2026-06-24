@@ -72,7 +72,7 @@ public final class Render {
 	 * Default fill color for arrows.
 	 */
 	private static final Color DEFAULT_ARROW_FILL = new Color(1.0f, 1.0f, 1.0f, 1.0f);
-	
+
 	/**
 	 * Default outline color for arrows.
 	 */
@@ -107,7 +107,7 @@ public final class Render {
 	 * Default end shortener for castling/en passant arrows (in tiles).
 	 */
 	private static final double DEFAULT_HINT_ARROW_END_SHORTENER = 0.25;
-	
+
 	/**
 	 * Default fill color for hint circles.
 	 */
@@ -122,9 +122,9 @@ public final class Render {
 	 * Default stroke for hint circles.
 	 */
 	private static final Stroke DEFAULT_CIRCLE_STROKE = new BasicStroke(2f);
-	
+
 	/**
-	 * Default frame color surrounding the board. 
+	 * Default frame color surrounding the board.
 	 */
 	private static final Color DEFAULT_FRAME = new Color(100, 100, 100);
 
@@ -203,12 +203,12 @@ public final class Render {
 	 * Board pixel width taken from the background asset.
 	 */
 	private final int boardWidth = Shapes.Board.getWidth();
-	
+
 	/**
 	 * Board pixel height taken from the background asset.
 	 */
 	private final int boardHeight = Shapes.Board.getHeight();
-	
+
 	/**
 	 * Single tile width in pixels.
 	 */
@@ -218,7 +218,7 @@ public final class Render {
 	 * Single tile height in pixels.
 	 */
 	private final int tileHeight = boardHeight / 8;
-	
+
 	/**
 	 * Thickness of the optional border in pixels.
 	 */
@@ -233,12 +233,12 @@ public final class Render {
 	 * Position currently being rendered.
 	 */
 	private Position position = new Position(Game.STANDARD_START_FEN);
-	
+
 	/**
 	 * Whether White is at the bottom of the board.
 	 */
 	private boolean whiteSideDown = true;
-	
+
 	/**
 	 * Whether a frame/border should be drawn.
 	 */
@@ -280,11 +280,11 @@ public final class Render {
 	 */
 	private String boardAccentHex = null;
 
-	/** 
+	/**
 	 * Overlay arrows to draw.
 	 */
 	private final List<Arrow> arrows = new ArrayList<>();
-	
+
 	/**
 	 * Overlay circles to draw
 	 */
@@ -576,7 +576,7 @@ public final class Render {
 	 *
 	 * @param index       square index (0..63)
 	 * @param text        label to draw (e.g. "+1.5")
-	 * @param textColor   text color
+	 * @param textColor   source text color
 	 * @param background  background fill color (use alpha for transparency)
 	 * @param border      background border color (use alpha for transparency)
 	 * @param borderStroke background border stroke
@@ -950,7 +950,7 @@ public final class Render {
 	 * @param svg SVG builder
 	 * @param boardX board origin x
 	 * @param boardY board origin y
-	 * @param accentHex accent hex value
+	 * @param accentHex source accent hex
 	 */
 	private static void appendBoardSvg(StringBuilder svg, int boardX, int boardY, String accentHex) {
 		svg.append("  <g transform=\"translate(").append(boardX).append(' ').append(boardY).append(")\">\n");
@@ -1096,7 +1096,7 @@ public final class Render {
 	 * @param svg SVG builder
 	 * @param boardX board origin x
 	 * @param boardY board origin y
-	 * @param details details value
+	 * @param details detail rows
 	 */
 	private void appendSquareTextsSvg(StringBuilder svg, int boardX, int boardY, boolean details) {
 		BufferedImage scratch = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
@@ -1521,7 +1521,7 @@ public final class Render {
 	 * @param g      graphics context
 	 * @param boardX board origin x
 	 * @param boardY board origin y
-	 * @param details details value
+	 * @param details detail rows
 	 */
 	private void drawSquareTexts(Graphics2D g, int boardX, int boardY, boolean details) {
 		Font previousFont = g.getFont();

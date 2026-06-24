@@ -12,6 +12,10 @@ package chess.puzzle;
 record RootMaterial(int nonKingPieceCount, int nonPawnPieceCount, int nonKingMaterialCp) {
     /**
      * Normalizes material counters.
+     *
+     * @param nonKingPieceCount number of non-king pieces
+     * @param nonPawnPieceCount number of non-pawn pieces
+     * @param nonKingMaterialCp non-king material in centipawns
      */
     RootMaterial {
         nonKingPieceCount = Math.max(0, nonKingPieceCount);

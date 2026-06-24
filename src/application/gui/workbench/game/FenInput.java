@@ -59,7 +59,7 @@ public final class FenInput {
      * Scans pasted text for a FEN line and remembers the first parse error.
      *
      * @param text raw text
-     * @return scan result
+     * @return scan
      */
     public static Scan firstFenOrFailure(String text) {
         String firstError = null;

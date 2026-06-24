@@ -39,6 +39,9 @@ import javax.swing.JComponent;
  */
 public final class MaterialStrip extends JComponent {
 
+    /**
+     * Serialization identifier for Swing compatibility.
+     */
     private static final long serialVersionUID = 1L;
 
     /**
@@ -50,11 +53,6 @@ public final class MaterialStrip extends JComponent {
      * Standard starting count for each piece code (index by piece code 1..6).
      */
     private static final int[] START_COUNT = { 0, 8, 2, 2, 2, 1, 0 };
-
-    /**
-     * Pawn-unit value for each piece code (index by piece code 1..6).
-     */
-    private static final int[] PAWN_VALUE = { 0, 1, 3, 3, 5, 9, 0 };
 
     /**
      * Strip height in pixels.
@@ -172,9 +170,19 @@ public final class MaterialStrip extends JComponent {
     private static int points(int[] remaining) {
         int total = 0;
         for (int code = Piece.PAWN; code <= Piece.QUEEN; code++) {
-            total += remaining[code] * PAWN_VALUE[code];
+            total += remaining[code] * pawnUnits((byte) code);
         }
         return total;
+    }
+
+    /**
+     * Returns the shared core material value in pawn units.
+     *
+     * @param piece piece code
+     * @return pawn-unit material value
+     */
+    private static int pawnUnits(byte piece) {
+        return Piece.getMaterialValue(piece) / Piece.VALUE_PAWN;
     }
 
     /**

@@ -514,7 +514,7 @@ public final class AlphaBetaUci {
      * Parses a positive int.
      *
      * @param value text value
-     * @param fallback fallback value
+     * @param fallback default used when input is absent or invalid
      * @return parsed positive int, or the fallback
      */
     private static int parsePositiveInt(String value, int fallback) {
@@ -529,7 +529,7 @@ public final class AlphaBetaUci {
      * Parses a positive long.
      *
      * @param value text value
-     * @param fallback fallback value
+     * @param fallback default used when input is absent or invalid
      * @return parsed positive long, or the fallback
      */
     private static long parsePositiveLong(String value, long fallback) {

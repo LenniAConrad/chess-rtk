@@ -775,7 +775,7 @@ public final class NnueAtlas {
      * Returns array value or zero when out of range.
      *
      * @param values source array
-     * @param index index
+     * @param index zero-based index
      * @return value or zero
      */
     private static float valueAt(float[] values, int index) {

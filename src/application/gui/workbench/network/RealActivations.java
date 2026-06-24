@@ -633,7 +633,7 @@ public final class RealActivations {
     /**
      * Returns compact file details for a model row.
      *
-     * @param path model path
+     * @param path file-system path
      * @param suffix fallback detail suffix
      * @return detail text
      */
@@ -714,7 +714,7 @@ public final class RealActivations {
      * @param listener optional listener
      * @param architecture architecture label
      * @param phase provider phase
-     * @param path model path
+     * @param path file-system path
      */
     private static void report(ProgressListener listener, String architecture, Phase phase, Path path) {
         if (listener != null) {
@@ -725,7 +725,7 @@ public final class RealActivations {
     /**
      * Fills the NNUE snapshot with synthetic data as a fallback.
      *
-     * @param fen FEN
+     * @param fen FEN string
      * @param out destination
      */
     private static void fallbackNnue(String fen, ActivationSnapshot out) {
@@ -816,7 +816,7 @@ public final class RealActivations {
     /**
      * Parses a FEN into a position.
      *
-     * @param fen FEN
+     * @param fen FEN string
      * @return position
      */
     private static chess.core.Position parsePosition(String fen) {

@@ -1,14 +1,29 @@
 package application.gui.workbench.session;
 
+import static application.cli.Constants.OPT_COVER_OUTPUT;
+import static application.cli.Constants.OPT_INPUT;
+import static application.cli.Constants.OPT_INPUT_SHORT;
+import static application.cli.Constants.OPT_OUTPUT;
+import static application.cli.Constants.OPT_OUTPUT_DIR;
+import static application.cli.Constants.OPT_OUTPUT_SHORT;
+import static application.cli.Constants.OPT_PDF;
+import static application.cli.Constants.OPT_PDF_OUTPUT;
+import static application.cli.Constants.OPT_PGN;
+import static application.cli.Constants.OPT_PROTOCOL_PATH;
+import static application.cli.Constants.OPT_SUITE;
+import static application.cli.Constants.OPT_WEIGHTS;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
- * Tracks command output artifacts, run logs, and run manifests for the workbench.
+ * Owns artifact discovery and persistence for workbench command runs.
  */
 public final class RunArtifacts {
 
@@ -27,23 +42,23 @@ public final class RunArtifacts {
         /**
          * Appends text to the console.
          *
-         * @param text text
+         * @param text text to render or parse
          */
     void appendConsole(String text);
 
         /**
          * Shows a warning.
          *
-         * @param title title
-         * @param message message
+         * @param title display title
+         * @param message diagnostic message
          */
     void showWarning(String title, String message);
 
         /**
          * Shows an error.
          *
-         * @param title title
-         * @param message message
+         * @param title display title
+         * @param message diagnostic message
          */
     void showError(String title, String message);
     }
@@ -54,12 +69,47 @@ public final class RunArtifacts {
     private final Host host;
 
     /**
+     * Full-log directory, injectable so tests can exercise failed destinations.
+     */
+    private final Path logDirectory;
+
+    /**
+     * Manifest directory, kept separate because logs and manifests have different retention use.
+     */
+    private final Path manifestDirectory;
+
+    /**
+     * Failure keys already reported; retries must not flood the console.
+     */
+    private final Set<String> reportedArtifactFailures = new LinkedHashSet<>();
+
+    /**
+     * Malformed path tokens already reported, keyed by token and parse reason.
+     */
+    private final Set<String> reportedInvalidArtifactPaths = new LinkedHashSet<>();
+
+    /**
      * Creates the artifact controller.
      *
      * @param host owning host
      */
     public RunArtifacts(Host host) {
+        this(host, RunLog.DEFAULT_DIR, RunManifest.DEFAULT_DIR);
+    }
+
+    /**
+     * Creates the artifact controller with explicit artifact directories.
+     * Package-private for regression tests that need temporary or unwritable
+     * targets without redirecting the real workbench dump paths.
+     *
+     * @param host owning host
+     * @param logDirectory directory for full run logs
+     * @param manifestDirectory directory for run manifests
+     */
+    RunArtifacts(Host host, Path logDirectory, Path manifestDirectory) {
         this.host = host;
+        this.logDirectory = logDirectory == null ? RunLog.DEFAULT_DIR : logDirectory;
+        this.manifestDirectory = manifestDirectory == null ? RunManifest.DEFAULT_DIR : manifestDirectory;
     }
 
     /**
@@ -78,7 +128,7 @@ public final class RunArtifacts {
         for (int i = 0; i < args.size(); i++) {
             String token = args.get(i);
             if (isArtifactOutputFlag(token) && i + 1 < args.size()) {
-                addIfPresent(artifacts, args.get(++i));
+                addIfPresent(artifacts, args.get(++i), args);
                 continue;
             }
             if (isArtifactInputFlag(token) && i + 1 < args.size()) {
@@ -88,7 +138,7 @@ public final class RunArtifacts {
             if (token == null || token.startsWith("-") || !looksLikeArtifactPath(token)) {
                 continue;
             }
-            addIfPresent(artifacts, token);
+            addIfPresent(artifacts, token, args);
         }
         return List.copyOf(artifacts);
     }
@@ -108,12 +158,12 @@ public final class RunArtifacts {
             return job.logPath();
         }
         try {
-            Path log = RunLog.write(job, Path.of(""));
+            Path log = RunLog.write(logDirectory, job, Path.of(""));
             job.recordLog(log);
             host.session().artifacts().add(log);
             return log;
         } catch (IOException ex) {
-            host.appendConsole("Run log failed: " + ex.getMessage() + System.lineSeparator());
+            reportArtifactFailure("Run log", job, logDirectory, ex);
             return null;
         }
     }
@@ -132,11 +182,11 @@ public final class RunArtifacts {
         }
         persistLog(job);
         try {
-            Path manifest = RunManifest.write(job, artifacts, stdin, Path.of(""));
+            Path manifest = RunManifest.write(manifestDirectory, job, artifacts, stdin, Path.of(""));
             job.recordManifest(manifest, artifacts);
             host.session().artifacts().add(manifest);
         } catch (IOException ex) {
-            host.appendConsole("Run manifest failed: " + ex.getMessage() + System.lineSeparator());
+            reportArtifactFailure("Run manifest", job, manifestDirectory, ex);
         }
     }
 
@@ -178,22 +228,26 @@ public final class RunArtifacts {
      * Opens the workbench log directory.
      */
     public void openLogsDirectory() {
+        Path dir = RunLog.DEFAULT_DIR.toAbsolutePath().normalize();
         try {
-            Path dir = RunLog.DEFAULT_DIR.toAbsolutePath().normalize();
             Files.createDirectories(dir);
             openPath(dir, "Workbench logs");
         } catch (IOException ex) {
-            host.showError("Workbench logs", "Failed to open log directory: " + ex.getMessage());
+            host.showError("Workbench logs",
+                    "Failed to open log directory " + dir + ": " + failureReason(ex));
         }
     }
 
     /**
-     * Records an artifact path when it exists.
+     * Records existing generated outputs. Missing files are ignored because some
+     * output flags are optional, but malformed path tokens are reported with the
+     * command that produced them.
      *
      * @param artifacts mutable artifact list
      * @param token path token
+     * @param args command arguments
      */
-    private void addIfPresent(List<Path> artifacts, String token) {
+    private void addIfPresent(List<Path> artifacts, String token, List<String> args) {
         try {
             Path path = Path.of(token);
             if (Files.exists(path)) {
@@ -202,12 +256,138 @@ public final class RunArtifacts {
                 host.session().artifacts().add(artifact);
             }
         } catch (java.nio.file.InvalidPathException ex) {
-            // Not a usable path token; ignore.
+            reportInvalidArtifactPath(token, args, ex);
         }
     }
 
     /**
-     * Opens a path through the desktop shell.
+     * Emits one sanitized diagnostic for a generated path token the platform
+     * cannot parse.
+     *
+     * @param token raw path token
+     * @param args command arguments
+     * @param ex parse failure
+     */
+    private void reportInvalidArtifactPath(String token, List<String> args, java.nio.file.InvalidPathException ex) {
+        String reason = failureReason(ex);
+        String key = token + ":" + reason;
+        if (!reportedInvalidArtifactPaths.add(key)) {
+            return;
+        }
+        host.appendConsole("Generated artifact path ignored"
+                + " (command=\"" + oneLine(commandText(args)) + "\""
+                + ", token=\"" + visibleToken(token) + "\"): "
+                + reason
+                + ". Check the output path argument."
+                + System.lineSeparator());
+    }
+
+    /**
+     * Reports one artifact write failure per job, artifact kind, and cause.
+     * The context is intentionally richer than the IOException message because
+     * those messages often omit the workbench command that triggered the write.
+     *
+     * @param artifact artifact label
+     * @param job job being persisted
+     * @param directory target directory
+     * @param ex failure
+     */
+    private void reportArtifactFailure(String artifact, Job job, Path directory, IOException ex) {
+        String reason = failureReason(ex);
+        String key = artifact + ":" + job.id() + ":" + reason;
+        if (!reportedArtifactFailures.add(key)) {
+            return;
+        }
+        host.appendConsole(artifact + " write failed for job #" + job.id()
+                + " (status=" + job.status().name().toLowerCase(Locale.ROOT)
+                + ", command=\"" + oneLine(job.displayCommand()) + "\""
+                + ", directory=" + normalize(directory) + "): "
+                + reason
+                + ". Check that the directory exists and is writable."
+                + System.lineSeparator());
+    }
+
+    /**
+     * Chooses stable, single-line failure text for persisted diagnostics.
+     *
+     * @param ex failure
+     * @return reason text
+     */
+    private static String failureReason(IOException ex) {
+        String message = ex.getMessage();
+        return message == null || message.isBlank()
+                ? ex.getClass().getSimpleName()
+                : oneLine(message);
+    }
+
+    /**
+     * Chooses stable, single-line failure text for invalid path tokens.
+     *
+     * @param ex invalid path failure
+     * @return reason text
+     */
+    private static String failureReason(java.nio.file.InvalidPathException ex) {
+        String reason = ex.getReason();
+        return reason == null || reason.isBlank()
+                ? ex.getClass().getSimpleName()
+                : oneLine(reason);
+    }
+
+    /**
+     * Canonicalizes diagnostic paths so repeated failures produce the same text.
+     *
+     * @param path file-system path
+     * @return normalized absolute path
+     */
+    private static String normalize(Path path) {
+        return path == null ? "" : path.toAbsolutePath().normalize().toString();
+    }
+
+    /**
+     * Sanitizes metadata before embedding it inside one-line console messages.
+     *
+     * @param value text value
+     * @return one-line text
+     */
+    private static String oneLine(String value) {
+        return value == null ? ""
+                : visibleToken(value.replace('\r', ' ').replace('\n', ' ').strip());
+    }
+
+    /**
+     * Rebuilds the workbench display command, not a shell-escaped invocation.
+     *
+     * @param args command arguments
+     * @return display command
+     */
+    private static String commandText(List<String> args) {
+        return "crtk " + String.join(" ", args == null ? List.of() : args);
+    }
+
+    /**
+     * Escapes control characters so invalid paths stay printable in logs and UI.
+     *
+     * @param token raw token
+     * @return printable token
+     */
+    private static String visibleToken(String token) {
+        if (token == null) {
+            return "";
+        }
+        StringBuilder out = new StringBuilder(token.length());
+        for (int i = 0; i < token.length(); i++) {
+            char c = token.charAt(i);
+            if (Character.isISOControl(c)) {
+                out.append(String.format(Locale.ROOT, "\\u%04x", (int) c));
+            } else {
+                out.append(c);
+            }
+        }
+        return out.toString();
+    }
+
+    /**
+     * Maps desktop-shell results to the workbench warning/error contract.
      *
      * @param path path to open
      * @param title dialog title
@@ -231,37 +411,37 @@ public final class RunArtifacts {
     }
 
     /**
-     * Returns whether a command flag names a generated output path.
+     * Flags whose following token is expected to be created by the command.
      *
      * @param flag command flag
      * @return true when the next token is an output path
      */
     private static boolean isArtifactOutputFlag(String flag) {
-        return "--output".equals(flag)
-                || "-o".equals(flag)
-                || "--output-dir".equals(flag)
-                || "--pdf-output".equals(flag)
-                || "--cover-output".equals(flag);
+        return OPT_OUTPUT.equals(flag)
+                || OPT_OUTPUT_SHORT.equals(flag)
+                || OPT_OUTPUT_DIR.equals(flag)
+                || OPT_PDF_OUTPUT.equals(flag)
+                || OPT_COVER_OUTPUT.equals(flag);
     }
 
     /**
-     * Returns whether a command flag names an input/config path.
+     * Flags whose following token is consumed input and should not be recorded.
      *
      * @param flag command flag
      * @return true when the next token should not be recorded as an output
      */
     private static boolean isArtifactInputFlag(String flag) {
-        return "--input".equals(flag)
-                || "-i".equals(flag)
-                || "--pgn".equals(flag)
-                || "--suite".equals(flag)
-                || "--protocol-path".equals(flag)
-                || "--weights".equals(flag)
-                || "--pdf".equals(flag);
+        return OPT_INPUT.equals(flag)
+                || OPT_INPUT_SHORT.equals(flag)
+                || OPT_PGN.equals(flag)
+                || OPT_SUITE.equals(flag)
+                || OPT_PROTOCOL_PATH.equals(flag)
+                || OPT_WEIGHTS.equals(flag)
+                || OPT_PDF.equals(flag);
     }
 
     /**
-     * Returns whether a free command token looks like an artifact path.
+     * Detects output-like free arguments without reading command stdout.
      *
      * @param token command token
      * @return true when the token has an output-like extension

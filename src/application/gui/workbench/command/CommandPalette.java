@@ -307,6 +307,8 @@ public final class CommandPalette extends JPanel {
     /**
      * Builds the search-field border so the underline aligns with the row
      * padding (looks like one continuous column).
+     *
+     * @return built the search-field border so the underline aligns with the row padding (looks like one continuous column)
      */
     private static javax.swing.border.Border buildSearchBorder() {
         return BorderFactory.createCompoundBorder(
@@ -429,9 +431,15 @@ public final class CommandPalette extends JPanel {
 
     /**
      * Creates a Swing action from a runnable.
+     *
+     * @param runnable action to execute
+     * @return created a Swing action from a runnable
      */
     private static AbstractAction swingAction(Runnable runnable) {
         return new AbstractAction() {
+            /**
+             * Serialization identifier for Swing compatibility.
+             */
             private static final long serialVersionUID = 1L;
 
             /**
@@ -515,6 +523,8 @@ public final class CommandPalette extends JPanel {
 
     /**
      * Returns recent actions in most-recently-used order.
+     *
+     * @return recent actions in most-recently-used order
      */
     private List<PaletteAction> recentActionsInOrder() {
         List<PaletteAction> recents = new ArrayList<>();
@@ -531,6 +541,8 @@ public final class CommandPalette extends JPanel {
 
     /**
      * Returns true when at least one selectable action row is visible.
+     *
+     * @return true when at least one selectable action row is visible
      */
     private boolean anySelectableRow() {
         for (int i = 0; i < visibleRows.size(); i++) {
@@ -580,6 +592,8 @@ public final class CommandPalette extends JPanel {
     /**
      * Moves the selected row, skipping past headers and dividers in the
      * stepping direction.
+     *
+     * @param delta selection movement delta
      */
     private void moveSelection(int delta) {
         if (visibleRows.isEmpty() || delta == 0) {
@@ -634,6 +648,8 @@ public final class CommandPalette extends JPanel {
     /**
      * Returns the cached outside-click dismissal listener, creating it on
      * first demand.
+     *
+     * @return cached outside-click dismissal listener, creating it on first demand
      */
     private java.awt.event.AWTEventListener outsideClickListener() {
         if (outsideClickDismiss == null) {
@@ -669,6 +685,8 @@ public final class CommandPalette extends JPanel {
     /**
      * Records that an action title was just run so subsequent palette opens
      * float it toward the top.
+     *
+     * @param title display title
      */
     private void recordRecent(String title) {
         recentTitles.remove(title);
@@ -773,6 +791,10 @@ public final class CommandPalette extends JPanel {
          * Walks {@code haystack} left-to-right and records the position of
          * each query character in order. Returns {@code null} when the query
          * cannot be matched as a subsequence.
+         *
+         * @param haystack candidate text being searched
+         * @param query search query text
+         * @return walks haystack left-to-right and records the position of each query character in order. Returns null when the query cannot be matched as a subsequence
          */
         private static int[] fuzzy(String haystack, String query) {
             int[] hits = new int[query.length()];
@@ -793,6 +815,9 @@ public final class CommandPalette extends JPanel {
 
         /**
          * Scores a hit array, rewarding early matches and consecutive runs.
+         *
+         * @param hits matched palette entries
+         * @return scores a hit array, rewarding early matches and consecutive runs
          */
         private static int scoreOf(int[] hits) {
             if (hits.length == 0) {

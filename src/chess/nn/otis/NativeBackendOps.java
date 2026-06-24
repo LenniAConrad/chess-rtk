@@ -159,7 +159,7 @@ public final class NativeBackendOps {
      * @param info loaded model metadata
      * @param encodedPlanes encoded input planes
      * @param predictor native predictor
-     * @return wrapped prediction result
+     * @return wrapped prediction
      */
     public static Model.Prediction predictEncoded(
             long handle,

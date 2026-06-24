@@ -42,7 +42,7 @@ public final class Perft {
      *
      * @param position root position
      * @param depth non-negative perft depth
-     * @return timed detailed perft result
+     * @return timed detailed perft
      */
     public static Result run(Position position, int depth) {
         requireDepth(depth);
@@ -60,7 +60,7 @@ public final class Perft {
      * @param position root position
      * @param depth non-negative perft depth
      * @param threads worker thread count
-     * @return timed detailed perft result
+     * @return timed detailed perft
      * @throws InterruptedException when interrupted while waiting for workers
      */
     public static Result run(Position position, int depth, int threads) throws InterruptedException {
@@ -83,7 +83,7 @@ public final class Perft {
      *
      * @param position root position
      * @param depth non-negative perft depth
-     * @return timed divide result
+     * @return timed divide
      */
     public static DivideResult divide(Position position, int depth) {
         requireDepth(depth);
@@ -107,7 +107,7 @@ public final class Perft {
      * @param position root position
      * @param depth non-negative perft depth
      * @param threads worker thread count
-     * @return timed divide result
+     * @return timed divide
      * @throws InterruptedException when interrupted while waiting for workers
      */
     public static DivideResult divide(Position position, int depth, int threads) throws InterruptedException {
@@ -137,7 +137,7 @@ public final class Perft {
      *
      * @param position root position
      * @param depth non-negative perft depth
-     * @return timed divide result
+     * @return timed divide
      */
     public static DivideResult divideNodes(Position position, int depth) {
         requireDepth(depth);
@@ -160,7 +160,7 @@ public final class Perft {
      * @param position root position
      * @param depth non-negative perft depth
      * @param threads worker thread count
-     * @return timed divide result
+     * @return timed divide
      * @throws InterruptedException when interrupted while waiting for workers
      */
     public static DivideResult divideNodes(Position position, int depth, int threads) throws InterruptedException {
@@ -323,7 +323,7 @@ public final class Perft {
     /**
      * Removes root-move indexes from calculated divide entries.
      *
-     * @param indexedEntries indexed entries
+     * @param indexedEntries source indexed entries
      * @return divide entries
      */
     private static List<DivideEntry> entries(List<IndexedDivideEntry> indexedEntries) {
@@ -442,7 +442,7 @@ public final class Perft {
      * Adds counters for one legal leaf move.
      *
      * @param counter target counter to update
-     * @param move move
+     * @param move encoded chess move
      * @param state undo state filled by the move
      * @param after position after the move
      * @param context reusable scratch objects for checkmate detection
@@ -524,7 +524,7 @@ public final class Perft {
     /**
      * Timed detailed perft result for one root position.
      *
-     * @param depth depth
+     * @param depth search depth
      * @param stats counters
      * @param nanos elapsed nanoseconds
      */
@@ -557,7 +557,7 @@ public final class Perft {
     /**
      * Timed divide result with total and per-root-move counters.
      *
-     * @param depth depth
+     * @param depth search depth
      * @param total total counters
      * @param entries per-root-move counters
      * @param nanos elapsed nanoseconds

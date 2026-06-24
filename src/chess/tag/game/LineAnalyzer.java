@@ -40,10 +40,16 @@ import java.util.Set;
  */
 public final class LineAnalyzer {
 
+    /**
+     * Creates the line analyzer.
+     */
     private LineAnalyzer() {}
 
     /**
      * Centipawn values keyed by upper-case FEN piece letter. King = 0.
+     *
+     * @param upperPiece uppercase piece designator
+     * @return centipawn values keyed by upper-case FEN piece letter. King = 0
      */
     private static int valueOf(char upperPiece) {
         switch (upperPiece) {
@@ -140,6 +146,18 @@ public final class LineAnalyzer {
     // ---------------------------------------------------------------------------
     // combination : every protagonist ply forcing; ends in mate OR decisive gain
     // ---------------------------------------------------------------------------
+    /**
+     * Emits combination tags.
+     *
+     * @param out destination stream or buffer
+     * @param mv encoded move
+     * @param end ending square
+     * @param balance material-balance score
+     * @param check whether the move gives check
+     * @param capture whether the move captures
+     * @param mateThreat source mate threat
+     * @param fullSan SAN notation for full
+     */
     private static void emitCombination(
             List<String> out, List<Short> mv, Position end, List<Integer> balance,
             List<Boolean> check, List<Boolean> capture, List<Boolean> mateThreat,
@@ -170,6 +188,17 @@ public final class LineAnalyzer {
     // sacrifice : protagonist material dips >= a pawn below baseline then
     //             recovers to >= baseline, or the line ends in mate
     // ---------------------------------------------------------------------------
+    /**
+     * Emits sacrifice tags.
+     *
+     * @param out destination stream or buffer
+     * @param before position before the move
+     * @param mv encoded move
+     * @param balance material-balance score
+     * @param capture whether the move captures
+     * @param end ending square
+     * @param fullSan SAN notation for full
+     */
     private static void emitSacrifice(
             List<String> out, List<Position> before, List<Short> mv,
             List<Integer> balance, List<Boolean> capture, Position end, String fullSan) {
@@ -218,6 +247,15 @@ public final class LineAnalyzer {
     // ---------------------------------------------------------------------------
     // perpetual_check : protagonist checks every (even) ply AND a position repeats
     // ---------------------------------------------------------------------------
+    /**
+     * Emits perpetual tags.
+     *
+     * @param out destination stream or buffer
+     * @param start starting square or offset
+     * @param mv encoded move
+     * @param check whether the move gives check
+     * @param fullSan SAN notation for full
+     */
     private static void emitPerpetual(
             List<String> out, Position start, List<Short> mv,
             List<Boolean> check, String fullSan) {
@@ -249,6 +287,16 @@ public final class LineAnalyzer {
     //   vacates square X a defender was guarding; ply i+2 exploits X (SEE>0 or
     //   mate). Both halves proven by replay; emitted at most once, else skipped.
     // ---------------------------------------------------------------------------
+    /**
+     * Emits deflection tags.
+     *
+     * @param out destination stream or buffer
+     * @param before position before the move
+     * @param mv encoded move
+     * @param check whether the move gives check
+     * @param capture whether the move captures
+     * @param fullSan SAN notation for full
+     */
     private static void emitDeflection(
             List<String> out, List<Position> before, List<Short> mv,
             List<Boolean> check, List<Boolean> capture, String fullSan) {
@@ -285,6 +333,13 @@ public final class LineAnalyzer {
     // helpers
     // ---------------------------------------------------------------------------
 
+    /**
+     * Returns whether the move is legal in the position.
+     *
+     * @param p position to test
+     * @param move encoded move
+     * @return true when the legal-move list contains the move
+     */
     private static boolean isLegal(Position p, short move) {
         var legal = p.legalMoves();
         for (int i = 0; i < legal.size(); i++) {
@@ -296,6 +351,10 @@ public final class LineAnalyzer {
     /**
      * Material (centipawns) for {@code white}, read from the FEN placement field.
      * Encoding-agnostic: upper-case letters are White, lower-case Black.
+     *
+     * @param p position under analysis
+     * @param white White player name or side flag
+     * @return material (centipawns) for white, read from the FEN placement field
      */
     private static int materialFor(Position p, boolean white) {
         String placement = p.toString().split(" ")[0];
@@ -312,6 +371,9 @@ public final class LineAnalyzer {
 
     /**
      * Repetition key: placement + side-to-move + castling + en-passant.
+     *
+     * @param p position under analysis
+     * @return repetition key: placement + side-to-move + castling + en-passant
      */
     private static String repKey(Position p) {
         String[] tok = p.toString().split(" ");
@@ -324,6 +386,15 @@ public final class LineAnalyzer {
         return sb.toString();
     }
 
+    /**
+     * Returns the leading forcing run.
+     *
+     * @param n item count
+     * @param check whether the move gives check
+     * @param capture whether the move captures
+     * @param mateThreat source mate threat
+     * @return leading forcing run
+     */
     private static int leadingForcingRun(int n, List<Boolean> check,
             List<Boolean> capture, List<Boolean> mateThreat) {
         int run = 0;
@@ -338,6 +409,9 @@ public final class LineAnalyzer {
      * True if the side that just moved (NOT the side to move in {@code pos}) has
      * a mate-in-one available were it their turn. Grounded: flip the side to move
      * via a null move (FEN swap) and scan its legal moves for immediate mate.
+     *
+     * @param pos position under analysis
+     * @return true if the side that just moved (NOT the side to move in pos) has a mate-in-one available were it their turn. Grounded: flip the side to move via a null move (FEN swap) and scan its legal moves for immediate mate
      */
     private static boolean hasMateInOneThreat(Position pos) {
         Position threat = nullMove(pos);
@@ -352,6 +426,9 @@ public final class LineAnalyzer {
 
     /**
      * Returns a copy of pos with the side to move flipped (a null move).
+     *
+     * @param pos position under analysis
+     * @return copy of pos with the side to move flipped (a null move)
      */
     private static Position nullMove(Position pos) {
         String[] tok = pos.toString().split(" ");
@@ -369,6 +446,11 @@ public final class LineAnalyzer {
      * True if the piece on {@code fromSq} in {@code p} attacks {@code targetSq}.
      * Grounded by enumerating that piece's legal moves (from the perspective in
      * which it is its colour's turn) and checking for one landing on targetSq.
+     *
+     * @param p position under analysis
+     * @param fromSq source square index
+     * @param targetSq target square index
+     * @return true if the piece on fromSq in p attacks targetSq
      */
     private static boolean guards(Position p, int fromSq, int targetSq) {
         char letter = pieceLetterAt(p, fromSq);
@@ -389,6 +471,10 @@ public final class LineAnalyzer {
      * index = rank*8 + file with rank 0 = the 8th rank, matching this build's
      * getBoard()/Fen layout), or 0 if empty. Read from the FEN placement so it is
      * independent of the numeric board-code scheme.
+     *
+     * @param p position under analysis
+     * @param sq square index
+     * @return fEN piece letter standing on board index sq (0..63, index = rank*8 + file with rank 0 = the 8th rank, matching this build's getBoard()/Fen layout), or 0 if empty. Read from the FEN placement so it is independent of the numeric board-code scheme
      */
     private static char pieceLetterAt(Position p, int sq) {
         String placement = p.toString().split(" ")[0];
@@ -415,6 +501,9 @@ public final class LineAnalyzer {
      * Square name for board index {@code sq}. This build's index layout has
      * rank 0 = the 8th rank (FEN top), so the human rank is 8 - (sq>>3).
      * Verified by the SAN traces in the self-test (Re8#, Ra8+, Bxd4, Qxf7+).
+     *
+     * @param sq square index
+     * @return square name for board index sq. This build's index layout has rank 0 = the 8th rank (FEN top), so the human rank is 8 - (sq>>3)
      */
     private static String squareName(int sq) {
         int file = sq & 7;

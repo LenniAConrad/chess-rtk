@@ -428,7 +428,7 @@ public final class DatasetDiff {
 		 * @param right      right manifest path
 		 * @param leftError  left-side parse error or {@code null}
 		 * @param rightError right-side parse error or {@code null}
-		 * @return parse-failure diff result
+		 * @return built a clean parse-failure diff
 		 */
 		static DiffResult parseFailure(Path left, Path right, String leftError, String rightError) {
 			SectionDiff empty = new SectionDiff("", List.of(), List.of(), List.of());
@@ -450,7 +450,7 @@ public final class DatasetDiff {
 		 * @param inputs    inputs diff
 		 * @param outputs   outputs diff
 		 * @param weights   weights diff
-		 * @return diff result
+		 * @return built a success-stage diff result whose outcome reflects whether any category contains a difference
 		 */
 		static DiffResult success(Path left, Path right, List<FieldDelta> envelope,
 				ArgvDiff argv, SectionDiff inputs, SectionDiff outputs, SectionDiff weights) {

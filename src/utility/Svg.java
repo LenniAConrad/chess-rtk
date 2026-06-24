@@ -259,8 +259,8 @@ public final class Svg {
      *
      * @param viewBoxX      view box x origin
      * @param viewBoxY      view box y origin
-     * @param viewBoxWidth  view box width
-     * @param viewBoxHeight view box height
+     * @param viewBoxWidth  source view box width
+     * @param viewBoxHeight source view box height
      * @param shapes        list of drawable shapes
      */
     public record DocumentModel(
@@ -287,11 +287,11 @@ public final class Svg {
     ) {
         /**
          * Canonical constructor that freezes the shape list.
-         * @param viewBoxX view box x value
-         * @param viewBoxY view box y value
-         * @param viewBoxWidth view box width value
-         * @param viewBoxHeight view box height value
-         * @param shapes shapes value
+         * @param viewBoxX source view box x
+         * @param viewBoxY source view box y
+         * @param viewBoxWidth source view box width
+         * @param viewBoxHeight source view box height
+         * @param shapes shape list
          */
         public DocumentModel {
             shapes = List.copyOf(shapes);
@@ -323,7 +323,7 @@ public final class Svg {
          * Canonical constructor that ensures a non-null transform.
          * @param path file path
          * @param fill fill color
-         * @param transform transform value
+         * @param transform SVG transform
          */
         public ShapeModel {
             transform = transform == null ? new AffineTransform() : new AffineTransform(transform);
@@ -796,6 +796,7 @@ public final class Svg {
      * Parses SVG path data into a Java2D path.
      *
      * @param data SVG path data string
+     * @param windingRule fill winding rule
      * @return parsed path (possibly empty)
      */
     private static Path2D.Double parsePath(String data, int windingRule) {

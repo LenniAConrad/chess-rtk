@@ -214,7 +214,7 @@ public final class ReviewCommand {
 	 * @param wdl UCI WDL flag, invalid for offline mode
 	 * @param noWdl UCI no-WDL flag, invalid for offline mode
 	 * @param verbose whether to print stack traces
-	 * @return review result
+	 * @return review
 	 */
 	private static GameReviewer.Review reviewOffline(
 			List<Game> games,
@@ -269,7 +269,7 @@ public final class ReviewCommand {
 	 * @param wdl request WDL output
 	 * @param noWdl suppress WDL output
 	 * @param verbose whether to print stack traces
-	 * @return review result
+	 * @return review
 	 */
 	private static GameReviewer.Review reviewUci(
 			List<Game> games,

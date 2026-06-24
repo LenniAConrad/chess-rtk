@@ -16,7 +16,7 @@ final class Bt4Backend implements SearchBackend {
     final chess.nn.lc0.bt4.Network network;
     /**
      * New recent prediction cache.
-     * @return new recent prediction cache result
+     * @return new recent prediction cache
      */
     final Map<Long, Bt4Prediction> cache = MctsBackendSupport.newRecentPredictionCache();
     /**
@@ -30,7 +30,7 @@ final class Bt4Backend implements SearchBackend {
 
     /**
      * Bt4 backend.
-     * @param network network value
+     * @param network network model
      */
     Bt4Backend(chess.nn.lc0.bt4.Network network) {
         this.network = network;
@@ -98,7 +98,7 @@ final class Bt4Backend implements SearchBackend {
     /**
      * Predict.
      * @param position chess position
-     * @return predict result
+     * @return predict
      */
     Bt4Prediction predict(Position position) {
         long key = position.signature();
@@ -120,7 +120,7 @@ final class Bt4Backend implements SearchBackend {
     /**
      * Remember.
      * @param key lookup key
-     * @param prediction prediction value
+     * @param prediction network prediction
      */
     void remember(long key, Bt4Prediction prediction) {
         lastKey = key;

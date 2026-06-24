@@ -461,9 +461,9 @@ public class Converter {
 
      /**
      * Handles add base.
-     * @param progress progress
-     * @param base base
-     * @return computed value
+     * @param progress progress callback
+     * @param base base value for comparison
+     * @return handles add base
      */
      private static LongConsumer addBase(LongConsumer progress, long base) {
         return progress == null ? null : done -> progress.accept(base + done);
@@ -471,8 +471,8 @@ public class Converter {
 
      /**
      * Handles safe size.
-     * @param path path
-     * @return computed value
+     * @param path file-system path
+     * @return handles safe size
      */
      private static long safeSize(Path path) {
         try {

@@ -421,7 +421,7 @@ public final class NetworkDiagnosticsPanel extends SurfacePanel {
     /**
      * Safely invokes a boolean GPU probe.
      *
-     * @param probe probe
+     * @param probe diagnostic probe
      * @return probe result or false
      */
     private static boolean safeLoaded(BooleanProbe probe) {
@@ -435,7 +435,7 @@ public final class NetworkDiagnosticsPanel extends SurfacePanel {
     /**
      * Safely invokes an integer GPU probe.
      *
-     * @param probe probe
+     * @param probe diagnostic probe
      * @return probe result or zero
      */
     private static int safeCount(IntProbe probe) {
@@ -612,7 +612,7 @@ public final class NetworkDiagnosticsPanel extends SurfacePanel {
     /**
      * Returns a compact display path.
      *
-     * @param path path
+     * @param path file-system path
      * @return compact label
      */
     private static String pathLabel(Path path) {
@@ -629,8 +629,8 @@ public final class NetworkDiagnosticsPanel extends SurfacePanel {
     /**
      * Elides detail text to a stable row width.
      *
-     * @param text text
-     * @param font font
+     * @param text text to render or parse
+     * @param font font used for measurement or drawing
      * @return elided text
      */
     private static String elide(String text, Font font) {

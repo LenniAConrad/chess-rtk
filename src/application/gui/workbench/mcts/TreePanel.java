@@ -18,6 +18,7 @@ import application.gui.workbench.ui.Ui;
 import application.gui.workbench.ui.WrappingFlowLayout;
 import application.gui.workbench.ui.WorkspaceHeader;
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -130,6 +131,16 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
     private static final double INSPECTOR_SPLIT = 0.76;
 
     /**
+     * Graph-card key for the empty launch state.
+     */
+    private static final String TREE_CARD_EMPTY = "empty";
+
+    /**
+     * Graph-card key for the live tree canvas.
+     */
+    private static final String TREE_CARD_VIEW = "view";
+
+    /**
      * Shared MCTS session.
      */
     private final transient MctsSession session;
@@ -143,6 +154,11 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
      * Tree canvas.
      */
     private final TreeGraphView view = new TreeGraphView();
+
+    /**
+     * Card host that swaps the graph canvas with an actionable empty state.
+     */
+    private final JPanel treeCanvasCards = new JPanel(new CardLayout());
 
     /**
      * Workspace header for the search-tree workbench.
@@ -226,6 +242,14 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
      * Start button.
      */
     private final JButton startButton = Ui.button("Start", true, event -> start());
+
+    /**
+     * Actionable empty state shown before any tree frame exists.
+     */
+    private final JComponent treeEmptyState =
+            Ui.emptyState("No search tree yet", "Grow a PUCT tree from the selected position.",
+                    Ui.button("Start search", true, event -> start()),
+                    Ui.button("Copy command", false, event -> copyCliCommand()));
 
     /**
      * Pause button.
@@ -500,6 +524,9 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
             String stroke, String name, Runnable action) {
         keys.put(javax.swing.KeyStroke.getKeyStroke(stroke), name);
         actions.put(name, new javax.swing.AbstractAction() {
+            /**
+             * Serialization identifier for Swing compatibility.
+             */
             private static final long serialVersionUID = 1L;
 
             /**
@@ -535,7 +562,7 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
     /**
      * Updates the main-board FEN observed by this panel.
      *
-     * @param fen FEN
+     * @param fen FEN string
      */
     public void setBoardFen(String fen) {
         if (fen != null && !fen.isBlank()) {
@@ -775,35 +802,35 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
         searchRow.add(statusBadge);
         searchRow.add(Ui.labeledControl("Backend", backendCombo));
         searchRow.add(Ui.labeledControl("Position", positionCombo));
-
-        JPanel limitsRow = toolbarRow();
-        limitsRow.add(Ui.labeledControl("Visits", visitsSpinner));
-        limitsRow.add(Ui.labeledControl("Millis", millisSpinner));
-        limitsRow.add(Ui.labeledControl("Cpuct", cpuctSpinner));
-        limitsRow.add(Ui.labeledControl("Target", targetField));
-        limitsRow.add(targetLabel);
-        limitsRow.add(Ui.labeledControl("Depth", depthSpinner));
-        limitsRow.add(Ui.labeledControl("Max nodes", maxNodesSpinner));
-        limitsRow.add(Ui.labeledControl("Min visits", minVisitsSpinner));
-        limitsRow.add(Ui.labeledControl("Branches", branchesSpinner));
+        searchRow.add(Ui.labeledControl("Visits", visitsSpinner));
+        searchRow.add(Ui.labeledControl("Millis", millisSpinner));
 
         JPanel viewRow = toolbarRow();
         viewRow.add(Ui.labeledControl("Graph", graphStyleSwitcher));
-        viewRow.add(mergeToggle);
-        viewRow.add(batchLeavesToggle);
-        viewRow.add(layersToggle);
-        viewRow.add(guideLevelControl());
-        viewRow.add(autoFitToggle);
         viewRow.add(detailsToggle);
         viewRow.add(fitButton);
         viewRow.add(resetViewButton);
-        viewRow.add(openBoardButton);
-        viewRow.add(exportSvgButton);
         viewRow.add(Ui.button("Copy command", false, event -> copyCliCommand()));
 
+        JPanel advancedRow = toolbarRow();
+        advancedRow.add(Ui.labeledControl("Cpuct", cpuctSpinner));
+        advancedRow.add(Ui.labeledControl("Target", targetField));
+        advancedRow.add(targetLabel);
+        advancedRow.add(Ui.labeledControl("Depth", depthSpinner));
+        advancedRow.add(Ui.labeledControl("Max nodes", maxNodesSpinner));
+        advancedRow.add(Ui.labeledControl("Min visits", minVisitsSpinner));
+        advancedRow.add(Ui.labeledControl("Branches", branchesSpinner));
+        advancedRow.add(mergeToggle);
+        advancedRow.add(batchLeavesToggle);
+        advancedRow.add(layersToggle);
+        advancedRow.add(guideLevelControl());
+        advancedRow.add(autoFitToggle);
+        advancedRow.add(openBoardButton);
+        advancedRow.add(exportSvgButton);
+
         bar.add(searchRow);
-        bar.add(limitsRow);
         bar.add(viewRow);
+        bar.add(Ui.collapsible("Advanced search / graph settings", advancedRow, false));
         return bar;
     }
 
@@ -852,7 +879,13 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
         inspector.add(Ui.scroll(childTable, () -> Theme.PANEL_SOLID), BorderLayout.CENTER);
         inspector.add(Ui.collapsible("Legend", createTreeLegend(), false), BorderLayout.SOUTH);
 
-        split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, view, inspector);
+        treeCanvasCards.setOpaque(true);
+        treeCanvasCards.setBackground(Theme.BG);
+        treeCanvasCards.add(treeEmptyState, TREE_CARD_EMPTY);
+        treeCanvasCards.add(view, TREE_CARD_VIEW);
+        updateTreeCanvasCard(false);
+
+        split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, treeCanvasCards, inspector);
         split.setResizeWeight(INSPECTOR_SPLIT);
         split.setBorder(BorderFactory.createEmptyBorder());
         SplitPaneStyler.style(split);
@@ -971,6 +1004,7 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
      * @param tree tree snapshot to render, or null for empty
      * @param pathSnapshot live session snapshot whose exploring line is overlaid
      *     as the search path, or null (scrubbing) to show no live path
+     * @return true when the tree layout from a snapshot and refreshes the inspector was rebuilt
      */
     private boolean rebuildModel(MctsSearch.TreeSnapshot tree, MctsSession.Snapshot pathSnapshot) {
         if (tree == null) {
@@ -992,6 +1026,7 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
             view.setSearchPath(Set.of(), Set.of());
             view.setTargetPath(Set.of(), Set.of(), false);
             view.setSelectedPath(Set.of(), Set.of());
+            updateTreeCanvasCard(false);
             return false;
         }
         currentInfos = tree.nodes();
@@ -1010,6 +1045,7 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
                 batchLeavesToggle.isSelected(), activeSelectedId, NODE_BOARD_SIZE, NODE_BOARD_SIZE + CAPTION_HEIGHT,
                 H_GAP, V_GAP, tree.omittedNodes());
         view.setModel(model);
+        updateTreeCanvasCard(!model.isEmpty());
         // Compute the search-path and target overlays after currentInfos is
         // updated, so they map the live exploring line / target line against the
         // frame just rendered.
@@ -1026,6 +1062,16 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
             refreshInspectorAfterRebuild();
         }
         return selectedFocusApplied;
+    }
+
+    /**
+     * Shows either the graph canvas or the centered launch state.
+     *
+     * @param hasTree true when a non-empty tree model is available
+     */
+    private void updateTreeCanvasCard(boolean hasTree) {
+        CardLayout layout = (CardLayout) treeCanvasCards.getLayout();
+        layout.show(treeCanvasCards, hasTree ? TREE_CARD_VIEW : TREE_CARD_EMPTY);
     }
 
     /**
@@ -1449,7 +1495,7 @@ public final class TreePanel extends SurfacePanel implements MctsSession.Listene
     /**
      * Returns a crumb's display text (its move SAN, or UCI).
      *
-     * @param node node
+     * @param node tree node
      * @return crumb text
      */
     private static String crumbText(MctsSearch.NodeInfo node) {

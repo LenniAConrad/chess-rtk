@@ -251,7 +251,7 @@ public final class DonutChart extends JComponent {
             double extent = fraction * 360.0d * swept;
             double drawExtent = Math.max(0.0d, extent - gap);
             if (drawExtent > 0.0d) {
-                g.setColor(color(segment.role()));
+                g.setColor(DatasetChart.roleColor(segment.role()));
                 g.draw(new Arc2D.Double(arcX, arcY, arcD, arcD,
                         cursor - gap / 2.0d, -drawExtent, Arc2D.OPEN));
             }
@@ -277,7 +277,7 @@ public final class DonutChart extends JComponent {
         int cy = ringY + ringBox / 2;
         g.setFont(Theme.font(19, java.awt.Font.BOLD));
         FontMetrics big = g.getFontMetrics();
-        String headline = format(total);
+        String headline = DatasetChart.formatCompactValue(total);
         g.setColor(Theme.TEXT);
         g.drawString(headline, cx - big.stringWidth(headline) / 2,
                 cy + (centerCaption.isBlank() ? big.getAscent() / 2 - 2 : big.getAscent() / 2 - 6));
@@ -315,7 +315,7 @@ public final class DonutChart extends JComponent {
             int row = i / columns;
             int cellX = x + column * (cellWidth + cellGap);
             int centerY = y + row * rowHeight + rowHeight / 2;
-            g.setColor(color(segment.role()));
+            g.setColor(DatasetChart.roleColor(segment.role()));
             g.fillRoundRect(cellX, centerY - swatch / 2, swatch, swatch, 3, 3);
             int textX = cellX + swatch + Theme.SPACE_SM;
             int percent = (int) Math.round(100.0d * segment.value() / total);
@@ -340,23 +340,6 @@ public final class DonutChart extends JComponent {
      */
     private static int legendColumns(int segmentCount, int availableWidth) {
         return segmentCount > 2 && availableWidth >= 220 ? 2 : 1;
-    }
-
-    /**
-     * Returns a themed role color matching {@link DatasetChart}.
-     *
-     * @param role segment role
-     * @return color
-     */
-    private static Color color(DatasetChart.Role role) {
-        return switch (role) {
-            case SUCCESS -> Theme.STATUS_SUCCESS_BORDER;
-            case WARNING -> Theme.STATUS_WARNING_BORDER;
-            case ERROR -> Theme.STATUS_ERROR_BORDER;
-            case PURPLE -> Theme.NN_POLICY;
-            case NEUTRAL -> Theme.MUTED;
-            case ACCENT -> Theme.ACCENT;
-        };
     }
 
     /**
@@ -388,19 +371,4 @@ public final class DonutChart extends JComponent {
         repaint();
     }
 
-    /**
-     * Formats a count for compact display.
-     *
-     * @param value count
-     * @return formatted count
-     */
-    private static String format(long value) {
-        if (value >= 1_000_000L) {
-            return String.format(java.util.Locale.ROOT, "%.1fm", value / 1_000_000.0d);
-        }
-        if (value >= 10_000L) {
-            return String.format(java.util.Locale.ROOT, "%.1fk", value / 1_000.0d);
-        }
-        return Long.toString(value);
-    }
 }

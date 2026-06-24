@@ -50,9 +50,9 @@ final class AffineLayer {
     /**
      * Creates a layer.
      *
-     * @param inputDimensions input dimensions
-     * @param outputDimensions output dimensions
-     * @param biases biases
+     * @param inputDimensions source input dimensions
+     * @param outputDimensions source output dimensions
+     * @param biases bias vectors
      * @param weights row-major weights
      */
     AffineLayer(int inputDimensions, int outputDimensions, int[] biases, byte[] weights) {
@@ -84,8 +84,8 @@ final class AffineLayer {
      * Reads a layer.
      *
      * @param cursor source cursor
-     * @param inputDimensions input dimensions
-     * @param outputDimensions output dimensions
+     * @param inputDimensions source input dimensions
+     * @param outputDimensions source output dimensions
      * @return layer
      */
     static AffineLayer read(Cursor cursor, int inputDimensions, int outputDimensions) {
@@ -168,8 +168,8 @@ final class AffineLayer {
     /**
      * Rounds up to a multiple.
      *
-     * @param value value
-     * @param multiple multiple
+     * @param value candidate value
+     * @param multiple alignment multiple
      * @return rounded value
      */
     private static int ceilToMultiple(int value, int multiple) {
@@ -181,7 +181,7 @@ final class AffineLayer {
      *
      * @param values array
      * @param expected expected length
-     * @param label label
+     * @param label display label
      */
     private void requireLength(int[] values, long expected, String label) {
         if (values == null || values.length != checkedLength(expected, label)) {
@@ -194,7 +194,7 @@ final class AffineLayer {
      *
      * @param values array
      * @param expected expected length
-     * @param label label
+     * @param label display label
      */
     private void requireLength(byte[] values, long expected, String label) {
         if (values == null || values.length != checkedLength(expected, label)) {

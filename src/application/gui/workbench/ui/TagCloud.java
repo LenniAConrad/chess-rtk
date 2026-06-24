@@ -716,7 +716,7 @@ public final class TagCloud extends JComponent implements Scrollable {
     /**
      * Returns a short category label for compact chips that have no headings.
      *
-     * @param category category
+     * @param category category label
      * @return short label
      */
     private static String categoryAbbreviation(String category) {
@@ -817,8 +817,8 @@ public final class TagCloud extends JComponent implements Scrollable {
      * Builds a category style from one accent.
      *
      * @param accent accent color
-     * @param fillAlpha fill alpha
-     * @param borderAlpha border alpha
+     * @param fillAlpha source fill alpha
+     * @param borderAlpha source border alpha
      * @return category style
      */
     private static CategoryStyle style(Color accent, int fillAlpha, int borderAlpha) {
@@ -844,7 +844,7 @@ public final class TagCloud extends JComponent implements Scrollable {
      * @param border chip border
      * @param text heading text
      * @param badge badge fill
-     * @param badgeText badge text
+     * @param badgeText source badge text
      */
     private record CategoryStyle(Color fill, Color border, Color text, Color badge, Color badgeText) { }
 }

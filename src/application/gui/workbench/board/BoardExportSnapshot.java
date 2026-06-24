@@ -51,6 +51,25 @@ record BoardExportSnapshot(
 
     /**
      * Normalizes nullable collections and mutable arrays.
+     *
+     * @param pieces piece image set
+     * @param position chess position
+     * @param boardLightColor light-square board color
+     * @param boardDarkColor dark-square board color
+     * @param whiteDown whether White is rendered at the bottom
+     * @param lastMove last played move
+     * @param suggestedMove engine suggested move
+     * @param selectedSquare selected square, or -1 when absent
+     * @param legalTargets legal destination squares
+     * @param captureTargets legal capture target squares
+     * @param checkedKingSquare checked king square, or -1 when absent
+     * @param squareHighlights per-square highlight colors
+     * @param boardMarkups drawn board annotations
+     * @param showNotation whether coordinates are drawn
+     * @param showLegalMovePreview whether to show legal move previews
+     * @param showLastMoveHighlight whether to highlight the last move
+     * @param showSuggestedMoveArrow whether to draw the suggested move arrow
+     * @param showSpecialMoveHints whether special move hints are drawn
      */
     BoardExportSnapshot {
         pieces = pieces == null ? new byte[64] : pieces.clone();

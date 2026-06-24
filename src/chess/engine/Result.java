@@ -209,7 +209,7 @@ public record Result(
      * @param updatedNodes         updated visited-node count
      * @param updatedElapsedMillis updated elapsed time
      * @param updatedStopped       updated stopped flag
-     * @return adjusted result
+     * @return copy with updated runtime counters and stopped state
      */
     Result withRuntime(long updatedNodes, long updatedElapsedMillis, boolean updatedStopped) {
         return new Result(

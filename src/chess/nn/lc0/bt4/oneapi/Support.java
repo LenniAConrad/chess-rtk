@@ -11,22 +11,22 @@ import chess.gpu.SharedLibrarySupport;
 public final class Support {
 
     /**
-     * L i b  b a s e  n a m e.
+     * Native oneAPI library base name.
      */
     private static final String LIB_BASE_NAME = "lc0_oneapi";
 
     /**
-     * E n v  o n e a p i  l i b.
+     * Environment override for the oneAPI library path.
      */
     private static final String ENV_ONEAPI_LIB = "CRTK_ONEAPI_LIB";
 
     /**
-     * D i r  n a t i v e  o n e a p i.
+     * Repository-relative oneAPI native library directory.
      */
     private static final String DIR_NATIVE_ONEAPI = "native/oneapi";
 
     /**
-     * S t a t e.
+     * Loaded native oneAPI backend state.
      */
     private static final SharedLibrarySupport.State STATE =
             SharedLibrarySupport.load(
@@ -59,7 +59,7 @@ public final class Support {
 
     /**
      * Device count.
-     * @return device count result
+     * @return device count
      */
     public static int deviceCount() {
         return STATE.deviceCount();
@@ -67,7 +67,7 @@ public final class Support {
 
     /**
      * Native device count.
-     * @return native device count result
+     * @return native device count
      */
     private static native int nativeDeviceCount();
 }

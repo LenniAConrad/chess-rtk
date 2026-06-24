@@ -46,7 +46,6 @@ import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
-import javax.swing.JSlider;
 import javax.swing.JSpinner;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
@@ -106,22 +105,17 @@ public final class DrawPanel extends JPanel {
     /**
      * Default alpha used by one-click Draw presets.
      */
-    private static final int PRESET_ALPHA = 212;
+    private static final int PRESET_ALPHA = 204;
+
+    /**
+     * Border alpha used by one-click Draw presets.
+     */
+    private static final int PRESET_BORDER_ALPHA = 236;
 
     /**
      * Width and height of color swatches in the Draw rail.
      */
     private static final int SWATCH_SIZE = 30;
-
-    /**
-     * Preferred width for RGB channel sliders.
-     */
-    private static final int CHANNEL_SLIDER_WIDTH = 150;
-
-    /**
-     * Width for RGB numeric fields, including spinner arrows.
-     */
-    private static final int CHANNEL_SPINNER_WIDTH = 90;
 
     /**
      * Width for direct color text fields.
@@ -191,7 +185,7 @@ public final class DrawPanel extends JPanel {
     /**
      * Compact preset button height.
      */
-    private static final int PRESET_BUTTON_HEIGHT = 44;
+    private static final int PRESET_BUTTON_HEIGHT = 48;
 
     /**
      * Number of preset preview buttons per row.
@@ -199,27 +193,38 @@ public final class DrawPanel extends JPanel {
     private static final int PRESET_GRID_COLUMNS = 6;
 
     /**
+     * Muted annotation palette used by Draw one-click presets.
+     */
+    private static final int PRESET_GREEN_RGB = 0x2F_6F_5E,
+            PRESET_RED_RGB = 0xA3_48_43,
+            PRESET_BLUE_RGB = 0x2F_5F_8F,
+            PRESET_AMBER_RGB = 0xA3_6F_2A,
+            PRESET_PURPLE_RGB = 0x65_54_A3,
+            PRESET_SLATE_RGB = 0x62_70_7F,
+            PRESET_TEAL_RGB = 0x27_7A_83;
+
+    /**
      * One-click annotation presets shown before custom controls.
      */
     private static final List<DrawPreset> DRAW_PRESETS = List.of(
-            glyphPreset("!!", "Brilliant glyph", 0x21_9E_3C),
-            glyphPreset("!", "Good move glyph", 0x21_9E_3C),
-            glyphPreset("!?", "Interesting move glyph", 0x30_72_E0),
-            glyphPreset("?!", "Dubious move glyph", 0xE8_9B_16),
-            glyphPreset("?", "Mistake glyph", 0xCB_37_37),
-            glyphPreset("??", "Blunder glyph", 0xCB_37_37),
-            glyphPreset("+", "Check glyph", 0x30_72_E0),
-            glyphPreset("#", "Mate glyph", 0xCB_37_37),
-            glyphPreset("=", "Equal glyph", 0x65_70_7A),
-            glyphPreset("+-", "White advantage glyph", 0x21_9E_3C),
-            glyphPreset("-+", "Black advantage glyph", 0xCB_37_37),
-            glyphPreset("N", "Novelty glyph", 0x8B_5C_D6),
-            shapePreset("Arrow", BoardMarkupTool.ARROW, 0x21_9E_3C, 12, 4, false),
-            shapePreset("Circle", BoardMarkupTool.CIRCLE, 0x30_72_E0, 10, 4, false),
-            shapePreset("Box", BoardMarkupTool.RECTANGLE, 0xE8_9B_16, 10, 2, false),
-            shapePreset("Round", BoardMarkupTool.RECTANGLE, 0x8B_5C_D6, 10, 2, true),
-            shapePreset("Thin", BoardMarkupTool.ARROW, 0x65_70_7A, 6, 2, false),
-            shapePreset("Wide", BoardMarkupTool.ARROW, 0xCB_37_37, 18, 5, false));
+            glyphPreset("!!", "Brilliant glyph", PRESET_GREEN_RGB),
+            glyphPreset("!", "Good move glyph", PRESET_GREEN_RGB),
+            glyphPreset("!?", "Interesting move glyph", PRESET_BLUE_RGB),
+            glyphPreset("?!", "Dubious move glyph", PRESET_AMBER_RGB),
+            glyphPreset("?", "Mistake glyph", PRESET_RED_RGB),
+            glyphPreset("??", "Blunder glyph", PRESET_RED_RGB),
+            glyphPreset("+", "Check glyph", PRESET_BLUE_RGB),
+            glyphPreset("#", "Mate glyph", PRESET_RED_RGB),
+            glyphPreset("=", "Equal glyph", PRESET_SLATE_RGB),
+            glyphPreset("+-", "White advantage glyph", PRESET_GREEN_RGB),
+            glyphPreset("-+", "Black advantage glyph", PRESET_RED_RGB),
+            glyphPreset("N", "Novelty glyph", PRESET_PURPLE_RGB),
+            shapePreset("Arrow", BoardMarkupTool.ARROW, PRESET_GREEN_RGB, 12, 4, false),
+            shapePreset("Circle", BoardMarkupTool.CIRCLE, PRESET_BLUE_RGB, 10, 4, false),
+            shapePreset("Box", BoardMarkupTool.RECTANGLE, PRESET_AMBER_RGB, 10, 2, false),
+            shapePreset("Round", BoardMarkupTool.RECTANGLE, PRESET_PURPLE_RGB, 10, 2, true),
+            shapePreset("Thin", BoardMarkupTool.ARROW, PRESET_SLATE_RGB, 6, 2, false),
+            shapePreset("Wide", BoardMarkupTool.ARROW, PRESET_RED_RGB, 18, 5, false));
 
     /**
      * Compact height for the current-color preview card.
@@ -407,18 +412,19 @@ public final class DrawPanel extends JPanel {
     private final JSpinner alphaSpinner = channelSpinner(DEFAULT_ALPHA);
 
     /**
-     * Inline RGB controls for custom draw colors.
+     * Current hue picker value.
      */
-    private final JSlider redSlider = new JSlider(0, 255, baseColor.getRed()),
-            greenSlider = new JSlider(0, 255, baseColor.getGreen()),
-            blueSlider = new JSlider(0, 255, baseColor.getBlue());
+    private int hueValue;
 
     /**
-     * Inline HSV controls for custom draw colors.
+     * Current saturation picker value.
      */
-    private final JSlider hueSlider = new JSlider(0, 359, 0),
-            saturationSlider = new JSlider(0, 100, 0),
-            valueSlider = new JSlider(0, 100, 0);
+    private int saturationValue;
+
+    /**
+     * Current brightness picker value.
+     */
+    private int brightnessValue;
 
     /**
      * Numeric RGB fields paired with the inline color sliders.
@@ -426,13 +432,6 @@ public final class DrawPanel extends JPanel {
     private final JSpinner redSpinner = channelSpinner(baseColor.getRed()),
             greenSpinner = channelSpinner(baseColor.getGreen()),
             blueSpinner = channelSpinner(baseColor.getBlue());
-
-    /**
-     * Numeric HSV fields paired with the inline color controls.
-     */
-    private final JSpinner hueSpinner = hsvSpinner(0, 0, 359),
-            saturationSpinner = hsvSpinner(0, 0, 100),
-            valueSpinner = hsvSpinner(0, 0, 100);
 
     /**
      * Direct hexadecimal color entry for the active color role.
@@ -628,11 +627,14 @@ public final class DrawPanel extends JPanel {
      */
     private static JComponent inspectorSection(String title, JComponent body) {
         JPanel section = verticalPanel();
-        section.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.LINE));
+        section.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 0, 0, 0,
+                        Theme.withAlpha(Theme.LINE, Theme.isDark() ? 200 : 160)),
+                Theme.pad(Theme.SPACE_SM, 0, Theme.SPACE_SM, 0)));
         JLabel label = new JLabel(title);
-        label.setFont(Theme.font(Theme.FONT_SECTION_TITLE, Font.BOLD));
-        label.setForeground(Theme.TEXT);
-        label.setBorder(Theme.pad(Theme.SPACE_SM, 0, Theme.SPACE_XS, 0));
+        label.setFont(Theme.font(Theme.FONT_METADATA, Font.BOLD));
+        label.setForeground(Theme.MUTED);
+        label.setBorder(Theme.pad(0, 0, Theme.SPACE_XS, 0));
         section.add(label);
         body.setAlignmentX(Component.LEFT_ALIGNMENT);
         section.add(body);
@@ -691,8 +693,8 @@ public final class DrawPanel extends JPanel {
         for (MarkupBrush brush : MarkupBrush.presetBrushes()) {
             addSwatch(row, brush.name(), DrawColorFormat.opaque(brush.displayColor()));
         }
-        addSwatch(row, "purple", new Color(0x8B, 0x5C, 0xD6));
-        addSwatch(row, "cyan", new Color(0x00, 0x9F, 0xB7));
+        addSwatch(row, "plum", new Color(PRESET_PURPLE_RGB));
+        addSwatch(row, "teal", new Color(PRESET_TEAL_RGB));
         addSwatch(row, "white", new Color(0xF6, 0xF6, 0xF6));
         addSwatch(row, "black", new Color(0x24, 0x24, 0x24));
         addSwatch(row, "wood light", new Color(0xF0, 0xD9, 0xB5));
@@ -909,7 +911,7 @@ public final class DrawPanel extends JPanel {
      *
      * @param name action name
      * @param key key stroke
-     * @param action action
+     * @param action source action
      */
     private void bindShortcut(String name, KeyStroke key, Runnable action) {
         getInputMap(WHEN_IN_FOCUSED_WINDOW).put(key, name);
@@ -1141,8 +1143,8 @@ public final class DrawPanel extends JPanel {
     private void updateSelectedColorPreview() {
         String readout = DrawColorFormat.colorLabel(baseColor) + " RGB "
                 + baseColor.getRed() + " / " + baseColor.getGreen() + " / " + baseColor.getBlue()
-                + " HSV " + hueSlider.getValue() + " / " + saturationSlider.getValue() + " / "
-                + valueSlider.getValue()
+                + " HSV " + hueValue + " / " + saturationValue + " / "
+                + brightnessValue
                 + (activeRole() <= ROLE_BORDER ? " opacity " + opacityValue() + "/255" : "");
         colorPreview.setToolTipText(activeRoleName() + " color: " + readout);
         updateDirectColorFields();
@@ -1286,7 +1288,7 @@ public final class DrawPanel extends JPanel {
     /**
      * Styles a compact numeric channel spinner.
      *
-     * @param spinner spinner
+     * @param spinner spinner component
      * @param tooltip tooltip text
      */
     private static void styleCompactSpinner(JSpinner spinner, String tooltip) {
@@ -1295,84 +1297,6 @@ public final class DrawPanel extends JPanel {
         spinner.setPreferredSize(size);
         spinner.setMinimumSize(size);
         spinner.setToolTipText(tooltip);
-    }
-
-    /**
-     * Configures one RGB channel control pair.
-     *
-     * @param slider channel slider
-     * @param spinner channel numeric input
-     */
-    private void configureColorChannel(JSlider slider, JSpinner spinner) {
-        Ui.styleSlider(slider);
-        slider.setPreferredSize(new Dimension(CHANNEL_SLIDER_WIDTH, Theme.CONTROL_HEIGHT));
-        slider.setToolTipText("Custom color channel.");
-        Ui.styleSpinner(spinner);
-        Dimension spinnerSize = new Dimension(CHANNEL_SPINNER_WIDTH, Theme.CONTROL_HEIGHT);
-        spinner.setPreferredSize(spinnerSize);
-        spinner.setMinimumSize(spinnerSize);
-        spinner.setToolTipText("Custom color channel value.");
-        slider.addChangeListener(event -> {
-            if (syncingColorControls) {
-                return;
-            }
-            syncingColorControls = true;
-            spinner.setValue(Integer.valueOf(slider.getValue()));
-            applyRgbControlsAsActiveColor();
-            updateHsvControlsFromBase();
-            syncingColorControls = false;
-            applyBrush();
-        });
-        spinner.addChangeListener(event -> {
-            if (syncingColorControls) {
-                return;
-            }
-            syncingColorControls = true;
-            slider.setValue(spinnerValue(spinner, slider.getMinimum(), slider.getMaximum()));
-            applyRgbControlsAsActiveColor();
-            updateHsvControlsFromBase();
-            syncingColorControls = false;
-            applyBrush();
-        });
-    }
-
-    /**
-     * Configures one HSV channel control pair.
-     *
-     * @param slider channel slider
-     * @param spinner channel numeric input
-     */
-    private void configureHsvChannel(JSlider slider, JSpinner spinner) {
-        Ui.styleSlider(slider);
-        slider.setPreferredSize(new Dimension(CHANNEL_SLIDER_WIDTH, Theme.CONTROL_HEIGHT));
-        slider.setToolTipText("Custom HSV color channel.");
-        Ui.styleSpinner(spinner);
-        Dimension spinnerSize = new Dimension(CHANNEL_SPINNER_WIDTH, Theme.CONTROL_HEIGHT);
-        spinner.setPreferredSize(spinnerSize);
-        spinner.setMinimumSize(spinnerSize);
-        spinner.setToolTipText("Custom HSV color channel value.");
-        slider.addChangeListener(event -> {
-            if (syncingColorControls) {
-                return;
-            }
-            syncingColorControls = true;
-            spinner.setValue(Integer.valueOf(slider.getValue()));
-            applyHsvControlsAsActiveColor();
-            updateRgbControlsFromBase();
-            syncingColorControls = false;
-            applyBrush();
-        });
-        spinner.addChangeListener(event -> {
-            if (syncingColorControls) {
-                return;
-            }
-            syncingColorControls = true;
-            slider.setValue(spinnerValue(spinner, slider.getMinimum(), slider.getMaximum()));
-            applyHsvControlsAsActiveColor();
-            updateRgbControlsFromBase();
-            syncingColorControls = false;
-            applyBrush();
-        });
     }
 
     /**
@@ -1404,22 +1328,14 @@ public final class DrawPanel extends JPanel {
     }
 
     /**
-     * Applies RGB controls as a custom color.
-     */
-    private void applyRgbControlsAsActiveColor() {
-        setActiveSwatch(CUSTOM_SWATCH_INDEX);
-        setActiveBaseColor(new Color(redSlider.getValue(), greenSlider.getValue(), blueSlider.getValue()));
-    }
-
-    /**
      * Applies HSV controls as a custom color.
      */
     private void applyHsvControlsAsActiveColor() {
         setActiveSwatch(CUSTOM_SWATCH_INDEX);
-        float hue = hueSlider.getValue() / 359f;
-        float saturation = saturationSlider.getValue() / 100f;
-        float value = valueSlider.getValue() / 100f;
-        setActiveBaseColor(new Color(Color.HSBtoRGB(hue, saturation, value)));
+        float hue = hueValue / 359f;
+        float saturation = saturationValue / 100f;
+        float brightness = brightnessValue / 100f;
+        setActiveBaseColor(new Color(Color.HSBtoRGB(hue, saturation, brightness)));
     }
 
     /**
@@ -1436,11 +1352,8 @@ public final class DrawPanel extends JPanel {
      * Updates the RGB controls to match the selected color.
      */
     private void updateRgbControlsFromBase() {
-        redSlider.setValue(baseColor.getRed());
         redSpinner.setValue(Integer.valueOf(baseColor.getRed()));
-        greenSlider.setValue(baseColor.getGreen());
         greenSpinner.setValue(Integer.valueOf(baseColor.getGreen()));
-        blueSlider.setValue(baseColor.getBlue());
         blueSpinner.setValue(Integer.valueOf(baseColor.getBlue()));
     }
 
@@ -1449,12 +1362,9 @@ public final class DrawPanel extends JPanel {
      */
     private void updateHsvControlsFromBase() {
         float[] hsb = Color.RGBtoHSB(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), null);
-        hueSlider.setValue(Math.min(359, Math.round(hsb[0] * 359f)));
-        hueSpinner.setValue(Integer.valueOf(hueSlider.getValue()));
-        saturationSlider.setValue(Math.round(hsb[1] * 100f));
-        saturationSpinner.setValue(Integer.valueOf(saturationSlider.getValue()));
-        valueSlider.setValue(Math.round(hsb[2] * 100f));
-        valueSpinner.setValue(Integer.valueOf(valueSlider.getValue()));
+        hueValue = Math.min(359, Math.round(hsb[0] * 359f));
+        saturationValue = Math.round(hsb[1] * 100f);
+        brightnessValue = Math.round(hsb[2] * 100f);
         colorPlane.repaint();
         hueStrip.repaint();
     }
@@ -1467,10 +1377,9 @@ public final class DrawPanel extends JPanel {
      */
     private void chooseColorPlanePoint(int x, int y) {
         syncingColorControls = true;
-        saturationSlider.setValue(Math.round(clamp01(x / (float) Math.max(1, colorPlane.getWidth() - 1)) * 100f));
-        saturationSpinner.setValue(Integer.valueOf(saturationSlider.getValue()));
-        valueSlider.setValue(Math.round((1f - clamp01(y / (float) Math.max(1, colorPlane.getHeight() - 1))) * 100f));
-        valueSpinner.setValue(Integer.valueOf(valueSlider.getValue()));
+        saturationValue = Math.round(clamp01(x / (float) Math.max(1, colorPlane.getWidth() - 1)) * 100f);
+        brightnessValue = Math.round((1f
+                - clamp01(y / (float) Math.max(1, colorPlane.getHeight() - 1))) * 100f);
         applyHsvControlsAsActiveColor();
         updateRgbControlsFromBase();
         syncingColorControls = false;
@@ -1484,8 +1393,7 @@ public final class DrawPanel extends JPanel {
      */
     private void chooseHuePoint(int x) {
         syncingColorControls = true;
-        hueSlider.setValue(Math.round(clamp01(x / (float) Math.max(1, hueStrip.getWidth() - 1)) * 359f));
-        hueSpinner.setValue(Integer.valueOf(hueSlider.getValue()));
+        hueValue = Math.round(clamp01(x / (float) Math.max(1, hueStrip.getWidth() - 1)) * 359f);
         applyHsvControlsAsActiveColor();
         updateRgbControlsFromBase();
         syncingColorControls = false;
@@ -1841,6 +1749,7 @@ public final class DrawPanel extends JPanel {
      * @param row target row
      * @param label channel label
      * @param spinner channel spinner
+     * @return created labelled compact channel spinner
      */
     private static JComponent miniChannel(String label, JSpinner spinner) {
         JPanel row = Ui.transparentPanel(new FlowLayout(FlowLayout.LEFT, Theme.SPACE_XS, 0));
@@ -1853,23 +1762,6 @@ public final class DrawPanel extends JPanel {
     }
 
     /**
-     * Builds one RGB channel row.
-     *
-     * @param text row label
-     * @param slider channel slider
-     * @param spinner channel numeric input
-     * @return row component
-     */
-    private static JComponent channelRow(String text, JSlider slider, JSpinner spinner) {
-        JPanel controls = Ui.transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
-        controls.add(slider, BorderLayout.CENTER);
-        controls.add(spinner, BorderLayout.EAST);
-        controls.setPreferredSize(new Dimension(CHANNEL_SLIDER_WIDTH + CHANNEL_SPINNER_WIDTH + Theme.SPACE_SM,
-                Theme.CONTROL_HEIGHT));
-        return controlRow(text, controls);
-    }
-
-    /**
      * Creates one RGB channel spinner.
      *
      * @param value initial value
@@ -1877,18 +1769,6 @@ public final class DrawPanel extends JPanel {
      */
     private static JSpinner channelSpinner(int value) {
         return new JSpinner(new SpinnerNumberModel(value, 0, 255, 1));
-    }
-
-    /**
-     * Creates one HSV channel spinner.
-     *
-     * @param value initial value
-     * @param min minimum value
-     * @param max maximum value
-     * @return spinner
-     */
-    private static JSpinner hsvSpinner(int value, int min, int max) {
-        return new JSpinner(new SpinnerNumberModel(value, min, max, 1));
     }
 
     /**
@@ -1951,7 +1831,7 @@ public final class DrawPanel extends JPanel {
     }
 
     /**
-     * Creates one glyph preset.
+     * Builds a glyph preset using the shared professional annotation palette.
      *
      * @param glyph glyph label
      * @param tooltip button tooltip
@@ -1965,13 +1845,13 @@ public final class DrawPanel extends JPanel {
     }
 
     /**
-     * Creates one shape preset.
+     * Builds a shape preset using the same color contract as glyph presets.
      *
      * @param label button label
      * @param tool annotation tool
      * @param rgb fill RGB
-     * @param lineWidth line width
-     * @param borderWidth border width
+     * @param lineWidth stroke width in pixels
+     * @param borderWidth source border width
      * @param roundedRectangle true for rounded rectangle markups
      * @return draw preset
      */
@@ -1982,7 +1862,7 @@ public final class DrawPanel extends JPanel {
     }
 
     /**
-     * Creates a preset fill color.
+     * Applies the shared preset opacity to an opaque palette color.
      *
      * @param rgb color RGB
      * @return preset color
@@ -1992,7 +1872,7 @@ public final class DrawPanel extends JPanel {
     }
 
     /**
-     * Creates a readable preset border color.
+     * Derives a slightly darker outline so presets keep their hue family.
      *
      * @param rgb fill RGB
      * @return border color
@@ -2001,10 +1881,10 @@ public final class DrawPanel extends JPanel {
         int red = (rgb >> 16) & 0xff;
         int green = (rgb >> 8) & 0xff;
         int blue = rgb & 0xff;
-        int borderRed = Math.max(0, red - 42);
-        int borderGreen = Math.max(0, green - 42);
-        int borderBlue = Math.max(0, blue - 42);
-        return new Color(borderRed, borderGreen, borderBlue, PRESET_ALPHA);
+        int borderRed = Math.max(0, red - 38);
+        int borderGreen = Math.max(0, green - 38);
+        int borderBlue = Math.max(0, blue - 38);
+        return new Color(borderRed, borderGreen, borderBlue, PRESET_BORDER_ALPHA);
     }
 
     /**
@@ -2013,10 +1893,10 @@ public final class DrawPanel extends JPanel {
      * @param label button label
      * @param tool annotation tool
      * @param glyph glyph label
-     * @param fillColor fill color
-     * @param borderColor border color
-     * @param lineWidth line width
-     * @param borderWidth border width
+     * @param fillColor source fill color
+     * @param borderColor source border color
+     * @param lineWidth stroke width in pixels
+     * @param borderWidth source border width
      * @param roundedRectangle true for rounded rectangle markups
      * @param tooltip button tooltip
      */
@@ -2137,19 +2017,32 @@ public final class DrawPanel extends JPanel {
             }
         }
 
+        /**
+         * Paints restrained button chrome with a slim color accent.
+         *
+         * @param g graphics context
+         */
         private void paintChrome(Graphics2D g) {
             boolean pressed = getModel().isPressed();
             boolean rollover = getModel().isRollover();
-            Color fill = pressed ? Theme.SELECTION_SOLID
-                    : rollover ? Theme.TAB_HOVER : Theme.INPUT;
-            g.setColor(fill);
-            g.fillRoundRect(0, 0, Math.max(0, getWidth() - 1), Math.max(0, getHeight() - 1),
+            int width = Math.max(0, getWidth() - 1);
+            int height = Math.max(0, getHeight() - 1);
+            Color surface = pressed ? Theme.SELECTION_SOLID
+                    : rollover ? Theme.ELEVATED_SOLID : Theme.INPUT;
+            g.setColor(surface);
+            g.fillRoundRect(0, 0, width, height,
                     Theme.RADIUS, Theme.RADIUS);
-            g.setColor(rollover ? Theme.withAlpha(preset.fillColor(), 180) : Theme.INPUT_BORDER);
-            g.drawRoundRect(0, 0, Math.max(0, getWidth() - 1), Math.max(0, getHeight() - 1),
-                    Theme.RADIUS, Theme.RADIUS);
-            g.setColor(Theme.withAlpha(preset.fillColor(), Theme.isDark() ? 74 : 46));
-            g.fillRoundRect(3, 3, Math.max(0, getWidth() - 7), 18, Theme.RADIUS, Theme.RADIUS);
+            if (rollover || pressed) {
+                g.setColor(Theme.withAlpha(preset.fillColor(), Theme.isDark() ? 34 : 24));
+                g.fillRoundRect(1, 1, Math.max(0, width - 2), Math.max(0, height - 2),
+                        Theme.RADIUS, Theme.RADIUS);
+            }
+            g.setColor(Theme.withAlpha(preset.fillColor(), Theme.isDark() ? 166 : 142));
+            g.fillRoundRect(4, 6, 4, Math.max(0, height - 12), 4, 4);
+            g.setColor(rollover
+                    ? Theme.withAlpha(preset.borderColor(), Theme.isDark() ? 224 : 196)
+                    : Theme.withAlpha(Theme.INPUT_BORDER, Theme.isDark() ? 210 : 180));
+            g.drawRoundRect(0, 0, width, height, Theme.RADIUS, Theme.RADIUS);
             if (isFocusOwner()) {
                 g.setColor(Theme.FOCUS_RING);
                 g.drawRoundRect(2, 2, Math.max(0, getWidth() - 5), Math.max(0, getHeight() - 5),
@@ -2157,10 +2050,15 @@ public final class DrawPanel extends JPanel {
             }
         }
 
+        /**
+         * Paints the actual annotation primitive the preset will apply.
+         *
+         * @param g graphics context
+         */
         private void paintPreview(Graphics2D g) {
-            int x = 8;
-            int y = 6;
-            int width = Math.max(18, getWidth() - 16);
+            int x = 12;
+            int y = 7;
+            int width = Math.max(18, getWidth() - 22);
             int height = 14;
             Color fill = preset.fillColor();
             Color border = preset.borderColor();
@@ -2172,6 +2070,17 @@ public final class DrawPanel extends JPanel {
             }
         }
 
+        /**
+         * Paints a compact glyph annotation sample.
+         *
+         * @param g graphics context
+         * @param x x coordinate in pixels
+         * @param y y coordinate in pixels
+         * @param width width in pixels
+         * @param height height in pixels
+         * @param fill fill color
+         * @param border border color
+         */
         private void paintGlyphPreview(Graphics2D g, int x, int y, int width, int height, Color fill, Color border) {
             int side = Math.min(width, height + 5);
             int chipX = x + Math.max(0, (width - side) / 2);
@@ -2188,6 +2097,17 @@ public final class DrawPanel extends JPanel {
                     y - 1 + (side - metrics.getHeight()) / 2 + metrics.getAscent());
         }
 
+        /**
+         * Paints a compact arrow annotation sample.
+         *
+         * @param g graphics context
+         * @param x x coordinate in pixels
+         * @param y y coordinate in pixels
+         * @param width width in pixels
+         * @param height height in pixels
+         * @param fill fill color
+         * @param border border color
+         */
         private void paintArrowPreview(Graphics2D g, int x, int y, int width, int height, Color fill, Color border) {
             int midY = y + height / 2;
             float stroke = Math.max(2f, Math.min(5f, preset.lineWidth() / 3f));
@@ -2203,6 +2123,17 @@ public final class DrawPanel extends JPanel {
                     new int[] { midY, midY - 5, midY + 5 }, 3);
         }
 
+        /**
+         * Paints a compact circle annotation sample.
+         *
+         * @param g graphics context
+         * @param x x coordinate in pixels
+         * @param y y coordinate in pixels
+         * @param width width in pixels
+         * @param height height in pixels
+         * @param fill fill color
+         * @param border border color
+         */
         private void paintCirclePreview(Graphics2D g, int x, int y, int width, int height, Color fill, Color border) {
             int side = Math.min(width, height + 5);
             int chipX = x + Math.max(0, (width - side) / 2);
@@ -2213,6 +2144,17 @@ public final class DrawPanel extends JPanel {
             g.drawOval(chipX, y - 1, side, side);
         }
 
+        /**
+         * Paints a compact rectangle annotation sample.
+         *
+         * @param g graphics context
+         * @param x x coordinate in pixels
+         * @param y y coordinate in pixels
+         * @param width width in pixels
+         * @param height height in pixels
+         * @param fill fill color
+         * @param border border color
+         */
         private void paintRectanglePreview(Graphics2D g, int x, int y, int width, int height,
                 Color fill, Color border) {
             int arc = preset.roundedRectangle() ? Theme.RADIUS * 2 : 0;
@@ -2223,15 +2165,26 @@ public final class DrawPanel extends JPanel {
             g.drawRoundRect(x + 2, y - 1, width - 4, height + 4, arc, arc);
         }
 
+        /**
+         * Paints the preset label below the primitive sample.
+         *
+         * @param g graphics context
+         */
         private void paintLabel(Graphics2D g) {
             String label = getText();
             g.setFont(getFont());
             FontMetrics metrics = g.getFontMetrics();
             int baseline = getHeight() - 8;
-            g.setColor(Theme.TEXT);
+            g.setColor(Theme.isDark() ? Theme.TEXT : Theme.withAlpha(Theme.TEXT, 232));
             g.drawString(label, Math.max(4, (getWidth() - metrics.stringWidth(label)) / 2), baseline);
         }
 
+        /**
+         * Builds a precise tooltip from the brush values applied by the preset.
+         *
+         * @param preset source preset
+         * @return preset tooltip text
+         */
         private static String presetTooltip(DrawPreset preset) {
             return preset.tooltip()
                     + " · fill " + DrawColorFormat.colorLabel(preset.fillColor())
@@ -2241,6 +2194,12 @@ public final class DrawPanel extends JPanel {
                     + (preset.roundedRectangle() ? " · rounded" : "");
         }
 
+        /**
+         * Chooses black or white ink for text drawn inside a color sample.
+         *
+         * @param color display color
+         * @return readable ink
+         */
         private static Color readableInk(Color color) {
             int luminance = (color.getRed() * 299 + color.getGreen() * 587 + color.getBlue() * 114) / 1000;
             return luminance > 145 ? Color.BLACK : Color.WHITE;
@@ -2304,7 +2263,7 @@ public final class DrawPanel extends JPanel {
                 int width = Math.max(1, getWidth());
                 int height = Math.max(1, getHeight());
                 RoundRectangle2D.Float shape = pickerShape(width, height);
-                float hue = hueSlider.getValue() / 359f;
+                float hue = hueValue / 359f;
                 Graphics2D fill = (Graphics2D) g.create();
                 try {
                     fill.clip(shape);
@@ -2321,8 +2280,8 @@ public final class DrawPanel extends JPanel {
                 }
                 g.setColor(Theme.LINE);
                 g.draw(shape);
-                int markerX = Math.round(saturationSlider.getValue() / 100f * (width - 1));
-                int markerY = Math.round((1f - valueSlider.getValue() / 100f) * (height - 1));
+                int markerX = Math.round(saturationValue / 100f * (width - 1));
+                int markerY = Math.round((1f - brightnessValue / 100f) * (height - 1));
                 g.setStroke(new java.awt.BasicStroke(2f));
                 g.setColor(Color.WHITE);
                 g.drawOval(markerX - 5, markerY - 5, 10, 10);
@@ -2404,7 +2363,7 @@ public final class DrawPanel extends JPanel {
                 }
                 g.setColor(Theme.LINE);
                 g.draw(shape);
-                int markerX = Math.round(hueSlider.getValue() / 359f * (width - 1));
+                int markerX = Math.round(hueValue / 359f * (width - 1));
                 g.setColor(Theme.TEXT);
                 g.drawLine(markerX, 2, markerX, height - 3);
             } finally {
@@ -2486,6 +2445,12 @@ public final class DrawPanel extends JPanel {
 
         /**
          * Paints a small checkerboard under translucent color samples.
+         *
+         * @param g graphics context
+         * @param x x-coordinate in pixels
+         * @param y y-coordinate in pixels
+         * @param width width in pixels
+         * @param height height in pixels
          */
         private void paintChecker(Graphics2D g, int x, int y, int width, int height) {
             int cell = 7;
@@ -2558,13 +2523,21 @@ public final class DrawPanel extends JPanel {
             Graphics2D g = (Graphics2D) graphics.create();
             try {
                 g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                int inset = selectedSwatch == index ? 3 : 6;
+                int inset = selectedSwatch == index ? 4 : 6;
+                int sampleWidth = Math.max(0, getWidth() - inset * 2);
+                int sampleHeight = Math.max(0, getHeight() - inset * 2);
                 g.setColor(Theme.INPUT);
                 g.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, Theme.RADIUS, Theme.RADIUS);
-                g.setColor(selectedSwatch == index ? Theme.ACCENT : Theme.INPUT_BORDER);
+                g.setColor(selectedSwatch == index
+                        ? Theme.ACCENT
+                        : Theme.withAlpha(Theme.INPUT_BORDER, Theme.isDark() ? 210 : 176));
                 g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, Theme.RADIUS, Theme.RADIUS);
                 g.setColor(color);
-                g.fillOval(inset, inset, getWidth() - inset * 2, getHeight() - inset * 2);
+                g.fillRoundRect(inset, inset, sampleWidth, sampleHeight,
+                        Math.max(3, Theme.RADIUS - 2), Math.max(3, Theme.RADIUS - 2));
+                g.setColor(Theme.withAlpha(Theme.TEXT, Theme.isDark() ? 88 : 54));
+                g.drawRoundRect(inset, inset, sampleWidth, sampleHeight,
+                        Math.max(3, Theme.RADIUS - 2), Math.max(3, Theme.RADIUS - 2));
             } finally {
                 g.dispose();
             }

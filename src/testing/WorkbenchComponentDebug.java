@@ -103,7 +103,7 @@ public final class WorkbenchComponentDebug {
     /**
      * Appends one component and all descendants.
      *
-     * @param component component
+     * @param component Swing component
      * @param depth tree depth
      * @param path logical child path
      * @param out output buffer

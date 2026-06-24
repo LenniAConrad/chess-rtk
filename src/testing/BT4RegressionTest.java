@@ -396,7 +396,7 @@ public final class BT4RegressionTest {
      * Verifies deterministic output values from the synthetic forward pass.
      *
      * @param position source position
-     * @param prediction prediction
+     * @param prediction network prediction
      */
     private static void assertForwardOutputs(Position position, Network.Prediction prediction) {
         assertEquals(PolicyEncoder.POLICY_SIZE, prediction.policy().length, "synthetic policy size");
@@ -419,7 +419,7 @@ public final class BT4RegressionTest {
     /**
      * Builds tiny zero-weight BT4 tensors with deterministic value-head bias.
      *
-     * @param architecture architecture
+     * @param architecture network architecture
      * @return weights
      */
     private static Network.Weights syntheticWeights(Architecture architecture) {
@@ -486,8 +486,8 @@ public final class BT4RegressionTest {
      *
      * @param in input dimension
      * @param out output dimension
-     * @param weights weights
-     * @param bias bias
+     * @param weights network weights
+     * @param bias bias vector
      * @return dense layer
      */
     private static Network.Dense dense(int in, int out, float[] weights, float[] bias) {
@@ -498,7 +498,7 @@ public final class BT4RegressionTest {
      * Creates a filled array.
      *
      * @param count element count
-     * @param value value
+     * @param value candidate value
      * @return array
      */
     private static float[] filled(int count, float value) {
@@ -531,7 +531,7 @@ public final class BT4RegressionTest {
     /**
      * Runs an action with a temporary BT4 backend property.
      *
-     * @param backend backend value
+     * @param backend engine or network backend
      * @param action action to run
      * @throws IOException if the action fails
      */
@@ -592,7 +592,7 @@ public final class BT4RegressionTest {
      * Writes compact BT4 weights to disk.
      *
      * @param path output path
-     * @param weights weights
+     * @param weights network weights
      * @throws IOException if writing fails
      */
     private static void writeWeights(Path path, Network.Weights weights) throws IOException {
@@ -614,7 +614,7 @@ public final class BT4RegressionTest {
      * Writes architecture metadata.
      *
      * @param out output
-     * @param architecture architecture
+     * @param architecture network architecture
      */
     private static void writeArchitecture(ByteArrayOutputStream out, Architecture architecture) {
         writeString(out, architecture.name());
@@ -646,7 +646,7 @@ public final class BT4RegressionTest {
      *
      * @param out output
      * @param stack input stack
-     * @param architecture architecture
+     * @param architecture network architecture
      */
     private static void writeInputStack(ByteArrayOutputStream out, Network.InputStack stack,
             Architecture architecture) {
@@ -674,7 +674,7 @@ public final class BT4RegressionTest {
      * Writes a smolgen block.
      *
      * @param out output
-     * @param smolgen smolgen
+     * @param smolgen Smolgen state
      */
     private static void writeSmolgen(ByteArrayOutputStream out, Network.Smolgen smolgen) {
         writeDense(out, smolgen.compress());
@@ -690,7 +690,7 @@ public final class BT4RegressionTest {
      * Writes a boolean as one byte.
      *
      * @param out output
-     * @param value value
+     * @param value candidate value
      */
     private static void writeBool(ByteArrayOutputStream out, boolean value) {
         out.write(value ? 1 : 0);
@@ -700,7 +700,7 @@ public final class BT4RegressionTest {
      * Writes encoder blocks.
      *
      * @param out output
-     * @param blocks blocks
+     * @param blocks network blocks
      * @param hasSmolgen whether each attention layer carries smolgen weights
      */
     private static void writeEncoderBlocks(ByteArrayOutputStream out, List<Network.EncoderBlock> blocks,
@@ -715,7 +715,7 @@ public final class BT4RegressionTest {
      * Writes one encoder block.
      *
      * @param out output
-     * @param block block
+     * @param block network block
      * @param hasSmolgen whether the attention layer carries smolgen weights
      */
     private static void writeEncoderBlock(ByteArrayOutputStream out, Network.EncoderBlock block,
@@ -735,7 +735,7 @@ public final class BT4RegressionTest {
      * Writes one attention layer.
      *
      * @param out output
-     * @param attention attention
+     * @param attention attention weights
      * @param hasSmolgen whether to append the trailing smolgen weights
      */
     private static void writeAttention(ByteArrayOutputStream out, Network.Attention attention,
@@ -754,7 +754,7 @@ public final class BT4RegressionTest {
      * Writes policy head weights.
      *
      * @param out output
-     * @param head head
+     * @param head network head
      */
     private static void writePolicyHead(ByteArrayOutputStream out, Network.PolicyHead head) {
         writeDense(out, head.embedding());
@@ -769,7 +769,7 @@ public final class BT4RegressionTest {
      * Writes value head weights.
      *
      * @param out output
-     * @param head head
+     * @param head network head
      */
     private static void writeValueHead(ByteArrayOutputStream out, Network.ValueHead head) {
         writeDense(out, head.embedding());
@@ -795,7 +795,7 @@ public final class BT4RegressionTest {
      * Writes a string.
      *
      * @param out output
-     * @param value value
+     * @param value candidate value
      */
     private static void writeString(ByteArrayOutputStream out, String value) {
         byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
@@ -807,7 +807,7 @@ public final class BT4RegressionTest {
      * Writes a float array.
      *
      * @param out output
-     * @param values values
+     * @param values input values
      */
     private static void writeFloatArray(ByteArrayOutputStream out, float[] values) {
         writeInt(out, values.length);
@@ -820,7 +820,7 @@ public final class BT4RegressionTest {
      * Writes a little-endian int.
      *
      * @param out output
-     * @param value value
+     * @param value candidate value
      */
     private static void writeInt(ByteArrayOutputStream out, int value) {
         out.write(value & 0xFF);
@@ -833,7 +833,7 @@ public final class BT4RegressionTest {
      * Writes a little-endian float.
      *
      * @param out output
-     * @param value value
+     * @param value candidate value
      */
     private static void writeFloat(ByteArrayOutputStream out, float value) {
         writeInt(out, Float.floatToIntBits(value));

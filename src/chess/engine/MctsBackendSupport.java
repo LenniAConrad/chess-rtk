@@ -21,10 +21,10 @@ final class MctsBackendSupport {
      * Converts legal-move policy logits to normalized priors.
      * @param position chess position
      * @param moves candidate moves
-     * @param fallback fallback value
-     * @param logits logits value
-     * @param indexer indexer value
-     * @return policy priors from logits result
+     * @param fallback default used when input is absent or invalid
+     * @param logits policy logits
+     * @param indexer move-index encoder
+     * @return converted legal-move policy logits to normalized priors
      */
     static double[] policyPriorsFromLogits(
             Position position,
@@ -82,11 +82,14 @@ final class MctsBackendSupport {
     }
     /**
      * Creates a small access-ordered prediction cache.
-     * @param <T> < t> value
-     * @return new recent prediction cache result
+     * @param <T> cached prediction type
+     * @return access-ordered prediction cache
      */
     static <T> Map<Long, T> newRecentPredictionCache() {
         return new LinkedHashMap<>(256, 0.75f, true) {
+            /**
+             * Serialization identifier for Swing compatibility.
+             */
             private static final long serialVersionUID = 1L;
 
             /**

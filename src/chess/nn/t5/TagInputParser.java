@@ -10,7 +10,7 @@ import java.util.List;
  * @author Lennart A. Conrad
  */
 public final class TagInputParser {
-  
+
   /**
    * Parses the provided input into tag strings.
    *
@@ -170,7 +170,7 @@ public final class TagInputParser {
 
      /**
      * Creates a new cursor instance.
-     * @param input input
+     * @param input input path or text
      */
      private Cursor(String input) {
       this.input = input;

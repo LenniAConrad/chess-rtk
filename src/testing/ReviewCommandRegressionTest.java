@@ -354,7 +354,7 @@ public final class ReviewCommandRegressionTest {
 	 * Counts exact string matches.
 	 *
 	 * @param values source values
-	 * @param expected expected value
+	 * @param expected expected test value
 	 * @return count of matching rows
 	 */
 	private static int count(List<String> values, String expected) {

@@ -314,7 +314,7 @@ final class ReviewArtifactLoader {
      *
      * @param value object value
      * @param name field name
-     * @param fallback fallback value
+     * @param fallback default used when input is absent or invalid
      * @return integer value
      */
     private static int integer(JsonValue value, String name, int fallback) {

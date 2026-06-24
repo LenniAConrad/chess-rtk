@@ -48,16 +48,31 @@ final class BoardPanelLayout {
         this.boardPanel = boardPanel;
     }
 
+    /**
+     * Returns the preferred size.
+     *
+     * @return preferred size
+     */
     static Dimension preferredSize() {
         int basis = Math.round(620 * displayScale());
         return new Dimension(basis, basis);
     }
 
+    /**
+     * Returns the minimum size.
+     *
+     * @return minimum size
+     */
     static Dimension minimumSize() {
         int basis = Math.round(MIN_BOARD_SIZE + BOARD_MARGIN * 2 * displayScale());
         return new Dimension(basis, basis);
     }
 
+    /**
+     * Returns the board bounds.
+     *
+     * @return board bounds
+     */
     Rectangle boardBounds() {
         // Reserve a left strip for the eval bar so the board square never
         // slides underneath it.
@@ -69,6 +84,11 @@ final class BoardPanelLayout {
         return new Rectangle(x, (boardPanel.getHeight() - size) / 2, size, size);
     }
 
+    /**
+     * Updates the eval bar.
+     *
+     * @param bar progress bar
+     */
     void setEvalBar(EvalBar bar) {
         if (evalBar != null) {
             boardPanel.remove(evalBar);
@@ -82,6 +102,9 @@ final class BoardPanelLayout {
         boardPanel.repaint();
     }
 
+    /**
+     * Lays out the board panel layout.
+     */
     void doLayout() {
         if (evalBar != null) {
             Rectangle square = boardBounds();
@@ -90,6 +113,11 @@ final class BoardPanelLayout {
         }
     }
 
+    /**
+     * Returns the display scale.
+     *
+     * @return display scale
+     */
     private static float displayScale() {
         try {
             java.awt.GraphicsEnvironment env = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment();

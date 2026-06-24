@@ -23,6 +23,11 @@ final class TreeGrowthSparkline extends JComponent {
      */
     private final transient MctsSession session;
 
+    /**
+     * Creates the tree growth sparkline.
+     *
+     * @param session workbench session
+     */
     TreeGrowthSparkline(MctsSession session) {
         this.session = session;
         setOpaque(false);

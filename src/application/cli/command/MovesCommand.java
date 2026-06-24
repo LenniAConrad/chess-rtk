@@ -198,7 +198,7 @@ public final class MovesCommand {
 	 * @param san  whether to print SAN instead of UCI
 	 * @param both whether to print UCI and SAN side-by-side
 	 * @param fields record fields
-	 * @param outputMode output mode value
+	 * @param outputMode source output mode
 	 */
 	private static void printMoves(Position pos, MoveFields fields, OutputMode outputMode) {
 		MoveList moves = pos.legalMoves();

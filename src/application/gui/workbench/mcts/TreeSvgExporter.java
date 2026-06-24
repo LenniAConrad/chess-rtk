@@ -413,7 +413,7 @@ final class TreeSvgExporter {
     /**
      * Formats a color as a {@code #rrggbb} string.
      *
-     * @param color color
+     * @param color display color
      * @return hex string
      */
     private static String hex(Color color) {

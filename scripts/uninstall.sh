@@ -35,7 +35,7 @@ fi
 
 usage() {
   cat <<EOF
-Usage: ./uninstall.sh [--all|--remove-data] [--keep-build] [--keep-launcher] [--keep-desktop] [-y|--yes]
+Usage: ./scripts/uninstall.sh [--all|--remove-data] [--keep-build] [--keep-launcher] [--keep-desktop] [-y|--yes]
 
 Options:
   --all, --remove-data   Remove data dirs created by the app (dump/, session/)

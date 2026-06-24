@@ -404,7 +404,7 @@ public final class StrengthModel {
     /**
      * Clamps an integer to a range.
      *
-     * @param value value
+     * @param value candidate value
      * @param min minimum
      * @param max maximum
      * @return clamped value
@@ -416,7 +416,7 @@ public final class StrengthModel {
     /**
      * Clamps a long to a range.
      *
-     * @param value value
+     * @param value candidate value
      * @param min minimum
      * @param max maximum
      * @return clamped value
@@ -428,7 +428,7 @@ public final class StrengthModel {
     /**
      * Clamps a double to a range.
      *
-     * @param value value
+     * @param value candidate value
      * @param min minimum
      * @param max maximum
      * @return clamped value

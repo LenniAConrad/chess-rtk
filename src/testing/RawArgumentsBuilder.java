@@ -29,9 +29,9 @@ final class RawArgumentsBuilder {
 
     /**
      * Accepts one command-line token.
-     * @param arg arg value
+     * @param arg argument token
      * @param tokens token values
-     * @return accept result
+     * @return accept
      */
     boolean accept(String arg, Iterator<String> tokens) {
         if ("--out".equals(arg)) {
@@ -49,7 +49,7 @@ final class RawArgumentsBuilder {
 
     /**
      * Builds immutable raw arguments.
-     * @return to raw arguments result
+     * @return built immutable raw arguments
      */
     RawArguments toRawArguments() {
         return new RawArguments(List.copyOf(inputs), prefix, maxPuzzles);
@@ -58,7 +58,7 @@ final class RawArgumentsBuilder {
     /**
      * Accept output prefix.
      * @param tokens token values
-     * @return accept output prefix result
+     * @return accept output prefix
      */
     private boolean acceptOutputPrefix(Iterator<String> tokens) {
         if (prefix != null || !tokens.hasNext()) {
@@ -71,7 +71,7 @@ final class RawArgumentsBuilder {
     /**
      * Accept max puzzles.
      * @param tokens token values
-     * @return accept max puzzles result
+     * @return accept max puzzles
      */
     private boolean acceptMaxPuzzles(Iterator<String> tokens) {
         if (maxPuzzles != 0 || !tokens.hasNext()) {
@@ -84,7 +84,7 @@ final class RawArgumentsBuilder {
     /**
      * Parse max puzzles.
      * @param value value to use
-     * @return parse max puzzles result
+     * @return parsed max puzzles
      */
     private static int parseMaxPuzzles(String value) {
         try {

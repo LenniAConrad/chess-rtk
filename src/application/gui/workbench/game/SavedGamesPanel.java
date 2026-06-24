@@ -116,6 +116,9 @@ public final class SavedGamesPanel extends JPanel {
         updateDetails();
     }
 
+    /**
+     * Configures value.
+     */
     private void configure() {
         setOpaque(true);
         setBackground(Theme.PANEL_SOLID);
@@ -154,6 +157,11 @@ public final class SavedGamesPanel extends JPanel {
         add(Ui.titled("Game Preview", Ui.scroll(detailArea)), BorderLayout.SOUTH);
     }
 
+    /**
+     * Builds the saved-game action toolbar.
+     *
+     * @return toolbar component
+     */
     private JComponent toolbar() {
         JPanel toolbar = Ui.transparentPanel(new FlowLayout(FlowLayout.RIGHT, Theme.SPACE_SM, 0));
         JButton save = Ui.button("Save Current", true, event -> {
@@ -183,10 +191,20 @@ public final class SavedGamesPanel extends JPanel {
         return toolbar;
     }
 
+    /**
+     * Returns the currently selected saved game.
+     *
+     * @return selected game, or {@code null}
+     */
     private SavedGame selectedGame() {
         return list.getSelectedValue();
     }
 
+    /**
+     * Restores list selection after refreshing saved games.
+     *
+     * @param previous source previous
+     */
     private void restoreSelection(SavedGame previous) {
         if (listModel.isEmpty()) {
             return;
@@ -202,6 +220,9 @@ public final class SavedGamesPanel extends JPanel {
         list.setSelectedIndex(0);
     }
 
+    /**
+     * Refreshes the update details.
+     */
     private void updateDetails() {
         SavedGame game = selectedGame();
         if (game == null) {
@@ -217,6 +238,12 @@ public final class SavedGamesPanel extends JPanel {
         detailArea.setCaretPosition(0);
     }
 
+    /**
+     * Formats the format time.
+     *
+     * @param millis duration in milliseconds
+     * @return format time text
+     */
     private static String formatTime(long millis) {
         if (millis <= 0L) {
             return "unknown";

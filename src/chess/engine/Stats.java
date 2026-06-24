@@ -25,7 +25,7 @@ final class Stats {
 
     /**
      * Q.
-     * @return q result
+     * @return q
      */
     double q() {
         int totalVisits = visits + virtualVisits;

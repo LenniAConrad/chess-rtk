@@ -8,6 +8,8 @@ import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Toast;
 import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.Ui;
+import chess.core.Piece;
+import chess.core.Position;
 import chess.core.Setup;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
@@ -1008,7 +1010,7 @@ public final class PlayPanel extends JPanel {
     /**
      * Returns a compact result for header display.
      *
-     * @return compact result
+     * @return compact result for header display
      */
     private String compactResult() {
         String lower = lastResultMessage.toLowerCase(java.util.Locale.ROOT);
@@ -1076,16 +1078,8 @@ public final class PlayPanel extends JPanel {
      * @return side-to-move label
      */
     private String sideToMoveLabel() {
-        try {
-            String fen = currentFen.get();
-            if (fen == null || fen.isBlank()) {
-                return "White";
-            }
-            String[] parts = fen.trim().split("\\s+");
-            return parts.length > 1 && "b".equals(parts[1]) ? "Black" : "White";
-        } catch (RuntimeException ex) {
-            return "White";
-        }
+        Position position = currentPosition();
+        return position != null && !position.isWhiteToMove() ? "Black" : "White";
     }
 
     /**
@@ -1107,46 +1101,40 @@ public final class PlayPanel extends JPanel {
      * @return material score
      */
     private MaterialScore materialScore() {
+        Position position = currentPosition();
+        if (position == null) {
+            return MaterialScore.EVEN;
+        }
+        return new MaterialScore(toPawnUnits(position.countWhiteMaterial()),
+                toPawnUnits(position.countBlackMaterial()));
+    }
+
+    /**
+     * Returns the current board position, or null when the board FEN is not
+     * available or cannot be parsed by the shared chess core.
+     *
+     * @return current position
+     */
+    private Position currentPosition() {
         try {
             String fen = currentFen.get();
             if (fen == null || fen.isBlank()) {
-                return MaterialScore.EVEN;
+                return null;
             }
-            String board = fen.trim().split("\\s+")[0];
-            int white = 0;
-            int black = 0;
-            for (int i = 0; i < board.length(); i++) {
-                char piece = board.charAt(i);
-                int value = pieceValue(piece);
-                if (value == 0) {
-                    continue;
-                }
-                if (Character.isUpperCase(piece)) {
-                    white += value;
-                } else {
-                    black += value;
-                }
-            }
-            return new MaterialScore(white, black);
+            return new Position(fen.trim());
         } catch (RuntimeException ex) {
-            return MaterialScore.EVEN;
+            return null;
         }
     }
 
     /**
-     * Returns a standard material value for a FEN piece.
+     * Converts centipawn material into pawn units used by the compact Play labels.
      *
-     * @param piece FEN piece character
-     * @return material value
+     * @param centipawns material in centipawns
+     * @return material in pawn units
      */
-    private static int pieceValue(char piece) {
-        return switch (Character.toLowerCase(piece)) {
-            case 'p' -> 1;
-            case 'n', 'b' -> 3;
-            case 'r' -> 5;
-            case 'q' -> 9;
-            default -> 0;
-        };
+    private static int toPawnUnits(int centipawns) {
+        return centipawns / Piece.VALUE_PAWN;
     }
 
     /**
@@ -1555,7 +1543,7 @@ public final class PlayPanel extends JPanel {
     /**
      * Returns the named tier for an Elo value.
      *
-     * @param elo Elo value
+     * @param elo Elo rating
      * @return tier label
      */
     private static String tier(int elo) {
@@ -1770,20 +1758,6 @@ public final class PlayPanel extends JPanel {
                 g.dispose();
             }
         }
-    }
-
-    /**
-     * Builds the panel title label.
-     *
-     * @param text title text
-     * @return styled title
-     */
-    private static JComponent title(String text) {
-        // Route through the shared panel-title helper so every panel heading
-        // uses one sentence-case FONT_TITLE treatment; keep a small bottom gap.
-        JLabel label = Theme.sectionTitle(text);
-        label.setBorder(Theme.pad(0, 0, Theme.SPACE_XS, 0));
-        return label;
     }
 
 }

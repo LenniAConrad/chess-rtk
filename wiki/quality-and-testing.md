@@ -22,7 +22,7 @@ Run a single group when you only touched one area and want a fast answer. The sc
 | --- | --- | --- |
 | `build` | Clean-compiles every source under `src/` with `javac --release 17` into `out/` | Checking compilation only |
 | `lint` | Recompiles with `-Xlint:all`, runs the shell-script lint, and `git diff --check` for whitespace errors | Tightening source quality before a commit |
-| `scripts` | `bash -n` syntax check on every tracked `*.sh`, plus `shellcheck -S error` when ShellCheck is on `PATH` | Editing shell scripts |
+| `scripts` | `bash -n` syntax check on every tracked `*.sh`, `scripts/check_no_weights_tracked.sh`, plus `shellcheck -S error` when ShellCheck is on `PATH` | Editing shell scripts or model-artifact guards |
 | `core` | Position, move-generation, split-perft, SAN, JSON, XML-security, install-script, source-header, Chess960, parser, tagging, and workbench-structure regressions | Changing `chess.core`, FEN, SAN, move generation, make/undo, or tagging |
 | `cli` | CLI command, PGN, book/cover/PDF command, and puzzle collection/study command regressions | Changing command parsing or command output |
 | `engine` | Built-in engine, puzzle-difficulty, BT4, T5, OTIS-backend, and GPU-perft regressions | Changing the built-in engine, an evaluator, or puzzle scoring |

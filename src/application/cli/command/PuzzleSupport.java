@@ -27,11 +27,11 @@ final class PuzzleSupport {
 
      /**
      * Handles build records.
-     * @param root root
-     * @param analysis analysis
-     * @param pvPlies pv plies
-     * @param cmd cmd
-     * @return computed value
+     * @param root root position or node
+     * @param analysis analysis result
+     * @param pvPlies source pv plies
+     * @param cmd CLI command
+     * @return handles build records
      */
      static List<Record> buildRecords(Position root, Analysis analysis, int pvPlies, String cmd) {
         if (analysis == null || analysis.isEmpty()) {
@@ -48,10 +48,10 @@ final class PuzzleSupport {
 
      /**
      * Handles extract pv san lines.
-     * @param root root
-     * @param analysis analysis
-     * @param pvPlies pv plies
-     * @return computed value
+     * @param root root position or node
+     * @param analysis analysis result
+     * @param pvPlies source pv plies
+     * @return handles extract pv san lines
      */
      private static List<List<String>> extractPvSanLines(Position root, Analysis analysis, int pvPlies) {
         int pivots = Math.max(1, analysis.getPivots());
@@ -75,10 +75,10 @@ final class PuzzleSupport {
 
      /**
      * Converts this value to san moves.
-     * @param root root
-     * @param moves moves
-     * @param pvPlies pv plies
-     * @return computed value
+     * @param root root position or node
+     * @param moves move list
+     * @param pvPlies source pv plies
+     * @return converted this value to san moves
      */
      private static List<String> toSanMoves(Position root, short[] moves, int pvPlies) {
         int limit = pvPlies > 0 ? Math.min(pvPlies, moves.length) : moves.length;
@@ -107,9 +107,9 @@ final class PuzzleSupport {
 
      /**
      * Handles build pgn.
-     * @param root root
-     * @param pvs pvs
-     * @return computed value
+     * @param root root position or node
+     * @param pvs principal variations
+     * @return handles build pgn
      */
      private static String buildPgn(Position root, List<List<String>> pvs) {
         if (pvs.isEmpty() || pvs.get(0).isEmpty()) {
@@ -144,11 +144,11 @@ final class PuzzleSupport {
 
      /**
      * Handles format line.
-     * @param moves moves
-     * @param whiteToMove white to move
-     * @param fullMove full move
-     * @param variations variations
-     * @return computed value
+     * @param moves move list
+     * @param whiteToMove true when White is to move
+     * @param fullMove source full move
+     * @param variations variation list
+     * @return handles format line
      */
      private static String formatLine(List<String> moves, boolean whiteToMove, int fullMove, List<String> variations) {
         if (moves == null || moves.isEmpty()) {
@@ -180,9 +180,9 @@ final class PuzzleSupport {
 
      /**
      * Parses the single game.
-     * @param pgn pgn
-     * @param cmd cmd
-     * @return computed value
+     * @param pgn PGN text
+     * @param cmd CLI command
+     * @return parsed the single game
      */
      private static Game parseSingleGame(String pgn, String cmd) {
         List<Game> games = Pgn.parseGames(pgn);

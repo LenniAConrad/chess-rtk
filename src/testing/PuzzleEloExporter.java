@@ -55,7 +55,7 @@ public final class PuzzleEloExporter {
     /**
      * Parses command-line arguments.
      * @param args command arguments
-     * @return parse arguments result
+     * @return parsed command-line arguments
      */
     private static Arguments parseArguments(String[] args) {
         if (args.length == 0) {
@@ -113,7 +113,7 @@ public final class PuzzleEloExporter {
     /**
      * Builds a default output path.
      * @param inputs input values
-     * @return default output result
+     * @return built a default output path
      */
     private static Path defaultOutput(List<Path> inputs) {
         if (inputs.size() != 1) {
@@ -131,7 +131,7 @@ public final class PuzzleEloExporter {
     /**
      * Prints the export summary.
      * @param output output text
-     * @param summary summary value
+     * @param summary summary text
      */
     private static void printSummary(Path output, chess.io.PuzzleEloExporter.Summary summary) {
         System.out.println("seen: " + summary.seen());

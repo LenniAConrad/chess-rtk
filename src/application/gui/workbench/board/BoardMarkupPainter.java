@@ -139,7 +139,7 @@ final class BoardMarkupPainter {
      * @param g graphics context
      * @param board board bounds
      * @param whiteDown true when white is at the bottom
-     * @param markup markup
+     * @param markup board markup
      * @param opacity opacity multiplier
      */
     private void drawMarkup(Graphics2D g, Rectangle board, boolean whiteDown, BoardMarkup markup, double opacity) {

@@ -144,9 +144,9 @@ public final class PolicyEncoder {
 
      /**
      * Handles knight index.
-     * @param deltaFile delta file
-     * @param deltaRank delta rank
-     * @return computed value
+     * @param deltaFile source delta file
+     * @param deltaRank source delta rank
+     * @return handles knight index
      */
      private static int knightIndex(int deltaFile, int deltaRank) {
         for (int index = 0; index < KNIGHT_DELTAS.length; index++) {
@@ -160,9 +160,9 @@ public final class PolicyEncoder {
 
      /**
      * Handles slide plane index.
-     * @param deltaFile delta file
-     * @param deltaRank delta rank
-     * @return computed value
+     * @param deltaFile source delta file
+     * @param deltaRank source delta rank
+     * @return handles slide plane index
      */
      private static int slidePlaneIndex(int deltaFile, int deltaRank) {
         if (deltaFile == 0 && deltaRank != 0) {
@@ -180,9 +180,9 @@ public final class PolicyEncoder {
 
      /**
      * Handles diagonal direction index.
-     * @param deltaFile delta file
-     * @param deltaRank delta rank
-     * @return computed value
+     * @param deltaFile source delta file
+     * @param deltaRank source delta rank
+     * @return handles diagonal direction index
      */
      private static int diagonalDirectionIndex(int deltaFile, int deltaRank) {
         if (deltaFile > 0 && deltaRank > 0) {
@@ -202,9 +202,9 @@ public final class PolicyEncoder {
 
      /**
      * Handles plane index.
-     * @param directionIndex direction index
-     * @param distance distance
-     * @return computed value
+     * @param directionIndex zero-based direction index
+     * @param distance move distance
+     * @return handles plane index
      */
      private static int planeIndex(int directionIndex, int distance) {
         if (directionIndex < 0 || distance < 1 || distance > 7) {
@@ -215,8 +215,8 @@ public final class PolicyEncoder {
 
      /**
      * Handles underpromo piece index.
-     * @param promotion promotion
-     * @return computed value
+     * @param promotion promotion piece
+     * @return handles underpromo piece index
      */
      private static int underpromoPieceIndex(int promotion) {
         return switch (promotion) {
@@ -229,9 +229,9 @@ public final class PolicyEncoder {
 
      /**
      * Handles underpromo direction index.
-     * @param deltaFile delta file
-     * @param deltaRank delta rank
-     * @return computed value
+     * @param deltaFile source delta file
+     * @param deltaRank source delta rank
+     * @return handles underpromo direction index
      */
      private static int underpromoDirectionIndex(int deltaFile, int deltaRank) {
         for (int index = 0; index < UNDERPROMO_DIRS.length; index++) {

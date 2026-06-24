@@ -90,20 +90,22 @@ final class ScrollPaneStyler {
         pane.getViewport().setBackground(viewportBackground);
         pane.setBackground(Theme.TRANSPARENT);
         installScrollCorners(pane, viewportBackground);
-        styleScrollBar(pane.getVerticalScrollBar());
-        styleScrollBar(pane.getHorizontalScrollBar());
+        styleScrollBar(pane.getVerticalScrollBar(), viewportBackground);
+        styleScrollBar(pane.getHorizontalScrollBar(), viewportBackground);
     }
 
     /**
      * Styles one scroll bar.
      *
      * @param bar scroll bar
+     * @param background surface color behind the overlay thumb
      */
-    private static void styleScrollBar(JScrollBar bar) {
+    private static void styleScrollBar(JScrollBar bar, Color background) {
         if (bar == null) {
             return;
         }
-        bar.setOpaque(false);
+        bar.setOpaque(true);
+        bar.setBackground(background);
         bar.setBorder(BorderFactory.createEmptyBorder());
         bar.setPreferredSize(new Dimension(SCROLLBAR_THICKNESS, SCROLLBAR_THICKNESS));
         bar.setUnitIncrement(18);

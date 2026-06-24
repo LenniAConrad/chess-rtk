@@ -32,6 +32,9 @@ final class BoardSetupEditor {
      * Selected setup-edit piece and last edited square.
      */
     private byte selectedPiece = Piece.WHITE_KING;
+    /**
+     * Last square edited during a drag gesture, used to avoid duplicate writes.
+     */
     private byte lastSquare = Field.NO_SQUARE;
 
     /**

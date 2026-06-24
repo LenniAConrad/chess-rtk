@@ -1031,7 +1031,7 @@ public final class ClassicalPositionDescriptionGenerator {
      * Returns a singular or plural noun for a count.
      *
      * @param noun singular noun
-     * @param count count
+     * @param count item count
      * @return pluralized noun
      */
     private static String plural(String noun, int count) {

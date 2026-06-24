@@ -60,6 +60,9 @@ public final class ModalOverlay {
      * over the dimmed backdrop.
      */
     private final JPanel chrome = new JPanel(new BorderLayout()) {
+        /**
+         * Serialization identifier for Swing compatibility.
+         */
         private static final long serialVersionUID = 1L;
 
         /**

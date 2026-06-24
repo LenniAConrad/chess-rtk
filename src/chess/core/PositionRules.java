@@ -111,9 +111,9 @@ final class PositionRules {
     /**
      * Returns whether two coordinates share a rook or bishop line.
      *
-     * @param firstFile first file
+     * @param firstFile source first file
      * @param firstRow first rank
-     * @param secondFile second file
+     * @param secondFile source second file
      * @param secondRow second rank
      * @return true when the coordinates are aligned
      */

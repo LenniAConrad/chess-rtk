@@ -282,7 +282,7 @@ public final class DatasetDiffRegressionTest {
 	 * @param target       destination path
 	 * @param gitCommit    fixed commit hash
 	 * @param argv         argv tokens
-	 * @param crtkVersion  CRTK version
+	 * @param crtkVersion  source crtk version
 	 * @param outputSha256 output artifact sha256
 	 */
 	private static void writeManifest(Path target, String gitCommit, java.util.List<String> argv,
@@ -298,7 +298,7 @@ public final class DatasetDiffRegressionTest {
 	 * @param target       destination path
 	 * @param gitCommit    fixed commit hash
 	 * @param argv         argv tokens
-	 * @param crtkVersion  CRTK version
+	 * @param crtkVersion  source crtk version
 	 * @param outputName   output artifact name
 	 * @param outputSha256 output artifact sha256
 	 */
@@ -317,7 +317,7 @@ public final class DatasetDiffRegressionTest {
 	 * @param target       destination path
 	 * @param gitCommit    fixed commit hash
 	 * @param argv         argv tokens
-	 * @param crtkVersion  CRTK version
+	 * @param crtkVersion  source crtk version
 	 * @param outputName   duplicated output artifact name
 	 * @param outputSha256 output artifact sha256
 	 */
@@ -338,7 +338,7 @@ public final class DatasetDiffRegressionTest {
 	 * @param target       destination path
 	 * @param gitCommit    fixed commit hash
 	 * @param argv         argv tokens
-	 * @param crtkVersion  CRTK version
+	 * @param crtkVersion  source crtk version
 	 * @param outputEntries raw JSON entries for the outputs array
 	 */
 	private static void writeManifestWithOutputs(Path target, String gitCommit,

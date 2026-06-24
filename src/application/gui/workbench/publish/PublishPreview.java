@@ -227,7 +227,7 @@ public final class PublishPreview extends JComponent {
     /**
      * Paints the preview.
      *
-     * @param graphics graphics
+     * @param graphics graphics context
      */
     @Override
     protected void paintComponent(Graphics graphics) {
@@ -295,7 +295,7 @@ public final class PublishPreview extends JComponent {
      * Paints the paper, border, and viewer shadow.
      *
      * @param g graphics
-     * @param pageBounds page bounds
+     * @param pageBounds source page bounds
      */
     private static void paintPaper(Graphics2D g, Rectangle pageBounds) {
         g.setColor(Theme.withAlpha(Color.BLACK, Theme.isDark() ? 82 : 30));
@@ -343,8 +343,8 @@ public final class PublishPreview extends JComponent {
      * Paints one diagram card.
      *
      * @param g graphics
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      * @param size board size
      * @param index zero-based diagram index
      * @param items available sample items, possibly empty
@@ -432,9 +432,9 @@ public final class PublishPreview extends JComponent {
      * Draws right-aligned, elided text ending at {@code rightX}.
      *
      * @param g graphics
-     * @param text text
-     * @param font font
-     * @param color color
+     * @param text text to render or parse
+     * @param font font used for measurement or drawing
+     * @param color display color
      * @param rightX right edge x
      * @param y baseline y
      * @param maxW maximum width
@@ -580,8 +580,8 @@ public final class PublishPreview extends JComponent {
      * Paints a warning banner on the paper preview.
      *
      * @param g graphics
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      * @param w width
      * @param h height
      * @param issue issue text
@@ -600,7 +600,7 @@ public final class PublishPreview extends JComponent {
      * Paints footer status.
      *
      * @param g graphics
-     * @param x x
+     * @param x x-coordinate
      * @param y baseline y
      * @param w width
      */
@@ -618,8 +618,8 @@ public final class PublishPreview extends JComponent {
      * Paints a tiny chessboard diagram from an explicit board placement.
      *
      * @param g graphics
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      * @param size square board size
      * @param placement FEN board placement, or {@code null} for an empty board
      */
@@ -767,11 +767,12 @@ public final class PublishPreview extends JComponent {
      * Paints a compact puzzle row.
      *
      * @param g graphics
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      * @param w width
      * @param h height
      * @param index row index
+     * @param item preview item
      */
     private void paintPuzzleRow(Graphics2D g, int x, int y, int w, int h, int index, SampleItem item) {
         g.setColor(index % 2 == 0 ? PAPER_BLOCK : PAPER);
@@ -792,10 +793,10 @@ public final class PublishPreview extends JComponent {
      * Paints a metric card used by the collection preview.
      *
      * @param g graphics
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      * @param w width
-     * @param label label
+     * @param label display label
      * @param accent accent color
      */
     private static void paintMetricCard(Graphics2D g, int x, int y, int w, String label, Color accent) {
@@ -812,9 +813,10 @@ public final class PublishPreview extends JComponent {
      * Paints a move-line strip.
      *
      * @param g graphics
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      * @param w width
+     * @param moves moves to render or describe
      */
     private static void paintMoveLine(Graphics2D g, int x, int y, int w, String moves) {
         g.setColor(new Color(0xE9F2FB));
@@ -827,10 +829,11 @@ public final class PublishPreview extends JComponent {
      * Paints a variation block.
      *
      * @param g graphics
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      * @param w width
      * @param h height
+     * @param items preview items
      */
     private static void paintVariationBlock(Graphics2D g, int x, int y, int w, int h, List<SampleItem> items) {
         g.setColor(PAPER_BLOCK);
@@ -854,10 +857,11 @@ public final class PublishPreview extends JComponent {
      * Paints a practice block.
      *
      * @param g graphics
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      * @param w width
      * @param h height
+     * @param item preview item
      */
     private static void paintExerciseBlock(Graphics2D g, int x, int y, int w, int h, SampleItem item) {
         int safeH = Math.max(24, h);
@@ -878,8 +882,8 @@ public final class PublishPreview extends JComponent {
      * Paints a placeholder text block.
      *
      * @param g graphics
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      * @param w width
      * @param h height
      * @param rows row count
@@ -897,8 +901,8 @@ public final class PublishPreview extends JComponent {
      * Paints one placeholder text line.
      *
      * @param g graphics
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      * @param w width
      * @param h height
      */
@@ -911,8 +915,8 @@ public final class PublishPreview extends JComponent {
      * Paints a small colored status marker.
      *
      * @param g graphics
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      * @param color marker color
      */
     private static void paintTinyStatus(Graphics2D g, int x, int y, Color color) {
@@ -924,8 +928,8 @@ public final class PublishPreview extends JComponent {
      * Paints a horizontal rule.
      *
      * @param g graphics
-     * @param x x
-     * @param y y
+     * @param x x-coordinate
+     * @param y y-coordinate
      * @param w width
      */
     private static void drawRule(Graphics2D g, int x, int y, int w) {
@@ -937,10 +941,10 @@ public final class PublishPreview extends JComponent {
      * Draws elided text.
      *
      * @param g graphics
-     * @param text text
-     * @param font font
-     * @param color color
-     * @param x x
+     * @param text text to render or parse
+     * @param font font used for measurement or drawing
+     * @param color display color
+     * @param x x-coordinate
      * @param y baseline y
      * @param maxW maximum width
      */
@@ -988,8 +992,8 @@ public final class PublishPreview extends JComponent {
      * Preview data.
      *
      * @param workflow workflow label
-     * @param title title
-     * @param subtitle subtitle
+     * @param title display title
+     * @param subtitle display subtitle
      * @param source source summary
      * @param output output summary
      * @param ready true when runnable

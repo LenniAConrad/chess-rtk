@@ -199,8 +199,8 @@ public final class SprtRegressionTest {
     /**
      * Verifies a double matches an expected value within the shared tolerance.
      *
-     * @param expected expected value
-     * @param actual actual value
+     * @param expected expected test value
+     * @param actual actual test value
      * @param label assertion label
      */
     private static void assertClose(double expected, double actual, String label) {

@@ -448,7 +448,7 @@ public final class EngineBatchCommand {
 	 * Writes row-oriented machine output.
 	 *
 	 * @param rows JSON object rows
-	 * @param outputMode output mode
+	 * @param outputMode source output mode
 	 * @param output optional output file
 	 * @param cmd command label
 	 * @param verbose whether stack traces should be printed
@@ -469,7 +469,7 @@ public final class EngineBatchCommand {
 	 * Writes compare output.
 	 *
 	 * @param rows compare rows
-	 * @param outputMode output mode
+	 * @param outputMode source output mode
 	 * @param output optional output file
 	 * @param cmd command label
 	 * @param verbose whether stack traces should be printed

@@ -62,7 +62,7 @@ public final class PGNRegressionTest {
 
 	/**
 	 * Handles main.
-	 * @param args args
+	 * @param args command-line arguments
 	 */
 	public static void main(String[] args) {
 		testVariationExtractionUsesPreMovePosition();
@@ -216,9 +216,9 @@ public final class PGNRegressionTest {
 
 	/**
 	 * Handles assert has record.
-	 * @param records records
-	 * @param parentFen parent fen
-	 * @param positionFen position fen
+	 * @param records record list
+	 * @param parentFen FEN before the move
+	 * @param positionFen FEN after the move
 	 */
 	private static void assertHasRecord(List<Record> records, String parentFen, String positionFen) {
 		for (Record candidate : records) {

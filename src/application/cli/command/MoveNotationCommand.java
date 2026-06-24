@@ -55,10 +55,10 @@ public final class MoveNotationCommand {
 
 	/**
 	 * Runs the convert workflow.
-	 * @param a a
-	 * @param format format
-	 * @param outputSan output san
-	 * @param cmdLabel cmd label
+	 * @param a first value
+	 * @param format output format
+	 * @param outputSan SAN notation for output
+	 * @param cmdLabel source cmd label
 	 */
 	private static void runConvert(Argv a, MoveCommandSupport.MoveFormat format, boolean outputSan, String cmdLabel) {
 		boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);

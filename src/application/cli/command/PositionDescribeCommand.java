@@ -215,6 +215,9 @@ public final class PositionDescribeCommand {
      * Resolves the requested output format from legacy and explicit selectors.
      *
      * @param a argument parser
+     * @param format requested output format
+     * @param json whether JSON output is requested
+     * @param jsonl whether JSON Lines output is requested
      * @return output format
      */
     private static OutputFormat outputFormat(String format, boolean json, boolean jsonl) {
@@ -735,7 +738,7 @@ public final class PositionDescribeCommand {
      * @param input input file path
      * @param output output file path
      * @param fen selected single-position FEN
-     * @param outputFormat output format
+     * @param outputFormat source output format
      * @param engine description engine
      * @param detail requested detail level
      * @param candidateBudget candidate output budget

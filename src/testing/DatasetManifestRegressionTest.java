@@ -276,6 +276,7 @@ public final class DatasetManifestRegressionTest {
 	 * @param exporter      expected exporter label
 	 * @param expectedInputs expected input artifact paths
 	 * @param expectedOutputs expected output artifact paths
+	 * @return asserts a manifest's envelope, schema validity, and per-artifact hashes
 	 */
 	private static LinkedHashMap<String, JsonValue> validateManifest(Path manifestPath, String exporter,
 			List<Path> expectedInputs, List<Path> expectedOutputs) {

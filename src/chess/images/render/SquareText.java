@@ -62,10 +62,10 @@ final class SquareText {
      *
      * @param index target square index
      * @param text label to draw
-     * @param textColor text color
+     * @param textColor source text color
      * @param background background fill color
      * @param border border color
-     * @param borderStroke border stroke
+     * @param borderStroke source border stroke
      * @param baseFont optional base font override
      * @param bottomAligned whether to align the box to the bottom of the tile
      * @param detail whether to draw this label below pieces and overlays

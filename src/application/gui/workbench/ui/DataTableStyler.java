@@ -62,8 +62,8 @@ final class DataTableStyler {
     /**
      * Styles a table as a flat VS Code-like data surface.
      *
-     * @param table table
-     * @param rowHeight row height
+     * @param table table component
+     * @param rowHeight row height in pixels
      */
     static void style(JTable table, int rowHeight) {
         table.setFillsViewportHeight(true);
@@ -94,7 +94,7 @@ final class DataTableStyler {
     /**
      * Installs row-hover tracking for modern table feedback.
      *
-     * @param table table
+     * @param table table component
      */
     private static void installHoverTracking(JTable table) {
         if (Boolean.TRUE.equals(table.getClientProperty(HOVER_LISTENER_PROPERTY))) {
@@ -130,7 +130,7 @@ final class DataTableStyler {
     /**
      * Updates the hovered row client property and repaints changed rows.
      *
-     * @param table table
+     * @param table table component
      * @param nextRow next hovered view row
      */
     private static void updateHoverRow(JTable table, int nextRow) {
@@ -146,7 +146,7 @@ final class DataTableStyler {
     /**
      * Repaints one table row if it is visible.
      *
-     * @param table table
+     * @param table table component
      * @param row view row
      */
     private static void repaintRow(JTable table, int row) {
@@ -162,7 +162,7 @@ final class DataTableStyler {
     /**
      * Returns the hovered row stored on the table.
      *
-     * @param table table
+     * @param table table component
      * @return hovered view row or -1
      */
     static int hoverRow(JTable table) {
@@ -173,7 +173,7 @@ final class DataTableStyler {
     /**
      * Styles the table header and installs its flat renderer.
      *
-     * @param table table
+     * @param table table component
      */
     private static void styleHeader(JTable table) {
         JTableHeader header = table.getTableHeader();
@@ -464,7 +464,7 @@ final class DataTableStyler {
          * Paints the chevron.
          *
          * @param component owner component
-         * @param graphics graphics
+         * @param graphics graphics context
          * @param x x position
          * @param y y position
          */

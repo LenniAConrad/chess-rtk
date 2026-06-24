@@ -195,6 +195,14 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def display_path(path: Path) -> str:
+    """Return a user-facing output path without requiring it to live under the repo."""
+    try:
+        return str(path.resolve().relative_to(docs.ROOT))
+    except ValueError:
+        return str(path)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Build the manual HTML and PDF."""
     args = parse_args(sys.argv[1:] if argv is None else argv)
@@ -204,8 +212,8 @@ def main(argv: list[str] | None = None) -> int:
     args.html.write_text(render_manual_html(pages), encoding="utf-8")
     if not args.html_only:
         render_pdf(args.html, args.pdf)
-        print(f"generated manual PDF at {args.pdf.relative_to(docs.ROOT)}")
-    print(f"generated manual HTML at {args.html.relative_to(docs.ROOT)}")
+        print(f"generated manual PDF at {display_path(args.pdf)}")
+    print(f"generated manual HTML at {display_path(args.html)}")
     return 0
 
 

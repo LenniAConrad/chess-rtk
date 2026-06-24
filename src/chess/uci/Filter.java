@@ -1028,7 +1028,7 @@ NOT_SAME
      * <p>
      * Example:
      * </p>
-     * 
+     *
      * <pre>
      * gate=AND;null=false;empty=false;break=1;depth>=31;seldepth>=60;multipv=1;nodes>=116712829;nps>=3978756;hashfull>=628;tbhits=0;time>=29334;eval>=0;leaf[gate=AND;break=2;nodes>=1000000;eval<=0]
      * </pre>
@@ -1126,7 +1126,7 @@ NOT_SAME
 
             /**
              * Creates a parser for the given input.
-             * 
+             *
              * @param input DSL text (non-null)
              */
             Parser(String input) {
@@ -1204,7 +1204,7 @@ NOT_SAME
              * Accepts compact nested gate tokens such as {@code leaf[or;...]} in
              * addition to the canonical {@code gate=OR} spelling.
              * @param b second value
-             * @return handle bare gate result
+             * @return handle bare gate
              */
             private boolean handleBareGate(Filter.Builder b) {
                 int saved = pos;
@@ -1403,7 +1403,7 @@ NOT_SAME
             /**
              * Reads an int comparison token (e.g., {@code "depth>=30"}) and returns its
              * value.
-             * @return parse int comp and value result
+             * @return integer comparison value
              */
             private int parseIntCompAndValue() {
                 String token = readComparison();
@@ -1415,7 +1415,7 @@ NOT_SAME
             /**
              * Reads a long comparison token (e.g., {@code "nodes>=1000000"}) and returns
              * its value.
-             * @return parse long comp and value result
+             * @return long comparison value
              */
             private long parseLongCompAndValue() {
                 String token = readComparison();
@@ -1427,8 +1427,8 @@ NOT_SAME
             /**
              * Extracts the {@link Filter.ComparisonOperator} from a token
              * by inspecting {@code >, >=, <, <=, =}.
-             * @param token token value
-             * @return parse op result
+             * @param token input token
+             * @return comparison operator token
              */
             private static Filter.ComparisonOperator parseOp(String token) {
                 if (token.contains(DslLiterals.OP_SYMBOL_GREATER_EQUAL))
@@ -1444,8 +1444,8 @@ NOT_SAME
 
             /**
              * Extracts the right-hand side of a comparison token.
-             * @param token token value
-             * @return value part result
+             * @param token input token
+             * @return right-hand side of the comparison token
              */
             private static String valuePart(String token) {
                 int idx = token.indexOf(DslLiterals.OP_SYMBOL_GREATER_EQUAL);
@@ -1474,8 +1474,8 @@ NOT_SAME
             /**
              * Parses booleans strictly so configuration typos do not silently become
              * {@code false}.
-             * @param token token value
-             * @return parse boolean result
+             * @param token input token
+             * @return parsed boolean literal
              */
             private static boolean parseBoolean(String token) {
                 if ("true".equalsIgnoreCase(token)) {
@@ -1490,7 +1490,7 @@ NOT_SAME
             /**
              * Builds an exception for an unrecognized token without advancing past
              * surrounding valid input.
-             * @return unknown token result
+             * @return filter parse error for an unknown token
              */
             private IllegalArgumentException unknownToken() {
                 int start = pos;
@@ -1537,7 +1537,7 @@ NOT_SAME
              * comparison operator. This prevents misspelled keys that merely share a
              * prefix from being accepted.
              * @param key lookup key
-             * @return peek comparison key result
+             * @return comparison key visible at the parser cursor
              */
             private boolean peekComparisonKey(String key) {
                 int opIndex = pos + key.length();
@@ -1548,7 +1548,7 @@ NOT_SAME
 
             /**
              * @return whether {@code c} can begin a comparison operator.
-             * @param c c value
+             * @param c character value
              */
             private static boolean isComparisonStart(char c) {
                 return c == '>' || c == '<' || c == '=';
@@ -1556,7 +1556,7 @@ NOT_SAME
 
             /**
              * Reads a comparison token until a delimiter or bracket.
-             * @return read comparison result
+             * @return comparison token read from the parser cursor
              */
             private String readComparison() {
                 return readToken();
@@ -1564,7 +1564,7 @@ NOT_SAME
 
             /**
              * Reads a generic token until a delimiter or bracket.
-             * @return read token result
+             * @return next token from the parser cursor
              */
             private String readToken() {
                 int start = pos;
@@ -1582,7 +1582,7 @@ NOT_SAME
             /**
              * Parses an {@code int} from a digit string.
              * @param s source string
-             * @return parse int result
+             * @return parsed integer value
              */
             private static int parseInt(String s) {
                 return Integer.parseInt(s);
@@ -1591,7 +1591,7 @@ NOT_SAME
             /**
              * Parses a {@code long} from a digit string.
              * @param s source string
-             * @return parse long result
+             * @return parsed long value
              */
             private static long parseLong(String s) {
                 return Long.parseLong(s);

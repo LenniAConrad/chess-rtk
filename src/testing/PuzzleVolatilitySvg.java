@@ -21,7 +21,7 @@ final class PuzzleVolatilitySvg {
     /**
      * Builds the root-stack swing distribution as SVG.
      * @param reports report data rows
-     * @return build svg result
+     * @return built the root-stack swing distribution as SVG
      */
     static String buildSvg(List<RootReport> reports) {
         List<RootReport> changedReports = changedReports(reports);
@@ -97,10 +97,10 @@ final class PuzzleVolatilitySvg {
      * @param sb string builder
      * @param x x coordinate
      * @param y y coordinate
-     * @param anchor anchor value
-     * @param size size value
+     * @param anchor text anchor
+     * @param size size in pixels or points
      * @param fill fill color
-     * @param text text value
+     * @param text text to render or parse
      */
     private static void appendText(StringBuilder sb, double x, double y, String anchor, int size, String fill,
             String text) {
@@ -114,8 +114,8 @@ final class PuzzleVolatilitySvg {
 
     /**
      * Escapes SVG text.
-     * @param text text value
-     * @return escape xml result
+     * @param text text to render or parse
+     * @return escape xml
      */
     private static String escapeXml(String text) {
         return text == null ? "" : text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
@@ -165,7 +165,7 @@ final class PuzzleVolatilitySvg {
      * @param plotW plot width in pixels
      * @param plotH plot height in pixels
      * @param maxPercent maximum percentage value
-     * @param percentStep percent step value
+     * @param percentStep percentage step
      */
     private static void drawAxes(StringBuilder sb, int left, int top, int plotW, int plotH, double maxPercent,
             double percentStep) {
@@ -240,11 +240,11 @@ final class PuzzleVolatilitySvg {
 
     /**
      * Maps a swing value to an x-coordinate.
-     * @param swing swing value
+     * @param swing swing amount
      * @param left left coordinate
      * @param plotW plot width in pixels
      * @param displayMax display maximum value
-     * @return x for swing result
+     * @return x for swing
      */
     private static double xForSwing(int swing, int left, int plotW, int displayMax) {
         return left + plotW * swing / (double) (displayMax + BIN_WIDTH);

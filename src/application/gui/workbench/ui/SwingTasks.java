@@ -32,7 +32,7 @@ public final class SwingTasks {
             /**
              * Executes the task on a worker thread.
              *
-             * @return task result
+             * @return task
              * @throws Exception when the task fails
              */
             @Override

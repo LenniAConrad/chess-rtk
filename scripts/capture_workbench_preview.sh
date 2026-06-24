@@ -137,6 +137,9 @@ if [[ "$BUILD" == "1" ]]; then
 fi
 
 mkdir -p "$(dirname "$OUT_FILE")" "$STATE_DIR/home" "$STATE_DIR/java-prefs"
+if [[ -n "$COMPONENTS_FILE" ]]; then
+  mkdir -p "$(dirname "$COMPONENTS_FILE")"
+fi
 JAVA_PROPS=(
   "-Duser.home=$STATE_DIR/home"
   "-Djava.util.prefs.userRoot=$STATE_DIR/java-prefs"

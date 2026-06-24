@@ -29,11 +29,17 @@ import java.util.Set;
  */
 public final class Threats {
 
+    /**
+     * Creates the threats.
+     */
     private Threats() {
     }
 
     /**
      * Appends all grounded threat tags for {@code position} to {@code tags}.
+     *
+     * @param tags tag collection to update
+     * @param position chess position
      */
     public static void addThreats(List<String> tags, Position position) {
         if (tags == null || position == null) {
@@ -64,6 +70,12 @@ public final class Threats {
     // PROMOTE  (preserves the existing grounded render format:
     //   THREAT: type=promote side=<color> severity=immediate square=<sq>)
     // ------------------------------------------------------------------
+    /**
+     * Adds the add promotion threats.
+     *
+     * @param tags tag collection
+     * @param position chess position
+     */
     private static void addPromotionThreats(Set<String> tags, Position position) {
         boolean whiteToMove = position.isWhiteToMove();
         MoveList moves = position.legalMoves();
@@ -83,6 +95,8 @@ public final class Threats {
     // MATE  (mate-in-1 via play().isCheckmate(); longer via MateProver)
     // ------------------------------------------------------------------
     /**
+     * @param tags tag collection to update
+     * @param position chess position
      * @return true if a verified mate threat was emitted
      */
     private static boolean addMateThreats(Set<String> tags, Position position) {
@@ -129,6 +143,12 @@ public final class Threats {
     // ------------------------------------------------------------------
     // KING_ATTACK  (a legal checking move, not mate, into a weak shelter)
     // ------------------------------------------------------------------
+    /**
+     * Adds the add king attack threats.
+     *
+     * @param tags tag collection
+     * @param position chess position
+     */
     private static void addKingAttackThreats(Set<String> tags, Position position) {
         boolean whiteToMove = position.isWhiteToMove();
         boolean enemyIsWhite = !whiteToMove;
@@ -171,6 +191,12 @@ public final class Threats {
      *  - half-open file: no pawn of the king's OWN color on the king's file.
      *  - exposed ring: >= 2 of the king's 8 adjacent squares are attacked by
      *    the side to move (counted via countAttackersBy{White,Black}).
+     *
+     * @param position chess position
+     * @param board board array indexed by square
+     * @param kingIndex king square index
+     * @param attackerIsWhite true when the attacker is White
+     * @return concrete, verifiable description of the enemy king's shelter weakness, or null if no weakness can be grounded
      */
     private static String kingShelterWeakness(Position position, byte[] board,
                                               byte kingIndex, boolean attackerIsWhite) {
@@ -233,6 +259,13 @@ public final class Threats {
     // ------------------------------------------------------------------
     // helpers
     // ------------------------------------------------------------------
+    /**
+     * Returns whether a move appears in a generated legal-move list.
+     *
+     * @param moves encoded moves
+     * @param move encoded move
+     * @return true when the list contains the move
+     */
     private static boolean isLegal(MoveList moves, short move) {
         for (int i = 0; i < moves.size(); i++) {
             if (moves.get(i) == move) {
@@ -242,6 +275,13 @@ public final class Threats {
         return false;
     }
 
+    /**
+     * Returns SAN for a move, falling back to UCI notation when SAN is unavailable.
+     *
+     * @param position chess position
+     * @param move encoded move
+     * @return SAN or UCI move text
+     */
     private static String san(Position position, short move) {
         String s = SAN.toAlgebraic(position, move);
         if (s == null || s.isEmpty()) {
@@ -256,6 +296,9 @@ public final class Threats {
      * engine's internal board frame, it does not return the human file letter
      * for an arbitrary index (probed: index for SAN square a8 has getX=0 but
      * getFile='h'); the file letter is derived from getX instead.
+     *
+     * @param index zero-based index
+     * @return human-readable square name (e.g. "a8"), derived from the column/row of the index. Field.getFile is NOT used here because, in this engine's internal board frame, it does not return the human file letter for an arbitrary index (probed: index for SAN square a8 has getX=0 but getFile='h'); the file letter is derived from getX instead
      */
     private static String squareName(byte index) {
         return "" + fileLetter(index) + (Field.getY(index) + 1);
@@ -263,6 +306,9 @@ public final class Threats {
 
     /**
      * File letter a..h derived from Field.getX (the column).
+     *
+     * @param index zero-based index
+     * @return file letter a..h derived from Field.getX (the column)
      */
     private static char fileLetter(byte index) {
         int x = Field.getX(index);
@@ -272,6 +318,12 @@ public final class Threats {
         return (char) ('a' + x);
     }
 
+    /**
+     * Returns the describe color.
+     *
+     * @param white whether white
+     * @return describe color text
+     */
     private static String describeColor(boolean white) {
         return white ? "white" : "black";
     }

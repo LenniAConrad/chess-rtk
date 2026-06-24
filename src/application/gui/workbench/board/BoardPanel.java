@@ -118,6 +118,9 @@ public final class BoardPanel extends JPanel {
      */
     private final BoardPanelPainter painter = new BoardPanelPainter(this);
 
+    /**
+     * Layout helper that owns board bounds, square geometry, and eval-bar placement.
+     */
     private final BoardPanelLayout layout = new BoardPanelLayout(this);
 
     /**
@@ -323,6 +326,15 @@ public final class BoardPanel extends JPanel {
     public void setPositionInstant(Position value, short move) {
         setPosition(value, move, false, false);
     }
+    /**
+     * Installs a new position, invalidates cached legal moves, and optionally
+     * starts the move animation.
+     *
+     * @param value new position, or {@code null} for an empty board
+     * @param move encoded move
+     * @param reverseMoveAnimation whether to animate from destination to source
+     * @param animateMove whether to animate the board transition
+     */
     private void setPosition(Position value, short move, boolean reverseMoveAnimation, boolean animateMove) {
         byte[] previousBoard = position == null ? null : position.getBoard();
         position = value;
@@ -368,6 +380,11 @@ public final class BoardPanel extends JPanel {
         materialBottom.update(position, bottomIsWhite);
         materialTop.update(position, !bottomIsWhite);
     }
+    /**
+     * Returns cached legal moves for the current position.
+     *
+     * @return legal moves, or {@code null} when the board is empty
+     */
     private MoveList currentLegalMoves() {
         if (position == null) {
             return null;
@@ -431,6 +448,12 @@ public final class BoardPanel extends JPanel {
         setPremove(Move.NO_MOVE);
     }
 
+    /**
+     * Returns whether a premove has a plausible source and target square.
+     *
+     * @param move encoded move
+     * @return true when the move shape can be queued as a premove
+     */
     static boolean legalPremoveShape(short move) {
         if (move == Move.NO_MOVE) {
             return false;
@@ -444,6 +467,12 @@ public final class BoardPanel extends JPanel {
         }
     }
 
+    /**
+     * Returns whether the suggested move is legal in the current position.
+     *
+     * @param move encoded move
+     * @return true when the current legal-move cache contains the move
+     */
     boolean legalSuggestedMove(short move) {
         if (move == Move.NO_MOVE || position == null) {
             return false;
@@ -672,6 +701,12 @@ public final class BoardPanel extends JPanel {
         repaint();
     }
 
+    /**
+     * Returns the opaque color.
+     *
+     * @param color display color
+     * @return opaque color
+     */
     private static Color opaqueColor(Color color) {
         return new Color(color.getRed(), color.getGreen(), color.getBlue());
     }
@@ -1142,6 +1177,14 @@ public final class BoardPanel extends JPanel {
         setupEditor.setObserver(observer);
     }
 
+    /**
+     * Applies a chessboard.js-style position change and notifies observers when
+     * the FEN changes.
+     *
+     * @param next next position, or {@code null} for an empty board
+     * @param move encoded move
+     * @param animate whether to animate the transition
+     */
     private void applyPosition(Position next, short move, boolean animate) {
         String oldFen = position == null ? null : position.toString();
         if (animate) {
@@ -1193,10 +1236,21 @@ public final class BoardPanel extends JPanel {
         return imageCache.boardTexture(size, boardLightColor(), boardDarkColor());
     }
 
+    /**
+     * Primes the piece-image cache used during drag painting.
+     *
+     * @param piece encoded piece
+     */
     private void warmDragPieceImage(byte piece) {
         painter.warmDragPieceImage(piece);
     }
 
+    /**
+     * Handles board mouse presses for setup editing, annotation gestures, moves,
+     * premoves, and promotion choices.
+     *
+     * @param event mouse press event
+     */
     private void handlePress(MouseEvent event) {
         if (setupEditor.active()) {
             setupEditor.handle(event);
@@ -1379,6 +1433,13 @@ public final class BoardPanel extends JPanel {
         }
     }
 
+    /**
+     * Plays a move immediately or opens promotion selection.
+     *
+     * @param candidates legal moves from the source square to the target square
+     * @param popupX promotion popup x coordinate
+     * @param popupY promotion popup y coordinate
+     */
     private void playOrPromote(short[] candidates, int popupX, int popupY) {
         boolean anyPromotion = false;
         for (short m : candidates) {
@@ -1394,18 +1455,31 @@ public final class BoardPanel extends JPanel {
      * Active promotion choice overlay.
      */
     PromotionOverlay promotionOverlay;
+    /**
+     * Shows the promotion chooser for the candidate promotion moves.
+     *
+     * @param candidates legal promotion candidates
+     */
     private void showPromotionOverlay(short[] candidates) {
         cancelPromotionOverlay();
         byte target = Move.getToIndex(candidates[0]);
         promotionOverlay = new PromotionOverlay(target, candidates, () -> position != null && position.isWhiteToMove());
         repaint();
     }
+    /**
+     * Clears the active promotion chooser, if one is visible.
+     */
     void cancelPromotionOverlay() {
         if (promotionOverlay != null) {
             promotionOverlay = null;
             repaint();
         }
     }
+    /**
+     * Updates drag hover state and schedules minimal repaint regions.
+     *
+     * @param event mouse drag event
+     */
     private void handleDrag(MouseEvent event) {
         if (setupEditor.active()) {
             setupEditor.handle(event);
@@ -1443,6 +1517,12 @@ public final class BoardPanel extends JPanel {
                     dragStarted));
         }
     }
+    /**
+     * Resolves a board drag release into a move, premove, promotion popup, or
+     * snapback animation.
+     *
+     * @param event mouse release event
+     */
     private void handleRelease(MouseEvent event) {
         if (setupEditor.active()) {
             updateCursor(event);
@@ -1510,6 +1590,12 @@ public final class BoardPanel extends JPanel {
         }
         repaint();
     }
+    /**
+     * Returns whether the candidate list contains more than one promotion choice.
+     *
+     * @param candidates legal moves to the same target square
+     * @return true when a promotion chooser is required
+     */
     private static boolean hasPromotionAlternatives(short[] candidates) {
         if (candidates.length <= 1) {
             return false;
@@ -1520,6 +1606,15 @@ public final class BoardPanel extends JPanel {
         }
         return anyPromotion;
     }
+    /**
+     * Starts a snap or snapback animation from a pointer location to a square.
+     *
+     * @param piece encoded piece
+     * @param fromX starting x coordinate
+     * @param fromY starting y coordinate
+     * @param landingSquare board square index
+     * @param snapback whether snapback
+     */
     private void startSnapAnimation(byte piece, int fromX, int fromY, byte landingSquare, boolean snapback) {
         if (!isSquareIndex(landingSquare)) {
             return;
@@ -1539,6 +1634,12 @@ public final class BoardPanel extends JPanel {
                 landingSquare);
         animation.startAnimation();
     }
+    /**
+     * Returns the square if the active drag can legally move there.
+     *
+     * @param square board square index
+     * @return target square, or {@link Field#NO_SQUARE}
+     */
     private byte legalDropTarget(byte square) {
         byte dragSquare = pieceInput.dragSquare();
         if (square == Field.NO_SQUARE || dragSquare == Field.NO_SQUARE) {
@@ -1546,6 +1647,12 @@ public final class BoardPanel extends JPanel {
         }
         return findLegalMove(dragSquare, square) == Move.NO_MOVE ? Field.NO_SQUARE : square;
     }
+    /**
+     * Returns the square if the active drag can queue a premove there.
+     *
+     * @param square board square index
+     * @return target square, or {@link Field#NO_SQUARE}
+     */
     private byte premoveDropTarget(byte square) {
         byte dragSquare = pieceInput.dragSquare();
         if (square == Field.NO_SQUARE || dragSquare == Field.NO_SQUARE || square == dragSquare) {
@@ -1553,6 +1660,12 @@ public final class BoardPanel extends JPanel {
         }
         return isPremoveTarget(dragSquare, pieceInput.draggedPiece(), square) ? square : Field.NO_SQUARE;
     }
+    /**
+     * Returns whether the square contains an opponent piece.
+     *
+     * @param square board square index
+     * @return true when the current side can capture the square's occupant
+     */
     boolean isCaptureTarget(byte square) {
         if (position == null || !isSquareIndex(square)) {
             return false;
@@ -1560,9 +1673,22 @@ public final class BoardPanel extends JPanel {
         byte piece = position.getBoard()[square];
         return piece != Piece.EMPTY && Piece.isWhite(piece) != position.isWhiteToMove();
     }
+    /**
+     * Returns whether the square currently contains any piece.
+     *
+     * @param square board square index
+     * @return true when a piece occupies the square
+     */
     boolean isOccupied(byte square) {
         return position != null && isSquareIndex(square) && position.getBoard()[square] != Piece.EMPTY;
     }
+    /**
+     * Returns whether the square should be highlighted as a capture target for
+     * the active drag.
+     *
+     * @param square board square index
+     * @return true when the dragged piece would capture on the square
+     */
     boolean isDragCaptureTarget(byte square) {
         if (!premoveSelection || position == null || !isSquareIndex(square)) {
             return isCaptureTarget(square);
@@ -1571,6 +1697,13 @@ public final class BoardPanel extends JPanel {
         byte dragged = pieceInput.draggedPiece();
         return target != Piece.EMPTY && dragged != Piece.EMPTY && Piece.isWhite(target) != Piece.isWhite(dragged);
     }
+    /**
+     * Returns whether a piece can start a premove drag from the square.
+     *
+     * @param square board square index
+     * @param piece encoded piece on the square
+     * @return true when the premove handler accepts the source
+     */
     private boolean isPremoveSource(byte square, byte piece) {
         if (position == null || premoveStartFilter == null || premoveHandler == null) {
             return false;
@@ -1580,6 +1713,14 @@ public final class BoardPanel extends JPanel {
         }
         return premoveStartFilter.test(new DragContext(square, piece, position.toString()));
     }
+    /**
+     * Queues a premove after validating the source, target, and promotion shape.
+     *
+     * @param from source square
+     * @param to target square
+     * @param piece encoded moving piece
+     * @return true when the premove handler accepted the move
+     */
     private boolean queuePremove(byte from, byte to, byte piece) {
         if (premoveHandler == null || position == null) {
             return false;
@@ -1596,6 +1737,13 @@ public final class BoardPanel extends JPanel {
         }
         return accepted;
     }
+    /**
+     * Returns every pseudo-legal premove target for one source square.
+     *
+     * @param from source square
+     * @param piece encoded moving piece
+     * @return target squares
+     */
     private byte[] premoveTargets(byte from, byte piece) {
         if (!isSquareIndex(from) || piece == Piece.EMPTY) {
             return new byte[0];
@@ -1609,6 +1757,14 @@ public final class BoardPanel extends JPanel {
         }
         return Arrays.copyOf(buffer, count);
     }
+    /**
+     * Returns whether the target square matches the piece's premove geometry.
+     *
+     * @param from source square
+     * @param piece encoded moving piece
+     * @param to target square
+     * @return true when the target is geometrically plausible
+     */
     private boolean isPremoveTarget(byte from, byte piece, byte to) {
         if (!isSquareIndex(from) || !isSquareIndex(to) || from == to || piece == Piece.EMPTY) {
             return false;
@@ -1630,6 +1786,16 @@ public final class BoardPanel extends JPanel {
             default -> false;
         };
     }
+    /**
+     * Returns whether a pawn can premove to the target coordinates.
+     *
+     * @param piece encoded pawn
+     * @param fromFile source file index
+     * @param fromRank source rank index
+     * @param toFile target file index
+     * @param toRank target rank index
+     * @return true when the pawn move shape is plausible
+     */
     private static boolean isPremovePawnTarget(byte piece, int fromFile, int fromRank, int toFile, int toRank) {
         int direction = Piece.isWhite(piece) ? 1 : -1;
         int df = Math.abs(toFile - fromFile);
@@ -1646,6 +1812,16 @@ public final class BoardPanel extends JPanel {
         int startRank = Piece.isWhite(piece) ? 1 : 6;
         return fromRank == startRank && rankDelta == direction * 2;
     }
+    /**
+     * Returns whether a king premove targets a rook-backed castling square.
+     *
+     * @param piece encoded king
+     * @param fromFile source file index
+     * @param fromRank source rank index
+     * @param toFile target file index
+     * @param toRank target rank index
+     * @return true when the corresponding rook is present
+     */
     private boolean isPremoveCastleTarget(byte piece, int fromFile, int fromRank, int toFile, int toRank) {
         boolean white = Piece.isWhite(piece);
         int homeRank = white ? 0 : 7;
@@ -1665,6 +1841,13 @@ public final class BoardPanel extends JPanel {
         }
         return false;
     }
+    /**
+     * Returns the default promotion code for a premove ending on the last rank.
+     *
+     * @param piece encoded moving piece
+     * @param to target square
+     * @return queen promotion code, or zero for non-promotion moves
+     */
     private static byte premovePromotion(byte piece, byte to) {
         if (piece != Piece.WHITE_PAWN && piece != Piece.BLACK_PAWN) {
             return 0;
@@ -1672,24 +1855,45 @@ public final class BoardPanel extends JPanel {
         int rank = Field.getY(to);
         return rank == 0 || rank == 7 ? (byte) 4 : 0;
     }
+    /**
+     * Clears drag state and any pending drag repaint.
+     */
     void clearDragState() {
         animation.cancelPendingDragRepaint();
         pieceInput.clearDrag();
     }
+    /**
+     * Clears selected square and premove-selection state.
+     */
     void clearSelection() {
         pieceInput.clearSelection();
         premoveSelection = false;
     }
+    /**
+     * Selects a side-to-move piece and refreshes its legal targets.
+     *
+     * @param square board square index
+     */
     private void selectSquare(byte square) {
         premoveSelection = false;
         pieceInput.select(square, new short[0], new byte[0]);
         refreshSelectedLegalMoves();
     }
+    /**
+     * Selects a premove source and computes pseudo-legal premove targets.
+     *
+     * @param square board square index
+     */
     private void selectPremoveSquare(byte square) {
         premoveSelection = true;
         byte piece = position == null || !isSquareIndex(square) ? Piece.EMPTY : position.getBoard()[square];
         pieceInput.select(square, new short[0], premoveTargets(square, piece));
     }
+    /**
+     * Updates the cursor and mouseover callback for the pointer location.
+     *
+     * @param event mouse event
+     */
     private void updateCursor(MouseEvent event) {
         if (setupEditor.active()) {
             byte square = squareAt(event.getX(), event.getY());
@@ -1711,6 +1915,11 @@ public final class BoardPanel extends JPanel {
         setCursor(draggable ? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) : Cursor.getDefaultCursor());
         notifyMouseover(square);
     }
+    /**
+     * Notifies listeners when the hovered board square changes.
+     *
+     * @param square board square index
+     */
     private void notifyMouseover(byte square) {
         if (mouseoverSquareObserver == null) {
             return;
@@ -1721,12 +1930,27 @@ public final class BoardPanel extends JPanel {
         lastMouseoverSquare = square;
         mouseoverSquareObserver.accept(square);
     }
+    /**
+     * Finds a legal move from one square to another, preferring the selected
+     * move cache when possible.
+     *
+     * @param from source square
+     * @param to target square
+     * @return matching move, or {@link Move#NO_MOVE}
+     */
     private short findLegalMove(byte from, byte to) {
         if (pieceInput.isSelected(from)) {
             return findLegalMove(pieceInput.selectedLegalMoves(), to);
         }
         return findLegalMove(legalMovesFrom(from), to);
     }
+    /**
+     * Finds the first move to a target square, preferring queen promotion.
+     *
+     * @param moves encoded moves
+     * @param to target square
+     * @return matching move, or {@link Move#NO_MOVE}
+     */
     private static short findLegalMove(short[] moves, byte to) {
         short first = Move.NO_MOVE;
         for (short move : moves) {
@@ -1741,6 +1965,12 @@ public final class BoardPanel extends JPanel {
         }
         return first;
     }
+    /**
+     * Returns legal moves whose source square matches {@code from}.
+     *
+     * @param from source square
+     * @return matching legal moves
+     */
     private short[] legalMovesFrom(byte from) {
         MoveList moves = currentLegalMoves();
         if (moves == null) {
@@ -1756,6 +1986,9 @@ public final class BoardPanel extends JPanel {
         }
         return Arrays.copyOf(buffer, count);
     }
+    /**
+     * Refreshes cached legal moves and target highlights for the selected square.
+     */
     private void refreshSelectedLegalMoves() {
         byte selectedSquare = pieceInput.selectedSquare();
         if (position == null || selectedSquare == Field.NO_SQUARE) {
@@ -1784,6 +2017,14 @@ public final class BoardPanel extends JPanel {
         pieceInput.select(selectedSquare, Arrays.copyOf(moveBuffer, moveCount),
                 Arrays.copyOf(targetBuffer, targetCount));
     }
+    /**
+     * Returns whether a compact target buffer already contains a square.
+     *
+     * @param targets target buffer
+     * @param count populated entries in the buffer
+     * @param target square to find
+     * @return true when the square is already present
+     */
     private static boolean containsTarget(byte[] targets, int count, byte target) {
         for (int i = 0; i < count; i++) {
             if (targets[i] == target) {
@@ -1792,6 +2033,11 @@ public final class BoardPanel extends JPanel {
         }
         return false;
     }
+    /**
+     * Returns the current on-screen board bounds.
+     *
+     * @return board bounds in component coordinates
+     */
     Rectangle boardBounds() {
         return layout.boardBounds();
     }
@@ -1854,6 +2100,11 @@ public final class BoardPanel extends JPanel {
                 showSuggestedMoveArrow,
                 showSpecialMoveHints);
     }
+    /**
+     * Returns selected legal targets that currently contain capturable pieces.
+     *
+     * @return capture target squares
+     */
     private byte[] selectedCaptureTargets() {
         byte[] selectedLegalTargets = pieceInput.selectedLegalTargets();
         byte[] captures = new byte[selectedLegalTargets.length];
@@ -1865,21 +2116,59 @@ public final class BoardPanel extends JPanel {
         }
         return Arrays.copyOf(captures, count);
     }
+    /**
+     * Returns the on-screen rectangle for one board square.
+     *
+     * @param square board square index
+     * @param board board array indexed by square
+     * @return square bounds in component coordinates
+     */
     Rectangle squareBounds(Rectangle board, byte square) {
         return BoardGeometry.squareBounds(board, square, whiteDown);
     }
+    /**
+     * Returns whether a rectangle should be painted for the active clip.
+     *
+     * @param clip current graphics clip, or {@code null}
+     * @param bounds candidate paint bounds
+     * @return true when the candidate intersects the clip
+     */
     static boolean intersectsClip(Rectangle clip, Rectangle bounds) {
         return clip == null || bounds == null || clip.intersects(bounds);
     }
+    /**
+     * Returns the board square under a component coordinate.
+     *
+     * @param x x coordinate in pixels
+     * @param y y coordinate in pixels
+     * @return square index, or {@link Field#NO_SQUARE}
+     */
     byte squareAt(int x, int y) {
         return BoardGeometry.squareAt(boardBounds(), x, y, whiteDown);
     }
+    /**
+     * Returns the center point of a board square.
+     *
+     * @param board board bounds
+     * @param square board square index
+     * @return square center in component coordinates
+     */
     Point center(Rectangle board, byte square) {
         return BoardGeometry.center(board, square, whiteDown);
     }
+    /**
+     * Returns normalized progress for the current move animation.
+     *
+     * @return progress in the range {@code 0.0..1.0}
+     */
     double moveAnimationProgress() {
         return animation.moveAnimationProgress();
     }
+    /**
+     * Returns normalized progress for the wrong-move marker animation.
+     *
+     * @return progress in the range {@code 0.0..1.0}
+     */
     double wrongMoveMarkerProgress() {
         return animation.wrongMoveMarkerProgress();
     }
@@ -1891,6 +2180,12 @@ public final class BoardPanel extends JPanel {
     public static double easeOutCubic(double value) {
         return Ui.easeOutCubic(value);
     }
+    /**
+     * Returns whether a byte is a valid 0..63 board square.
+     *
+     * @param square board square index
+     * @return true when the square is on the board
+     */
     static boolean isSquareIndex(byte square) {
         return square >= 0 && square < 64;
     }

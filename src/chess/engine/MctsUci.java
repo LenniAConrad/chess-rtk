@@ -129,7 +129,7 @@ public final class MctsUci {
 
     /**
      * Main read/evaluate loop.
-     * @param reader reader value
+     * @param reader input reader
      * @throws java.io.IOException if IOException is raised by the underlying operation
      */
     private void runLoop(BufferedReader reader) throws IOException {
@@ -230,9 +230,9 @@ public final class MctsUci {
 
     /**
      * Applies UCI moves to a position.
-     * @param target target value
+     * @param target target object
      * @param moves candidate moves
-     * @param history history value
+     * @param history source history
      */
     private static void playMoves(Position target, List<String> moves, List<Long> history) {
         for (String token : moves) {
@@ -285,8 +285,8 @@ public final class MctsUci {
 
     /**
      * Copies history keys to a primitive array.
-     * @param history history value
-     * @return history array result
+     * @param history source history
+     * @return history array
      */
     private static long[] historyArray(List<Long> history) {
         if (history == null || history.isEmpty()) {
@@ -308,7 +308,7 @@ public final class MctsUci {
 
     /**
      * Waits for the current search, optionally requesting a stop first.
-     * @param requestStop request stop value
+     * @param requestStop source request stop
      */
     private void joinSearch(boolean requestStop) {
         Thread thread;
@@ -337,8 +337,8 @@ public final class MctsUci {
     /**
      * Parses a UCI go command.
      * @param line line text
-     * @param whiteToMove white to move value
-     * @return parse go result
+     * @param whiteToMove true when White is to move
+     * @return parsed a UCI go command
      */
     private static GoLimits parseGo(String line, boolean whiteToMove) {
         List<String> tokens = tokens(line);
@@ -383,8 +383,8 @@ public final class MctsUci {
      * Parses UCI clock fields into a simple move time through the shared
      * {@link Limits#clockBudgetMillis} time-management mapping.
      * @param tokens token values
-     * @param whiteToMove white to move value
-     * @return parse time control result
+     * @param whiteToMove true when White is to move
+     * @return parsed UCI clock fields into a simple move time through the shared Limits#clockBudgetMillis time-management mapping
      */
     private static TimeControl parseTimeControl(List<String> tokens, boolean whiteToMove) {
         long wtime = 0L;
@@ -414,7 +414,7 @@ public final class MctsUci {
 
     /**
      * Emits one UCI info line.
-     * @param result result value
+     * @param result result label
      */
     private void printInfo(Result result) {
         StringBuilder sb = new StringBuilder();
@@ -440,8 +440,8 @@ public final class MctsUci {
 
     /**
      * Computes nodes per second for UCI output.
-     * @param result result value
-     * @return nodes per second result
+     * @param result result label
+     * @return nodes per second for UCI output
      */
     private static long nodesPerSecond(Result result) {
         return result.nodes() * 1_000L / Math.max(1L, result.elapsedMillis());
@@ -461,7 +461,7 @@ public final class MctsUci {
     /**
      * Splits a command into whitespace tokens.
      * @param line line text
-     * @return tokens result
+     * @return tokens
      */
     private static List<String> tokens(String line) {
         String[] raw = line.trim().split("\\s+");
@@ -478,7 +478,7 @@ public final class MctsUci {
      * Finds a token.
      * @param tokens token values
      * @param value value to use
-     * @return index of result
+     * @return index of
      */
     private static int indexOf(List<String> tokens, String value) {
         for (int i = 0; i < tokens.size(); i++) {
@@ -492,8 +492,8 @@ public final class MctsUci {
     /**
      * Parses a positive int.
      * @param value value to use
-     * @param fallback fallback value
-     * @return parse positive int result
+     * @param fallback default used when input is absent or invalid
+     * @return parsed a positive int
      */
     private static int parsePositiveInt(String value, int fallback) {
         try {
@@ -506,8 +506,8 @@ public final class MctsUci {
     /**
      * Parses a positive long.
      * @param value value to use
-     * @param fallback fallback value
-     * @return parse positive long result
+     * @param fallback default used when input is absent or invalid
+     * @return parsed a positive long
      */
     private static long parsePositiveLong(String value, long fallback) {
         try {

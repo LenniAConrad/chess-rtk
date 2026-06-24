@@ -33,7 +33,7 @@ final class OtisBackend implements SearchBackend {
     /**
      * Creates backend.
      *
-     * @param model model
+     * @param model loaded model
      */
     OtisBackend(chess.nn.otis.Model model) {
         this.model = model;
@@ -110,7 +110,7 @@ final class OtisBackend implements SearchBackend {
     /**
      * Predicts a position.
      *
-     * @param position position
+     * @param position chess position
      * @return prediction
      */
     chess.nn.otis.Model.Prediction predict(Position position) {
@@ -131,8 +131,8 @@ final class OtisBackend implements SearchBackend {
     /**
      * Remembers a prediction.
      *
-     * @param key key
-     * @param prediction prediction
+     * @param key lookup key
+     * @param prediction network prediction
      */
     void remember(long key, chess.nn.otis.Model.Prediction prediction) {
         lastKey = key;

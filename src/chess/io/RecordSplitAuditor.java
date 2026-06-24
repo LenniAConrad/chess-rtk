@@ -219,8 +219,8 @@ public final class RecordSplitAuditor {
 		 *
 		 * @param strategy    group-key strategy
 		 * @param rows        total rows
-		 * @param keyedRows   keyed rows
-		 * @param unkeyedRows unkeyed rows
+		 * @param keyedRows   source keyed rows
+		 * @param unkeyedRows source unkeyed rows
 		 * @param groups      unique groups
 		 * @param leaks       leakage entries
 		 * @param rowsBySplit per-split row counts

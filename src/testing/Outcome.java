@@ -42,7 +42,7 @@ enum Outcome {
 
     /**
      * Returns the CSV-safe label.
-     * @return label result
+     * @return cSV-safe label
      */
     String label() {
         return label;

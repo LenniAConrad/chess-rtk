@@ -344,6 +344,8 @@ public final class BuiltInEngineRegressionTest {
 	/**
 	 * Verifies optional native-library environment paths are treated as advisory:
 	 * invalid values must fall back instead of aborting GPU backend discovery.
+	 *
+	 * @throws java.io.IOException if external I/O or engine communication fails
 	 */
 	private static void testSharedLibraryExplicitPathParsing() throws IOException {
 		try {
@@ -478,8 +480,8 @@ public final class BuiltInEngineRegressionTest {
 	/**
 	 * Asserts the no-eval mate finder returns the expected compact result.
 	 * @param fen FEN string
-	 * @param maxMate max mate value
-	 * @param expectedBoth expected both value
+	 * @param maxMate maximum mate
+	 * @param expectedBoth source expected both
 	 * @param label label text
 	 */
 	private static void assertMateCli(String fen, int maxMate, String expectedBoth, String label) {
@@ -492,8 +494,8 @@ public final class BuiltInEngineRegressionTest {
 	 * Asserts the built-in MCTS command proves a mate through terminal tree
 	 * propagation before exhausting its playout budget.
 	 * @param fen FEN string
-	 * @param expectedUci expected uci value
-	 * @param expectedScore expected score value
+	 * @param expectedUci UCI notation for expected
+	 * @param expectedScore source expected score
 	 * @param maxNodes maximum node count
 	 * @param label label text
 	 */
@@ -1107,7 +1109,7 @@ public final class BuiltInEngineRegressionTest {
 	/**
 	 * Returns byte size of a length-prefixed float array.
 	 *
-	 * @param values values
+	 * @param values input values
 	 * @return byte size
 	 */
 	private static int bytesForArray(float[] values) {
@@ -1118,7 +1120,7 @@ public final class BuiltInEngineRegressionTest {
 	 * Writes a length-prefixed float array.
 	 *
 	 * @param buffer destination
-	 * @param values values
+	 * @param values input values
 	 */
 	private static void putArray(ByteBuffer buffer, float[] values) {
 		buffer.putInt(values.length);
@@ -1129,11 +1131,11 @@ public final class BuiltInEngineRegressionTest {
 
 	/**
 	 * Invokes a private method for focused engine invariants.
-	 * @param target target value
-	 * @param name name value
-	 * @param parameterTypes parameter types value
+	 * @param target target object
+	 * @param name display name
+	 * @param parameterTypes source parameter types
 	 * @param args command arguments
-	 * @return invoke private result
+	 * @return invoke private
 	 */
 	private static Object invokePrivate(Object target, String name, Class<?>[] parameterTypes, Object... args) {
 		try {

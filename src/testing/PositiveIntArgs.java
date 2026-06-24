@@ -19,7 +19,7 @@ final class PositiveIntArgs {
      *
      * @param args command-line arguments
      * @param index argument index
-     * @param fallback fallback value
+     * @param fallback default used when input is absent or invalid
      * @return parsed positive value or fallback
      */
     static int parse(String[] args, int index, int fallback) {

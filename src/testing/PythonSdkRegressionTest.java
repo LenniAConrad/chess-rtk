@@ -214,7 +214,7 @@ public final class PythonSdkRegressionTest {
      *
      * @param command command and arguments
      * @param label assertion label
-     * @return completed process result
+     * @return completed process
      * @throws IOException if the process cannot be started or read
      * @throws InterruptedException if waiting is interrupted
      */
@@ -229,7 +229,7 @@ public final class PythonSdkRegressionTest {
      * @param command command and arguments
      * @param directory working directory, or {@code null} for the current process directory
      * @param label assertion label
-     * @return completed process result
+     * @return completed process
      * @throws IOException if the process cannot be started or read
      * @throws InterruptedException if waiting is interrupted
      */
@@ -251,7 +251,7 @@ public final class PythonSdkRegressionTest {
      * @param command command and arguments
      * @param directory working directory, or {@code null} for the current process directory
      * @param label assertion label
-     * @return completed process result
+     * @return completed process
      * @throws IOException if the process cannot be started or read
      * @throws InterruptedException if waiting is interrupted
      */

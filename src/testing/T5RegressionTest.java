@@ -73,7 +73,7 @@ public final class T5RegressionTest {
     /**
      * Loads a malformed model and returns the expected checked exception.
      *
-     * @param file model path
+     * @param file file index or file path
      * @return thrown I/O exception
      * @throws IOException when loading unexpectedly succeeds
      */

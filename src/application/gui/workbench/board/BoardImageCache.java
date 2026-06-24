@@ -186,6 +186,8 @@ final class BoardImageCache {
      * Renders board squares into a texture image.
      *
      * @param size board image size in pixels
+     * @param light light-square color
+     * @param dark dark-square color
      * @return rendered board texture
      */
     private static BufferedImage renderBoardTexture(int size, Color light, Color dark) {

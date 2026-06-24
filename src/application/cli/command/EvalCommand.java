@@ -216,9 +216,9 @@ public final class EvalCommand {
 
 	/**
 	 * Handles position progress bar.
-	 * @param fens fens
-	 * @param label label
-	 * @return computed value
+	 * @param fens FEN strings
+	 * @param label display label
+	 * @return handles position progress bar
 	 */
 	private static Bar positionProgressBar(List<String> fens, String label) {
 		return fens != null && fens.size() > 1 ? new Bar(fens.size(), label, false, System.err) : null;
@@ -226,8 +226,8 @@ public final class EvalCommand {
 
 	/**
 	 * Handles progress step.
-	 * @param bar bar
-	 * @return computed value
+	 * @param bar progress bar
+	 * @return handles progress step
 	 */
 	private static Runnable progressStep(Bar bar) {
 		return bar == null ? null : bar::step;
@@ -235,7 +235,7 @@ public final class EvalCommand {
 
 	/**
 	 * Handles finish progress.
-	 * @param bar bar
+	 * @param bar progress bar
 	 */
 	private static void finishProgress(Bar bar) {
 		if (bar != null) {

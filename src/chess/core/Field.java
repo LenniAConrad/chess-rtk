@@ -449,13 +449,13 @@ public class Field {
 
 	/**
 	 * The index of the square where the White king starts in standard chess
-	 * 
+	 *
 	 */
 	public static final byte WHITE_KING_STANDARD_INDEX = E1;
 
 	/**
 	 * The index of the square where the White king starts in standard chess
-	 * 
+	 *
 	 */
 	public static final byte BLACK_KING_STANDARD_INDEX = E8;
 
@@ -470,27 +470,27 @@ public class Field {
 	 * <li>The third dimension is an array of field indices that a piece can move to
 	 * in the corresponding direction.</li>
 	 * </ul>
-	 * 
+	 *
 	 * <p>
 	 * Explanation with an example:
 	 * </p>
 	 * A bishop on E4 has four directions that it can go to. We get the directions
 	 * by using: <blockquote>
-	 * 
+	 *
 	 * <pre>
 	 * byte[][] directions = DIAGONALS[E4];
 	 * </pre>
-	 * 
+	 *
 	 * </blockquote> Now, we have a array representing the northeast, southeast,
 	 * southwest, and northwest directions. Empty direction arrays have been
 	 * removed, so if the bishop were on F1 instead, it would only have the
 	 * northwest and northeast direction. If we want to access the southeast
 	 * direction that a bishop has on the E4 square, we do: <blockquote>
-	 * 
+	 *
 	 * <pre>
 	 * byte[] southeast = directions[1];
 	 * </pre>
-	 * 
+	 *
 	 * </blockquote> Finally, we have a array that that gives us the direction of
 	 * the fields that the bishop can move to. The fields are: <blockquote>
 	 * <ul>
@@ -500,22 +500,22 @@ public class Field {
 	 * </ul>
 	 * So, to check if a bishop on E4 can go to each square, we have to first check,
 	 * if it can go to F3, then to G2 and finally to H1.
-	 * 
+	 *
 	 * <p>
 	 * One could also easily access them in a loop with:
 	 * </p>
-	 * 
+	 *
 	 * <blockquote>
-	 * 
+	 *
 	 * <pre>
 	 * for (int i = 0; i < DIAGONALS[E4][1].length; i++) {
 	 * 	byte index = DIAGONALS[E4][1][i];
 	 * 	// Do calculations
 	 * }
 	 * </pre>
-	 * 
+	 *
 	 * </blockquote>
-	 * 
+	 *
 	 * @implNote Used for chess move generation
 	 * @implNote Directions that not contain indexes have been removed for
 	 *           optimization
@@ -576,27 +576,27 @@ public class Field {
 	 * <li>The third dimension is an array of field indices that a piece can move to
 	 * in the corresponding direction.</li>
 	 * </ul>
-	 * 
+	 *
 	 * <p>
 	 * Explanation with an example:
 	 * </p>
 	 * A rook on E4 has four directions that it can go to. We get the directions by
 	 * using: <blockquote>
-	 * 
+	 *
 	 * <pre>
 	 * byte[][] directions = LINES[E4];
 	 * </pre>
-	 * 
+	 *
 	 * </blockquote> Now, we have a array representing the north, east, south, and
 	 * west directions. Empty direction arrays have been removed, so if the rook
 	 * were on H1 instead, it would only have the north and west direction. If we
 	 * want to access the east direction that a bishop has on the E4 square, we do:
 	 * <blockquote>
-	 * 
+	 *
 	 * <pre>
 	 * byte[] east = directions[1];
 	 * </pre>
-	 * 
+	 *
 	 * </blockquote> Finally, we have a array that that gives us the direction of
 	 * the fields that the rook can move to. The fields are: <blockquote>
 	 * <ul>
@@ -607,22 +607,22 @@ public class Field {
 	 * </blockquote>
 	 * So, to check if a rook on E4 can go to each square, we have to first check,
 	 * if it can go to F4, then to G4 and finally to H4.
-	 * 
+	 *
 	 * <p>
 	 * One could also easily access them in a loop with:
 	 * </p>
-	 * 
+	 *
 	 * <blockquote>
-	 * 
+	 *
 	 * <pre>
 	 * for (int i = 0; i < LINES[E4][1].length; i++) {
 	 * 	byte index = LINES[E4][1][i];
 	 * 	// Do calculations
 	 * }
 	 * </pre>
-	 * 
+	 *
 	 * </blockquote>
-	 * 
+	 *
 	 * @implNote Used for chess move generation
 	 * @implNote Directions that not contain indexes have been removed for
 	 *           optimization
@@ -707,11 +707,11 @@ public class Field {
 	 * A knight on <strong>E4</strong> has several possible jumps (up to 8,
 	 * depending on whether some moves go off the board). We get the squares it can
 	 * jump to by using: <blockquote>
-	 * 
+	 *
 	 * <pre>
 	 * byte[] knightMoves = Jumps[E4];
 	 * </pre>
-	 * 
+	 *
 	 * </blockquote> Now, <code>knightMoves</code> is an array of squares (as board
 	 * indices) that a knight on E4 could move to. For instance, if we want to see
 	 * whether the knight can jump to <strong>G5</strong>, we can check if G5 is in
@@ -721,14 +721,14 @@ public class Field {
 	 * One could also easily access them in a loop with:
 	 * </p>
 	 * <blockquote>
-	 * 
+	 *
 	 * <pre>
 	 * for (int i = 0; i &lt; Jumps[E4].length; i++) {
 	 * 	byte index = Jumps[E4][i];
 	 * 	// Do calculations for a knight move from E4 to 'index'
 	 * }
 	 * </pre>
-	 * 
+	 *
 	 * </blockquote>
 	 *
 	 * @implNote Used for chess move generation. Unreachable or off-board jumps have
@@ -767,11 +767,11 @@ public class Field {
 	 * A king on <strong>E4</strong> can move (at most) to any of the 8 surrounding
 	 * squares, as long as those squares remain on the board. We retrieve these
 	 * possible squares by using: <blockquote>
-	 * 
+	 *
 	 * <pre>
 	 * byte[] kingMoves = Neighbors[E4];
 	 * </pre>
-	 * 
+	 *
 	 * </blockquote> Now, <code>kingMoves</code> is an array of board indices where
 	 * the king can legally move. For instance, if we want to check whether the king
 	 * can move to <strong>D3</strong>, we can see whether <code>D3</code> is in
@@ -781,13 +781,13 @@ public class Field {
 	 * One could also easily loop over them as follows:
 	 * </p>
 	 * <blockquote>
-	 * 
+	 *
 	 * <pre>
 	 * for (byte destination : Neighbors[E4]) {
 	 * 	// Calculate or generate a move from E4 to 'destination'
 	 * }
 	 * </pre>
-	 * 
+	 *
 	 * </blockquote>
 	 *
 	 * @implNote Used for chess move generation. Any off-board squares are omitted
@@ -830,7 +830,7 @@ public class Field {
 	 * <p>
 	 * Example usage:
 	 * </p>
-	 * 
+	 *
 	 * <pre>
 	 * byte[] whitePushes = PAWN_PUSH_WHITE[E2];
 	 * for (byte dest : whitePushes) {
@@ -886,7 +886,7 @@ public class Field {
 	 * <p>
 	 * Example usage:
 	 * </p>
-	 * 
+	 *
 	 * <pre>
 	 * byte[] whiteCaptures = PAWN_CAPTURE_WHITE[E4];
 	 * for (byte target : whiteCaptures) {
@@ -1001,9 +1001,9 @@ public class Field {
 
 	/**
 	 * Used for calculating the X-coordinate of the index, starting at 0.
-	 * 
+	 *
 	 * @return The X-coordinate of the index, starting at 0
-	 * @param index index value
+	 * @param index zero-based index
 	 */
 	public static int getX(byte index) {
 		return index % 8;
@@ -1011,9 +1011,9 @@ public class Field {
 
 	/**
 	 * Used for calculating the Y-coordinate of the index, starting at 0.
-	 * 
+	 *
 	 * @return The Y-coordinate of the index, starting at 0
-	 * @param index index value
+	 * @param index zero-based index
 	 */
 	public static int getY(byte index) {
 		return 7 - index / 8;
@@ -1043,9 +1043,9 @@ public class Field {
 
 	/**
 	 * Used for calculating the inverted X-coordinate of the index, starting at 7.
-	 * 
+	 *
 	 * @return The inverted X-coordinate of the index, starting at 7
-	 * @param index index value
+	 * @param index zero-based index
 	 */
 	public static int getXInverted(byte index) {
 		return 7 - index % 8;
@@ -1223,29 +1223,29 @@ public class Field {
 
 	/**
 	 * Used for calculating the inverted Y-coordinate of the index, starting at 7.
-	 * 
+	 *
 	 * @return The inverted Y-coordinate of the index, starting at 7
-	 * @param index index value
+	 * @param index zero-based index
 	 */
 	public static int getYInverted(byte index) {
 		return index / 8;
 	}
 
 	/**
-	 * 
-	 * @param index index value
+	 *
+	 * @param index zero-based index
 	 * @implNote This method does not check for out-of-bounds conditions.
-	 * @return computed value
+	 * @return result of uprank
 	 */
 	public static byte uprank(byte index) {
 		return (byte) (index + 8);
 	}
 
 	/**
-	 * 
-	 * @param index index value
+	 *
+	 * @param index zero-based index
 	 * @implNote This method does not check for out-of-bounds conditions.
-	 * @return computed value
+	 * @return result of downrank
 	 */
 	public static byte downrank(byte index) {
 		return (byte) (index - 8);
@@ -1253,10 +1253,10 @@ public class Field {
 
 	/**
 	 * Used for calculating the right square of the index.
-	 * 
+	 *
 	 * @implNote This method does not check for out-of-bounds conditions.
 	 * @return The right square of the index
-	 * @param index index value
+	 * @param index zero-based index
 	 */
 	public static byte rightOf(byte index) {
 		return (byte) (index + 1);
@@ -1264,10 +1264,10 @@ public class Field {
 
 	/**
 	 * Used for calculating the left square of the index.
-	 * 
+	 *
 	 * @implNote This method does not check for out-of-bounds conditions.
 	 * @return The left square of the index
-	 * @param index index value
+	 * @param index zero-based index
 	 */
 	public static byte leftOf(byte index) {
 		return (byte) (index - 1);

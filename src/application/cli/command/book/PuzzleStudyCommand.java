@@ -3,6 +3,7 @@ package application.cli.command.book;
 import static application.cli.Constants.CMD_HELP_LONG;
 import static application.cli.Constants.CMD_HELP_SHORT;
 import static application.cli.Constants.OPT_CHECK;
+import static application.cli.Constants.OPT_COVER_OUTPUT;
 import static application.cli.Constants.OPT_INPUT;
 import static application.cli.Constants.OPT_INPUT_SHORT;
 import static application.cli.Constants.OPT_OUTPUT;
@@ -73,11 +74,6 @@ public final class PuzzleStudyCommand {
 	 * Manifest-output option flag.
 	 */
 	private static final String OPT_MANIFEST_OUTPUT = "--manifest-output";
-
-	/**
-	 * Cover-output option flag.
-	 */
-	private static final String OPT_COVER_OUTPUT = "--cover-output";
 
 	/**
 	 * Repeated blurb-line option flag.

@@ -106,7 +106,7 @@ public final class MateProver {
      * @param root root position
      * @param maxMateMoves maximum mate distance in full moves
      * @param maxNodes maximum searched proof nodes, or zero/negative for no cap
-     * @return search result
+     * @return search
      */
     public static SearchResult search(Position root, int maxMateMoves, long maxNodes) {
         return search(root, maxMateMoves, maxNodes, 1);
@@ -119,7 +119,7 @@ public final class MateProver {
      * @param maxMateMoves maximum mate distance in full moves
      * @param maxNodes maximum searched proof nodes, or zero/negative for no cap
      * @param threads root-move worker count; values below 2 use the serial search
-     * @return search result
+     * @return search
      */
     public static SearchResult search(Position root, int maxMateMoves, long maxNodes, int threads) {
         if (root == null || maxMateMoves <= 0) {
@@ -138,9 +138,9 @@ public final class MateProver {
     /**
      * Runs the original deterministic single-threaded proof search.
      * @param root root position or node
-     * @param maxMateMoves max mate moves value
-     * @param nodeLimit node limit value
-     * @return search serial result
+     * @param maxMateMoves maximum mate moves
+     * @param nodeLimit engine node cap
+     * @return search serial
      */
     private static SearchResult searchSerial(Position root, int maxMateMoves, long nodeLimit) {
         NodeBudget budget = new NodeBudget(nodeLimit);
@@ -164,10 +164,10 @@ public final class MateProver {
      * Runs a root-split proof search. Each worker owns its own board and memo,
      * while all workers share one global proof-node budget.
      * @param root root position or node
-     * @param maxMateMoves max mate moves value
-     * @param nodeLimit node limit value
-     * @param threads threads value
-     * @return search parallel result
+     * @param maxMateMoves maximum mate moves
+     * @param nodeLimit engine node cap
+     * @param threads worker thread count
+     * @return search parallel
      */
     private static SearchResult searchParallel(Position root, int maxMateMoves, long nodeLimit, int threads) {
         NodeBudget budget = new NodeBudget(nodeLimit);
@@ -191,12 +191,12 @@ public final class MateProver {
     /**
      * Searches one mate distance by distributing root moves across workers.
      * @param root root position or node
-     * @param mateMoves mate moves value
+     * @param mateMoves source mate moves
      * @param plies ply count
-     * @param budget budget value
-     * @param memo memo value
-     * @param executor executor value
-     * @return search parallel depth result
+     * @param budget remaining search budget
+     * @param memo memoization table
+     * @param executor worker executor
+     * @return search parallel depth
      */
     private static SearchResult searchParallelDepth(
             Position root,
@@ -263,11 +263,11 @@ public final class MateProver {
      * Proves one root move in a worker-owned search tree.
      * @param root root position or node
      * @param move move encoded in CRTK move format
-     * @param index index value
+     * @param index zero-based index
      * @param plies ply count
-     * @param budget budget value
-     * @param memo memo value
-     * @return prove root move result
+     * @param budget remaining search budget
+     * @param memo memoization table
+     * @return prove root move
      */
     private static Attempt proveRootMove(
             Position root,
@@ -283,9 +283,9 @@ public final class MateProver {
 
     /**
      * Returns whether every root move before {@code index} has finished.
-     * @param index index value
-     * @param completed completed value
-     * @return earlier moves finished result
+     * @param index zero-based index
+     * @param completed source completed
+     * @return true when every root move before index has finished
      */
     private static boolean earlierMovesFinished(int index, boolean[] completed) {
         for (int i = 0; i < index; i++) {
@@ -298,7 +298,7 @@ public final class MateProver {
 
     /**
      * Cancels submitted worker futures.
-     * @param futures futures value
+     * @param futures asynchronous task handles
      */
     private static void cancelAll(List<? extends Future<?>> futures) {
         for (Future<?> future : futures) {
@@ -318,8 +318,8 @@ public final class MateProver {
     /**
      * Returns a move line with {@code move} prepended.
      * @param move move encoded in CRTK move format
-     * @param tail tail value
-     * @return prepend result
+     * @param tail tail node
+     * @return move line with move prepended
      */
     private static short[] prepend(short move, short[] tail) {
         short[] out = new short[(tail == null ? 0 : tail.length) + 1];
@@ -349,9 +349,9 @@ public final class MateProver {
         /**
          * Defensively copies mutable input.
          * @param bestMove best move reported by the engine
-         * @param mateMoves mate moves value
+         * @param mateMoves source mate moves
          * @param plies ply count
-         * @param principalVariation principal variation value
+         * @param principalVariation source principal variation
          * @param nodes node count
          */
         public Proof {
@@ -362,7 +362,7 @@ public final class MateProver {
 
         /**
          * Returns a defensive copy of the proof line.
-         * @return principal variation result
+         * @return defensive copy of the proof line
          */
         @Override
         public short[] principalVariation() {
@@ -410,7 +410,7 @@ public final class MateProver {
         /**
          * Search.
          * @param root root position or node
-         * @param budget budget value
+         * @param budget remaining search budget
          */
         private Search(Position root, NodeBudget budget) {
             this(root, budget, new HashMap<>());
@@ -419,8 +419,8 @@ public final class MateProver {
         /**
          * Search.
          * @param root root position or node
-         * @param budget budget value
-         * @param memo memo value
+         * @param budget remaining search budget
+         * @param memo memoization table
          */
         private Search(Position root, NodeBudget budget, Map<Key, Bound> memo) {
             this.root = root;
@@ -430,7 +430,7 @@ public final class MateProver {
 
         /**
          * Nodes.
-         * @return nodes result
+         * @return node count
          */
         private long nodes() {
             return budget.nodes();
@@ -438,7 +438,7 @@ public final class MateProver {
 
         /**
          * Exhausted.
-         * @return exhausted result
+         * @return exhausted
          */
         private boolean exhausted() {
             return budget.exhausted();
@@ -447,7 +447,7 @@ public final class MateProver {
         /**
          * Prove attacker.
          * @param plies ply count
-         * @return prove attacker result
+         * @return prove attacker
          */
         private Line proveAttacker(int plies) {
             return proveAttacker(root, plies);
@@ -457,7 +457,7 @@ public final class MateProver {
          * Prove root move.
          * @param move move encoded in CRTK move format
          * @param plies ply count
-         * @return prove root move result
+         * @return prove root move
          */
         private Line proveRootMove(short move, int plies) {
             if (!enter() || plies <= 0 || isDraw(root)) {
@@ -485,7 +485,7 @@ public final class MateProver {
          * Prove attacker.
          * @param position chess position
          * @param plies ply count
-         * @return prove attacker result
+         * @return prove attacker
          */
         private Line proveAttacker(Position position, int plies) {
             if (!enter() || plies <= 0 || isDraw(position)) {
@@ -545,7 +545,7 @@ public final class MateProver {
          * Prove defender.
          * @param position chess position
          * @param plies ply count
-         * @return prove defender result
+         * @return prove defender
          */
         private Line proveDefender(Position position, int plies) {
             if (!enter() || isDraw(position)) {
@@ -605,7 +605,7 @@ public final class MateProver {
          * Find mate in one.
          * @param position chess position
          * @param legal legal moves
-         * @return find mate in one result
+         * @return find mate in one
          */
         private Line findMateInOne(Position position, MoveList legal) {
             short bestMove = bestMateInOneMove(position, legal);
@@ -616,7 +616,7 @@ public final class MateProver {
          * Lookup.
          * @param key lookup key
          * @param plies ply count
-         * @return lookup result
+         * @return lookup
          */
         private Line lookup(Key key, int plies) {
             Bound bound = memo.get(key);
@@ -666,7 +666,7 @@ public final class MateProver {
 
         /**
          * Enter.
-         * @return enter result
+         * @return enter
          */
         private boolean enter() {
             return budget.enter();
@@ -692,7 +692,7 @@ public final class MateProver {
 
         /**
          * Node budget.
-         * @param limit limit value
+         * @param limit maximum row or game count
          */
         private NodeBudget(long limit) {
             this.limit = limit;
@@ -700,7 +700,7 @@ public final class MateProver {
 
         /**
          * Enter.
-         * @return enter result
+         * @return enter
          */
         private boolean enter() {
             if (Thread.currentThread().isInterrupted()) {
@@ -720,7 +720,7 @@ public final class MateProver {
 
         /**
          * Nodes.
-         * @return nodes result
+         * @return node count
          */
         private long nodes() {
             return nodes.get();
@@ -728,7 +728,7 @@ public final class MateProver {
 
         /**
          * Exhausted.
-         * @return exhausted result
+         * @return exhausted
          */
         private boolean exhausted() {
             return exhausted;
@@ -739,9 +739,9 @@ public final class MateProver {
      * Sorts legal moves so useful proof candidates are tried first.
      * @param position chess position
      * @param legal legal moves
-     * @param attacker attacker value
+     * @param attacker attacking piece or square
      * @param plies ply count
-     * @return ordered moves result
+     * @return ordered moves
      */
     private static MoveOrder orderedMoves(Position position, MoveList legal, boolean attacker, int plies) {
         MoveOrder order = new MoveOrder(legal.size());
@@ -778,7 +778,7 @@ public final class MateProver {
      * Returns the highest-priority mate-in-one move in a legal move list.
      * @param position chess position
      * @param legal legal moves
-     * @return best mate in one move result
+     * @return highest-priority mate-in-one move in a legal move list
      */
     private static short bestMateInOneMove(Position position, MoveList legal) {
         short bestMove = Move.NO_MOVE;
@@ -822,8 +822,8 @@ public final class MateProver {
      * Scores static tactical move features without making the move.
      * @param position chess position
      * @param move move encoded in CRTK move format
-     * @param attacker attacker value
-     * @return tactical score result
+     * @param attacker attacking piece or square
+     * @return tactical score
      */
     private static int tacticalScore(Position position, short move, boolean attacker) {
         int score = 0;
@@ -862,8 +862,8 @@ public final class MateProver {
 
     /**
      * Material value for an internal {@link Position} piece index.
-     * @param pieceIndex piece index value
-     * @return internal piece value result
+     * @param pieceIndex zero-based piece index
+     * @return internal piece value
      */
     private static int internalPieceValue(int pieceIndex) {
         return switch (pieceIndex) {
@@ -879,8 +879,8 @@ public final class MateProver {
 
     /**
      * Material value for a promotion code.
-     * @param promotion promotion value
-     * @return promotion value result
+     * @param promotion promotion piece
+     * @return promotion value
      */
     private static int promotionValue(int promotion) {
         return switch (promotion) {
@@ -904,7 +904,7 @@ public final class MateProver {
     private record Attempt(int index, short move, Line line) {
         /**
          * Proved.
-         * @return proved result
+         * @return proved
          */
         private boolean proved() {
             return line != null && line.proved();
@@ -958,7 +958,7 @@ public final class MateProver {
 
         /**
          * Move order.
-         * @param capacity capacity value
+         * @param capacity initial capacity
          */
         private MoveOrder(int capacity) {
             this.moves = new short[Math.max(1, capacity)];
@@ -969,7 +969,7 @@ public final class MateProver {
         /**
          * Add.
          * @param move move encoded in CRTK move format
-         * @param score score value
+         * @param score source score
          * @param mate mate flag
          */
         private void add(short move, int score, boolean mate) {
@@ -981,7 +981,7 @@ public final class MateProver {
 
         /**
          * Size.
-         * @return size result
+         * @return size
          */
         private int size() {
             return size;
@@ -989,8 +989,8 @@ public final class MateProver {
 
         /**
          * Move.
-         * @param index index value
-         * @return move result
+         * @param index zero-based index
+         * @return move
          */
         private short move(int index) {
             return moves[index];
@@ -998,7 +998,7 @@ public final class MateProver {
 
         /**
          * Is mate.
-         * @param index index value
+         * @param index zero-based index
          * @return true when is mate
          */
         private boolean isMate(int index) {
@@ -1028,11 +1028,11 @@ public final class MateProver {
 
         /**
          * Comes before.
-         * @param leftMove left move value
-         * @param leftScore left score value
-         * @param rightMove right move value
-         * @param rightScore right score value
-         * @return comes before result
+         * @param leftMove source left move
+         * @param leftScore source left score
+         * @param rightMove source right move
+         * @param rightScore source right score
+         * @return comes before
          */
         private static boolean comesBefore(short leftMove, int leftScore, short rightMove, int rightScore) {
             if (leftScore != rightScore) {

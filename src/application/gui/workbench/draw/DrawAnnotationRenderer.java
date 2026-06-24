@@ -49,6 +49,12 @@ final class DrawAnnotationRenderer extends JComponent implements ListCellRendere
      */
     private boolean focused;
 
+    /**
+     * Creates the draw annotation renderer.
+     *
+     * @param rowHeight row height in pixels
+     * @param swatchSize source swatch size
+     */
     DrawAnnotationRenderer(int rowHeight, int swatchSize) {
         this.rowHeight = rowHeight;
         this.swatchSize = swatchSize;
@@ -107,6 +113,11 @@ final class DrawAnnotationRenderer extends JComponent implements ListCellRendere
         }
     }
 
+    /**
+     * Draws the paint background.
+     *
+     * @param g graphics context
+     */
     private void paintBackground(Graphics2D g) {
         int width = Math.max(0, getWidth() - Theme.SPACE_XS);
         int height = Math.max(0, getHeight() - Theme.SPACE_XS);
@@ -124,6 +135,11 @@ final class DrawAnnotationRenderer extends JComponent implements ListCellRendere
         }
     }
 
+    /**
+     * Draws the paint swatch.
+     *
+     * @param g graphics context
+     */
     private void paintSwatch(Graphics2D g) {
         int x = Theme.SPACE_SM;
         int y = row.details() ? Theme.SPACE_SM + 1 : Math.max(0, (getHeight() - swatchSize) / 2);
@@ -137,6 +153,11 @@ final class DrawAnnotationRenderer extends JComponent implements ListCellRendere
         g.drawRoundRect(x, y, swatchSize, swatchSize, Theme.RADIUS, Theme.RADIUS);
     }
 
+    /**
+     * Draws the paint text.
+     *
+     * @param g graphics context
+     */
     private void paintText(Graphics2D g) {
         int textX = Theme.SPACE_SM + swatchSize + Theme.SPACE_MD;
         int textWidth = Math.max(0, getWidth() - textX - Theme.SPACE_MD);

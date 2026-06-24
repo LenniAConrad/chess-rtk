@@ -520,7 +520,7 @@ final class WorkbenchUiRegression {
     /**
      * Verifies a numeric token is inside an inclusive range.
      *
-     * @param value actual value
+     * @param value source value
      * @param min minimum accepted value
      * @param max maximum accepted value
      * @param label assertion label
@@ -2078,6 +2078,9 @@ final class WorkbenchUiRegression {
         try {
             Theme.setMode(Theme.Mode.DARK);
             JPanel boardLike = new JPanel() {
+                /**
+                 * Serialization identifier for Swing compatibility.
+                 */
                 private static final long serialVersionUID = 1L;
 
                 /**
@@ -2132,7 +2135,7 @@ final class WorkbenchUiRegression {
     /**
      * Counts exact RGB pixels in an image.
      *
-     * @param image image
+     * @param image rendered image
      * @param rgb RGB value without alpha
      * @return matching pixel count
      */
@@ -2586,7 +2589,7 @@ final class WorkbenchUiRegression {
         assertFalse(glyphPicker.isEnabled(),
                 "draw panel disables exact glyph choices while shape is not glyph");
         JButton blunderPreset = buttonWithText(panel, "??");
-        assertEquals(new Color(0xCB, 0x37, 0x37, 212),
+        assertEquals(new Color(0xA3, 0x48, 0x43, 204),
                 blunderPreset.getClientProperty("workbench.draw.preset.fill"),
                 "draw panel blunder preset exposes its red fill");
         assertEquals(BoardMarkupTool.GLYPH, blunderPreset.getClientProperty("workbench.draw.preset.tool"),
@@ -2601,7 +2604,7 @@ final class WorkbenchUiRegression {
         assertTrue(glyphPicker.isEnabled(),
                 "draw panel enables exact glyph choices for glyph shape");
         JButton circlePreset = buttonWithText(panel, "Circle");
-        assertEquals(new Color(0x30, 0x72, 0xE0, 212),
+        assertEquals(new Color(0x2F, 0x5F, 0x8F, 204),
                 circlePreset.getClientProperty("workbench.draw.preset.fill"),
                 "draw panel circle preset exposes its blue fill");
         assertEquals(BoardMarkupTool.CIRCLE, circlePreset.getClientProperty("workbench.draw.preset.tool"),
@@ -2790,7 +2793,7 @@ final class WorkbenchUiRegression {
     /**
      * Returns the current center point for a board square.
      *
-     * @param board board
+     * @param board board state
      * @param square square index
      * @return square center
      */
@@ -2850,7 +2853,7 @@ final class WorkbenchUiRegression {
     /**
      * Dispatches one mouse event to the board.
      *
-     * @param board board
+     * @param board board state
      * @param id event id
      * @param modifiers extended modifiers
      * @param point event point

@@ -763,7 +763,7 @@ public final class Toml {
      * preserves sign.
      * Returns {@code null} when the string is empty or obviously non-numeric.
      * @param s source string
-     * @return normalize numeric string result
+     * @return normalize numeric string
      */
     private static String normalizeNumericString(String s) {
         if (s == null)

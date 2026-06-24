@@ -176,8 +176,8 @@ public final class Page {
 	/**
 	 * Adds or reuses an opacity graphics state.
 	 *
-	 * @param fillOpacity fill opacity
-	 * @param strokeOpacity stroke opacity
+	 * @param fillOpacity source fill opacity
+	 * @param strokeOpacity source stroke opacity
 	 * @return graphics-state resource name, or null for fully opaque drawing
 	 */
 	String addOpacity(double fillOpacity, double strokeOpacity) {
@@ -401,8 +401,8 @@ public final class Page {
 		 * Creates an opacity resource.
 		 *
 		 * @param name PDF graphics-state resource name
-		 * @param fillOpacity fill opacity
-		 * @param strokeOpacity stroke opacity
+		 * @param fillOpacity source fill opacity
+		 * @param strokeOpacity source stroke opacity
 		 */
 		private OpacityResource(String name, double fillOpacity, double strokeOpacity) {
 			this.name = name;

@@ -58,11 +58,6 @@ public final class ServeCommand {
     private static final int HTTP_METHOD_NOT_ALLOWED = 405;
 
     /**
-     * HTTP not-found status.
-     */
-    private static final int HTTP_NOT_FOUND = 404;
-
-    /**
      * Shared lock for process-wide stdout/stderr capture around {@link Main#run(String[])}.
      */
     private static final Object DISPATCH_LOCK = new Object();
@@ -180,7 +175,7 @@ public final class ServeCommand {
      * Captures one CLI invocation through {@link Main#run(String[])}.
      *
      * @param argv command argv tokens
-     * @return captured result
+     * @return captured
      */
     private static CliResult dispatch(String[] argv) {
         if (argv.length > 0 && "serve".equals(argv[0])) {

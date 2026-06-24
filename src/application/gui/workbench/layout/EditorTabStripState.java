@@ -55,7 +55,7 @@ final class EditorTabStripState {
      * Marks an editor tab with its backing panel index.
      *
      * @param tab tab component
-     * @param panelIndex panel index
+     * @param panelIndex zero-based panel index
      */
     static void markTab(EditorTab tab, int panelIndex) {
         tab.putClientProperty(TAB_INDEX_PROPERTY, Integer.valueOf(panelIndex));

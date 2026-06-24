@@ -579,7 +579,7 @@ public final class Document {
 		 * @param imageObjectIds image resource object ids
 		 * @param opacityObjectIds opacity state object ids
 		 * @param shadingObjectIds shading resource object ids
-		 * @param annotationObjectIds annotation object ids
+		 * @param annotationObjectIds source annotation object ids
 		 * @param contentId content-stream object id
 		 */
 		private PageObjectContext(

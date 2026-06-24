@@ -516,6 +516,12 @@ public final class DatasetAnalyzer {
     private record RowData(String fen, String kind, List<String> tags, String engine, Integer score) {
         /**
          * Normalizes nullable row fields.
+         *
+         * @param fen FEN string
+         * @param kind dataset row kind
+         * @param tags tag collection to update
+         * @param engine engine identifier
+         * @param score score accumulator or engine score
          */
         RowData {
             fen = fen == null ? "" : fen;
@@ -778,7 +784,7 @@ public final class DatasetAnalyzer {
          * @param kind row kind
          * @param fen FEN text
          * @param side side to move
-         * @param material material value
+         * @param material material score
          * @param label compact label
          * @param issue optional issue
          */
@@ -801,7 +807,7 @@ public final class DatasetAnalyzer {
          * @param kind row kind
          * @param text row text
          * @param side side to move
-         * @param material material value
+         * @param material material score
          * @param label compact label
          * @param issue issue text
          */
@@ -820,7 +826,7 @@ public final class DatasetAnalyzer {
          * @param kind row kind
          * @param fen FEN or row text
          * @param side side to move
-         * @param material material value
+         * @param material material score
          * @param label compact label
          * @param issue issue text
          * @return sample row

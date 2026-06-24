@@ -139,6 +139,15 @@ public final class TreeLayout {
 
         /**
          * Normalizes snapshot accounting.
+         *
+         * @param nodes node collection or node budget
+         * @param edges layout edges
+         * @param width width in pixels
+         * @param height height in pixels
+         * @param rootKey root node key
+         * @param uniquePositions number of unique positions in the layout
+         * @param transpositionEdges number of transposition edges
+         * @param omittedNodes number of nodes omitted from the layout
          */
         public Model {
             omittedNodes = Math.max(0, omittedNodes);
@@ -475,6 +484,7 @@ public final class TreeLayout {
      * @param hGap horizontal gap
      * @param xPos accumulating x positions
      * @param nextX mutable leaf cursor
+     * @param stack ancestor stack used while walking the tree
      * @return assigned x for this node
      */
     private static int assignX(String key, Map<String, List<String>> treeChildren,

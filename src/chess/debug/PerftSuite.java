@@ -412,7 +412,7 @@ public final class PerftSuite {
      * One validation position.
      *
      * @param name display name retained for diagnostics
-     * @param fen FEN
+     * @param fen FEN string
      * @param truthByDepth one-indexed reference node counts
      */
     private static final class Case {
@@ -436,7 +436,7 @@ public final class PerftSuite {
          * Creates an immutable validation case.
          *
          * @param name display name retained for diagnostics
-         * @param fen FEN
+         * @param fen FEN string
          * @param truthByDepth one-indexed reference node counts
          */
         private Case(String name, String fen, long[] truthByDepth) {
@@ -570,9 +570,9 @@ public final class PerftSuite {
 
         /**
          * Creates a summary with an immutable row list.
-         * @param maxDepth max depth value
+         * @param maxDepth maximum search depth
          * @param rows data rows
-         * @param nanos nanos value
+         * @param nanos source nanos
          */
         public Summary {
             rows = List.copyOf(rows);

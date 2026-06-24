@@ -764,6 +764,11 @@ final class WorkbenchUiEditorRegression {
         layoutTree(component);
     }
 
+    /**
+     * Lays out the workbench UI editor regression.
+     *
+     * @param component Swing component
+     */
     private static void layoutTree(Component component) {
         component.doLayout();
         if (component instanceof Container container) {

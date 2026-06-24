@@ -2,7 +2,7 @@ package application.cli;
 
 /**
  * Shared CLI string constants.
- * 
+ *
  * @since 2025
  * @author Lennart A. Conrad
  */
@@ -254,6 +254,21 @@ public final class Constants {
 	 * Short {@code --output} flag alias.
 	 */
 	public static final String OPT_OUTPUT_SHORT = "-o";
+
+	/**
+	 * {@code --output-dir} option flag.
+	 */
+	public static final String OPT_OUTPUT_DIR = "--output-dir";
+
+	/**
+	 * {@code --pdf-output} option flag.
+	 */
+	public static final String OPT_PDF_OUTPUT = "--pdf-output";
+
+	/**
+	 * {@code --cover-output} option flag.
+	 */
+	public static final String OPT_COVER_OUTPUT = "--cover-output";
 
 	/**
 	 * {@code --format} option flag.

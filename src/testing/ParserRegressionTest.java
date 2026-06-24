@@ -335,8 +335,8 @@ public final class ParserRegressionTest {
     /**
      * Asserts equality.
      *
-     * @param expected expected value
-     * @param actual actual value
+     * @param expected expected test value
+     * @param actual actual test value
      * @param label assertion label
      */
     private static void assertEquals(Object expected, Object actual, String label) {

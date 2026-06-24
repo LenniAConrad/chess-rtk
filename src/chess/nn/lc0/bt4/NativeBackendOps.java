@@ -136,7 +136,7 @@ public final class NativeBackendOps {
      * @param info loaded network metadata
      * @param encodedPlanes encoded input planes
      * @param predictor native predictor
-     * @return wrapped prediction result
+     * @return wrapped prediction
      */
     public static Network.Prediction predictEncoded(
             long handle,

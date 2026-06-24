@@ -51,12 +51,12 @@ final class FeatureTransformer {
     /**
      * Creates a feature transformer.
      *
-     * @param layout layout
-     * @param biases biases
-     * @param psqWeights PSQ weights
-     * @param threatWeights threat weights
-     * @param psqtWeights PSQT weights
-     * @param threatPsqtWeights threat PSQT weights
+     * @param layout layout model
+     * @param biases bias vectors
+     * @param psqWeights source psq weights
+     * @param threatWeights source threat weights
+     * @param psqtWeights source psqt weights
+     * @param threatPsqtWeights source threat psqt weights
      */
     FeatureTransformer(
             Layout layout,
@@ -79,7 +79,7 @@ final class FeatureTransformer {
      * Reads feature-transformer weights.
      *
      * @param cursor source cursor
-     * @param layout layout
+     * @param layout layout model
      * @return feature transformer
      * @throws IOException if parsing fails
      */
@@ -111,7 +111,7 @@ final class FeatureTransformer {
     /**
      * Creates transformed features and PSQT contribution.
      *
-     * @param position position
+     * @param position chess position
      * @param board Stockfish-order board
      * @param bucket layer bucket
      * @return transformed output
@@ -436,7 +436,7 @@ final class FeatureTransformer {
     /**
      * Scales Stockfish 18 small-net transformer weights after loading.
      *
-     * @param biases biases
+     * @param biases bias vectors
      * @param weights PSQ weights
      */
     private static void scaleSmallTransformer(short[] biases, short[] weights) {
@@ -466,7 +466,7 @@ final class FeatureTransformer {
      *
      * @param values array
      * @param expected expected length
-     * @param label label
+     * @param label display label
      */
     private void requireLength(short[] values, long expected, String label) {
         if (values == null || values.length != checkedLength(expected, label)) {
@@ -479,7 +479,7 @@ final class FeatureTransformer {
      *
      * @param values array
      * @param expected expected length
-     * @param label label
+     * @param label display label
      */
     private void requireLength(int[] values, long expected, String label) {
         if (values == null || values.length != checkedLength(expected, label)) {
@@ -492,7 +492,7 @@ final class FeatureTransformer {
      *
      * @param values array
      * @param expected expected length
-     * @param label label
+     * @param label display label
      */
     private void requireLength(byte[] values, long expected, String label) {
         if (values == null || values.length != checkedLength(expected, label)) {

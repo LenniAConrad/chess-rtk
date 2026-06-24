@@ -174,7 +174,7 @@ public final class PuzzleDifficultyDistribution {
     /**
      * Parses flag-based invocations.
      * @param args command arguments
-     * @return parse flagged invocation result
+     * @return parsed flag-based invocations
      */
     private static RawArguments parseFlaggedInvocation(String[] args) {
         RawArgumentsBuilder builder = new RawArgumentsBuilder();
@@ -190,7 +190,7 @@ public final class PuzzleDifficultyDistribution {
     /**
      * Builds the default prefix for one or more input files.
      * @param inputs input values
-     * @return default prefix result
+     * @return built the default prefix for one or more input files
      */
     private static Path defaultPrefix(List<Path> inputs) {
         return inputs.size() == 1 ? defaultPrefix(inputs.get(0)) : Path.of("puzzle-difficulty");
@@ -376,7 +376,7 @@ public final class PuzzleDifficultyDistribution {
      * @param samples sample values
      * @param start start index
      * @param end end index
-     * @return percent in rating range result
+     * @return percentage of samples inside a rating interval
      */
     private static double percentInRatingRange(List<Sample> samples, int start, int end) {
         if (samples.isEmpty()) {
@@ -465,7 +465,7 @@ public final class PuzzleDifficultyDistribution {
      * @param plotW plot width in pixels
      * @param plotH plot height in pixels
      * @param maxPercent maximum percentage value
-     * @param percentStep percent step value
+     * @param percentStep percentage step
      */
     private static void drawAxes(StringBuilder sb, int left, int top, int plotW, int plotH, double maxPercent,
             double percentStep) {
@@ -501,11 +501,11 @@ public final class PuzzleDifficultyDistribution {
 
     /**
      * Maps a rating to an x-coordinate in the plot area.
-     * @param rating rating value
+     * @param rating rating bucket
      * @param left left coordinate
      * @param plotW plot width in pixels
      * @param displayMaxRating maximum displayed rating
-     * @return x for rating result
+     * @return x for rating
      */
     private static double xForRating(int rating, int left, int plotW, int displayMaxRating) {
         double ratingRange = (double) displayMaxRating - MIN_RATING + BIN_WIDTH;
@@ -515,12 +515,12 @@ public final class PuzzleDifficultyDistribution {
     /**
      * Appends one SVG line.
      * @param sb string builder
-     * @param x1 x1 value
-     * @param y1 y1 value
-     * @param x2 x2 value
-     * @param y2 y2 value
-     * @param stroke stroke value
-     * @param dashArray dash array value
+     * @param x1 starting x-coordinate
+     * @param y1 starting y-coordinate
+     * @param x2 ending x-coordinate
+     * @param y2 ending y-coordinate
+     * @param stroke stroke color
+     * @param dashArray source dash array
      */
     private static void appendLine(StringBuilder sb, double x1, double y1, double x2, double y2, String stroke,
             String dashArray) {
@@ -538,10 +538,10 @@ public final class PuzzleDifficultyDistribution {
      * @param sb string builder
      * @param x x coordinate
      * @param y y coordinate
-     * @param anchor anchor value
-     * @param size size value
+     * @param anchor text anchor
+     * @param size size in pixels or points
      * @param fill fill color
-     * @param text text value
+     * @param text text to render or parse
      */
     private static void appendText(StringBuilder sb, double x, double y, String anchor, int size, String fill,
             String text) {
@@ -574,8 +574,8 @@ public final class PuzzleDifficultyDistribution {
     /**
      * Converts bin counts to percentages of the scored sample.
      * @param bins histogram bins
-     * @param sampleCount sample count value
-     * @return percentages result
+     * @param sampleCount number of sample
+     * @return converted bin counts to percentages of the scored sample
      */
     private static double[] percentages(int[] bins, int sampleCount) {
         double[] percentages = new double[bins.length];
@@ -620,7 +620,7 @@ public final class PuzzleDifficultyDistribution {
 
     /**
      * Converts the configured trend width from Elo points to histogram bins.
-     * @return trend window bins result
+     * @return converted the configured trend width from Elo points to histogram bins
      */
     private static int trendWindowBins() {
         int bins = Math.max(1, (int) Math.round(TREND_POINTS / (double) BIN_WIDTH));
@@ -630,7 +630,7 @@ public final class PuzzleDifficultyDistribution {
     /**
      * Chooses a readable y-axis percentage step.
      * @param maxPercent maximum percentage value
-     * @return percent tick step result
+     * @return percent tick step
      */
     private static double percentTickStep(double maxPercent) {
         double target = Math.max(0.01, maxPercent / 5.0);
@@ -657,8 +657,8 @@ public final class PuzzleDifficultyDistribution {
 
     /**
      * Formats a percentage label without unnecessary trailing zeroes.
-     * @param percent percent value
-     * @return format percent result
+     * @param percent percentage value
+     * @return formatted a percentage label without unnecessary trailing zeroes
      */
     private static String formatPercent(double percent) {
         if (Math.abs(percent - Math.rint(percent)) < 0.000_001) {
@@ -674,7 +674,7 @@ public final class PuzzleDifficultyDistribution {
      * Chooses a display maximum that includes the observed tail without creating an
      * artificial right-edge pile-up.
      * @param samples sample values
-     * @return display max rating result
+     * @return display max rating
      */
     private static int displayMaxRating(List<Sample> samples) {
         int maxRating = MIN_RATING;
@@ -691,7 +691,7 @@ public final class PuzzleDifficultyDistribution {
      * Rounds a positive integer up to a step.
      * @param value value to use
      * @param step step size
-     * @return round up result
+     * @return round up
      */
     private static int roundUp(int value, int step) {
         if (step <= 0) {
@@ -703,7 +703,7 @@ public final class PuzzleDifficultyDistribution {
     /**
      * Formats a decimal for SVG coordinates.
      * @param value value to use
-     * @return fmt result
+     * @return formatted a decimal for SVG coordinates
      */
     private static String fmt(double value) {
         return String.format(Locale.ROOT, "%.2f", value);
@@ -712,9 +712,9 @@ public final class PuzzleDifficultyDistribution {
     /**
      * Prints distribution summary to stdout.
      * @param inputs input values
-     * @param csv csv value
-     * @param svg svg value
-     * @param acc acc value
+     * @param csv CSV path
+     * @param svg SVG text or path
+     * @param acc accumulator
      */
     private static void printSummary(List<Path> inputs, Path csv, Path svg, DistributionAccumulator acc) {
         List<Sample> samples = acc.samples;
@@ -790,9 +790,9 @@ public final class PuzzleDifficultyDistribution {
 
         /**
          * Accepts one command-line token.
-         * @param arg arg value
+         * @param arg argument token
          * @param tokens token values
-         * @return accept result
+         * @return accept
          */
         boolean accept(String arg, Iterator<String> tokens) {
             if ("--out".equals(arg)) {
@@ -807,7 +807,7 @@ public final class PuzzleDifficultyDistribution {
 
         /**
          * Builds immutable raw arguments.
-         * @return to raw arguments result
+         * @return built immutable raw arguments
          */
         RawArguments toRawArguments() {
             return new RawArguments(List.copyOf(inputs), prefix, maxPuzzles);
@@ -816,7 +816,7 @@ public final class PuzzleDifficultyDistribution {
         /**
          * Accept output prefix.
          * @param tokens token values
-         * @return accept output prefix result
+         * @return accept output prefix
          */
         private boolean acceptOutputPrefix(Iterator<String> tokens) {
             if (prefix != null || !tokens.hasNext()) {
@@ -829,7 +829,7 @@ public final class PuzzleDifficultyDistribution {
         /**
          * Accept max puzzles.
          * @param tokens token values
-         * @return accept max puzzles result
+         * @return accept max puzzles
          */
         private boolean acceptMaxPuzzles(Iterator<String> tokens) {
             if (maxPuzzles != 0 || !tokens.hasNext()) {
@@ -842,7 +842,7 @@ public final class PuzzleDifficultyDistribution {
         /**
          * Parse max puzzles.
          * @param value value to use
-         * @return parse max puzzles result
+         * @return parsed max puzzles
          */
         private static int parseMaxPuzzles(String value) {
             try {
@@ -857,7 +857,7 @@ public final class PuzzleDifficultyDistribution {
      * Returns nearest-rank percentile.
      * @param samples sample values
      * @param p point value
-     * @return percentile result
+     * @return nearest-rank percentile
      */
     private static int percentile(List<Sample> samples, double p) {
         if (samples.isEmpty()) {
@@ -870,10 +870,10 @@ public final class PuzzleDifficultyDistribution {
 
     /**
      * Counts enum values.
-     * @param <E> < e> value
+     * @param <E> enum type being counted
      * @param samples sample values
-     * @param fn fn value
-     * @return enum counts result
+     * @param fn mapping function
+     * @return enum counts
      */
     private static <E extends Enum<E>> String enumCounts(List<Sample> samples, java.util.function.Function<Sample, E> fn) {
         Map<E, Integer> counts = new EnumMap<>(fn.apply(samples.get(0)).getDeclaringClass());
@@ -887,7 +887,7 @@ public final class PuzzleDifficultyDistribution {
     /**
      * Counts labels.
      * @param samples sample values
-     * @return label counts result
+     * @return label counts
      */
     private static String labelCounts(List<Sample> samples) {
         Map<String, Integer> counts = new java.util.LinkedHashMap<>();
@@ -900,8 +900,8 @@ public final class PuzzleDifficultyDistribution {
     /**
      * Counts feature labels.
      * @param samples sample values
-     * @param limit limit value
-     * @return feature counts result
+     * @param limit maximum row or game count
+     * @return feature counts
      */
     private static String featureCounts(List<Sample> samples, int limit) {
         Map<String, Integer> counts = new java.util.HashMap<>();
@@ -1038,7 +1038,7 @@ public final class PuzzleDifficultyDistribution {
         /**
          * Converts one verified record into a compact indexed puzzle node.
          * @param rec record value
-         * @return puzzle node result
+         * @return converted one verified record into a compact indexed puzzle node
          */
         private PuzzleNode puzzleNode(Record rec) {
             try {
@@ -1063,7 +1063,7 @@ public final class PuzzleDifficultyDistribution {
          * Builds the explicit continuation tree by matching after-best positions to
          * child record parents.
          * @param root root position or node
-         * @return build tree result
+         * @return built the explicit continuation tree by matching after-best positions to child record parents
          */
         private TreeBuild buildTree(PuzzleNode root) {
             Position rootPosition = new Position(root.fen);
@@ -1161,7 +1161,7 @@ public final class PuzzleDifficultyDistribution {
         /**
          * Deduplicates child records by analyzed position signature.
          * @param children child nodes
-         * @return unique children result
+         * @return unique children
          */
         private static List<PuzzleNode> uniqueChildren(List<PuzzleNode> children) {
             if (children == null || children.isEmpty()) {
@@ -1349,7 +1349,7 @@ public final class PuzzleDifficultyDistribution {
         /**
          * Creates a tree starting at the root.
          * @param root root position or node
-         * @param rootIdentity root identity value
+         * @param rootIdentity source root identity
          */
         TreeSummaryBuilder(NodeScore root, long rootIdentity) {
             addNode(root, 1, rootIdentity);
@@ -1357,9 +1357,9 @@ public final class PuzzleDifficultyDistribution {
 
         /**
          * Adds one solver node at a measured depth.
-         * @param node node value
+         * @param node tree node
          * @param depth search depth
-         * @param pieceIdentity piece identity value
+         * @param pieceIdentity source piece identity
          */
         void addNode(NodeScore node, int depth, long pieceIdentity) {
             nodeCount++;
@@ -1411,7 +1411,7 @@ public final class PuzzleDifficultyDistribution {
 
         /**
          * Records one branching parent.
-         * @param childCount child count value
+         * @param childCount number of child
          */
         void addBranch(int childCount) {
             if (childCount <= 1) {
@@ -1423,7 +1423,7 @@ public final class PuzzleDifficultyDistribution {
 
         /**
          * Builds the immutable scorer summary.
-         * @return build result
+         * @return built the immutable scorer summary
          */
         PuzzleTreeSummary build() {
             double continuationAverage = continuationWeight <= 0.0 ? 0.0 : continuationWeightedRaw / continuationWeight;
@@ -1465,7 +1465,7 @@ public final class PuzzleDifficultyDistribution {
 
         /**
          * Returns the sample rating.
-         * @return rating result
+         * @return sample rating
          */
         int rating() {
             return difficulty.rating();
@@ -1473,7 +1473,7 @@ public final class PuzzleDifficultyDistribution {
 
         /**
          * Returns the sample goal.
-         * @return goal result
+         * @return sample goal
          */
         Goal goal() {
             return difficulty.goal();
@@ -1495,10 +1495,10 @@ public final class PuzzleDifficultyDistribution {
 
         /**
          * Creates a joining collector.
-         * @param <T> < t> value
-         * @param delimiter delimiter value
-         * @param mapper mapper value
-         * @return collecting result
+         * @param <T> stream element type
+         * @param delimiter field delimiter
+         * @param mapper value mapper
+         * @return joining collector
          */
         static <T> java.util.stream.Collector<T, StringJoiner, String> collecting(String delimiter,
                 java.util.function.Function<T, String> mapper) {

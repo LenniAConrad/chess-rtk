@@ -30,7 +30,7 @@ final class Evaluator {
      *
      * @param w            parsed weights
      * @param encodedInput LC0 planes (length {@code inputChannels * 64})
-     * @return inference result
+     * @return inference
      */
     static Prediction evaluate(Weights w, float[] encodedInput) {
         return evaluate(w, encodedInput, null);
@@ -57,7 +57,7 @@ final class Evaluator {
      * @param w            parsed weights
      * @param encodedInput LC0 planes (length {@code inputChannels * 64})
      * @param sink optional activation collector
-     * @return inference result
+     * @return inference
      */
     static Prediction evaluate(Weights w, float[] encodedInput, chess.nn.ActivationSink sink) {
         Workspace ws = WORKSPACE.get();

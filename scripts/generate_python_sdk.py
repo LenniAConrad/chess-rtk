@@ -26,6 +26,8 @@ def main() -> int:
         help="Command that prints the catalog; default: java -cp out application.Main help --json",
     )
     args = parser.parse_args()
+    if args.catalog_command is not None and not args.catalog_command:
+        parser.error("--catalog-command requires a command")
 
     catalog = load_catalog(args.catalog, args.catalog_command)
     text = render_client(catalog)

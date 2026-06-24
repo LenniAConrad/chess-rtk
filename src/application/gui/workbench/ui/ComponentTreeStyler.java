@@ -64,7 +64,7 @@ final class ComponentTreeStyler {
     /**
      * Applies styling for one component in a recursively scanned component tree.
      *
-     * @param component component
+     * @param component Swing component
      */
     private static void styleComponent(Component component) {
         if (component instanceof JFileChooser chooser) {
@@ -123,7 +123,7 @@ final class ComponentTreeStyler {
     /**
      * Styles a standard dialog button without breaking icon-only chooser controls.
      *
-     * @param button button
+     * @param button button component
      */
     private static void styleAbstractButton(AbstractButton button) {
         String text = button.getText();

@@ -70,11 +70,6 @@ public final class PgnStore {
 	private static final String INDEX_SEPARATOR = "\t";
 
 	/**
-	 * UTF-8 line break used uniformly across all index lines.
-	 */
-	private static final byte[] LINE_FEED = new byte[] { '\n' };
-
-	/**
 	 * Cached gameId → byte-offset map for O(1) lookup.
 	 */
 	private final Map<String, Long> gameOffsets = new ConcurrentHashMap<>();

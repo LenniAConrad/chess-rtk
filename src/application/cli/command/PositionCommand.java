@@ -101,7 +101,7 @@ public final class PositionCommand {
 	 *
 	 * @param left left position
 	 * @param right right position
-	 * @return diff result
+	 * @return built a structured position diff
 	 */
 	private static DiffResult buildDiff(Position left, Position right) {
 		List<StateDiff> state = stateDiffs(left.toString(), right.toString());
@@ -193,8 +193,8 @@ public final class PositionCommand {
 	 * Non-board state diff.
 	 *
 	 * @param field state field
-	 * @param left left value
-	 * @param right right value
+	 * @param left source left
+	 * @param right source right
 	 */
 	private record StateDiff(String field, String left, String right) {
 

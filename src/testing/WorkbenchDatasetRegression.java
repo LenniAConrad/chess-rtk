@@ -27,7 +27,9 @@ import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JSplitPane;
 import javax.swing.JTable;
+import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 
 /**
  * Regression checks for the Workbench Datasets tab.
@@ -110,7 +112,21 @@ final class WorkbenchDatasetRegression {
         assertTrue(rowLimit.getPreferredSize().width >= 108, "dataset row-limit field stays legible");
         assertEquals("50,000", rowLimit.getText(),
                 "dataset row-limit value uses readable grouping");
+        rowLimit.setText("");
+        assertEquals(Long.valueOf(50_000L), WorkbenchTestSupport.invoke(panel, "rowLimitValue",
+                new Class<?>[0]), "empty dataset row limit uses default");
+        rowLimit.setText("50,000");
         assertEquals("Dataset file or directory", source.getToolTipText(), "dataset source tooltip");
+        assertLoadingCardCenters(panel);
+        source.setText("bad\0path");
+        WorkbenchTestSupport.invoke(panel, "analyzeCurrentSource", new Class<?>[0]);
+        JLabel status = (JLabel) field(panel, "statusLabel");
+        assertTrue(status.getText().contains("Dataset path is not valid"),
+                "dataset invalid path status is explicit");
+        assertTrue(status.getText().contains("\\u0000"),
+                "dataset invalid path status escapes control characters");
+        assertFalse(status.getText().contains("\0"),
+                "dataset invalid path status contains no raw control character");
         JSplitPane split = firstSplitPane(panel);
         assertEquals(Integer.valueOf(4), Integer.valueOf(split.getDividerSize()),
                 "dataset split pane uses workbench sash width");
@@ -146,7 +162,24 @@ final class WorkbenchDatasetRegression {
                 "dataset quality insight summarizes clean scans");
         assertTrue(coverageInsight.getText().contains("Tags 50%"),
                 "dataset coverage insight reports tag ratio");
+        assertLoadedSplitKeepsTablesNearCharts(panel);
         assertTableHoverCoversCustomCells((JTable) field(panel, "sampleTable"));
+        panel.applySummary(new DatasetSummary(Path.of("bad.txt"), 1, 1L, 0L, 1L, 0L, 0L, 0L,
+                0L, 0L, 0L, 0L, 0L, 0, 0, 0.0d,
+                new int[] { 0, 0, 0, 0, 0, 0, 0, 0 },
+                new int[] { 0, 0, 0, 0, 0, 0, 0 },
+                List.of(), List.of(), List.of(),
+                List.of(new DatasetSummary.SampleRow("bad.txt", 1L, "TEXT", "not a fen",
+                        "", 0, "", "")),
+                false, "Scan complete"));
+        ((JTabbedPane) field(panel, "tableTabs")).setSelectedIndex(1);
+        JTable issueTable = (JTable) field(panel, "issueTable");
+        issueTable.setRowSelectionInterval(0, 0);
+        WorkbenchTestSupport.invoke(panel, "updateRowActions", new Class<?>[0]);
+        assertFalse(((JButton) field(panel, "copyFenButton")).isEnabled(),
+                "invalid dataset issue row is not copyable as FEN");
+        assertTrue(((JLabel) field(panel, "inspectorIssueValue")).getText().contains("not a valid FEN"),
+                "invalid dataset issue row shows FEN failure state");
         paintPanel(panel, 980, 680, "dataset panel paints surface");
 
         // The chart is transparent by design; the shared elevated card paints
@@ -182,6 +215,21 @@ final class WorkbenchDatasetRegression {
         assertEquals(Integer.valueOf(chart.getPreferredSize().height),
                 Integer.valueOf(area.getPreferredSize().height),
                 "dataset area and bar chart cards share height");
+        assertEquals("9999", formatCompactValue(9_999L),
+                "dataset chart compact formatter preserves small counts");
+        assertEquals("10.0k", formatCompactValue(10_000L),
+                "dataset chart compact formatter uses k suffix");
+        assertEquals("1.5m", formatCompactValue(1_500_000L),
+                "dataset chart compact formatter uses m suffix");
+        assertEquals(Integer.valueOf(application.gui.workbench.ui.Theme.STATUS_SUCCESS_BORDER.getRGB()),
+                Integer.valueOf(roleColor(DatasetChart.Role.SUCCESS).getRGB()),
+                "dataset charts share success role color");
+        assertEquals(Integer.valueOf(application.gui.workbench.ui.Theme.NN_POLICY.getRGB()),
+                Integer.valueOf(roleColor(DatasetChart.Role.PURPLE).getRGB()),
+                "dataset charts share neural role color");
+        assertEquals(Integer.valueOf(application.gui.workbench.ui.Theme.MUTED.getRGB()),
+                Integer.valueOf(roleColor(null).getRGB()),
+                "dataset chart role color treats null as neutral");
         javax.swing.JComponent areaCard = application.gui.workbench.ui.Ui.card("Area", area);
         areaCard.setSize(340, 180);
         areaCard.doLayout();
@@ -209,6 +257,164 @@ final class WorkbenchDatasetRegression {
             }
         }
         throw new AssertionError("missing dataset split pane");
+    }
+
+    /**
+     * Exercises the shared chart formatter without widening the production API.
+     *
+     * @param value count
+     * @return formatted count
+     */
+    private static String formatCompactValue(long value) {
+        return (String) WorkbenchTestSupport.invokeStatic(DatasetChart.class, "formatCompactValue",
+                new Class<?>[] { long.class }, Long.valueOf(value));
+    }
+
+    /**
+     * Exercises the shared chart palette without widening the production API.
+     *
+     * @param role chart role
+     * @return role color
+     */
+    private static Color roleColor(DatasetChart.Role role) {
+        return (Color) WorkbenchTestSupport.invokeStatic(DatasetChart.class, "roleColor",
+                new Class<?>[] { DatasetChart.Role.class }, role);
+    }
+
+    /**
+     * Verifies the in-progress scan layout keeps all primary affordances on the
+     * same centered axis.
+     *
+     * @param panel dataset panel
+     */
+    private static void assertLoadingCardCenters(DatasetPanel panel) {
+        Path source = Path.of("/home/lennart/Code/chess-rtk/dump/standard-1773816508360.nonpuzzles.json");
+        try {
+            WorkbenchTestSupport.invoke(panel, "setLoadingTarget", new Class<?>[] { Path.class }, source);
+            WorkbenchTestSupport.invoke(panel, "setBusy", new Class<?>[] { boolean.class }, Boolean.TRUE);
+            panel.setSize(1648, 861);
+            layoutTree(panel);
+
+            JComponent spinner = (JComponent) field(panel, "loadingSpinner");
+            JLabel title = (JLabel) field(panel, "loadingTitle");
+            JLabel fileValue = (JLabel) field(panel, "loadingFileValue");
+            JComponent progressCard = ancestor(fileValue, "application.gui.workbench.ui.Card");
+            JComponent cancel = actionByLabel(panel, "Cancel Scan");
+            int center = panel.getWidth() / 2;
+
+            assertNear(center, centerX(panel, spinner), 2, "dataset loading spinner is centered");
+            assertNear(center, centerX(panel, title), 2, "dataset loading title is centered");
+            assertNear(center, centerX(panel, progressCard), 2, "dataset loading progress card is centered");
+            assertNear(center, centerX(panel, cancel), 2, "dataset loading cancel action is centered");
+            assertTrue(progressCard.getWidth() <= 760, "dataset loading card width is bounded");
+            assertTrue(fileValue.getText().endsWith("..."), "dataset loading file path is clipped");
+            assertEquals(source.toString(), fileValue.getToolTipText(), "dataset loading file tooltip keeps full path");
+        } finally {
+            WorkbenchTestSupport.invoke(panel, "setBusy", new Class<?>[] { boolean.class }, Boolean.FALSE);
+        }
+    }
+
+    /**
+     * Verifies the loaded analytics band does not reserve a large empty region
+     * above the table on tall Workbench windows.
+     *
+     * @param panel loaded dataset panel
+     */
+    private static void assertLoadedSplitKeepsTablesNearCharts(DatasetPanel panel) {
+        panel.setSize(2048, 1163);
+        layoutTree(panel);
+        JSplitPane split = firstSplitPane(panel);
+        assertTrue(split.getDividerLocation() <= 340,
+                "dataset loaded overview divider stays compact on tall windows");
+        assertTrue(split.getBottomComponent().getHeight() > split.getTopComponent().getHeight(),
+                "dataset loaded table receives spare vertical space");
+    }
+
+    /**
+     * Lays out a component tree after explicit sizing.
+     *
+     * @param component root component
+     */
+    private static void layoutTree(Component component) {
+        component.doLayout();
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                layoutTree(child);
+            }
+        }
+    }
+
+    /**
+     * Returns a component's center X in root coordinates.
+     *
+     * @param root coordinate root
+     * @param component target component
+     * @return center X coordinate
+     */
+    private static int centerX(Component root, Component component) {
+        java.awt.Rectangle bounds = SwingUtilities.convertRectangle(component.getParent(), component.getBounds(), root);
+        return bounds.x + bounds.width / 2;
+    }
+
+    /**
+     * Finds the first ancestor with the requested class name.
+     *
+     * @param component starting component
+     * @param className ancestor class name
+     * @return matching ancestor
+     */
+    private static JComponent ancestor(Component component, String className) {
+        Component current = component;
+        while (current != null) {
+            if (current instanceof JComponent candidate && className.equals(current.getClass().getName())) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        throw new AssertionError("missing ancestor " + className);
+    }
+
+    /**
+     * Finds an action component by visible label.
+     *
+     * @param root root component
+     * @param text action text
+     * @return matching action component
+     */
+    private static JComponent actionByLabel(Container root, String text) {
+        for (Component child : root.getComponents()) {
+            if (child instanceof JButton button && text.equals(button.getText())) {
+                return button;
+            }
+            if (child instanceof JComponent component
+                    && "application.gui.workbench.ui.HoldButton".equals(component.getClass().getName())
+                    && text.equals(field(component, "label"))) {
+                return component;
+            }
+            if (child instanceof Container container) {
+                try {
+                    return actionByLabel(container, text);
+                } catch (AssertionError ex) {
+                    // keep scanning siblings
+                }
+            }
+        }
+        throw new AssertionError("missing action " + text);
+    }
+
+    /**
+     * Asserts integer proximity.
+     *
+     * @param expected expected value
+     * @param actual actual value
+     * @param tolerance allowed absolute delta
+     * @param message assertion message
+     */
+    private static void assertNear(int expected, int actual, int tolerance, String message) {
+        if (Math.abs(expected - actual) > tolerance) {
+            throw new AssertionError(message + " (expected " + expected + " +/- "
+                    + tolerance + ", got " + actual + ")");
+        }
     }
 
     /**
@@ -276,9 +482,9 @@ final class WorkbenchDatasetRegression {
     /**
      * Paints a panel and asserts the corner is opaque.
      *
-     * @param component component
-     * @param width width
-     * @param height height
+     * @param component Swing component
+     * @param width width in pixels
+     * @param height height in pixels
      * @param message assertion message
      */
     private static void paintPanel(JComponent component, int width, int height, String message) {

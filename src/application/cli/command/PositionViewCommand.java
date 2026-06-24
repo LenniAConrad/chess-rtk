@@ -622,7 +622,7 @@ public final class PositionViewCommand {
 
 			 /**
 			 * Handles width.
-			 * @return computed value
+			 * @return handles width
 			 */
 			 @Override
 			public int width() {
@@ -631,7 +631,7 @@ public final class PositionViewCommand {
 
 			 /**
 			 * Handles height.
-			 * @return computed value
+			 * @return handles height
 			 */
 			 @Override
 			public int height() {
@@ -640,9 +640,9 @@ public final class PositionViewCommand {
 
 			 /**
 			 * Handles render.
-			 * @param width width
-			 * @param height height
-			 * @return computed value
+			 * @param width width in pixels
+			 * @param height height in pixels
+			 * @return handles render
 			 */
 			 @Override
 			public BufferedImage render(int width, int height) {
@@ -651,7 +651,7 @@ public final class PositionViewCommand {
 
 			 /**
 			 * Handles render region immediately.
-			 * @return computed value
+			 * @return handles render region immediately
 			 */
 			 @Override
 			public boolean renderRegionImmediately() {
@@ -660,7 +660,7 @@ public final class PositionViewCommand {
 
 			 /**
 			 * Handles supports svg export.
-			 * @return computed value
+			 * @return handles supports svg export
 			 */
 			 @Override
 			public boolean supportsSvgExport() {
@@ -669,9 +669,9 @@ public final class PositionViewCommand {
 
 			 /**
 			 * Handles render svg.
-			 * @param width width
-			 * @param height height
-			 * @return computed value
+			 * @param width width in pixels
+			 * @param height height in pixels
+			 * @return handles render svg
 			 */
 			 @Override
 			public String renderSvg(int width, int height) {
@@ -680,13 +680,13 @@ public final class PositionViewCommand {
 
 			 /**
 			 * Handles render region.
-			 * @param scaledWidth scaled width
-			 * @param scaledHeight scaled height
-			 * @param sourceX source x
-			 * @param sourceY source y
-			 * @param width width
-			 * @param height height
-			 * @return computed value
+			 * @param scaledWidth source scaled width
+			 * @param scaledHeight source scaled height
+			 * @param sourceX source source x
+			 * @param sourceY source source y
+			 * @param width width in pixels
+			 * @param height height in pixels
+			 * @return handles render region
 			 */
 			 @Override
 			public BufferedImage renderRegion(int scaledWidth, int scaledHeight, int sourceX, int sourceY,

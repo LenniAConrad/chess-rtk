@@ -226,7 +226,7 @@ public final class Model implements AutoCloseable {
      *   <li>{@code oneapi|intel}: force oneAPI (Intel)</li>
      * </ul>
      *
-     * @param path model path
+     * @param path file-system path
      * @return loaded model
      * @throws IOException if the file cannot be read/parsed, or if a forced GPU backend fails to initialize
      */
@@ -552,7 +552,7 @@ public final class Model implements AutoCloseable {
     /**
      * Loads an OTIS placeholder model using the pure-Java CPU path.
      *
-     * @param path model path
+     * @param path file-system path
      * @return loaded model
      * @throws IOException if the file cannot be read or parsed
      */
@@ -1105,7 +1105,7 @@ public final class Model implements AutoCloseable {
      *
      * @param input tensor
      * @param plane plane index
-     * @param value value
+     * @param value candidate value
      */
     private static void fillPlane(float[] input, int plane, float value) {
         int offset = plane * SQUARES;
@@ -1116,6 +1116,9 @@ public final class Model implements AutoCloseable {
 
     /**
      * Returns the readout feature width for a trunk size.
+     *
+     * @param channels trunk channel count
+     * @return readout feature width for a trunk size
      */
     private static int readoutDim(int channels) {
         return channels * 4 + RELATION_COUNT * 4 + TRIAD_DIM + BOARD_STATS_DIM;
@@ -1123,6 +1126,10 @@ public final class Model implements AutoCloseable {
 
     /**
      * Fills side-to-move-oriented piece-state features.
+     *
+     * @param out destination buffer
+     * @param piece encoded piece
+     * @param whiteToMove true when White is the side to move
      */
     private static void fillPieceState(float[] out, byte piece, boolean whiteToMove) {
         for (int i = 0; i < out.length; i++) {
@@ -1141,6 +1148,10 @@ public final class Model implements AutoCloseable {
 
     /**
      * Fills normalized square-coordinate features.
+     *
+     * @param out destination buffer
+     * @param square square index
+     * @param whiteToMove true when White is the side to move
      */
     private static void fillCoordinates(float[] out, int square, boolean whiteToMove) {
         int rank = square >>> 3;
@@ -1155,6 +1166,13 @@ public final class Model implements AutoCloseable {
 
     /**
      * Applies a row-major dense layer.
+     *
+     * @param weight row-major weight matrix
+     * @param bias bias vector
+     * @param input input activation vector
+     * @param outDim output dimension
+     * @param inDim input dimension
+     * @return output activation vector
      */
     private static float[] linear(float[] weight, float[] bias, float[] input, int outDim, int inDim) {
         float[] out = new float[outDim];
@@ -1171,6 +1189,14 @@ public final class Model implements AutoCloseable {
 
     /**
      * Applies layer normalization in-place.
+     *
+     * @param values input values
+     * @param valueOffset first value element to normalize
+     * @param scale layer-normalization scale vector
+     * @param scaleOffset first scale element to read
+     * @param bias bias vector
+     * @param biasOffset first bias element to read
+     * @param length number of elements to process
      */
     private static void layerNormInPlace(float[] values, int valueOffset,
             float[] scale, int scaleOffset, float[] bias, int biasOffset, int length) {
@@ -1193,6 +1219,8 @@ public final class Model implements AutoCloseable {
 
     /**
      * Applies GELU in-place.
+     *
+     * @param values input values
      */
     private static void geluInPlace(float[] values) {
         for (int i = 0; i < values.length; i++) {
@@ -1202,6 +1230,9 @@ public final class Model implements AutoCloseable {
 
     /**
      * Returns approximate GELU.
+     *
+     * @param value scalar input value
+     * @return approximate GELU
      */
     private static float gelu(float value) {
         double x = value;
@@ -1211,6 +1242,9 @@ public final class Model implements AutoCloseable {
 
     /**
      * Returns the logistic sigmoid.
+     *
+     * @param value scalar input value
+     * @return logistic sigmoid
      */
     private static float sigmoid(float value) {
         return (float) (1.0d / (1.0d + Math.exp(-value)));
@@ -1488,6 +1522,11 @@ public final class Model implements AutoCloseable {
 
     /**
      * Computes the post-sheaf policy/value readout hidden state.
+     *
+     * @param position chess position
+     * @param sheaf computed sheaf state
+     * @param trunk channel-major trunk activations
+     * @return post-sheaf readout hidden vector
      */
     private float[] readoutHidden(Position position, SheafState sheaf, float[] trunk) {
         int channels = weights.info.trunkChannels();
@@ -1524,6 +1563,10 @@ public final class Model implements AutoCloseable {
 
     /**
      * Converts square-major tokens into channel-major trunk activations.
+     *
+     * @param h square-major trunk activations
+     * @param channels trunk channel count
+     * @return converted square-major tokens into channel-major trunk activations
      */
     private static float[] trunkToChannelMajor(float[] h, int channels) {
         float[] out = new float[channels * SQUARES];
@@ -1538,6 +1581,10 @@ public final class Model implements AutoCloseable {
 
     /**
      * Returns channel means from channel-major trunk activations.
+     *
+     * @param trunk channel-major trunk activations
+     * @param channels trunk channel count
+     * @return channel means from channel-major trunk activations
      */
     private static float[] channelMeans(float[] trunk, int channels) {
         float[] out = new float[channels];
@@ -1554,6 +1601,11 @@ public final class Model implements AutoCloseable {
 
     /**
      * Copies source values into a destination at a cursor.
+     *
+     * @param source source buffer or source-side selector
+     * @param destination destination array
+     * @param cursor write cursor in the destination vector
+     * @return cursor after the copied range
      */
     private static int copyInto(float[] source, float[] destination, int cursor) {
         System.arraycopy(source, 0, destination, cursor, source.length);
@@ -1562,6 +1614,12 @@ public final class Model implements AutoCloseable {
 
     /**
      * Appends channel maxima to a readout vector.
+     *
+     * @param trunk channel-major trunk activations
+     * @param channels trunk channel count
+     * @param out destination buffer
+     * @param cursor write cursor in the destination vector
+     * @return cursor after the appended maxima
      */
     private static int channelMaxInto(float[] trunk, int channels, float[] out, int cursor) {
         for (int c = 0; c < channels; c++) {
@@ -1577,6 +1635,14 @@ public final class Model implements AutoCloseable {
 
     /**
      * Appends own-piece or opponent-piece channel means to a readout vector.
+     *
+     * @param position chess position
+     * @param trunk channel-major trunk activations
+     * @param channels trunk channel count
+     * @param ownSide true for side-to-move pieces, false for opponent pieces
+     * @param out destination buffer
+     * @param cursor write cursor in the destination vector
+     * @return cursor after the appended side means
      */
     private static int sideMeanInto(Position position, float[] trunk, int channels,
             boolean ownSide, float[] out, int cursor) {
@@ -1604,6 +1670,10 @@ public final class Model implements AutoCloseable {
 
     /**
      * Returns the average source/target pressure for one relation.
+     *
+     * @param sheaf computed sheaf state
+     * @param relation relation index
+     * @return average source/target pressure for one relation
      */
     private static float relationPressure(SheafState sheaf, int relation) {
         float sum = 0.0f;
@@ -1616,6 +1686,10 @@ public final class Model implements AutoCloseable {
 
     /**
      * Computes compact attacker-target-defender diagnostics.
+     *
+     * @param means per-channel mean activations
+     * @param sheaf computed sheaf state
+     * @return computed compact attacker-target-defender diagnostics
      */
     private float[] triadFeatures(float[] means, SheafState sheaf) {
         int channels = weights.info.trunkChannels();
@@ -1630,6 +1704,11 @@ public final class Model implements AutoCloseable {
 
     /**
      * Returns the mean response of a square channel matrix.
+     *
+     * @param matrix row-major response matrix
+     * @param values input values
+     * @param channels trunk channel count
+     * @return mean response of a square channel matrix
      */
     private static float matrixResponse(float[] matrix, float[] values, int channels) {
         float sum = 0.0f;
@@ -1646,6 +1725,10 @@ public final class Model implements AutoCloseable {
 
     /**
      * Computes compact side-to-move board statistics for readout.
+     *
+     * @param position chess position
+     * @param sheaf computed sheaf state
+     * @return computed compact side-to-move board statistics for readout
      */
     private float[] boardStats(Position position, SheafState sheaf) {
         float[] out = new float[BOARD_STATS_DIM];
@@ -1748,6 +1831,14 @@ public final class Model implements AutoCloseable {
 
     /**
      * Adds attack/defense and piece-specific relation edges for one piece.
+     *
+     * @param masks relation mask buffer
+     * @param board board array indexed by square
+     * @param whiteToMove true when White is the side to move
+     * @param nearOwnKing mask of squares near the side-to-move king
+     * @param nearThemKing mask of squares near the opposing king
+     * @param from source square index
+     * @param piece encoded piece
      */
     private static void addPieceRelations(float[] masks, byte[] board, boolean whiteToMove,
             boolean[] nearOwnKing, boolean[] nearThemKing, int from, byte piece) {
@@ -1778,6 +1869,15 @@ public final class Model implements AutoCloseable {
 
     /**
      * Adds pawn attack and pawn-specific relation edges.
+     *
+     * @param masks relation mask buffer
+     * @param board board array indexed by square
+     * @param whiteToMove true when White is the side to move
+     * @param nearOwnKing mask of squares near the side-to-move king
+     * @param nearThemKing mask of squares near the opposing king
+     * @param from source square index
+     * @param piece encoded piece
+     * @param own whether the source piece belongs to the side to move
      */
     private static void addPawnRelations(float[] masks, byte[] board, boolean whiteToMove,
             boolean[] nearOwnKing, boolean[] nearThemKing, int from, byte piece, boolean own) {
@@ -1800,6 +1900,16 @@ public final class Model implements AutoCloseable {
 
     /**
      * Adds king/knight relation edges.
+     *
+     * @param masks relation mask buffer
+     * @param board board array indexed by square
+     * @param nearOwnKing mask of squares near the side-to-move king
+     * @param nearThemKing mask of squares near the opposing king
+     * @param from source square index
+     * @param own whether the source piece belongs to the side to move
+     * @param deltas relative step offsets
+     * @param knight whether knight relation masks are emitted
+     * @param pawn whether pawn relation masks are emitted
      */
     private static void addStepRelations(float[] masks, byte[] board, boolean[] nearOwnKing,
             boolean[] nearThemKing, int from, boolean own, int[][] deltas, boolean knight, boolean pawn) {
@@ -1822,6 +1932,15 @@ public final class Model implements AutoCloseable {
 
     /**
      * Adds sliding attack/defense relation edges.
+     *
+     * @param masks relation mask buffer
+     * @param board board array indexed by square
+     * @param nearOwnKing mask of squares near the side-to-move king
+     * @param nearThemKing mask of squares near the opposing king
+     * @param from source square index
+     * @param own whether the source piece belongs to the side to move
+     * @param diagonals whether diagonal rays are included
+     * @param orthogonals whether orthogonal rays are included
      */
     private static void addRayRelations(float[] masks, byte[] board, boolean[] nearOwnKing,
             boolean[] nearThemKing, int from, boolean own, boolean diagonals, boolean orthogonals) {
@@ -1848,6 +1967,11 @@ public final class Model implements AutoCloseable {
 
     /**
      * Adds relation-family visible ray masks for bishop/rook/queen pieces.
+     *
+     * @param masks relation mask buffer
+     * @param board board array indexed by square
+     * @param from source square index
+     * @param piece encoded piece
      */
     private static void addSliderRelationMasks(float[] masks, byte[] board, int from, byte piece) {
         int type = Math.abs(piece);
@@ -1861,6 +1985,13 @@ public final class Model implements AutoCloseable {
 
     /**
      * Adds one visible slider relation mask.
+     *
+     * @param masks relation mask buffer
+     * @param board board array indexed by square
+     * @param from source square index
+     * @param relation relation index
+     * @param diagonals whether diagonal rays are included
+     * @param orthogonals whether orthogonal rays are included
      */
     private static void addVisibleRayMask(float[] masks, byte[] board, int from, int relation,
             boolean diagonals, boolean orthogonals) {
@@ -1886,6 +2017,14 @@ public final class Model implements AutoCloseable {
 
     /**
      * Adds attacker/defender relation edges based on target occupancy.
+     *
+     * @param masks relation mask buffer
+     * @param board board array indexed by square
+     * @param own whether the source piece belongs to the side to move
+     * @param nearOwnKing mask of squares near the side-to-move king
+     * @param nearThemKing mask of squares near the opposing king
+     * @param from source square index
+     * @param to destination square index
      */
     private static void addTacticalEdge(float[] masks, byte[] board, boolean own,
             boolean[] nearOwnKing, boolean[] nearThemKing, int from, int to) {
@@ -1915,6 +2054,10 @@ public final class Model implements AutoCloseable {
 
     /**
      * Adds king-blocker-slider pin candidate edges.
+     *
+     * @param masks relation mask buffer
+     * @param board board array indexed by square
+     * @param whiteKing true when evaluating the White king
      */
     private static void addPinRelations(float[] masks, byte[] board, boolean whiteKing) {
         int king = findAbsoluteKing(board, whiteKing);
@@ -1955,6 +2098,11 @@ public final class Model implements AutoCloseable {
 
     /**
      * Projects square tokens into stalk vectors for one sheaf block.
+     *
+     * @param block zero-based sheaf block index
+     * @param h square-major trunk activations
+     * @param channels trunk channel count
+     * @return projects square tokens into stalk vectors for one sheaf block
      */
     private float[] nodeToStalk(int block, float[] h, int channels) {
         float[] out = new float[SQUARES * STALK_DIM];
@@ -1977,6 +2125,11 @@ public final class Model implements AutoCloseable {
 
     /**
      * Applies one stalk-space update back to square tokens.
+     *
+     * @param block zero-based sheaf block index
+     * @param h square-major trunk activations
+     * @param stalkDelta computed stalk-space update
+     * @param channels trunk channel count
      */
     private void applyStalkUpdate(int block, float[] h, float[] stalkDelta, int channels) {
         int weightBase = block * channels * STALK_DIM;
@@ -1997,6 +2150,10 @@ public final class Model implements AutoCloseable {
 
     /**
      * Applies the per-square trunk MLP for one sheaf block.
+     *
+     * @param block zero-based sheaf block index
+     * @param h square-major trunk activations
+     * @param channels trunk channel count
      */
     private void applyNodeMlp(int block, float[] h, int channels) {
         int upDim = channels * 2;
@@ -2037,6 +2194,13 @@ public final class Model implements AutoCloseable {
 
     /**
      * Projects a square stalk through one relation restriction map.
+     *
+     * @param block zero-based sheaf block index
+     * @param relation relation index
+     * @param source source buffer or source-side selector
+     * @param stalks stalk vector buffer
+     * @param square square index
+     * @param out destination buffer
      */
     private void projectStalk(int block, int relation, boolean source,
             float[] stalks, int square, float[] out) {
@@ -2052,6 +2216,12 @@ public final class Model implements AutoCloseable {
 
     /**
      * Back-projects a residual through the transpose of one restriction map.
+     *
+     * @param block zero-based sheaf block index
+     * @param relation relation index
+     * @param source source buffer or source-side selector
+     * @param residual restriction-space residual vector
+     * @param out destination buffer
      */
     private void backProjectStalk(int block, int relation, boolean source,
             float[] residual, float[] out) {
@@ -2066,6 +2236,13 @@ public final class Model implements AutoCloseable {
 
     /**
      * Returns one learned randomized restriction-map entry.
+     *
+     * @param block zero-based sheaf block index
+     * @param relation relation index
+     * @param source source buffer or source-side selector
+     * @param row matrix row index
+     * @param col matrix column index
+     * @return one learned randomized restriction-map entry
      */
     private float restriction(int block, int relation, boolean source, int row, int col) {
         int index = ((block * RELATION_COUNT + relation) * STALK_DIM + row) * STALK_DIM + col;
@@ -2074,6 +2251,10 @@ public final class Model implements AutoCloseable {
 
     /**
      * Returns one learned randomized relation gate in {@code (0, 2)}.
+     *
+     * @param block zero-based sheaf block index
+     * @param relation relation index
+     * @return one learned randomized relation gate in (0, 2)
      */
     private float relationGate(int block, int relation) {
         return 2.0f * sigmoid(weights.relationGateLogits[block * RELATION_COUNT + relation]);
@@ -2081,6 +2262,9 @@ public final class Model implements AutoCloseable {
 
     /**
      * Returns the learned heat-step scale for one block.
+     *
+     * @param block zero-based sheaf block index
+     * @return learned heat-step scale for one block
      */
     private float eta(int block) {
         return SHEAF_ETA * 2.0f * sigmoid(weights.etaLogits[block]);
@@ -2088,6 +2272,11 @@ public final class Model implements AutoCloseable {
 
     /**
      * Returns the flat relation mask index.
+     *
+     * @param relation relation index
+     * @param from source square index
+     * @param to destination square index
+     * @return flat index into the relation mask buffer
      */
     private static int relationIndex(int relation, int from, int to) {
         return (relation * SQUARES + from) * SQUARES + to;
@@ -2095,6 +2284,11 @@ public final class Model implements AutoCloseable {
 
     /**
      * Sets one relation edge.
+     *
+     * @param masks relation mask buffer
+     * @param relation relation index
+     * @param from source square index
+     * @param to destination square index
      */
     private static void setRelation(float[] masks, int relation, int from, int to) {
         if (from != to && from >= 0 && from < SQUARES && to >= 0 && to < SQUARES) {
@@ -2104,6 +2298,10 @@ public final class Model implements AutoCloseable {
 
     /**
      * Returns the square index for a rank/file pair.
+     *
+     * @param rank board rank index
+     * @param file board file index
+     * @return square index, or -1 when outside the board
      */
     private static int square(int rank, int file) {
         return rank >= 0 && rank < 8 && file >= 0 && file < 8 ? (rank << 3) + file : -1;
@@ -2111,6 +2309,10 @@ public final class Model implements AutoCloseable {
 
     /**
      * Returns slider ray directions.
+     *
+     * @param diagonals whether diagonal rays are included
+     * @param orthogonals whether orthogonal rays are included
+     * @return slider ray directions
      */
     private static int[][] rayDirections(boolean diagonals, boolean orthogonals) {
         if (diagonals && orthogonals) {
@@ -2125,6 +2327,10 @@ public final class Model implements AutoCloseable {
 
     /**
      * Tests whether a slider piece attacks along a ray direction.
+     *
+     * @param piece encoded piece
+     * @param direction ray direction vector
+     * @return true when the piece attacks along the direction
      */
     private static boolean sliderMatches(byte piece, int[] direction) {
         int type = Math.abs(piece);
@@ -2136,6 +2342,10 @@ public final class Model implements AutoCloseable {
 
     /**
      * Finds the side-to-move-relative king square.
+     *
+     * @param board board array indexed by square
+     * @param sideIsWhite true for White, false for Black
+     * @return king square index, or -1 when absent
      */
     private static int findKing(byte[] board, boolean sideIsWhite) {
         return findAbsoluteKing(board, sideIsWhite);
@@ -2143,6 +2353,10 @@ public final class Model implements AutoCloseable {
 
     /**
      * Finds an absolute-color king square.
+     *
+     * @param board board array indexed by square
+     * @param white White player name or side flag
+     * @return king square index, or -1 when absent
      */
     private static int findAbsoluteKing(byte[] board, boolean white) {
         byte target = white ? Piece.WHITE_KING : Piece.BLACK_KING;
@@ -2156,6 +2370,9 @@ public final class Model implements AutoCloseable {
 
     /**
      * Returns a king-zone mask with Chebyshev radius two.
+     *
+     * @param kingSquare king square index
+     * @return mask of squares in the king zone
      */
     private static boolean[] kingZone(int kingSquare) {
         boolean[] out = new boolean[SQUARES];
@@ -2175,6 +2392,10 @@ public final class Model implements AutoCloseable {
 
     /**
      * Returns whether a piece belongs to the side to move.
+     *
+     * @param piece encoded piece
+     * @param whiteToMove true when White is the side to move
+     * @return true when the piece belongs to the side to move
      */
     private static boolean isOwn(byte piece, boolean whiteToMove) {
         return piece != Piece.EMPTY && Piece.isWhitePiece(piece) == whiteToMove;
@@ -2182,6 +2403,10 @@ public final class Model implements AutoCloseable {
 
     /**
      * Returns a side-to-move signed material value.
+     *
+     * @param piece encoded piece
+     * @param whiteToMove true when White is the side to move
+     * @return side-to-move signed material value
      */
     private static float signedMaterial(byte piece, boolean whiteToMove) {
         if (piece == Piece.EMPTY) {
@@ -2200,6 +2425,10 @@ public final class Model implements AutoCloseable {
 
     /**
      * Returns normalized edge distance.
+     *
+     * @param rank board rank index
+     * @param file board file index
+     * @return normalized edge distance
      */
     private static float edgeDistance(int rank, int file) {
         return Math.min(Math.min(rank, 7 - rank), Math.min(file, 7 - file)) / 3.5f;
@@ -2207,6 +2436,9 @@ public final class Model implements AutoCloseable {
 
     /**
      * Returns arithmetic mean.
+     *
+     * @param values input values
+     * @return arithmetic mean, or 0 for an empty input
      */
     private static float mean(float[] values) {
         if (values == null || values.length == 0) {

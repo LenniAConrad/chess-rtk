@@ -168,6 +168,14 @@ public final class EvalWeights {
          */
         private final String name;
 
+        /**
+         * Creates the param ref.
+         *
+         * @param scalar scalar weight
+         * @param array weight array
+         * @param element array element
+         * @param name display name
+         */
         private ParamRef(Field scalar, int[] array, int element, String name) {
             this.scalar = scalar;
             this.array = array;
@@ -175,10 +183,20 @@ public final class EvalWeights {
             this.name = name;
         }
 
+        /**
+         * Returns the current value from either the scalar field or array slot.
+         *
+         * @return current parameter value
+         */
         private int get() {
             return scalar != null ? getInt(scalar) : array[element];
         }
 
+        /**
+         * Updates the set.
+         *
+         * @param value candidate value
+         */
         private void set(int value) {
             if (scalar != null) {
                 setInt(scalar, value);

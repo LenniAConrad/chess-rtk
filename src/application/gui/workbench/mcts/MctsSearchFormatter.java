@@ -9,6 +9,9 @@ import chess.core.SAN;
  */
 final class MctsSearchFormatter {
 
+    /**
+     * Creates the MCTS search formatter.
+     */
     private MctsSearchFormatter() {
     }
 

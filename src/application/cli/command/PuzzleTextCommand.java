@@ -62,7 +62,7 @@ public final class PuzzleTextCommand {
 
      /**
      * Runs the puzzle text workflow.
-     * @param a a
+     * @param a first value
      */
      public static void runPuzzleText(Argv a) {
         PuzzleTextOptions opts = parseOptions(a);
@@ -87,7 +87,7 @@ public final class PuzzleTextCommand {
 
      /**
      * Loads the T5 model or exits with a command error.
-     * @param modelPath model path
+     * @param modelPath configured model path
      * @param verbose verbose mode flag
      * @return loaded model
      */
@@ -197,8 +197,8 @@ public final class PuzzleTextCommand {
 
      /**
      * Parses the options.
-     * @param a a
-     * @return computed value
+     * @param a first value
+     * @return parsed the options
      */
      private static PuzzleTextOptions parseOptions(Argv a) {
         boolean verbose = a.flag(OPT_VERBOSE, OPT_VERBOSE_SHORT);
@@ -250,9 +250,9 @@ public final class PuzzleTextCommand {
 
      /**
      * Parses the position or exit.
-     * @param fen fen
-     * @param verbose verbose
-     * @return computed value
+     * @param fen FEN string
+     * @param verbose whether verbose output is enabled
+     * @return parsed the position or exit
      */
      private static Position parsePositionOrExit(String fen, boolean verbose) {
         Position pos = parsePositionOrNull(fen, COMMAND_LABEL, verbose);
@@ -264,11 +264,11 @@ public final class PuzzleTextCommand {
 
      /**
      * Handles tags for.
-     * @param pos pos
-     * @param engine engine
-     * @param opts opts
-     * @param cache cache
-     * @return computed value
+     * @param pos chess position
+     * @param engine engine name or instance
+     * @param opts parsed options
+     * @param cache analysis cache
+     * @return handles tags for
      */
      private static List<String> tagsFor(Position pos, Engine engine, PuzzleTextOptions opts,
             Map<String, TagEntry> cache) {
@@ -328,11 +328,11 @@ public final class PuzzleTextCommand {
 
          /**
          * Creates a new puzzle text options instance.
-         * @param flags flags
-         * @param engineConfig engine config
-         * @param limits limits
-         * @param wdlConfig wdl config
-         * @param inputConfig input config
+         * @param flags option flags
+         * @param engineConfig source engine config
+         * @param limits search limits
+         * @param wdlConfig WDL configuration
+         * @param inputConfig source input config
          */
          private PuzzleTextOptions(Flags flags, EngineConfig engineConfig, Limits limits, WdlConfig wdlConfig,
                 InputConfig inputConfig) {
@@ -362,9 +362,9 @@ public final class PuzzleTextCommand {
 
              /**
              * Creates a new flags instance.
-             * @param verbose verbose
-             * @param includeFen include fen
-             * @param analyzeTags analyze tags
+             * @param verbose whether verbose output is enabled
+             * @param includeFen whether to include FEN text
+             * @param analyzeTags whether to run engine-backed tag analysis
              */
              private Flags(boolean verbose, boolean includeFen, boolean analyzeTags) {
                 this.verbose = verbose;
@@ -400,11 +400,11 @@ public final class PuzzleTextCommand {
 
              /**
              * Creates a new engine config instance.
-             * @param protoPath proto path
-             * @param multipv multipv
-             * @param tagMultipv tag multipv
-             * @param threads threads
-             * @param hash hash
+             * @param protoPath external engine protocol path
+             * @param multipv requested MultiPV count
+             * @param tagMultipv MultiPV count used for tag analysis
+             * @param threads worker thread count
+             * @param hash engine hash size in megabytes
              */
              private EngineConfig(String protoPath, int multipv, int tagMultipv, Integer threads, Integer hash) {
                 this.protoPath = protoPath;
@@ -438,10 +438,10 @@ public final class PuzzleTextCommand {
 
              /**
              * Creates a new limits instance.
-             * @param nodesCap nodes cap
-             * @param durMs dur ms
-             * @param pvPlies pv plies
-             * @param maxNew max new
+             * @param nodesCap engine node cap
+             * @param durMs duration cap in milliseconds
+             * @param pvPlies source pv plies
+             * @param maxNew maximum number of generated tags
              */
              private Limits(long nodesCap, long durMs, int pvPlies, int maxNew) {
                 this.nodesCap = nodesCap;
@@ -466,8 +466,8 @@ public final class PuzzleTextCommand {
 
              /**
              * Creates a new wdl config instance.
-             * @param wdl wdl
-             * @param noWdl no wdl
+             * @param wdl whether WDL output is enabled
+             * @param noWdl whether WDL output is disabled
              */
              private WdlConfig(boolean wdl, boolean noWdl) {
                 this.wdl = wdl;
@@ -490,8 +490,8 @@ public final class PuzzleTextCommand {
 
              /**
              * Creates a new input config instance.
-             * @param modelPath model path
-             * @param fen fen
+             * @param modelPath configured model path
+             * @param fen FEN string
              */
              private InputConfig(String modelPath, String fen) {
                 this.modelPath = modelPath;
@@ -510,7 +510,7 @@ public final class PuzzleTextCommand {
          private final List<String> tags;
          /**
          * Creates a new tag entry instance.
-         * @param tags tags
+         * @param tags tag collection
          */
          private TagEntry(List<String> tags) {
             this.tags = tags;

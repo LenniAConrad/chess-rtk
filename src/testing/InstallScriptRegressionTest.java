@@ -1,16 +1,22 @@
 package testing;
 
+import static testing.TestSupport.assertEquals;
 import static testing.TestSupport.assertFalse;
 import static testing.TestSupport.assertTrue;
+import static testing.TestSupport.createTempDirectory;
 import static testing.TestSupport.readUtf8;
+import static testing.TestSupport.writeUtf8;
 
 import application.gui.workbench.ui.AppIcon;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Stream;
 import javax.imageio.ImageIO;
 
 /**
@@ -26,6 +32,12 @@ public final class InstallScriptRegressionTest {
      * Installer script path.
      */
     private static final Path INSTALL_SCRIPT = Path.of("install.sh");
+
+    /**
+     * Tracked-weight guard script path.
+     */
+    private static final Path CHECK_NO_WEIGHTS_SCRIPT =
+            Path.of("scripts", "check_no_weights_tracked.sh").toAbsolutePath();
 
     /**
      * Workbench launch-command source path.
@@ -92,6 +104,7 @@ public final class InstallScriptRegressionTest {
         testWorkbenchInstallsDesktopIdentity();
         testInstallerIncludesStarPrompt();
         testInstallerVerifiesModelWeightChecksums();
+        testTrackedWeightGuardRejectsTrackedModelFiles();
         System.out.println("InstallScriptRegressionTest: all checks passed");
     }
 
@@ -282,6 +295,34 @@ public final class InstallScriptRegressionTest {
     }
 
     /**
+     * Verifies the tracked-weight guard fails only when a model artifact is
+     * actually tracked by git.
+     */
+    private static void testTrackedWeightGuardRejectsTrackedModelFiles() {
+        Path workspace = createTempDirectory("crtk-weight-guard-");
+        try {
+            runProcessExpectSuccess(workspace, "git", "init");
+            Path model = workspace.resolve("models").resolve("bad.bin");
+            createDirectories(model.getParent());
+            writeUtf8(model, "test weight placeholder\n");
+            runProcessExpectSuccess(workspace, "git", "add", "models/bad.bin");
+
+            ProcessResult tracked = runProcess(workspace, CHECK_NO_WEIGHTS_SCRIPT.toString());
+            assertEquals(1, tracked.exitCode(), "tracked model weight exits with failure");
+            assertTrue(tracked.stderr().contains("tracked weight files detected"),
+                    "tracked model weight failure explains the policy");
+            assertTrue(tracked.stderr().contains("models/bad.bin"),
+                    "tracked model weight failure names the offending file");
+
+            runProcessExpectSuccess(workspace, "git", "rm", "--cached", "models/bad.bin");
+            ProcessResult untracked = runProcess(workspace, CHECK_NO_WEIGHTS_SCRIPT.toString());
+            assertEquals(0, untracked.exitCode(), "untracked local model weight is allowed");
+        } finally {
+            deleteRecursively(workspace);
+        }
+    }
+
+    /**
      * Reads the installer source.
      *
      * @return installer text
@@ -306,5 +347,90 @@ public final class InstallScriptRegressionTest {
         } catch (IOException ex) {
             throw new AssertionError("could not read " + path, ex);
         }
+    }
+
+    /**
+     * Runs a child process that must complete successfully.
+     *
+     * @param cwd process working directory
+     * @param command command and arguments
+     */
+    private static void runProcessExpectSuccess(Path cwd, String... command) {
+        ProcessResult result = runProcess(cwd, command);
+        if (result.exitCode() != 0) {
+            throw new AssertionError(String.join(" ", command)
+                    + " failed with exit " + result.exitCode()
+                    + "\nstdout:\n" + result.stdout()
+                    + "\nstderr:\n" + result.stderr());
+        }
+    }
+
+    /**
+     * Runs a child process and captures its result.
+     *
+     * @param cwd process working directory
+     * @param command command and arguments
+     * @return process result
+     */
+    private static ProcessResult runProcess(Path cwd, String... command) {
+        try {
+            Process process = new ProcessBuilder(command)
+                    .directory(cwd.toFile())
+                    .start();
+            String stdout = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            String stderr = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
+            int exitCode = process.waitFor();
+            return new ProcessResult(exitCode, stdout, stderr);
+        } catch (IOException ex) {
+            throw new AssertionError("failed to run " + String.join(" ", command), ex);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("interrupted while running " + String.join(" ", command), ex);
+        }
+    }
+
+    /**
+     * Deletes a temporary test tree.
+     *
+     * @param root root path
+     */
+    private static void deleteRecursively(Path root) {
+        if (!Files.exists(root)) {
+            return;
+        }
+        try (Stream<Path> paths = Files.walk(root)) {
+            paths.sorted(Comparator.reverseOrder()).forEach(path -> {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException ex) {
+                    throw new AssertionError("failed to delete " + path, ex);
+                }
+            });
+        } catch (IOException ex) {
+            throw new AssertionError("failed to delete " + root, ex);
+        }
+    }
+
+    /**
+     * Creates a directory tree for a test fixture.
+     *
+     * @param directory directory path
+     */
+    private static void createDirectories(Path directory) {
+        try {
+            Files.createDirectories(directory);
+        } catch (IOException ex) {
+            throw new AssertionError("failed to create " + directory, ex);
+        }
+    }
+
+    /**
+     * Captured process result.
+     *
+     * @param exitCode process exit code
+     * @param stdout standard output
+     * @param stderr standard error
+     */
+    private record ProcessResult(int exitCode, String stdout, String stderr) {
     }
 }

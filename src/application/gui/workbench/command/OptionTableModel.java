@@ -168,7 +168,7 @@ public final class OptionTableModel extends AbstractTableModel {
     /**
      * Returns a column class.
      *
-     * @param columnIndex column index
+     * @param columnIndex zero-based column index
      * @return column value class
      */
     @Override
@@ -179,8 +179,8 @@ public final class OptionTableModel extends AbstractTableModel {
     /**
      * Returns whether a cell is editable.
      *
-     * @param rowIndex row index
-     * @param columnIndex column index
+     * @param rowIndex zero-based row index
+     * @param columnIndex zero-based column index
      * @return true when editable
      */
     @Override
@@ -192,8 +192,8 @@ public final class OptionTableModel extends AbstractTableModel {
     /**
      * Returns a cell value.
      *
-     * @param rowIndex row index
-     * @param columnIndex column index
+     * @param rowIndex zero-based row index
+     * @param columnIndex zero-based column index
      * @return cell value
      */
     @Override
@@ -212,8 +212,8 @@ public final class OptionTableModel extends AbstractTableModel {
      * Sets a cell value.
      *
      * @param value new value
-     * @param rowIndex row index
-     * @param columnIndex column index
+     * @param rowIndex zero-based row index
+     * @param columnIndex zero-based column index
      */
     @Override
     public void setValueAt(Object value, int rowIndex, int columnIndex) {

@@ -380,7 +380,7 @@ public final class StudyBook {
 	/**
 	 * Sets the page size.
 	 *
-	 * @param pageSize page size
+	 * @param pageSize source page size
 	 * @return this manifest
 	 */
 	public StudyBook setPageSize(PageSize pageSize) {
@@ -423,7 +423,7 @@ public final class StudyBook {
 	/**
 	 * Sets the diagrams-per-row layout.
 	 *
-	 * @param diagramsPerRow diagrams per row
+	 * @param diagramsPerRow source diagrams per row
 	 * @return this manifest
 	 */
 	public StudyBook setDiagramsPerRow(int diagramsPerRow) {
@@ -736,7 +736,7 @@ private static List<String> stringListValue(Map<String, Object> table, String ke
 	 * Parses one boolean-like string.
 	 *
 	 * @param text source text
-	 * @param fallback fallback value
+	 * @param fallback default used when input is absent or invalid
 	 * @return parsed boolean or fallback
 	 */
 	private static boolean parseBoolean(String text, boolean fallback) {
@@ -754,7 +754,7 @@ private static List<String> stringListValue(Map<String, Object> table, String ke
 	/**
 	 * Returns a stable token for one page size.
 	 *
-	 * @param pageSize page size
+	 * @param pageSize source page size
 	 * @return page-size token
 	 */
 	public static String pageSizeToken(PageSize pageSize) {
@@ -790,7 +790,7 @@ private static List<String> stringListValue(Map<String, Object> table, String ke
 	 * Returns one non-null string.
 	 *
 	 * @param value source value
-	 * @param fallback fallback value
+	 * @param fallback default used when input is absent or invalid
 	 * @return normalized string
 	 */
 	private static String fallback(String value, String fallback) {
