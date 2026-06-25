@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.function.IntConsumer;
 import java.util.function.Supplier;
+import javax.accessibility.AccessibleContext;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -991,7 +992,10 @@ final class ShellFrame extends JPanel {
     private static void describe(JComponent component, String description) {
         String text = description == null ? "" : description;
         component.setToolTipText(text);
-        component.getAccessibleContext().setAccessibleDescription(text);
+        AccessibleContext context = component.getAccessibleContext();
+        if (context != null) {
+            context.setAccessibleDescription(text);
+        }
     }
 
     /**
@@ -1518,12 +1522,32 @@ final class ShellFrame extends JPanel {
         private void setExpanded(boolean value) {
             boolean changed = expanded != value;
             expanded = value;
-            getAccessibleContext().setAccessibleDescription(
-                    (value ? "Collapse " : "Expand ") + title);
+            AccessibleContext context = getAccessibleContext();
+            if (context != null) {
+                context.setAccessibleDescription((value ? "Collapse " : "Expand ") + title);
+            }
             setToolTipText((value ? "Collapse " : "Expand ") + title);
             if (changed) {
                 repaint();
             }
+        }
+
+        /**
+         * Returns accessibility metadata for the custom-painted section header.
+         *
+         * @return accessible context
+         */
+        @Override
+        public AccessibleContext getAccessibleContext() {
+            if (accessibleContext == null) {
+                accessibleContext = new AccessibleJComponent() {
+                    /**
+                     * Serialization identifier for Swing compatibility.
+                     */
+                    private static final long serialVersionUID = 1L;
+                };
+            }
+            return accessibleContext;
         }
 
         /**
@@ -1675,6 +1699,24 @@ final class ShellFrame extends JPanel {
                     }
                 }
             });
+        }
+
+        /**
+         * Returns accessibility metadata for the custom-painted navigator row.
+         *
+         * @return accessible context
+         */
+        @Override
+        public AccessibleContext getAccessibleContext() {
+            if (accessibleContext == null) {
+                accessibleContext = new AccessibleJComponent() {
+                    /**
+                     * Serialization identifier for Swing compatibility.
+                     */
+                    private static final long serialVersionUID = 1L;
+                };
+            }
+            return accessibleContext;
         }
 
         /**

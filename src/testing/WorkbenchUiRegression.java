@@ -476,6 +476,8 @@ final class WorkbenchUiRegression {
                 "left navigator owns a reusable collapsible section primitive");
         assertTrue(shellFrame.contains("private static final class NavigatorSectionHeader"),
                 "left navigator section headers expose a focused toggle control");
+        assertTrue(occurrences(shellFrame, "public AccessibleContext getAccessibleContext()") >= 2,
+                "custom-painted navigator controls create accessible contexts before metadata is written");
         assertTrue(shellFrame.contains("putClientProperty(\"workbench.actionId\", getName())"),
                 "navigator controls expose stable action identifiers");
         assertTrue(shellFrame.contains("setRunDockCollapsed(!runDockCollapsed)"),
