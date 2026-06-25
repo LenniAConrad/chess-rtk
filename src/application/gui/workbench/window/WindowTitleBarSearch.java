@@ -26,15 +26,15 @@ final class WindowTitleBarSearch {
     }
 
     /**
-     * Creates the create.
+     * Creates the search affordance.
      *
-     * @param onOpenPalette source on open palette
-     * @return create
+     * @param onOpenPalette command-palette callback
+     * @return search affordance
      */
     static JComponent create(Runnable onOpenPalette) {
         final int radius = Theme.RADIUS + 2;
-        final int preferredWidth = 380;
-        final int preferredHeight = 24;
+        final int preferredWidth = 560;
+        final int preferredHeight = 26;
         final boolean[] hovered = { false };
         JComponent box = new JComponent() {
             /**
@@ -143,8 +143,12 @@ final class WindowTitleBarSearch {
         g.setFont(Theme.font(11, Font.PLAIN));
         g.setColor(Theme.MUTED);
         FontMetrics metrics = g.getFontMetrics();
-        String label = "Command Palette";
-        int textX = (width - metrics.stringWidth(label)) / 2;
+        String label = "Search games, positions, runs, commands...";
+        int maxWidth = Math.max(20, width - 42);
+        while (metrics.stringWidth(label) > maxWidth && label.length() > 4) {
+            label = label.substring(0, label.length() - 4) + "...";
+        }
+        int textX = 31;
         int textY = (height + metrics.getAscent() - metrics.getDescent()) / 2 - 1;
         g.drawString(label, textX, textY);
     }

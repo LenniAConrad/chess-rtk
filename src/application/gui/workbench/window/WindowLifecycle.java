@@ -279,7 +279,7 @@ public abstract class WindowLifecycle extends WindowBase {
         Theme.setDensity(Theme.Density.fromPreference(
                 WORKBENCH_PREFS.get(PREF_DENSITY, Theme.Density.DENSE.id())));
         Theme.setMode(Theme.Mode.fromPreference(
-                WORKBENCH_PREFS.get(PREF_THEME_MODE, Theme.Mode.LIGHT.id())));
+                WORKBENCH_PREFS.get(PREF_THEME_MODE, Theme.Mode.DARK.id())));
         TensorViz.refreshPalette();
     }
 
@@ -401,6 +401,9 @@ public abstract class WindowLifecycle extends WindowBase {
         Theme.refreshComponentTree(this);
         if (tabs != null) {
             tabs.refreshTheme();
+        }
+        if (shellFrame != null) {
+            shellFrame.refreshTheme();
         }
         if (settingsMenu != null) {
             settingsMenu.syncMode();
@@ -587,13 +590,16 @@ public abstract class WindowLifecycle extends WindowBase {
         SoundService.addSettingsListener(soundSettingsListener);
         layoutMenu = WindowMenus.layoutMenu(this);
         settingsMenu.component().add(Box.createHorizontalGlue());
-        // VS Code-style title-bar search box: a rounded rectangle painted in
-        // a lighter shade than the title bar, with a small magnifying-glass
-        // icon on the left and the workspace name centred. Click anywhere on
-        // the box to open the command palette. Hover lightens the body.
+        // VS Code-style title-bar search box. Click anywhere on the box to
+        // open the command palette; the surrounding chrome owns app/project
+        // identity and live run status.
         JComponent paletteHint = WindowTitleBarSearch.create(this::showCommandPalette);
         settingsMenu.component().add(paletteHint);
         settingsMenu.component().add(javax.swing.Box.createHorizontalStrut(10));
+        settingsMenu.component().add(TitleBarChrome.runs(session, this::showConsoleDock));
+        settingsMenu.component().add(javax.swing.Box.createHorizontalStrut(6));
+        settingsMenu.component().add(Ui.ghostButton("Settings", event -> showDisplaySettings()));
+        settingsMenu.component().add(javax.swing.Box.createHorizontalStrut(6));
         settingsMenu.component().add(layoutMenu.component());
         setJMenuBar(settingsMenu.component());
 
@@ -642,9 +648,11 @@ public abstract class WindowLifecycle extends WindowBase {
         tabs.addViews(registry);
         tabs.install();
         tabs.setSelectionListener(index -> onWorkbenchTabVisibilityChanged());
-        tabs.select(TAB_DASHBOARD);
+        tabs.select(TAB_BOARD);
 
-        root.add(tabs, BorderLayout.CENTER);
+        shellFrame = new ShellFrame(tabs, session, this::selectTab,
+                this::showConsoleDock, this::showLogsDock, this::openLatestJobLogOrLogs);
+        root.add(shellFrame, BorderLayout.CENTER);
         statusBar = createStatusBar();
         statusBar.setVisible(statusBarVisible);
         root.add(statusBar, BorderLayout.SOUTH);
@@ -851,6 +859,11 @@ public abstract class WindowLifecycle extends WindowBase {
      * Bottom status-bar component.
      */
     protected JComponent statusBar;
+
+    /**
+     * Reference-style shell around the editor tabs.
+     */
+    protected ShellFrame shellFrame;
 
     /**
      * Status-bar current-position cell.
@@ -2029,6 +2042,12 @@ public abstract class WindowLifecycle extends WindowBase {
             if (tabs != null && SwingUtilities.isDescendingFrom(panel, tabs)) {
                 panel.refreshLogs();
             }
+        }
+        if (layoutMenu != null) {
+            layoutMenu.refreshTheme();
+        }
+        if (shellFrame != null) {
+            shellFrame.refreshSelection();
         }
         if (liveExternalEngineEnabled && isAnalyzePaneVisible()) {
             requestLiveAnalysisUpdate();

@@ -158,6 +158,7 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
             boolean animateMove) {
         currentPosition = position.copy();
         fenField.setText(currentPosition.toString());
+        fenField.setCaretPosition(0);
         if (animateMove) {
             board.setPosition(currentPosition, lastMove, reverseMoveAnimation);
         } else {

@@ -45,7 +45,7 @@ public final class WorkspaceHeader extends JPanel {
          */
         @Override
         public Insets getBorderInsets(Component component) {
-            return new Insets(Theme.SPACE_SM, Theme.SPACE_MD, Theme.SPACE_SM, Theme.SPACE_MD);
+            return new Insets(Theme.SPACE_XS, Theme.SPACE_MD, Theme.SPACE_XS, Theme.SPACE_MD);
         }
 
         /**
@@ -53,9 +53,9 @@ public final class WorkspaceHeader extends JPanel {
          */
         @Override
         public Insets getBorderInsets(Component component, Insets insets) {
-            insets.top = Theme.SPACE_SM;
+            insets.top = Theme.SPACE_XS;
             insets.left = Theme.SPACE_MD;
-            insets.bottom = Theme.SPACE_SM;
+            insets.bottom = Theme.SPACE_XS;
             insets.right = Theme.SPACE_MD;
             return insets;
         }
@@ -99,11 +99,11 @@ public final class WorkspaceHeader extends JPanel {
         setBackground(Theme.PANEL_SOLID);
         setBorder(HEADER_BORDER);
 
-        titleLabel.setFont(Theme.font(Theme.FONT_PAGE_TITLE, Font.BOLD));
+        titleLabel.setFont(Theme.font(15, Font.BOLD));
         Theme.foreground(titleLabel, Theme.ForegroundRole.TEXT);
         titleLabel.setVerticalAlignment(JLabel.CENTER);
 
-        contextLabel.setFont(Theme.font(Theme.FONT_CONTROL, Font.PLAIN));
+        contextLabel.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
         Theme.foreground(contextLabel, Theme.ForegroundRole.MUTED);
         contextLabel.setVerticalAlignment(JLabel.CENTER);
 
@@ -114,12 +114,12 @@ public final class WorkspaceHeader extends JPanel {
 
         c.gridx = 0;
         c.weightx = 0.0d;
-        c.insets = new Insets(0, 0, 0, Theme.SPACE_LG);
+        c.insets = new Insets(0, 0, 0, Theme.SPACE_MD);
         add(titleLabel, c);
 
         c.gridx = 1;
         c.weightx = 1.0d;
-        c.insets = new Insets(0, 0, 0, Theme.SPACE_LG);
+        c.insets = new Insets(0, 0, 0, Theme.SPACE_MD);
         add(contextLabel, c);
 
         c.gridx = 2;

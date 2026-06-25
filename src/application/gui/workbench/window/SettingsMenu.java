@@ -1,7 +1,6 @@
 package application.gui.workbench.window;
 
 import application.gui.workbench.ui.Theme;
-import application.gui.workbench.ui.MenuGlyphs;
 import application.gui.workbench.ui.Ui;
 import java.awt.Component;
 import java.awt.Container;
@@ -9,6 +8,7 @@ import java.awt.Font;
 import java.util.Objects;
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
+import javax.swing.Box;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JMenu;
@@ -265,7 +265,7 @@ public final class SettingsMenu {
     /**
      * Native Swing menu bar installed on the workbench frame.
      */
-    private final JMenuBar menuBar = new JMenuBar();
+    private final JMenuBar menuBar = new ChromeMenuBar();
 
     /**
      * Creates the settings menu.
@@ -289,6 +289,54 @@ public final class SettingsMenu {
     }
 
     /**
+     * Menu bar that can host title chrome while exposing menu indices as menus.
+     */
+    private static final class ChromeMenuBar extends JMenuBar {
+
+        /**
+         * Serialization identifier for Swing compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Counts only actual menus, ignoring title chrome filler components.
+         *
+         * @return top-level menu count
+         */
+        @Override
+        public int getMenuCount() {
+            int count = 0;
+            for (Component component : getComponents()) {
+                if (component instanceof JMenu) {
+                    count++;
+                }
+            }
+            return count;
+        }
+
+        /**
+         * Returns the nth actual menu in the mixed chrome/menu bar.
+         *
+         * @param index menu index
+         * @return menu or null when out of range
+         */
+        @Override
+        public JMenu getMenu(int index) {
+            int menuIndex = 0;
+            for (Component component : getComponents()) {
+                if (!(component instanceof JMenu menu)) {
+                    continue;
+                }
+                if (menuIndex == index) {
+                    return menu;
+                }
+                menuIndex++;
+            }
+            return null;
+        }
+    }
+
+    /**
      * No-op placeholder retained so existing callers (theme-switch hooks,
      * sound listeners) keep compiling. The popover chips that this used to
      * sync have been removed in favour of the unified SettingsDialog.
@@ -309,6 +357,8 @@ public final class SettingsMenu {
      * Builds all menus and menu items.
      */
     private void buildMenuBar() {
+        menuBar.add(TitleBarChrome.brand(controller::openDashboard));
+        menuBar.add(Box.createHorizontalStrut(Theme.SPACE_SM));
         menuBar.add(menu("File",
                 item("Open PGN…", "Ctrl+P", controller::openPgn),
                 item("Save PGN", null, controller::savePgn),
@@ -368,6 +418,20 @@ public final class SettingsMenu {
         menuBar.add(menu("Help",
                 item("Command Palette…", "Ctrl+K", controller::showCommandPalette),
                 item("Settings…", "Ctrl+,", controller::showDisplaySettings)));
+        hideLegacyTextMenus();
+    }
+
+    /**
+     * Keeps the legacy Swing menus available to regression tests and platform
+     * menu traversal while removing their text-heavy footprint from the custom
+     * editor chrome.
+     */
+    private void hideLegacyTextMenus() {
+        for (Component component : menuBar.getComponents()) {
+            if (component instanceof JMenu menu) {
+                menu.setVisible(false);
+            }
+        }
     }
 
     /**
@@ -484,9 +548,9 @@ public final class SettingsMenu {
         if (item instanceof JRadioButtonMenuItem radio) {
             styleRadioMenuItem(radio);
         } else if (item instanceof JCheckBoxMenuItem check) {
-            MenuGlyphs.styleCheckItem(check);
+            Ui.stylePopupMenuItem(check);
         } else if (item.getParent() instanceof JPopupMenu) {
-            MenuGlyphs.styleItem(item);
+            Ui.stylePopupMenuItem(item);
         } else {
             item.setOpaque(true);
             item.setBackground(Theme.BG);
@@ -503,7 +567,7 @@ public final class SettingsMenu {
      * @param item radio menu item
      */
     private static void styleRadioMenuItem(JRadioButtonMenuItem item) {
-        MenuGlyphs.styleRadioItem(item);
+        Ui.stylePopupMenuItem(item);
     }
 
     /**

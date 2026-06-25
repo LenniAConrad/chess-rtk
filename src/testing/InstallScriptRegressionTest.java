@@ -102,6 +102,7 @@ public final class InstallScriptRegressionTest {
         testOtisLatticeGeneratorUsesSharedChessAssets();
         testAppIconAssetLoadsWindowVariants();
         testWorkbenchInstallsDesktopIdentity();
+        testInstallerAutoLaunchesWorkbenchWhenGuiAvailable();
         testInstallerIncludesStarPrompt();
         testInstallerVerifiesModelWeightChecksums();
         testTrackedWeightGuardRejectsTrackedModelFiles();
@@ -251,6 +252,26 @@ public final class InstallScriptRegressionTest {
                 "app icon uses Java taskbar integration");
         assertTrue(appIcon.contains("taskbar.setIconImage(image)"),
                 "app icon applies the chemical-board image to the taskbar");
+    }
+
+    /**
+     * Verifies the installer auto-starts the desktop Workbench only when a GUI
+     * session is available, with an explicit opt-out for scripted installs.
+     */
+    private static void testInstallerAutoLaunchesWorkbenchWhenGuiAvailable() {
+        String script = readInstallScript();
+        assertTrue(script.contains("AUTO_LAUNCH_WORKBENCH=1"),
+                "installer auto-launches Workbench by default");
+        assertTrue(script.contains("--no-launch|--no-open"),
+                "installer offers an opt-out for auto-launch");
+        assertTrue(script.contains("gui_session_available()"),
+                "installer checks GUI availability before launching");
+        assertTrue(script.contains("[[ -n \"${DISPLAY:-}\" || -n \"${WAYLAND_DISPLAY:-}\" ]]"),
+                "installer treats X11 and Wayland displays as GUI sessions");
+        assertTrue(script.contains("launch_command=(\"$LAUNCHER\" workbench)"),
+                "installer launches the installed Workbench command");
+        assertTrue(script.contains("nohup setsid \"${launch_command[@]}\""),
+                "installer detaches the launched Workbench process");
     }
 
     /**

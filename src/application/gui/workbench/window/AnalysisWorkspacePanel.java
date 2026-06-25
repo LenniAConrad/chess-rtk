@@ -391,6 +391,7 @@ final class AnalysisWorkspacePanel extends JPanel {
         }
         position = next;
         fenField.setText(currentFen());
+        fenField.setCaretPosition(0);
         board.setPosition(position.copy(), move);
         visibleMoves = movesModel.setPosition(position);
         positionBadge.ready("loaded");

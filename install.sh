@@ -50,6 +50,10 @@ INSTALL_DESKTOP=1
 FORCE_LAUNCHER=0
 REUSE_EXISTING_LAUNCHER=0
 REUSE_EXISTING_DESKTOP=0
+AUTO_LAUNCH_WORKBENCH=1
+AUTO_LAUNCH_RESULT="skipped"
+AUTO_LAUNCH_PID=""
+AUTO_LAUNCH_LOG="$APP_HOME/session/workbench-install-launch.log"
 
 # Colors (opt-out with NO_COLOR or non-TTY)
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
@@ -138,6 +142,10 @@ while [[ $# -gt 0 ]]; do
       INSTALL_DESKTOP=0
       shift
       ;;
+    --no-launch|--no-open)
+      AUTO_LAUNCH_WORKBENCH=0
+      shift
+      ;;
     --models|--fetch-models)
       MODEL_MODE="yes"
       shift
@@ -147,12 +155,12 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     -h|--help)
-      echo "Usage: ./install.sh [--cuda|--require-cuda|--no-cuda] [--rocm|--require-rocm|--no-rocm] [--oneapi|--require-oneapi|--no-oneapi] [--models|--no-models] [--no-launcher|--force-launcher] [--no-desktop]"
+      echo "Usage: ./install.sh [--cuda|--require-cuda|--no-cuda] [--rocm|--require-rocm|--no-rocm] [--oneapi|--require-oneapi|--no-oneapi] [--models|--no-models] [--no-launcher|--force-launcher] [--no-desktop] [--no-launch]"
       exit 0
       ;;
     *)
       err "Unknown argument: $1"
-      echo "Usage: ./install.sh [--cuda|--require-cuda|--no-cuda] [--rocm|--require-rocm|--no-rocm] [--oneapi|--require-oneapi|--no-oneapi] [--models|--no-models] [--no-launcher|--force-launcher] [--no-desktop]" >&2
+      echo "Usage: ./install.sh [--cuda|--require-cuda|--no-cuda] [--rocm|--require-rocm|--no-rocm] [--oneapi|--require-oneapi|--no-oneapi] [--models|--no-models] [--no-launcher|--force-launcher] [--no-desktop] [--no-launch]" >&2
       exit 2
       ;;
   esac
@@ -496,6 +504,54 @@ desktop_entry_targets_launcher() {
   grep -Fxq "TryExec=$LAUNCHER" "$DESKTOP_ENTRY" || return 1
   grep -Fxq "Exec=$LAUNCHER workbench" "$DESKTOP_ENTRY" || return 1
   grep -Fxq "Icon=$DESKTOP_ICON" "$DESKTOP_ENTRY" || return 1
+}
+
+gui_session_available() {
+  [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]] || return 1
+  [[ -z "${CI:-}" && -z "${GITHUB_ACTIONS:-}" ]] || return 1
+  return 0
+}
+
+launch_workbench_if_available() {
+  if [[ $AUTO_LAUNCH_WORKBENCH -eq 0 ]]; then
+    AUTO_LAUNCH_RESULT="disabled"
+    step "Skipping Workbench launch (--no-launch)."
+    return 0
+  fi
+  if [[ $INSTALL_LAUNCHER -ne 1 || $INSTALL_DESKTOP -ne 1 ]]; then
+    AUTO_LAUNCH_RESULT="disabled"
+    step "Skipping Workbench launch because launcher or desktop app install was disabled."
+    return 0
+  fi
+  if ! gui_session_available; then
+    AUTO_LAUNCH_RESULT="no-gui"
+    warn "No GUI session detected; skipping Workbench auto-launch."
+    return 0
+  fi
+  if is_root && [[ -n "${SUDO_USER:-}" && "${SUDO_USER:-}" != "root" ]]; then
+    AUTO_LAUNCH_RESULT="root"
+    warn "Skipping Workbench auto-launch because the installer is running as root."
+    return 0
+  fi
+  if [[ ! -x "$LAUNCHER" ]]; then
+    AUTO_LAUNCH_RESULT="failed"
+    warn "Skipping Workbench auto-launch because launcher is not executable: $LAUNCHER"
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$AUTO_LAUNCH_LOG")"
+  local launch_command=("$LAUNCHER" workbench)
+  step "Launching ChessRTK Workbench"
+  if command -v setsid >/dev/null 2>&1; then
+    nohup setsid "${launch_command[@]}" >"$AUTO_LAUNCH_LOG" 2>&1 </dev/null &
+  else
+    nohup "${launch_command[@]}" >"$AUTO_LAUNCH_LOG" 2>&1 </dev/null &
+  fi
+  AUTO_LAUNCH_PID="$!"
+  disown "$AUTO_LAUNCH_PID" 2>/dev/null || true
+  AUTO_LAUNCH_RESULT="started"
+  info "pid: $AUTO_LAUNCH_PID"
+  info "log: $AUTO_LAUNCH_LOG"
 }
 
 cmake_cache_get() {
@@ -1322,6 +1378,9 @@ else
   warn "Skipping desktop app install (--no-desktop)."
 fi
 
+section "Launch"
+launch_workbench_if_available
+
 section "Summary"
 title "Done"
 if [[ $INSTALL_LAUNCHER -eq 1 ]]; then
@@ -1359,6 +1418,13 @@ elif [[ "$MODEL_RESULT" == "present" ]]; then
   step "Model weights: already present in $MODEL_DIR"
 elif [[ "$MODEL_RESULT" == "failed" ]]; then
   warn "Model weights: download failed (see models/README.md)"
+fi
+if [[ "$AUTO_LAUNCH_RESULT" == "started" ]]; then
+  step "Workbench launched: pid $AUTO_LAUNCH_PID"
+elif [[ "$AUTO_LAUNCH_RESULT" == "no-gui" ]]; then
+  warn "Workbench launch: skipped because no GUI session was detected"
+elif [[ "$AUTO_LAUNCH_RESULT" == "failed" ]]; then
+  warn "Workbench launch: failed to start"
 fi
 
 section "Next Steps"

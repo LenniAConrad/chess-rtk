@@ -209,6 +209,11 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     private transient JPanel analyzeBoardSlot;
 
     /**
+     * Compact main-line tree shown beside the Analyze board.
+     */
+    private transient AnalyzeVariationTreePanel analyzeVariationTree;
+
+    /**
      * Board slot in the Play mode card.
      */
     private transient JPanel playBoardSlot;
@@ -580,15 +585,32 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         // createBoardWorkspaceTab / configureBoardForMode.
         analyzeBoardSlot = boardSlotPanel();
 
+        JComponent lineTree = createVariationTreePanel();
+        lineTree.setPreferredSize(new Dimension(184, 1));
+        lineTree.setMinimumSize(new Dimension(144, 1));
+
         JComponent side = createAnalyzeInspector();
         side.setPreferredSize(SIDE_RAIL_SIZE);
 
-        JSplitPane boardPage = SplitPaneStyler.styledHorizontalSplit(analyzeBoardSlot, side, 0.70);
+        JSplitPane boardAndLine = SplitPaneStyler.styledHorizontalSplit(lineTree, analyzeBoardSlot, 0.22);
+        boardAndLine.setResizeWeight(0.0d);
+        boardAndLine.setDividerLocation(184);
+        JSplitPane boardPage = SplitPaneStyler.styledHorizontalSplit(boardAndLine, side, 0.68);
 
         analysisCards = transparentPanel(new CardLayout());
         analysisCards.add(boardPage, ANALYZE_CARD_BOARD);
         analysisCards.add(createGameSection(), ANALYZE_CARD_GAME);
         return analysisCards;
+    }
+
+    /**
+     * Creates the compact main-line tree beside the Analyze board.
+     *
+     * @return variation tree component
+     */
+    private JComponent createVariationTreePanel() {
+        analyzeVariationTree = new AnalyzeVariationTreePanel(gameModel, this::jumpGameTo);
+        return analyzeVariationTree;
     }
 
     /**
@@ -599,9 +621,9 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     private JComponent createAnalyzeInspector() {
         JPanel stack = transparentPanel(null);
         stack.setLayout(new BoxLayout(stack, BoxLayout.Y_AXIS));
-        stack.add(createPositionControls());
-        stack.add(Box.createVerticalStrut(Theme.SPACE_MD));
         stack.add(createAnalysisWorkspaceCard());
+        stack.add(Box.createVerticalStrut(Theme.SPACE_MD));
+        stack.add(createPositionControls());
         stack.add(Box.createVerticalStrut(Theme.SPACE_MD));
         stack.add(createAnalysisControls());
         stack.add(Box.createVerticalGlue());
@@ -650,7 +672,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         fenField.setFont(Theme.mono(Theme.FONT_MONO));
         fenField.setToolTipText("Paste a FEN and press Enter to load");
         fenField.addActionListener(event -> setPositionFromField());
-        fenField.setColumns(34);
+        fenField.setColumns(24);
 
         JPanel fenHeader = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
         JLabel fenLabel = new JLabel("FEN");
@@ -663,10 +685,10 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         body.add(fenField);
         body.add(Box.createVerticalStrut(Theme.SPACE_SM));
 
-        body.add(metricGrid(
-                metric("Side", analyzeSideValue),
-                metric("Legal moves", analyzeLegalValue),
-                metric("Material", analyzeMaterialValue)));
+        body.add(metricList(
+                metricRow("Side", analyzeSideValue),
+                metricRow("Legal", analyzeLegalValue),
+                metricRow("Material", analyzeMaterialValue)));
         body.add(Box.createVerticalStrut(Theme.SPACE_SM));
 
         boardStartButton = iconButton("Start", event -> jumpGameTo(0));
@@ -879,6 +901,41 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
+     * Builds a stacked metric list for narrow inspector cards.
+     *
+     * @param metrics metric rows
+     * @return metric list
+     */
+    private static JComponent metricList(JComponent... metrics) {
+        JPanel panel = transparentPanel(null);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        for (JComponent metric : metrics) {
+            panel.add(metric);
+            panel.add(Box.createVerticalStrut(Theme.SPACE_XS));
+        }
+        return panel;
+    }
+
+    /**
+     * Builds one horizontal metric row.
+     *
+     * @param label metric label
+     * @param value value label
+     * @return metric row
+     */
+    private static JComponent metricRow(String label, JLabel value) {
+        JPanel panel = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        panel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JLabel title = new JLabel(label);
+        Theme.foreground(title, Theme.ForegroundRole.MUTED);
+        value.setHorizontalAlignment(JLabel.RIGHT);
+        panel.add(title, BorderLayout.WEST);
+        panel.add(value, BorderLayout.EAST);
+        return panel;
+    }
+
+    /**
      * Builds one metric cell.
      *
      * @param label metric label
@@ -980,9 +1037,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     private JComponent createAnalysisResultPanel() {
         analysisResultCards.setOpaque(false);
 
-        JComponent empty = Ui.emptyState("No analysis yet",
-                "Run Analyze or Search to see evaluation history, depth, and candidate moves.",
-                button("Analyze", true, event -> runAnalyze()));
+        JComponent empty = createCompactAnalysisEmptyState();
 
         JPanel populated = verticalBody();
         populated.add(metricGrid(
@@ -1009,6 +1064,21 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
+     * Creates a narrow empty state for the analysis rail.
+     *
+     * @return compact empty state
+     */
+    private JComponent createCompactAnalysisEmptyState() {
+        JPanel panel = verticalBody();
+        panel.add(label("No analysis"));
+        panel.add(Box.createVerticalStrut(Theme.SPACE_XS));
+        panel.add(Ui.caption("Run Analyze or Search to see eval lines."));
+        panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        panel.add(controlRow(FlowLayout.LEFT, button("Analyze", true, event -> runAnalyze())));
+        return panel;
+    }
+
+    /**
      * Refreshes Board / Analyze position and analysis summary widgets.
      */
     protected void refreshAnalyzeInspector() {
@@ -1025,6 +1095,9 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
             analyzeMaterialValue.setText(materialSummary().replace("Material ", ""));
         }
         refreshAnalysisResult();
+        if (analyzeVariationTree != null) {
+            analyzeVariationTree.repaint();
+        }
     }
 
     /**
