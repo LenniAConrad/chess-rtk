@@ -375,43 +375,43 @@ public final class Theme {
     /**
      * VS Code macOS dark primary foreground.
      */
-    static final Color DARK_INK = new Color(0xE8E8E8);
+    static final Color DARK_INK = new Color(0xDDE6EE);
 
     /**
      * VS Code macOS dark secondary foreground.
      */
-    static final Color DARK_MUTED = new Color(0xA1A1A1);
+    static final Color DARK_MUTED = new Color(0x8FA1B2);
 
     /**
      * VS Code macOS dark title/sidebar chrome background.
      */
-    static final Color DARK_CHROME = new Color(0x2C2C2C);
+    static final Color DARK_CHROME = new Color(0x11171D);
 
     /**
      * VS Code macOS dark widget border.
      */
-    static final Color DARK_SUBTLE = new Color(0x3A3A3A);
+    static final Color DARK_SUBTLE = new Color(0x26313B);
 
     /**
      * VS Code Dark (Visual Studio) editor surface.
      */
-    static final Color DARK_DOCUMENT = new Color(0x1E1E1E);
+    static final Color DARK_DOCUMENT = new Color(0x0F151A);
 
     /**
      * VS Code macOS dark popup/dropdown surface.
      */
-    static final Color DARK_ELEVATED = new Color(0x252525);
+    static final Color DARK_ELEVATED = new Color(0x161D23);
 
     /**
      * VS Code macOS dark menu separator and input border.
      */
-    static final Color DARK_BORDER = new Color(0x484848);
+    static final Color DARK_BORDER = new Color(0x2D3944);
 
     /**
      * macOS-style action blue for dark mode: brighter than the light accent so
      * it pops on dark chrome, while still clearing AA 4.5:1 for white text.
      */
-    static final Color DARK_ACCENT = new Color(0x0A6EE4);
+    static final Color DARK_ACCENT = new Color(0x2E74D0);
 
     /**
      * macOS system blue dark hover.

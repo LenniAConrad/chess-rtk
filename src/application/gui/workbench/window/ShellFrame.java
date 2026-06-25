@@ -2,6 +2,7 @@ package application.gui.workbench.window;
 
 import application.gui.workbench.layout.EditorSplitArea;
 import application.gui.workbench.layout.SplitPaneStyler;
+import application.gui.workbench.game.StudyRepository;
 import application.gui.workbench.session.Job;
 import application.gui.workbench.session.JobStatus;
 import application.gui.workbench.session.Session;
@@ -22,6 +23,7 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,6 +33,7 @@ import java.util.function.Supplier;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -63,6 +66,11 @@ final class ShellFrame extends JPanel {
      * Bottom run dock height in pixels.
      */
     private static final int RUN_DOCK_HEIGHT = 172;
+
+    /**
+     * Collapsed bottom run dock height in pixels.
+     */
+    private static final int RUN_DOCK_COLLAPSED_HEIGHT = 42;
 
     /**
      * Client property marking inspector blocks that keep elevated chrome.
@@ -100,6 +108,16 @@ final class ShellFrame extends JPanel {
     private final Runnable openLatestLog;
 
     /**
+     * Callback for opening the board Study authoring rail.
+     */
+    private final Runnable showStudies;
+
+    /**
+     * Local PGN-backed study repository.
+     */
+    private final StudyRepository studyRepository = StudyRepository.defaultRepository();
+
+    /**
      * Navigator rows that mirror the selected editor tab.
      */
     private final List<NavigatorRow> navigatorRows = new ArrayList<>();
@@ -125,6 +143,31 @@ final class ShellFrame extends JPanel {
     private final JPanel runRows = verticalPanel();
 
     /**
+     * Split pane between the editor shell and the bottom run dock.
+     */
+    private JSplitPane mainAndRunSplit;
+
+    /**
+     * Bottom run dock shell.
+     */
+    private JComponent runDock;
+
+    /**
+     * Run dock body hidden when the dock is collapsed.
+     */
+    private JComponent runDockBody;
+
+    /**
+     * Run dock collapse/expand button.
+     */
+    private JButton runDockToggle;
+
+    /**
+     * Whether the bottom run dock is collapsed.
+     */
+    private boolean runDockCollapsed;
+
+    /**
      * Run dock tab strip.
      */
     private final JComponent dockTabs = new DockTabs();
@@ -145,7 +188,7 @@ final class ShellFrame extends JPanel {
      * @param openLatestLog latest-log callback
      */
     ShellFrame(EditorSplitArea tabs, Session session, IntConsumer selectTab,
-            Runnable showConsole, Runnable showLogs, Runnable openLatestLog) {
+            Runnable showConsole, Runnable showLogs, Runnable openLatestLog, Runnable showStudies) {
         super(new BorderLayout());
         this.tabs = tabs;
         this.session = session;
@@ -153,6 +196,7 @@ final class ShellFrame extends JPanel {
         this.showConsole = showConsole;
         this.showLogs = showLogs;
         this.openLatestLog = openLatestLog;
+        this.showStudies = showStudies == null ? () -> selectTab.accept(WindowBase.TAB_BOARD) : showStudies;
         setOpaque(false);
         add(buildShell(), BorderLayout.CENTER);
         installSessionListeners();
@@ -291,10 +335,11 @@ final class ShellFrame extends JPanel {
         withNavigator.setResizeWeight(0.0d);
         withNavigator.setDividerLocation(NAVIGATOR_WIDTH);
 
-        JSplitPane withDock = SplitPaneStyler.styledVerticalSplit(withNavigator, buildRunDock(), 0.80d);
-        withDock.setResizeWeight(1.0d);
-        withDock.setDividerLocation(0.80d);
-        return withDock;
+        runDock = buildRunDock();
+        mainAndRunSplit = SplitPaneStyler.styledVerticalSplit(withNavigator, runDock, 0.80d);
+        mainAndRunSplit.setResizeWeight(1.0d);
+        mainAndRunSplit.setDividerLocation(0.80d);
+        return mainAndRunSplit;
     }
 
     /**
@@ -324,51 +369,52 @@ final class ShellFrame extends JPanel {
         content.add(navRow("Project Home", WindowBase.TAB_DASHBOARD, "Home",
                 this::emptyCount, true));
         content.add(Box.createVerticalStrut(Theme.SPACE_MD));
-        content.add(sectionLabel("LIBRARY"));
-        content.add(navRow("All Games", WindowBase.TAB_BOARD, "Open the current game and board workspace",
-                this::currentGameCount, true));
-        content.add(navRow("Recent", WindowBase.TAB_LOGS, "Recent persisted runs and logs",
-                this::jobHistoryCount, true));
-        content.add(navRow("Imported", WindowBase.TAB_BOARD, "Open imported PGN/FEN content in Board",
-                this::artifactCount, false));
-        content.add(navRow("Favorites", WindowBase.TAB_BOARD, "Saved-game workflow",
-                this::zeroCount, false));
-        content.add(navRow("Duplicates", WindowBase.TAB_DATASETS, "Dataset and duplicate review tools",
-                this::zeroCount, false));
-        content.add(Box.createVerticalStrut(Theme.SPACE_MD));
-        content.add(sectionLabel("STUDIES"));
-        content.add(navRow("My Studies", WindowBase.TAB_BOARD, "Study and review tools on the shared board",
-                this::tagCount, false));
-        content.add(navRow("Endgames", WindowBase.TAB_BOARD, "Endgame-oriented tags and tablebase state",
-                () -> tagMatchCount("ENDGAME", "TABLEBASE"), false));
-        content.add(navRow("Openings", WindowBase.TAB_BOARD, "Opening and ECO-oriented board tools",
-                () -> tagMatchCount("OPENING", "ECO"), false));
-        content.add(Box.createVerticalStrut(Theme.SPACE_MD));
-        content.add(sectionLabel("PUZZLE SETS"));
-        content.add(navRow("Tactics", WindowBase.TAB_BOARD, "Tactical tags and solve mode",
-                () -> tagMatchCount("TACTIC", "THREAT", "CHECK"), false));
-        content.add(navRow("Themes", WindowBase.TAB_BOARD, "Current position tag set",
-                this::tagCount, false));
-        content.add(Box.createVerticalStrut(Theme.SPACE_MD));
-        content.add(sectionLabel("EXPERIMENTS"));
-        content.add(navRow("Engine Tests", WindowBase.TAB_ENGINE, "Engine Lab, search, and gauntlet tools",
-                this::jobHistoryCount, true));
-        content.add(navRow("Model Comparisons", WindowBase.TAB_ENGINE, "Engine comparison workflows",
-                this::activeRunCount, false));
-        content.add(navRow("Search Experiments", WindowBase.TAB_ENGINE, "MCTS and search-tree workflows",
-                this::activeRunCount, false));
-        content.add(Box.createVerticalStrut(Theme.SPACE_MD));
-        content.add(sectionLabel("DATA"));
-        content.add(navRow("Datasets", WindowBase.TAB_DATASETS, "Training-data summaries and validation",
-                this::artifactCount, true));
-        content.add(navRow("Transformations", WindowBase.TAB_DATASETS, "Dataset conversion outputs",
-                this::artifactCount, false));
-        content.add(Box.createVerticalStrut(Theme.SPACE_MD));
-        content.add(sectionLabel("PUBLICATIONS"));
-        content.add(navRow("Books", WindowBase.TAB_PUBLISH, "Book and study rendering",
-                this::artifactCount, true));
-        content.add(navRow("Articles", WindowBase.TAB_PUBLISH, "Report and article rendering",
-                this::artifactCount, false));
+        content.add(navigatorSection("LIBRARY", true,
+                navRow("All Games", WindowBase.TAB_BOARD, "Open the current game and board workspace",
+                        this::currentGameCount, true),
+                navRow("Resume", WindowBase.TAB_LOGS, "Resume from recent persisted runs and logs",
+                        this::jobHistoryCount, true),
+                navRow("Imported", WindowBase.TAB_BOARD, "Open imported PGN/FEN content in Board",
+                        this::artifactCount, false),
+                navRow("Favorites", WindowBase.TAB_BOARD, "Saved-game workflow",
+                        this::zeroCount, false),
+                navRow("Duplicates", WindowBase.TAB_DATASETS, "Dataset and duplicate review tools",
+                        this::zeroCount, false)));
+        content.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        content.add(navigatorSection("STUDIES", true,
+                navRow("My Studies", WindowBase.TAB_BOARD,
+                        "Open local PGN-backed study books and create a starter study",
+                        this::studyCount, false, this::openStudyLibrary),
+                navRow("Endgames", WindowBase.TAB_BOARD, "Endgame-oriented tags and tablebase state",
+                        () -> tagMatchCount("ENDGAME", "TABLEBASE"), false),
+                navRow("Openings", WindowBase.TAB_BOARD, "Opening and ECO-oriented board tools",
+                        () -> tagMatchCount("OPENING", "ECO"), false)));
+        content.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        content.add(navigatorSection("PUZZLE SETS", false,
+                navRow("Tactics", WindowBase.TAB_BOARD, "Tactical tags and solve mode",
+                        () -> tagMatchCount("TACTIC", "THREAT", "CHECK"), false),
+                navRow("Themes", WindowBase.TAB_BOARD, "Current position tag set",
+                        this::tagCount, false)));
+        content.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        content.add(navigatorSection("EXPERIMENTS", false,
+                navRow("Engine Tests", WindowBase.TAB_ENGINE, "Engine Lab, search, and gauntlet tools",
+                        this::jobHistoryCount, true),
+                navRow("Model Comparisons", WindowBase.TAB_ENGINE, "Engine comparison workflows",
+                        this::activeRunCount, false),
+                navRow("Search Experiments", WindowBase.TAB_ENGINE, "MCTS and search-tree workflows",
+                        this::activeRunCount, false)));
+        content.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        content.add(navigatorSection("DATA", false,
+                navRow("Datasets", WindowBase.TAB_DATASETS, "Training-data summaries and validation",
+                        this::artifactCount, true),
+                navRow("Transformations", WindowBase.TAB_DATASETS, "Dataset conversion outputs",
+                        this::artifactCount, false)));
+        content.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        content.add(navigatorSection("PUBLICATIONS", false,
+                navRow("Books", WindowBase.TAB_PUBLISH, "Book and study rendering",
+                        this::artifactCount, true),
+                navRow("Articles", WindowBase.TAB_PUBLISH, "Report and article rendering",
+                        this::artifactCount, false)));
         content.add(Box.createVerticalGlue());
         panel.add(Ui.scroll(content, () -> Theme.BG), BorderLayout.CENTER);
         panel.add(navigatorFooter(), BorderLayout.SOUTH);
@@ -387,10 +433,61 @@ final class ShellFrame extends JPanel {
      */
     private JComponent navRow(String text, int tabIndex, String tooltip,
             Supplier<String> countSupplier, boolean selectedForTab) {
+        return navRow(text, tabIndex, tooltip, countSupplier, selectedForTab,
+                () -> selectTab.accept(tabIndex));
+    }
+
+    /**
+     * Builds one navigator row with a custom action.
+     *
+     * @param text row label
+     * @param tabIndex target tab index
+     * @param tooltip tooltip text
+     * @param countSupplier row count supplier
+     * @param selectedForTab whether this row mirrors tab selection
+     * @param action row action
+     * @return row component
+     */
+    private JComponent navRow(String text, int tabIndex, String tooltip,
+            Supplier<String> countSupplier, boolean selectedForTab, Runnable action) {
         NavigatorRow row = new NavigatorRow(text, tabIndex, tooltip, countSupplier,
-                selectedForTab, () -> selectTab.accept(tabIndex));
+                selectedForTab, action);
         navigatorRows.add(row);
         return row;
+    }
+
+    /**
+     * Builds one collapsible navigator section.
+     *
+     * @param title section title
+     * @param expanded initial expanded state
+     * @param rows section rows
+     * @return section component
+     */
+    private static JComponent navigatorSection(String title, boolean expanded, JComponent... rows) {
+        return new NavigatorSection(title, expanded, rows);
+    }
+
+    /**
+     * Returns the local study-book count.
+     *
+     * @return count text
+     */
+    private String studyCount() {
+        return Integer.toString(studyRepository.count());
+    }
+
+    /**
+     * Creates a starter study when needed and opens the Study authoring rail.
+     */
+    private void openStudyLibrary() {
+        try {
+            studyRepository.ensureStarterStudy();
+        } catch (IOException ex) {
+            latestOutput.setText("Study repository failed: " + ex.getMessage());
+        }
+        showStudies.run();
+        refreshSession();
     }
 
     /**
@@ -423,150 +520,11 @@ final class ShellFrame extends JPanel {
         JPanel content = verticalPanel();
         content.setBorder(Theme.pad(Theme.SPACE_MD, Theme.SPACE_MD, Theme.SPACE_MD, Theme.SPACE_MD));
         content.add(sectionLabel("INSPECTOR"));
-        content.add(inspectorTabs());
-        content.add(Box.createVerticalStrut(Theme.SPACE_SM));
         content.add(inspectorFields);
         content.add(Box.createVerticalGlue());
 
         panel.add(Ui.scroll(content, () -> Theme.BG), BorderLayout.CENTER);
-        panel.add(new ActivityRail(), BorderLayout.EAST);
         return panel;
-    }
-
-    /**
-     * Builds the compact inspector tab strip shown above details.
-     *
-     * @return tab strip
-     */
-    private static JComponent inspectorTabs() {
-        JPanel tabs = new JPanel(new FlowLayout(FlowLayout.LEFT, Theme.SPACE_MD, 0));
-        tabs.setOpaque(false);
-        tabs.setAlignmentX(Component.LEFT_ALIGNMENT);
-        tabs.add(inspectorTab("Details", true));
-        tabs.add(inspectorTab("Openings", false));
-        tabs.add(inspectorTab("Tablebase", false));
-        tabs.add(inspectorTab("Tags", false));
-        return tabs;
-    }
-
-    /**
-     * Builds one inspector tab label.
-     *
-     * @param text tab text
-     * @param selected selected state
-     * @return tab label
-     */
-    private static JComponent inspectorTab(String text, boolean selected) {
-        return selected ? sectionLabel(text.toUpperCase(Locale.ROOT)) : Ui.caption(text);
-    }
-
-    /**
-     * Slim activity rail on the outside edge of the inspector.
-     */
-    private static final class ActivityRail extends JComponent {
-
-        /**
-         * Serialization identifier for Swing compatibility.
-         */
-        private static final long serialVersionUID = 1L;
-
-        /**
-         * Creates the rail.
-         */
-        ActivityRail() {
-            setOpaque(false);
-            setToolTipText("Inspector views");
-        }
-
-        /**
-         * Returns the stable rail width.
-         *
-         * @return preferred size
-         */
-        @Override
-        public Dimension getPreferredSize() {
-            return new Dimension(34, 1);
-        }
-
-        /**
-         * Returns the stable rail minimum.
-         *
-         * @return minimum size
-         */
-        @Override
-        public Dimension getMinimumSize() {
-            return getPreferredSize();
-        }
-
-        /**
-         * Paints the rail and its compact view icons.
-         *
-         * @param graphics graphics context
-         */
-        @Override
-        protected void paintComponent(Graphics graphics) {
-            Graphics2D g = (Graphics2D) graphics.create();
-            try {
-                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g.setColor(Theme.BG);
-                g.fillRect(0, 0, getWidth(), getHeight());
-                g.setColor(Theme.LINE);
-                g.drawLine(0, 0, 0, getHeight());
-                int y = 24;
-                for (int i = 0; i < 5; i++) {
-                    paintIcon(g, getWidth() / 2, y, i, i == 2);
-                    y += 34;
-                }
-            } finally {
-                g.dispose();
-            }
-        }
-
-        /**
-         * Paints one rail icon.
-         *
-         * @param g graphics context
-         * @param cx center x
-         * @param cy center y
-         * @param index icon index
-         * @param active selected icon state
-         */
-        private void paintIcon(Graphics2D g, int cx, int cy, int index, boolean active) {
-            g.setColor(active ? Theme.ACCENT : Theme.withAlpha(Theme.MUTED, Theme.isDark() ? 190 : 165));
-            g.setStroke(new BasicStroke(1.35f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-            if (active) {
-                g.fillRoundRect(2, cy - 9, 3, 18, 3, 3);
-            }
-            switch (index) {
-                case 0 -> {
-                    g.drawLine(cx - 5, cy - 5, cx + 5, cy - 5);
-                    g.drawLine(cx - 5, cy, cx + 5, cy);
-                    g.drawLine(cx - 5, cy + 5, cx + 5, cy + 5);
-                }
-                case 1 -> {
-                    g.drawRect(cx - 6, cy - 6, 12, 12);
-                    g.drawLine(cx - 2, cy - 6, cx - 2, cy + 6);
-                    g.drawLine(cx + 2, cy - 6, cx + 2, cy + 6);
-                }
-                case 2 -> {
-                    g.drawLine(cx - 5, cy - 5, cx + 5, cy - 5);
-                    g.drawLine(cx - 5, cy, cx + 5, cy);
-                    g.drawLine(cx - 5, cy + 5, cx + 5, cy + 5);
-                    g.fillOval(cx - 1, cy - 7, 4, 4);
-                    g.fillOval(cx - 6, cy - 2, 4, 4);
-                    g.fillOval(cx + 2, cy + 3, 4, 4);
-                }
-                case 3 -> {
-                    g.drawRoundRect(cx - 6, cy - 5, 12, 10, 5, 5);
-                    g.drawLine(cx - 1, cy - 5, cx + 5, cy + 1);
-                }
-                default -> {
-                    g.drawOval(cx - 6, cy - 6, 12, 12);
-                    g.drawLine(cx, cy - 1, cx, cy + 4);
-                    g.fillOval(cx - 1, cy - 4, 3, 3);
-                }
-            }
-        }
     }
 
     /**
@@ -587,8 +545,13 @@ final class ShellFrame extends JPanel {
         header.add(dockTabs, BorderLayout.CENTER);
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, Theme.SPACE_SM, 0));
         actions.setOpaque(false);
+        runDockToggle = Ui.ghostButton("Collapse", event -> setRunDockCollapsed(!runDockCollapsed));
+        runDockToggle.setName("workbench.runDock.toggle");
+        runDockToggle.setActionCommand("workbench.runDock.toggle");
+        describe(runDockToggle, "Collapse Run Center");
         actions.add(Ui.ghostButton("Console", event -> showConsole.run()));
         actions.add(Ui.ghostButton("Logs", event -> showLogs.run()));
+        actions.add(runDockToggle);
         header.add(actions, BorderLayout.EAST);
         panel.add(header, BorderLayout.NORTH);
 
@@ -606,8 +569,46 @@ final class ShellFrame extends JPanel {
 
         JSplitPane split = SplitPaneStyler.styledHorizontalSplit(runColumn, outputColumn, 0.56d);
         split.setResizeWeight(0.56d);
-        panel.add(split, BorderLayout.CENTER);
+        runDockBody = split;
+        panel.add(runDockBody, BorderLayout.CENTER);
         return panel;
+    }
+
+    /**
+     * Collapses or expands the bottom run dock.
+     *
+     * @param collapsed true for compact header-only dock
+     */
+    private void setRunDockCollapsed(boolean collapsed) {
+        runDockCollapsed = collapsed;
+        if (runDockBody != null) {
+            runDockBody.setVisible(!collapsed);
+        }
+        if (runDock != null) {
+            int height = collapsed ? RUN_DOCK_COLLAPSED_HEIGHT : RUN_DOCK_HEIGHT;
+            int minimum = collapsed ? RUN_DOCK_COLLAPSED_HEIGHT : 124;
+            runDock.setPreferredSize(new Dimension(1, height));
+            runDock.setMinimumSize(new Dimension(1, minimum));
+        }
+        if (runDockToggle != null) {
+            runDockToggle.setText(collapsed ? "Expand" : "Collapse");
+            describe(runDockToggle, collapsed ? "Expand Run Center" : "Collapse Run Center");
+        }
+        revalidate();
+        repaint();
+        SwingUtilities.invokeLater(this::resizeRunDock);
+    }
+
+    /**
+     * Keeps the bottom split divider aligned with the run dock's current
+     * preferred height.
+     */
+    private void resizeRunDock() {
+        if (mainAndRunSplit == null || runDock == null || mainAndRunSplit.getHeight() <= 0) {
+            return;
+        }
+        int dockHeight = runDock.getPreferredSize().height;
+        mainAndRunSplit.setDividerLocation(Math.max(0, mainAndRunSplit.getHeight() - dockHeight));
     }
 
     /**
@@ -982,6 +983,32 @@ final class ShellFrame extends JPanel {
     }
 
     /**
+     * Applies a concise tooltip and accessible description.
+     *
+     * @param component component to describe
+     * @param description user-facing description
+     */
+    private static void describe(JComponent component, String description) {
+        String text = description == null ? "" : description;
+        component.setToolTipText(text);
+        component.getAccessibleContext().setAccessibleDescription(text);
+    }
+
+    /**
+     * Builds a stable component/action identifier from a visible label.
+     *
+     * @param scope identifier scope
+     * @param label visible label
+     * @return stable identifier
+     */
+    private static String actionId(String scope, String label) {
+        String clean = (label == null ? "item" : label.toLowerCase(Locale.ROOT))
+                .replaceAll("[^a-z0-9]+", ".")
+                .replaceAll("^\\.+|\\.+$", "");
+        return scope + "." + (clean.isBlank() ? "item" : clean);
+    }
+
+    /**
      * Creates a shell panel.
      *
      * @return panel
@@ -1335,6 +1362,222 @@ final class ShellFrame extends JPanel {
     }
 
     /**
+     * Collapsible section in the left navigator.
+     */
+    private static final class NavigatorSection extends JPanel {
+
+        /**
+         * Serialization identifier for Swing compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Section header.
+         */
+        private final NavigatorSectionHeader header;
+
+        /**
+         * Section body rows.
+         */
+        private final JPanel body = verticalPanel();
+
+        /**
+         * Whether the section body is visible.
+         */
+        private boolean expanded;
+
+        /**
+         * Creates a navigator section.
+         *
+         * @param title section title
+         * @param expanded initial expanded state
+         * @param rows section rows
+         */
+        NavigatorSection(String title, boolean expanded, JComponent... rows) {
+            super(new BorderLayout(0, 0));
+            setOpaque(false);
+            setAlignmentX(Component.LEFT_ALIGNMENT);
+            setName(actionId("workbench.navigator.section", title));
+            header = new NavigatorSectionHeader(title, () -> setExpanded(!this.expanded));
+            add(header, BorderLayout.NORTH);
+            if (rows != null) {
+                for (JComponent row : rows) {
+                    body.add(row);
+                }
+            }
+            add(body, BorderLayout.CENTER);
+            setExpanded(expanded);
+        }
+
+        /**
+         * Sets whether the section is expanded.
+         *
+         * @param value expanded state
+         */
+        private void setExpanded(boolean value) {
+            expanded = value;
+            body.setVisible(value);
+            header.setExpanded(value);
+            revalidate();
+            repaint();
+        }
+
+        /**
+         * Returns the maximum size used by the vertical navigator layout.
+         *
+         * @return maximum size
+         */
+        @Override
+        public Dimension getMaximumSize() {
+            return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
+        }
+    }
+
+    /**
+     * Header control for a collapsible navigator section.
+     */
+    private static final class NavigatorSectionHeader extends JComponent {
+
+        /**
+         * Serialization identifier for Swing compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Header title.
+         */
+        private final String title;
+
+        /**
+         * Toggle action.
+         */
+        private final Runnable toggle;
+
+        /**
+         * Whether the pointer is over the header.
+         */
+        private boolean hovered;
+
+        /**
+         * Whether the section is expanded.
+         */
+        private boolean expanded;
+
+        /**
+         * Creates the header.
+         *
+         * @param title section title
+         * @param toggle toggle action
+         */
+        NavigatorSectionHeader(String title, Runnable toggle) {
+            this.title = title == null ? "" : title;
+            this.toggle = toggle == null ? () -> { } : toggle;
+            setOpaque(false);
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            setAlignmentX(Component.LEFT_ALIGNMENT);
+            setName(actionId("workbench.navigator.section.toggle", this.title));
+            putClientProperty("workbench.actionId", getName());
+            getAccessibleContext().setAccessibleName(this.title);
+            describe(this, "Toggle " + this.title);
+            addMouseListener(new MouseAdapter() {
+                /**
+                 * {@inheritDoc}
+                 */
+                @Override
+                public void mouseEntered(MouseEvent event) {
+                    hovered = true;
+                    repaint();
+                }
+
+                /**
+                 * {@inheritDoc}
+                 */
+                @Override
+                public void mouseExited(MouseEvent event) {
+                    hovered = false;
+                    repaint();
+                }
+
+                /**
+                 * {@inheritDoc}
+                 */
+                @Override
+                public void mousePressed(MouseEvent event) {
+                    if (SwingUtilities.isLeftMouseButton(event)) {
+                        NavigatorSectionHeader.this.toggle.run();
+                    }
+                }
+            });
+        }
+
+        /**
+         * Sets the expanded state.
+         *
+         * @param value expanded state
+         */
+        private void setExpanded(boolean value) {
+            boolean changed = expanded != value;
+            expanded = value;
+            getAccessibleContext().setAccessibleDescription(
+                    (value ? "Collapse " : "Expand ") + title);
+            setToolTipText((value ? "Collapse " : "Expand ") + title);
+            if (changed) {
+                repaint();
+            }
+        }
+
+        /**
+         * Returns the stable header size.
+         *
+         * @return preferred size
+         */
+        @Override
+        public Dimension getPreferredSize() {
+            return new Dimension(1, 23);
+        }
+
+        /**
+         * Returns the maximum size used by the vertical navigator layout.
+         *
+         * @return maximum size
+         */
+        @Override
+        public Dimension getMaximumSize() {
+            return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
+        }
+
+        /**
+         * Paints the section header.
+         *
+         * @param graphics graphics context
+         */
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            Graphics2D g = (Graphics2D) graphics.create();
+            try {
+                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                int w = getWidth();
+                int h = getHeight();
+                if (hovered) {
+                    g.setColor(Theme.TAB_HOVER);
+                    g.fillRoundRect(0, 1, Math.max(0, w - 1), h - 2, Theme.RADIUS, Theme.RADIUS);
+                }
+                Font headerFont = Theme.font(Theme.FONT_MICRO, Font.BOLD);
+                g.setColor(Theme.MUTED);
+                FontMetrics fm = g.getFontMetrics(headerFont);
+                int baseline = (h + fm.getAscent() - fm.getDescent()) / 2;
+                String chevron = expanded ? "v" : ">";
+                new java.awt.font.TextLayout(chevron, headerFont, g.getFontRenderContext())
+                        .draw(g, 8, baseline);
+                new java.awt.font.TextLayout(Ui.elide(title, fm, Math.max(20, w - 30)),
+                        headerFont, g.getFontRenderContext()).draw(g, 22, baseline);
+            } finally {
+                g.dispose();
+            }
+        }
+    }
+
+    /**
      * One custom-painted navigator row.
      */
     private static final class NavigatorRow extends JComponent {
@@ -1396,7 +1639,11 @@ final class ShellFrame extends JPanel {
             this.countSupplier = countSupplier == null ? () -> "" : countSupplier;
             this.selectedForTab = selectedForTab;
             this.action = action == null ? () -> { } : action;
+            setName(actionId("workbench.navigator.row", this.text));
+            putClientProperty("workbench.actionId", getName());
             setToolTipText(tooltip);
+            getAccessibleContext().setAccessibleName(this.text);
+            getAccessibleContext().setAccessibleDescription(tooltip == null ? this.text : tooltip);
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             setAlignmentX(Component.LEFT_ALIGNMENT);
             addMouseListener(new MouseAdapter() {

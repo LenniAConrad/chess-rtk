@@ -357,8 +357,6 @@ public final class SettingsMenu {
      * Builds all menus and menu items.
      */
     private void buildMenuBar() {
-        menuBar.add(TitleBarChrome.brand(controller::openDashboard));
-        menuBar.add(Box.createHorizontalStrut(Theme.SPACE_SM));
         menuBar.add(menu("File",
                 item("Open PGN…", "Ctrl+P", controller::openPgn),
                 item("Save PGN", null, controller::savePgn),

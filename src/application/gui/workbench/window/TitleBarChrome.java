@@ -3,8 +3,6 @@ package application.gui.workbench.window;
 import application.gui.workbench.session.Job;
 import application.gui.workbench.session.Session;
 import application.gui.workbench.ui.Theme;
-import java.awt.BasicStroke;
-import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -28,16 +26,6 @@ final class TitleBarChrome {
      */
     private TitleBarChrome() {
         // utility
-    }
-
-    /**
-     * Creates the left-side CRTK/workspace identity block.
-     *
-     * @param openDashboard callback for opening the dashboard
-     * @return brand component
-     */
-    static JComponent brand(Runnable openDashboard) {
-        return new Brand(openDashboard);
     }
 
     /**
@@ -147,136 +135,6 @@ final class TitleBarChrome {
             g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
                     RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             return g;
-        }
-    }
-
-    /**
-     * CRTK and workspace selector paint component.
-     */
-    private static final class Brand extends ChromeButton {
-
-        /**
-         * Serialization identifier for Swing compatibility.
-         */
-        private static final long serialVersionUID = 1L;
-
-        /**
-         * Creates the brand block.
-         *
-         * @param openDashboard callback for opening the dashboard
-         */
-        Brand(Runnable openDashboard) {
-            super("Open Project Home", openDashboard);
-            getAccessibleContext().setAccessibleName("CRTK Alpha Project workspace");
-        }
-
-        /**
-         * Returns the preferred title-bar footprint.
-         *
-         * @return preferred size
-         */
-        @Override
-        public Dimension getPreferredSize() {
-            return new Dimension(270, 28);
-        }
-
-        /**
-         * Returns the maximum title-bar footprint.
-         *
-         * @return maximum size
-         */
-        @Override
-        public Dimension getMaximumSize() {
-            return getPreferredSize();
-        }
-
-        /**
-         * Paints the brand block.
-         *
-         * @param graphics graphics context
-         */
-        @Override
-        protected void paintComponent(Graphics graphics) {
-            Graphics2D g = graphics(graphics);
-            try {
-                int h = getHeight();
-                paintTrafficLights(g, h / 2);
-                g.setFont(Theme.font(12, Font.BOLD));
-                g.setColor(Theme.TEXT);
-                FontMetrics title = g.getFontMetrics();
-                int baseline = (h + title.getAscent() - title.getDescent()) / 2;
-                g.drawString("CRTK", 62, baseline);
-                paintCaret(g, 97, h / 2);
-                g.setColor(Theme.LINE);
-                g.drawLine(116, 5, 116, h - 6);
-                paintProjectChip(g, h);
-            } finally {
-                g.dispose();
-            }
-        }
-
-        /**
-         * Paints macOS-style window dots.
-         *
-         * @param g graphics context
-         * @param cy center y
-         */
-        private void paintTrafficLights(Graphics2D g, int cy) {
-            paintDot(g, 14, cy, Theme.STATUS_ERROR_TEXT);
-            paintDot(g, 29, cy, Theme.STATUS_WARNING_TEXT);
-            paintDot(g, 44, cy, Theme.STATUS_SUCCESS_TEXT);
-        }
-
-        /**
-         * Paints one title-bar dot.
-         *
-         * @param g graphics context
-         * @param cx center x
-         * @param cy center y
-         * @param color fill color
-         */
-        private void paintDot(Graphics2D g, int cx, int cy, Color color) {
-            g.setColor(Theme.withAlpha(color, Theme.isDark() ? 245 : 230));
-            g.fillOval(cx - 5, cy - 5, 10, 10);
-            g.setColor(Theme.withAlpha(Theme.BOARD_SHADOW, Theme.isDark() ? 95 : 35));
-            g.drawOval(cx - 5, cy - 5, 10, 10);
-        }
-
-        /**
-         * Paints the local workspace chip.
-         *
-         * @param g graphics context
-         * @param height component height
-         */
-        private void paintProjectChip(Graphics2D g, int height) {
-            int x = 128;
-            int y = 3;
-            int w = 130;
-            int h = height - 6;
-            g.setColor(hovered ? Theme.TAB_HOVER : Theme.withAlpha(Theme.TAB_HOVER, 0));
-            g.fillRoundRect(x, y, w, h, Theme.RADIUS, Theme.RADIUS);
-            g.setColor(hovered ? Theme.LINE : Theme.withAlpha(Theme.LINE, 0));
-            g.drawRoundRect(x, y, w, h, Theme.RADIUS, Theme.RADIUS);
-            g.setFont(Theme.font(11, Font.PLAIN));
-            g.setColor(Theme.TEXT);
-            FontMetrics metrics = g.getFontMetrics();
-            int baseline = (height + metrics.getAscent() - metrics.getDescent()) / 2;
-            g.drawString("Alpha Project", x + 10, baseline);
-            paintCaret(g, x + w - 17, height / 2);
-        }
-
-        /**
-         * Paints a compact disclosure caret.
-         *
-         * @param g graphics context
-         * @param cx center x
-         * @param cy center y
-         */
-        private void paintCaret(Graphics2D g, int cx, int cy) {
-            g.setColor(Theme.MUTED);
-            g.setStroke(new BasicStroke(1.3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-            g.drawLine(cx - 3, cy - 1, cx, cy + 2);
-            g.drawLine(cx, cy + 2, cx + 3, cy - 1);
         }
     }
 

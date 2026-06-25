@@ -1,5 +1,6 @@
 package application.gui.workbench.ui;
 
+import application.gui.foundation.layout.ScrollableSupport;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -16,6 +17,7 @@ import java.awt.RenderingHints;
 import java.awt.event.ActionListener;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
@@ -24,19 +26,23 @@ import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JPopupMenu;
+import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JScrollPane;
 import javax.swing.JSlider;
 import javax.swing.JSpinner;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.JTextPane;
 import javax.swing.JTree;
 import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.JTextComponent;
 
 /**
- * Small Swing factory and layout helpers used by the workbench.
+ * Public facade for shared Workbench Swing factories, layout helpers, and
+ * control styling. Feature packages should prefer this facade over direct use
+ * of package-private styling helpers.
  */
 public final class Ui {
 
@@ -506,6 +512,17 @@ public final class Ui {
     }
 
     /**
+     * Styles an existing scroll pane and declares the surface color used by its
+     * viewport, scrollbar tracks, and corner fillers.
+     *
+     * @param pane scroll pane
+     * @param viewportSurface supplier of the surface colour the viewport sits on
+     */
+    public static void styleScrollPane(JScrollPane pane, java.util.function.Supplier<Color> viewportSurface) {
+        ScrollPaneStyler.style(pane, viewportSurface);
+    }
+
+    /**
      * Reapplies scroll-pane colors and custom scroll bars while preserving the
      * caller's outer border.
      *
@@ -516,12 +533,105 @@ public final class Ui {
     }
 
     /**
+     * Reapplies scroll-pane colors using a caller-declared viewport surface
+     * while preserving the caller's outer border.
+     *
+     * @param pane scroll pane
+     * @param viewportSurface supplier of the surface colour the viewport sits on
+     */
+    public static void refreshScrollPaneTheme(JScrollPane pane,
+            java.util.function.Supplier<Color> viewportSurface) {
+        ScrollPaneStyler.refresh(pane, viewportSurface);
+    }
+
+    /**
+     * Replaces a text pane's contents with syntax-highlighted TOML text.
+     *
+     * @param pane destination text pane
+     * @param text TOML source
+     */
+    public static void applyTomlHighlighting(JTextPane pane, String text) {
+        TomlHighlighter.apply(pane, text);
+    }
+
+    /**
+     * Returns a component's natural preferred viewport size for a
+     * {@link javax.swing.Scrollable} implementation.
+     *
+     * @param component component shown in a scroll pane
+     * @return preferred viewport size
+     */
+    public static Dimension preferredScrollableViewportSize(Component component) {
+        return ScrollableSupport.preferredViewportSize(component);
+    }
+
+    /**
+     * Returns the shared default unit scroll increment.
+     *
+     * @return unit scroll increment in pixels
+     */
+    public static int defaultScrollableUnitIncrement() {
+        return ScrollableSupport.DEFAULT_UNIT_INCREMENT;
+    }
+
+    /**
+     * Returns a block increment for a scrollable component, leaving one overlap
+     * step visible between page jumps.
+     *
+     * @param visibleRect visible viewport rectangle
+     * @param orientation scroll orientation
+     * @param overlap overlap and minimum increment in pixels
+     * @return block increment in pixels
+     */
+    public static int scrollableBlockIncrement(Rectangle visibleRect, int orientation, int overlap) {
+        return ScrollableSupport.blockIncrement(visibleRect, orientation, overlap);
+    }
+
+    /**
+     * Returns a vertical block increment for a scrollable component.
+     *
+     * @param visibleRect visible viewport rectangle
+     * @param increment minimum increment and overlap in pixels
+     * @return block increment in pixels
+     */
+    public static int verticalScrollableBlockIncrement(Rectangle visibleRect, int increment) {
+        return ScrollableSupport.verticalBlockIncrement(visibleRect, increment);
+    }
+
+    /**
      * Styles a tree view with shared Workbench chrome.
      *
      * @param tree tree view
      */
     public static void styleTree(JTree tree) {
         TreeStyler.style(tree);
+    }
+
+    /**
+     * Applies shared Workbench popup-row chrome to one menu item.
+     *
+     * @param item target item
+     */
+    public static void styleMenuItem(JMenuItem item) {
+        MenuGlyphs.styleItem(item);
+    }
+
+    /**
+     * Applies shared Workbench radio-menu chrome and glyphs.
+     *
+     * @param item radio menu item
+     */
+    public static void styleRadioMenuItem(JRadioButtonMenuItem item) {
+        MenuGlyphs.styleRadioItem(item);
+    }
+
+    /**
+     * Applies shared Workbench checkbox-menu chrome and glyphs.
+     *
+     * @param item checkbox menu item
+     */
+    public static void styleCheckMenuItem(JCheckBoxMenuItem item) {
+        MenuGlyphs.styleCheckItem(item);
     }
 
     /**
@@ -545,7 +655,7 @@ public final class Ui {
      * @param minColumnWidth minimum column width before the grid reflows
      * @return an empty card grid; add cards with {@link JComponent#add}
      */
-    public static CardGrid contentGrid(int minColumnWidth) {
+    public static JPanel contentGrid(int minColumnWidth) {
         return UiSurfaces.contentGrid(minColumnWidth);
     }
 
@@ -613,8 +723,43 @@ public final class Ui {
      * @param text preview text
      * @return command block
      */
-    public static CommandBlock commandBlock(String text) {
+    public static JTextArea commandBlock(String text) {
         return new CommandBlock(text);
+    }
+
+    /**
+     * Creates a compact indeterminate activity spinner.
+     *
+     * @return spinner component, initially hidden and idle
+     */
+    public static JComponent spinner() {
+        return new Spinner();
+    }
+
+    /**
+     * Creates an indeterminate activity spinner with a fixed square edge.
+     *
+     * @param size square edge length in pixels
+     * @return spinner component, initially hidden and idle
+     */
+    public static JComponent spinner(int size) {
+        return new Spinner(size);
+    }
+
+    /**
+     * Starts or stops a spinner created through {@link #spinner()} or
+     * {@link #spinner(int)}. Unknown components fall back to simple visibility
+     * changes so callers never need to know the concrete spinner type.
+     *
+     * @param spinner spinner component
+     * @param active true to show and animate it
+     */
+    public static void setSpinnerActive(JComponent spinner, boolean active) {
+        if (spinner instanceof Spinner workbenchSpinner) {
+            workbenchSpinner.setSpinning(active);
+        } else if (spinner != null) {
+            spinner.setVisible(active);
+        }
     }
 
     /**

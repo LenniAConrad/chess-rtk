@@ -75,6 +75,18 @@ final class ScrollPaneStyler {
     }
 
     /**
+     * Styles an existing scroll pane and declares the surface used for its
+     * viewport, tracks, and corners.
+     *
+     * @param pane scroll pane
+     * @param viewportSurface supplier of the embedding surface color
+     */
+    static void style(JScrollPane pane, Supplier<Color> viewportSurface) {
+        declareViewportSurface(pane, viewportSurface);
+        style(pane);
+    }
+
+    /**
      * Reapplies scroll-pane colors and custom scroll bars while preserving the
      * caller's outer border.
      *
@@ -92,6 +104,30 @@ final class ScrollPaneStyler {
         installScrollCorners(pane, viewportBackground);
         styleScrollBar(pane.getVerticalScrollBar(), viewportBackground);
         styleScrollBar(pane.getHorizontalScrollBar(), viewportBackground);
+    }
+
+    /**
+     * Declares a viewport surface and refreshes an existing scroll pane while
+     * preserving its caller-owned border.
+     *
+     * @param pane scroll pane
+     * @param viewportSurface supplier of the embedding surface color
+     */
+    static void refresh(JScrollPane pane, Supplier<Color> viewportSurface) {
+        declareViewportSurface(pane, viewportSurface);
+        refresh(pane);
+    }
+
+    /**
+     * Stores the caller-declared embedding surface.
+     *
+     * @param pane scroll pane
+     * @param viewportSurface supplier of the surface color
+     */
+    private static void declareViewportSurface(JScrollPane pane, Supplier<Color> viewportSurface) {
+        if (viewportSurface != null) {
+            pane.putClientProperty(VIEWPORT_SURFACE_KEY, viewportSurface);
+        }
     }
 
     /**

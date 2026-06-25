@@ -148,8 +148,7 @@ public final class InspectorPanel extends JPanel {
                 ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
                 ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         dataScroll.setBorder(BorderFactory.createLineBorder(Theme.LINE));
-        dataScroll.getViewport().setBackground(Theme.BG);
-        Ui.refreshScrollPaneTheme(dataScroll);
+        Ui.refreshScrollPaneTheme(dataScroll, () -> Theme.BG);
 
         JPanel header = new JPanel();
         header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));

@@ -143,9 +143,8 @@ public final class InspectorDialog extends JPanel {
         body.setLineWrap(false);
 
         JScrollPane scroll = new JScrollPane(body);
-        Ui.styleScrollPane(scroll);
+        Ui.styleScrollPane(scroll, () -> Theme.BG);
         scroll.setBorder(BorderFactory.createEmptyBorder());
-        scroll.getViewport().setBackground(Theme.BG);
 
         add(headerRow, BorderLayout.NORTH);
         add(scroll, BorderLayout.CENTER);

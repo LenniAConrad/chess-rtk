@@ -35,6 +35,7 @@ import application.gui.workbench.game.SavedGame;
 import application.gui.workbench.game.SavedGameStore;
 import application.gui.workbench.game.SanRenderer;
 import application.gui.workbench.game.StudyAuthorPanel;
+import application.gui.workbench.game.StudyRepository;
 import application.gui.workbench.game.TablebasePanel;
 import application.gui.workbench.ui.NotationPainter;
 import application.gui.workbench.ui.Theme;
@@ -103,6 +104,7 @@ final class WorkbenchGameRegression {
         testGameReviewPanelLoadsProducedReviewArtifacts();
         testGameReviewPanelBuildsStudyArtifactsViaCli();
         testSavedGameStoreRoundTripsAndValidatesMoves();
+        testStudyRepositoryCreatesStarterPgnBook();
         testStudyAuthorPanelBuildsManifestFromGameLine();
         testAccessibilityLabelsForNewWorkbenchPanels();
         testEvalBarMapping();
@@ -1044,6 +1046,33 @@ final class WorkbenchGameRegression {
             }
         }
         throw new AssertionError(label + ": timed out with row count " + panel.rowCount());
+    }
+
+    /**
+     * Verifies the local study repository seeds one empty PGN-backed study book.
+     */
+    private static void testStudyRepositoryCreatesStarterPgnBook() {
+        try {
+            Path dir = Files.createTempDirectory("crtk-study-repository-");
+            StudyRepository repository = new StudyRepository(dir);
+            assertEquals(Integer.valueOf(0), Integer.valueOf(repository.count()),
+                    "new study repository starts empty");
+            Path starter = repository.ensureStarterStudy();
+            assertTrue(Files.isRegularFile(starter), "starter study PGN is written");
+            String pgn = Files.readString(starter);
+            assertTrue(pgn.contains("[Event \"Workbench Study\"]"),
+                    "starter study has a readable event title");
+            assertTrue(pgn.strip().endsWith("*"), "starter study is an unfinished PGN chapter");
+            List<StudyRepository.StudyBook> studies = repository.studies();
+            assertEquals(Integer.valueOf(1), Integer.valueOf(studies.size()),
+                    "repository lists the starter study");
+            assertEquals("Workbench Study", studies.get(0).title(), "starter study title");
+            assertEquals(Integer.valueOf(1), Integer.valueOf(studies.get(0).chapters()),
+                    "starter study exposes one PGN chapter");
+            assertTrue(studies.get(0).empty(), "starter study chapter has no moves");
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("study repository setup failed", ex);
+        }
     }
 
     /**

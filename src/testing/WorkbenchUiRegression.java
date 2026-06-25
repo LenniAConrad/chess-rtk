@@ -65,6 +65,7 @@ import application.gui.workbench.board.BoardMarkupTool;
 import application.gui.workbench.draw.DrawPanel;
 import application.gui.workbench.layout.LazyPanel;
 import application.gui.workbench.layout.FlatTabbedPaneUI;
+import application.gui.workbench.layout.EditorLayoutCommands;
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.board.MarkupBrush;
 import application.gui.workbench.command.CommandForm;
@@ -81,7 +82,6 @@ import application.gui.workbench.ui.HoldButton;
 import application.gui.workbench.ui.SegmentedSwitcher;
 import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.SwitchedWorkspace;
-import application.gui.workbench.ui.SvgIcon;
 import application.gui.workbench.ui.TagCloud;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
@@ -363,6 +363,23 @@ final class WorkbenchUiRegression {
                 "workspace header primitive");
         assertEquals(JTabbedPane.class, Ui.tabbedPane().getClass(), "tabs primitive stays standard Swing pane");
         assertEquals("Card", Ui.card("Card", new JPanel()).getClass().getSimpleName(), "card primitive");
+        String themeColors = readSource(Path.of("src/application/gui/workbench/ui/ThemeColors.java"));
+        String backdrop = readSource(Path.of("src/application/gui/workbench/ui/BackdropPanel.java"));
+        assertFalse(themeColors.contains("GradientPaint"),
+                "shared card chrome uses a flat fill instead of a gradient");
+        assertFalse(backdrop.contains("GradientPaint"),
+                "root Workbench backdrop uses a flat fill instead of a gradient");
+        JComponent card = Ui.card("Command", new JPanel());
+        card.setSize(240, 120);
+        card.doLayout();
+        BufferedImage image = paint(card, 240, 120);
+        int upper = image.getRGB(120, 20);
+        int middle = image.getRGB(120, 60);
+        int lower = image.getRGB(120, 100);
+        assertEquals(Integer.valueOf(upper), Integer.valueOf(middle),
+                "shared card interior is vertically flat at the middle");
+        assertEquals(Integer.valueOf(upper), Integer.valueOf(lower),
+                "shared card interior is vertically flat at the bottom");
     }
 
     /**
@@ -410,6 +427,7 @@ final class WorkbenchUiRegression {
         String boardLayer = readSource(Path.of("src/application/gui/workbench/window/WindowBoardLayer.java"));
         String commandLayer = readSource(Path.of("src/application/gui/workbench/window/WindowCommandLayer.java"));
         String lazyPanel = readSource(Path.of("src/application/gui/workbench/layout/LazyPanel.java"));
+        String shellFrame = readSource(Path.of("src/application/gui/workbench/window/ShellFrame.java"));
         assertTrue(lifecycle.contains("new RegisteredView(\"Dashboard\", dashboardPanel)"),
                 "Dashboard remains a major shell route");
         assertTrue(lifecycle.contains("new RegisteredView(\"Engine Lab\""),
@@ -432,6 +450,40 @@ final class WorkbenchUiRegression {
                 "Run builder keeps raw command output accessible");
         assertTrue(lazyPanel.contains("Ui.emptyState(\"Loading \" + name"),
                 "lazy shell placeholders use the shared empty state");
+        assertFalse(shellFrame.contains("ActivityRail"),
+                "right inspector does not expose a non-functional icon rail");
+        assertFalse(shellFrame.contains("inspectorTabs()"),
+                "right inspector does not expose non-functional tab labels");
+        assertFalse(shellFrame.contains("Inspector views"),
+                "right inspector has no decorative rail tooltip");
+        assertTrue(shellFrame.contains("content.add(sectionLabel(\"INSPECTOR\"));"),
+                "right inspector keeps a clear single-pane heading");
+        assertTrue(shellFrame.contains("inspectorFields.add(sectionLabel(\"OPENING\"));"),
+                "right inspector keeps sectioned opening details");
+        assertTrue(shellFrame.contains("navRow(\"My Studies\", WindowBase.TAB_BOARD"),
+                "left navigator exposes a Study entry");
+        assertTrue(shellFrame.contains("this::studyCount, false, this::openStudyLibrary"),
+                "Study navigator entry uses the local study repository action");
+        assertTrue(lifecycle.contains("() -> showBoardDetail(\"Study\")"),
+                "Study navigator action opens the existing Study authoring rail");
+        assertTrue(shellFrame.contains("navigatorSection(\"LIBRARY\", true"),
+                "left navigator groups core routes in an expandable Library section");
+        assertTrue(shellFrame.contains("navigatorSection(\"STUDIES\", true"),
+                "left navigator keeps Studies as a first-class expandable section");
+        assertTrue(shellFrame.contains("navigatorSection(\"PUBLICATIONS\", false"),
+                "left navigator can keep lower-priority route groups collapsed by default");
+        assertTrue(shellFrame.contains("private static final class NavigatorSection"),
+                "left navigator owns a reusable collapsible section primitive");
+        assertTrue(shellFrame.contains("private static final class NavigatorSectionHeader"),
+                "left navigator section headers expose a focused toggle control");
+        assertTrue(shellFrame.contains("putClientProperty(\"workbench.actionId\", getName())"),
+                "navigator controls expose stable action identifiers");
+        assertTrue(shellFrame.contains("setRunDockCollapsed(!runDockCollapsed)"),
+                "bottom Run Center exposes a collapse/expand action");
+        assertTrue(shellFrame.contains("workbench.runDock.toggle"),
+                "Run Center toggle has a stable component/action id");
+        assertTrue(shellFrame.contains("runDockBody.setVisible(!collapsed)"),
+                "Run Center collapse hides the dock body instead of leaving dead space");
     }
 
     /**
@@ -480,8 +532,9 @@ final class WorkbenchUiRegression {
                 resign.getClientProperty(Theme.CLIENT_BUTTON_VARIANT), "resign uses destructive variant");
         assertEquals(Theme.ButtonVariant.DESTRUCTIVE,
                 rawStop.getClientProperty(Theme.CLIENT_BUTTON_VARIANT), "raw styled stop uses destructive variant");
-        assertEquals(SvgIcon.Kind.DESTRUCTIVE,
-                clear.getClientProperty(Theme.CLIENT_ICON_KIND), "clear uses destructive icon lane");
+        assertEquals("DESTRUCTIVE",
+                String.valueOf(clear.getClientProperty(Theme.CLIENT_ICON_KIND)),
+                "clear uses destructive icon lane");
         assertTrue(Theme.destructiveActionLabel("Delete selected"),
                 "delete action labels are destructive");
         assertTrue(Theme.destructiveActionLabel("Cancel Scan"),
@@ -582,17 +635,49 @@ final class WorkbenchUiRegression {
         console.applyConsoleTheme();
         console.appendOutput("plain engine output line\n");
         console.appendOutput("[exit 0] engine bestmove done\n");
+        console.appendOutput("2026-06-24 11:36:43 SEVERE display failed\n");
+        console.appendOutput("SEVERE FEN: not-a-fen\n");
+        console.appendOutput("2026-06-24 11:36:43 WARNING Engine stopped unexpectedly\n");
+        console.appendOutput("WARNING Retry scheduled\n");
+        console.appendOutput("2026-06-24 11:36:43 INFO Loaded config\n");
+        console.appendOutput("CONFIG Logger initialized\n");
         console.appendSectionHeader("workbench.log    modified 2026-06-23 20:00:00    1.0 KiB");
         javax.swing.text.StyledDocument doc = console.getStyledDocument();
         javax.swing.text.AttributeSet plain = doc.getCharacterElement(1).getAttributes();
         int secondLine = doc.getDefaultRootElement().getElement(1).getStartOffset();
         javax.swing.text.AttributeSet badge = doc.getCharacterElement(secondLine + 1).getAttributes();
-        int thirdLine = doc.getDefaultRootElement().getElement(2).getStartOffset();
-        javax.swing.text.AttributeSet section = doc.getCharacterElement(thirdLine + 1).getAttributes();
+        int severeLine = doc.getDefaultRootElement().getElement(2).getStartOffset();
+        javax.swing.text.AttributeSet severe = doc.getCharacterElement(severeLine + 1).getAttributes();
+        int severeContinuationLine = doc.getDefaultRootElement().getElement(3).getStartOffset();
+        javax.swing.text.AttributeSet severeContinuation =
+                doc.getCharacterElement(severeContinuationLine + 1).getAttributes();
+        int warningLine = doc.getDefaultRootElement().getElement(4).getStartOffset();
+        javax.swing.text.AttributeSet warning = doc.getCharacterElement(warningLine + 1).getAttributes();
+        int warningContinuationLine = doc.getDefaultRootElement().getElement(5).getStartOffset();
+        javax.swing.text.AttributeSet warningContinuation =
+                doc.getCharacterElement(warningContinuationLine + 1).getAttributes();
+        int infoLine = doc.getDefaultRootElement().getElement(6).getStartOffset();
+        javax.swing.text.AttributeSet info = doc.getCharacterElement(infoLine + 1).getAttributes();
+        int configLine = doc.getDefaultRootElement().getElement(7).getStartOffset();
+        javax.swing.text.AttributeSet config = doc.getCharacterElement(configLine + 1).getAttributes();
+        int sectionLine = doc.getDefaultRootElement().getElement(8).getStartOffset();
+        javax.swing.text.AttributeSet section = doc.getCharacterElement(sectionLine + 1).getAttributes();
         assertTrue(plain.getAttribute(javax.swing.text.StyleConstants.Background) == null,
                 "plain console output carries no badge background");
         assertTrue(badge.getAttribute(javax.swing.text.StyleConstants.Background) instanceof java.awt.Color,
                 "exit-status console line carries a tinted badge background");
+        assertEquals(Theme.STATUS_ERROR_TEXT, javax.swing.text.StyleConstants.getForeground(severe),
+                "timestamped SEVERE log lines use the error foreground");
+        assertEquals(Theme.STATUS_ERROR_TEXT, javax.swing.text.StyleConstants.getForeground(severeContinuation),
+                "SEVERE continuation log lines use the error foreground");
+        assertEquals(Theme.STATUS_WARNING_TEXT, javax.swing.text.StyleConstants.getForeground(warning),
+                "warning log lines use the warning foreground");
+        assertEquals(Theme.STATUS_WARNING_TEXT, javax.swing.text.StyleConstants.getForeground(warningContinuation),
+                "WARNING continuation log lines use the warning foreground");
+        assertEquals(Theme.MUTED, javax.swing.text.StyleConstants.getForeground(info),
+                "routine INFO log lines use the muted foreground");
+        assertEquals(Theme.MUTED, javax.swing.text.StyleConstants.getForeground(config),
+                "routine CONFIG log lines use the muted foreground");
         assertTrue(javax.swing.text.StyleConstants.isBold(section),
                 "console section header uses a stronger text weight");
         assertEquals(Integer.valueOf(1), Integer.valueOf(console.getHighlighter().getHighlights().length),
@@ -786,6 +871,20 @@ final class WorkbenchUiRegression {
         assertEquals(pane.getViewport().getBackground(),
                 pane.getCorner(javax.swing.ScrollPaneConstants.LOWER_RIGHT_CORNER).getBackground(),
                 "scroll corner background");
+
+        JTextArea text = new JTextArea("line 1\nline 2\nline 3");
+        text.setOpaque(false);
+        JScrollPane declared = new JScrollPane(text);
+        Ui.refreshScrollPaneTheme(declared, () -> Theme.CARD);
+        assertEquals(Theme.CARD, declared.getViewport().getBackground(),
+                "declared scroll viewport uses caller surface");
+        assertEquals(Theme.CARD, declared.getVerticalScrollBar().getBackground(),
+                "declared vertical scrollbar track uses caller surface");
+        assertEquals(Theme.CARD, declared.getHorizontalScrollBar().getBackground(),
+                "declared horizontal scrollbar track uses caller surface");
+        assertEquals(Theme.CARD,
+                declared.getCorner(javax.swing.ScrollPaneConstants.LOWER_RIGHT_CORNER).getBackground(),
+                "declared scroll corner uses caller surface");
     }
 
     /**
@@ -822,6 +921,12 @@ final class WorkbenchUiRegression {
                 + occurrences(source, "refreshScrollPaneTheme(");
         assertTrue(styledScrollPanes >= scrollPaneCreations,
                 root.relativize(file) + " styles every raw JScrollPane through Ui");
+        if ("command/CommandPalette.java".equals(root.relativize(file).toString())) {
+            assertTrue(source.contains("Ui.styleScrollPane(resultScroll, () -> Theme.ELEVATED_SOLID)"),
+                    "command palette scrollbars use the palette surface color");
+            assertFalse(source.contains("setCorner("),
+                    "command palette does not install ad hoc transparent scroll corners");
+        }
     }
 
     /**
@@ -1519,17 +1624,28 @@ final class WorkbenchUiRegression {
         JMenuBar bar = menu.component();
         List<String> menuNames = new java.util.ArrayList<>();
         for (int i = 0; i < bar.getMenuCount(); i++) {
-            menuNames.add(bar.getMenu(i).getText());
+            JMenu current = bar.getMenu(i);
+            if (current != null) {
+                menuNames.add(current.getText());
+            }
         }
         assertEquals(List.of("File", "Edit", "Selection", "View", "Go", "Run", "Terminal", "Help"),
                 menuNames, "top menu groups");
+        String settingsMenuSource = readSource(Path.of("src/application/gui/workbench/window/SettingsMenu.java"));
+        String titleBarChromeSource = readSource(Path.of("src/application/gui/workbench/window/TitleBarChrome.java"));
+        assertFalse(settingsMenuSource.contains("TitleBarChrome.brand"),
+                "top menu no longer reserves space for the unusable project chrome");
+        assertFalse(titleBarChromeSource.contains("Alpha Project"),
+                "title bar no longer paints a fake project chip");
+        assertFalse(titleBarChromeSource.contains("paintTrafficLights"),
+                "title bar no longer paints decorative traffic-light dots");
 
-        clickMenuItem(bar.getMenu(0), "Settings…");
-        clickMenuItem(bar.getMenu(1), "Command Palette…");
-        clickMenuItem(bar.getMenu(3), "Analyze");
-        clickMenuItem(bar.getMenu(3), "Engine Settings…");
-        clickMenuItem(bar.getMenu(5), "Run Built Command");
-        clickMenuItem(bar.getMenu(6), "Open Logs Folder");
+        clickMenuItem(menuByText(bar, "File"), "Settings…");
+        clickMenuItem(menuByText(bar, "Edit"), "Command Palette…");
+        clickMenuItem(menuByText(bar, "View"), "Analyze");
+        clickMenuItem(menuByText(bar, "View"), "Engine Settings…");
+        clickMenuItem(menuByText(bar, "Run"), "Run Built Command");
+        clickMenuItem(menuByText(bar, "Terminal"), "Open Logs Folder");
 
         assertTrue(displaySettingsOpened[0], "file settings item opens display settings");
         assertTrue(commandPaletteOpened[0], "edit command palette item routes to palette");
@@ -1557,6 +1673,24 @@ final class WorkbenchUiRegression {
             }
         }
         throw new AssertionError("missing menu item " + label + " in " + menu.getText());
+    }
+
+    /**
+     * Finds a menu by label while ignoring custom title-bar components mounted
+     * into the same {@link JMenuBar}.
+     *
+     * @param bar menu bar
+     * @param text menu label
+     * @return matching menu
+     */
+    private static JMenu menuByText(JMenuBar bar, String text) {
+        for (int i = 0; i < bar.getMenuCount(); i++) {
+            JMenu menu = bar.getMenu(i);
+            if (menu != null && text.equals(menu.getText())) {
+                return menu;
+            }
+        }
+        throw new AssertionError("missing menu " + text);
     }
 
     /**
@@ -1830,6 +1964,14 @@ final class WorkbenchUiRegression {
             public int visibleGroupCount() {
                 return 2;
             }
+
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public boolean hasRestorableTabs() {
+                return true;
+            }
         });
 
         JComponent component = menu.component();
@@ -1839,10 +1981,16 @@ final class WorkbenchUiRegression {
                 "layout toolbar starts with customize button");
         assertEquals("workbench.layout.customize", ((JButton) component.getComponent(0)).getActionCommand(),
                 "layout customize button exposes a command id");
-        assertEquals("Split active tab right", ((JButton) component.getComponent(1)).getToolTipText(),
+        assertEquals(EditorLayoutCommands.SPLIT_RIGHT_TOOLTIP,
+                ((JButton) component.getComponent(1)).getToolTipText(),
                 "layout split-right tooltip names the tab action");
-        assertEquals("workbench.layout.splitRight", ((JButton) component.getComponent(1)).getActionCommand(),
+        assertEquals(EditorLayoutCommands.SPLIT_RIGHT, ((JButton) component.getComponent(1)).getActionCommand(),
                 "layout split-right button exposes a command id");
+        assertEquals(EditorLayoutCommands.SPLIT_DOWN, ((JButton) component.getComponent(2)).getActionCommand(),
+                "layout split-down button exposes a command id");
+        assertEquals(EditorLayoutCommands.TABS_RESTORE_CLOSED,
+                ((JButton) component.getComponent(3)).getActionCommand(),
+                "layout restore button reuses the editor restore command id");
         ((JButton) component.getComponent(1)).doClick();
         ((JButton) component.getComponent(2)).doClick();
         ((JButton) component.getComponent(3)).doClick();
@@ -1858,15 +2006,31 @@ final class WorkbenchUiRegression {
                 "layout popup exposes status-bar visibility");
         JCheckBoxMenuItem statusItem = (JCheckBoxMenuItem) popupItem(popup, "Status Bar");
         assertTrue(statusItem.isSelected(), "status-bar row reflects controller state");
+        assertEquals("workbench.layout.statusBar.visible", statusItem.getActionCommand(),
+                "status-bar row exposes a stable command id");
+        assertEquals("Status Bar", statusItem.getAccessibleContext().getAccessibleName(),
+                "status-bar row exposes an accessible name");
         assertThemedCheckIcon(statusItem, "status-bar row");
         assertWorkbenchMenuChrome(statusItem, "status-bar row");
         statusItem.doClick();
         assertFalse(statusVisible[0], "status-bar row toggles controller state");
 
+        assertEquals(EditorLayoutCommands.TAB_SPLIT_LEFT,
+                popupItem(popup, EditorLayoutCommands.TAB_SPLIT_LEFT_LABEL).getActionCommand(),
+                "layout popup split-left item reuses editor command id");
+        assertEquals(EditorLayoutCommands.TAB_SPLIT_UP,
+                popupItem(popup, EditorLayoutCommands.TAB_SPLIT_UP_LABEL).getActionCommand(),
+                "layout popup split-up item reuses editor command id");
+        assertEquals(EditorLayoutCommands.TAB_DETACH,
+                popupItem(popup, EditorLayoutCommands.TAB_DETACH_LABEL).getActionCommand(),
+                "layout popup detach item reuses editor command id");
+        assertEquals(EditorLayoutCommands.TAB_CLOSE_OTHERS,
+                popupItem(popup, EditorLayoutCommands.TAB_CLOSE_OTHERS_LABEL).getActionCommand(),
+                "layout popup close-others item reuses editor command id");
         popupItem(popup, "Split Tab Left").doClick();
         popupItem(popup, "Split Tab Up").doClick();
-        popupItem(popup, "Detach Tab to New Window").doClick();
-        popupItem(popup, "Close Other Tabs").doClick();
+        popupItem(popup, EditorLayoutCommands.TAB_DETACH_LABEL).doClick();
+        popupItem(popup, EditorLayoutCommands.TAB_CLOSE_OTHERS_LABEL).doClick();
         assertEquals(Integer.valueOf(1), Integer.valueOf(splitLeft[0]),
                 "layout popup split-left item works");
         assertEquals(Integer.valueOf(1), Integer.valueOf(splitUp[0]),
@@ -1875,6 +2039,151 @@ final class WorkbenchUiRegression {
                 "layout popup detach item works");
         assertEquals(Integer.valueOf(1), Integer.valueOf(closeOthers[0]),
                 "layout popup close-others item works");
+
+        boolean[] limitedCanSplit = { false };
+        boolean[] limitedRestorable = { false };
+        int[] limitedSplitRight = { 0 };
+        int[] limitedRestoreTabs = { 0 };
+        LayoutMenu limited = new LayoutMenu(new LayoutMenu.Controller() {
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public boolean statusBarVisible() {
+                return true;
+            }
+
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public void setStatusBarVisible(boolean visible) {
+                // no-op
+            }
+
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public void splitRight() {
+                limitedSplitRight[0]++;
+                limitedCanSplit[0] = false;
+            }
+
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public void splitDown() {
+                // no-op
+            }
+
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public void splitLeft() {
+                // no-op
+            }
+
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public void splitUp() {
+                // no-op
+            }
+
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public void detachTab() {
+                // no-op
+            }
+
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public void reopenAllTabs() {
+                limitedRestoreTabs[0]++;
+                limitedRestorable[0] = false;
+            }
+
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public void closeOtherTabs() {
+                // no-op
+            }
+
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public int openTabCount() {
+                return 1;
+            }
+
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public int visibleGroupCount() {
+                return 1;
+            }
+
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public boolean canSplitActiveTab() {
+                return limitedCanSplit[0];
+            }
+
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public boolean hasRestorableTabs() {
+                return limitedRestorable[0];
+            }
+        });
+        JComponent limitedComponent = limited.component();
+        assertFalse(limitedComponent.getComponent(1).isEnabled(),
+                "single-tab layout disables split-right toolbar action");
+        assertTrue(((JButton) limitedComponent.getComponent(1)).getToolTipText().contains("duplicate-capable"),
+                "disabled split-right toolbar action explains recovery");
+        assertFalse(limitedComponent.getComponent(3).isEnabled(),
+                "layout disables restore toolbar action when nothing can be restored");
+        limitedCanSplit[0] = true;
+        limitedRestorable[0] = true;
+        limited.refreshControlStates();
+        assertTrue(limitedComponent.getComponent(1).isEnabled(),
+                "layout refresh enables split-right when the selected tab becomes splittable");
+        assertTrue(limitedComponent.getComponent(3).isEnabled(),
+                "layout refresh enables restore when hidden tabs appear");
+        ((JButton) limitedComponent.getComponent(1)).doClick();
+        ((JButton) limitedComponent.getComponent(3)).doClick();
+        assertEquals(Integer.valueOf(1), Integer.valueOf(limitedSplitRight[0]),
+                "enabled limited split-right toolbar action runs once");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(limitedRestoreTabs[0]),
+                "enabled limited restore toolbar action runs once");
+        assertFalse(limitedComponent.getComponent(1).isEnabled(),
+                "split-right toolbar action refreshes disabled state after it runs");
+        assertFalse(limitedComponent.getComponent(3).isEnabled(),
+                "restore toolbar action refreshes disabled state after it runs");
+        JPopupMenu limitedPopup = (JPopupMenu) invoke(limited, "buildPopup", new Class<?>[0]);
+        JMenuItem disabledSplit = popupItem(limitedPopup, EditorLayoutCommands.TAB_SPLIT_RIGHT_LABEL);
+        assertFalse(disabledSplit.isEnabled(), "layout popup disables unavailable split action");
+        assertEquals(EditorLayoutCommands.SPLIT_DISABLED_TOOLTIP, disabledSplit.getToolTipText(),
+                "layout popup disabled split action explains recovery");
+        JMenuItem disabledCloseOthers = popupItem(limitedPopup, EditorLayoutCommands.TAB_CLOSE_OTHERS_LABEL);
+        assertFalse(disabledCloseOthers.isEnabled(), "layout popup disables close-others for a single tab");
+        assertEquals(EditorLayoutCommands.CLOSE_OTHERS_DISABLED_TOOLTIP, disabledCloseOthers.getToolTipText(),
+                "layout popup disabled close-others action explains recovery");
     }
 
     /**
@@ -2387,17 +2696,17 @@ final class WorkbenchUiRegression {
         assertColor(new Color(0xD5EBFF), themeColor("TOGGLE_ON_BG"), "light active option fill");
 
         Theme.setMode(Theme.Mode.DARK);
-        assertColor(new Color(0x2C2C2C), themeColor("BG"), "dark macOS menu background");
-        assertColor(new Color(0x1E1E1E), themeColor("PANEL_SOLID"), "dark editor background");
-        assertColor(new Color(0x252525), themeColor("ELEVATED_SOLID"), "dark dropdown background");
-        assertColor(new Color(0x3A3A3A), themeColor("LINE"), "dark widget border");
-        assertColor(new Color(0x484848), themeColor("INPUT_BORDER"), "dark menu/input border");
-        assertColor(new Color(0x373737), themeColor("TAB_HOVER"), "dark tab hover");
-        assertColor(new Color(0x2C2C2C), themeColor("TAB_IDLE"), "dark inactive tab");
-        assertColor(new Color(0xE8E8E8), themeColor("TEXT"), "dark foreground");
-        assertColor(new Color(0xA1A1A1), themeColor("MUTED"), "dark muted foreground");
-        assertColor(new Color(0x0A6EE4), themeColor("ACCENT"), "dark macOS focus accent");
-        assertColor(new Color(36, 137, 219, 130), themeColor("TOGGLE_ON_BG"),
+        assertColor(new Color(0x11171D), themeColor("BG"), "dark macOS menu background");
+        assertColor(new Color(0x0F151A), themeColor("PANEL_SOLID"), "dark editor background");
+        assertColor(new Color(0x161D23), themeColor("ELEVATED_SOLID"), "dark dropdown background");
+        assertColor(new Color(0x26313B), themeColor("LINE"), "dark widget border");
+        assertColor(new Color(0x2D3944), themeColor("INPUT_BORDER"), "dark menu/input border");
+        assertColor(new Color(0x26313B), themeColor("TAB_HOVER"), "dark tab hover");
+        assertColor(new Color(0x11171D), themeColor("TAB_IDLE"), "dark inactive tab");
+        assertColor(new Color(0xDDE6EE), themeColor("TEXT"), "dark foreground");
+        assertColor(new Color(0x8FA1B2), themeColor("MUTED"), "dark muted foreground");
+        assertColor(new Color(0x2E74D0), themeColor("ACCENT"), "dark macOS focus accent");
+        assertColor(new Color(45, 133, 211, 145), themeColor("TOGGLE_ON_BG"),
                 "dark active option fill");
         Theme.setMode(Theme.Mode.LIGHT);
     }

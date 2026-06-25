@@ -179,7 +179,7 @@ final class ThemePalette {
         Theme.TOGGLE_BG = Theme.DARK_ELEVATED;
         Theme.TOGGLE_BORDER = Theme.DARK_BORDER;
         Theme.TOGGLE_TRACK = Theme.DARK_MUTED;
-        Theme.TOGGLE_ON_BG = Theme.withAlpha(new Color(0x2489DB), 130);
+        Theme.TOGGLE_ON_BG = Theme.withAlpha(new Color(0x2D85D3), 145);
         Theme.TOGGLE_ON_TRACK = Theme.DARK_ACCENT;
         Theme.TOGGLE_THUMB = Theme.DARK_INK;
         Theme.INPUT = Theme.DARK_ELEVATED;
@@ -190,7 +190,7 @@ final class ThemePalette {
         Theme.PRIMARY_BUTTON_TEXT = Color.WHITE;
         setFixedBoardAndEvalColors();
         Theme.TAB_ACCENT_UNDERLINE = Theme.withAlpha(Theme.ACCENT, 255);
-        Theme.TAB_HOVER = new Color(0x373737);
+        Theme.TAB_HOVER = Theme.DARK_SUBTLE;
         Theme.TAB_IDLE = new Color(Theme.BG.getRed(), Theme.BG.getGreen(), Theme.BG.getBlue(), 255);
         Theme.SCROLLBAR_TRACK = new Color(Theme.DARK_CHROME.getRed(), Theme.DARK_CHROME.getGreen(),
                 Theme.DARK_CHROME.getBlue(), 0);

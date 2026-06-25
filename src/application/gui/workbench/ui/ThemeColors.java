@@ -1,9 +1,7 @@
 package application.gui.workbench.ui;
 
 import java.awt.Color;
-import java.awt.GradientPaint;
 import java.awt.Graphics2D;
-import java.awt.Paint;
 import java.awt.RenderingHints;
 
 /**
@@ -48,34 +46,21 @@ final class ThemeColors {
     }
 
     /**
-     * Draws the paint elevated card.
+     * Draws a flat elevated card.
      *
      * @param g graphics context
      * @param width width in pixels
      * @param height height in pixels
      * @param arc corner arc size
-     * @param hover hover color
+     * @param hover hover amount
      */
     static void paintElevatedCard(Graphics2D g, int width, int height, int arc, float hover) {
         float h = Math.max(0f, Math.min(1f, hover));
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        int shadow = Theme.isDark() ? 3 : 4;
         int w = Math.max(0, width - 1);
-        int surfaceHeight = Math.max(0, height - 1 - shadow);
-        int baseShadowAlpha = Theme.isDark() ? 42 : 20;
-        int shadowAlpha = Math.round(baseShadowAlpha * (0.72f + 0.50f * h));
-        g.setColor(new Color(0, 0, 0, Math.max(0, Math.min(255, shadowAlpha))));
-        g.fillRoundRect(2, shadow, Math.max(0, w - 3), surfaceHeight, arc, arc);
-        g.setColor(new Color(0, 0, 0, Math.max(0, Math.min(255, shadowAlpha / 2))));
-        g.fillRoundRect(1, Math.max(0, shadow - 1), Math.max(0, w - 1), surfaceHeight, arc, arc);
-        Color top = lerp(Theme.CARD, Theme.isDark() ? Color.WHITE : Color.WHITE, Theme.isDark() ? 0.035f : 0.22f);
-        Color bottom = lerp(Theme.CARD, Theme.isDark() ? Color.BLACK : Theme.BG, Theme.isDark() ? 0.06f : 0.05f);
-        Paint previousPaint = g.getPaint();
-        g.setPaint(new GradientPaint(0, 0, top, 0, Math.max(1, surfaceHeight), bottom));
+        int surfaceHeight = Math.max(0, height - 1);
+        g.setColor(Theme.CARD);
         g.fillRoundRect(0, 0, w, surfaceHeight, arc, arc);
-        g.setPaint(previousPaint);
-        g.setColor(withAlpha(Color.WHITE, Theme.isDark() ? 18 : 145));
-        g.drawLine(arc / 2, 1, Math.max(arc / 2, w - arc / 2), 1);
         g.setColor(lerp(Theme.CARD_BORDER, Theme.ACCENT, h * 0.65f));
         g.drawRoundRect(0, 0, w, surfaceHeight, arc, arc);
     }

@@ -651,7 +651,8 @@ public abstract class WindowLifecycle extends WindowBase {
         tabs.select(TAB_BOARD);
 
         shellFrame = new ShellFrame(tabs, session, this::selectTab,
-                this::showConsoleDock, this::showLogsDock, this::openLatestJobLogOrLogs);
+                this::showConsoleDock, this::showLogsDock, this::openLatestJobLogOrLogs,
+                () -> showBoardDetail("Study"));
         root.add(shellFrame, BorderLayout.CENTER);
         statusBar = createStatusBar();
         statusBar.setVisible(statusBarVisible);

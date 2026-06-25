@@ -37,7 +37,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 import javax.swing.ListSelectionModel;
-import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
@@ -280,23 +279,7 @@ public final class CommandPalette extends JPanel {
         configureRowList();
         JPanel results = transparentPanel(new BorderLayout(0, 6));
         JScrollPane resultScroll = new JScrollPane(rowList);
-        Ui.styleScrollPane(resultScroll);
-        resultScroll.setOpaque(false);
-        resultScroll.setBorder(BorderFactory.createEmptyBorder());
-        resultScroll.setViewportBorder(BorderFactory.createEmptyBorder());
-        resultScroll.getViewport().setOpaque(false);
-        resultScroll.getViewport().setBackground(Theme.TRANSPARENT);
-        Color clear = Theme.TRANSPARENT;
-        for (String corner : new String[] {
-                ScrollPaneConstants.UPPER_LEFT_CORNER,
-                ScrollPaneConstants.UPPER_RIGHT_CORNER,
-                ScrollPaneConstants.LOWER_LEFT_CORNER,
-                ScrollPaneConstants.LOWER_RIGHT_CORNER }) {
-            JPanel c = new JPanel();
-            c.setOpaque(false);
-            c.setBackground(clear);
-            resultScroll.setCorner(corner, c);
-        }
+        Ui.styleScrollPane(resultScroll, () -> Theme.ELEVATED_SOLID);
         results.add(resultScroll, BorderLayout.CENTER);
         configureEmptyLabel();
         results.add(emptyLabel, BorderLayout.SOUTH);
