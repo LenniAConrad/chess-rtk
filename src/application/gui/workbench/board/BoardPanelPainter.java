@@ -177,7 +177,7 @@ final class BoardPanelPainter {
                 // so badges on edge squares are not clipped at the board boundary.
                 Graphics2D markupClip = (Graphics2D) g.create();
                 try {
-                    int overflow = Math.max(2, Math.round(board.width / 8f * 0.5f));
+                    int overflow = Math.max(2, Math.round(board.width / 8f * 0.7f));
                     markupClip.clipRect(board.x - overflow, board.y - overflow,
                             board.width + overflow * 2, board.height + overflow * 2);
                     boardPanel.markupPainter.drawForegroundMarkups(markupClip, board,

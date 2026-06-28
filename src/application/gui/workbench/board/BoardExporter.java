@@ -70,7 +70,7 @@ public final class BoardExporter {
     /**
      * Glyph-circle diameter relative to the target square (Lichess uses ~0.40).
      */
-    private static final double GLYPH_DIAMETER_FRACTION = 0.40;
+    private static final double GLYPH_DIAMETER_FRACTION = 0.48;
 
     /**
      * Horizontal step between stacked glyph badges, relative to badge diameter.
@@ -953,13 +953,12 @@ public final class BoardExporter {
         // blur+offset+merge (feDropShadow is not reliably composited by every SVG
         // renderer, e.g. Inkscape drops the source graphic). The blur is generous
         // so the shadow still reads at small sizes.
-        svg.append("  <defs><filter id=\"glyph-shadow\" x=\"-50%\" y=\"-50%\" width=\"200%\" height=\"200%\">")
-                .append("<feGaussianBlur in=\"SourceAlpha\" stdDeviation=\"").append(format(diameter * 0.10))
+        svg.append("  <defs><filter id=\"glyph-shadow\" x=\"-60%\" y=\"-60%\" width=\"220%\" height=\"220%\">")
+                .append("<feGaussianBlur in=\"SourceAlpha\" stdDeviation=\"").append(format(diameter * 0.12))
                 .append("\" result=\"b\"/>")
-                .append("<feOffset in=\"b\" dx=\"").append(format(diameter * 0.03))
-                .append("\" dy=\"").append(format(diameter * 0.06)).append("\" result=\"o\"/>")
+                .append("<feOffset in=\"b\" dx=\"0\" dy=\"").append(format(diameter * 0.03)).append("\" result=\"o\"/>")
                 .append("<feComponentTransfer in=\"o\" result=\"s\">")
-                .append("<feFuncA type=\"linear\" slope=\"0.6\"/></feComponentTransfer>")
+                .append("<feFuncA type=\"linear\" slope=\"0.65\"/></feComponentTransfer>")
                 .append("<feMerge><feMergeNode in=\"s\"/><feMergeNode in=\"SourceGraphic\"/></feMerge>")
                 .append("</filter></defs>\n");
     }

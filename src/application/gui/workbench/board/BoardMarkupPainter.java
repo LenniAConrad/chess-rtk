@@ -78,7 +78,7 @@ final class BoardMarkupPainter {
     /**
      * Glyph-circle diameter relative to the target square (Lichess uses ~0.40).
      */
-    private static final float GLYPH_DIAMETER_FRACTION = 0.40f;
+    private static final float GLYPH_DIAMETER_FRACTION = 0.48f;
 
     /**
      * Horizontal step between stacked glyph badges, relative to badge diameter.
@@ -347,10 +347,10 @@ final class BoardMarkupPainter {
      * rather than as a thin one-sided sliver, with a generous blur so it still
      * reads at small on-board sizes.
      */
-    private static final double SHADOW_DX_FRACTION = 0.03,
-            SHADOW_DY_FRACTION = 0.06,
-            SHADOW_SPREAD_FRACTION = 0.04,
-            SHADOW_BLUR_FRACTION = 0.11;
+    private static final double SHADOW_DX_FRACTION = 0.0,
+            SHADOW_DY_FRACTION = 0.03,
+            SHADOW_SPREAD_FRACTION = 0.07,
+            SHADOW_BLUR_FRACTION = 0.12;
 
     /**
      * Glyph drop-shadow opacity.
