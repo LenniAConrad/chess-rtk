@@ -68,6 +68,8 @@ public final class PGNRegressionTest {
 		testVariationExtractionUsesPreMovePosition();
 		testRootVariationsRoundTrip();
 		testCommentsAfterNagsStayOnAnnotatedMove();
+		testSuffixMoveGlyphsParseIntoNags();
+		testGlyphsAndCommentsCanBeAddedAndRoundTrip();
 		testSetupZeroIgnoresFenTag();
 		testFenWithoutSetupIsCompatibilityStartAndNormalizes();
 		testChess960VariantNormalizesXfenCastling();
@@ -121,6 +123,51 @@ public final class PGNRegressionTest {
 				"rendered PGN separates SAN, NAG, comments, and next move");
 		assertFalse(rendered.contains("e4$1"), "rendered NAG is not glued to SAN");
 		assertFalse(rendered.contains("  "), "rendered annotation path has no doubled spaces");
+	}
+
+	/**
+	 * Verifies suffix move glyphs (e4!, Nf3!?, Qh5??) are split off the SAN, parse into the
+	 * matching NAG codes, and survive a write/re-parse round-trip.
+	 */
+	private static void testSuffixMoveGlyphsParseIntoNags() {
+		Game game = Pgn.parseGame("1. e4! e5?! 2. Nf3!! Nc6?? 3. Bb5!? a6 *");
+		Game.Node e4 = game.getMainline();
+		Game.Node e5 = e4.getNext();
+		Game.Node nf3 = e5.getNext();
+		Game.Node nc6 = nf3.getNext();
+		Game.Node bb5 = nc6.getNext();
+
+		assertEquals("e4", e4.getSan(), "suffix glyph is stripped from the SAN move");
+		assertEquals(List.of(1), e4.getNags(), "e4! parses as a good-move glyph ($1)");
+		assertEquals(List.of(6), e5.getNags(), "e5?! parses as a dubious glyph ($6)");
+		assertEquals(List.of(3), nf3.getNags(), "Nf3!! parses as a brilliant glyph ($3)");
+		assertEquals(List.of(4), nc6.getNags(), "Nc6?? parses as a blunder glyph ($4)");
+		assertEquals(List.of(5), bb5.getNags(), "Bb5!? parses as an interesting glyph ($5)");
+
+		String rendered = Pgn.toPgn(game);
+		assertTrue(rendered.contains("e4 $1"), "the parsed glyph is stored and written");
+		Game reparsed = Pgn.parseGame(rendered);
+		assertEquals(List.of(1), reparsed.getMainline().getNags(), "the glyph survives a round-trip");
+	}
+
+	/**
+	 * Verifies glyphs and comments can be added to a move and round-trip through PGN.
+	 */
+	private static void testGlyphsAndCommentsCanBeAddedAndRoundTrip() {
+		Game game = Pgn.parseGame("1. e4 e5 *");
+		Game.Node e4 = game.getMainline();
+		e4.addNag(3);
+		e4.addCommentAfter("a strong center");
+
+		String rendered = Pgn.toPgn(game);
+		assertTrue(rendered.contains("$3"), "an added glyph is written to PGN");
+		assertTrue(rendered.contains("{a strong center}"), "an added comment is written to PGN");
+
+		Game reparsed = Pgn.parseGame(rendered);
+		Game.Node node = reparsed.getMainline();
+		assertEquals(List.of(3), node.getNags(), "the added glyph survives a round-trip");
+		assertEquals(List.of("a strong center"), node.getCommentsAfter(),
+				"the added comment survives a round-trip");
 	}
 
 	/**

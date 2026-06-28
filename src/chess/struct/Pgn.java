@@ -787,6 +787,85 @@ public final class Pgn {
     }
 
     /**
+     * Removes a trailing run of move-annotation glyph characters ({@code !},
+     * {@code ?} and their Unicode forms) from a SAN token, leaving the bare move.
+     * SAN suffixes that are part of the move ({@code +}, {@code #}, {@code =}) are
+     * never glyph characters, so they are preserved.
+     *
+     * @param san sanitized SAN token, possibly with trailing glyphs
+     * @return the SAN token without trailing glyph characters
+     */
+    private static String stripTrailingGlyphs(String san) {
+        int end = san.length();
+        while (end > 0 && isGlyphChar(san.charAt(end - 1))) {
+            end--;
+        }
+        return san.substring(0, end);
+    }
+
+    /**
+     * Returns whether a character is a move-annotation glyph suffix character.
+     *
+     * @param c character to test
+     * @return true for {@code !}, {@code ?} or their Unicode glyph forms
+     */
+    private static boolean isGlyphChar(char c) {
+        return c == '!' || c == '?'
+                || c == '‼' || c == '⁇' || c == '⁉' || c == '⁈';
+    }
+
+    /**
+     * Converts a trailing glyph suffix (e.g. {@code "!?"}) into NAG codes,
+     * preferring two-character forms so {@code "!?"} maps to one NAG, not two.
+     *
+     * @param suffix trailing glyph string
+     * @return NAG codes for the suffix, in order
+     */
+    private static List<Integer> suffixGlyphNags(String suffix) {
+        String s = suffix
+                .replace("‼", "!!")
+                .replace("⁇", "??")
+                .replace("⁉", "!?")
+                .replace("⁈", "?!");
+        List<Integer> nags = new ArrayList<>();
+        int i = 0;
+        while (i < s.length()) {
+            if (i + 1 < s.length()) {
+                Integer pair = glyphNag(s.substring(i, i + 2));
+                if (pair != null) {
+                    nags.add(pair);
+                    i += 2;
+                    continue;
+                }
+            }
+            Integer single = glyphNag(s.substring(i, i + 1));
+            if (single != null) {
+                nags.add(single);
+            }
+            i++;
+        }
+        return nags;
+    }
+
+    /**
+     * Maps a one- or two-character glyph suffix to its NAG code.
+     *
+     * @param glyph glyph string
+     * @return NAG code, or {@code null} when unrecognized
+     */
+    private static Integer glyphNag(String glyph) {
+        return switch (glyph) {
+            case "!" -> 1;
+            case "?" -> 2;
+            case "!!" -> 3;
+            case "??" -> 4;
+            case "!?" -> 5;
+            case "?!" -> 6;
+            default -> null;
+        };
+    }
+
+    /**
      * Simple value object representing a token kind and its payload.
      */
     private static final class Token {
@@ -1029,7 +1108,17 @@ public final class Pgn {
         String raw = text.substring(idx, i);
         String san = sanitizeMoveToken(raw);
         if (!san.isEmpty()) {
-            tokens.add(new Token(TokenKind.MOVE, san));
+            // Split a trailing move-annotation glyph (e.g. "e4!", "Nf3!?", "Qh5??")
+            // off the SAN and emit it as NAG token(s) so the move still parses and
+            // the glyph is preserved. A glyph-only token (e.g. a stray "!") becomes
+            // NAG(s) on the current move instead of a bogus move.
+            String move = stripTrailingGlyphs(san);
+            if (!move.isEmpty()) {
+                tokens.add(new Token(TokenKind.MOVE, move));
+            }
+            for (int code : suffixGlyphNags(san.substring(move.length()))) {
+                tokens.add(new Token(TokenKind.NAG, Integer.toString(code)));
+            }
         }
         return Math.max(i, idx + 1);
     }
