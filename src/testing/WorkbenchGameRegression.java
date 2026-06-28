@@ -23,8 +23,14 @@ import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
 import application.gui.workbench.engine.EngineGauntletPanel;
+import application.gui.workbench.board.AnnotationGlyphs;
 import application.gui.workbench.board.BoardExporter;
+import application.gui.workbench.board.BoardMarkup;
+import application.gui.workbench.board.BoardMarkupComment;
+import application.gui.workbench.board.BoardMarkupTool;
 import application.gui.workbench.board.BoardPanel;
+import application.gui.workbench.board.MarkupBrush;
+import chess.core.Field;
 import application.gui.workbench.game.GameModel;
 import application.gui.workbench.game.GameReviewPanel;
 import application.gui.workbench.game.PgnExplorerModel;
@@ -124,6 +130,7 @@ final class WorkbenchGameRegression {
         testGameLibraryStoresCurrentAndImportedPgnGames();
         testStudyRepositoryCreatesStarterPgnBook();
         testStudyShapeCommentCodecRoundTrips();
+        testBoardMarkupCommentRoundTrips();
         testStudyTreeModelEditsFullPgnTree();
         testStudyRepositorySavesPgnBackedProject();
         testStudyRepositoryImportsReviewStudyUnits();
@@ -1385,6 +1392,42 @@ final class WorkbenchGameRegression {
                 "shape codec renders arrows");
         ShapeCommentCodec.DecodedComment reparsed = ShapeCommentCodec.parse(rendered);
         assertEquals(decoded.shapes(), reparsed.shapes(), "shape codec round-trips shape list");
+    }
+
+    /**
+     * Verifies drawn board annotations (arrows, circles, glyph badges, rectangles) round-trip
+     * through PGN comment commands: Lichess [%cal]/[%csl] plus crtk [%cgl]/[%crl] extensions.
+     */
+    private static void testBoardMarkupCommentRoundTrips() {
+        List<BoardMarkup> markups = List.of(
+                new BoardMarkup(BoardMarkupTool.ARROW, Field.toIndex("e2"), Field.toIndex("e4"),
+                        MarkupBrush.forColor(new Color(0x81, 0xB6, 0x4C))),
+                new BoardMarkup(BoardMarkupTool.CIRCLE, Field.toIndex("d5"), Field.NO_SQUARE,
+                        MarkupBrush.forColor(new Color(0xD9, 0x51, 0x4E))),
+                new BoardMarkup(BoardMarkupTool.GLYPH, Field.toIndex("g8"), Field.NO_SQUARE,
+                        MarkupBrush.custom(new Color(0x6F, 0x52, 0xCC), Color.WHITE, 10, 4, AnnotationGlyphs.FORK)),
+                new BoardMarkup(BoardMarkupTool.RECTANGLE, Field.toIndex("a1"), Field.toIndex("c3"),
+                        MarkupBrush.custom(new Color(0xF0, 0xB1, 0x3A), 10)));
+
+        String comment = BoardMarkupComment.encode("a good plan", markups);
+        assertTrue(comment.contains("[%cal Ge2e4]"), "arrow encodes as a Lichess [%cal] directive");
+        assertTrue(comment.contains("[%csl Rd5]"), "circle encodes as a Lichess [%csl] directive");
+        assertTrue(comment.contains("[%cgl g8/" + AnnotationGlyphs.FORK + "/6F52CC]"),
+                "glyph badge encodes as a crtk [%cgl] directive with token and colour");
+        assertTrue(comment.contains("[%crl a1/c3/F0B13A]"), "rectangle encodes as a crtk [%crl] directive");
+        assertEquals("a good plan", BoardMarkupComment.plainText(comment),
+                "free-text is preserved alongside the directives");
+
+        List<BoardMarkup> decoded = BoardMarkupComment.decode(comment);
+        assertEquals(Integer.valueOf(4), Integer.valueOf(decoded.size()), "all four markups decode");
+        BoardMarkup glyph = decoded.stream().filter(BoardMarkup::isGlyph).findFirst().orElseThrow();
+        assertEquals(AnnotationGlyphs.FORK, glyph.brush().glyph(), "glyph token survives the round-trip");
+        assertEquals("g8", Field.toString(glyph.from()), "glyph square survives the round-trip");
+        assertEquals(new Color(0x6F, 0x52, 0xCC), glyph.brush().displayColor(),
+                "glyph colour survives the round-trip");
+        BoardMarkup rect = decoded.stream().filter(BoardMarkup::isRectangle).findFirst().orElseThrow();
+        assertEquals("a1", Field.toString(rect.from()), "rectangle origin square survives");
+        assertEquals("c3", Field.toString(rect.to()), "rectangle corner square survives");
     }
 
     /**

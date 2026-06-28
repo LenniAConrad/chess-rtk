@@ -923,6 +923,31 @@ public final class BoardPanel extends JPanel {
     }
 
     /**
+     * Returns the persistent board annotations as a PGN comment body, using
+     * Lichess {@code [%cal]}/{@code [%csl]} directives for arrows/circles and crtk
+     * {@code [%cgl]}/{@code [%crl]} extensions for glyph badges and rectangles.
+     *
+     * @return PGN comment body, or an empty string when there are no annotations
+     */
+    public String markupComment() {
+        return BoardMarkupComment.encode(markupInput.copyMarkups());
+    }
+
+    /**
+     * Replaces the persistent board annotations with those parsed from a PGN
+     * comment body (inverse of {@link #markupComment()}).
+     *
+     * @param comment PGN comment body containing graphical directives
+     */
+    public void applyMarkupComment(String comment) {
+        List<BoardMarkup> before = markupInput.copyMarkups();
+        markupInput.replaceMarkups(BoardMarkupComment.decode(comment));
+        recordMarkupEdit(before);
+        notifyMarkupChanged();
+        repaint();
+    }
+
+    /**
      * Clears user annotations while preserving non-annotation square highlights.
      */
     public void clearUserMarkup() {
