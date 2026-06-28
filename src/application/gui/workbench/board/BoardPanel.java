@@ -10,6 +10,7 @@ import chess.core.Move;
 import chess.core.MoveList;
 import chess.core.Piece;
 import chess.core.Position;
+import chess.core.PremoveGeometry;
 import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Graphics2D;
@@ -132,7 +133,8 @@ public final class BoardPanel extends JPanel {
      * Board overlay visibility toggles.
      */
     boolean showNotation = true, showLegalMovePreview = true,
-            showLastMoveHighlight = true, showSuggestedMoveArrow = true, showSpecialMoveHints;
+            showLastMoveHighlight = true, showSuggestedMoveArrow = true, showSpecialMoveHints,
+            showUndefendedPieces, showPinnedPieces, showCheckableKing;
 
     /**
      * Optional user-selected board square colors.
@@ -455,16 +457,7 @@ public final class BoardPanel extends JPanel {
      * @return true when the move shape can be queued as a premove
      */
     static boolean legalPremoveShape(short move) {
-        if (move == Move.NO_MOVE) {
-            return false;
-        }
-        try {
-            byte from = Move.getFromIndex(move);
-            byte to = Move.getToIndex(move);
-            return isSquareIndex(from) && isSquareIndex(to) && from != to;
-        } catch (RuntimeException ex) {
-            return false;
-        }
+        return PremoveGeometry.isEncodedShape(move);
     }
 
     /**
@@ -569,6 +562,28 @@ public final class BoardPanel extends JPanel {
         }
         showNotation = show;
         repaint();
+    }
+
+    /**
+     * Toggles whether glyph annotation badges are drawn with a drop shadow.
+     *
+     * @param show true to draw glyph badges with a soft drop shadow
+     */
+    public void setGlyphShadow(boolean show) {
+        if (show == markupPainter.isGlyphShadow()) {
+            return;
+        }
+        markupPainter.setGlyphShadow(show);
+        repaint();
+    }
+
+    /**
+     * Returns whether glyph annotation badges are drawn with a drop shadow.
+     *
+     * @return true when the glyph drop shadow is enabled
+     */
+    public boolean isGlyphShadow() {
+        return markupPainter.isGlyphShadow();
     }
     /**
      * Returns whether file/rank coordinates are currently painted.
@@ -685,6 +700,72 @@ public final class BoardPanel extends JPanel {
     }
 
     /**
+     * Sets whether attacked, undefended pieces are marked with board badges.
+     *
+     * @param show true to show undefended-piece badges
+     */
+    public void setShowUndefendedPieces(boolean show) {
+        if (show == showUndefendedPieces) {
+            return;
+        }
+        showUndefendedPieces = show;
+        repaint();
+    }
+
+    /**
+     * Returns whether undefended-piece badges are painted.
+     *
+     * @return true when undefended-piece badges are painted
+     */
+    public boolean isShowUndefendedPieces() {
+        return showUndefendedPieces;
+    }
+
+    /**
+     * Sets whether pieces pinned to their own king are marked with board badges.
+     *
+     * @param show true to show pinned-piece badges
+     */
+    public void setShowPinnedPieces(boolean show) {
+        if (show == showPinnedPieces) {
+            return;
+        }
+        showPinnedPieces = show;
+        repaint();
+    }
+
+    /**
+     * Returns whether pinned-piece badges are painted.
+     *
+     * @return true when pinned-piece badges are painted
+     */
+    public boolean isShowPinnedPieces() {
+        return showPinnedPieces;
+    }
+
+    /**
+     * Sets whether the opponent king is marked when a legal checking move exists.
+     *
+     * @param show true to show the checkable-king badge
+     */
+    public void setShowCheckableKing(boolean show) {
+        if (show == showCheckableKing) {
+            return;
+        }
+        showCheckableKing = show;
+        repaint();
+    }
+
+    /**
+     * Returns whether the checkable-king badge is painted.
+     *
+     * @return true when the checkable-king badge is painted
+     */
+    public boolean isShowCheckableKing() {
+        return showCheckableKing;
+    }
+
+    /**
      * Sets custom board square colors.
      *
      * @param light light-square color
@@ -751,17 +832,6 @@ public final class BoardPanel extends JPanel {
     }
 
     /**
-     * Removes any highlight for a square.
-     *
-     * @param square board square index
-     */
-    public void clearSquareHighlight(byte square) {
-        if (squareHighlights.remove(square) != null) {
-            repaint();
-        }
-    }
-
-    /**
      * Removes all square highlights and arrow markups from the shared board
      * surface.
      */
@@ -791,15 +861,6 @@ public final class BoardPanel extends JPanel {
         clearSelection();
         setCursor(Cursor.getDefaultCursor());
         repaint();
-    }
-
-    /**
-     * Returns whether left-click annotation drawing is active.
-     *
-     * @return true when direct annotation input is enabled
-     */
-    public boolean isDirectAnnotationMode() {
-        return markupInput.directAnnotationMode();
     }
 
     /**
@@ -1075,41 +1136,12 @@ public final class BoardPanel extends JPanel {
         dropResolver = resolver;
     }
     /**
-     * Sets an observer notified when the position changes (old, new FEN).
-     * @param observer callback observer
-     */
-    public void setChangeObserver(BiConsumer<String, String> observer) {
-        changeObserver = observer;
-    }
-    /**
-     * Sets a callback fired when a snapback animation completes.
-     * @param observer callback observer
-     */
-    public void setSnapbackEndObserver(Runnable observer) {
-        snapbackEndObserver = observer;
-    }
-    /**
-     * Sets a callback fired when a snap animation completes.
-     * @param observer callback observer
-     */
-    public void setSnapEndObserver(Runnable observer) {
-        snapEndObserver = observer;
-    }
-    /**
      * Sets whether illegal drag snapbacks should play the generic board cue.
      * @param enabled true to play the snapback cue
      */
     public void setSnapbackSoundEnabled(boolean enabled) {
         snapbackSoundEnabled = enabled;
     }
-    /**
-     * Sets a callback fired when the pointer enters a different square. Field#NO_SQUARE on exit; null clears it
-     * @param observer callback observer
-     */
-    public void setMouseoverSquareObserver(IntConsumer observer) {
-        mouseoverSquareObserver = observer;
-    }
-
     /**
      * Sets a callback fired when the user left-clicks a board square.
      *
@@ -1658,7 +1690,9 @@ public final class BoardPanel extends JPanel {
         if (square == Field.NO_SQUARE || dragSquare == Field.NO_SQUARE || square == dragSquare) {
             return Field.NO_SQUARE;
         }
-        return isPremoveTarget(dragSquare, pieceInput.draggedPiece(), square) ? square : Field.NO_SQUARE;
+        return PremoveGeometry.isTarget(position, dragSquare, pieceInput.draggedPiece(), square)
+                ? square
+                : Field.NO_SQUARE;
     }
     /**
      * Returns whether the square contains an opponent piece.
@@ -1726,10 +1760,10 @@ public final class BoardPanel extends JPanel {
             return false;
         }
         if (!isSquareIndex(from) || !isSquareIndex(to) || from == to || piece == Piece.EMPTY
-                || !isPremoveTarget(from, piece, to)) {
+                || !PremoveGeometry.isTarget(position, from, piece, to)) {
             return false;
         }
-        short move = Move.of(from, to, premovePromotion(piece, to));
+        short move = Move.of(from, to, PremoveGeometry.promotion(piece, to));
         boolean accepted = premoveHandler.queue(
                 new PremoveContext(from, to, piece, position.toString(), move));
         if (accepted) {
@@ -1745,115 +1779,7 @@ public final class BoardPanel extends JPanel {
      * @return target squares
      */
     private byte[] premoveTargets(byte from, byte piece) {
-        if (!isSquareIndex(from) || piece == Piece.EMPTY) {
-            return new byte[0];
-        }
-        byte[] buffer = new byte[64];
-        int count = 0;
-        for (byte target = 0; target < 64; target++) {
-            if (target != from && isPremoveTarget(from, piece, target)) {
-                buffer[count++] = target;
-            }
-        }
-        return Arrays.copyOf(buffer, count);
-    }
-    /**
-     * Returns whether the target square matches the piece's premove geometry.
-     *
-     * @param from source square
-     * @param piece encoded moving piece
-     * @param to target square
-     * @return true when the target is geometrically plausible
-     */
-    private boolean isPremoveTarget(byte from, byte piece, byte to) {
-        if (!isSquareIndex(from) || !isSquareIndex(to) || from == to || piece == Piece.EMPTY) {
-            return false;
-        }
-        int fromFile = Field.getX(from);
-        int fromRank = Field.getY(from);
-        int toFile = Field.getX(to);
-        int toRank = Field.getY(to);
-        int df = Math.abs(toFile - fromFile);
-        int dr = Math.abs(toRank - fromRank);
-        return switch (Math.abs(piece)) {
-            case Piece.PAWN -> isPremovePawnTarget(piece, fromFile, fromRank, toFile, toRank);
-            case Piece.KNIGHT -> df * dr == 2;
-            case Piece.BISHOP -> df == dr;
-            case Piece.ROOK -> df == 0 || dr == 0;
-            case Piece.QUEEN -> df == dr || df == 0 || dr == 0;
-            case Piece.KING -> Math.max(df, dr) == 1
-                    || isPremoveCastleTarget(piece, fromFile, fromRank, toFile, toRank);
-            default -> false;
-        };
-    }
-    /**
-     * Returns whether a pawn can premove to the target coordinates.
-     *
-     * @param piece encoded pawn
-     * @param fromFile source file index
-     * @param fromRank source rank index
-     * @param toFile target file index
-     * @param toRank target rank index
-     * @return true when the pawn move shape is plausible
-     */
-    private static boolean isPremovePawnTarget(byte piece, int fromFile, int fromRank, int toFile, int toRank) {
-        int direction = Piece.isWhite(piece) ? 1 : -1;
-        int df = Math.abs(toFile - fromFile);
-        int rankDelta = toRank - fromRank;
-        if (df == 1) {
-            return rankDelta == direction;
-        }
-        if (df != 0) {
-            return false;
-        }
-        if (rankDelta == direction) {
-            return true;
-        }
-        int startRank = Piece.isWhite(piece) ? 1 : 6;
-        return fromRank == startRank && rankDelta == direction * 2;
-    }
-    /**
-     * Returns whether a king premove targets a rook-backed castling square.
-     *
-     * @param piece encoded king
-     * @param fromFile source file index
-     * @param fromRank source rank index
-     * @param toFile target file index
-     * @param toRank target rank index
-     * @return true when the corresponding rook is present
-     */
-    private boolean isPremoveCastleTarget(byte piece, int fromFile, int fromRank, int toFile, int toRank) {
-        boolean white = Piece.isWhite(piece);
-        int homeRank = white ? 0 : 7;
-        if (fromFile != 4 || fromRank != homeRank || toRank != homeRank) {
-            return false;
-        }
-        byte[] board = position == null ? null : position.getBoard();
-        if (board == null) {
-            return false;
-        }
-        byte rook = white ? Piece.WHITE_ROOK : Piece.BLACK_ROOK;
-        if (toFile == 6) {
-            return board[(byte) Field.toIndex(7, homeRank)] == rook;
-        }
-        if (toFile == 2) {
-            return board[(byte) Field.toIndex(0, homeRank)] == rook;
-        }
-        return false;
-    }
-    /**
-     * Returns the default promotion code for a premove ending on the last rank.
-     *
-     * @param piece encoded moving piece
-     * @param to target square
-     * @return queen promotion code, or zero for non-promotion moves
-     */
-    private static byte premovePromotion(byte piece, byte to) {
-        if (piece != Piece.WHITE_PAWN && piece != Piece.BLACK_PAWN) {
-            return 0;
-        }
-        int rank = Field.getY(to);
-        return rank == 0 || rank == 7 ? (byte) 4 : 0;
+        return PremoveGeometry.targets(position, from, piece);
     }
     /**
      * Clears drag state and any pending drag repaint.

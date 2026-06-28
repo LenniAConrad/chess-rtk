@@ -58,6 +58,7 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.tree.TreeSelectionModel;
 
+import application.gui.workbench.board.AnnotationGlyphs;
 import application.gui.workbench.board.BoardPanel;
 import application.gui.workbench.board.BoardExporter;
 import application.gui.workbench.board.BoardMarkup;
@@ -139,6 +140,7 @@ final class WorkbenchUiRegression {
         testThemeCachesSharedFonts();
         testSharedUiPrimitivesAreAvailable();
         testSegmentedSwitcherHandlesEmptyLabels();
+        testSegmentedSwitcherPaintsToPreferredWidth();
         testChipGroupHandlesEmptyLabels();
         testButtonVariantsExposeActionHierarchy();
         testIconOnlyButtonsRequireTooltipText();
@@ -155,6 +157,7 @@ final class WorkbenchUiRegression {
         testSettingsToggleRowsAreReadable();
         testSettingsSliderRefreshKeepsReadableColors();
         testSettingsMenuExposesThemeModes();
+        testDisplaySettingsUseLichessStyleMenuGroups();
         testSettingsTextStaysReadableInBothModes();
         testLayoutMenuExposesUsefulWorkbenchControls();
         testToggleSwitchAnimatesStateChanges();
@@ -182,6 +185,8 @@ final class WorkbenchUiRegression {
         testBoardMarkupBrushesUseFixedDistinctColors();
         testDrawPanelBuildsAnnotationControls();
         testDrawModeLeftDragAddsAnnotation();
+        testDrawGlyphEvaluationAnnotationsReplaceSiblings();
+        testDrawGlyphResultAnnotationsReplaceSiblings();
         testThemeRefreshPreservesLabelRoles();
         testThemeRefreshUpdatesLineBorders();
         testThemeRefreshRestoresCustomControlUis();
@@ -402,6 +407,19 @@ final class WorkbenchUiRegression {
     }
 
     /**
+     * Verifies the segmented switcher measures with the same geometry it paints,
+     * avoiding a blank trailing lane to the right of the final segment.
+     */
+    private static void testSegmentedSwitcherPaintsToPreferredWidth() {
+        SegmentedSwitcher switcher = Ui.segmentedControl("Network", "Search", "Gauntlet");
+        Dimension size = switcher.getPreferredSize();
+        switcher.setSize(size);
+        BufferedImage image = paint(switcher, size.width, size.height);
+        int rightEdgeAlpha = new Color(image.getRGB(size.width - 1, size.height / 2), true).getAlpha();
+        assertTrue(rightEdgeAlpha > 0, "segmented switcher paints through its preferred right edge");
+    }
+
+    /**
      * Verifies an empty chip set is inert rather than an array-bounds crash.
      */
     private static void testChipGroupHandlesEmptyLabels() {
@@ -460,12 +478,32 @@ final class WorkbenchUiRegression {
                 "right inspector keeps a clear single-pane heading");
         assertTrue(shellFrame.contains("inspectorFields.add(sectionLabel(\"OPENING\"));"),
                 "right inspector keeps sectioned opening details");
-        assertTrue(shellFrame.contains("navRow(\"My Studies\", WindowBase.TAB_BOARD"),
+        assertTrue(shellFrame.contains("private static final int ACTIVITY_BAR_WIDTH = 48"),
+                "left shell uses a VS Code-width activity bar");
+        assertTrue(shellFrame.contains("private JComponent buildSidebar()"),
+                "left shell separates the activity bar from the Explorer sidebar");
+        assertTrue(shellFrame.contains("private JComponent buildActivityBar()"),
+                "left shell exposes a real activity bar");
+        assertTrue(shellFrame.contains("activityButton(\"Explorer\", WindowBase.TAB_DASHBOARD"),
+                "activity bar exposes an Explorer route");
+        assertTrue(shellFrame.contains("activityButton(\"Run\", WindowBase.TAB_RUN"),
+                "activity bar exposes a Run route");
+        assertTrue(shellFrame.contains("activityButton(\"Studies\", WindowBase.TAB_STUDIES"),
+                "activity bar exposes a Studies route");
+        assertTrue(shellFrame.contains("activityButton(\"Logs\", WindowBase.TAB_LOGS"),
+                "activity bar exposes a Logs route");
+        assertTrue(shellFrame.contains("content.add(sectionLabel(\"EXPLORER\"));"),
+                "left sidebar uses the VS Code Explorer container label");
+        assertTrue(shellFrame.contains("workbench.activity"),
+                "activity bar controls expose stable action identifiers");
+        assertTrue(shellFrame.contains("private static final class ActivityButton"),
+                "activity bar uses a shared custom-painted button primitive");
+        assertTrue(shellFrame.contains("navRow(\"My Studies\", WindowBase.TAB_STUDIES"),
                 "left navigator exposes a Study entry");
         assertTrue(shellFrame.contains("this::studyCount, false, this::openStudyLibrary"),
                 "Study navigator entry uses the local study repository action");
-        assertTrue(lifecycle.contains("() -> showBoardDetail(\"Study\")"),
-                "Study navigator action opens the existing Study authoring rail");
+        assertTrue(lifecycle.contains("() -> selectTab(TAB_STUDIES)"),
+                "Study navigator action opens the top-level Studies module");
         assertTrue(shellFrame.contains("navigatorSection(\"LIBRARY\", true"),
                 "left navigator groups core routes in an expandable Library section");
         assertTrue(shellFrame.contains("navigatorSection(\"STUDIES\", true"),
@@ -476,8 +514,8 @@ final class WorkbenchUiRegression {
                 "left navigator owns a reusable collapsible section primitive");
         assertTrue(shellFrame.contains("private static final class NavigatorSectionHeader"),
                 "left navigator section headers expose a focused toggle control");
-        assertTrue(occurrences(shellFrame, "public AccessibleContext getAccessibleContext()") >= 2,
-                "custom-painted navigator controls create accessible contexts before metadata is written");
+        assertTrue(occurrences(shellFrame, "public AccessibleContext getAccessibleContext()") >= 3,
+                "custom-painted shell controls create accessible contexts before metadata is written");
         assertTrue(shellFrame.contains("putClientProperty(\"workbench.actionId\", getName())"),
                 "navigator controls expose stable action identifiers");
         assertTrue(shellFrame.contains("setRunDockCollapsed(!runDockCollapsed)"),
@@ -884,6 +922,21 @@ final class WorkbenchUiRegression {
                 "declared vertical scrollbar track uses caller surface");
         assertEquals(Theme.CARD, declared.getHorizontalScrollBar().getBackground(),
                 "declared horizontal scrollbar track uses caller surface");
+        assertTrue(declared.getVerticalScrollBar().getUI().getClass().getName().contains("StyledScrollBarUI"),
+                "declared vertical scrollbar uses shared workbench UI");
+        declared.getVerticalScrollBar().setBackground(Color.WHITE);
+        Ui.refreshScrollPaneTheme(declared, () -> Theme.CARD);
+        assertEquals(Theme.CARD, declared.getVerticalScrollBar().getBackground(),
+                "scrollbar refresh restores the caller surface after look-and-feel defaults");
+        declared.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+        declared.setSize(120, 72);
+        declared.doLayout();
+        BufferedImage image = paint(declared, 120, 72);
+        Color gutter = new Color(image.getRGB(116, 68), true);
+        assertTrue(colorDistance(gutter, Color.WHITE) > 80.0,
+                "painted scrollbar gutter avoids default white look-and-feel fill");
+        assertTrue(colorDistance(gutter, Theme.CARD) < 12.0,
+                "painted scrollbar gutter uses the declared surface");
         assertEquals(Theme.CARD,
                 declared.getCorner(javax.swing.ScrollPaneConstants.LOWER_RIGHT_CORNER).getBackground(),
                 "declared scroll corner uses caller surface");
@@ -961,7 +1014,7 @@ final class WorkbenchUiRegression {
      * (white-on-white) until the row is armed on hover.
      */
     private static void testPopupMenuItemTextRendersWhenNotHovered() {
-        for (Theme.Mode mode : new Theme.Mode[] { Theme.Mode.LIGHT, Theme.Mode.DARK }) {
+        for (Theme.Mode mode : Theme.Mode.values()) {
             Theme.setMode(mode);
             JPopupMenu popup = new JPopupMenu();
             JMenuItem item = new JMenuItem("Open PGN");
@@ -1483,6 +1536,35 @@ final class WorkbenchUiRegression {
         assertTrue(input.getWrapStyleWord(), "game input wraps on words");
         assertTrue(pane.getPreferredSize().height >= 90, "game input scroll preferred height");
         assertTrue(pane.getMinimumSize().height >= 70, "game input scroll minimum height");
+
+        String board = readSource(Path.of("src/application/gui/workbench/window/WindowBoardLayer.java"));
+        String game = readSource(Path.of("src/application/gui/workbench/window/WindowGameLayer.java"));
+        assertTrue(board.contains("private final JTextArea gameFenPreview = Ui.commandBlock(\"\");"),
+                "game line owns a shared read-only FEN preview field");
+        assertTrue(board.contains("private final JTextArea gamePgnPreview = Ui.commandBlock(\"\");"),
+                "game line owns a shared read-only PGN preview area");
+        assertTrue(board.contains("private JComponent createGameNotationPreview()"),
+                "game line builds a FEN/PGN preview block");
+        assertTrue(board.contains("gameFenPreview.setEditable(false);"),
+                "FEN preview is read-only");
+        assertTrue(board.contains("gamePgnPreview.setEditable(false);"),
+                "PGN preview is read-only");
+        assertTrue(board.contains("gameFenPreview.setRows(1);"),
+                "FEN preview stays a compact single-line strip");
+        assertTrue(board.contains("gamePgnPreview.setRows(2);"),
+                "PGN preview stays compact like the lichess reference");
+        assertTrue(board.contains("JScrollPane fenScroll = scroll(gameFenPreview, () -> Theme.INPUT);"),
+                "FEN preview scrolls instead of clipping long positions");
+        assertTrue(board.contains("grid(panel, label(\"FEN\")"),
+                "FEN preview exposes a visible label");
+        assertTrue(board.contains("grid(panel, label(\"PGN\")"),
+                "PGN preview exposes a visible label");
+        assertTrue(board.contains("gameFenPreview.setText(gameModel.currentPosition().toString());"),
+                "FEN preview follows selected variation position");
+        assertTrue(board.contains("gamePgnPreview.setText(gameModel.pgn());"),
+                "PGN preview follows current game export");
+        assertTrue(game.contains("refreshGameNotationPreview();"),
+                "game-state refresh keeps FEN/PGN preview synchronized");
     }
 
     /**
@@ -1634,6 +1716,8 @@ final class WorkbenchUiRegression {
         assertEquals(List.of("File", "Edit", "Selection", "View", "Go", "Run", "Terminal", "Help"),
                 menuNames, "top menu groups");
         String settingsMenuSource = readSource(Path.of("src/application/gui/workbench/window/SettingsMenu.java"));
+        String settingsDialogSource =
+                readSource(Path.of("src/application/gui/workbench/window/SettingsDialog.java"));
         String titleBarChromeSource = readSource(Path.of("src/application/gui/workbench/window/TitleBarChrome.java"));
         assertFalse(settingsMenuSource.contains("TitleBarChrome.brand"),
                 "top menu no longer reserves space for the unusable project chrome");
@@ -1641,6 +1725,10 @@ final class WorkbenchUiRegression {
                 "title bar no longer paints a fake project chip");
         assertFalse(titleBarChromeSource.contains("paintTrafficLights"),
                 "title bar no longer paints decorative traffic-light dots");
+        assertTrue(settingsDialogSource.contains("Ui.iconButton(\"x\", \"Close settings\""),
+                "settings overlay uses a compact close icon");
+        assertTrue(settingsDialogSource.contains("close.setActionCommand(\"workbench.settings.close\");"),
+                "settings overlay close icon has a stable action command");
 
         clickMenuItem(menuByText(bar, "File"), "Settings…");
         clickMenuItem(menuByText(bar, "Edit"), "Command Palette…");
@@ -1657,6 +1745,50 @@ final class WorkbenchUiRegression {
         assertTrue(logsOpened[0], "terminal menu opens logs folder");
         assertEquals(Theme.Mode.LIGHT, activeMode[0], "theme mode unchanged by menubar entry");
         assertEquals(Boolean.TRUE, Boolean.valueOf(soundEnabled[0]), "sound preference unchanged by menubar");
+    }
+
+    /**
+     * Verifies the Display settings content keeps its lichess-style grouped
+     * menu shape while still wiring real Workbench preferences.
+     */
+    private static void testDisplaySettingsUseLichessStyleMenuGroups() {
+        String source = readSource(Path.of("src/application/gui/workbench/window/WindowBoardLayer.java"));
+        assertTrue(source.contains("Ui.card(\"Keyboard shortcuts\", createKeyboardShortcutSettings())"),
+                "display settings expose a keyboard-shortcuts group");
+        assertTrue(source.contains("Ui.card(\"General\", createGeneralSettings())"),
+                "display settings expose a general group");
+        assertTrue(source.contains("Ui.card(\"Move list\", createMoveListSettings())"),
+                "display settings expose a move-list group");
+        assertTrue(source.contains("Ui.card(\"Board\", createBoardMenuSettings())"),
+                "display settings expose a board group");
+        assertTrue(source.contains("Ui.card(\"Appearance\", createAppearanceSettings())"),
+                "display settings keep theme and piece controls reachable");
+        assertTrue(source.contains("Ui.card(\"Sound\", createSoundSettings())"),
+                "display settings keep sound controls reachable");
+        assertTrue(source.contains("menuToggleRow(\"Show server analysis\""),
+                "server analysis is a real menu toggle");
+        assertTrue(source.contains("this::setLiveExternalEngineEnabled"),
+                "server analysis toggle uses the live-engine state path");
+        assertTrue(source.contains("menuToggleRow(\"Show evaluation gauge\""),
+                "evaluation gauge is a real menu toggle");
+        assertTrue(source.contains("menuToggleRow(\"Show best move arrows\""),
+                "best-move arrows are a real board toggle");
+        assertTrue(source.contains("menuToggleRow(\"Show undefended pieces\""),
+                "undefended-piece overlays are a real board toggle");
+        assertTrue(source.contains("menuToggleRow(\"Show pinned pieces\""),
+                "pinned-piece overlays are a real board toggle");
+        assertTrue(source.contains("menuToggleRow(\"Show checkable king\""),
+                "checkable-king overlays are a real board toggle");
+        assertTrue(source.contains("disabledMenuToggleRow(\"Enable variation hiding\""),
+                "unsupported variation hiding is shown as a disabled state");
+        assertTrue(source.contains("toggle.setActionCommand(displaySettingActionId(text));"),
+                "display menu toggles receive stable action ids");
+        assertTrue(source.contains("context.setAccessibleName(text);"),
+                "display menu toggles receive accessible names");
+        assertTrue(source.contains("context.setAccessibleDescription(tooltip);"),
+                "display menu toggles receive accessible descriptions");
+        assertTrue(source.contains("return \"workbench.display.\" + key;"),
+                "display setting action ids use the workbench.display namespace");
     }
 
     /**
@@ -1696,7 +1828,7 @@ final class WorkbenchUiRegression {
     }
 
     /**
-     * Verifies settings text remains readable in both palettes.
+     * Verifies settings text remains readable in every palette.
      */
     private static void testSettingsTextStaysReadableInBothModes() {
         Theme.Mode original = Theme.mode();
@@ -2669,12 +2801,11 @@ final class WorkbenchUiRegression {
      */
     private static void testThemeColorContrast() {
         Class<?> modeType = type("Theme$Mode");
-        invokeStatic(type("Theme"), "setMode", new Class<?>[] { modeType },
-                enumValue(modeType, "LIGHT"));
-        assertCurrentThemeContrast("light");
-        invokeStatic(type("Theme"), "setMode", new Class<?>[] { modeType },
-                enumValue(modeType, "DARK"));
-        assertCurrentThemeContrast("dark");
+        for (String modeName : new String[] { "LIGHT", "DARK", "DARK_BLUE" }) {
+            invokeStatic(type("Theme"), "setMode", new Class<?>[] { modeType },
+                    enumValue(modeType, modeName));
+            assertCurrentThemeContrast(modeName.toLowerCase(java.util.Locale.ROOT));
+        }
         invokeStatic(type("Theme"), "setMode", new Class<?>[] { modeType },
                 enumValue(modeType, "LIGHT"));
     }
@@ -2698,18 +2829,32 @@ final class WorkbenchUiRegression {
         assertColor(new Color(0xD5EBFF), themeColor("TOGGLE_ON_BG"), "light active option fill");
 
         Theme.setMode(Theme.Mode.DARK);
-        assertColor(new Color(0x11171D), themeColor("BG"), "dark macOS menu background");
-        assertColor(new Color(0x0F151A), themeColor("PANEL_SOLID"), "dark editor background");
-        assertColor(new Color(0x161D23), themeColor("ELEVATED_SOLID"), "dark dropdown background");
-        assertColor(new Color(0x26313B), themeColor("LINE"), "dark widget border");
-        assertColor(new Color(0x2D3944), themeColor("INPUT_BORDER"), "dark menu/input border");
-        assertColor(new Color(0x26313B), themeColor("TAB_HOVER"), "dark tab hover");
-        assertColor(new Color(0x11171D), themeColor("TAB_IDLE"), "dark inactive tab");
-        assertColor(new Color(0xDDE6EE), themeColor("TEXT"), "dark foreground");
-        assertColor(new Color(0x8FA1B2), themeColor("MUTED"), "dark muted foreground");
-        assertColor(new Color(0x2E74D0), themeColor("ACCENT"), "dark macOS focus accent");
+        assertColor(new Color(0x181818), themeColor("BG"), "dark neutral menu background");
+        assertColor(new Color(0x1E1E1E), themeColor("PANEL_SOLID"), "dark neutral editor background");
+        assertColor(new Color(0x252526), themeColor("ELEVATED_SOLID"), "dark neutral dropdown background");
+        assertColor(new Color(0x333333), themeColor("LINE"), "dark neutral widget border");
+        assertColor(new Color(0x3C3C3C), themeColor("INPUT_BORDER"), "dark neutral menu/input border");
+        assertColor(new Color(0x333333), themeColor("TAB_HOVER"), "dark neutral tab hover");
+        assertColor(new Color(0x181818), themeColor("TAB_IDLE"), "dark neutral inactive tab");
+        assertColor(new Color(0xD4D4D4), themeColor("TEXT"), "dark neutral foreground");
+        assertColor(new Color(0xA0A0A0), themeColor("MUTED"), "dark neutral muted foreground");
+        assertColor(new Color(0x2E74D0), themeColor("ACCENT"), "dark neutral focus accent");
         assertColor(new Color(45, 133, 211, 145), themeColor("TOGGLE_ON_BG"),
-                "dark active option fill");
+                "dark neutral active option fill");
+
+        Theme.setMode(Theme.Mode.DARK_BLUE);
+        assertColor(new Color(0x0A1118), themeColor("BG"), "dark blue menu background");
+        assertColor(new Color(0x0D1822), themeColor("PANEL_SOLID"), "dark blue editor background");
+        assertColor(new Color(0x122131), themeColor("ELEVATED_SOLID"), "dark blue dropdown background");
+        assertColor(new Color(0x203449), themeColor("LINE"), "dark blue widget border");
+        assertColor(new Color(0x2A4560), themeColor("INPUT_BORDER"), "dark blue menu/input border");
+        assertColor(new Color(0x203449), themeColor("TAB_HOVER"), "dark blue tab hover");
+        assertColor(new Color(0x0A1118), themeColor("TAB_IDLE"), "dark blue inactive tab");
+        assertColor(new Color(0xDDEBFA), themeColor("TEXT"), "dark blue foreground");
+        assertColor(new Color(0x91A5B8), themeColor("MUTED"), "dark blue muted foreground");
+        assertColor(new Color(0x2E74D0), themeColor("ACCENT"), "dark blue focus accent");
+        assertColor(new Color(46, 116, 208, 145), themeColor("TOGGLE_ON_BG"),
+                "dark blue active option fill");
         Theme.setMode(Theme.Mode.LIGHT);
     }
 
@@ -2819,6 +2964,21 @@ final class WorkbenchUiRegression {
         Color red = MarkupBrush.forGesture(1).displayColor();
         Color blue = MarkupBrush.forGesture(2).displayColor();
         Color yellow = MarkupBrush.forGesture(3).displayColor();
+        assertEquals(new Color(0x81, 0xB6, 0x4C), green,
+                "green markup uses chess.com-style best-move colour");
+        assertEquals(new Color(0xD9, 0x51, 0x4E), red,
+                "red markup uses chess.com-style blunder colour");
+        assertEquals(new Color(0x2D, 0x70, 0xB8), blue,
+                "blue markup uses chess.com-style analysis colour");
+        assertEquals(new Color(0xF0, 0xB1, 0x3A), yellow,
+                "yellow markup uses chess.com-style inaccuracy colour");
+        assertTrue(MarkupBrush.glyphs().containsAll(List.of("□", "Zz", "=", "∞", "±", "∓", "+=", "=+",
+                        "+-", "-+", AnnotationGlyphs.DRAW_RESULT, AnnotationGlyphs.WHITE_CHECKMATED,
+                        AnnotationGlyphs.BLACK_CHECKMATED, "↑↑", "↑", "→", "⇆", "⊕", "=∞", "△", "MW",
+                        "Bk", "Pin", AnnotationGlyphs.FORK, AnnotationGlyphs.SKEWER,
+                        AnnotationGlyphs.DISCOVERED_ATTACK, AnnotationGlyphs.DOUBLE_ATTACK,
+                        AnnotationGlyphs.XRAY, AnnotationGlyphs.BATTERY)),
+                "draw glyph picker exposes tactical annotation symbols");
 
         // The colour must not change with the theme.
         Theme.setMode(Theme.Mode.DARK);
@@ -2899,10 +3059,44 @@ final class WorkbenchUiRegression {
         JComponent glyphPicker = (JComponent) field(panel, "glyphPicker");
         assertFalse(glyphPicker.isEnabled(),
                 "draw panel disables exact glyph choices while shape is not glyph");
-        JButton blunderPreset = buttonWithText(panel, "??");
-        assertEquals(new Color(0xA3, 0x48, 0x43, 204),
+        JButton blunderPreset = buttonWithText(panel, "Blunder");
+        assertEquals(new Color(0x8B, 0x4C, 0xE0),
+                buttonWithText(panel, "Brilliant move").getClientProperty("workbench.draw.preset.fill"),
+                "draw panel brilliant preset uses the gradient magenta");
+        assertEquals(new Color(0x79, 0xB9, 0x4A),
+                buttonWithText(panel, "Good move").getClientProperty("workbench.draw.preset.fill"),
+                "draw panel good-move preset uses the gradient green");
+        assertEquals(new Color(0x2F, 0x78, 0xC4),
+                buttonWithText(panel, "Interesting move").getClientProperty("workbench.draw.preset.fill"),
+                "draw panel interesting-move preset uses the gradient blue");
+        assertEquals("!?", buttonWithText(panel, "Interesting move").getClientProperty("workbench.draw.preset.glyph"),
+                "draw panel annotation menu exposes the selected glyph token");
+        assertTrue(readSource(Path.of("src/application/gui/workbench/draw/DrawPanel.java"))
+                        .contains("AnnotationGlyphs.paintCustom"),
+                "draw panel previews custom move presets as vector glyphs");
+        assertTrue(readSource(Path.of("src/application/gui/workbench/board/BoardMarkupPainter.java"))
+                        .contains("AnnotationGlyphs.paintCustom"),
+                "board painter renders custom move markers as vector glyphs");
+        assertTrue(readSource(Path.of("src/application/gui/workbench/board/BoardExporter.java"))
+                        .contains("appendCustomGlyph"),
+                "board exporter preserves custom move vector glyphs");
+        assertEquals(new Color(0xF4, 0xC5, 0x42),
+                buttonWithText(panel, "Dubious move").getClientProperty("workbench.draw.preset.fill"),
+                "draw panel dubious-move preset uses the gradient yellow");
+        assertEquals(new Color(0xF3, 0x9A, 0x35),
+                buttonWithText(panel, "Mistake").getClientProperty("workbench.draw.preset.fill"),
+                "draw panel mistake preset uses the gradient orange");
+        assertEquals(new Color(0xC9, 0x4A, 0x3A),
                 blunderPreset.getClientProperty("workbench.draw.preset.fill"),
-                "draw panel blunder preset exposes its red fill");
+                "draw panel blunder preset exposes the gradient red");
+        assertEquals(new Color(0xA9, 0x44, 0x52),
+                buttonWithText(panel, "Only move").getClientProperty("workbench.draw.preset.fill"),
+                "draw panel only-move preset uses the requested red");
+        assertEquals(new Color(0x7C, 0x5A, 0xE6),
+                buttonWithText(panel, "Zugzwang").getClientProperty("workbench.draw.preset.fill"),
+                "draw panel zugzwang preset uses the requested purple");
+        assertEquals(Color.WHITE, blunderPreset.getClientProperty("workbench.draw.preset.border"),
+                "draw panel blunder preset exposes its white border");
         assertEquals(BoardMarkupTool.GLYPH, blunderPreset.getClientProperty("workbench.draw.preset.tool"),
                 "draw panel blunder preset exposes glyph tool");
         assertTrue(blunderPreset.getToolTipText().contains("width"),
@@ -2912,10 +3106,74 @@ final class WorkbenchUiRegression {
                 "draw panel glyph preset switches to glyph shape");
         assertEquals("??", board.directAnnotationBrush().glyph(),
                 "draw panel glyph preset applies the selected glyph");
+        assertEquals(Integer.valueOf(255), Integer.valueOf(board.directAnnotationBrush().displayColor().getAlpha()),
+                "draw panel preset applies fully opaque fill");
+        assertEquals(Color.WHITE, board.directAnnotationBrush().displayBorderColor(),
+                "draw panel preset applies a white border");
         assertTrue(glyphPicker.isEnabled(),
                 "draw panel enables exact glyph choices for glyph shape");
+        assertEquals(new Color(0x6E, 0x77, 0x81),
+                buttonWithText(panel, "Equal position").getClientProperty("workbench.draw.preset.fill"),
+                "draw panel exposes equal-position notation in the menu");
+        assertEquals(new Color(0x6E, 0x77, 0x81),
+                buttonWithText(panel, "Unclear position").getClientProperty("workbench.draw.preset.fill"),
+                "draw panel exposes unclear-position notation in the menu");
+        assertEquals(new Color(0x79, 0xB9, 0x4A),
+                buttonWithText(panel, "White is slightly better").getClientProperty("workbench.draw.preset.fill"),
+                "draw panel exposes white-slightly-better symbol with good-move green");
+        assertEquals(new Color(0xC9, 0x4A, 0x3A),
+                buttonWithText(panel, "Black is slightly better").getClientProperty("workbench.draw.preset.fill"),
+                "draw panel exposes black-slightly-better symbol with threat red");
+        assertEquals(new Color(0x79, 0xB9, 0x4A),
+                buttonWithText(panel, "White is winning").getClientProperty("workbench.draw.preset.fill"),
+                "draw panel exposes white-winning symbol with the requested neutral fill");
+        assertEquals(new Color(0xC9, 0x4A, 0x3A),
+                buttonWithText(panel, "Black is winning").getClientProperty("workbench.draw.preset.fill"),
+                "draw panel exposes black-winning symbol with threat red");
+        assertEquals(new Color(0x6E, 0x77, 0x81),
+                buttonWithText(panel, "Draw").getClientProperty("workbench.draw.preset.fill"),
+                "draw panel exposes draw-result symbol with a neutral fill");
+        assertEquals(new Color(0xEC, 0xEF, 0xF4),
+                buttonWithText(panel, "White checkmated").getClientProperty("workbench.draw.preset.fill"),
+                "draw panel exposes white-checkmated symbol with a light-side fill");
+        assertEquals(new Color(0x1F, 0x23, 0x28),
+                buttonWithText(panel, "White checkmated").getClientProperty("workbench.draw.preset.border"),
+                "draw panel exposes white-checkmated symbol with a dark mark");
+        assertEquals(new Color(0x2A, 0x2D, 0x33),
+                buttonWithText(panel, "Black checkmated").getClientProperty("workbench.draw.preset.fill"),
+                "draw panel exposes black-checkmated symbol with a dark-side fill");
+        assertEquals(AnnotationGlyphs.WHITE_WINNING,
+                buttonWithText(panel, "White is winning").getClientProperty("workbench.draw.preset.glyph"),
+                "draw panel uses explicit winning glyph token");
+        assertEquals(AnnotationGlyphs.DRAW_RESULT,
+                buttonWithText(panel, "Draw").getClientProperty("workbench.draw.preset.glyph"),
+                "draw panel uses explicit draw-result glyph token");
+        assertEquals(AnnotationGlyphs.WHITE_CHECKMATED,
+                buttonWithText(panel, "White checkmated").getClientProperty("workbench.draw.preset.glyph"),
+                "draw panel uses explicit white-checkmated glyph token");
+        assertEquals(AnnotationGlyphs.BLACK_CHECKMATED,
+                buttonWithText(panel, "Black checkmated").getClientProperty("workbench.draw.preset.glyph"),
+                "draw panel uses explicit black-checkmated glyph token");
+        assertEquals(BoardMarkupTool.GLYPH,
+                buttonWithText(panel, "Novelty").getClientProperty("workbench.draw.preset.tool"),
+                "draw panel exposes novelty glyph preset");
+        assertEquals(new Color(0xFF, 0x71, 0x4B),
+                buttonWithText(panel, "Counterplay").getClientProperty("workbench.draw.preset.fill"),
+                "draw panel exposes counterplay with the requested orange fill");
+        assertEquals(AnnotationGlyphs.COUNTERPLAY,
+                buttonWithText(panel, "Counterplay").getClientProperty("workbench.draw.preset.glyph"),
+                "draw panel uses the custom counterplay glyph token");
+        assertEquals(new Color(0x6F, 0x52, 0xCC),
+                buttonWithText(panel, "Fork").getClientProperty("workbench.draw.preset.fill"),
+                "draw panel exposes fork with the tactical purple fill");
+        assertEquals(AnnotationGlyphs.FORK,
+                buttonWithText(panel, "Fork").getClientProperty("workbench.draw.preset.glyph"),
+                "draw panel uses the custom fork glyph token");
+        assertEquals(BoardMarkupTool.GLYPH,
+                buttonWithText(panel, "With the idea").getClientProperty("workbench.draw.preset.tool"),
+                "draw panel exposes idea glyph preset");
         JButton circlePreset = buttonWithText(panel, "Circle");
-        assertEquals(new Color(0x2F, 0x5F, 0x8F, 204),
+        assertEquals(new Color(0x2F, 0x78, 0xC4),
                 circlePreset.getClientProperty("workbench.draw.preset.fill"),
                 "draw panel circle preset exposes its blue fill");
         assertEquals(BoardMarkupTool.CIRCLE, circlePreset.getClientProperty("workbench.draw.preset.tool"),
@@ -2935,6 +3193,15 @@ final class WorkbenchUiRegression {
         assertTrue(board.directAnnotationBrush().displayRoundedRectangle(),
                 "draw panel rounded-corner toggle updates the active brush");
         roundedToggle.doClick();
+        AbstractButton glyphShadowToggle = (AbstractButton) field(panel, "glyphShadowToggle");
+        assertTrue(board.isGlyphShadow(),
+                "draw panel starts with the glyph drop shadow enabled");
+        glyphShadowToggle.doClick();
+        assertFalse(board.isGlyphShadow(),
+                "draw panel glyph-shadow toggle disables the board glyph drop shadow");
+        glyphShadowToggle.doClick();
+        assertTrue(board.isGlyphShadow(),
+                "draw panel glyph-shadow toggle re-enables the board glyph drop shadow");
         assertTrue(panel.workspaceContext().contains("0 arrows"),
                 "draw panel starts with detailed workspace context");
         AbstractButton detailsToggle = (AbstractButton) field(panel, "detailsToggle");
@@ -3046,6 +3313,10 @@ final class WorkbenchUiRegression {
                 "rectangle draw mode stores selected rounded-corner style");
 
         board.setMarkupTool(BoardMarkupTool.GLYPH);
+        // "T" is a free-form glyph with no registered vector form, so it exercises the
+        // text-fallback export path (every palette glyph now renders as a vector badge).
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0x21, 0x9E, 0x3C, 212), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, "T"));
         Point f6 = squareCenter(board, (byte) 21);
         dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, f6, MouseEvent.BUTTON1);
         dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, f6, MouseEvent.BUTTON1);
@@ -3053,7 +3324,191 @@ final class WorkbenchUiRegression {
                 "glyph draw mode adds a glyph annotation");
         BoardMarkup glyph = board.boardMarkups().get(3);
         assertTrue(glyph.isGlyph(), "fourth draw annotation is a glyph");
-        assertEquals(MarkupBrush.DEFAULT_GLYPH, glyph.brush().glyph(), "glyph annotation stores selected glyph");
+        assertEquals("T", glyph.brush().glyph(), "glyph annotation stores selected glyph");
+
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0x16, 0x82, 0x26), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.BRILLIANT_MOVE));
+        Point h6 = squareCenter(board, (byte) 23);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, h6, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, h6, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(5), Integer.valueOf(board.markupCount()),
+                "brilliant-move glyph draw mode adds a vector glyph annotation");
+        BoardMarkup brilliantGlyph = board.boardMarkups().get(4);
+        assertTrue(brilliantGlyph.isGlyph(), "fifth draw annotation is a glyph");
+        assertEquals(AnnotationGlyphs.BRILLIANT_MOVE, brilliantGlyph.brush().glyph(),
+                "brilliant-move annotation stores selected glyph");
+
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0x22, 0xAC, 0x38), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.EXCELLENT_MOVE));
+        Point g5 = squareCenter(board, (byte) 30);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, g5, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, g5, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(6), Integer.valueOf(board.markupCount()),
+                "excellent-move glyph draw mode adds a vector glyph annotation");
+        BoardMarkup excellentGlyph = board.boardMarkups().get(5);
+        assertTrue(excellentGlyph.isGlyph(), "sixth draw annotation is a glyph");
+        assertEquals(AnnotationGlyphs.EXCELLENT_MOVE, excellentGlyph.brush().glyph(),
+                "excellent-move annotation stores selected glyph");
+
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0xEA, 0x45, 0xD8), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.INTERESTING_MOVE));
+        Point h5 = squareCenter(board, (byte) 31);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, h5, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, h5, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(7), Integer.valueOf(board.markupCount()),
+                "interesting-move glyph draw mode adds a vector glyph annotation");
+        BoardMarkup interestingGlyph = board.boardMarkups().get(6);
+        assertTrue(interestingGlyph.isGlyph(), "seventh draw annotation is a glyph");
+        assertEquals(AnnotationGlyphs.INTERESTING_MOVE, interestingGlyph.brush().glyph(),
+                "interesting-move annotation stores selected glyph");
+
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0x56, 0xB4, 0xE9), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.DUBIOUS_MOVE));
+        Point g4 = squareCenter(board, (byte) 38);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, g4, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, g4, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(8), Integer.valueOf(board.markupCount()),
+                "dubious-move glyph draw mode adds a vector glyph annotation");
+        BoardMarkup dubiousGlyph = board.boardMarkups().get(7);
+        assertTrue(dubiousGlyph.isGlyph(), "eighth draw annotation is a glyph");
+        assertEquals(AnnotationGlyphs.DUBIOUS_MOVE, dubiousGlyph.brush().glyph(),
+                "dubious-move annotation stores selected glyph");
+
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0xDF, 0x53, 0x53), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.BLUNDER_MOVE));
+        Point h4 = squareCenter(board, (byte) 39);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, h4, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, h4, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(9), Integer.valueOf(board.markupCount()),
+                "blunder glyph draw mode adds a vector glyph annotation");
+        BoardMarkup blunderGlyph = board.boardMarkups().get(8);
+        assertTrue(blunderGlyph.isGlyph(), "ninth draw annotation is a glyph");
+        assertEquals(AnnotationGlyphs.BLUNDER_MOVE, blunderGlyph.brush().glyph(),
+                "blunder annotation stores selected glyph");
+
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0xA0, 0x40, 0x48), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.ONLY_MOVE));
+        Point g3 = squareCenter(board, (byte) 46);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, g3, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, g3, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(10), Integer.valueOf(board.markupCount()),
+                "only-move glyph draw mode adds a vector glyph annotation");
+        BoardMarkup onlyMoveGlyph = board.boardMarkups().get(9);
+        assertTrue(onlyMoveGlyph.isGlyph(), "tenth draw annotation is a glyph");
+        assertEquals(AnnotationGlyphs.ONLY_MOVE, onlyMoveGlyph.brush().glyph(),
+                "only-move annotation stores selected glyph");
+
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0x91, 0x71, 0xF2), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.ZUGZWANG));
+        Point f3 = squareCenter(board, (byte) 45);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, f3, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, f3, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(11), Integer.valueOf(board.markupCount()),
+                "zugzwang glyph draw mode adds a vector glyph annotation");
+        BoardMarkup zugzwangGlyph = board.boardMarkups().get(10);
+        assertTrue(zugzwangGlyph.isGlyph(), "eleventh draw annotation is a glyph");
+        assertEquals(AnnotationGlyphs.ZUGZWANG, zugzwangGlyph.brush().glyph(),
+                "zugzwang annotation stores selected glyph");
+
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0xBB, 0xBB, 0xBB), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.WHITE_WINNING));
+        Point e3Winning = squareCenter(board, (byte) 44);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK,
+                e3Winning, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, e3Winning, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(12), Integer.valueOf(board.markupCount()),
+                "white-winning glyph draw mode adds a vector glyph annotation");
+        BoardMarkup whiteWinningGlyph = board.boardMarkups().get(11);
+        assertTrue(whiteWinningGlyph.isGlyph(), "twelfth draw annotation is a glyph");
+        assertEquals(AnnotationGlyphs.WHITE_WINNING, whiteWinningGlyph.brush().glyph(),
+                "white-winning annotation stores selected glyph");
+
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0xFF, 0x78, 0x4F), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.COUNTERPLAY));
+        Point d3Counterplay = squareCenter(board, (byte) 43);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK,
+                d3Counterplay, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, d3Counterplay, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(13), Integer.valueOf(board.markupCount()),
+                "counterplay glyph draw mode adds a vector glyph annotation");
+        BoardMarkup counterplayGlyph = board.boardMarkups().get(12);
+        assertTrue(counterplayGlyph.isGlyph(), "thirteenth draw annotation is a glyph");
+        assertEquals(AnnotationGlyphs.COUNTERPLAY, counterplayGlyph.brush().glyph(),
+                "counterplay annotation stores selected glyph");
+
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0x7C, 0x87, 0x94), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.DRAW_RESULT));
+        Point c3Draw = squareCenter(board, (byte) 42);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK,
+                c3Draw, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, c3Draw, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(14), Integer.valueOf(board.markupCount()),
+                "draw-result glyph draw mode adds a vector glyph annotation");
+        BoardMarkup drawGlyph = board.boardMarkups().get(13);
+        assertTrue(drawGlyph.isGlyph(), "fourteenth draw annotation is a glyph");
+        assertEquals(AnnotationGlyphs.DRAW_RESULT, drawGlyph.brush().glyph(),
+                "draw-result annotation stores selected glyph");
+
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0xF2, 0xF2, 0xF2),
+                new Color(0x24, 0x27, 0x2E), 10, MarkupBrush.DEFAULT_BORDER_WIDTH,
+                AnnotationGlyphs.WHITE_CHECKMATED));
+        Point b3WhiteCheckmated = squareCenter(board, (byte) 41);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK,
+                b3WhiteCheckmated, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, b3WhiteCheckmated, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(15), Integer.valueOf(board.markupCount()),
+                "white-checkmated glyph draw mode adds a vector glyph annotation");
+        BoardMarkup whiteCheckmatedGlyph = board.boardMarkups().get(14);
+        assertTrue(whiteCheckmatedGlyph.isGlyph(), "fifteenth draw annotation is a glyph");
+        assertEquals(AnnotationGlyphs.WHITE_CHECKMATED, whiteCheckmatedGlyph.brush().glyph(),
+                "white-checkmated annotation stores selected glyph");
+        assertEquals(new Color(0x24, 0x27, 0x2E), whiteCheckmatedGlyph.brush().displayBorderColor(),
+                "white-checkmated annotation stores dark mark color");
+
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0x33, 0x33, 0x33), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.BLACK_CHECKMATED));
+        Point a3BlackCheckmated = squareCenter(board, (byte) 40);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK,
+                a3BlackCheckmated, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, a3BlackCheckmated, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(16), Integer.valueOf(board.markupCount()),
+                "black-checkmated glyph draw mode adds a vector glyph annotation");
+        BoardMarkup blackCheckmatedGlyph = board.boardMarkups().get(15);
+        assertTrue(blackCheckmatedGlyph.isGlyph(), "sixteenth draw annotation is a glyph");
+        assertEquals(AnnotationGlyphs.BLACK_CHECKMATED, blackCheckmatedGlyph.brush().glyph(),
+                "black-checkmated annotation stores selected glyph");
+
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0x6F, 0x57, 0xC8), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.FORK));
+        Point h3Fork = squareCenter(board, (byte) 47);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, h3Fork, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, h3Fork, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(17), Integer.valueOf(board.markupCount()),
+                "fork glyph draw mode adds a vector glyph annotation");
+        BoardMarkup forkGlyph = board.boardMarkups().get(16);
+        assertTrue(forkGlyph.isGlyph(), "seventeenth draw annotation is a glyph");
+        assertEquals(AnnotationGlyphs.FORK, forkGlyph.brush().glyph(),
+                "fork annotation stores selected glyph");
+
+        Point fanSquare = squareCenter(board, (byte) 51);
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0xC2, 0x18, 0x5B), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.INTERESTING_MOVE));
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, fanSquare, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, fanSquare, MouseEvent.BUTTON1);
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0xF4, 0x7B, 0x3F), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.DUBIOUS_MOVE));
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, fanSquare, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, fanSquare, MouseEvent.BUTTON1);
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0xFF, 0x17, 0x44), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.BLUNDER_MOVE));
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, fanSquare, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, fanSquare, MouseEvent.BUTTON1);
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0x2D, 0x70, 0xB8), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.ZUGZWANG));
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, fanSquare, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, fanSquare, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(21), Integer.valueOf(board.markupCount()),
+                "same-square glyph draw mode keeps multiple vector glyph annotations");
 
         board.setBoardColors(new Color(0xDDEEFF), new Color(0x335577));
         assertEquals(new Color(0xDDEEFF), board.boardLightColor(), "custom light board color applies");
@@ -3071,34 +3526,352 @@ final class WorkbenchUiRegression {
                 svg.indexOf("/>", rectangleMarkup) + 2);
         assertTrue(rectangleElement.contains("rx=\"") && rectangleElement.contains("ry=\""),
                 "SVG export preserves rounded rectangle corners");
-        int glyphText = svg.indexOf(">!!</text>");
+        int glyphText = svg.indexOf(">T</text>");
         int glyphCircle = svg.lastIndexOf("<circle", glyphText);
         int glyphRect = svg.lastIndexOf("<rect", glyphText);
         assertTrue(glyphText >= 0 && glyphCircle > glyphRect,
                 "SVG export paints glyph badges as circles");
         String glyphCircleElement = svg.substring(glyphCircle, svg.indexOf("/>", glyphCircle) + 2);
-        assertTrue(glyphCircleElement.contains("cx=\"370\"") && glyphCircleElement.contains("cy=\"146\""),
-                "SVG export centers glyph badges in the top-right quadrant of the square");
+        assertTrue(glyphCircleElement.contains("cx=\"380\"") && glyphCircleElement.contains("cy=\"136\""),
+                "SVG export straddles glyph badges over the square's top-right corner (Lichess-style)");
         String glyphTextElement = svg.substring(svg.lastIndexOf("<text", glyphText),
                 svg.indexOf("</text>", glyphText) + "</text>".length());
         assertFalse(glyphTextElement.contains("dominant-baseline"),
                 "SVG export avoids viewer-dependent central glyph baselines");
         assertTrue(svgAttribute(glyphTextElement, "y") > svgAttribute(glyphCircleElement, "cy"),
                 "SVG export places glyph text on a Java2D-style baseline below badge center");
+        int brilliantPath = svg.indexOf(AnnotationGlyphs.BRILLIANT_MOVE_SVG_PATH);
+        assertTrue(brilliantPath >= 0, "SVG export includes the brilliant-move vector path");
+        int brilliantCircle = svg.lastIndexOf("<circle", brilliantPath);
+        String brilliantCircleElement = svg.substring(brilliantCircle,
+                svg.indexOf("/>", brilliantCircle) + 2);
+        assertTrue(brilliantCircleElement.contains("fill=\"#168226\""),
+                "SVG export preserves the requested brilliant-move fill");
+        assertFalse(svg.contains(">!!</text>"),
+                "SVG export avoids text fallback for the brilliant-move marker");
+        int excellentPath = svg.indexOf(AnnotationGlyphs.EXCELLENT_MOVE_SVG_PATH);
+        assertTrue(excellentPath >= 0, "SVG export includes the excellent-move vector path");
+        int excellentCircle = svg.lastIndexOf("<circle", excellentPath);
+        String excellentCircleElement = svg.substring(excellentCircle,
+                svg.indexOf("/>", excellentCircle) + 2);
+        assertTrue(excellentCircleElement.contains("fill=\"#22ac38\""),
+                "SVG export preserves the requested excellent-move fill");
+        assertFalse(svg.contains(">!</text>"),
+                "SVG export avoids text fallback for the excellent-move marker");
+        int interestingPath = svg.indexOf(AnnotationGlyphs.INTERESTING_MOVE_SVG_PATH);
+        assertTrue(interestingPath >= 0, "SVG export includes the interesting-move vector path");
+        int interestingCircle = svg.lastIndexOf("<circle", interestingPath);
+        String interestingCircleElement = svg.substring(interestingCircle,
+                svg.indexOf("/>", interestingCircle) + 2);
+        assertTrue(interestingCircleElement.contains("fill=\"#ea45d8\""),
+                "SVG export preserves the requested interesting-move fill");
+        assertFalse(svg.contains(">!?</text>"),
+                "SVG export avoids text fallback for the interesting-move marker");
+        int dubiousPath = svg.indexOf(AnnotationGlyphs.DUBIOUS_MOVE_SVG_PATH);
+        assertTrue(dubiousPath >= 0, "SVG export includes the dubious-move vector path");
+        int dubiousCircle = svg.lastIndexOf("<circle", dubiousPath);
+        String dubiousCircleElement = svg.substring(dubiousCircle,
+                svg.indexOf("/>", dubiousCircle) + 2);
+        assertTrue(dubiousCircleElement.contains("fill=\"#56b4e9\""),
+                "SVG export preserves the requested dubious-move fill");
+        assertFalse(svg.contains(">?!</text>"),
+                "SVG export avoids text fallback for the dubious-move marker");
+        int blunderPath = svg.indexOf(AnnotationGlyphs.BLUNDER_MOVE_SVG_PATH);
+        assertTrue(blunderPath >= 0, "SVG export includes the blunder vector path");
+        int blunderCircle = svg.lastIndexOf("<circle", blunderPath);
+        String blunderCircleElement = svg.substring(blunderCircle,
+                svg.indexOf("/>", blunderCircle) + 2);
+        assertTrue(blunderCircleElement.contains("fill=\"#df5353\""),
+                "SVG export preserves the requested blunder fill");
+        assertFalse(svg.contains(">??</text>"),
+                "SVG export avoids text fallback for the blunder marker");
+        int onlyMovePath = svg.indexOf(AnnotationGlyphs.ONLY_MOVE_SVG_PATH);
+        assertTrue(onlyMovePath >= 0, "SVG export includes the only-move rectangle path");
+        int onlyMoveCircle = svg.lastIndexOf("<circle", onlyMovePath);
+        String onlyMoveCircleElement = svg.substring(onlyMoveCircle,
+                svg.indexOf("/>", onlyMoveCircle) + 2);
+        assertTrue(onlyMoveCircleElement.contains("fill=\"#a04048\""),
+                "SVG export preserves the requested only-move fill");
+        String onlyMovePathElement = svg.substring(svg.lastIndexOf("<path", onlyMovePath),
+                svg.indexOf("/>", onlyMovePath) + 2);
+        assertTrue(onlyMovePathElement.contains("fill=\"none\""),
+                "SVG export keeps the only-move rectangle unfilled");
+        assertTrue(onlyMovePathElement.contains("stroke=\"#ffffff\""),
+                "SVG export strokes the only-move rectangle in white");
+        assertTrue(onlyMovePathElement.contains("stroke-width=\"7\""),
+                "SVG export preserves the requested only-move stroke width");
+        assertFalse(svg.contains(">" + AnnotationGlyphs.ONLY_MOVE + "</text>"),
+                "SVG export avoids text fallback for the only-move marker");
+        int zugzwangFill = svg.indexOf("fill=\"#9171f2\"");
+        assertTrue(zugzwangFill >= 0, "SVG export preserves the requested zugzwang fill");
+        String zugzwangFillCircle = svg.substring(svg.lastIndexOf("<circle", zugzwangFill),
+                svg.indexOf("/>", zugzwangFill) + 2);
+        assertFalse(zugzwangFillCircle.contains("stroke="),
+                "SVG export keeps the zugzwang badge circle fill-only");
+        assertTrue(svg.contains("<circle cx=\"50\" cy=\"50\" r=\"46.5\" fill=\"none\" stroke=\"#ffffff\""),
+                "SVG export includes the zugzwang outer ring flush with the badge edge");
+        assertTrue(svg.contains("<circle cx=\"50\" cy=\"50\" r=\"7\" fill=\"#ffffff\"/>"),
+                "SVG export fills the zugzwang center dot");
+        assertFalse(svg.contains(">" + AnnotationGlyphs.ZUGZWANG + "</text>"),
+                "SVG export avoids text fallback for the zugzwang marker");
+        int whiteWinningPath = svg.indexOf(AnnotationGlyphs.WHITE_WINNING_SVG_PATH);
+        assertTrue(whiteWinningPath >= 0, "SVG export includes the white-winning vector path");
+        int whiteWinningCircle = svg.lastIndexOf("<circle", whiteWinningPath);
+        String whiteWinningCircleElement = svg.substring(whiteWinningCircle,
+                svg.indexOf("/>", whiteWinningCircle) + 2);
+        assertTrue(whiteWinningCircleElement.contains("fill=\"#bbbbbb\""),
+                "SVG export preserves the requested white-winning fill");
+        String whiteWinningPathElement = svg.substring(svg.lastIndexOf("<path", whiteWinningPath),
+                svg.indexOf("/>", whiteWinningPath) + 2);
+        assertTrue(whiteWinningPathElement.contains("fill=\"none\""),
+                "SVG export keeps the white-winning marker unfilled");
+        assertTrue(whiteWinningPathElement.contains("stroke-width=\"7\""),
+                "SVG export preserves the requested white-winning stroke width");
+        assertFalse(svg.contains(">" + AnnotationGlyphs.WHITE_WINNING + "</text>"),
+                "SVG export avoids text fallback for the white-winning marker");
+        int counterplayPath = svg.indexOf(AnnotationGlyphs.COUNTERPLAY_FILL_SVG_PATH);
+        assertTrue(counterplayPath >= 0, "SVG export includes the counterplay filled vector path");
+        int counterplayCircle = svg.lastIndexOf("<circle", counterplayPath);
+        String counterplayCircleElement = svg.substring(counterplayCircle,
+                svg.indexOf("/>", counterplayCircle) + 2);
+        assertTrue(counterplayCircleElement.contains("fill=\"#ff784f\""),
+                "SVG export preserves the requested counterplay fill");
+        assertTrue(svg.contains("d=\"" + AnnotationGlyphs.COUNTERPLAY_STROKE_SVG_PATH + "\""),
+                "SVG export includes the counterplay stroked lane path");
+        int counterplayStroke = svg.indexOf(AnnotationGlyphs.COUNTERPLAY_STROKE_SVG_PATH);
+        String counterplayStrokeElement = svg.substring(svg.lastIndexOf("<path", counterplayStroke),
+                svg.indexOf("/>", counterplayStroke) + 2);
+        assertTrue(counterplayStrokeElement.contains("fill=\"none\""),
+                "SVG export keeps the counterplay lane path unfilled");
+        assertTrue(counterplayStrokeElement.contains("stroke-width=\"7\""),
+                "SVG export preserves the requested counterplay stroke width");
+        assertFalse(svg.contains(">" + AnnotationGlyphs.COUNTERPLAY + "</text>"),
+                "SVG export avoids text fallback for the counterplay marker");
+        int forkPath = svg.indexOf(AnnotationGlyphs.FORK_FILL_SVG_PATH);
+        assertTrue(forkPath >= 0, "SVG export includes the fork filled vector path");
+        int forkCircle = svg.lastIndexOf("<circle", forkPath);
+        String forkCircleElement = svg.substring(forkCircle, svg.indexOf("/>", forkCircle) + 2);
+        assertTrue(forkCircleElement.contains("fill=\"#6f57c8\""),
+                "SVG export preserves the requested fork fill");
+        assertTrue(svg.contains("d=\"" + AnnotationGlyphs.FORK_STROKE_SVG_PATH + "\""),
+                "SVG export includes the fork branch stroke path");
+        int forkStroke = svg.indexOf(AnnotationGlyphs.FORK_STROKE_SVG_PATH);
+        String forkStrokeElement = svg.substring(svg.lastIndexOf("<path", forkStroke),
+                svg.indexOf("/>", forkStroke) + 2);
+        assertTrue(forkStrokeElement.contains("fill=\"none\""),
+                "SVG export keeps the fork branch path unfilled");
+        assertTrue(forkStrokeElement.contains("stroke-width=\"7\""),
+                "SVG export preserves the requested fork stroke width");
+        assertFalse(forkStrokeElement.contains("stroke-linecap=\"round\""),
+                "SVG export uses butt caps for the fork stalk, matching the arrow glyphs");
+        assertFalse(svg.contains(">" + AnnotationGlyphs.FORK + "</text>"),
+                "SVG export avoids text fallback for the fork marker");
+        int drawResultPath = svg.indexOf(AnnotationGlyphs.DRAW_RESULT_SVG_PATH);
+        assertTrue(drawResultPath >= 0, "SVG export includes the draw-result vector path");
+        int drawResultCircle = svg.lastIndexOf("<circle", drawResultPath);
+        String drawResultCircleElement = svg.substring(drawResultCircle,
+                svg.indexOf("/>", drawResultCircle) + 2);
+        assertTrue(drawResultCircleElement.contains("fill=\"#7c8794\""),
+                "SVG export preserves the requested draw-result fill");
+        String drawResultPathElement = svg.substring(svg.lastIndexOf("<path", drawResultPath),
+                svg.indexOf("/>", drawResultPath) + 2);
+        assertFalse(drawResultPathElement.contains("fill=\"none\""),
+                "SVG export fills the draw-result fraction outline");
+        assertFalse(drawResultPathElement.contains("stroke-width"),
+                "SVG export draws the draw-result fraction as a filled glyph, not a stroke");
+        assertFalse(svg.contains(">" + AnnotationGlyphs.DRAW_RESULT + "</text>"),
+                "SVG export avoids text fallback for the draw-result marker");
+        int whiteCheckmatedPath = svg.indexOf(AnnotationGlyphs.WHITE_CHECKMATED_SVG_PATH);
+        assertTrue(whiteCheckmatedPath >= 0, "SVG export includes the white-checkmated vector path");
+        int whiteCheckmatedCircle = svg.lastIndexOf("<circle", whiteCheckmatedPath);
+        String whiteCheckmatedCircleElement = svg.substring(whiteCheckmatedCircle,
+                svg.indexOf("/>", whiteCheckmatedCircle) + 2);
+        assertTrue(whiteCheckmatedCircleElement.contains("fill=\"#f2f2f2\""),
+                "SVG export preserves the requested white-checkmated fill");
+        String whiteCheckmatedPathElement = svg.substring(svg.lastIndexOf("<path", whiteCheckmatedPath),
+                svg.indexOf("/>", whiteCheckmatedPath) + 2);
+        assertTrue(whiteCheckmatedPathElement.contains("stroke=\"#24272e\""),
+                "SVG export preserves the requested white-checkmated dark mark");
+        assertTrue(whiteCheckmatedPathElement.contains("stroke-width=\"7\""),
+                "SVG export preserves the requested white-checkmated stroke width");
+        assertFalse(svg.contains(">" + AnnotationGlyphs.WHITE_CHECKMATED + "</text>"),
+                "SVG export avoids text fallback for the white-checkmated marker");
+        int blackCheckmatedPath = svg.indexOf(AnnotationGlyphs.BLACK_CHECKMATED_SVG_PATH);
+        assertTrue(blackCheckmatedPath >= 0, "SVG export includes the black-checkmated vector path");
+        int blackCheckmatedCircle = svg.lastIndexOf("<circle", blackCheckmatedPath);
+        String blackCheckmatedCircleElement = svg.substring(blackCheckmatedCircle,
+                svg.indexOf("/>", blackCheckmatedCircle) + 2);
+        assertTrue(blackCheckmatedCircleElement.contains("fill=\"#333333\""),
+                "SVG export preserves the requested black-checkmated fill");
+        String blackCheckmatedPathElement = svg.substring(svg.lastIndexOf("<path", blackCheckmatedPath),
+                svg.indexOf("/>", blackCheckmatedPath) + 2);
+        assertTrue(blackCheckmatedPathElement.contains("stroke=\"#ffffff\""),
+                "SVG export preserves the requested black-checkmated white mark");
+        assertTrue(blackCheckmatedPathElement.contains("stroke-width=\"7\""),
+                "SVG export preserves the requested black-checkmated stroke width");
+        assertFalse(svg.contains(">" + AnnotationGlyphs.BLACK_CHECKMATED + "</text>"),
+                "SVG export avoids text fallback for the black-checkmated marker");
+        double fanA = circleCxForFill(svg, "#c2185b");
+        double fanB = circleCxForFill(svg, "#f47b3f");
+        double fanC = circleCxForFill(svg, "#ff1744");
+        double fanD = circleCxForFill(svg, "#2d70b8");
+        assertTrue(fanA < fanB && fanB < fanC && fanC < fanD,
+                "SVG export fans same-square glyph badges from left to right");
+        assertTrue(fanB - fanA > 8.0 && fanD - fanC > 8.0,
+                "SVG export gives same-square glyph badges visible horizontal offsets");
         assertTrue(board.canUndoMarkupEdit(), "draw annotations can be undone");
         board.undoMarkupEdit();
-        assertEquals(Integer.valueOf(3), Integer.valueOf(board.markupCount()),
+        assertEquals(Integer.valueOf(20), Integer.valueOf(board.markupCount()),
                 "undo removes the latest draw annotation");
         assertTrue(board.canRedoMarkupEdit(), "draw annotations can be redone");
         board.redoMarkupEdit();
-        assertEquals(Integer.valueOf(4), Integer.valueOf(board.markupCount()),
+        assertEquals(Integer.valueOf(21), Integer.valueOf(board.markupCount()),
                 "redo restores the latest draw annotation");
         board.removeMarkup(0);
-        assertEquals(Integer.valueOf(3), Integer.valueOf(board.markupCount()),
+        assertEquals(Integer.valueOf(20), Integer.valueOf(board.markupCount()),
                 "delete selected support removes one annotation");
         board.clearUserMarkup();
         assertEquals(Integer.valueOf(0), Integer.valueOf(board.markupCount()),
                 "clear all support removes draw annotations");
+    }
+
+    /**
+     * Verifies mutually exclusive position-evaluation glyphs replace each other
+     * while unrelated move-quality glyphs can still stack on the same square.
+     */
+    private static void testDrawGlyphEvaluationAnnotationsReplaceSiblings() {
+        BoardPanel board = new BoardPanel();
+        board.setSize(520, 520);
+        board.setPositionInstant(new Position(START_FEN), Move.NO_MOVE);
+        board.setDirectAnnotationMode(true);
+        board.setMarkupTool(BoardMarkupTool.GLYPH);
+        board.doLayout();
+
+        Point d4 = squareCenter(board, (byte) 35);
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0x81, 0xB6, 0x4C), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, "±"));
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, d4, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, d4, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(1), Integer.valueOf(board.markupCount()),
+                "first evaluation glyph adds one annotation");
+        assertTrue(boardHasGlyph(board, "±"), "white advantage glyph is present");
+
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0xDF, 0x53, 0x53), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, "∓"));
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, d4, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, d4, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(1), Integer.valueOf(board.markupCount()),
+                "opposite evaluation glyph replaces the earlier evaluation glyph");
+        assertFalse(boardHasGlyph(board, "±"), "white advantage glyph was replaced");
+        assertTrue(boardHasGlyph(board, "∓"), "black advantage glyph is present");
+
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0xEA, 0x45, 0xD8), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.INTERESTING_MOVE));
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, d4, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, d4, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(2), Integer.valueOf(board.markupCount()),
+                "unrelated move-quality glyph can stack with an evaluation glyph");
+        assertTrue(boardHasGlyph(board, AnnotationGlyphs.INTERESTING_MOVE),
+                "interesting-move glyph remains stacked on the square");
+
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0xDF, 0x53, 0x53), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, "-+"));
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, d4, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, d4, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(2), Integer.valueOf(board.markupCount()),
+                "winning evaluation glyph replaces only the previous evaluation sibling");
+        assertFalse(boardHasGlyph(board, "∓"), "black slight-advantage glyph was replaced");
+        assertTrue(boardHasGlyph(board, "-+"), "black-winning glyph is present");
+        assertTrue(boardHasGlyph(board, AnnotationGlyphs.INTERESTING_MOVE),
+                "non-exclusive move-quality glyph is preserved");
+
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, d4, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, d4, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(1), Integer.valueOf(board.markupCount()),
+                "clicking the same exclusive glyph toggles it off");
+        assertFalse(boardHasGlyph(board, "-+"), "black-winning glyph was toggled off");
+        assertTrue(boardHasGlyph(board, AnnotationGlyphs.INTERESTING_MOVE),
+                "stacked non-exclusive glyph remains after exclusive toggle-off");
+    }
+
+    /**
+     * Verifies mutually exclusive game-result glyphs replace each other while
+     * unrelated notation glyphs can still stack on the same square.
+     */
+    private static void testDrawGlyphResultAnnotationsReplaceSiblings() {
+        BoardPanel board = new BoardPanel();
+        board.setSize(520, 520);
+        board.setPositionInstant(new Position(START_FEN), Move.NO_MOVE);
+        board.setDirectAnnotationMode(true);
+        board.setMarkupTool(BoardMarkupTool.GLYPH);
+        board.doLayout();
+
+        Point e4 = squareCenter(board, (byte) 36);
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0x7C, 0x87, 0x94), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.DRAW_RESULT));
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, e4, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, e4, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(1), Integer.valueOf(board.markupCount()),
+                "first result glyph adds one annotation");
+        assertTrue(boardHasGlyph(board, AnnotationGlyphs.DRAW_RESULT), "draw-result glyph is present");
+
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0xF2, 0xF2, 0xF2),
+                new Color(0x24, 0x27, 0x2E), 10, MarkupBrush.DEFAULT_BORDER_WIDTH,
+                AnnotationGlyphs.WHITE_CHECKMATED));
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, e4, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, e4, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(1), Integer.valueOf(board.markupCount()),
+                "white-checkmated result glyph replaces the draw-result glyph");
+        assertFalse(boardHasGlyph(board, AnnotationGlyphs.DRAW_RESULT), "draw-result glyph was replaced");
+        assertTrue(boardHasGlyph(board, AnnotationGlyphs.WHITE_CHECKMATED),
+                "white-checkmated glyph is present");
+
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0xEA, 0x45, 0xD8), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.INTERESTING_MOVE));
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, e4, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, e4, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(2), Integer.valueOf(board.markupCount()),
+                "unrelated move-quality glyph can stack with a result glyph");
+        assertTrue(boardHasGlyph(board, AnnotationGlyphs.INTERESTING_MOVE),
+                "interesting-move glyph remains stacked on the square");
+
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0x33, 0x33, 0x33), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.BLACK_CHECKMATED));
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, e4, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, e4, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(2), Integer.valueOf(board.markupCount()),
+                "black-checkmated result glyph replaces only the previous result sibling");
+        assertFalse(boardHasGlyph(board, AnnotationGlyphs.WHITE_CHECKMATED),
+                "white-checkmated glyph was replaced");
+        assertTrue(boardHasGlyph(board, AnnotationGlyphs.BLACK_CHECKMATED),
+                "black-checkmated glyph is present");
+        assertTrue(boardHasGlyph(board, AnnotationGlyphs.INTERESTING_MOVE),
+                "non-exclusive move-quality glyph is preserved with a result glyph");
+
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, e4, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, e4, MouseEvent.BUTTON1);
+        assertEquals(Integer.valueOf(1), Integer.valueOf(board.markupCount()),
+                "clicking the same result glyph toggles it off");
+        assertFalse(boardHasGlyph(board, AnnotationGlyphs.BLACK_CHECKMATED),
+                "black-checkmated glyph was toggled off");
+        assertTrue(boardHasGlyph(board, AnnotationGlyphs.INTERESTING_MOVE),
+                "stacked non-exclusive glyph remains after result toggle-off");
+    }
+
+    /**
+     * Returns whether a board currently contains a glyph annotation.
+     *
+     * @param board source board
+     * @param glyph glyph text
+     * @return true when present
+     */
+    private static boolean boardHasGlyph(BoardPanel board, String glyph) {
+        for (BoardMarkup markup : board.boardMarkups()) {
+            if (markup.isGlyph() && glyph.equals(markup.brush().glyph())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -3162,6 +3935,26 @@ final class WorkbenchUiRegression {
     }
 
     /**
+     * Reads the center x of the badge circle with the supplied fill color.
+     *
+     * @param svg SVG document
+     * @param fill fill color in CSS hex form
+     * @return circle center x
+     */
+    private static double circleCxForFill(String svg, String fill) {
+        int fillIndex = svg.indexOf("fill=\"" + fill + "\"");
+        if (fillIndex < 0) {
+            throw new AssertionError("missing SVG circle fill " + fill);
+        }
+        int circleStart = svg.lastIndexOf("<circle", fillIndex);
+        int circleEnd = svg.indexOf("/>", fillIndex);
+        if (circleStart < 0 || circleEnd < 0) {
+            throw new AssertionError("missing SVG circle for fill " + fill);
+        }
+        return svgAttribute(svg.substring(circleStart, circleEnd + 2), "cx");
+    }
+
+    /**
      * Dispatches one mouse event to the board.
      *
      * @param board board state
@@ -3203,6 +3996,12 @@ final class WorkbenchUiRegression {
                 "selected square uses a chessboard.js-style green tint");
         assertTrue(themeColor("LEGAL_TARGET").getAlpha() >= 120,
                 "legal move dot stays visible on board squares");
+        assertEquals(themeColor("LEGAL_TARGET").getRed(), themeColor("BOARD_ARROW").getRed(),
+                "best-move arrow reuses legal-move red channel");
+        assertEquals(themeColor("LEGAL_TARGET").getGreen(), themeColor("BOARD_ARROW").getGreen(),
+                "best-move arrow reuses legal-move green channel");
+        assertEquals(themeColor("LEGAL_TARGET").getBlue(), themeColor("BOARD_ARROW").getBlue(),
+                "best-move arrow reuses legal-move blue channel");
         assertColorDistanceAtLeast(themeColor("BOARD_ARROW"), themeColor("BOARD_LIGHT"), 95.0,
                 "best-move arrow distinguishes from light board squares");
         assertColorDistanceAtLeast(themeColor("BOARD_ARROW"), themeColor("BOARD_DARK"), 95.0,
@@ -3308,6 +4107,12 @@ final class WorkbenchUiRegression {
                 "text-field selection background themed");
         assertEquals(themeColor("SELECTION_SOLID"), UIManager.getColor("List.selectionBackground"),
                 "list selection background themed");
+        assertEquals(themeColor("PANEL_SOLID"), UIManager.getColor("ScrollBar.background"),
+                "scrollbar background themed");
+        assertEquals(themeColor("PANEL_SOLID"), UIManager.getColor("ScrollBar.track"),
+                "scrollbar track themed");
+        assertEquals(themeColor("SCROLLBAR_THUMB"), UIManager.getColor("ScrollBar.thumb"),
+                "scrollbar thumb themed");
     }
 
     /**

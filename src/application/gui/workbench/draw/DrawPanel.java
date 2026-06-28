@@ -4,6 +4,7 @@ import application.gui.workbench.board.BoardExportActions;
 import application.gui.workbench.board.BoardMarkup;
 import application.gui.workbench.board.BoardMarkupTool;
 import application.gui.workbench.board.BoardPanel;
+import application.gui.workbench.board.AnnotationGlyphs;
 import application.gui.workbench.board.MarkupBrush;
 import application.gui.workbench.ui.ChipGroup;
 import application.gui.workbench.ui.HoldButton;
@@ -103,16 +104,6 @@ public final class DrawPanel extends JPanel {
     private static final int MAX_BORDER_WIDTH = 16;
 
     /**
-     * Default alpha used by one-click Draw presets.
-     */
-    private static final int PRESET_ALPHA = 204;
-
-    /**
-     * Border alpha used by one-click Draw presets.
-     */
-    private static final int PRESET_BORDER_ALPHA = 236;
-
-    /**
      * Width and height of color swatches in the Draw rail.
      */
     private static final int SWATCH_SIZE = 30;
@@ -188,43 +179,121 @@ public final class DrawPanel extends JPanel {
     private static final int PRESET_BUTTON_HEIGHT = 48;
 
     /**
+     * Compact annotation-menu row height.
+     */
+    private static final int ANNOTATION_PRESET_ROW_HEIGHT = 42;
+
+    /**
+     * Square symbol lane in one annotation-menu row.
+     */
+    private static final int ANNOTATION_PRESET_SYMBOL_SIZE = 28;
+
+    /**
      * Number of preset preview buttons per row.
      */
     private static final int PRESET_GRID_COLUMNS = 6;
 
     /**
-     * Muted annotation palette used by Draw one-click presets.
+     * Chess.com-inspired annotation palette used by Draw one-click presets.
      */
-    private static final int PRESET_GREEN_RGB = 0x2F_6F_5E,
-            PRESET_RED_RGB = 0xA3_48_43,
-            PRESET_BLUE_RGB = 0x2F_5F_8F,
-            PRESET_AMBER_RGB = 0xA3_6F_2A,
-            PRESET_PURPLE_RGB = 0x65_54_A3,
-            PRESET_SLATE_RGB = 0x62_70_7F,
-            PRESET_TEAL_RGB = 0x27_7A_83;
+    private static final int PRESET_BRILLIANT_RGB = 0x8B_4C_E0,
+            PRESET_EXCELLENT_RGB = 0x79_B9_4A,
+            PRESET_GOOD_RGB = 0x79_B9_4A,
+            PRESET_INTERESTING_RGB = 0x2F_78_C4,
+            PRESET_DUBIOUS_RGB = 0xF4_C5_42,
+            PRESET_ONLY_RGB = 0xA9_44_52,
+            PRESET_ZUGZWANG_RGB = 0x7C_5A_E6,
+            PRESET_BOOK_RGB = 0x96_6F_48,
+            PRESET_MISTAKE_RGB = 0xF3_9A_35,
+            PRESET_BLUNDER_RGB = 0xC9_4A_3A,
+            PRESET_WHITE_WINNING_RGB = 0x79_B9_4A,
+            PRESET_COUNTERPLAY_RGB = 0xFF_71_4B,
+            PRESET_DRAW_RESULT_RGB = 0x6E_77_81,
+            PRESET_WHITE_CHECKMATED_RGB = 0xEC_EF_F4,
+            PRESET_BLACK_CHECKMATED_RGB = 0x2A_2D_33,
+            PRESET_DARK_MARK_RGB = 0x1F_23_28,
+            PRESET_MISSED_WIN_RGB = 0xE5_6A_38,
+            PRESET_BLUE_RGB = 0x2F_78_C4,
+            PRESET_PURPLE_RGB = 0x6F_52_CC,
+            PRESET_SLATE_RGB = 0x6E_77_81,
+            PRESET_NOVELTY_RGB = 0x73_57_D5,
+            PRESET_AMBER_RGB = 0xE6_A2_3C,
+            PRESET_TEAL_RGB = 0x20_A3_93;
 
     /**
-     * One-click annotation presets shown before custom controls.
+     * Chess annotation presets, one tidy category per column, each sorted in a
+     * natural reading order (move quality best&rarr;worst, evaluation
+     * white&rarr;black, etc.).
      */
-    private static final List<DrawPreset> DRAW_PRESETS = List.of(
-            glyphPreset("!!", "Brilliant glyph", PRESET_GREEN_RGB),
-            glyphPreset("!", "Good move glyph", PRESET_GREEN_RGB),
-            glyphPreset("!?", "Interesting move glyph", PRESET_BLUE_RGB),
-            glyphPreset("?!", "Dubious move glyph", PRESET_AMBER_RGB),
-            glyphPreset("?", "Mistake glyph", PRESET_RED_RGB),
-            glyphPreset("??", "Blunder glyph", PRESET_RED_RGB),
-            glyphPreset("+", "Check glyph", PRESET_BLUE_RGB),
-            glyphPreset("#", "Mate glyph", PRESET_RED_RGB),
-            glyphPreset("=", "Equal glyph", PRESET_SLATE_RGB),
-            glyphPreset("+-", "White advantage glyph", PRESET_GREEN_RGB),
-            glyphPreset("-+", "Black advantage glyph", PRESET_RED_RGB),
-            glyphPreset("N", "Novelty glyph", PRESET_PURPLE_RGB),
-            shapePreset("Arrow", BoardMarkupTool.ARROW, PRESET_GREEN_RGB, 12, 4, false),
-            shapePreset("Circle", BoardMarkupTool.CIRCLE, PRESET_BLUE_RGB, 10, 4, false),
-            shapePreset("Box", BoardMarkupTool.RECTANGLE, PRESET_AMBER_RGB, 10, 2, false),
-            shapePreset("Round", BoardMarkupTool.RECTANGLE, PRESET_PURPLE_RGB, 10, 2, true),
+    private static final List<PresetCategory> ANNOTATION_PRESET_COLUMNS = List.of(
+            new PresetCategory("Move quality", List.of(
+                    annotationPreset("!!", "Brilliant move", PRESET_BRILLIANT_RGB),
+                    annotationPreset("!", "Good move", PRESET_EXCELLENT_RGB, new Color(PRESET_DARK_MARK_RGB)),
+                    annotationPreset("!?", "Interesting move", PRESET_INTERESTING_RGB),
+                    annotationPreset("?!", "Dubious move", PRESET_DUBIOUS_RGB, new Color(PRESET_DARK_MARK_RGB)),
+                    annotationPreset("?", "Mistake", PRESET_MISTAKE_RGB, new Color(PRESET_DARK_MARK_RGB)),
+                    annotationPreset("??", "Blunder", PRESET_BLUNDER_RGB),
+                    annotationPreset(AnnotationGlyphs.MISSED_WIN, "Miss", PRESET_MISSED_WIN_RGB),
+                    annotationPreset(AnnotationGlyphs.ONLY_MOVE, "Only move", PRESET_ONLY_RGB),
+                    annotationPreset(AnnotationGlyphs.ZUGZWANG, "Zugzwang", PRESET_ZUGZWANG_RGB))),
+            new PresetCategory("Evaluation", List.of(
+                    annotationPreset(AnnotationGlyphs.WHITE_WINNING, "White is winning", PRESET_WHITE_WINNING_RGB,
+                            new Color(PRESET_DARK_MARK_RGB)),
+                    annotationPreset("+=", "White is better", PRESET_GOOD_RGB, new Color(PRESET_DARK_MARK_RGB)),
+                    annotationPreset("±", "White is slightly better", PRESET_GOOD_RGB,
+                            new Color(PRESET_DARK_MARK_RGB)),
+                    annotationPreset("=", "Equal position", PRESET_SLATE_RGB),
+                    annotationPreset("∞", "Unclear position", PRESET_SLATE_RGB),
+                    annotationPreset("=∞", "With compensation", PRESET_SLATE_RGB),
+                    annotationPreset("∓", "Black is slightly better", PRESET_BLUNDER_RGB),
+                    annotationPreset("=+", "Black is better", PRESET_BLUNDER_RGB),
+                    annotationPreset("-+", "Black is winning", PRESET_BLUNDER_RGB),
+                    annotationPreset(AnnotationGlyphs.DRAW_RESULT, "Draw", PRESET_DRAW_RESULT_RGB),
+                    annotationPreset(AnnotationGlyphs.WHITE_CHECKMATED, "White checkmated",
+                            PRESET_WHITE_CHECKMATED_RGB, new Color(PRESET_DARK_MARK_RGB)),
+                    annotationPreset(AnnotationGlyphs.BLACK_CHECKMATED, "Black checkmated",
+                            PRESET_BLACK_CHECKMATED_RGB))),
+            new PresetCategory("Plans", List.of(
+                    annotationPreset("→", "Attack", PRESET_BLUE_RGB),
+                    annotationPreset("↑", "Initiative", PRESET_BLUE_RGB),
+                    annotationPreset("↑↑", "Development", PRESET_BLUE_RGB),
+                    annotationPreset(AnnotationGlyphs.COUNTERPLAY, "Counterplay", PRESET_COUNTERPLAY_RGB,
+                            new Color(PRESET_DARK_MARK_RGB)),
+                    annotationPreset("△", "With the idea", PRESET_GOOD_RGB, new Color(PRESET_DARK_MARK_RGB)),
+                    annotationPreset(AnnotationGlyphs.COUNTERING, "Countering", PRESET_BLUNDER_RGB),
+                    annotationPreset("N", "Novelty", PRESET_NOVELTY_RGB),
+                    annotationPreset(AnnotationGlyphs.BOOK_MOVE, "Book move", PRESET_BOOK_RGB),
+                    annotationPreset("⊕", "Time trouble", PRESET_SLATE_RGB))),
+            new PresetCategory("Tactics", List.of(
+                    annotationPreset(AnnotationGlyphs.FORK, "Fork", PRESET_PURPLE_RGB),
+                    annotationPreset(AnnotationGlyphs.PIN, "Pin", PRESET_PURPLE_RGB),
+                    annotationPreset(AnnotationGlyphs.SKEWER, "Skewer", PRESET_PURPLE_RGB),
+                    annotationPreset(AnnotationGlyphs.DISCOVERED_ATTACK, "Discovered attack", PRESET_PURPLE_RGB),
+                    annotationPreset(AnnotationGlyphs.DOUBLE_ATTACK, "Double attack", PRESET_PURPLE_RGB),
+                    annotationPreset(AnnotationGlyphs.XRAY, "X-ray", PRESET_PURPLE_RGB),
+                    annotationPreset(AnnotationGlyphs.BATTERY, "Battery", PRESET_PURPLE_RGB),
+                    annotationPreset(AnnotationGlyphs.CHECK, "Check", PRESET_BLUE_RGB),
+                    annotationPreset(AnnotationGlyphs.DOUBLE_CHECK, "Double check", PRESET_BLUE_RGB),
+                    annotationPreset(AnnotationGlyphs.MATE, "Checkmate", PRESET_BLUNDER_RGB))));
+
+    /**
+     * Plain one-click shape presets shown below the notation menu: a row of
+     * meaning-coloured arrows (the everyday "best move / threat / idea / plan"
+     * markers) over a row of square highlights and box/stroke variants.
+     */
+    private static final List<DrawPreset> SHAPE_PRESETS = List.of(
+            shapePreset("Best move", BoardMarkupTool.ARROW, PRESET_EXCELLENT_RGB, 14, 4, false),
+            shapePreset("Threat", BoardMarkupTool.ARROW, PRESET_BLUNDER_RGB, 12, 4, false),
+            shapePreset("Idea", BoardMarkupTool.ARROW, PRESET_BLUE_RGB, 12, 4, false),
+            shapePreset("Plan", BoardMarkupTool.ARROW, PRESET_AMBER_RGB, 12, 4, false),
             shapePreset("Thin", BoardMarkupTool.ARROW, PRESET_SLATE_RGB, 6, 2, false),
-            shapePreset("Wide", BoardMarkupTool.ARROW, PRESET_RED_RGB, 18, 5, false));
+            shapePreset("Wide", BoardMarkupTool.ARROW, PRESET_PURPLE_RGB, 18, 5, false),
+            shapePreset("Good square", BoardMarkupTool.CIRCLE, PRESET_EXCELLENT_RGB, 10, 4, false),
+            shapePreset("Weak square", BoardMarkupTool.CIRCLE, PRESET_BLUNDER_RGB, 10, 4, false),
+            shapePreset("Key square", BoardMarkupTool.CIRCLE, PRESET_AMBER_RGB, 10, 4, false),
+            shapePreset("Circle", BoardMarkupTool.CIRCLE, PRESET_BLUE_RGB, 10, 4, false),
+            shapePreset("Box", BoardMarkupTool.RECTANGLE, PRESET_BOOK_RGB, 10, 2, false),
+            shapePreset("Round", BoardMarkupTool.RECTANGLE, PRESET_PURPLE_RGB, 10, 2, true));
 
     /**
      * Compact height for the current-color preview card.
@@ -462,6 +531,11 @@ public final class DrawPanel extends JPanel {
     private final ToggleBox specialHintsToggle = new ToggleBox("", false);
 
     /**
+     * Glyph badge drop-shadow toggle.
+     */
+    private final ToggleBox glyphShadowToggle = new ToggleBox("", true);
+
+    /**
      * Rectangle corner style toggle.
      */
     private final ToggleBox roundedRectangleToggle = new ToggleBox("", true);
@@ -667,14 +741,57 @@ public final class DrawPanel extends JPanel {
      * @return preset section
      */
     private JComponent presetSection() {
-        JPanel panel = Ui.transparentPanel(new GridLayout(0, PRESET_GRID_COLUMNS,
+        JPanel panel = verticalPanel();
+        panel.add(annotationPresetMenu());
+        panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        JPanel shapePanel = Ui.transparentPanel(new GridLayout(0, PRESET_GRID_COLUMNS,
                 Theme.SPACE_XS, Theme.SPACE_XS));
-        for (DrawPreset preset : DRAW_PRESETS) {
+        for (DrawPreset preset : SHAPE_PRESETS) {
             JButton button = new PresetButton(preset);
             button.addActionListener(event -> applyPreset(preset));
-            panel.add(button);
+            shapePanel.add(button);
         }
+        panel.add(shapePanel);
         return panel;
+    }
+
+    /**
+     * Builds the labeled chess-notation annotation menu.
+     *
+     * @return annotation preset menu
+     */
+    private JComponent annotationPresetMenu() {
+        JPanel menu = Ui.transparentPanel(new GridLayout(1, ANNOTATION_PRESET_COLUMNS.size(),
+                Theme.SPACE_XS, 0));
+        for (PresetCategory category : ANNOTATION_PRESET_COLUMNS) {
+            JPanel column = verticalPanel();
+            column.add(presetColumnHeader(category.title()));
+            column.add(Box.createVerticalStrut(Theme.SPACE_XS));
+            for (AnnotationPreset item : category.items()) {
+                JButton button = new AnnotationPresetButton(item);
+                button.setAlignmentX(Component.LEFT_ALIGNMENT);
+                button.addActionListener(event -> applyPreset(item.preset()));
+                column.add(button);
+                column.add(Box.createVerticalStrut(Theme.SPACE_XS));
+            }
+            menu.add(column);
+        }
+        return menu;
+    }
+
+    /**
+     * Builds a muted heading shown above one annotation preset column.
+     *
+     * @param title column heading text
+     * @return styled column header label
+     */
+    private static JLabel presetColumnHeader(String title) {
+        JLabel header = new JLabel(title);
+        Theme.foreground(header, Theme.ForegroundRole.MUTED);
+        header.setFont(Theme.font(Theme.FONT_MICRO, Font.BOLD));
+        header.setAlignmentX(Component.LEFT_ALIGNMENT);
+        header.setBorder(BorderFactory.createEmptyBorder(0, 4, 2, 0));
+        return header;
     }
 
     /**
@@ -753,6 +870,12 @@ public final class DrawPanel extends JPanel {
         roundedRectangleToggle.addActionListener(event -> applyBrush());
         panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
         panel.add(toggleRow("Rounded corners", roundedRectangleToggle));
+
+        glyphShadowToggle.setSelected(board.isGlyphShadow());
+        glyphShadowToggle.setToolTipText("Draw glyph annotation badges with a soft drop shadow.");
+        glyphShadowToggle.addActionListener(event -> board.setGlyphShadow(glyphShadowToggle.isSelected()));
+        panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        panel.add(toggleRow("Glyph shadow", glyphShadowToggle));
 
         suggestedToggle.setSelected(board.isShowSuggestedMoveArrow());
         suggestedToggle.setToolTipText("Show the current engine suggested-move arrow on the board and include it in exports.");
@@ -1839,9 +1962,47 @@ public final class DrawPanel extends JPanel {
      * @return draw preset
      */
     private static DrawPreset glyphPreset(String glyph, String tooltip, int rgb) {
+        return glyphPreset(glyph, tooltip, rgb, Color.WHITE);
+    }
+
+    /**
+     * Builds a glyph preset using the shared professional annotation palette.
+     *
+     * @param glyph glyph label
+     * @param tooltip button tooltip
+     * @param rgb fill RGB
+     * @param borderColor glyph stroke and border color
+     * @return draw preset
+     */
+    private static DrawPreset glyphPreset(String glyph, String tooltip, int rgb, Color borderColor) {
         return new DrawPreset(glyph, BoardMarkupTool.GLYPH, glyph, presetColor(rgb),
-                presetBorder(rgb), MarkupBrush.DEFAULT_LINE_WIDTH, MarkupBrush.DEFAULT_BORDER_WIDTH,
+                borderColor, MarkupBrush.DEFAULT_LINE_WIDTH, MarkupBrush.DEFAULT_BORDER_WIDTH,
                 false, tooltip);
+    }
+
+    /**
+     * Builds one labeled notation-menu row.
+     *
+     * @param glyph glyph label
+     * @param description visible notation description
+     * @param rgb fill RGB
+     * @return annotation preset row
+     */
+    private static AnnotationPreset annotationPreset(String glyph, String description, int rgb) {
+        return new AnnotationPreset(glyphPreset(glyph, description + " glyph", rgb), description);
+    }
+
+    /**
+     * Builds one labeled notation-menu row with a custom glyph mark color.
+     *
+     * @param glyph glyph label
+     * @param description visible notation description
+     * @param rgb fill RGB
+     * @param borderColor glyph stroke and border color
+     * @return annotation preset row
+     */
+    private static AnnotationPreset annotationPreset(String glyph, String description, int rgb, Color borderColor) {
+        return new AnnotationPreset(glyphPreset(glyph, description + " glyph", rgb, borderColor), description);
     }
 
     /**
@@ -1857,34 +2018,67 @@ public final class DrawPanel extends JPanel {
      */
     private static DrawPreset shapePreset(String label, BoardMarkupTool tool, int rgb,
             int lineWidth, int borderWidth, boolean roundedRectangle) {
-        return new DrawPreset(label, tool, MarkupBrush.DEFAULT_GLYPH, presetColor(rgb), presetBorder(rgb),
+        return new DrawPreset(label, tool, MarkupBrush.DEFAULT_GLYPH, presetColor(rgb), Color.WHITE,
                 lineWidth, borderWidth, roundedRectangle, label + " annotation preset");
     }
 
     /**
-     * Applies the shared preset opacity to an opaque palette color.
+     * Creates an opaque preset color from a palette value.
      *
      * @param rgb color RGB
      * @return preset color
      */
     private static Color presetColor(int rgb) {
-        return new Color((rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff, PRESET_ALPHA);
+        return new Color(rgb);
     }
 
     /**
-     * Derives a slightly darker outline so presets keep their hue family.
+     * Exposes preset values on a Swing component for component dumps and tests.
      *
-     * @param rgb fill RGB
-     * @return border color
+     * @param component target component
+     * @param preset source preset
      */
-    private static Color presetBorder(int rgb) {
-        int red = (rgb >> 16) & 0xff;
-        int green = (rgb >> 8) & 0xff;
-        int blue = rgb & 0xff;
-        int borderRed = Math.max(0, red - 38);
-        int borderGreen = Math.max(0, green - 38);
-        int borderBlue = Math.max(0, blue - 38);
-        return new Color(borderRed, borderGreen, borderBlue, PRESET_BORDER_ALPHA);
+    private static void exposePresetProperties(JComponent component, DrawPreset preset) {
+        component.putClientProperty(PRESET_FILL_PROPERTY, preset.fillColor());
+        component.putClientProperty(PRESET_BORDER_PROPERTY, preset.borderColor());
+        component.putClientProperty(PRESET_TOOL_PROPERTY, preset.tool());
+        component.putClientProperty(PRESET_LINE_WIDTH_PROPERTY, Integer.valueOf(preset.lineWidth()));
+        component.putClientProperty(PRESET_BORDER_WIDTH_PROPERTY, Integer.valueOf(preset.borderWidth()));
+        component.putClientProperty(PRESET_ROUNDED_PROPERTY, Boolean.valueOf(preset.roundedRectangle()));
+        component.putClientProperty("workbench.draw.preset.glyph", preset.glyph());
+    }
+
+    /**
+     * Builds a precise tooltip from the brush values applied by the preset.
+     *
+     * @param preset source preset
+     * @return preset tooltip text
+     */
+    private static String presetTooltip(DrawPreset preset) {
+        return preset.tooltip()
+                + " · fill " + DrawColorFormat.colorLabel(preset.fillColor())
+                + " · border " + DrawColorFormat.colorLabel(preset.borderColor())
+                + " · width " + preset.lineWidth()
+                + " · edge " + preset.borderWidth()
+                + (preset.roundedRectangle() ? " · rounded" : "");
+    }
+
+    /**
+     * One titled column of related annotation presets.
+     *
+     * @param title column heading
+     * @param items presets shown under the heading
+     */
+    private record PresetCategory(String title, List<AnnotationPreset> items) {
+    }
+
+    /**
+     * One labeled annotation-menu row.
+     *
+     * @param preset applied preset
+     * @param description visible row label
+     */
+    private record AnnotationPreset(DrawPreset preset, String description) {
     }
 
     /**
@@ -1958,6 +2152,189 @@ public final class DrawPanel extends JPanel {
     }
 
     /**
+     * Labeled annotation preset row used by the chess-notation menu.
+     */
+    private static final class AnnotationPresetButton extends JButton {
+
+        /**
+         * Serialization identifier for Swing button compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Menu item represented by this button.
+         */
+        private final AnnotationPreset item;
+
+        /**
+         * Creates one labeled annotation-menu button.
+         *
+         * @param item represented menu row
+         */
+        AnnotationPresetButton(AnnotationPreset item) {
+            super(item.description());
+            this.item = item;
+            setOpaque(false);
+            setContentAreaFilled(false);
+            setBorderPainted(false);
+            setFocusPainted(false);
+            setRolloverEnabled(true);
+            setFont(Theme.font(Theme.FONT_MICRO, Font.PLAIN));
+            Dimension size = new Dimension(120, ANNOTATION_PRESET_ROW_HEIGHT);
+            setPreferredSize(size);
+            setMinimumSize(new Dimension(96, ANNOTATION_PRESET_ROW_HEIGHT));
+            setMaximumSize(new Dimension(Integer.MAX_VALUE, ANNOTATION_PRESET_ROW_HEIGHT));
+            setToolTipText(presetTooltip(item.preset()));
+            exposePresetProperties(this, item.preset());
+        }
+
+        /**
+         * Paints the notation-menu row.
+         *
+         * @param graphics graphics context
+         */
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            Graphics2D g = (Graphics2D) graphics.create();
+            try {
+                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                paintChrome(g);
+                int side = Math.min(ANNOTATION_PRESET_SYMBOL_SIZE, Math.max(18, getHeight() - 10));
+                int symbolX = 8;
+                int symbolY = Math.max(4, (getHeight() - side) / 2);
+                paintSymbol(g, symbolX, symbolY, side);
+                int textX = symbolX + side + Theme.SPACE_XS + 3;
+                int textWidth = Math.max(1, getWidth() - textX - Theme.SPACE_XS);
+                paintWrappedDescription(g, textX, textWidth);
+                if (isFocusOwner()) {
+                    g.setColor(Theme.FOCUS_RING);
+                    g.drawRoundRect(2, 2, Math.max(0, getWidth() - 5), Math.max(0, getHeight() - 5),
+                            Theme.RADIUS, Theme.RADIUS);
+                }
+            } finally {
+                g.dispose();
+            }
+        }
+
+        /**
+         * Paints row chrome.
+         *
+         * @param g graphics context
+         */
+        private void paintChrome(Graphics2D g) {
+            boolean pressed = getModel().isPressed();
+            boolean rollover = getModel().isRollover();
+            int width = Math.max(0, getWidth() - 1);
+            int height = Math.max(0, getHeight() - 1);
+            Color surface = pressed ? Theme.SELECTION_SOLID
+                    : rollover ? Theme.ELEVATED_SOLID : Theme.INPUT;
+            g.setColor(surface);
+            g.fillRoundRect(0, 0, width, height, Theme.RADIUS, Theme.RADIUS);
+            g.setColor(Theme.withAlpha(item.preset().fillColor(), Theme.isDark() ? 180 : 150));
+            g.fillRoundRect(3, 6, 3, Math.max(0, height - 12), 3, 3);
+            if (rollover || pressed) {
+                g.setColor(Theme.withAlpha(item.preset().fillColor(), Theme.isDark() ? 30 : 22));
+                g.fillRoundRect(1, 1, Math.max(0, width - 2), Math.max(0, height - 2),
+                        Theme.RADIUS, Theme.RADIUS);
+            }
+            g.setColor(Theme.withAlpha(Theme.INPUT_BORDER, Theme.isDark() ? 184 : 156));
+            g.drawRoundRect(0, 0, width, height, Theme.RADIUS, Theme.RADIUS);
+        }
+
+        /**
+         * Paints the annotation symbol badge.
+         *
+         * @param g graphics context
+         * @param x x coordinate
+         * @param y y coordinate
+         * @param side badge side length
+         */
+        private void paintSymbol(Graphics2D g, int x, int y, int side) {
+            DrawPreset preset = item.preset();
+            if (AnnotationGlyphs.isCustom(preset.glyph())) {
+                AnnotationGlyphs.paintCustom(g, preset.glyph(), x, y, side, preset.fillColor(),
+                        preset.borderColor(), Math.max(1f, Math.min(2f, preset.borderWidth())));
+                return;
+            }
+            g.setColor(preset.fillColor());
+            g.fillOval(x, y, side, side);
+            g.setStroke(new BasicStroke(Math.max(1f, Math.min(2f, preset.borderWidth()))));
+            g.setColor(preset.borderColor());
+            g.drawOval(x, y, side, side);
+            Font font = Theme.font(glyphFontSize(preset.glyph()), Font.BOLD);
+            g.setFont(font);
+            FontMetrics metrics = g.getFontMetrics();
+            g.setColor(Color.WHITE);
+            g.drawString(preset.glyph(), x + (side - metrics.stringWidth(preset.glyph())) / 2,
+                    y + (side - metrics.getHeight()) / 2 + metrics.getAscent());
+        }
+
+        /**
+         * Returns a compact symbol font size for the badge.
+         *
+         * @param glyph glyph text
+         * @return font size
+         */
+        private static float glyphFontSize(String glyph) {
+            return glyph != null && glyph.length() > 1 ? 9.5f : 12f;
+        }
+
+        /**
+         * Paints the row description, wrapping at one word boundary when needed.
+         *
+         * @param g graphics context
+         * @param x text x coordinate
+         * @param width available text width
+         */
+        private void paintWrappedDescription(Graphics2D g, int x, int width) {
+            g.setFont(getFont());
+            FontMetrics metrics = g.getFontMetrics();
+            List<String> lines = descriptionLines(metrics, getText(), width);
+            int lineHeight = metrics.getHeight();
+            int totalHeight = lineHeight * lines.size();
+            int baseline = (getHeight() - totalHeight) / 2 + metrics.getAscent();
+            g.setColor(Theme.isDark() ? Theme.TEXT : Theme.withAlpha(Theme.TEXT, 232));
+            for (int i = 0; i < lines.size(); i++) {
+                g.drawString(lines.get(i), x, baseline + i * lineHeight);
+            }
+        }
+
+        /**
+         * Splits a label into one or two paint lines.
+         *
+         * @param metrics font metrics
+         * @param text source text
+         * @param width available width
+         * @return one or two label lines
+         */
+        private static List<String> descriptionLines(FontMetrics metrics, String text, int width) {
+            if (metrics.stringWidth(text) <= width) {
+                return List.of(text);
+            }
+            int bestSplit = -1;
+            int bestOverflow = Integer.MAX_VALUE;
+            for (int i = 0; i < text.length(); i++) {
+                if (text.charAt(i) != ' ') {
+                    continue;
+                }
+                String first = text.substring(0, i);
+                String second = text.substring(i + 1);
+                int overflow = Math.max(metrics.stringWidth(first) - width, metrics.stringWidth(second) - width);
+                int balance = Math.abs(metrics.stringWidth(first) - metrics.stringWidth(second));
+                int score = Math.max(0, overflow) * 1000 + balance;
+                if (score < bestOverflow) {
+                    bestOverflow = score;
+                    bestSplit = i;
+                }
+            }
+            if (bestSplit > 0) {
+                return List.of(text.substring(0, bestSplit), text.substring(bestSplit + 1));
+            }
+            return List.of(text);
+        }
+    }
+
+    /**
      * One-click preset control that previews the exact brush it applies.
      */
     private static final class PresetButton extends JButton {
@@ -1991,12 +2368,7 @@ public final class DrawPanel extends JPanel {
             setPreferredSize(size);
             setMinimumSize(size);
             setToolTipText(presetTooltip(preset));
-            putClientProperty(PRESET_FILL_PROPERTY, preset.fillColor());
-            putClientProperty(PRESET_BORDER_PROPERTY, preset.borderColor());
-            putClientProperty(PRESET_TOOL_PROPERTY, preset.tool());
-            putClientProperty(PRESET_LINE_WIDTH_PROPERTY, Integer.valueOf(preset.lineWidth()));
-            putClientProperty(PRESET_BORDER_WIDTH_PROPERTY, Integer.valueOf(preset.borderWidth()));
-            putClientProperty(PRESET_ROUNDED_PROPERTY, Boolean.valueOf(preset.roundedRectangle()));
+            exposePresetProperties(this, preset);
         }
 
         /**
@@ -2084,15 +2456,20 @@ public final class DrawPanel extends JPanel {
         private void paintGlyphPreview(Graphics2D g, int x, int y, int width, int height, Color fill, Color border) {
             int side = Math.min(width, height + 5);
             int chipX = x + Math.max(0, (width - side) / 2);
+            if (AnnotationGlyphs.isCustom(preset.glyph())) {
+                AnnotationGlyphs.paintCustom(g, preset.glyph(), chipX, y - 1, side, fill, border,
+                        Math.max(1f, Math.min(2f, preset.borderWidth())));
+                return;
+            }
             g.setColor(fill);
             g.fillRoundRect(chipX, y - 1, side, side, Theme.RADIUS, Theme.RADIUS);
-            g.setColor(border);
             g.setStroke(new BasicStroke(Math.max(1f, Math.min(2f, preset.borderWidth()))));
+            g.setColor(Color.WHITE);
             g.drawRoundRect(chipX, y - 1, side, side, Theme.RADIUS, Theme.RADIUS);
             g.setFont(Theme.font(Theme.FONT_MICRO, Font.BOLD));
             FontMetrics metrics = g.getFontMetrics();
             String glyph = preset.glyph();
-            g.setColor(readableInk(fill));
+            g.setColor(Color.WHITE);
             g.drawString(glyph, chipX + (side - metrics.stringWidth(glyph)) / 2,
                     y - 1 + (side - metrics.getHeight()) / 2 + metrics.getAscent());
         }
@@ -2113,7 +2490,7 @@ public final class DrawPanel extends JPanel {
             float stroke = Math.max(2f, Math.min(5f, preset.lineWidth() / 3f));
             g.setStroke(new BasicStroke(stroke + Math.max(0f, preset.borderWidth() / 2f),
                     BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-            g.setColor(border);
+            g.setColor(Color.WHITE);
             g.drawLine(x, midY, x + width - 5, midY);
             g.setStroke(new BasicStroke(stroke, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
             g.setColor(fill);
@@ -2140,7 +2517,7 @@ public final class DrawPanel extends JPanel {
             g.setColor(fill);
             g.fillOval(chipX, y - 1, side, side);
             g.setStroke(new BasicStroke(Math.max(1f, Math.min(3f, preset.borderWidth()))));
-            g.setColor(border);
+            g.setColor(Color.WHITE);
             g.drawOval(chipX, y - 1, side, side);
         }
 
@@ -2161,7 +2538,7 @@ public final class DrawPanel extends JPanel {
             g.setColor(fill);
             g.fillRoundRect(x + 2, y - 1, width - 4, height + 4, arc, arc);
             g.setStroke(new BasicStroke(Math.max(1f, Math.min(3f, preset.borderWidth()))));
-            g.setColor(border);
+            g.setColor(Color.WHITE);
             g.drawRoundRect(x + 2, y - 1, width - 4, height + 4, arc, arc);
         }
 
@@ -2179,31 +2556,6 @@ public final class DrawPanel extends JPanel {
             g.drawString(label, Math.max(4, (getWidth() - metrics.stringWidth(label)) / 2), baseline);
         }
 
-        /**
-         * Builds a precise tooltip from the brush values applied by the preset.
-         *
-         * @param preset source preset
-         * @return preset tooltip text
-         */
-        private static String presetTooltip(DrawPreset preset) {
-            return preset.tooltip()
-                    + " · fill " + DrawColorFormat.colorLabel(preset.fillColor())
-                    + " · border " + DrawColorFormat.colorLabel(preset.borderColor())
-                    + " · width " + preset.lineWidth()
-                    + " · edge " + preset.borderWidth()
-                    + (preset.roundedRectangle() ? " · rounded" : "");
-        }
-
-        /**
-         * Chooses black or white ink for text drawn inside a color sample.
-         *
-         * @param color display color
-         * @return readable ink
-         */
-        private static Color readableInk(Color color) {
-            int luminance = (color.getRed() * 299 + color.getGreen() * 587 + color.getBlue() * 114) / 1000;
-            return luminance > 145 ? Color.BLACK : Color.WHITE;
-        }
     }
 
     /**

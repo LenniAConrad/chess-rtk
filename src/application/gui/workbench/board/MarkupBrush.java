@@ -34,24 +34,35 @@ public record MarkupBrush(String name, Color color, Color borderColor, int lineW
     public static final String DEFAULT_GLYPH = "!!";
 
     /**
-     * Standard annotation opacity for built-in brushes.
+     * Built-in annotation palette tuned toward chess.com review colours while
+     * staying readable over the Workbench wood board.
      */
-    private static final int PRESET_ALPHA = 204;
-
-    /**
-     * Built-in annotation palette tuned for board readability without neon hues.
-     */
-    private static final int GREEN_RGB = 0x2F6F5E,
-            RED_RGB = 0xA34843,
-            BLUE_RGB = 0x2F5F8F,
-            AMBER_RGB = 0xA36F2A;
+    private static final int GREEN_RGB = 0x81B64C,
+            RED_RGB = 0xD9514E,
+            BLUE_RGB = 0x2D70B8,
+            AMBER_RGB = 0xF0B13A;
 
     /**
      * Chess annotation glyphs exposed in the Draw rail.
      */
     private static final List<String> GLYPHS = List.of(
-            "!!", "!", "!?", "?!", "?", "??", "+", "#", "=",
-            "+=", "=+", "+-", "-+", "N");
+            "!!", "!", "!?", "?!", "?", "??", "□", "Zz", "+", "#", AnnotationGlyphs.DOUBLE_CHECK,
+            "=", "∞", "±", "∓", "+=", "=+", "+-", "-+", "N",
+            AnnotationGlyphs.DRAW_RESULT, AnnotationGlyphs.WHITE_CHECKMATED, AnnotationGlyphs.BLACK_CHECKMATED,
+            "↑↑", "↑", "→", "⇆", "⊕", "=∞", "△", AnnotationGlyphs.COUNTERING,
+            "MW", "Bk", "Pin", AnnotationGlyphs.FORK,
+            AnnotationGlyphs.SKEWER, AnnotationGlyphs.DISCOVERED_ATTACK, AnnotationGlyphs.DOUBLE_ATTACK,
+            AnnotationGlyphs.XRAY, AnnotationGlyphs.BATTERY);
+
+    /**
+     * Exclusive glyph group for position-evaluation annotations.
+     */
+    private static final String EVALUATION_GLYPH_GROUP = "evaluation";
+
+    /**
+     * Exclusive glyph group for game-result annotations.
+     */
+    private static final String RESULT_GLYPH_GROUP = "result";
 
     /**
      * Custom brush name.
@@ -61,10 +72,8 @@ public record MarkupBrush(String name, Color color, Color borderColor, int lineW
     /**
      * Immutable built-in annotation brushes in display order.
      *
-     * <p>These muted, semi-transparent overlays read cleanly over the wood
-     * board without looking like status badges. They are fixed colors rather
-     * than theme-resolved tokens, so an annotation's color stays stable in light
-     * and dark themes.</p>
+     * <p>These presets are fully opaque and fixed rather than theme-resolved, so
+     * annotation colors stay stable in light and dark themes.</p>
      */
     private static final List<MarkupBrush> PRESET_BRUSHES = List.of(
             named("green", presetColor(GREEN_RGB)),
@@ -154,6 +163,22 @@ public record MarkupBrush(String name, Color color, Color borderColor, int lineW
      */
     public static List<String> glyphs() {
         return GLYPHS;
+    }
+
+    /**
+     * Returns the mutually exclusive group for a glyph, if it belongs to one.
+     *
+     * @param glyph annotation glyph
+     * @return group key, or null when the glyph can stack with other glyphs
+     */
+    public static String exclusiveGlyphGroup(String glyph) {
+        String normalized = normalizeGlyph(glyph);
+        return switch (normalized) {
+            case "=", "∞", "±", "∓", "+=", "=+", "+-", "-+" -> EVALUATION_GLYPH_GROUP;
+            case AnnotationGlyphs.DRAW_RESULT, AnnotationGlyphs.WHITE_CHECKMATED,
+                    AnnotationGlyphs.BLACK_CHECKMATED -> RESULT_GLYPH_GROUP;
+            default -> null;
+        };
     }
 
     /**
@@ -317,13 +342,13 @@ public record MarkupBrush(String name, Color color, Color borderColor, int lineW
     }
 
     /**
-     * Creates one built-in brush color with the shared annotation opacity.
+     * Creates one built-in brush color from an opaque palette value.
      *
      * @param rgb opaque RGB value
-     * @return semi-transparent preset color
+     * @return opaque preset color
      */
     private static Color presetColor(int rgb) {
-        return new Color((rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff, PRESET_ALPHA);
+        return new Color(rgb);
     }
 
     /**

@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Locale;
 import javax.imageio.ImageIO;
 
@@ -56,19 +57,30 @@ public final class BoardExporter {
     private static final int SUGGESTED_ARROW_ALPHA = BoardStyle.BOARD_ARROW_OPACITY;
 
     /**
-     * Horizontal glyph-circle center within the target square.
+     * Horizontal glyph-circle center within the target square. Anchored near the
+     * top-right corner (Lichess-style) so the badge straddles the corner.
      */
-    private static final double GLYPH_CENTER_X_FRACTION = 0.75;
+    private static final double GLYPH_CENTER_X_FRACTION = 0.90;
 
     /**
      * Vertical glyph-circle center within the target square.
      */
-    private static final double GLYPH_CENTER_Y_FRACTION = 0.25;
+    private static final double GLYPH_CENTER_Y_FRACTION = 0.10;
 
     /**
-     * Glyph-circle diameter relative to the target square.
+     * Glyph-circle diameter relative to the target square (Lichess uses ~0.40).
      */
-    private static final double GLYPH_DIAMETER_FRACTION = 0.50;
+    private static final double GLYPH_DIAMETER_FRACTION = 0.40;
+
+    /**
+     * Horizontal step between stacked glyph badges, relative to badge diameter.
+     */
+    private static final double GLYPH_STACK_STEP_FRACTION = 0.56;
+
+    /**
+     * Left-most center used when several glyph badges share one square.
+     */
+    private static final double GLYPH_STACK_MIN_CENTER_X_FRACTION = 0.25;
 
     /**
      * Prevents instantiation.
@@ -245,7 +257,7 @@ public final class BoardExporter {
         BoardArrowPainter arrows = new BoardArrowPainter();
         for (BoardMarkup markup : snapshot.boardMarkups()) {
             if (markup.isRectangle()) {
-                paintRasterMarkup(snapshot, g, board, arrows, markup);
+                paintRasterMarkup(snapshot, g, board, arrows, markup, 0, 1);
             }
         }
     }
@@ -260,19 +272,22 @@ public final class BoardExporter {
     private static void paintRasterForegroundAnnotations(BoardExportSnapshot snapshot, Graphics2D g, Rectangle board) {
         BoardArrowPainter arrows = new BoardArrowPainter();
         if (snapshot.showSuggestedMoveArrow() && snapshot.suggestedMove() != Move.NO_MOVE) {
-            g.setColor(Theme.withAlpha(Theme.BOARD_ARROW, SUGGESTED_ARROW_ALPHA));
-            arrows.draw(g,
+            arrows.drawSuggested(g,
                     BoardGeometry.center(board, Move.getFromIndex(snapshot.suggestedMove()), snapshot.whiteDown()),
                     BoardGeometry.center(board, Move.getToIndex(snapshot.suggestedMove()), snapshot.whiteDown()),
-                    Math.max(8f, board.width / 80f),
+                    Math.max(BoardStyle.SUGGESTED_ARROW_LINE_WIDTH, board.width / 64f),
                     board.width / 8.0 * BoardStyle.ARROW_PIECE_GAP_FRACTION);
         }
         if (snapshot.showSpecialMoveHints()) {
             paintRasterSpecialMoveHints(snapshot, g, board, arrows);
         }
+        int[] glyphCounts = glyphCounts(snapshot.boardMarkups());
+        int[] glyphSlots = new int[64];
         for (BoardMarkup markup : snapshot.boardMarkups()) {
             if (!markup.isRectangle()) {
-                paintRasterMarkup(snapshot, g, board, arrows, markup);
+                int slot = glyphSlot(markup, glyphSlots);
+                int count = glyphCount(markup, glyphCounts);
+                paintRasterMarkup(snapshot, g, board, arrows, markup, slot, count);
             }
         }
     }
@@ -315,15 +330,18 @@ public final class BoardExporter {
      * @param board board rectangle
      * @param arrows arrow painter
      * @param markup board markup
+     * @param glyphSlot glyph badge slot within a same-square stack
+     * @param glyphCount number of glyph badges in the same-square stack
      */
     private static void paintRasterMarkup(BoardExportSnapshot snapshot, Graphics2D g, Rectangle board,
-            BoardArrowPainter arrows, BoardMarkup markup) {
+            BoardArrowPainter arrows, BoardMarkup markup, int glyphSlot, int glyphCount) {
         if (markup.isCircle()) {
             paintRasterCircle(g, BoardGeometry.squareBounds(board, markup.from(), snapshot.whiteDown()), markup.brush());
         } else if (markup.isRectangle()) {
             paintRasterRectangle(g, rectangleBounds(board, markup, snapshot.whiteDown()), markup.brush(), board.width / 8);
         } else if (markup.isGlyph()) {
-            paintRasterGlyph(g, BoardGeometry.squareBounds(board, markup.from(), snapshot.whiteDown()), markup.brush());
+            paintRasterGlyph(g, BoardGeometry.squareBounds(board, markup.from(), snapshot.whiteDown()), markup.brush(),
+                    glyphSlot, glyphCount);
         } else if (markup.isArrow()) {
             g.setColor(markup.brush().displayColor());
             arrows.draw(g,
@@ -410,8 +428,10 @@ public final class BoardExporter {
      * @param g graphics context
      * @param bounds square bounds
      * @param brush annotation brush
+     * @param slot glyph badge slot within a same-square stack
+     * @param count number of glyph badges in the same-square stack
      */
-    private static void paintRasterGlyph(Graphics2D g, Rectangle bounds, MarkupBrush brush) {
+    private static void paintRasterGlyph(Graphics2D g, Rectangle bounds, MarkupBrush brush, int slot, int count) {
         Font savedFont = g.getFont();
         Stroke savedStroke = g.getStroke();
         try {
@@ -422,10 +442,15 @@ public final class BoardExporter {
             FontMetrics metrics = g.getFontMetrics();
             float borderWidth = glyphBorderWidth(cell, brush);
             int diameter = glyphDiameter(cell, borderWidth);
-            int centerX = glyphCenterX(bounds);
+            int centerX = (int) Math.round(glyphCenterX(bounds, diameter, slot, count));
             int centerY = glyphCenterY(bounds);
             int x = Math.round(centerX - diameter / 2f);
             int y = Math.round(centerY - diameter / 2f);
+            if (AnnotationGlyphs.isCustom(glyph)) {
+                AnnotationGlyphs.paintCustom(g, glyph, x, y, diameter,
+                        brush.displayColor(), brush.displayBorderColor(), borderWidth);
+                return;
+            }
             g.setColor(brush.displayColor());
             g.fillOval(x, y, diameter, diameter);
             Color border = brush.displayBorderColor();
@@ -548,10 +573,8 @@ public final class BoardExporter {
         if (capture) {
             double radius = Math.max(12.0, cell * 0.43);
             svg.append("  <circle cx=\"").append(format(cx)).append("\" cy=\"").append(format(cy))
-                    .append("\" r=\"").append(format(radius)).append("\" fill=\"")
-                    .append(colorCss(Theme.LEGAL_CAPTURE_FILL)).append("\"");
-            appendOpacity(svg, Theme.LEGAL_CAPTURE_FILL);
-            svg.append(" stroke=\"").append(colorCss(Theme.LEGAL_CAPTURE_EDGE)).append("\"");
+                    .append("\" r=\"").append(format(radius)).append("\" fill=\"none\"")
+                    .append(" stroke=\"").append(colorCss(Theme.LEGAL_CAPTURE_EDGE)).append("\"");
             appendStrokeOpacity(svg, Theme.LEGAL_CAPTURE_EDGE);
             svg.append(" stroke-width=\"").append(format(Math.max(2.0, cell * 0.035))).append("\"/>\n");
         } else {
@@ -626,19 +649,23 @@ public final class BoardExporter {
             appendArrow(svg,
                     BoardGeometry.center(board, Move.getFromIndex(snapshot.suggestedMove()), snapshot.whiteDown()),
                     BoardGeometry.center(board, Move.getToIndex(snapshot.suggestedMove()), snapshot.whiteDown()),
-                    Math.max(8.0, board.width / 80.0),
+                    Math.max((double) BoardStyle.SUGGESTED_ARROW_LINE_WIDTH, board.width / 64.0),
                     board.width / 8.0 * BoardStyle.ARROW_PIECE_GAP_FRACTION,
                     Theme.withAlpha(Theme.BOARD_ARROW, SUGGESTED_ARROW_ALPHA));
         }
         if (snapshot.showSpecialMoveHints()) {
             appendSvgSpecialMoveHints(snapshot, svg, board);
         }
+        int[] glyphCounts = glyphCounts(snapshot.boardMarkups());
+        int[] glyphSlots = new int[64];
         for (BoardMarkup markup : snapshot.boardMarkups()) {
             if (markup.isCircle()) {
                 appendCircleMarkup(svg, BoardGeometry.squareBounds(board, markup.from(), snapshot.whiteDown()), markup.brush());
             } else if (markup.isGlyph()) {
+                int slot = glyphSlot(markup, glyphSlots);
+                int count = glyphCount(markup, glyphCounts);
                 appendGlyphMarkup(svg, BoardGeometry.squareBounds(board, markup.from(), snapshot.whiteDown()),
-                        markup.brush());
+                        markup.brush(), slot, count);
             } else if (markup.isArrow()) {
                 appendArrow(svg,
                         BoardGeometry.center(board, markup.from(), snapshot.whiteDown()),
@@ -850,26 +877,27 @@ public final class BoardExporter {
      * @param svg destination builder
      * @param bounds square bounds
      * @param brush annotation brush
+     * @param slot glyph badge slot within a same-square stack
+     * @param count number of glyph badges in the same-square stack
      */
-    private static void appendGlyphMarkup(StringBuilder svg, Rectangle bounds, MarkupBrush brush) {
+    private static void appendGlyphMarkup(StringBuilder svg, Rectangle bounds, MarkupBrush brush, int slot, int count) {
         int cell = Math.min(bounds.width, bounds.height);
         String glyph = brush.glyph();
         double fontSize = Math.max(12.0, cell * 0.34);
-        Color fill = brush.displayColor();
-        Color border = brush.displayBorderColor();
+        Color fill = Theme.withAlpha(brush.displayColor(), 255);
+        Color border = Theme.withAlpha(brush.displayBorderColor(), 255);
         double strokeWidth = glyphBorderWidth(cell, brush);
-        double cx = glyphCenterX(bounds);
-        double cy = glyphCenterY(bounds);
         double radius = glyphRadius(cell, strokeWidth);
+        double cx = glyphCenterX(bounds, radius * 2.0, slot, count);
+        double cy = glyphCenterY(bounds);
+        if (AnnotationGlyphs.isCustom(glyph)) {
+            appendCustomGlyph(svg, glyph, cx, cy, radius, fill, border, strokeWidth);
+            return;
+        }
         svg.append("  <circle cx=\"").append(format(cx)).append("\" cy=\"").append(format(cy))
                 .append("\" r=\"").append(format(radius))
                 .append("\" fill=\"").append(colorCss(fill)).append("\"");
         appendOpacity(svg, fill);
-        if (border.getAlpha() > 0 && strokeWidth > 0.0) {
-            svg.append(" stroke=\"").append(colorCss(border)).append("\"");
-            appendStrokeOpacity(svg, border);
-            svg.append(" stroke-width=\"").append(format(strokeWidth)).append("\"");
-        }
         svg.append("/>\n");
         svg.append("  <text x=\"").append(format(cx)).append("\" y=\"")
                 .append(format(glyphTextBaseline(cy, fontSize)))
@@ -879,6 +907,94 @@ public final class BoardExporter {
                 .append(format(fontSize))
                 .append("\" font-weight=\"700\" text-anchor=\"middle\">")
                 .append(escape(glyph)).append("</text>\n");
+    }
+
+    /**
+     * Appends a custom vector SVG marker.
+     *
+     * @param svg destination builder
+     * @param glyph annotation glyph token
+     * @param cx badge center x
+     * @param cy badge center y
+     * @param radius badge radius
+     * @param fill badge fill color
+     * @param border glyph and border color
+     * @param strokeWidth border stroke width
+     */
+    private static void appendCustomGlyph(StringBuilder svg, String glyph, double cx, double cy, double radius,
+            Color fill, Color border, double strokeWidth) {
+        svg.append("  <circle cx=\"").append(format(cx)).append("\" cy=\"").append(format(cy))
+                .append("\" r=\"").append(format(radius))
+                .append("\" fill=\"").append(colorCss(fill)).append("\"");
+        appendOpacity(svg, fill);
+        svg.append("/>\n");
+        double diameter = radius * 2.0;
+        double x = cx - radius;
+        double y = cy - radius;
+        double scale = diameter / 100.0;
+        svg.append("  <g transform=\"translate(").append(format(x)).append(' ')
+                .append(format(y)).append(") scale(").append(format(scale)).append(")\">\n");
+        if (AnnotationGlyphs.ZUGZWANG.equals(glyph)) {
+            appendCustomCircle(svg, 50.0, 50.0, AnnotationGlyphs.ZUGZWANG_OUTER_RADIUS, border,
+                    AnnotationGlyphs.vectorStrokeWidth(glyph));
+            appendFilledCircle(svg, 50.0, 50.0, AnnotationGlyphs.ZUGZWANG_INNER_RADIUS, border);
+        } else {
+            String fillPath = AnnotationGlyphs.fillPath(glyph);
+            if (fillPath != null) {
+                svg.append("    <path fill=\"").append(colorCss(border)).append("\"");
+                if (AnnotationGlyphs.fillEvenOdd(glyph)) {
+                    svg.append(" fill-rule=\"evenodd\"");
+                }
+                appendOpacity(svg, border);
+                svg.append(" d=\"").append(fillPath).append("\"/>\n");
+            }
+            String strokePath = AnnotationGlyphs.strokePath(glyph);
+            if (strokePath != null) {
+                svg.append("    <path fill=\"none\" stroke=\"").append(colorCss(border)).append("\"");
+                appendStrokeOpacity(svg, border);
+                svg.append(" stroke-width=\"").append(format(AnnotationGlyphs.vectorStrokeWidth(glyph))).append("\"");
+                if (AnnotationGlyphs.strokeRoundCap(glyph)) {
+                    svg.append(" stroke-linecap=\"round\" stroke-linejoin=\"round\"");
+                }
+                svg.append(" d=\"").append(strokePath).append("\"/>\n");
+            }
+        }
+        svg.append("  </g>\n");
+    }
+
+    /**
+     * Appends one stroke-only custom circle in a custom glyph group.
+     *
+     * @param svg destination builder
+     * @param cx circle center x in vector space
+     * @param cy circle center y in vector space
+     * @param radius circle radius in vector space
+     * @param stroke stroke color
+     * @param strokeWidth stroke width in vector space
+     */
+    private static void appendCustomCircle(StringBuilder svg, double cx, double cy, double radius, Color stroke,
+            double strokeWidth) {
+        svg.append("    <circle cx=\"").append(format(cx)).append("\" cy=\"").append(format(cy))
+                .append("\" r=\"").append(format(radius)).append("\" fill=\"none\" stroke=\"")
+                .append(colorCss(stroke)).append("\"");
+        appendStrokeOpacity(svg, stroke);
+        svg.append(" stroke-width=\"").append(format(strokeWidth)).append("\"/>\n");
+    }
+
+    /**
+     * Appends a filled SVG circle for a custom glyph component.
+     *
+     * @param svg destination builder
+     * @param cx circle center x
+     * @param cy circle center y
+     * @param radius circle radius
+     * @param fill fill color
+     */
+    private static void appendFilledCircle(StringBuilder svg, double cx, double cy, double radius, Color fill) {
+        svg.append("    <circle cx=\"").append(format(cx)).append("\" cy=\"").append(format(cy))
+                .append("\" r=\"").append(format(radius)).append("\" fill=\"").append(colorCss(fill)).append("\"");
+        appendOpacity(svg, fill);
+        svg.append("/>\n");
     }
 
     /**
@@ -936,6 +1052,25 @@ public final class BoardExporter {
     }
 
     /**
+     * Returns the horizontal center for one glyph badge in a same-square stack.
+     *
+     * @param bounds square bounds
+     * @param diameter badge diameter
+     * @param slot zero-based badge slot
+     * @param count badge count on the same square
+     * @return center x
+     */
+    private static double glyphCenterX(Rectangle bounds, double diameter, int slot, int count) {
+        if (count <= 1) {
+            return glyphCenterX(bounds);
+        }
+        double step = Math.max(1.0, diameter * GLYPH_STACK_STEP_FRACTION);
+        double start = glyphCenterX(bounds) - step * (count - 1);
+        double minStart = bounds.x + bounds.width * GLYPH_STACK_MIN_CENTER_X_FRACTION;
+        return Math.max(start, minStart) + step * Math.max(0, slot);
+    }
+
+    /**
      * Returns the vertical glyph circle center.
      *
      * @param bounds square bounds
@@ -976,6 +1111,61 @@ public final class BoardExporter {
      */
     private static double glyphTextBaseline(double centerY, double fontSize) {
         return centerY + fontSize * 0.35;
+    }
+
+    /**
+     * Counts glyph badges by source square.
+     *
+     * @param markups persistent annotations
+     * @return count by square index
+     */
+    private static int[] glyphCounts(List<BoardMarkup> markups) {
+        int[] counts = new int[64];
+        for (BoardMarkup markup : markups) {
+            int square = glyphSquare(markup);
+            if (square >= 0) {
+                counts[square]++;
+            }
+        }
+        return counts;
+    }
+
+    /**
+     * Returns and advances the slot for one glyph markup.
+     *
+     * @param markup markup to inspect
+     * @param slots slot counters by square
+     * @return slot index
+     */
+    private static int glyphSlot(BoardMarkup markup, int[] slots) {
+        int square = glyphSquare(markup);
+        return square >= 0 ? slots[square]++ : 0;
+    }
+
+    /**
+     * Returns the glyph count for one markup square.
+     *
+     * @param markup markup to inspect
+     * @param counts count by square index
+     * @return glyph count
+     */
+    private static int glyphCount(BoardMarkup markup, int[] counts) {
+        int square = glyphSquare(markup);
+        return square >= 0 ? counts[square] : 1;
+    }
+
+    /**
+     * Returns the source square for a glyph markup.
+     *
+     * @param markup markup to inspect
+     * @return square index, or -1 when not a glyph
+     */
+    private static int glyphSquare(BoardMarkup markup) {
+        if (markup == null || !markup.isGlyph()) {
+            return -1;
+        }
+        int square = markup.from() & 0xff;
+        return square < 64 ? square : -1;
     }
 
     /**

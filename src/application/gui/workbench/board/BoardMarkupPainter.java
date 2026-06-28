@@ -8,8 +8,12 @@ import java.awt.Color;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
+import java.awt.Paint;
+import java.awt.RadialGradientPaint;
 import java.awt.Rectangle;
 import java.awt.Stroke;
+import java.awt.geom.Ellipse2D;
+import java.awt.geom.Point2D;
 import java.util.List;
 
 /**
@@ -33,19 +37,53 @@ final class BoardMarkupPainter {
     private final BoardArrowPainter arrowPainter = new BoardArrowPainter();
 
     /**
-     * Horizontal glyph-circle center within the target square.
+     * Whether glyph badges are drawn with a soft drop shadow (Lichess-style).
      */
-    private static final float GLYPH_CENTER_X_FRACTION = 0.75f;
+    private boolean glyphShadow = true;
+
+    /**
+     * Enables or disables the glyph badge drop shadow.
+     *
+     * @param enabled true to draw glyph badges with a drop shadow
+     */
+    void setGlyphShadow(boolean enabled) {
+        glyphShadow = enabled;
+    }
+
+    /**
+     * Returns whether glyph badges are drawn with a drop shadow.
+     *
+     * @return true when the glyph drop shadow is enabled
+     */
+    boolean isGlyphShadow() {
+        return glyphShadow;
+    }
+
+    /**
+     * Horizontal glyph-circle center within the target square. Anchored near the
+     * top-right corner (Lichess-style) so the badge straddles the corner.
+     */
+    private static final float GLYPH_CENTER_X_FRACTION = 0.90f;
 
     /**
      * Vertical glyph-circle center within the target square.
      */
-    private static final float GLYPH_CENTER_Y_FRACTION = 0.25f;
+    private static final float GLYPH_CENTER_Y_FRACTION = 0.10f;
 
     /**
-     * Glyph-circle diameter relative to the target square.
+     * Glyph-circle diameter relative to the target square (Lichess uses ~0.40).
      */
-    private static final float GLYPH_DIAMETER_FRACTION = 0.50f;
+    private static final float GLYPH_DIAMETER_FRACTION = 0.40f;
+
+    /**
+     * Horizontal step between stacked glyph badges, relative to badge diameter.
+     */
+    private static final float GLYPH_STACK_STEP_FRACTION = 0.56f;
+
+    /**
+     * Left-most center used when several glyph badges share one square.
+     */
+    private static final float GLYPH_STACK_MIN_CENTER_X_FRACTION = 0.25f;
 
     /**
      * Paints all user markups.
@@ -87,17 +125,24 @@ final class BoardMarkupPainter {
         }
         int pendingEraseIndex = input.pendingEraseIndex();
         List<BoardMarkup> boardMarkups = input.markups();
+        BoardMarkup currentMarkup = input.currentMarkup();
+        int[] glyphCounts = background ? null
+                : glyphCounts(boardMarkups, pendingEraseIndex < 0 ? currentMarkup : null);
+        int[] glyphSlots = background ? null : new int[64];
         for (int i = 0; i < boardMarkups.size(); i++) {
             BoardMarkup markup = boardMarkups.get(i);
             if (markup.isRectangle() != background) {
                 continue;
             }
             double opacity = i == pendingEraseIndex ? PENDING_ERASE_OPACITY : 1.0;
-            drawMarkup(g, board, whiteDown, markup, opacity);
+            int slot = glyphSlot(markup, glyphSlots);
+            int count = glyphCount(markup, glyphCounts);
+            drawMarkup(g, board, whiteDown, markup, opacity, slot, count);
         }
-        BoardMarkup currentMarkup = input.currentMarkup();
         if (currentMarkup != null && pendingEraseIndex < 0 && currentMarkup.isRectangle() == background) {
-            drawMarkup(g, board, whiteDown, currentMarkup, CURRENT_OPACITY);
+            int slot = glyphSlot(currentMarkup, glyphSlots);
+            int count = glyphCount(currentMarkup, glyphCounts);
+            drawMarkup(g, board, whiteDown, currentMarkup, CURRENT_OPACITY, slot, count);
         }
     }
 
@@ -141,8 +186,11 @@ final class BoardMarkupPainter {
      * @param whiteDown true when white is at the bottom
      * @param markup board markup
      * @param opacity opacity multiplier
+     * @param glyphSlot glyph badge slot within a same-square stack
+     * @param glyphCount number of glyph badges in the same-square stack
      */
-    private void drawMarkup(Graphics2D g, Rectangle board, boolean whiteDown, BoardMarkup markup, double opacity) {
+    private void drawMarkup(Graphics2D g, Rectangle board, boolean whiteDown, BoardMarkup markup, double opacity,
+            int glyphSlot, int glyphCount) {
         Color savedColor = g.getColor();
         try {
             if (markup.isCircle()) {
@@ -150,7 +198,8 @@ final class BoardMarkupPainter {
             } else if (markup.isRectangle()) {
                 drawRectangle(g, rectangleBounds(board, markup, whiteDown), markup.brush(), board.width / 8, opacity);
             } else if (markup.isGlyph()) {
-                drawGlyph(g, BoardGeometry.squareBounds(board, markup.from(), whiteDown), markup.brush(), opacity);
+                drawGlyph(g, BoardGeometry.squareBounds(board, markup.from(), whiteDown), markup.brush(), opacity,
+                        glyphSlot, glyphCount);
             } else if (markup.isArrow()) {
                 drawArrow(g, board, whiteDown, markup, opacity);
             }
@@ -236,8 +285,11 @@ final class BoardMarkupPainter {
      * @param bounds square bounds
      * @param brush markup brush
      * @param opacity opacity multiplier
+     * @param slot glyph badge slot within a same-square stack
+     * @param count number of glyph badges in the same-square stack
      */
-    private static void drawGlyph(Graphics2D g, Rectangle bounds, MarkupBrush brush, double opacity) {
+    private void drawGlyph(Graphics2D g, Rectangle bounds, MarkupBrush brush, double opacity,
+            int slot, int count) {
         Font savedFont = g.getFont();
         Stroke savedStroke = g.getStroke();
         try {
@@ -248,12 +300,19 @@ final class BoardMarkupPainter {
             FontMetrics metrics = g.getFontMetrics();
             float borderWidth = scaledBadgeBorderWidth(cell, brush);
             int diameter = glyphDiameter(cell, borderWidth);
-            int centerX = glyphCenterX(bounds);
+            int centerX = glyphCenterX(bounds, diameter, slot, count);
             int centerY = glyphCenterY(bounds);
             int x = Math.round(centerX - diameter / 2f);
             int y = Math.round(centerY - diameter / 2f);
-            Color fill = markupColor(brush.displayColor(), opacity);
-            Color border = markupColor(brush.displayBorderColor(), opacity);
+            Color fill = Theme.withAlpha(brush.displayColor(), 255);
+            Color border = Theme.withAlpha(brush.displayBorderColor(), 255);
+            if (glyphShadow) {
+                paintGlyphShadow(g, x, y, diameter);
+            }
+            if (AnnotationGlyphs.isCustom(glyph)) {
+                AnnotationGlyphs.paintCustom(g, glyph, x, y, diameter, fill, border, borderWidth);
+                return;
+            }
             g.setColor(fill);
             g.fillOval(x, y, diameter, diameter);
             if (borderWidth > 0f && border.getAlpha() > 0) {
@@ -268,6 +327,35 @@ final class BoardMarkupPainter {
             g.setStroke(savedStroke);
             g.setFont(savedFont);
         }
+    }
+
+    /**
+     * Paints a soft Lichess-style drop shadow behind a glyph badge circle.
+     *
+     * <p>A radial gradient (dark at the badge, fading to transparent) is offset
+     * down and to the right; the opaque badge drawn on top hides the centre, so
+     * only the soft fringe reads as a shadow.</p>
+     *
+     * @param g graphics context
+     * @param x badge left edge
+     * @param y badge top edge
+     * @param diameter badge diameter
+     */
+    private static void paintGlyphShadow(Graphics2D g, int x, int y, int diameter) {
+        if (diameter <= 0) {
+            return;
+        }
+        double dx = diameter * 0.03;
+        double dy = diameter * 0.08;
+        float radius = (float) Math.max(1.0, diameter / 2.0 + diameter * 0.16);
+        Point2D center = new Point2D.Double(x + diameter / 2.0 + dx, y + diameter / 2.0 + dy);
+        Paint savedPaint = g.getPaint();
+        g.setPaint(new RadialGradientPaint(center, radius,
+                new float[] {0f, 0.66f, 1f},
+                new Color[] {Theme.withAlpha(Color.BLACK, 135), Theme.withAlpha(Color.BLACK, 80),
+                        Theme.withAlpha(Color.BLACK, 0)}));
+        g.fill(new Ellipse2D.Double(center.getX() - radius, center.getY() - radius, radius * 2.0, radius * 2.0));
+        g.setPaint(savedPaint);
     }
 
     /**
@@ -364,6 +452,25 @@ final class BoardMarkupPainter {
     }
 
     /**
+     * Returns the horizontal center for one glyph badge in a same-square stack.
+     *
+     * @param bounds square bounds
+     * @param diameter badge diameter
+     * @param slot zero-based badge slot
+     * @param count badge count on the same square
+     * @return center x
+     */
+    private static int glyphCenterX(Rectangle bounds, int diameter, int slot, int count) {
+        if (count <= 1) {
+            return glyphCenterX(bounds);
+        }
+        float step = Math.max(1f, diameter * GLYPH_STACK_STEP_FRACTION);
+        float start = glyphCenterX(bounds) - step * (count - 1);
+        float minStart = bounds.x + bounds.width * GLYPH_STACK_MIN_CENTER_X_FRACTION;
+        return Math.round(Math.max(start, minStart) + step * Math.max(0, slot));
+    }
+
+    /**
      * Returns the vertical glyph circle center.
      *
      * @param bounds square bounds
@@ -394,5 +501,72 @@ final class BoardMarkupPainter {
     private static float scaledArrowBorderWidth(float lineWidth, MarkupBrush brush) {
         int width = brush.displayBorderWidth();
         return width <= 0 ? 0f : Math.max(1f, lineWidth * width / 25f);
+    }
+
+    /**
+     * Counts glyph badges by source square.
+     *
+     * @param markups persistent annotations
+     * @param currentMarkup current preview annotation
+     * @return count by square index
+     */
+    private static int[] glyphCounts(List<BoardMarkup> markups, BoardMarkup currentMarkup) {
+        int[] counts = new int[64];
+        for (BoardMarkup markup : markups) {
+            incrementGlyphCount(counts, markup);
+        }
+        incrementGlyphCount(counts, currentMarkup);
+        return counts;
+    }
+
+    /**
+     * Increments one square count for glyph markups.
+     *
+     * @param counts count by square index
+     * @param markup markup to inspect
+     */
+    private static void incrementGlyphCount(int[] counts, BoardMarkup markup) {
+        int square = glyphSquare(markup);
+        if (square >= 0) {
+            counts[square]++;
+        }
+    }
+
+    /**
+     * Returns and advances the slot for one glyph markup.
+     *
+     * @param markup markup to inspect
+     * @param slots slot counters by square
+     * @return slot index
+     */
+    private static int glyphSlot(BoardMarkup markup, int[] slots) {
+        int square = glyphSquare(markup);
+        return square >= 0 && slots != null ? slots[square]++ : 0;
+    }
+
+    /**
+     * Returns the glyph count for one markup square.
+     *
+     * @param markup markup to inspect
+     * @param counts count by square index
+     * @return glyph count
+     */
+    private static int glyphCount(BoardMarkup markup, int[] counts) {
+        int square = glyphSquare(markup);
+        return square >= 0 && counts != null ? counts[square] : 1;
+    }
+
+    /**
+     * Returns the source square for a glyph markup.
+     *
+     * @param markup markup to inspect
+     * @return square index, or -1 when not a glyph
+     */
+    private static int glyphSquare(BoardMarkup markup) {
+        if (markup == null || !markup.isGlyph()) {
+            return -1;
+        }
+        int square = markup.from() & 0xff;
+        return square < 64 ? square : -1;
     }
 }
