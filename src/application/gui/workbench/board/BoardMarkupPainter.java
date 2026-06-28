@@ -347,15 +347,15 @@ final class BoardMarkupPainter {
      * rather than as a thin one-sided sliver, with a generous blur so it still
      * reads at small on-board sizes.
      */
-    private static final double SHADOW_DX_FRACTION = 0.0,
-            SHADOW_DY_FRACTION = 0.0,
-            SHADOW_SPREAD_FRACTION = 0.08,
-            SHADOW_BLUR_FRACTION = 0.13;
+    private static final double SHADOW_DX_FRACTION = 0.04,
+            SHADOW_DY_FRACTION = 0.07,
+            SHADOW_SPREAD_FRACTION = 0.0,
+            SHADOW_BLUR_FRACTION = 0.05;
 
     /**
      * Glyph drop-shadow opacity.
      */
-    private static final float SHADOW_OPACITY = 0.6f;
+    private static final float SHADOW_OPACITY = 0.5f;
 
     /**
      * Paints a soft, centered drop shadow behind a glyph badge circle.

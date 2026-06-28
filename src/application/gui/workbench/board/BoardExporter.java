@@ -947,16 +947,18 @@ public final class BoardExporter {
      */
     private static void appendGlyphShadowFilter(StringBuilder svg, int size) {
         double diameter = size / 8.0 * GLYPH_DIAMETER_FRACTION;
-        // Soft Lichess-style drop shadow: blur the badge silhouette, drop it
-        // slightly down/right, and merge it back UNDER the badge. Uses the classic
-        // blur+offset+merge (feDropShadow is not reliably composited by every SVG
-        // renderer, e.g. Inkscape drops the source graphic). The blur is generous
-        // so the shadow still reads at small sizes.
+        // Lichess drop shadow: <feDropShadow dx=4 dy=7 stdDeviation=5 flood-opacity=.5>
+        // in a 100-unit badge box, i.e. dx=0.04d, dy=0.07d, blur=0.05d at 50%. Built
+        // from blur+offset+merge rather than a literal feDropShadow element because
+        // some SVG renderers (Inkscape) drop the source graphic on feDropShadow, which
+        // made the shadow vanish from saved SVGs; the composited form looks identical.
         svg.append("  <defs><filter id=\"glyph-shadow\" x=\"-60%\" y=\"-60%\" width=\"220%\" height=\"220%\">")
-                .append("<feGaussianBlur in=\"SourceAlpha\" stdDeviation=\"").append(format(diameter * 0.13))
+                .append("<feGaussianBlur in=\"SourceAlpha\" stdDeviation=\"").append(format(diameter * 0.05))
                 .append("\" result=\"b\"/>")
-                .append("<feComponentTransfer in=\"b\" result=\"s\">")
-                .append("<feFuncA type=\"linear\" slope=\"0.7\"/></feComponentTransfer>")
+                .append("<feOffset in=\"b\" dx=\"").append(format(diameter * 0.04))
+                .append("\" dy=\"").append(format(diameter * 0.07)).append("\" result=\"o\"/>")
+                .append("<feComponentTransfer in=\"o\" result=\"s\">")
+                .append("<feFuncA type=\"linear\" slope=\"0.5\"/></feComponentTransfer>")
                 .append("<feMerge><feMergeNode in=\"s\"/><feMergeNode in=\"SourceGraphic\"/></feMerge>")
                 .append("</filter></defs>\n");
     }
