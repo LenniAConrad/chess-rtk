@@ -2024,7 +2024,8 @@ public final class BoardPanel extends JPanel {
                 showLegalMovePreview,
                 showLastMoveHighlight,
                 showSuggestedMoveArrow,
-                showSpecialMoveHints);
+                showSpecialMoveHints,
+                markupPainter.isGlyphShadow());
     }
     /**
      * Returns selected legal targets that currently contain capturable pieces.

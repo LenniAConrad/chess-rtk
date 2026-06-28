@@ -147,6 +147,9 @@ public final class BoardExporter {
                 .append(' ')
                 .append(total)
                 .append("\" role=\"img\" aria-label=\"ChessRTK analysis board\">\n");
+        if (snapshot.glyphShadow() && hasGlyphMarkup(snapshot)) {
+            appendGlyphShadowFilter(svg, size);
+        }
         appendBoardSvg(snapshot, svg, new Rectangle(border, border, size, size), border);
         svg.append("</svg>\n");
         return svg.toString();
@@ -341,7 +344,7 @@ public final class BoardExporter {
             paintRasterRectangle(g, rectangleBounds(board, markup, snapshot.whiteDown()), markup.brush(), board.width / 8);
         } else if (markup.isGlyph()) {
             paintRasterGlyph(g, BoardGeometry.squareBounds(board, markup.from(), snapshot.whiteDown()), markup.brush(),
-                    glyphSlot, glyphCount);
+                    glyphSlot, glyphCount, snapshot.glyphShadow());
         } else if (markup.isArrow()) {
             g.setColor(markup.brush().displayColor());
             arrows.draw(g,
@@ -431,7 +434,8 @@ public final class BoardExporter {
      * @param slot glyph badge slot within a same-square stack
      * @param count number of glyph badges in the same-square stack
      */
-    private static void paintRasterGlyph(Graphics2D g, Rectangle bounds, MarkupBrush brush, int slot, int count) {
+    private static void paintRasterGlyph(Graphics2D g, Rectangle bounds, MarkupBrush brush, int slot, int count,
+            boolean shadow) {
         Font savedFont = g.getFont();
         Stroke savedStroke = g.getStroke();
         try {
@@ -446,6 +450,9 @@ public final class BoardExporter {
             int centerY = glyphCenterY(bounds);
             int x = Math.round(centerX - diameter / 2f);
             int y = Math.round(centerY - diameter / 2f);
+            if (shadow) {
+                BoardMarkupPainter.paintGlyphShadow(g, x, y, diameter);
+            }
             if (AnnotationGlyphs.isCustom(glyph)) {
                 AnnotationGlyphs.paintCustom(g, glyph, x, y, diameter,
                         brush.displayColor(), brush.displayBorderColor(), borderWidth);
@@ -665,7 +672,7 @@ public final class BoardExporter {
                 int slot = glyphSlot(markup, glyphSlots);
                 int count = glyphCount(markup, glyphCounts);
                 appendGlyphMarkup(svg, BoardGeometry.squareBounds(board, markup.from(), snapshot.whiteDown()),
-                        markup.brush(), slot, count);
+                        markup.brush(), slot, count, snapshot.glyphShadow());
             } else if (markup.isArrow()) {
                 appendArrow(svg,
                         BoardGeometry.center(board, markup.from(), snapshot.whiteDown()),
@@ -879,8 +886,10 @@ public final class BoardExporter {
      * @param brush annotation brush
      * @param slot glyph badge slot within a same-square stack
      * @param count number of glyph badges in the same-square stack
+     * @param shadow true to attach the drop-shadow filter
      */
-    private static void appendGlyphMarkup(StringBuilder svg, Rectangle bounds, MarkupBrush brush, int slot, int count) {
+    private static void appendGlyphMarkup(StringBuilder svg, Rectangle bounds, MarkupBrush brush, int slot, int count,
+            boolean shadow) {
         int cell = Math.min(bounds.width, bounds.height);
         String glyph = brush.glyph();
         double fontSize = Math.max(12.0, cell * 0.34);
@@ -891,13 +900,14 @@ public final class BoardExporter {
         double cx = glyphCenterX(bounds, radius * 2.0, slot, count);
         double cy = glyphCenterY(bounds);
         if (AnnotationGlyphs.isCustom(glyph)) {
-            appendCustomGlyph(svg, glyph, cx, cy, radius, fill, border, strokeWidth);
+            appendCustomGlyph(svg, glyph, cx, cy, radius, fill, border, strokeWidth, shadow);
             return;
         }
         svg.append("  <circle cx=\"").append(format(cx)).append("\" cy=\"").append(format(cy))
                 .append("\" r=\"").append(format(radius))
                 .append("\" fill=\"").append(colorCss(fill)).append("\"");
         appendOpacity(svg, fill);
+        appendGlyphShadowRef(svg, shadow);
         svg.append("/>\n");
         svg.append("  <text x=\"").append(format(cx)).append("\" y=\"")
                 .append(format(glyphTextBaseline(cy, fontSize)))
@@ -907,6 +917,55 @@ public final class BoardExporter {
                 .append(format(fontSize))
                 .append("\" font-weight=\"700\" text-anchor=\"middle\">")
                 .append(escape(glyph)).append("</text>\n");
+    }
+
+    /**
+     * Appends the glyph drop-shadow filter reference to the current badge circle.
+     *
+     * @param svg destination builder
+     * @param shadow true to attach the drop-shadow filter
+     */
+    private static void appendGlyphShadowRef(StringBuilder svg, boolean shadow) {
+        if (shadow) {
+            svg.append(" filter=\"url(#glyph-shadow)\"");
+        }
+    }
+
+    /**
+     * Appends the reusable soft drop-shadow filter used by glyph badges, sized
+     * from the board square so it matches the on-screen Lichess-style shadow.
+     *
+     * @param svg destination builder
+     * @param size board square-area size in SVG units
+     */
+    private static void appendGlyphShadowFilter(StringBuilder svg, int size) {
+        double diameter = size / 8.0 * GLYPH_DIAMETER_FRACTION;
+        // Classic blur+offset+merge drop shadow (feDropShadow is not reliably
+        // composited by every SVG renderer, e.g. Inkscape drops the source).
+        svg.append("  <defs><filter id=\"glyph-shadow\" x=\"-50%\" y=\"-50%\" width=\"200%\" height=\"200%\">")
+                .append("<feGaussianBlur in=\"SourceAlpha\" stdDeviation=\"").append(format(diameter * 0.06))
+                .append("\" result=\"b\"/>")
+                .append("<feOffset in=\"b\" dx=\"").append(format(diameter * 0.03))
+                .append("\" dy=\"").append(format(diameter * 0.08)).append("\" result=\"o\"/>")
+                .append("<feComponentTransfer in=\"o\" result=\"s\">")
+                .append("<feFuncA type=\"linear\" slope=\"0.45\"/></feComponentTransfer>")
+                .append("<feMerge><feMergeNode in=\"s\"/><feMergeNode in=\"SourceGraphic\"/></feMerge>")
+                .append("</filter></defs>\n");
+    }
+
+    /**
+     * Returns whether the snapshot contains at least one glyph badge markup.
+     *
+     * @param snapshot board export snapshot
+     * @return true when a glyph markup is present
+     */
+    private static boolean hasGlyphMarkup(BoardExportSnapshot snapshot) {
+        for (BoardMarkup markup : snapshot.boardMarkups()) {
+            if (markup.isGlyph()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -920,13 +979,15 @@ public final class BoardExporter {
      * @param fill badge fill color
      * @param border glyph and border color
      * @param strokeWidth border stroke width
+     * @param shadow true to attach the drop-shadow filter
      */
     private static void appendCustomGlyph(StringBuilder svg, String glyph, double cx, double cy, double radius,
-            Color fill, Color border, double strokeWidth) {
+            Color fill, Color border, double strokeWidth, boolean shadow) {
         svg.append("  <circle cx=\"").append(format(cx)).append("\" cy=\"").append(format(cy))
                 .append("\" r=\"").append(format(radius))
                 .append("\" fill=\"").append(colorCss(fill)).append("\"");
         appendOpacity(svg, fill);
+        appendGlyphShadowRef(svg, shadow);
         svg.append("/>\n");
         double diameter = radius * 2.0;
         double x = cx - radius;

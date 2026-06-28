@@ -221,60 +221,71 @@ public final class DrawPanel extends JPanel {
             PRESET_TEAL_RGB = 0x20_A3_93;
 
     /**
-     * Chess annotation presets, one tidy category per column, each sorted in a
-     * natural reading order (move quality best&rarr;worst, evaluation
-     * white&rarr;black, etc.).
+     * Chess annotation presets as four columns of tight, mutually-exclusive
+     * sub-sections, each sorted in a natural reading order (move quality
+     * best&rarr;worst, evaluation white&rarr;black, etc.).
      */
-    private static final List<PresetCategory> ANNOTATION_PRESET_COLUMNS = List.of(
-            new PresetCategory("Move quality", List.of(
-                    annotationPreset("!!", "Brilliant move", PRESET_BRILLIANT_RGB),
-                    annotationPreset("!", "Good move", PRESET_EXCELLENT_RGB, new Color(PRESET_DARK_MARK_RGB)),
-                    annotationPreset("!?", "Interesting move", PRESET_INTERESTING_RGB),
-                    annotationPreset("?!", "Dubious move", PRESET_DUBIOUS_RGB, new Color(PRESET_DARK_MARK_RGB)),
-                    annotationPreset("?", "Mistake", PRESET_MISTAKE_RGB, new Color(PRESET_DARK_MARK_RGB)),
-                    annotationPreset("??", "Blunder", PRESET_BLUNDER_RGB),
-                    annotationPreset(AnnotationGlyphs.MISSED_WIN, "Miss", PRESET_MISSED_WIN_RGB),
-                    annotationPreset(AnnotationGlyphs.ONLY_MOVE, "Only move", PRESET_ONLY_RGB),
-                    annotationPreset(AnnotationGlyphs.ZUGZWANG, "Zugzwang", PRESET_ZUGZWANG_RGB))),
-            new PresetCategory("Evaluation", List.of(
-                    annotationPreset(AnnotationGlyphs.WHITE_WINNING, "White is winning", PRESET_WHITE_WINNING_RGB,
-                            new Color(PRESET_DARK_MARK_RGB)),
-                    annotationPreset("+=", "White is better", PRESET_GOOD_RGB, new Color(PRESET_DARK_MARK_RGB)),
-                    annotationPreset("±", "White is slightly better", PRESET_GOOD_RGB,
-                            new Color(PRESET_DARK_MARK_RGB)),
-                    annotationPreset("=", "Equal position", PRESET_SLATE_RGB),
-                    annotationPreset("∞", "Unclear position", PRESET_SLATE_RGB),
-                    annotationPreset("=∞", "With compensation", PRESET_SLATE_RGB),
-                    annotationPreset("∓", "Black is slightly better", PRESET_BLUNDER_RGB),
-                    annotationPreset("=+", "Black is better", PRESET_BLUNDER_RGB),
-                    annotationPreset("-+", "Black is winning", PRESET_BLUNDER_RGB),
-                    annotationPreset(AnnotationGlyphs.DRAW_RESULT, "Draw", PRESET_DRAW_RESULT_RGB),
-                    annotationPreset(AnnotationGlyphs.WHITE_CHECKMATED, "White checkmated",
-                            PRESET_WHITE_CHECKMATED_RGB, new Color(PRESET_DARK_MARK_RGB)),
-                    annotationPreset(AnnotationGlyphs.BLACK_CHECKMATED, "Black checkmated",
-                            PRESET_BLACK_CHECKMATED_RGB))),
-            new PresetCategory("Plans", List.of(
-                    annotationPreset("→", "Attack", PRESET_BLUE_RGB),
-                    annotationPreset("↑", "Initiative", PRESET_BLUE_RGB),
-                    annotationPreset("↑↑", "Development", PRESET_BLUE_RGB),
-                    annotationPreset(AnnotationGlyphs.COUNTERPLAY, "Counterplay", PRESET_COUNTERPLAY_RGB,
-                            new Color(PRESET_DARK_MARK_RGB)),
-                    annotationPreset("△", "With the idea", PRESET_GOOD_RGB, new Color(PRESET_DARK_MARK_RGB)),
-                    annotationPreset(AnnotationGlyphs.COUNTERING, "Countering", PRESET_BLUNDER_RGB),
-                    annotationPreset("N", "Novelty", PRESET_NOVELTY_RGB),
-                    annotationPreset(AnnotationGlyphs.BOOK_MOVE, "Book move", PRESET_BOOK_RGB),
-                    annotationPreset("⊕", "Time trouble", PRESET_SLATE_RGB))),
-            new PresetCategory("Tactics", List.of(
-                    annotationPreset(AnnotationGlyphs.FORK, "Fork", PRESET_PURPLE_RGB),
-                    annotationPreset(AnnotationGlyphs.PIN, "Pin", PRESET_PURPLE_RGB),
-                    annotationPreset(AnnotationGlyphs.SKEWER, "Skewer", PRESET_PURPLE_RGB),
-                    annotationPreset(AnnotationGlyphs.DISCOVERED_ATTACK, "Discovered attack", PRESET_PURPLE_RGB),
-                    annotationPreset(AnnotationGlyphs.DOUBLE_ATTACK, "Double attack", PRESET_PURPLE_RGB),
-                    annotationPreset(AnnotationGlyphs.XRAY, "X-ray", PRESET_PURPLE_RGB),
-                    annotationPreset(AnnotationGlyphs.BATTERY, "Battery", PRESET_PURPLE_RGB),
-                    annotationPreset(AnnotationGlyphs.CHECK, "Check", PRESET_BLUE_RGB),
-                    annotationPreset(AnnotationGlyphs.DOUBLE_CHECK, "Double check", PRESET_BLUE_RGB),
-                    annotationPreset(AnnotationGlyphs.MATE, "Checkmate", PRESET_BLUNDER_RGB))));
+    private static final List<List<PresetCategory>> ANNOTATION_PRESET_COLUMNS = List.of(
+            List.of(
+                    new PresetCategory("Move quality", List.of(
+                            annotationPreset("!!", "Brilliant move", PRESET_BRILLIANT_RGB),
+                            annotationPreset("!", "Good move", PRESET_EXCELLENT_RGB, new Color(PRESET_DARK_MARK_RGB)),
+                            annotationPreset("!?", "Interesting move", PRESET_INTERESTING_RGB),
+                            annotationPreset("?!", "Dubious move", PRESET_DUBIOUS_RGB,
+                                    new Color(PRESET_DARK_MARK_RGB)),
+                            annotationPreset("?", "Mistake", PRESET_MISTAKE_RGB, new Color(PRESET_DARK_MARK_RGB)),
+                            annotationPreset("??", "Blunder", PRESET_BLUNDER_RGB),
+                            annotationPreset(AnnotationGlyphs.MISSED_WIN, "Miss", PRESET_MISSED_WIN_RGB))),
+                    new PresetCategory("Conditions", List.of(
+                            annotationPreset(AnnotationGlyphs.ONLY_MOVE, "Only move", PRESET_ONLY_RGB),
+                            annotationPreset(AnnotationGlyphs.ZUGZWANG, "Zugzwang", PRESET_ZUGZWANG_RGB),
+                            annotationPreset("⊕", "Time trouble", PRESET_SLATE_RGB)))),
+            List.of(
+                    new PresetCategory("Evaluation", List.of(
+                            annotationPreset(AnnotationGlyphs.WHITE_WINNING, "White is winning",
+                                    PRESET_WHITE_WINNING_RGB, new Color(PRESET_DARK_MARK_RGB)),
+                            annotationPreset("+=", "White is better", PRESET_GOOD_RGB,
+                                    new Color(PRESET_DARK_MARK_RGB)),
+                            annotationPreset("±", "White is slightly better", PRESET_GOOD_RGB,
+                                    new Color(PRESET_DARK_MARK_RGB)),
+                            annotationPreset("=", "Equal position", PRESET_SLATE_RGB),
+                            annotationPreset("∞", "Unclear position", PRESET_SLATE_RGB),
+                            annotationPreset("=∞", "With compensation", PRESET_SLATE_RGB),
+                            annotationPreset("∓", "Black is slightly better", PRESET_BLUNDER_RGB),
+                            annotationPreset("=+", "Black is better", PRESET_BLUNDER_RGB),
+                            annotationPreset("-+", "Black is winning", PRESET_BLUNDER_RGB))),
+                    new PresetCategory("Result", List.of(
+                            annotationPreset(AnnotationGlyphs.DRAW_RESULT, "Draw", PRESET_DRAW_RESULT_RGB),
+                            annotationPreset(AnnotationGlyphs.WHITE_CHECKMATED, "White checkmated",
+                                    PRESET_WHITE_CHECKMATED_RGB, new Color(PRESET_DARK_MARK_RGB)),
+                            annotationPreset(AnnotationGlyphs.BLACK_CHECKMATED, "Black checkmated",
+                                    PRESET_BLACK_CHECKMATED_RGB)))),
+            List.of(
+                    new PresetCategory("Plans", List.of(
+                            annotationPreset("→", "Attack", PRESET_BLUE_RGB),
+                            annotationPreset("↑", "Initiative", PRESET_BLUE_RGB),
+                            annotationPreset("↑↑", "Development", PRESET_BLUE_RGB),
+                            annotationPreset(AnnotationGlyphs.COUNTERPLAY, "Counterplay", PRESET_COUNTERPLAY_RGB,
+                                    new Color(PRESET_DARK_MARK_RGB)),
+                            annotationPreset("△", "With the idea", PRESET_GOOD_RGB, new Color(PRESET_DARK_MARK_RGB)),
+                            annotationPreset(AnnotationGlyphs.COUNTERING, "Countering", PRESET_BLUNDER_RGB))),
+                    new PresetCategory("Opening", List.of(
+                            annotationPreset("N", "Novelty", PRESET_NOVELTY_RGB),
+                            annotationPreset(AnnotationGlyphs.BOOK_MOVE, "Book move", PRESET_BOOK_RGB)))),
+            List.of(
+                    new PresetCategory("Tactics", List.of(
+                            annotationPreset(AnnotationGlyphs.FORK, "Fork", PRESET_PURPLE_RGB),
+                            annotationPreset(AnnotationGlyphs.PIN, "Pin", PRESET_PURPLE_RGB),
+                            annotationPreset(AnnotationGlyphs.SKEWER, "Skewer", PRESET_PURPLE_RGB),
+                            annotationPreset(AnnotationGlyphs.DISCOVERED_ATTACK, "Discovered attack",
+                                    PRESET_PURPLE_RGB),
+                            annotationPreset(AnnotationGlyphs.DOUBLE_ATTACK, "Double attack", PRESET_PURPLE_RGB),
+                            annotationPreset(AnnotationGlyphs.XRAY, "X-ray", PRESET_PURPLE_RGB),
+                            annotationPreset(AnnotationGlyphs.BATTERY, "Battery", PRESET_PURPLE_RGB))),
+                    new PresetCategory("Checks", List.of(
+                            annotationPreset(AnnotationGlyphs.CHECK, "Check", PRESET_BLUE_RGB),
+                            annotationPreset(AnnotationGlyphs.DOUBLE_CHECK, "Double check", PRESET_BLUE_RGB),
+                            annotationPreset(AnnotationGlyphs.MATE, "Checkmate", PRESET_BLUNDER_RGB)))));
 
     /**
      * Plain one-click shape presets shown below the notation menu: a row of
@@ -763,16 +774,23 @@ public final class DrawPanel extends JPanel {
     private JComponent annotationPresetMenu() {
         JPanel menu = Ui.transparentPanel(new GridLayout(1, ANNOTATION_PRESET_COLUMNS.size(),
                 Theme.SPACE_XS, 0));
-        for (PresetCategory category : ANNOTATION_PRESET_COLUMNS) {
+        for (List<PresetCategory> columnSections : ANNOTATION_PRESET_COLUMNS) {
             JPanel column = verticalPanel();
-            column.add(presetColumnHeader(category.title()));
-            column.add(Box.createVerticalStrut(Theme.SPACE_XS));
-            for (AnnotationPreset item : category.items()) {
-                JButton button = new AnnotationPresetButton(item);
-                button.setAlignmentX(Component.LEFT_ALIGNMENT);
-                button.addActionListener(event -> applyPreset(item.preset()));
-                column.add(button);
+            boolean firstSection = true;
+            for (PresetCategory section : columnSections) {
+                if (!firstSection) {
+                    column.add(Box.createVerticalStrut(Theme.SPACE_SM));
+                }
+                firstSection = false;
+                column.add(presetColumnHeader(section.title()));
                 column.add(Box.createVerticalStrut(Theme.SPACE_XS));
+                for (AnnotationPreset item : section.items()) {
+                    JButton button = new AnnotationPresetButton(item);
+                    button.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    button.addActionListener(event -> applyPreset(item.preset()));
+                    column.add(button);
+                    column.add(Box.createVerticalStrut(Theme.SPACE_XS));
+                }
             }
             menu.add(column);
         }

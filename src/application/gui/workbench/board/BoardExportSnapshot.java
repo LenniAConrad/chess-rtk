@@ -26,6 +26,7 @@ import java.util.Map;
  * @param showLastMoveHighlight true to render previous-move highlights
  * @param showSuggestedMoveArrow true to render the suggested-move arrow
  * @param showSpecialMoveHints true to render castling/en-passant hints
+ * @param glyphShadow true to draw glyph badges with a drop shadow
  *
  * @author Lennart A. Conrad
  */
@@ -47,7 +48,8 @@ record BoardExportSnapshot(
         boolean showLegalMovePreview,
         boolean showLastMoveHighlight,
         boolean showSuggestedMoveArrow,
-        boolean showSpecialMoveHints) {
+        boolean showSpecialMoveHints,
+        boolean glyphShadow) {
 
     /**
      * Normalizes nullable collections and mutable arrays.

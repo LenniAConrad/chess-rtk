@@ -341,7 +341,7 @@ final class BoardMarkupPainter {
      * @param y badge top edge
      * @param diameter badge diameter
      */
-    private static void paintGlyphShadow(Graphics2D g, int x, int y, int diameter) {
+    static void paintGlyphShadow(Graphics2D g, int x, int y, int diameter) {
         if (diameter <= 0) {
             return;
         }
