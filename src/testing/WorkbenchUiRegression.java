@@ -3490,17 +3490,19 @@ final class WorkbenchUiRegression {
         assertEquals(AnnotationGlyphs.FORK, forkGlyph.brush().glyph(),
                 "fork annotation stores selected glyph");
 
+        // Fan four glyphs from DIFFERENT exclusive groups (one move-quality, two
+        // non-exclusive tactics, one condition) so they all stack on one square.
         Point fanSquare = squareCenter(board, (byte) 51);
         board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0xC2, 0x18, 0x5B), Color.WHITE, 10,
                 MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.INTERESTING_MOVE));
         dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, fanSquare, MouseEvent.BUTTON1);
         dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, fanSquare, MouseEvent.BUTTON1);
         board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0xF4, 0x7B, 0x3F), Color.WHITE, 10,
-                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.DUBIOUS_MOVE));
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.FORK));
         dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, fanSquare, MouseEvent.BUTTON1);
         dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, fanSquare, MouseEvent.BUTTON1);
         board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0xFF, 0x17, 0x44), Color.WHITE, 10,
-                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.BLUNDER_MOVE));
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.SKEWER));
         dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, fanSquare, MouseEvent.BUTTON1);
         dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, fanSquare, MouseEvent.BUTTON1);
         board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0x2D, 0x70, 0xB8), Color.WHITE, 10,
@@ -3508,7 +3510,7 @@ final class WorkbenchUiRegression {
         dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, fanSquare, MouseEvent.BUTTON1);
         dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, fanSquare, MouseEvent.BUTTON1);
         assertEquals(Integer.valueOf(21), Integer.valueOf(board.markupCount()),
-                "same-square glyph draw mode keeps multiple vector glyph annotations");
+                "same-square glyph draw mode keeps multiple non-sibling vector glyph annotations");
 
         board.setBoardColors(new Color(0xDDEEFF), new Color(0x335577));
         assertEquals(new Color(0xDDEEFF), board.boardLightColor(), "custom light board color applies");
@@ -3792,6 +3794,22 @@ final class WorkbenchUiRegression {
         assertFalse(boardHasGlyph(board, "-+"), "black-winning glyph was toggled off");
         assertTrue(boardHasGlyph(board, AnnotationGlyphs.INTERESTING_MOVE),
                 "stacked non-exclusive glyph remains after exclusive toggle-off");
+
+        // Move-quality glyphs are their own exclusive group: a second one replaces the first.
+        Point e4 = squareCenter(board, (byte) 28);
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0x16, 0x82, 0x26), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.BRILLIANT_MOVE));
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, e4, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, e4, MouseEvent.BUTTON1);
+        assertTrue(boardHasGlyph(board, AnnotationGlyphs.BRILLIANT_MOVE), "brilliant move-quality glyph is present");
+        board.setDirectAnnotationBrush(MarkupBrush.custom(new Color(0xDF, 0x53, 0x53), Color.WHITE, 10,
+                MarkupBrush.DEFAULT_BORDER_WIDTH, AnnotationGlyphs.BLUNDER_MOVE));
+        dispatchBoardMouse(board, MouseEvent.MOUSE_PRESSED, MouseEvent.BUTTON1_DOWN_MASK, e4, MouseEvent.BUTTON1);
+        dispatchBoardMouse(board, MouseEvent.MOUSE_RELEASED, 0, e4, MouseEvent.BUTTON1);
+        assertTrue(boardHasGlyph(board, AnnotationGlyphs.BLUNDER_MOVE),
+                "blunder move-quality glyph replaces the brilliant sibling on the same square");
+        assertFalse(boardHasGlyph(board, AnnotationGlyphs.BRILLIANT_MOVE),
+                "earlier move-quality glyph was replaced by its exclusive sibling");
     }
 
     /**

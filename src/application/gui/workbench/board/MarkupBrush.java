@@ -65,6 +65,21 @@ public record MarkupBrush(String name, Color color, Color borderColor, int lineW
     private static final String RESULT_GLYPH_GROUP = "result";
 
     /**
+     * Exclusive glyph group for move-quality assessments (a move has one).
+     */
+    private static final String MOVE_QUALITY_GLYPH_GROUP = "move-quality";
+
+    /**
+     * Exclusive glyph group for opening-theory annotations (book xor novelty).
+     */
+    private static final String OPENING_GLYPH_GROUP = "opening";
+
+    /**
+     * Exclusive glyph group for check/checkmate move markers (a move is one).
+     */
+    private static final String CHECK_GLYPH_GROUP = "check";
+
+    /**
      * Custom brush name.
      */
     private static final String CUSTOM_NAME = "custom";
@@ -174,9 +189,14 @@ public record MarkupBrush(String name, Color color, Color borderColor, int lineW
     public static String exclusiveGlyphGroup(String glyph) {
         String normalized = normalizeGlyph(glyph);
         return switch (normalized) {
-            case "=", "∞", "±", "∓", "+=", "=+", "+-", "-+" -> EVALUATION_GLYPH_GROUP;
+            case "!!", "!", "!?", "?!", "?", "??", AnnotationGlyphs.MISSED_WIN -> MOVE_QUALITY_GLYPH_GROUP;
+            case "=", "∞", "=∞", "±", "∓", "+=", "=+", AnnotationGlyphs.WHITE_WINNING, "-+" ->
+                    EVALUATION_GLYPH_GROUP;
             case AnnotationGlyphs.DRAW_RESULT, AnnotationGlyphs.WHITE_CHECKMATED,
                     AnnotationGlyphs.BLACK_CHECKMATED -> RESULT_GLYPH_GROUP;
+            case AnnotationGlyphs.NOVELTY, AnnotationGlyphs.BOOK_MOVE -> OPENING_GLYPH_GROUP;
+            case AnnotationGlyphs.CHECK, AnnotationGlyphs.DOUBLE_CHECK, AnnotationGlyphs.MATE ->
+                    CHECK_GLYPH_GROUP;
             default -> null;
         };
     }

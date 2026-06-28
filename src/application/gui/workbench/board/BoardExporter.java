@@ -343,8 +343,8 @@ public final class BoardExporter {
         } else if (markup.isRectangle()) {
             paintRasterRectangle(g, rectangleBounds(board, markup, snapshot.whiteDown()), markup.brush(), board.width / 8);
         } else if (markup.isGlyph()) {
-            paintRasterGlyph(g, BoardGeometry.squareBounds(board, markup.from(), snapshot.whiteDown()), markup.brush(),
-                    glyphSlot, glyphCount, snapshot.glyphShadow());
+            paintRasterGlyph(g, BoardGeometry.squareBounds(board, markup.from(), snapshot.whiteDown()), board,
+                    markup.brush(), glyphSlot, glyphCount, snapshot.glyphShadow());
         } else if (markup.isArrow()) {
             g.setColor(markup.brush().displayColor());
             arrows.draw(g,
@@ -430,12 +430,14 @@ public final class BoardExporter {
      *
      * @param g graphics context
      * @param bounds square bounds
+     * @param boardBounds full board bounds, used to keep edge badges on-board
      * @param brush annotation brush
      * @param slot glyph badge slot within a same-square stack
      * @param count number of glyph badges in the same-square stack
+     * @param shadow true to draw the badge drop shadow
      */
-    private static void paintRasterGlyph(Graphics2D g, Rectangle bounds, MarkupBrush brush, int slot, int count,
-            boolean shadow) {
+    private static void paintRasterGlyph(Graphics2D g, Rectangle bounds, Rectangle boardBounds, MarkupBrush brush,
+            int slot, int count, boolean shadow) {
         Font savedFont = g.getFont();
         Stroke savedStroke = g.getStroke();
         try {
@@ -446,8 +448,11 @@ public final class BoardExporter {
             FontMetrics metrics = g.getFontMetrics();
             float borderWidth = glyphBorderWidth(cell, brush);
             int diameter = glyphDiameter(cell, borderWidth);
-            int centerX = (int) Math.round(glyphCenterX(bounds, diameter, slot, count));
-            int centerY = glyphCenterY(bounds);
+            int centerX = BoardMarkupPainter.clampGlyphCenter(
+                    (int) Math.round(glyphCenterX(bounds, diameter, slot, count)), diameter,
+                    boardBounds.x, boardBounds.width);
+            int centerY = BoardMarkupPainter.clampGlyphCenter(glyphCenterY(bounds), diameter,
+                    boardBounds.y, boardBounds.height);
             int x = Math.round(centerX - diameter / 2f);
             int y = Math.round(centerY - diameter / 2f);
             if (shadow) {
@@ -672,7 +677,7 @@ public final class BoardExporter {
                 int slot = glyphSlot(markup, glyphSlots);
                 int count = glyphCount(markup, glyphCounts);
                 appendGlyphMarkup(svg, BoardGeometry.squareBounds(board, markup.from(), snapshot.whiteDown()),
-                        markup.brush(), slot, count, snapshot.glyphShadow());
+                        board, markup.brush(), slot, count, snapshot.glyphShadow());
             } else if (markup.isArrow()) {
                 appendArrow(svg,
                         BoardGeometry.center(board, markup.from(), snapshot.whiteDown()),
@@ -883,13 +888,14 @@ public final class BoardExporter {
      *
      * @param svg destination builder
      * @param bounds square bounds
+     * @param boardBounds full board bounds, used to keep edge badges on-board
      * @param brush annotation brush
      * @param slot glyph badge slot within a same-square stack
      * @param count number of glyph badges in the same-square stack
      * @param shadow true to attach the drop-shadow filter
      */
-    private static void appendGlyphMarkup(StringBuilder svg, Rectangle bounds, MarkupBrush brush, int slot, int count,
-            boolean shadow) {
+    private static void appendGlyphMarkup(StringBuilder svg, Rectangle bounds, Rectangle boardBounds,
+            MarkupBrush brush, int slot, int count, boolean shadow) {
         int cell = Math.min(bounds.width, bounds.height);
         String glyph = brush.glyph();
         double fontSize = Math.max(12.0, cell * 0.34);
@@ -897,8 +903,10 @@ public final class BoardExporter {
         Color border = Theme.withAlpha(brush.displayBorderColor(), 255);
         double strokeWidth = glyphBorderWidth(cell, brush);
         double radius = glyphRadius(cell, strokeWidth);
-        double cx = glyphCenterX(bounds, radius * 2.0, slot, count);
-        double cy = glyphCenterY(bounds);
+        double cx = BoardMarkupPainter.clampGlyphCenter(glyphCenterX(bounds, radius * 2.0, slot, count),
+                radius * 2.0, boardBounds.x, boardBounds.width);
+        double cy = BoardMarkupPainter.clampGlyphCenter((double) glyphCenterY(bounds), radius * 2.0,
+                boardBounds.y, boardBounds.height);
         if (AnnotationGlyphs.isCustom(glyph)) {
             appendCustomGlyph(svg, glyph, cx, cy, radius, fill, border, strokeWidth, shadow);
             return;
@@ -942,13 +950,14 @@ public final class BoardExporter {
         double diameter = size / 8.0 * GLYPH_DIAMETER_FRACTION;
         // Classic blur+offset+merge drop shadow (feDropShadow is not reliably
         // composited by every SVG renderer, e.g. Inkscape drops the source).
+        // Geometry matches Lichess: dx 0.04, dy 0.07, blur 0.05 of the badge, 50%.
         svg.append("  <defs><filter id=\"glyph-shadow\" x=\"-50%\" y=\"-50%\" width=\"200%\" height=\"200%\">")
-                .append("<feGaussianBlur in=\"SourceAlpha\" stdDeviation=\"").append(format(diameter * 0.06))
+                .append("<feGaussianBlur in=\"SourceAlpha\" stdDeviation=\"").append(format(diameter * 0.05))
                 .append("\" result=\"b\"/>")
-                .append("<feOffset in=\"b\" dx=\"").append(format(diameter * 0.03))
-                .append("\" dy=\"").append(format(diameter * 0.08)).append("\" result=\"o\"/>")
+                .append("<feOffset in=\"b\" dx=\"").append(format(diameter * 0.04))
+                .append("\" dy=\"").append(format(diameter * 0.07)).append("\" result=\"o\"/>")
                 .append("<feComponentTransfer in=\"o\" result=\"s\">")
-                .append("<feFuncA type=\"linear\" slope=\"0.45\"/></feComponentTransfer>")
+                .append("<feFuncA type=\"linear\" slope=\"0.5\"/></feComponentTransfer>")
                 .append("<feMerge><feMergeNode in=\"s\"/><feMergeNode in=\"SourceGraphic\"/></feMerge>")
                 .append("</filter></defs>\n");
     }

@@ -3,18 +3,23 @@ package application.gui.workbench.board;
 import application.gui.workbench.ui.Theme;
 import chess.core.Move;
 import chess.core.Position;
+import java.awt.AlphaComposite;
 import java.awt.BasicStroke;
 import java.awt.Color;
+import java.awt.Composite;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
-import java.awt.Paint;
-import java.awt.RadialGradientPaint;
 import java.awt.Rectangle;
+import java.awt.RenderingHints;
 import java.awt.Stroke;
 import java.awt.geom.Ellipse2D;
-import java.awt.geom.Point2D;
+import java.awt.image.BufferedImage;
+import java.awt.image.ConvolveOp;
+import java.awt.image.Kernel;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Paints persistent and preview board markups.
@@ -198,8 +203,8 @@ final class BoardMarkupPainter {
             } else if (markup.isRectangle()) {
                 drawRectangle(g, rectangleBounds(board, markup, whiteDown), markup.brush(), board.width / 8, opacity);
             } else if (markup.isGlyph()) {
-                drawGlyph(g, BoardGeometry.squareBounds(board, markup.from(), whiteDown), markup.brush(), opacity,
-                        glyphSlot, glyphCount);
+                drawGlyph(g, BoardGeometry.squareBounds(board, markup.from(), whiteDown), board, markup.brush(),
+                        opacity, glyphSlot, glyphCount);
             } else if (markup.isArrow()) {
                 drawArrow(g, board, whiteDown, markup, opacity);
             }
@@ -283,12 +288,13 @@ final class BoardMarkupPainter {
      *
      * @param g graphics context
      * @param bounds square bounds
+     * @param boardBounds full board bounds, used to keep edge badges on-board
      * @param brush markup brush
      * @param opacity opacity multiplier
      * @param slot glyph badge slot within a same-square stack
      * @param count number of glyph badges in the same-square stack
      */
-    private void drawGlyph(Graphics2D g, Rectangle bounds, MarkupBrush brush, double opacity,
+    private void drawGlyph(Graphics2D g, Rectangle bounds, Rectangle boardBounds, MarkupBrush brush, double opacity,
             int slot, int count) {
         Font savedFont = g.getFont();
         Stroke savedStroke = g.getStroke();
@@ -300,8 +306,9 @@ final class BoardMarkupPainter {
             FontMetrics metrics = g.getFontMetrics();
             float borderWidth = scaledBadgeBorderWidth(cell, brush);
             int diameter = glyphDiameter(cell, borderWidth);
-            int centerX = glyphCenterX(bounds, diameter, slot, count);
-            int centerY = glyphCenterY(bounds);
+            int centerX = clampGlyphCenter(glyphCenterX(bounds, diameter, slot, count), diameter,
+                    boardBounds.x, boardBounds.width);
+            int centerY = clampGlyphCenter(glyphCenterY(bounds), diameter, boardBounds.y, boardBounds.height);
             int x = Math.round(centerX - diameter / 2f);
             int y = Math.round(centerY - diameter / 2f);
             Color fill = Theme.withAlpha(brush.displayColor(), 255);
@@ -330,11 +337,27 @@ final class BoardMarkupPainter {
     }
 
     /**
+     * Cache of pre-blurred drop-shadow sprites keyed by badge diameter, so the
+     * Gaussian blur is computed once per size and reused on every repaint.
+     */
+    private static final Map<Integer, BufferedImage> SHADOW_SPRITES = new ConcurrentHashMap<>();
+
+    /**
+     * Glyph drop-shadow geometry, matching Lichess (feDropShadow dx=4 dy=7
+     * stdDeviation=5 in the badge's 0..100 box, 50% opacity) as fractions of the
+     * badge diameter.
+     */
+    private static final double SHADOW_DX_FRACTION = 0.04,
+            SHADOW_DY_FRACTION = 0.07,
+            SHADOW_BLUR_FRACTION = 0.05;
+
+    /**
      * Paints a soft Lichess-style drop shadow behind a glyph badge circle.
      *
-     * <p>A radial gradient (dark at the badge, fading to transparent) is offset
-     * down and to the right; the opaque badge drawn on top hides the centre, so
-     * only the soft fringe reads as a shadow.</p>
+     * <p>Renders the badge silhouette as a real Gaussian-blurred black sprite
+     * (cached per size), offset down and to the right at 50% opacity — the same
+     * blur+offset Lichess applies via {@code feDropShadow}. The opaque badge drawn
+     * on top hides the centre, so only the soft fringe reads as a shadow.</p>
      *
      * @param g graphics context
      * @param x badge left edge
@@ -345,17 +368,95 @@ final class BoardMarkupPainter {
         if (diameter <= 0) {
             return;
         }
-        double dx = diameter * 0.03;
-        double dy = diameter * 0.08;
-        float radius = (float) Math.max(1.0, diameter / 2.0 + diameter * 0.16);
-        Point2D center = new Point2D.Double(x + diameter / 2.0 + dx, y + diameter / 2.0 + dy);
-        Paint savedPaint = g.getPaint();
-        g.setPaint(new RadialGradientPaint(center, radius,
-                new float[] {0f, 0.66f, 1f},
-                new Color[] {Theme.withAlpha(Color.BLACK, 135), Theme.withAlpha(Color.BLACK, 80),
-                        Theme.withAlpha(Color.BLACK, 0)}));
-        g.fill(new Ellipse2D.Double(center.getX() - radius, center.getY() - radius, radius * 2.0, radius * 2.0));
-        g.setPaint(savedPaint);
+        BufferedImage sprite = SHADOW_SPRITES.computeIfAbsent(diameter, BoardMarkupPainter::buildShadowSprite);
+        int margin = (sprite.getWidth() - diameter) / 2;
+        int dx = (int) Math.round(diameter * SHADOW_DX_FRACTION);
+        int dy = (int) Math.round(diameter * SHADOW_DY_FRACTION);
+        Composite savedComposite = g.getComposite();
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
+        g.drawImage(sprite, x - margin + dx, y - margin + dy, null);
+        g.setComposite(savedComposite);
+    }
+
+    /**
+     * Builds a Gaussian-blurred black disc sprite for one badge diameter.
+     *
+     * @param diameter badge diameter
+     * @return blurred black disc on a transparent, padded canvas
+     */
+    private static BufferedImage buildShadowSprite(int diameter) {
+        double sigma = Math.max(0.6, diameter * SHADOW_BLUR_FRACTION);
+        int radius = (int) Math.ceil(sigma * 3.0);
+        int margin = radius + 1;
+        int size = diameter + margin * 2;
+        BufferedImage disc = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D ig = disc.createGraphics();
+        try {
+            ig.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            ig.setColor(Color.BLACK);
+            ig.fill(new Ellipse2D.Double(margin, margin, diameter, diameter));
+        } finally {
+            ig.dispose();
+        }
+        BufferedImage blurred = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
+        gaussianKernel(sigma, radius).filter(disc, blurred);
+        return blurred;
+    }
+
+    /**
+     * Builds a normalized 2-D Gaussian convolution for a given blur radius.
+     *
+     * @param sigma Gaussian standard deviation
+     * @param radius kernel half-size
+     * @return convolution operation
+     */
+    private static ConvolveOp gaussianKernel(double sigma, int radius) {
+        int n = radius * 2 + 1;
+        float[] weights = new float[n * n];
+        double twoSigmaSq = 2.0 * sigma * sigma;
+        double sum = 0.0;
+        for (int j = -radius; j <= radius; j++) {
+            for (int i = -radius; i <= radius; i++) {
+                double w = Math.exp(-(i * i + j * j) / twoSigmaSq);
+                weights[(j + radius) * n + (i + radius)] = (float) w;
+                sum += w;
+            }
+        }
+        for (int k = 0; k < weights.length; k++) {
+            weights[k] /= (float) sum;
+        }
+        return new ConvolveOp(new Kernel(n, n, weights), ConvolveOp.EDGE_NO_OP, null);
+    }
+
+    /**
+     * Clamps a glyph badge center (int) so the whole badge stays within a board axis.
+     *
+     * @param center proposed badge center along the axis
+     * @param diameter badge diameter
+     * @param origin board axis origin (x or y)
+     * @param span board axis length (width or height)
+     * @return clamped center keeping the badge fully on-board
+     */
+    static int clampGlyphCenter(int center, int diameter, int origin, int span) {
+        return (int) Math.round(clampGlyphCenter((double) center, diameter, origin, span));
+    }
+
+    /**
+     * Clamps a glyph badge center so the whole badge stays within a board axis,
+     * so a badge straddling an edge square's corner is nudged inward instead of
+     * being clipped at the board boundary.
+     *
+     * @param center proposed badge center along the axis
+     * @param diameter badge diameter
+     * @param origin board axis origin (x or y)
+     * @param span board axis length (width or height)
+     * @return clamped center keeping the badge fully on-board
+     */
+    static double clampGlyphCenter(double center, double diameter, double origin, double span) {
+        double half = diameter / 2.0;
+        double lo = origin + half;
+        double hi = origin + span - half;
+        return hi < lo ? center : Math.max(lo, Math.min(center, hi));
     }
 
     /**
