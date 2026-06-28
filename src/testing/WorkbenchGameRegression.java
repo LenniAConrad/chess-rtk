@@ -104,6 +104,7 @@ final class WorkbenchGameRegression {
         testAnalyzeVariationTreeUsesCompactBlackMoveLabels();
         testGameModelNavigatesSelectedVariationLine();
         testGameModelCreatesAndExtendsEditableVariations();
+        testGameModelBindsAnnotationsToPositions();
         testPlayMoveHistoryModelPairsSanMoves();
         testPuzzleSessionExploresOpponentVariationBranches();
         testPuzzlePanelStartsStandardWithoutLoadedLibrary();
@@ -1603,6 +1604,40 @@ final class WorkbenchGameRegression {
     /**
      * Verifies the Study Workspace can be constructed and painted headlessly.
      */
+    /**
+     * Verifies that board annotations bound to a main-line position (Phase 2:
+     * annotation == position property) survive navigation and flow into the PGN,
+     * truncating cleanly when the line is re-branched.
+     */
+    private static void testGameModelBindsAnnotationsToPositions() {
+        GameModel gm = new GameModel();
+        gm.setCurrentNodeComment("[%cal Gd2d4]");
+        assertEquals("[%cal Gd2d4]", gm.currentNodeComment(), "root annotation stored");
+        assertTrue(gm.pgn().contains("[%cal Gd2d4]"), "root annotation flows into PGN");
+
+        Position start = new Position(Setup.getStandardStartFEN());
+        short e4 = Move.parse("e2e4");
+        Position afterE4 = start.copy();
+        afterE4.play(e4);
+        gm.append(start, e4, afterE4);
+        assertTrue(gm.currentNodeComment().isEmpty(), "a fresh ply has no inherited annotation");
+        gm.setCurrentNodeComment("[%csl Ge4]");
+        assertTrue(gm.pgn().contains("[%csl Ge4]"), "ply-1 annotation flows into PGN");
+
+        gm.jumpToPly(0);
+        assertEquals("[%cal Gd2d4]", gm.currentNodeComment(), "root annotation survives navigation");
+        gm.jumpToPly(1);
+        assertEquals("[%csl Ge4]", gm.currentNodeComment(), "ply-1 annotation survives navigation");
+
+        gm.jumpToPly(0);
+        short d4 = Move.parse("d2d4");
+        Position afterD4 = start.copy();
+        afterD4.play(d4);
+        gm.append(start, d4, afterD4);
+        assertTrue(gm.currentNodeComment().isEmpty(), "re-branched ply carries no stale annotation");
+        assertFalse(gm.pgn().contains("[%csl Ge4]"), "truncated ply annotation is gone from PGN");
+    }
+
     private static void testStudyWorkspacePanelSmoke() {
         try {
             Path dir = Files.createTempDirectory("crtk-study-workspace-");

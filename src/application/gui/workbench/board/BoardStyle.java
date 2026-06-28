@@ -369,19 +369,6 @@ public final class BoardStyle {
      * @param x x coordinate
      * @param baseline text baseline
      * @param squareColor square color behind the label
-     */
-    private static void drawCoordinateString(Graphics2D g, String text, int x, int baseline, Color squareColor) {
-        drawCoordinateString(g, text, x, baseline, squareColor, Theme.BOARD_LIGHT, Theme.BOARD_DARK);
-    }
-
-    /**
-     * Draws one coordinate label directly on the square without a halo.
-     *
-     * @param g graphics context
-     * @param text coordinate label text
-     * @param x x coordinate
-     * @param baseline text baseline
-     * @param squareColor square color behind the label
      * @param light light-square color
      * @param dark dark-square color
      */

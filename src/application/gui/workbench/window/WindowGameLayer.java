@@ -213,6 +213,7 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
         boolean reverseMoveAnimation = adjacent && targetPath.size() < previousPath.size();
         short visualMove = reverseMoveAnimation ? previousLastMove : gameModel.currentLastMove();
         setPosition(gameModel.currentPosition(), visualMove, reverseMoveAnimation, adjacent);
+        reloadBoardMarkupForCurrentNode();
         selectCurrentGameRow();
     }
 

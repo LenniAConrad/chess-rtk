@@ -4,7 +4,6 @@ import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import application.gui.workbench.ui.NotationPainter;
 import application.gui.workbench.ui.SegmentedSwitcher;
-import chess.core.Move;
 import chess.core.Position;
 import chess.describe.ClassicalPositionDescriptionGenerator;
 import chess.describe.PositionDescriptionDetail;

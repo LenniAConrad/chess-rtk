@@ -7,7 +7,9 @@ import chess.core.Setup;
 import chess.struct.Game;
 import chess.struct.Pgn;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import javax.swing.table.AbstractTableModel;
 
 /**
@@ -73,6 +75,15 @@ public final class GameModel extends AbstractTableModel {
     private Game importedGame;
 
     /**
+     * Per-ply PGN comment bodies for the clean main line (ply 0 = root, which
+     * serializes as a preamble comment). This is where board annotations bind to
+     * a position: the encoded {@code [%cal]}/{@code [%csl]}/… directives live
+     * here and flow into {@link #pgn()}. Only used while the line is the simple
+     * main line (no imported tree / variations); see {@link #currentNodeComment}.
+     */
+    private final Map<Integer, String> plyComments = new HashMap<>();
+
+    /**
      * Currently selected ply, where zero means the root.
      */
     private int currentPly;
@@ -101,6 +112,7 @@ public final class GameModel extends AbstractTableModel {
         mainlineRows.clear();
         mainlineRows.add(-1);
         importedGame = null;
+        plyComments.clear();
         positions.add(start.copy());
         currentPly = 0;
         currentRow = -1;
@@ -147,6 +159,7 @@ public final class GameModel extends AbstractTableModel {
         mainlineRows.clear();
         mainlineRows.add(-1);
         importedGame = null;
+        plyComments.clear();
         positions.add(start.copy());
         Position cursor = start.copy();
         List<Short> path = new ArrayList<>();
@@ -472,19 +485,60 @@ public final class GameModel extends AbstractTableModel {
         game.putTag("Site", "?");
         game.putTag("Result", "*");
         game.setResult("*");
+        String rootComment = plyComments.get(Integer.valueOf(0));
+        if (rootComment != null && !rootComment.isBlank()) {
+            game.addPreambleComment(rootComment);
+        }
         Game.Node head = null;
         Game.Node previous = null;
+        int ply = 1;
         for (MoveRow row : moves) {
             Game.Node node = new Game.Node(row.san());
+            String comment = plyComments.get(Integer.valueOf(ply));
+            if (comment != null && !comment.isBlank()) {
+                node.setCommentsAfter(List.of(comment));
+            }
             if (head == null) {
                 head = node;
             } else {
                 previous.setNext(node);
             }
             previous = node;
+            ply++;
         }
         game.setMainline(head);
         return Pgn.toPgn(game);
+    }
+
+    /**
+     * Returns the PGN comment body bound to the current position (the encoded
+     * board-annotation directives plus any free text), or an empty string. Only
+     * the simple main line is tracked here; an imported tree / variation
+     * selection returns empty (its comments live on the tree).
+     *
+     * @return current position's comment body
+     */
+    public String currentNodeComment() {
+        return importedGame == null ? plyComments.getOrDefault(Integer.valueOf(currentPly), "") : "";
+    }
+
+    /**
+     * Binds a PGN comment body to the current position (used to persist board
+     * annotations onto the move node). A no-op while an imported tree / variation
+     * line is active, so it never corrupts that representation.
+     *
+     * @param comment comment body, or null/blank to clear
+     */
+    public void setCurrentNodeComment(String comment) {
+        if (importedGame != null) {
+            return;
+        }
+        Integer key = Integer.valueOf(currentPly);
+        if (comment == null || comment.isBlank()) {
+            plyComments.remove(key);
+        } else {
+            plyComments.put(key, comment);
+        }
     }
 
     /**
@@ -562,6 +616,7 @@ public final class GameModel extends AbstractTableModel {
         while (positions.size() > currentPly + 1) {
             positions.remove(positions.size() - 1);
         }
+        plyComments.keySet().removeIf(ply -> ply > currentPly);
         importedGame = null;
     }
 

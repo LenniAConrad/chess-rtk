@@ -137,11 +137,6 @@ public final class PuzzleSession {
     private final String source;
 
     /**
-     * Root FEN.
-     */
-    private final String startFen;
-
-    /**
      * Normalized puzzle nodes in insertion order.
      */
     private final List<PuzzleNode> nodes;
@@ -206,14 +201,12 @@ public final class PuzzleSession {
      *
      * @param title puzzle title
      * @param source source label
-     * @param startFen root FEN
      * @param nodes normalized nodes
      * @param mode branch traversal strategy
      */
-    private PuzzleSession(String title, String source, String startFen, List<PuzzleNode> nodes, VariationMode mode) {
+    private PuzzleSession(String title, String source, List<PuzzleNode> nodes, VariationMode mode) {
         this.title = title == null || title.isBlank() ? UNTITLED : title.trim();
         this.source = source == null || source.isBlank() ? "pgn" : source.trim();
-        this.startFen = startFen;
         this.nodes = List.copyOf(nodes);
         this.mode = mode == null ? VariationMode.EXPLORE : mode;
         for (PuzzleNode node : nodes) {
@@ -275,7 +268,7 @@ public final class PuzzleSession {
             builder.processLine(variation, ROOT_ID, 0, rootPosition, false);
         }
         builder.processLine(game.getMainline(), ROOT_ID, 0, rootPosition, true);
-        return new PuzzleSession(title, source, rootFen, builder.nodes(), mode);
+        return new PuzzleSession(title, source, builder.nodes(), mode);
     }
 
     /**
@@ -321,7 +314,7 @@ public final class PuzzleSession {
             ply++;
             cursor = next;
         }
-        return new PuzzleSession(title, source, root.toString(), built, mode);
+        return new PuzzleSession(title, source, built, mode);
     }
 
     /**

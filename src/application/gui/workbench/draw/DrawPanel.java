@@ -644,7 +644,7 @@ public final class DrawPanel extends JPanel {
         updateColorControlsFromBase();
         applyTool();
         applyBrush();
-        board.setMarkupChangeObserver(this::refreshAnnotationState);
+        board.addMarkupChangeObserver(this::refreshAnnotationState);
         refreshAnnotationState();
     }
 

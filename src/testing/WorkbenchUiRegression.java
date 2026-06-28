@@ -502,8 +502,8 @@ final class WorkbenchUiRegression {
                 "left navigator exposes a Study entry");
         assertTrue(shellFrame.contains("this::studyCount, false, this::openStudyLibrary"),
                 "Study navigator entry uses the local study repository action");
-        assertTrue(lifecycle.contains("() -> selectTab(TAB_STUDIES)"),
-                "Study navigator action opens the top-level Studies module");
+        assertTrue(lifecycle.contains("() -> openBoard(BOARD_STUDY)"),
+                "Study navigator action opens the Board surface in Study mode");
         assertTrue(shellFrame.contains("navigatorSection(\"LIBRARY\", true"),
                 "left navigator groups core routes in an expandable Library section");
         assertTrue(shellFrame.contains("navigatorSection(\"STUDIES\", true"),
@@ -1152,17 +1152,21 @@ final class WorkbenchUiRegression {
     }
 
     /**
-     * Verifies Play mode uses the compact White/Black move history instead of
-     * exposing the raw shared game table beside the board.
+     * Verifies Play mode docks the shared compact White/Black move list (the
+     * reusable {@code MoveListPanel}) rather than exposing the raw shared game
+     * table beside the board.
      */
     private static void testPlayTabUsesCompactMoveHistory() {
-        String source = readSource(Path.of("src/application/gui/workbench/window/WindowBoardLayer.java"));
-        assertTrue(source.contains("new PlayMoveHistoryModel(gameModel)"),
-                "Play tab uses compact move-history model");
-        assertTrue(source.contains("Ui.card(\"Move History\""),
-                "Play move rail uses an inspector card for move history");
-        assertTrue(source.contains("Start a game to record moves here."),
-                "Play move history has a designed empty state");
+        String moveList = readSource(Path.of("src/application/gui/workbench/game/MoveListPanel.java"));
+        assertTrue(moveList.contains("new PlayMoveHistoryModel(gameModel)"),
+                "shared move list uses the compact move-history model");
+        assertTrue(moveList.contains("Ui.card(\"Moves\""),
+                "shared move list uses an inspector card");
+        assertTrue(moveList.contains("Start a game to record moves here."),
+                "shared move list has a designed empty state");
+        String board = readSource(Path.of("src/application/gui/workbench/window/WindowBoardLayer.java"));
+        assertTrue(board.contains("new MoveListPanel(gameModel, this::jumpGameTo)"),
+                "Play tab docks the shared move list");
     }
 
     /**

@@ -21,7 +21,7 @@ final class WorkbenchPanelTargets {
      */
     static final String LIVE_TARGETS = "dashboard,board,analyze,play,solve,puzzle,relations,draw,run,commands,"
             + "studies,study,datasets,publish,engine,evaluator,network,search,mcts,tree,gauntlet,console,logs,"
-            + "board:analyze,board:play,board:solve,board:relations,board:draw,engine:evaluator,"
+            + "board:analyze,board:play,board:solve,board:relations,board:draw,board:study,engine:evaluator,"
             + "engine:search,engine:tree,engine:gauntlet";
 
     /**
@@ -55,11 +55,6 @@ final class WorkbenchPanelTargets {
     private static final int TAB_LOGS = 7;
 
     /**
-     * Top-level studies tab index.
-     */
-    private static final int TAB_STUDIES = 8;
-
-    /**
      * Board analysis mode index.
      */
     private static final int BOARD_ANALYZE = 0;
@@ -83,6 +78,11 @@ final class WorkbenchPanelTargets {
      * Board drawing mode index.
      */
     private static final int BOARD_DRAW = 4;
+
+    /**
+     * Board study mode index.
+     */
+    private static final int BOARD_STUDY = 5;
 
     /**
      * Engine network/evaluator mode index.
@@ -131,7 +131,7 @@ final class WorkbenchPanelTargets {
                     openBoard(frame, BOARD_RELATIONS);
             case "draw", "annotate", "board:draw", "board-draw" -> openBoard(frame, BOARD_DRAW);
             case "run", "commands", "command", "build", "run:build", "run-build" -> selectTab(frame, TAB_RUN);
-            case "studies", "study" -> selectTab(frame, TAB_STUDIES);
+            case "studies", "study", "board:study", "board-study" -> openBoard(frame, BOARD_STUDY);
             case "datasets", "dataset", "data" -> selectTab(frame, TAB_DATASETS);
             case "publish", "publishing" -> selectTab(frame, TAB_PUBLISH);
             case "engine", "engine-lab", "evaluator", "network", "engine:evaluator", "engine:network",

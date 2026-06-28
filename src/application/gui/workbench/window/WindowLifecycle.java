@@ -199,7 +199,8 @@ public abstract class WindowLifecycle extends WindowBase {
     private static final KeyStroke[] PREVIOUS_POSITION_KEYS = keyStrokes(
             KeyEvent.VK_LEFT,
             KeyEvent.VK_KP_LEFT,
-            KeyEvent.VK_NUMPAD4);
+            KeyEvent.VK_NUMPAD4,
+            KeyEvent.VK_K);
 
     /**
      * Keyboard shortcuts that navigate to the next move.
@@ -207,7 +208,8 @@ public abstract class WindowLifecycle extends WindowBase {
     private static final KeyStroke[] NEXT_POSITION_KEYS = keyStrokes(
             KeyEvent.VK_RIGHT,
             KeyEvent.VK_KP_RIGHT,
-            KeyEvent.VK_NUMPAD6);
+            KeyEvent.VK_NUMPAD6,
+            KeyEvent.VK_J);
 
     /**
      * Keyboard shortcuts that jump to the first move.
@@ -677,9 +679,7 @@ public abstract class WindowLifecycle extends WindowBase {
                 // command output has a live target before the first run.
                 .add(new RegisteredView("Console", createConsolePanel(), this::createDetachedConsolePanel))
                 .add(new RegisteredView("Logs", new LazyPanel("Logs", this::createLogTab),
-                        () -> new LazyPanel("Logs", this::createDetachedLogTab)))
-                .add(new RegisteredView("Studies", new LazyPanel("Studies", this::createStudiesWorkspaceTab),
-                        () -> new LazyPanel("Studies", this::createDetachedStudiesWorkspaceTab)));
+                        () -> new LazyPanel("Logs", this::createDetachedLogTab)));
         tabs.addViews(registry);
         tabs.install();
         tabs.setSelectionListener(index -> onWorkbenchTabVisibilityChanged());
@@ -687,7 +687,7 @@ public abstract class WindowLifecycle extends WindowBase {
 
         shellFrame = new ShellFrame(tabs, session, this::selectTab,
                 this::showConsoleDock, this::showLogsDock, this::openLatestJobLogOrLogs,
-                () -> selectTab(TAB_STUDIES));
+                () -> openBoard(BOARD_STUDY));
         root.add(shellFrame, BorderLayout.CENTER);
         statusBar = createStatusBar();
         statusBar.setVisible(statusBarVisible);
@@ -1728,10 +1728,12 @@ public abstract class WindowLifecycle extends WindowBase {
         if (tabs == null) {
             return false;
         }
-        // Position navigation routes only for the analysis-style board modes
-        // (Analyze drives the game line, Solve drives the puzzle review); Play
-        // and Relations do not consume the navigation shortcuts.
-        if (!isBoardMode(BOARD_ANALYZE) && !isBoardMode(BOARD_SOLVE)) {
+        // Position navigation routes for the line-driven board modes: Analyze /
+        // Draw / Study all step the shared game line (so you can annotate or
+        // study while moving back and forth), and Solve drives the puzzle
+        // review. Play (live game) and Relations (read-only overlay) opt out.
+        if (!isBoardMode(BOARD_ANALYZE) && !isBoardMode(BOARD_SOLVE)
+                && !isBoardMode(BOARD_DRAW) && !isBoardMode(BOARD_STUDY)) {
             return false;
         }
         Component focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusOwner();

@@ -174,9 +174,11 @@ public final class BoardPanel extends JPanel {
     private final Deque<List<BoardMarkup>> markupRedoStack = new ArrayDeque<>();
 
     /**
-     * Observer notified when persistent annotations change.
+     * Observers notified when persistent annotations change (e.g. the Draw
+     * panel's list refresh and the position-binding hook that persists markup
+     * onto the current move node).
      */
-    private Runnable markupChangeObserver;
+    private final transient List<Runnable> markupChangeObservers = new ArrayList<>();
 
     /**
      * Optional drag-start filter.
@@ -219,19 +221,9 @@ public final class BoardPanel extends JPanel {
     private boolean snapbackSoundEnabled = true;
 
     /**
-     * Mouseover-square observer.
-     */
-    private IntConsumer mouseoverSquareObserver;
-
-    /**
      * Optional square-click observer for read-only board tools.
      */
     private IntConsumer clickSquareObserver;
-
-    /**
-     * Last square reported to the mouseover observer.
-     */
-    private byte lastMouseoverSquare = Field.NO_SQUARE;
 
     /**
      * Direct board setup-edit controller.
@@ -281,7 +273,6 @@ public final class BoardPanel extends JPanel {
             @Override
             public void mouseExited(MouseEvent event) {
                 setCursor(Cursor.getDefaultCursor());
-                notifyMouseover(Field.NO_SQUARE);
             }
         };
         addMouseListener(mouseHandler);
@@ -1057,12 +1048,14 @@ public final class BoardPanel extends JPanel {
     }
 
     /**
-     * Sets an observer notified after persistent annotation changes.
+     * Adds an observer notified after persistent annotation changes.
      *
-     * @param observer callback observer, or null to clear
+     * @param observer callback observer (ignored when null)
      */
-    public void setMarkupChangeObserver(Runnable observer) {
-        markupChangeObserver = observer;
+    public void addMarkupChangeObserver(Runnable observer) {
+        if (observer != null) {
+            markupChangeObservers.add(observer);
+        }
     }
 
     /**
@@ -1283,7 +1276,6 @@ public final class BoardPanel extends JPanel {
      * @param animate whether to animate the transition
      */
     private void applyPosition(Position next, short move, boolean animate) {
-        String oldFen = position == null ? null : position.toString();
         if (animate) {
             setPosition(next, move);
         } else {
@@ -1297,10 +1289,6 @@ public final class BoardPanel extends JPanel {
             animation.clearMoveAnimation();
             animation.clearWrongMoveMarkerState();
             repaint();
-        }
-        String newFen = next == null ? null : next.toString();
-        if (changeObserver != null && !Objects.equals(oldFen, newFen)) {
-            changeObserver.accept(oldFen, newFen);
         }
     }
     /**
@@ -1525,8 +1513,8 @@ public final class BoardPanel extends JPanel {
      * Notifies the annotation observer if one is installed.
      */
     private void notifyMarkupChanged() {
-        if (markupChangeObserver != null) {
-            markupChangeObserver.run();
+        for (Runnable observer : markupChangeObservers) {
+            observer.run();
         }
     }
 
@@ -1881,7 +1869,7 @@ public final class BoardPanel extends JPanel {
         pieceInput.select(square, new short[0], premoveTargets(square, piece));
     }
     /**
-     * Updates the cursor and mouseover callback for the pointer location.
+     * Updates the cursor for the pointer location.
      *
      * @param event mouse event
      */
@@ -1891,12 +1879,10 @@ public final class BoardPanel extends JPanel {
             setCursor(square == Field.NO_SQUARE
                     ? Cursor.getDefaultCursor()
                     : Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
-            notifyMouseover(square);
             return;
         }
         if (position == null) {
             setCursor(Cursor.getDefaultCursor());
-            notifyMouseover(Field.NO_SQUARE);
             return;
         }
         byte square = squareAt(event.getX(), event.getY());
@@ -1904,22 +1890,6 @@ public final class BoardPanel extends JPanel {
         boolean draggable = piece != Piece.EMPTY && ((moveHandler != null && Piece.isWhite(piece) == position.isWhiteToMove())
                 || isPremoveSource(square, piece));
         setCursor(draggable ? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) : Cursor.getDefaultCursor());
-        notifyMouseover(square);
-    }
-    /**
-     * Notifies listeners when the hovered board square changes.
-     *
-     * @param square board square index
-     */
-    private void notifyMouseover(byte square) {
-        if (mouseoverSquareObserver == null) {
-            return;
-        }
-        if (square == lastMouseoverSquare) {
-            return;
-        }
-        lastMouseoverSquare = square;
-        mouseoverSquareObserver.accept(square);
     }
     /**
      * Finds a legal move from one square to another, preferring the selected

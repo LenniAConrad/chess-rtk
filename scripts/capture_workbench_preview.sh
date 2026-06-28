@@ -14,7 +14,7 @@ USE_XVFB=1
 STATE_DIR="${CRTK_WORKBENCH_PREVIEW_STATE_DIR:-artifacts/workbench-live}"
 DUMP_COMPONENTS=0
 COMPONENTS_FILE="${CRTK_WORKBENCH_COMPONENTS_FILE:-}"
-KNOWN_LIVE_PANELS="dashboard,board,analyze,play,solve,puzzle,relations,draw,run,commands,datasets,publish,engine,evaluator,network,search,mcts,tree,gauntlet,console,logs,board:draw,engine:tree"
+KNOWN_LIVE_PANELS="dashboard,board,analyze,play,solve,puzzle,relations,draw,study,run,commands,datasets,publish,engine,evaluator,network,search,mcts,tree,gauntlet,console,logs,board:draw,board:study,engine:tree"
 
 usage() {
   cat <<'USAGE'

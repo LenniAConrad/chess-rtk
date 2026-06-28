@@ -8,7 +8,7 @@ import application.gui.workbench.draw.DrawPanel;
 import application.gui.workbench.engine.EngineGauntletPanel;
 import application.gui.workbench.game.EcoExplorerPanel;
 import application.gui.workbench.game.GameReviewPanel;
-import application.gui.workbench.game.PlayMoveHistoryModel;
+import application.gui.workbench.game.MoveListPanel;
 import application.gui.workbench.game.ReviewCliArtifactProducer;
 import application.gui.workbench.game.SavedGame;
 import application.gui.workbench.game.SanRenderer;
@@ -18,6 +18,7 @@ import application.gui.workbench.study.StudyWorkspacePanel;
 import application.gui.workbench.game.TablebasePanel;
 import application.gui.workbench.library.GameLibrary;
 import application.gui.workbench.library.GameLibraryPanel;
+import application.gui.workbench.layout.BoardInspectorRail;
 import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.ui.FieldValidator;
 import application.gui.workbench.ui.FileDialogs;
@@ -105,15 +106,16 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     private static final long serialVersionUID = 1L;
 
     /**
-     * Preferred size of the right-side rail next to the shared board (Analyze /
-     * Play / Relations / Draw all use the same rail proportion).
-     */
-    private static final Dimension SIDE_RAIL_SIZE = new Dimension(360, 560);
-
-    /**
      * Preferred width of the Analyze variation tree rail.
      */
     private static final int VARIATION_TREE_WIDTH = 236;
+
+    /**
+     * Resize weight and initial divider for the board-or-content (left) versus
+     * inspector-rail (right) split shared by every board-centric page (Analyze,
+     * Play, Relations, Draw, and the Analyze game review).
+     */
+    private static final double BOARD_PAGE_WEIGHT = 0.68d;
 
     /**
      * Vertical-only row padding shared by every settings-group row.
@@ -129,6 +131,17 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * Read-only PGN preview for the current game line.
      */
     private final JTextArea gamePgnPreview = Ui.commandBlock("");
+
+    /**
+     * Always-available FEN line in the board-page PGN/FEN peek (south of the
+     * Board workspace, shared by every board mode).
+     */
+    private final JTextArea boardFenPeek = Ui.commandBlock("");
+
+    /**
+     * Always-available PGN body in the board-page PGN/FEN peek.
+     */
+    private final JTextArea boardPgnPeek = Ui.commandBlock("");
 
     /**
      * Board / Analyze position validity badge.
@@ -161,29 +174,9 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     private final JLabel analysisEvalValue = metricValue();
 
     /**
-     * Latest analysis best-move value.
+     * Latest analysis best-move value (drives the on-board best-move arrow).
      */
     private final JLabel analysisBestMoveValue = metricValue();
-
-    /**
-     * Latest analysis depth value.
-     */
-    private final JLabel analysisDepthValue = metricValue();
-
-    /**
-     * Latest analysis node-count value.
-     */
-    private final JLabel analysisNodesValue = metricValue();
-
-    /**
-     * Latest analysis NPS value.
-     */
-    private final JLabel analysisNpsValue = metricValue();
-
-    /**
-     * Latest analysis sample-count value.
-     */
-    private final JLabel analysisSamplesValue = metricValue();
 
     /**
      * ECO explorer panel, created lazily with the board detail tabs.
@@ -227,6 +220,25 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     private transient application.gui.workbench.board.BoardStage sharedBoardStage;
 
     /**
+     * The currently active board mode (see {@code BOARD_*}); tracked so header
+     * refreshes can re-preview the Play start position while it is the live mode.
+     */
+    private int currentBoardMode = BOARD_ANALYZE;
+
+    /**
+     * Guards the annotation-binding observer while markup is being reloaded for a
+     * position (so reloading does not immediately re-persist it).
+     */
+    private boolean markupBindingSuppressed;
+
+    /**
+     * When true, drawn annotations stay on the board across navigation (legacy
+     * free-canvas / diagram-export behaviour) instead of binding to the current
+     * move node. Default false = annotations are a property of the position.
+     */
+    private boolean annotationsPinnedToBoard;
+
+    /**
      * Board slot in the Analyze mode card; hosts the shared board when Analyze
      * is active.
      */
@@ -253,6 +265,11 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     private transient JPanel drawBoardSlot;
 
     /**
+     * Board slot in the Study mode card.
+     */
+    private transient JPanel studyBoardSlot;
+
+    /**
      * True after the Relations overlay has populated shared board markups.
      */
     private transient boolean relationMarkupActive;
@@ -264,11 +281,11 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     private transient application.gui.workbench.relations.RelationsPanel relationsControls;
 
     /**
-     * Scroll pane for the Relations rail, reset when the mode activates so the
-     * rail never opens mid-list after reused viewport state or automated capture
-     * scroll events.
+     * Shared inspector rail for the Relations mode, reset when the mode activates
+     * so the rail never opens mid-list after reused viewport state or automated
+     * capture scroll events.
      */
-    private transient JScrollPane relationsRailScroll;
+    private transient BoardInspectorRail relationsRail;
 
     /**
      * Draw control rail, retained so the workspace header can reflect annotation
@@ -298,15 +315,18 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * @return board workspace component
      */
     protected JComponent createBoardWorkspaceTab() {
-        // One shared board backs the Analyze, Play, Relations, and Draw modes: it is
-        // re-parented into the active mode's slot and reconfigured for it by
-        // configureBoardForMode, so a position carries across modes with no
-        // duplicate widgets. Solve keeps its own board (puzzles step their own
-        // positions, independent of the analysis line). The eval bar lives on
-        // the shared board and paints inside its paint pass.
+        // One shared board backs the Analyze, Play, Relations, Draw, and Study
+        // modes: it is re-parented into the active mode's slot and reconfigured
+        // for it by configureBoardForMode, so a position carries across modes
+        // with no duplicate widgets. Solve keeps its own board (puzzles step
+        // their own positions, independent of the analysis line). The eval bar
+        // lives on the shared board and paints inside its paint pass.
         evalBar.setToolTipText("Engine evaluation");
         board.setEvalBar(evalBar);
         sharedBoardStage = new application.gui.workbench.board.BoardStage(board);
+        // Persist board annotations onto the current move node as they are drawn
+        // (Phase 2: annotation == position property; merges Draw and Study).
+        board.addMarkupChangeObserver(this::onBoardMarkupChanged);
         boardWorkspace = new SwitchedWorkspace("Board",
                 List.of(
                         new WorkspaceMode("Analyze", this::createBoardTab, this::boardAnalyzeContext,
@@ -314,10 +334,22 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                         new WorkspaceMode("Play", this::createPlayTab, this::boardPlayContext),
                         new WorkspaceMode("Solve", this::createPuzzleTab, this::boardSolveContext),
                         new WorkspaceMode("Relations", this::createRelationsTab, this::boardRelationsContext),
-                        new WorkspaceMode("Draw", this::createDrawTab, this::boardDrawContext)),
+                        new WorkspaceMode("Draw", this::createDrawTab, this::boardDrawContext),
+                        new WorkspaceMode("Study", this::createStudyTab, this::boardStudyContext)),
                 BOARD_ANALYZE);
         boardWorkspace.setModeListener(this::configureBoardForMode);
-        return boardWorkspace;
+        // A shared footer south of the whole workspace: position-level actions
+        // (continue vs bot / make into study) over a collapsible PGN/FEN peek,
+        // so every board mode treats the current position the same way (one
+        // instance, travels with no mode).
+        JPanel footer = transparentPanel(new BorderLayout(0, Theme.SPACE_XS));
+        footer.add(createBoardActionsRow(), BorderLayout.NORTH);
+        footer.add(createBoardPgnPeek(), BorderLayout.CENTER);
+        JPanel boardPage = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
+        boardPage.add(boardWorkspace, BorderLayout.CENTER);
+        boardPage.add(footer, BorderLayout.SOUTH);
+        refreshGameNotationPreview();
+        return boardPage;
     }
 
     /**
@@ -335,11 +367,13 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
             case BOARD_PLAY -> playBoardSlot;
             case BOARD_RELATIONS -> relationsBoardSlot;
             case BOARD_DRAW -> drawBoardSlot;
+            case BOARD_STUDY -> studyBoardSlot;
             default -> null;
         };
         if (slot == null || sharedBoardStage == null) {
             return;
         }
+        currentBoardMode = mode;
         if (sharedBoardStage.getParent() != slot) {
             slot.add(sharedBoardStage, BorderLayout.CENTER);
             slot.revalidate();
@@ -371,7 +405,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                 relationsControls.deactivateBoardInteractions();
             }
             // Analyze / Play: interactive. Drop any relation overlay, re-arm
-            // the move funnel and turn-gated input, and restore the analysis line.
+            // the move funnel and turn-gated input.
             clearRelationMarkupIfActive();
             board.setDirectAnnotationMode(false);
             board.setMoveHandler(this::playMove);
@@ -381,7 +415,43 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                     playSession != null && playSession.isPremoveSourceAllowed(context.square(), context.piece()));
             board.setPremoveHandler(context ->
                     playSession != null && playSession.queuePremove(context.tentativeMove()));
-            restoreSharedBoardPosition();
+            if (mode == BOARD_PLAY && playPanel().isAwaitingGame()) {
+                // Pre-game Play is a setup screen: show its own chosen start, not
+                // the analysis line (or a stray Draw/hint arrow) under a "no game
+                // active" header. A live or finished game keeps its position.
+                showPlayStartPreview();
+            } else {
+                restoreSharedBoardPosition();
+            }
+        }
+    }
+
+    /**
+     * Previews the Play setup's chosen start position on the shared board before
+     * a game begins, dropping any markup, hint, or premove inherited from Analyze
+     * or Draw. This does not touch the shared analysis line — that is restored
+     * when Analyze reactivates — so peeking at Play is non-destructive.
+     */
+    private void showPlayStartPreview() {
+        board.clearMarkup();
+        board.setSuggestedMove(chess.core.Move.NO_MOVE);
+        board.clearPremove();
+        chess.core.Position preview = playPanel().previewStartPosition();
+        if (preview != null) {
+            board.setPositionInstant(preview, chess.core.Move.NO_MOVE);
+        }
+    }
+
+    /**
+     * Re-previews the chosen start position when the Play "Start from" selection
+     * changes while Play is the live, idle mode — so the board tracks the choice
+     * without disturbing a live or finished game, or any other mode.
+     */
+    private void maybeShowPlayStartPreview() {
+        if (currentBoardMode == BOARD_PLAY
+                && sharedBoardStage != null && sharedBoardStage.getParent() == playBoardSlot
+                && playPanel().isAwaitingGame()) {
+            showPlayStartPreview();
         }
     }
 
@@ -415,6 +485,44 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         if (currentPosition != null) {
             board.setPositionInstant(currentPosition, chess.core.Move.NO_MOVE);
         }
+        reloadBoardMarkupForCurrentNode();
+    }
+
+    /**
+     * Persists the board's current annotations onto the current move node as
+     * they are drawn, so an arrow/comment becomes a property of the position
+     * (survives navigation, reload, and PGN export). Skipped while reloading,
+     * while annotations are pinned to the board, and in the read-only Relations
+     * overlay (whose markup is the tactical channel painting, not user
+     * annotation).
+     */
+    private void onBoardMarkupChanged() {
+        if (markupBindingSuppressed || annotationsPinnedToBoard
+                || currentBoardMode == BOARD_RELATIONS || relationMarkupActive) {
+            return;
+        }
+        String existing = gameModel.currentNodeComment();
+        String merged = application.gui.workbench.board.BoardMarkupComment.encode(
+                application.gui.workbench.board.BoardMarkupComment.plainText(existing), board.boardMarkups());
+        gameModel.setCurrentNodeComment(merged);
+        refreshGameNotationPreview();
+    }
+
+    /**
+     * Repaints the current position's bound annotations onto the board (or
+     * leaves the board markup alone when annotations are pinned to the board).
+     * Called after every navigation / position change.
+     */
+    protected void reloadBoardMarkupForCurrentNode() {
+        if (annotationsPinnedToBoard || currentBoardMode == BOARD_RELATIONS || relationMarkupActive) {
+            return;
+        }
+        markupBindingSuppressed = true;
+        try {
+            board.applyMarkupComment(gameModel.currentNodeComment());
+        } finally {
+            markupBindingSuppressed = false;
+        }
     }
 
     /**
@@ -425,6 +533,19 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      */
     private JPanel boardSlotPanel() {
         return transparentPanel(new BorderLayout());
+    }
+
+    /**
+     * Builds the standard board-page split: primary content (board slot, or the
+     * board beside its variation tree) on the left and an inspector rail on the
+     * right, at the shared {@link #BOARD_PAGE_WEIGHT} proportion.
+     *
+     * @param content leading content component
+     * @param rail trailing inspector rail
+     * @return the styled board-page split
+     */
+    private static JSplitPane boardPageSplit(java.awt.Component content, java.awt.Component rail) {
+        return SplitPaneStyler.styledHorizontalSplit(content, rail, BOARD_PAGE_WEIGHT);
     }
 
     /**
@@ -528,6 +649,19 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
+     * Returns the Board / Study context line.
+     *
+     * @return context summary
+     */
+    private String boardStudyContext() {
+        if (studyWorkspacePanel == null) {
+            return "No study loaded";
+        }
+        int chapters = studyWorkspacePanel.chapterCount();
+        return chapters + (chapters == 1 ? " chapter" : " chapters") + " · moves recorded on the board";
+    }
+
+    /**
      * Returns the Engine / Evaluator context line.
      *
      * @return context summary
@@ -613,13 +747,15 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         lineTree.setPreferredSize(new Dimension(VARIATION_TREE_WIDTH, 1));
         lineTree.setMinimumSize(new Dimension(176, 1));
 
-        JComponent side = createAnalyzeInspector();
-        side.setPreferredSize(SIDE_RAIL_SIZE);
+        // Analyze keeps its lighter PANEL document tone (vs the BACKDROP board
+        // wash of Play/Draw/Relations); the variation tree on the left is its
+        // move-list lens, so the rail carries no move list.
+        JComponent side = new BoardInspectorRail(Theme.Surface.PANEL, null, createAnalyzeInspector(), null);
 
         JSplitPane boardAndLine = SplitPaneStyler.styledHorizontalSplit(lineTree, analyzeBoardSlot, 0.22);
         boardAndLine.setResizeWeight(0.0d);
         boardAndLine.setDividerLocation(VARIATION_TREE_WIDTH);
-        JSplitPane boardPage = SplitPaneStyler.styledHorizontalSplit(boardAndLine, side, 0.68);
+        JSplitPane boardPage = boardPageSplit(boardAndLine, side);
 
         analysisCards = transparentPanel(new CardLayout());
         analysisCards.add(boardPage, ANALYZE_CARD_BOARD);
@@ -646,9 +782,11 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     protected abstract void showGameRow(int row);
 
     /**
-     * Creates the Board / Analyze right inspector.
+     * Creates the Board / Analyze right-inspector contents (the
+     * {@link BoardInspectorRail} wraps this in a scroll on the lighter
+     * Analyze document surface).
      *
-     * @return inspector component
+     * @return inspector stack
      */
     private JComponent createAnalyzeInspector() {
         JPanel stack = transparentPanel(null);
@@ -659,10 +797,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         stack.add(Box.createVerticalStrut(Theme.SPACE_MD));
         stack.add(createAnalysisControls());
         stack.add(Box.createVerticalGlue());
-
-        JScrollPane scrollPane = scroll(fillViewport(stack), () -> Theme.PANEL_SOLID);
-        scrollPane.setBorder(BorderFactory.createEmptyBorder());
-        return scrollPane;
+        return stack;
     }
 
     /**
@@ -1086,13 +1221,13 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         JComponent empty = createCompactAnalysisEmptyState();
 
         JPanel populated = verticalBody();
+        // Position-first surface: one evaluation readout plus the engine's best
+        // move (which drives the on-board arrow). The depth / nodes / nodes-per-
+        // second / samples telemetry is intentionally dropped here — the full
+        // eval timeline belongs to Game Review, not the live board.
         populated.add(metricGrid(
                 metric("Eval", analysisEvalValue),
-                metric("Best move", analysisBestMoveValue),
-                metric("Depth", analysisDepthValue),
-                metric("Nodes", analysisNodesValue),
-                metric("NPS", analysisNpsValue),
-                metric("Samples", analysisSamplesValue)));
+                metric("Best move", analysisBestMoveValue)));
         populated.add(Box.createVerticalStrut(Theme.SPACE_SM));
         populated.add(analysisGraph);
         populated.add(Box.createVerticalStrut(Theme.SPACE_SM));
@@ -1181,10 +1316,6 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                 analysisGraph.latestSummaryValues();
         analysisEvalValue.setText(summary.eval());
         analysisBestMoveValue.setText(summary.bestMove());
-        analysisDepthValue.setText(summary.depth());
-        analysisNodesValue.setText(summary.nodes());
-        analysisNpsValue.setText(summary.nps());
-        analysisSamplesValue.setText(summary.samples());
     }
 
     /**
@@ -1287,7 +1418,6 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         boardDetailTabs.addTab("ECO", createEcoExplorerPanel());
         boardDetailTabs.addTab("Review", createGameReviewPanel());
         boardDetailTabs.addTab("Library", createGameLibraryPanel());
-        boardDetailTabs.addTab("Study Workspace", createStudyWorkspacePanel());
         boardDetailTabs.addTab("Study", createStudyAuthorPanel());
         boardDetailTabs.addTab("Endgame", createTablebasePanel());
         boardDetailTabs.addTab("Raw", createAnalysisDataPanel());
@@ -1423,36 +1553,12 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      *
      * @return study workspace component
      */
-    protected JComponent createStudyWorkspacePanel() {
+    protected StudyWorkspacePanel createStudyWorkspacePanel() {
         studyWorkspacePanel = new StudyWorkspacePanel(StudyRepository.defaultRepository(),
                 () -> gameModel, this::currentFen,
                 this::showStudyWorkspacePosition,
                 this::copyText);
-        return scroll(fillViewport(studyWorkspacePanel));
-    }
-
-    /**
-     * Creates the top-level Studies workspace.
-     *
-     * @return studies workspace component
-     */
-    @Override
-    protected JComponent createStudiesWorkspaceTab() {
-        return createDetachedStudiesWorkspaceTab();
-    }
-
-    /**
-     * Creates an independent top-level Studies workspace instance.
-     *
-     * @return studies workspace component
-     */
-    @Override
-    protected JComponent createDetachedStudiesWorkspaceTab() {
-        StudyWorkspacePanel panel = new StudyWorkspacePanel(StudyRepository.defaultRepository(),
-                () -> gameModel, this::currentFen,
-                this::showStudyWorkspacePosition,
-                this::copyText);
-        return scroll(fillViewport(panel));
+        return studyWorkspacePanel;
     }
 
     /**
@@ -1463,14 +1569,13 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     protected abstract void showStudyWorkspacePosition(Position position);
 
     /**
-     * Returns whether the PGN Study Workspace tab is active.
+     * Returns whether Study is the active board mode (so shared-board moves are
+     * recorded into the study).
      *
-     * @return true when active
+     * @return true when the Study mode is active
      */
     protected boolean isStudyWorkspaceActive() {
-        return boardDetailTabs != null
-                && boardDetailTabs.getSelectedIndex() >= 0
-                && "Study Workspace".equals(boardDetailTabs.getTitleAt(boardDetailTabs.getSelectedIndex()));
+        return boardWorkspace != null && boardWorkspace.mode() == BOARD_STUDY;
     }
 
     /**
@@ -2057,7 +2162,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         JComponent tools = scroll(fillViewport(createGameToolsPanel()));
         tools.setPreferredSize(new Dimension(360, 520));
 
-        JSplitPane gamePage = SplitPaneStyler.styledHorizontalSplit(createGameHistoryPanel(), tools, 0.68);
+        JSplitPane gamePage = boardPageSplit(createGameHistoryPanel(), tools);
         return gamePage;
     }
 
@@ -2143,10 +2248,82 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         if (gameFenPreview == null || gamePgnPreview == null) {
             return;
         }
-        gameFenPreview.setText(gameModel.currentPosition().toString());
+        String fen = gameModel.currentPosition().toString();
+        String pgn = gameModel.pgn();
+        gameFenPreview.setText(fen);
         gameFenPreview.setCaretPosition(0);
-        gamePgnPreview.setText(gameModel.pgn());
+        gamePgnPreview.setText(pgn);
         gamePgnPreview.setCaretPosition(0);
+        boardFenPeek.setText(fen);
+        boardFenPeek.setCaretPosition(0);
+        boardPgnPeek.setText(pgn);
+        boardPgnPeek.setCaretPosition(0);
+    }
+
+    /**
+     * Builds the always-visible position-action row in the board footer:
+     * continue the current position against a bot, or turn it into a study —
+     * lichess-style "actions on the position" reachable from every board mode.
+     *
+     * @return board actions row
+     */
+    private JComponent createBoardActionsRow() {
+        return controlRow(FlowLayout.LEFT,
+                button("Continue vs bot", false, event -> continueVsBotFromHere()),
+                button("Make into study", false, event -> makeIntoStudyFromHere()));
+    }
+
+    /**
+     * Continues the current board position as a bot game (the inline
+     * "continue from here" action): activates Play and starts immediately from
+     * the current position with the selected opponent.
+     */
+    private void continueVsBotFromHere() {
+        boardWorkspace.setMode(BOARD_PLAY);
+        playPanel().continueFromCurrentPosition();
+    }
+
+    /**
+     * Turns the current game line into a study chapter (the inline "make into
+     * study" action) and opens Study showing it.
+     */
+    private void makeIntoStudyFromHere() {
+        if (studyWorkspacePanel == null) {
+            createStudyWorkspacePanel();
+        }
+        studyWorkspacePanel.addCurrentGameAsChapter();
+        boardWorkspace.setMode(BOARD_STUDY);
+    }
+
+    /**
+     * Builds the always-available PGN/FEN peek docked south of the Board
+     * workspace: the current line's PGN (with variations and annotations) over a
+     * one-line FEN, collapsible, with Copy actions. Refreshed by
+     * {@link #refreshGameNotationPreview()} on every game-line update.
+     *
+     * @return collapsible PGN/FEN peek
+     */
+    private JComponent createBoardPgnPeek() {
+        boardFenPeek.setEditable(false);
+        boardFenPeek.setRows(1);
+        boardFenPeek.setLineWrap(false);
+        boardFenPeek.setToolTipText("Current position FEN");
+        boardFenPeek.getAccessibleContext().setAccessibleName("Board PGN peek FEN");
+        boardPgnPeek.setEditable(false);
+        boardPgnPeek.setRows(2);
+        boardPgnPeek.setLineWrap(true);
+        boardPgnPeek.setWrapStyleWord(true);
+        boardPgnPeek.setToolTipText("Current line PGN, with variations and annotations");
+        boardPgnPeek.getAccessibleContext().setAccessibleName("Board PGN peek");
+
+        JPanel body = transparentPanel(new BorderLayout(0, Theme.SPACE_XS));
+        body.add(scroll(boardFenPeek, () -> Theme.INPUT), BorderLayout.NORTH);
+        body.add(scroll(boardPgnPeek, () -> Theme.INPUT), BorderLayout.CENTER);
+        body.add(controlRow(FlowLayout.LEFT,
+                button("Copy PGN", false, event -> copyText(gameModel.pgn())),
+                button("Copy FEN", false, event -> copyText(gameModel.currentPosition().toString()))),
+                BorderLayout.SOUTH);
+        return collapsible("PGN / FEN", body, true);
     }
 
     /**
@@ -2303,97 +2480,20 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         // configureBoardForMode. The board is re-parented into this slot when
         // Play activates.
         application.gui.workbench.play.PlayPanel controls = playPanel();
+        controls.setStartPreviewListener(this::maybeShowPlayStartPreview);
         playBoardSlot = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
         playBoardSlot.add(controls.opponentIdentityStrip(), BorderLayout.NORTH);
         playBoardSlot.add(controls.playerIdentityStrip(), BorderLayout.SOUTH);
 
-        // The setup form scrolls on its own (it is tall once Custom is open) and
-        // the move list keeps a stable lower slot. A fixed column avoids the
-        // visual collision that came from nesting a vertical split inside the
-        // already-split Play workspace.
-        JScrollPane setup = scroll(fillViewport(controls));
-        setup.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        JComponent moves = createPlayMoveHistory();
-        moves.setPreferredSize(new Dimension(SIDE_RAIL_SIZE.width, 300));
-        moves.setMinimumSize(new Dimension(0, 170));
-        JPanel rail = new SurfacePanel(new BorderLayout(0, Theme.SPACE_MD), Theme.Surface.BACKDROP);
-        rail.add(setup, BorderLayout.CENTER);
-        rail.add(moves, BorderLayout.SOUTH);
-        rail.setPreferredSize(SIDE_RAIL_SIZE);
+        // The rail is the shared board-inspector seam: a status header above the
+        // Play setup form above the shared move list, the form/list boundary
+        // filling the canvas height so the column tracks the window instead of
+        // stranding a fixed block. The move list is the reusable MoveListPanel
+        // over the same game line Analyze shows.
+        JComponent rail = new BoardInspectorRail(controls.playStatusHeader(), controls,
+                new MoveListPanel(gameModel, this::jumpGameTo));
 
-        JSplitPane playPage = SplitPaneStyler.styledHorizontalSplit(playBoardSlot, rail, 0.68);
-        return playPage;
-    }
-
-    /**
-     * Creates the compact move-pair table used by Play mode.
-     *
-     * @return move-history component
-     */
-    private JComponent createPlayMoveHistory() {
-        PlayMoveHistoryModel historyModel = new PlayMoveHistoryModel(gameModel);
-        javax.swing.JTable playMoves = new javax.swing.JTable(historyModel) {
-            /**
-             * Serialization identifier for Swing table compatibility.
-             */
-            private static final long serialVersionUID = 1L;
-
-            /**
-             * Paints a shared empty state into the viewport when no moves exist.
-             *
-             * @param graphics graphics context
-             */
-            @Override
-            protected void paintComponent(java.awt.Graphics graphics) {
-                super.paintComponent(graphics);
-                if (getRowCount() == 0 && graphics instanceof java.awt.Graphics2D graphics2D) {
-                    Ui.paintEmptyState(graphics2D, new java.awt.Rectangle(0, 0, getWidth(), getHeight()),
-                            "No moves yet", "Start a game to record moves here.");
-                }
-            }
-        };
-        Theme.table(playMoves, Theme.TABLE_ROW_HEIGHT);
-        playMoves.setAutoCreateColumnsFromModel(false);
-        playMoves.setAutoResizeMode(javax.swing.JTable.AUTO_RESIZE_LAST_COLUMN);
-        playMoves.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        playMoves.setFillsViewportHeight(true);
-        playMoves.setPreferredScrollableViewportSize(new Dimension(320, 220));
-        javax.swing.table.TableColumnModel columns = playMoves.getColumnModel();
-        columns.getColumn(0).setMaxWidth(42);
-        columns.getColumn(0).setPreferredWidth(42);
-        columns.getColumn(1).setPreferredWidth(130);
-        columns.getColumn(2).setPreferredWidth(130);
-        columns.getColumn(1).setCellRenderer(new SanRenderer());
-        columns.getColumn(2).setCellRenderer(new SanRenderer());
-        playMoves.addMouseListener(new MouseAdapter() {
-            /**
-             * Navigates to the clicked move ply when a recorded move cell is selected.
-             *
-             * @param event mouse event
-             */
-            @Override
-            public void mouseClicked(MouseEvent event) {
-                int row = playMoves.rowAtPoint(event.getPoint());
-                int viewColumn = playMoves.columnAtPoint(event.getPoint());
-                if (row < 0 || viewColumn < 0) {
-                    return;
-                }
-                int column = playMoves.convertColumnIndexToModel(viewColumn);
-                int ply = row * 2 + (column == 2 ? 2 : 1);
-                if (ply > 0 && ply <= gameModel.lastPly()) {
-                    jumpGameTo(ply);
-                }
-            }
-        });
-        historyModel.addTableModelListener(event -> javax.swing.SwingUtilities.invokeLater(() -> {
-            int lastRow = playMoves.getRowCount() - 1;
-            if (lastRow >= 0) {
-                playMoves.getSelectionModel().setSelectionInterval(lastRow, lastRow);
-                playMoves.scrollRectToVisible(playMoves.getCellRect(lastRow, 0, true));
-            }
-        }));
-        JComponent section = Ui.card("Move History", scroll(playMoves));
-        return section;
+        return boardPageSplit(playBoardSlot, rail);
     }
 
     /**
@@ -2415,10 +2515,11 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         relationsControls =
                 new application.gui.workbench.relations.RelationsPanel(board, () -> currentPosition,
                         this::refreshWorkspaceHeaders);
-        relationsRailScroll = scroll(fillViewport(relationsControls));
-        relationsRailScroll.setPreferredSize(SIDE_RAIL_SIZE);
+        // Same shared rail as Play/Draw (no status header, no move list): the
+        // channel controls fill the canvas height instead of a fixed block.
+        relationsRail = new BoardInspectorRail(null, relationsControls, null);
         scrollRelationsRailToTop();
-        return SplitPaneStyler.styledHorizontalSplit(relationsBoardSlot, relationsRailScroll, 0.68);
+        return boardPageSplit(relationsBoardSlot, relationsRail);
     }
 
     /**
@@ -2426,12 +2527,12 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * settles.
      */
     private void scrollRelationsRailToTop() {
-        if (relationsRailScroll == null) {
+        if (relationsRail == null) {
             return;
         }
         SwingUtilities.invokeLater(() -> {
-            if (relationsRailScroll != null) {
-                relationsRailScroll.getVerticalScrollBar().setValue(0);
+            if (relationsRail != null) {
+                relationsRail.scrollInspectorToTop();
             }
         });
     }
@@ -2445,9 +2546,37 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     protected JComponent createDrawTab() {
         drawBoardSlot = boardSlotPanel();
         drawControls = new DrawPanel(board, this, this::refreshWorkspaceHeaders);
-        JComponent rail = scroll(fillViewport(drawControls));
-        rail.setPreferredSize(SIDE_RAIL_SIZE);
-        return SplitPaneStyler.styledHorizontalSplit(drawBoardSlot, rail, 0.68);
+        // Same shared rail as Play (no status header, no move list): the markup
+        // tools fill the canvas height instead of a fixed block.
+        JComponent rail = new BoardInspectorRail(null, drawControls, null);
+        return boardPageSplit(drawBoardSlot, rail);
+    }
+
+    /**
+     * Creates the Study tab: the shared board on the left and the PGN-backed
+     * study editor (chapters, move tree, annotations) as a wider right rail.
+     * Study drives and records onto the shared board like Analyze; the board is
+     * re-parented into this slot when Study activates (see configureBoardForMode).
+     *
+     * @return study tab
+     */
+    protected JComponent createStudyTab() {
+        studyBoardSlot = boardSlotPanel();
+        // Keep the board from collapsing when the dense study rail wants width.
+        studyBoardSlot.setMinimumSize(new Dimension(320, 0));
+        if (studyWorkspacePanel == null) {
+            createStudyWorkspacePanel();
+        }
+        // A width-constrained, fill-viewport scrolled rail (same idea as
+        // BoardInspectorRail): the study editor is dense, so pin the rail width
+        // and let the panel fit/scroll inside it rather than letting its natural
+        // width steal the board column. The editor is the working surface and the
+        // board the reference, so the rail is wider than the usual board pages.
+        JScrollPane studyRail = scroll(fillViewport(studyWorkspacePanel));
+        studyRail.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        studyRail.setPreferredSize(new Dimension(460, 0));
+        studyRail.setMinimumSize(new Dimension(380, 0));
+        return SplitPaneStyler.styledHorizontalSplit(studyBoardSlot, studyRail, 0.6d);
     }
 
     /**

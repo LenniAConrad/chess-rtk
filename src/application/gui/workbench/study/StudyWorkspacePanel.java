@@ -5,6 +5,7 @@ import application.gui.workbench.layout.SplitPaneStyler;
 import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
+import application.gui.workbench.ui.WrappingFlowLayout;
 import chess.core.Move;
 import chess.core.Position;
 import chess.study.NagCatalog;
@@ -408,18 +409,19 @@ public final class StudyWorkspacePanel extends JPanel {
      * @return toolbar
      */
     private JComponent createToolbar() {
-        JPanel toolbar = Ui.transparentPanel(new BorderLayout(Theme.SPACE_SM, Theme.SPACE_XS));
-        JPanel status = Ui.controlRow(FlowLayout.LEFT,
-                Ui.label("✓ SYNC"), Ui.label("✓ REC"), statusLabel);
-        toolbar.add(status, BorderLayout.WEST);
-        toolbar.add(Ui.controlRow(FlowLayout.RIGHT,
-                Ui.button("New", false, event -> createStudy()),
-                Ui.button("Open", false, event -> openStudy()),
-                Ui.button("Save", true, event -> saveStudy()),
-                Ui.button("Save As", false, event -> saveStudyAs()),
-                Ui.button("Import PGN", false, event -> importPgn()),
-                Ui.button("Import Review", false, event -> importReviewUnits()),
-                Ui.button("Export PGN", false, event -> exportPgn())), BorderLayout.EAST);
+        // A wrapping row so the study rail can narrow beside the board without
+        // a fixed ~7-button-wide minimum forcing the board column to collapse.
+        JPanel toolbar = Ui.transparentPanel(new WrappingFlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, Theme.SPACE_XS));
+        toolbar.add(Ui.label("✓ SYNC"));
+        toolbar.add(Ui.label("✓ REC"));
+        toolbar.add(statusLabel);
+        toolbar.add(Ui.button("New", false, event -> createStudy()));
+        toolbar.add(Ui.button("Open", false, event -> openStudy()));
+        toolbar.add(Ui.button("Save", true, event -> saveStudy()));
+        toolbar.add(Ui.button("Save As", false, event -> saveStudyAs()));
+        toolbar.add(Ui.button("Import PGN", false, event -> importPgn()));
+        toolbar.add(Ui.button("Import Review", false, event -> importReviewUnits()));
+        toolbar.add(Ui.button("Export PGN", false, event -> exportPgn()));
         return toolbar;
     }
 
@@ -448,10 +450,13 @@ public final class StudyWorkspacePanel extends JPanel {
      * @return editor body component
      */
     private JComponent createEditorBody() {
-        javax.swing.JSplitPane split = new javax.swing.JSplitPane(javax.swing.JSplitPane.HORIZONTAL_SPLIT,
+        // Stacked vertically so the editor reads as a board-side rail (chapters
+        // band on top, the move tree + inspector filling the rest) rather than
+        // three cramped columns.
+        javax.swing.JSplitPane split = new javax.swing.JSplitPane(javax.swing.JSplitPane.VERTICAL_SPLIT,
                 createChapterPanel(), createEditorPanel());
-        split.setResizeWeight(0.18d);
-        split.setDividerLocation(CHAPTER_WIDTH);
+        split.setResizeWeight(0.0d);
+        split.setDividerLocation(170);
         SplitPaneStyler.style(split);
         return split;
     }
@@ -545,7 +550,7 @@ public final class StudyWorkspacePanel extends JPanel {
      */
     private JComponent createChapterPanel() {
         JPanel panel = Ui.transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
-        panel.setPreferredSize(new Dimension(CHAPTER_WIDTH, 420));
+        panel.setPreferredSize(new Dimension(CHAPTER_WIDTH, 150));
         panel.add(Ui.scroll(chapterList), BorderLayout.CENTER);
         panel.add(Ui.controlRow(FlowLayout.LEFT,
                 Ui.button("Add", false, event -> addCurrentLineChapter()),
@@ -563,10 +568,10 @@ public final class StudyWorkspacePanel extends JPanel {
      * @return editor panel
      */
     private JComponent createEditorPanel() {
-        javax.swing.JSplitPane split = new javax.swing.JSplitPane(javax.swing.JSplitPane.HORIZONTAL_SPLIT,
+        javax.swing.JSplitPane split = new javax.swing.JSplitPane(javax.swing.JSplitPane.VERTICAL_SPLIT,
                 createMoveTreePanel(), createInspectorPanel());
-        split.setResizeWeight(0.64d);
-        split.setDividerLocation(540);
+        split.setResizeWeight(0.5d);
+        split.setDividerLocation(300);
         SplitPaneStyler.style(split);
         return split;
     }
@@ -813,6 +818,14 @@ public final class StudyWorkspacePanel extends JPanel {
         } catch (IOException ex) {
             status("Export failed: " + ex.getMessage());
         }
+    }
+
+    /**
+     * Adds the current game line as a new study chapter (the inline
+     * "make into study" action) and selects it.
+     */
+    public void addCurrentGameAsChapter() {
+        addCurrentLineChapter();
     }
 
     /**

@@ -3,7 +3,6 @@ package application.gui.workbench.network;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -212,14 +211,6 @@ public final class RealActivations {
      * merged into every per-position snapshot.
      */
     private ActivationSnapshot nnueAtlasCache;
-
-    /**
-     * Cached atlases keyed by NNUE file path. Used by the "compare with" /
-     * diff and grid view modes so the panel can render multiple variants
-     * side-by-side without paying the load+marginalisation cost more than once
-     * per variant.
-     */
-    private final Map<Path, ActivationSnapshot> atlasCacheByPath = new HashMap<>();
 
     /**
      * LC0 CNN network, lazily loaded.

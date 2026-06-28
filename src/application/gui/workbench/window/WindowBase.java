@@ -191,6 +191,11 @@ public abstract class WindowBase extends JFrame {
     protected static final int BOARD_DRAW = 4;
 
     /**
+     * Board surface mode: PGN-backed study editing on the shared board.
+     */
+    protected static final int BOARD_STUDY = 5;
+
+    /**
      * Card key for the default Analyze board layout.
      */
     protected static final String ANALYZE_CARD_BOARD = "board";
@@ -1849,20 +1854,6 @@ public abstract class WindowBase extends JFrame {
      * @return duplicate logs surface
      */
     protected abstract JComponent createDetachedLogTab();
-
-    /**
-     * Creates the primary Studies surface.
-     *
-     * @return studies surface
-     */
-    protected abstract JComponent createStudiesWorkspaceTab();
-
-    /**
-     * Creates an independent duplicate Studies surface.
-     *
-     * @return duplicate studies surface
-     */
-    protected abstract JComponent createDetachedStudiesWorkspaceTab();
 
     /**
      * Returns the primary persisted-log browser.

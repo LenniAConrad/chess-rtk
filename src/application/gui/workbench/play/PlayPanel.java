@@ -78,6 +78,13 @@ public final class PlayPanel extends JPanel {
     private final transient Supplier<String> currentFen;
 
     /**
+     * Notified when the chosen start position changes while no game is under
+     * way, so the host can re-preview that start on the shared board. Defaults to
+     * a no-op until the host wires {@link #setStartPreviewListener(Runnable)}.
+     */
+    private transient Runnable startPreviewListener = () -> { };
+
+    /**
      * Existing Board / Analyze command, exposed as an in-game action.
      */
     private final transient Runnable analyzeCurrentPosition;
@@ -193,7 +200,7 @@ public final class PlayPanel extends JPanel {
     private final JLabel statusLabel = new JLabel("No game");
 
     /**
-     * Compact state badge for the Current game state card.
+     * Compact state badge shown in the Play status header.
      */
     private final StatusBadge gameStatusBadge = new StatusBadge();
 
@@ -204,21 +211,10 @@ public final class PlayPanel extends JPanel {
     private final JLabel resultBanner = new JLabel();
 
     /**
-     * Row wrapping the result caption + banner, hidden whole until a game ends
-     * so no stranded "Result" label sits in the idle form.
-     */
-    private JComponent resultRow;
-
-    /**
-     * In-game action row (Takeback/Hint/Draw/Resign), hidden until a game is
+     * In-game actions card (Takeback/Hint/Draw/Resign), hidden until a game is
      * active so the idle form leads with setup + New Game alone.
      */
     private JComponent inGameRow;
-
-    /**
-     * Row wrapping the status badge and label.
-     */
-    private JComponent statusRow;
 
     /**
      * Advanced engine settings section, shown only for the Custom opponent.
@@ -283,21 +279,6 @@ public final class PlayPanel extends JPanel {
      * One-line description for the selected opponent.
      */
     private final JLabel opponentDescriptionLabel = new JLabel();
-
-    /**
-     * Current turn value in the state card.
-     */
-    private final JLabel stateTurnValue = metricValue();
-
-    /**
-     * Current material value in the state card.
-     */
-    private final JLabel stateMaterialValue = metricValue();
-
-    /**
-     * Current start-position source value in the state card.
-     */
-    private final JLabel stateStartValue = metricValue();
 
     /**
      * Human portrait in the matchup card.
@@ -512,9 +493,7 @@ public final class PlayPanel extends JPanel {
             lastResultMessage = "";
             lastResultKind = null;
             resultBanner.setText("");
-            if (resultRow != null) {
-                resultRow.setVisible(false);
-            }
+            resultBanner.setVisible(false);
             refreshPlayUi();
             summaryChanged.run();
             return;
@@ -523,9 +502,7 @@ public final class PlayPanel extends JPanel {
         lastResultKind = kind;
         resultBanner.setText(message);
         resultBanner.setForeground(resultColor(kind));
-        if (resultRow != null) {
-            resultRow.setVisible(true);
-        }
+        resultBanner.setVisible(true);
         refreshPlayUi();
         summaryChanged.run();
     }
@@ -583,8 +560,8 @@ public final class PlayPanel extends JPanel {
         stack.setLayout(new BoxLayout(stack, BoxLayout.Y_AXIS));
         addStackSection(stack, buildOpponentSection());
         addStackSection(stack, buildGameSetupSection());
-        addStackSection(stack, buildGameStateSection());
         addStackSection(stack, buildAdvancedEngineSection());
+        addStackSection(stack, buildInGameActionsSection());
         stack.add(Box.createVerticalGlue());
         add(stack, BorderLayout.CENTER);
 
@@ -652,32 +629,44 @@ public final class PlayPanel extends JPanel {
     }
 
     /**
-     * Builds the Current game state section.
+     * Returns the compact game-status header docked at the top of the Play rail:
+     * the state badge and live status line, with the finished-game result banner
+     * trailing. This replaces the former "Current game state" card, whose Turn /
+     * Material / Start metrics only duplicated the board, the player strips, and
+     * the setup form. The status is the one non-redundant readout, so it earns a
+     * thin header instead of a whole card.
      *
-     * @return game-state section
+     * @return status header strip
      */
-    private JComponent buildGameStateSection() {
+    public JComponent playStatusHeader() {
         statusLabel.setForeground(Theme.TEXT);
         statusLabel.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
         gameStatusBadge.setFixedTextWidth(86);
+        resultBanner.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
+        resultBanner.setForeground(Theme.TEXT);
+        resultBanner.setVisible(false);
 
         JPanel statusLine = new JPanel(new BorderLayout(Theme.SPACE_SM, 0));
         statusLine.setOpaque(false);
         statusLine.add(gameStatusBadge, BorderLayout.WEST);
         statusLine.add(statusLabel, BorderLayout.CENTER);
-        statusRow = statusLine;
 
-        resultBanner.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
-        resultBanner.setForeground(Theme.TEXT);
+        JPanel header = new JPanel(new BorderLayout(Theme.SPACE_MD, 0));
+        header.setOpaque(false);
+        header.setBorder(Theme.pad(Theme.SPACE_XS, Theme.SPACE_XS, Theme.SPACE_SM, Theme.SPACE_XS));
+        header.add(statusLine, BorderLayout.CENTER);
+        header.add(resultBanner, BorderLayout.EAST);
+        return header;
+    }
 
-        JPanel metrics = metricGrid(2);
-        metrics.add(metricTile("Turn", stateTurnValue));
-        metrics.add(metricTile("Material", stateMaterialValue));
-        metrics.add(metricTile("Start", stateStartValue));
-        resultRow = metricTile("Result", resultBanner);
-        resultRow.setVisible(false);
-        metrics.add(resultRow);
-
+    /**
+     * Builds the in-game actions card (Takeback/Hint/Analyze/Review/Save/Draw/
+     * Resign), hidden until a game is active so the idle form leads with setup
+     * and New Game alone.
+     *
+     * @return in-game actions section
+     */
+    private JComponent buildInGameActionsSection() {
         JPanel inGame = new JPanel(new GridLayout(0, 2, Theme.SPACE_SM, Theme.SPACE_SM));
         inGame.setOpaque(false);
         for (JComponent button : List.of(takebackButton, hintButton, analyzeButton, reviewButton,
@@ -686,16 +675,9 @@ public final class PlayPanel extends JPanel {
             button.setFont(Theme.font(Theme.FONT_METADATA, Font.BOLD));
             inGame.add(button);
         }
-        inGameRow = inGame;
+        inGameRow = Ui.card("In game", inGame);
         inGameRow.setVisible(false);
-
-        JPanel body = verticalPanel();
-        body.add(statusLine);
-        body.add(Box.createVerticalStrut(Theme.SPACE_MD));
-        body.add(metrics);
-        body.add(Box.createVerticalStrut(Theme.SPACE_MD));
-        body.add(inGame);
-        return Ui.card("Current Game State", body);
+        return inGameRow;
     }
 
     /**
@@ -738,51 +720,6 @@ public final class PlayPanel extends JPanel {
         return panel;
     }
 
-    /**
-     * Creates a compact metric grid for inspector cards.
-     *
-     * @param columns column count
-     * @return metric grid
-     */
-    private static JPanel metricGrid(int columns) {
-        JPanel panel = new JPanel(new GridLayout(0, columns, Theme.SPACE_SM, Theme.SPACE_SM));
-        panel.setOpaque(false);
-        return panel;
-    }
-
-    /**
-     * Creates one label/value metric tile.
-     *
-     * @param title metric title
-     * @param value value label
-     * @return metric tile
-     */
-    private static JComponent metricTile(String title, JLabel value) {
-        JLabel label = new JLabel(title);
-        label.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
-        label.setForeground(Theme.MUTED);
-        JPanel tile = new JPanel(new BorderLayout(0, 2));
-        tile.setOpaque(true);
-        tile.setBackground(Theme.PANEL_SOLID);
-        tile.setBorder(BorderFactory.createCompoundBorder(
-                Theme.lineBorder(Theme.LINE),
-                Theme.pad(Theme.SPACE_SM, Theme.SPACE_SM, Theme.SPACE_SM, Theme.SPACE_SM)));
-        tile.add(label, BorderLayout.NORTH);
-        tile.add(value, BorderLayout.CENTER);
-        return tile;
-    }
-
-    /**
-     * Creates a value label used inside compact metric tiles.
-     *
-     * @return value label
-     */
-    private static JLabel metricValue() {
-        JLabel label = new JLabel();
-        label.setFont(Theme.font(Theme.FONT_BODY, Font.BOLD));
-        label.setForeground(Theme.TEXT);
-        return label;
-    }
 
     /**
      * Returns the opponent identity strip hosted above the Play board.
@@ -944,13 +881,11 @@ public final class PlayPanel extends JPanel {
     }
 
     /**
-     * Refreshes the current game-state card.
+     * Refreshes the Play status header: the status line and state badge. Turn,
+     * material, and start-position readouts moved off this panel — they live on
+     * the board, the player strips, and the setup form respectively.
      */
     private void refreshGameStateSummary() {
-        stateTurnValue.setText(sideToMoveLabel() + " to move");
-        SideLabels sides = sideLabels();
-        stateMaterialValue.setText(materialScore().textFor(sides.playerWhite()));
-        stateStartValue.setText(startSourceLabel());
         if (!session.isActive() && lastResultMessage.isBlank()) {
             statusLabel.setText("No game active");
         } else {
@@ -1083,19 +1018,6 @@ public final class PlayPanel extends JPanel {
     }
 
     /**
-     * Returns the selected start-source label.
-     *
-     * @return start-source label
-     */
-    private String startSourceLabel() {
-        return switch (startChips.getSelectedIndex()) {
-            case 1 -> "Current board";
-            case 2 -> "From FEN";
-            default -> "Standard";
-        };
-    }
-
-    /**
      * Computes a simple material balance from the current FEN.
      *
      * @return material score
@@ -1110,12 +1032,17 @@ public final class PlayPanel extends JPanel {
     }
 
     /**
-     * Returns the current board position, or null when the board FEN is not
-     * available or cannot be parsed by the shared chess core.
+     * Returns the position the Play readouts (material, side to move, identity
+     * strips) describe. Before a game starts the board shows the chosen start
+     * preview, so the readouts track that rather than the separate shared
+     * analysis line; once a game is under way they track its live position.
      *
-     * @return current position
+     * @return current position, or null when no position can be parsed
      */
     private Position currentPosition() {
+        if (isAwaitingGame()) {
+            return previewStartPosition();
+        }
         try {
             String fen = currentFen.get();
             if (fen == null || fen.isBlank()) {
@@ -1426,7 +1353,9 @@ public final class PlayPanel extends JPanel {
             fenField.setVisible(fromFen);
             refreshPlayUi();
             summaryChanged.run();
+            startPreviewListener.run();
         });
+        fenField.addActionListener(event -> startPreviewListener.run());
         deterministicToggle.addActionListener(event -> {
             PlayPrefs.setDeterministic(deterministicToggle.isSelected());
             refreshPlayUi();
@@ -1444,6 +1373,16 @@ public final class PlayPanel extends JPanel {
         takebackButton.addActionListener(event -> session.takeback());
         hintButton.addActionListener(event -> session.requestHint());
         drawButton.addActionListener(event -> session.offerDraw());
+    }
+
+    /**
+     * Starts a bot game from the current board position (the inline
+     * "continue from here" action): selects the "Current" start source and
+     * begins immediately with the selected opponent settings.
+     */
+    public void continueFromCurrentPosition() {
+        startChips.setSelectedIndex(1);
+        startGame();
     }
 
     /**
@@ -1530,6 +1469,45 @@ public final class PlayPanel extends JPanel {
             case 2 -> fenField.getText();
             default -> Setup.getStandardStartFEN();
         };
+    }
+
+    /**
+     * Returns the position the next game will start from for the current
+     * "Start from" selection (Standard, the current analysis board, or the pasted
+     * FEN). Used to preview that start on the shared board before the game begins;
+     * falls back to the standard start when a pasted FEN cannot be parsed.
+     *
+     * @return start-position preview
+     */
+    public Position previewStartPosition() {
+        String fen = resolveStartFen();
+        try {
+            return new Position(fen == null ? Setup.getStandardStartFEN() : fen.trim());
+        } catch (RuntimeException ex) {
+            return new Position(Setup.getStandardStartFEN());
+        }
+    }
+
+    /**
+     * Returns whether Play is idle and awaiting a new game — no game in progress
+     * and no finished-game result on display. The board may show the start
+     * preview (and the readouts track it) only while this holds; once a game is
+     * live or finished, the board must keep that game's position.
+     *
+     * @return true when no game is active or being shown
+     */
+    public boolean isAwaitingGame() {
+        return !session.isActive() && lastResultMessage.isBlank();
+    }
+
+    /**
+     * Registers the listener notified when the chosen start position changes
+     * while Play is idle, so the host can re-preview that start on the board.
+     *
+     * @param listener start-preview listener
+     */
+    public void setStartPreviewListener(Runnable listener) {
+        this.startPreviewListener = listener == null ? () -> { } : listener;
     }
 
     /**
