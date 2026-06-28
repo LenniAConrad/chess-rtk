@@ -981,7 +981,7 @@ final class BoardPanelPainter {
     }
 
     /**
-     * Clamps a floating-point value into a closed range.
+     * Clamps an integer value into a closed range.
      *
      * @param value candidate value
      * @param min lower bound

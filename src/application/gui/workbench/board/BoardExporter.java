@@ -820,7 +820,6 @@ public final class BoardExporter {
      * @param svg destination builder
      * @param bounds square bounds
      * @param brush annotation brush
-     * @param color stroke color
      */
     private static void appendCircleMarkup(StringBuilder svg, Rectangle bounds, MarkupBrush brush) {
         Color fill = brush.displayColor();
@@ -908,7 +907,7 @@ public final class BoardExporter {
         double cy = BoardMarkupPainter.clampGlyphCenter((double) glyphCenterY(bounds), radius * 2.0,
                 boardBounds.y, boardBounds.height);
         if (AnnotationGlyphs.isCustom(glyph)) {
-            appendCustomGlyph(svg, glyph, cx, cy, radius, fill, border, strokeWidth, shadow);
+            appendCustomGlyph(svg, glyph, cx, cy, radius, fill, border, shadow);
             return;
         }
         svg.append("  <circle cx=\"").append(format(cx)).append("\" cy=\"").append(format(cy))
@@ -988,11 +987,10 @@ public final class BoardExporter {
      * @param radius badge radius
      * @param fill badge fill color
      * @param border glyph and border color
-     * @param strokeWidth border stroke width
      * @param shadow true to attach the drop-shadow filter
      */
     private static void appendCustomGlyph(StringBuilder svg, String glyph, double cx, double cy, double radius,
-            Color fill, Color border, double strokeWidth, boolean shadow) {
+            Color fill, Color border, boolean shadow) {
         svg.append("  <circle cx=\"").append(format(cx)).append("\" cy=\"").append(format(cy))
                 .append("\" r=\"").append(format(radius))
                 .append("\" fill=\"").append(colorCss(fill)).append("\"");
