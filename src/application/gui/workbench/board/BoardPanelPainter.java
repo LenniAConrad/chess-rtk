@@ -172,8 +172,19 @@ final class BoardPanelPainter {
                     boardPanel.markupPainter.drawSpecialMoveHints(copy, board,
                             boardPanel.whiteDown, boardPanel.position);
                 }
-                boardPanel.markupPainter.drawForegroundMarkups(copy, board,
-                        boardPanel.whiteDown, boardPanel.markupInput);
+                // Foreground glyph badges straddle a square's top-right corner and can poke past
+                // the board edge; draw them with an expanded clip (into the surrounding margin)
+                // so badges on edge squares are not clipped at the board boundary.
+                Graphics2D markupClip = (Graphics2D) g.create();
+                try {
+                    int overflow = Math.max(2, Math.round(board.width / 8f * 0.5f));
+                    markupClip.clipRect(board.x - overflow, board.y - overflow,
+                            board.width + overflow * 2, board.height + overflow * 2);
+                    boardPanel.markupPainter.drawForegroundMarkups(markupClip, board,
+                            boardPanel.whiteDown, boardPanel.markupInput);
+                } finally {
+                    markupClip.dispose();
+                }
             }
             if (!boardPanel.setupEditor.active()) {
                 drawWrongMoveMarker(copy, board);

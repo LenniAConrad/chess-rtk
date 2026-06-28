@@ -203,7 +203,7 @@ final class BoardMarkupPainter {
             } else if (markup.isRectangle()) {
                 drawRectangle(g, rectangleBounds(board, markup, whiteDown), markup.brush(), board.width / 8, opacity);
             } else if (markup.isGlyph()) {
-                drawGlyph(g, BoardGeometry.squareBounds(board, markup.from(), whiteDown), board, markup.brush(),
+                drawGlyph(g, BoardGeometry.squareBounds(board, markup.from(), whiteDown), markup.brush(),
                         opacity, glyphSlot, glyphCount);
             } else if (markup.isArrow()) {
                 drawArrow(g, board, whiteDown, markup, opacity);
@@ -288,13 +288,12 @@ final class BoardMarkupPainter {
      *
      * @param g graphics context
      * @param bounds square bounds
-     * @param boardBounds full board bounds, used to keep edge badges on-board
      * @param brush markup brush
      * @param opacity opacity multiplier
      * @param slot glyph badge slot within a same-square stack
      * @param count number of glyph badges in the same-square stack
      */
-    private void drawGlyph(Graphics2D g, Rectangle bounds, Rectangle boardBounds, MarkupBrush brush, double opacity,
+    private void drawGlyph(Graphics2D g, Rectangle bounds, MarkupBrush brush, double opacity,
             int slot, int count) {
         Font savedFont = g.getFont();
         Stroke savedStroke = g.getStroke();
@@ -306,9 +305,8 @@ final class BoardMarkupPainter {
             FontMetrics metrics = g.getFontMetrics();
             float borderWidth = scaledBadgeBorderWidth(cell, brush);
             int diameter = glyphDiameter(cell, borderWidth);
-            int centerX = clampGlyphCenter(glyphCenterX(bounds, diameter, slot, count), diameter,
-                    boardBounds.x, boardBounds.width);
-            int centerY = clampGlyphCenter(glyphCenterY(bounds), diameter, boardBounds.y, boardBounds.height);
+            int centerX = glyphCenterX(bounds, diameter, slot, count);
+            int centerY = glyphCenterY(bounds);
             int x = Math.round(centerX - diameter / 2f);
             int y = Math.round(centerY - diameter / 2f);
             Color fill = Theme.withAlpha(brush.displayColor(), 255);
