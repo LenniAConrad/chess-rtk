@@ -341,17 +341,21 @@ final class BoardMarkupPainter {
     private static final Map<Integer, BufferedImage> SHADOW_SPRITES = new ConcurrentHashMap<>();
 
     /**
-     * Glyph drop-shadow geometry as fractions of the badge diameter: a centered
-     * (not offset) soft shadow whose disc is slightly larger than the badge so a
-     * soft, even halo peeks out all the way around it.
+     * Glyph drop-shadow geometry as fractions of the badge diameter: a soft
+     * Lichess-style shadow dropped slightly down and to the right. The disc is
+     * a touch larger than the badge (spread) so the shadow shows all around it
+     * rather than as a thin one-sided sliver, with a generous blur so it still
+     * reads at small on-board sizes.
      */
-    private static final double SHADOW_SPREAD_FRACTION = 0.05,
-            SHADOW_BLUR_FRACTION = 0.06;
+    private static final double SHADOW_DX_FRACTION = 0.03,
+            SHADOW_DY_FRACTION = 0.06,
+            SHADOW_SPREAD_FRACTION = 0.04,
+            SHADOW_BLUR_FRACTION = 0.11;
 
     /**
      * Glyph drop-shadow opacity.
      */
-    private static final float SHADOW_OPACITY = 0.45f;
+    private static final float SHADOW_OPACITY = 0.55f;
 
     /**
      * Paints a soft, centered drop shadow behind a glyph badge circle.
@@ -373,9 +377,11 @@ final class BoardMarkupPainter {
         int centerX = x + Math.round(diameter / 2f);
         int centerY = y + Math.round(diameter / 2f);
         int half = sprite.getWidth() / 2;
+        int dx = Math.round(diameter * (float) SHADOW_DX_FRACTION);
+        int dy = Math.round(diameter * (float) SHADOW_DY_FRACTION);
         Composite savedComposite = g.getComposite();
         g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, SHADOW_OPACITY));
-        g.drawImage(sprite, centerX - half, centerY - half, null);
+        g.drawImage(sprite, centerX - half + dx, centerY - half + dy, null);
         g.setComposite(savedComposite);
     }
 
