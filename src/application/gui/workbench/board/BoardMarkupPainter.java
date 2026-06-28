@@ -358,11 +358,12 @@ final class BoardMarkupPainter {
     private static final float SHADOW_OPACITY = 0.5f;
 
     /**
-     * Paints a soft, centered drop shadow behind a glyph badge circle.
+     * Paints a soft Lichess-style drop shadow behind a glyph badge circle.
      *
-     * <p>Renders a Gaussian-blurred black disc (cached per size) slightly larger
-     * than the badge, centered on it, so a soft even halo shows all around the
-     * opaque badge drawn on top — not an offset crescent.</p>
+     * <p>Renders a Gaussian-blurred black disc (cached per size) the size of the
+     * badge and drops it down/right by {@link #SHADOW_DX_FRACTION}/{@link
+     * #SHADOW_DY_FRACTION} under the opaque badge drawn on top, matching Lichess's
+     * {@code feDropShadow dx=4 dy=7 stdDeviation=5} (per badge-diameter fractions).</p>
      *
      * @param g graphics context
      * @param x badge left edge
@@ -398,7 +399,12 @@ final class BoardMarkupPainter {
         double sigma = Math.max(0.6, diameter * SHADOW_BLUR_FRACTION);
         int discDiameter = Math.max(1, (int) Math.round(diameter + 2.0 * spread));
         int radius = (int) Math.ceil(sigma * 3.0);
-        int margin = radius + 1;
+        // ConvolveOp(EDGE_NO_OP) only computes destination pixels at least `radius`
+        // from the canvas edge; the rest are copied (transparent) from the source.
+        // The disc's blur fade extends `radius` beyond its edge, so the disc must sit
+        // at least 2*radius+1 from each edge or that outer fade is sheared into a hard
+        // edge (the "shadow cut off on the sides" bug). Pad accordingly.
+        int margin = radius * 2 + 1;
         int size = discDiameter + margin * 2;
         BufferedImage disc = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
         Graphics2D ig = disc.createGraphics();
