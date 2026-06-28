@@ -52,7 +52,8 @@ public record MarkupBrush(String name, Color color, Color borderColor, int lineW
             "↑↑", "↑", "→", "⇆", "⊕", "=∞", "△", AnnotationGlyphs.COUNTERING,
             "MW", "Bk", "Pin", AnnotationGlyphs.FORK,
             AnnotationGlyphs.SKEWER, AnnotationGlyphs.DISCOVERED_ATTACK, AnnotationGlyphs.DOUBLE_ATTACK,
-            AnnotationGlyphs.XRAY, AnnotationGlyphs.BATTERY);
+            AnnotationGlyphs.XRAY, AnnotationGlyphs.BATTERY,
+            AnnotationGlyphs.UNDEFENDED, AnnotationGlyphs.CHECKABLE_KING);
 
     /**
      * Exclusive glyph group for position-evaluation annotations.

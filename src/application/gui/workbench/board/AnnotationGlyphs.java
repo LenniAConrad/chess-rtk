@@ -185,6 +185,16 @@ public final class AnnotationGlyphs {
     public static final String MISSED_WIN = "MW";
 
     /**
+     * Glyph token for the undefended (hanging) piece marker.
+     */
+    public static final String UNDEFENDED = "Ud";
+
+    /**
+     * Glyph token for the checkable-king marker.
+     */
+    public static final String CHECKABLE_KING = "Ck";
+
+    /**
      * Glyph token for the skewer tactic marker.
      */
     public static final String SKEWER = "Sk";
@@ -597,6 +607,23 @@ public final class AnnotationGlyphs {
     public static final String FORK_STROKE_SVG_PATH = "M50 84V59M25 24V59H75V24";
 
     /**
+     * Filled SVG path for the undefended-piece marker in a 100x100 badge box:
+     * a shield with an X cut out of it (even-odd), matching the on-board
+     * tactical overlay — the piece is hanging / unprotected.
+     */
+    public static final String UNDEFENDED_SVG_PATH =
+            "M50 17L80 27L80 52C80 77 50 88 50 88C50 88 20 77 20 52L20 27Z"
+                    + "M44 51L34 61L40 67L50 57L60 67L66 61L56 51L66 41L60 35L50 45L40 35L34 41Z";
+
+    /**
+     * Filled SVG path for the checkable-king marker in a 100x100 badge box:
+     * a crown (the king) over a base band — the king can be checked.
+     */
+    public static final String CHECKABLE_KING_SVG_PATH =
+            "M20 48L34 64L50 38L66 64L80 48L77 74L23 74Z"
+                    + "M24 78H76V88H24Z";
+
+    /**
      * SVG path for the drawn-result marker in a 100x100 badge box.
      */
     public static final String DRAW_RESULT_SVG_PATH =
@@ -710,6 +737,8 @@ public final class AnnotationGlyphs {
         marks.put(DUBIOUS_MOVE, fill(DUBIOUS_MOVE_SVG_PATH));
         marks.put(NOVELTY, fill(NOVELTY_SVG_PATH));
         marks.put(WITH_IDEA, fillEvenOddMark(WITH_IDEA_SVG_PATH));
+        marks.put(UNDEFENDED, fillEvenOddMark(UNDEFENDED_SVG_PATH));
+        marks.put(CHECKABLE_KING, fill(CHECKABLE_KING_SVG_PATH));
         marks.put(PIN, fill(PIN_SVG_PATH));
         marks.put(BOOK_MOVE, fill(BOOK_MOVE_SVG_PATH));
         marks.put(CHECK, strokeRound(CHECK_SVG_PATH, 11f));

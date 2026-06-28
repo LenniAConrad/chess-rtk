@@ -953,11 +953,10 @@ public final class BoardExporter {
         // renderer, e.g. Inkscape drops the source graphic). The blur is generous
         // so the shadow still reads at small sizes.
         svg.append("  <defs><filter id=\"glyph-shadow\" x=\"-60%\" y=\"-60%\" width=\"220%\" height=\"220%\">")
-                .append("<feGaussianBlur in=\"SourceAlpha\" stdDeviation=\"").append(format(diameter * 0.12))
+                .append("<feGaussianBlur in=\"SourceAlpha\" stdDeviation=\"").append(format(diameter * 0.13))
                 .append("\" result=\"b\"/>")
-                .append("<feOffset in=\"b\" dx=\"0\" dy=\"").append(format(diameter * 0.03)).append("\" result=\"o\"/>")
-                .append("<feComponentTransfer in=\"o\" result=\"s\">")
-                .append("<feFuncA type=\"linear\" slope=\"0.65\"/></feComponentTransfer>")
+                .append("<feComponentTransfer in=\"b\" result=\"s\">")
+                .append("<feFuncA type=\"linear\" slope=\"0.7\"/></feComponentTransfer>")
                 .append("<feMerge><feMergeNode in=\"s\"/><feMergeNode in=\"SourceGraphic\"/></feMerge>")
                 .append("</filter></defs>\n");
     }

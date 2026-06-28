@@ -281,10 +281,12 @@ public final class DrawPanel extends JPanel {
                                     PRESET_PURPLE_RGB),
                             annotationPreset(AnnotationGlyphs.DOUBLE_ATTACK, "Double attack", PRESET_PURPLE_RGB),
                             annotationPreset(AnnotationGlyphs.XRAY, "X-ray", PRESET_PURPLE_RGB),
-                            annotationPreset(AnnotationGlyphs.BATTERY, "Battery", PRESET_PURPLE_RGB))),
+                            annotationPreset(AnnotationGlyphs.BATTERY, "Battery", PRESET_PURPLE_RGB),
+                            annotationPreset(AnnotationGlyphs.UNDEFENDED, "Undefended", PRESET_BLUNDER_RGB))),
                     new PresetCategory("Checks", List.of(
                             annotationPreset(AnnotationGlyphs.CHECK, "Check", PRESET_BLUE_RGB),
                             annotationPreset(AnnotationGlyphs.DOUBLE_CHECK, "Double check", PRESET_BLUE_RGB),
+                            annotationPreset(AnnotationGlyphs.CHECKABLE_KING, "Checkable king", PRESET_BLUE_RGB),
                             annotationPreset(AnnotationGlyphs.MATE, "Checkmate", PRESET_BLUNDER_RGB)))));
 
     /**
