@@ -2,6 +2,7 @@ package application.gui.workbench.window;
 
 import application.Config;
 import application.cli.PathOps;
+import application.gui.feature.publishing.PublishingView;
 import application.gui.workbench.Defaults;
 import application.gui.workbench.command.CommandRunner;
 import application.gui.workbench.command.CommandTemplates.CommandTemplate;
@@ -1140,7 +1141,7 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
      * Updates the publishing command preview.
      */
     protected void updatePublishCommand() {
-        for (application.gui.workbench.publish.PublishingPanel panel : publishingPanels) {
+        for (PublishingView panel : publishingPanels) {
             panel.updateCommand();
         }
     }
@@ -1149,7 +1150,7 @@ public abstract class WindowCommandLayer extends WindowGameLayer {
      * Queues a publishing preview refresh after document edits settle.
      */
     protected void requestPublishCommandUpdate() {
-        for (application.gui.workbench.publish.PublishingPanel panel : publishingPanels) {
+        for (PublishingView panel : publishingPanels) {
             panel.requestCommandUpdate();
         }
     }

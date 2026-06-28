@@ -8,7 +8,7 @@ import javax.swing.JButton;
 /**
  * Factory for compact icon-only Workbench buttons.
  */
-public final class IconButton {
+final class IconButton {
 
     /**
      * Prevents instantiation.

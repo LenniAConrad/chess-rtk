@@ -6,10 +6,8 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Deque;
 import java.util.List;
 
 import chess.core.Position;
@@ -200,46 +198,6 @@ public final class Reader {
       }
     }
     return fens;
-  }
-
-  /**
-   * Reads a FEN file (see {@link #readFenList(Path)}) and returns a stack-like deque.
-   * By default, the "top" of the stack is the **first line** from the file, so a
-   * {@code pop()} gives you the earliest task first. You can still {@code push(...)}
-   * new tasks on top during processing.
-   *
-   * @param path the path to the FEN list file
-   * @return a mutable {@code ArrayDeque<String>} with FENs ready to {@code pop()}, {@code push()}, etc.
-   * @throws IOException if an I/O error occurs while reading
-   */
-  public static Deque<String> readFenStack(Path path) throws IOException {
-    List<String> fen = readFenList(path);
-    ArrayDeque<String> stack = new ArrayDeque<>(fen.size());
-    for (int i = fen.size() - 1; i >= 0; i--) {
-      stack.push(fen.get(i));
-    }
-    return stack;
-  }
-
-  /**
-   * Reads a FEN list file and returns parsed {@link Position} instances.
-   * Invalid FENs are skipped without failing the entire read.
-   *
-   * @param path path to the FEN list file
-   * @return list of parsed positions
-   * @throws IOException if an I/O error occurs while reading
-   */
-  public static List<Position> readPositionList(Path path) throws IOException {
-    List<String> fenList = readFenList(path);
-    List<Position> positions = new ArrayList<>(fenList.size());
-    for (String fen : fenList) {
-      try {
-        positions.add(new Position(fen));
-      } catch (IllegalArgumentException ignored) {
-        // skip invalid FENs
-      }
-    }
-    return positions;
   }
 
   /**

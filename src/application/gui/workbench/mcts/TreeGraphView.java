@@ -650,15 +650,6 @@ public final class TreeGraphView extends JComponent {
     }
 
     /**
-     * Multiplies the zoom around the viewport center.
-     *
-     * @param factor zoom multiplier
-     */
-    public void zoomBy(double factor) {
-        zoomAt(new Point(getWidth() / 2, getHeight() / 2), factor);
-    }
-
-    /**
      * Pans so a node (by key) is centered in the viewport at the current zoom.
      * Used by the navigation inspector to jump to a chosen node.
      *

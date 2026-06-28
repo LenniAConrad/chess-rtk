@@ -23,6 +23,7 @@ public final class WorkbenchRegressionTest {
         WorkbenchUiRegression.run();
         WorkbenchGameRegression.run();
         WorkbenchBoardRegression.run();
+        WorkbenchSessionRegression.run();
         WorkbenchBackendRegression.run();
         WorkbenchDatasetRegression.run();
         System.out.println("WorkbenchRegressionTest: all checks passed");

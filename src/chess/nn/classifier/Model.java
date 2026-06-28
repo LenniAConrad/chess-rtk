@@ -62,40 +62,6 @@ public final class Model implements AutoCloseable {
     }
 
     /**
-     * Returns the active backend name.
-     *
-     * @return active backend identifier
-     */
-    public String backend() {
-        return Network.BACKEND;
-    }
-
-    /**
-     * Encodes a {@link Position} using {@link Encoder} and runs inference.
-     *
-     * @param position position to classify
-     * @return classifier output
-     */
-    public Network.Prediction predict(Position position) {
-        float[] encoded = Encoder.encode(position);
-        int expected = network.info().inputChannels() * 64;
-        if (encoded.length != expected) {
-            throw new IllegalStateException("Encoder produced " + encoded.length + " floats, expected " + expected);
-        }
-        return network.predictEncoded(encoded);
-    }
-
-    /**
-     * Runs inference on already-encoded planes.
-     *
-     * @param encodedPlanes encoded planes, length {@code inputChannels * 64}
-     * @return classifier output
-     */
-    public Network.Prediction predictEncoded(float[] encodedPlanes) {
-        return network.predictEncoded(encodedPlanes);
-    }
-
-    /**
      * Releases backend resources.
      */
     @Override

@@ -511,24 +511,6 @@ public final class StudyBook {
 	}
 
 	/**
-	 * Sets the annotated compositions.
-	 *
-	 * @param compositions composition array
-	 * @return this manifest
-	 */
-	public StudyBook setCompositions(Composition[] compositions) {
-		if (compositions == null) {
-			this.compositions = new Composition[0];
-			return this;
-		}
-		this.compositions = new Composition[compositions.length];
-		for (int i = 0; i < compositions.length; i++) {
-			this.compositions[i] = copyComposition(compositions[i]);
-		}
-		return this;
-	}
-
-	/**
 	 * Returns the rendered full title.
 	 *
 	 * @return title plus subtitle when present

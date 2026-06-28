@@ -126,22 +126,6 @@ public final class MoveList {
     }
 
     /**
-     * Removes one move by shifting later entries left.
-     *
-     * @param index move index to remove
-     */
-    public void removeAt(int index) {
-        if (index < 0 || index >= size) {
-            throw new IndexOutOfBoundsException(index + " / " + size);
-        }
-        int count = size - index - 1;
-        if (count > 0) {
-            System.arraycopy(moves, index + 1, moves, index, count);
-        }
-        moves[--size] = Move.NO_MOVE;
-    }
-
-    /**
      * Returns one move without bounds checks.
      *
      * <p>

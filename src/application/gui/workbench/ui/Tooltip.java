@@ -5,7 +5,7 @@ import javax.swing.JComponent;
 /**
  * Small tooltip helper used by icon-only controls and compact code previews.
  */
-public final class Tooltip {
+final class Tooltip {
 
     /**
      * Prevents instantiation.

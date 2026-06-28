@@ -448,18 +448,6 @@ public class Field {
 	public static final byte BLACK_QUEENSIDE_CASTLE_KING_TO_INDEX = C8;
 
 	/**
-	 * The index of the square where the White king starts in standard chess
-	 *
-	 */
-	public static final byte WHITE_KING_STANDARD_INDEX = E1;
-
-	/**
-	 * The index of the square where the White king starts in standard chess
-	 *
-	 */
-	public static final byte BLACK_KING_STANDARD_INDEX = E8;
-
-	/**
 	 * Structure:
 	 * <ul>
 	 * <li>The first dimension of the array represents the field index, which is the
@@ -1081,28 +1069,6 @@ public class Field {
 	}
 
 	/**
-	 * Used for checking whether the given {@code index} is on the 1st rank (A1–H1).
-	 *
-	 * @param index the board index to check
-	 * @return {@code true} if {@code index} lies between {@link #A1} and
-	 *         {@link #H1}, inclusive
-	 */
-	public static boolean isOn1stRank(byte index) {
-		return index >= A1 && index <= H1;
-	}
-
-	/**
-	 * Used for checking whether the given {@code index} is on the 2nd rank (A2–H2).
-	 *
-	 * @param index the board index to check
-	 * @return {@code true} if {@code index} lies between {@link #A2} and
-	 *         {@link #H2}, inclusive
-	 */
-	public static boolean isOn2ndRank(byte index) {
-		return index >= A2 && index <= H2;
-	}
-
-	/**
 	 * Used for checking whether the given {@code index} is on the 3rd rank (A3–H3).
 	 *
 	 * @param index the board index to check
@@ -1114,28 +1080,6 @@ public class Field {
 	}
 
 	/**
-	 * Used for checking whether the given {@code index} is on the 4th rank (A4–H4).
-	 *
-	 * @param index the board index to check
-	 * @return {@code true} if {@code index} lies between {@link #A4} and
-	 *         {@link #H4}, inclusive
-	 */
-	public static boolean isOn4thRank(byte index) {
-		return index >= A4 && index <= H4;
-	}
-
-	/**
-	 * Used for checking whether the given {@code index} is on the 5th rank (A5–H5).
-	 *
-	 * @param index the board index to check
-	 * @return {@code true} if {@code index} lies between {@link #A5} and
-	 *         {@link #H5}, inclusive
-	 */
-	public static boolean isOn5thRank(byte index) {
-		return index >= A5 && index <= H5;
-	}
-
-	/**
 	 * Used for checking whether the given {@code index} is on the 6th rank (A6–H6).
 	 *
 	 * @param index the board index to check
@@ -1144,28 +1088,6 @@ public class Field {
 	 */
 	public static boolean isOn6thRank(byte index) {
 		return index >= A6 && index <= H6;
-	}
-
-	/**
-	 * Used for checking whether the given {@code index} is on the 7th rank (A7–H7).
-	 *
-	 * @param index the board index to check
-	 * @return {@code true} if {@code index} lies between {@link #A7} and
-	 *         {@link #H7}, inclusive
-	 */
-	public static boolean isOn7thRank(byte index) {
-		return index >= A7 && index <= H7;
-	}
-
-	/**
-	 * Used for checking whether the given {@code index} is on the 8th rank (A8–H8).
-	 *
-	 * @param index the board index to check
-	 * @return {@code true} if {@code index} lies between {@link #A8} and
-	 *         {@link #H8}, inclusive
-	 */
-	public static boolean isOn8thRank(byte index) {
-		return index >= A8 && index <= H8;
 	}
 
 	/**
@@ -1188,37 +1110,6 @@ public class Field {
 			return "-";
 		}
 		return new String(new char[] { (char) ('a' + index % 8), (char) ('0' + 8 - index / 8) });
-	}
-
-	/**
-	 * Used for inverting a 0-based board index (0 through 63), effectively
-	 * mirroring the square's position across the board.
-	 * <p>
-	 * For example, in a standard 8x8 board indexing scheme: A8 (index 0) becomes H1
-	 * (index 63), H1 (index 63) becomes A8 (index 0).
-	 * </p>
-	 *
-	 * @param index the board index to invert
-	 * @return the inverted board index, calculated as {@code 63 - index}
-	 */
-	public static byte invert(byte index) {
-		return (byte) (63 - index);
-	}
-
-	/**
-	 * Used for inverting a 0-based board index (0 through 63) when represented as
-	 * an integer, effectively mirroring the square's position across the board.
-	 *
-	 * <p>
-	 * This behaves the same as the byte-based version, but returns an {@code int}
-	 * for scenarios where an integer-based operation is needed.
-	 * </p>
-	 *
-	 * @param index the board index to invert, given as an integer
-	 * @return the inverted board index, calculated as {@code 63 - index}
-	 */
-	public static int invert(int index) {
-		return 63 - index;
 	}
 
 	/**
@@ -1249,28 +1140,6 @@ public class Field {
 	 */
 	public static byte downrank(byte index) {
 		return (byte) (index - 8);
-	}
-
-	/**
-	 * Used for calculating the right square of the index.
-	 *
-	 * @implNote This method does not check for out-of-bounds conditions.
-	 * @return The right square of the index
-	 * @param index zero-based index
-	 */
-	public static byte rightOf(byte index) {
-		return (byte) (index + 1);
-	}
-
-	/**
-	 * Used for calculating the left square of the index.
-	 *
-	 * @implNote This method does not check for out-of-bounds conditions.
-	 * @return The left square of the index
-	 * @param index zero-based index
-	 */
-	public static byte leftOf(byte index) {
-		return (byte) (index - 1);
 	}
 
 	/**
@@ -1311,26 +1180,6 @@ public class Field {
 	 */
 	public static byte[][] getNeighbors() {
 		return NEIGHBORS;
-	}
-
-	/**
-	 * Provides the cached forward push targets for white pawns.
-	 *
-	 * @return two-dimensional array where each entry lists the squares a white
-	 *         pawn can push to (one or two steps) from the given source square.
-	 */
-	public static byte[][] getPawnPushWhite() {
-		return PAWN_PUSH_WHITE;
-	}
-
-	/**
-	 * Provides the cached forward push targets for black pawns.
-	 *
-	 * @return two-dimensional array where each entry lists the squares a black
-	 *         pawn can push to (one or two steps) from the given source square.
-	 */
-	public static byte[][] getPawnPushBlack() {
-		return PAWN_PUSH_BLACK;
 	}
 
 	/**

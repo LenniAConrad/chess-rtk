@@ -288,26 +288,6 @@ public final class PositionListEditor {
     }
 
     /**
-     * Returns a validation message, or an empty string when ready.
-     *
-     * @return validation message
-     */
-    public String validationMessage() {
-        if (mode == BatchInputKind.COMMAND_LINES) {
-            CommandScriptSummary scan = scanCommandScript();
-            if (scan.commands() == 0) {
-                return "Add at least one command";
-            }
-            return scan.hasError() ? "Line " + scan.firstErrorLine() + ": " + scan.firstError() : "";
-        }
-        FenInput.Summary scan = FenInput.validateBatchFenInput(input.getText());
-        if (scan.rows() == 0) {
-            return "Add at least one FEN";
-        }
-        return scan.hasError() ? "Line " + scan.firstErrorLine() + ": " + scan.firstError() : "";
-    }
-
-    /**
      * Appends one FEN line, ensuring it starts on a fresh row.
      *
      * @param fen FEN to append

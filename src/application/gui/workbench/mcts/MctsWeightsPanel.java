@@ -3,7 +3,6 @@ package application.gui.workbench.mcts;
 import application.gui.workbench.board.BoardStyle;
 import application.gui.workbench.network.TensorViz;
 import application.gui.workbench.ui.NotationPainter;
-import application.gui.workbench.ui.ScrollableSupport;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import chess.core.Move;
@@ -306,7 +305,7 @@ public final class MctsWeightsPanel extends JComponent implements Scrollable {
      */
     @Override
     public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) {
-        return ScrollableSupport.verticalBlockIncrement(visibleRect, ROW_STRIDE);
+        return Ui.verticalScrollableBlockIncrement(visibleRect, ROW_STRIDE);
     }
 
     /**

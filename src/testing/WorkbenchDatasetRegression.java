@@ -163,6 +163,10 @@ final class WorkbenchDatasetRegression {
         assertTrue(coverageInsight.getText().contains("Tags 50%"),
                 "dataset coverage insight reports tag ratio");
         assertLoadedSplitKeepsTablesNearCharts(panel);
+        assertFalse(hasLabelText(panel, "Dataset Health"),
+                "dataset overview does not show the removed health donut card");
+        assertTrue(hasLabelText(panel, "Side Balance"),
+                "dataset overview keeps the neighboring analytics cards");
         assertTableHoverCoversCustomCells((JTable) field(panel, "sampleTable"));
         panel.applySummary(new DatasetSummary(Path.of("bad.txt"), 1, 1L, 0L, 1L, 0L, 0L, 0L,
                 0L, 0L, 0L, 0L, 0L, 0, 0, 0.0d,
@@ -297,18 +301,23 @@ final class WorkbenchDatasetRegression {
 
             JComponent spinner = (JComponent) field(panel, "loadingSpinner");
             JLabel title = (JLabel) field(panel, "loadingTitle");
-            JLabel fileValue = (JLabel) field(panel, "loadingFileValue");
-            JComponent progressCard = ancestor(fileValue, "application.gui.workbench.ui.Card");
+            JLabel hint = (JLabel) field(panel, "loadingHint");
             JComponent cancel = actionByLabel(panel, "Cancel Scan");
             int center = panel.getWidth() / 2;
 
             assertNear(center, centerX(panel, spinner), 2, "dataset loading spinner is centered");
             assertNear(center, centerX(panel, title), 2, "dataset loading title is centered");
-            assertNear(center, centerX(panel, progressCard), 2, "dataset loading progress card is centered");
+            assertNear(center, centerX(panel, hint), 2, "dataset loading hint is centered");
             assertNear(center, centerX(panel, cancel), 2, "dataset loading cancel action is centered");
-            assertTrue(progressCard.getWidth() <= 760, "dataset loading card width is bounded");
-            assertTrue(fileValue.getText().endsWith("..."), "dataset loading file path is clipped");
-            assertEquals(source.toString(), fileValue.getToolTipText(), "dataset loading file tooltip keeps full path");
+            assertEquals("Scanning dataset", title.getText(), "dataset loading title is simple");
+            assertTrue(hint.getText().startsWith("Checking positions"),
+                    "dataset loading hint stays user-facing");
+            assertFalse(title.getText().contains("standard-"),
+                    "dataset loading title omits technical file names");
+            assertFalse(hasLabelText(panel, "Scan Progress"),
+                    "dataset loading state omits the scan-progress detail card");
+            assertFalse(hasLabelText(panel, "available after scan"),
+                    "dataset loading state omits deferred placeholder values");
         } finally {
             WorkbenchTestSupport.invoke(panel, "setBusy", new Class<?>[] { boolean.class }, Boolean.FALSE);
         }
@@ -400,6 +409,25 @@ final class WorkbenchDatasetRegression {
             }
         }
         throw new AssertionError("missing action " + text);
+    }
+
+    /**
+     * Returns whether a label with exact text exists in a component tree.
+     *
+     * @param root root component
+     * @param text label text
+     * @return true when a matching label exists
+     */
+    private static boolean hasLabelText(Container root, String text) {
+        for (Component child : root.getComponents()) {
+            if (child instanceof JLabel label && text.equals(label.getText())) {
+                return true;
+            }
+            if (child instanceof Container container && hasLabelText(container, text)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

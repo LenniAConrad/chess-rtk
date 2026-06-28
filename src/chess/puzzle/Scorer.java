@@ -1584,18 +1584,6 @@ public final class Scorer {
      * @return difficulty label
      */
     /**
-     * Formats the solution move as SAN when available.
-     *
-     * @param root root position
-     * @param move solution move
-     * @return SAN or UCI fallback
-     */
-    public static String solutionSan(Position root, short move) {
-        return ScorerSupport.solutionSan(root, move);
-    }
-
-
-    /**
      * Minimal material/tempo evaluator used when the full classical evaluator is not
      * on the classpath.
      *

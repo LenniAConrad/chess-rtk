@@ -11,7 +11,7 @@ import javax.swing.text.StyledDocument;
 /**
  * Lightweight TOML syntax highlighter for read-only workbench config previews.
  */
-public final class TomlHighlighter {
+final class TomlHighlighter {
 
     /**
      * Prevents instantiation.

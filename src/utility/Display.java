@@ -244,21 +244,6 @@ public class Display extends JFrame {
 	}
 
 	/**
-	 * Used for updating the displayed image after construction.
-	 *
-	 * <p>Resets cached scaling state and triggers a repaint of the panel.</p>
-	 *
-	 * @param image the new {@code BufferedImage} to display
-	 * @return this {@code Display} instance for method chaining
-	 * @throws NullPointerException if {@code image} is {@code null}
-	 */
-	public Display setImage(BufferedImage image) {
-		imageDisplay.setImageSource(imageSource(image));
-		repaint();
-		return this;
-	}
-
-	/**
 	 * Used for updating the displayed redrawable source after construction.
 	 *
 	 * @param source the new source to display

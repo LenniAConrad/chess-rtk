@@ -22,7 +22,7 @@ import javax.swing.Timer;
  * stretches horizontally but keeps a fixed compact height so it drops cleanly
  * into a {@code BoxLayout} card body.</p>
  */
-public final class MiniChart extends JComponent {
+final class MiniChart extends JComponent {
 
     /**
      * Serialization identifier for Swing component compatibility.

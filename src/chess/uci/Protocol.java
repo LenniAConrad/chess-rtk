@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
-import utility.Dates;
 import utility.Toml;
 
 /**
@@ -489,75 +488,12 @@ public class Protocol {
 	}
 
 	/**
-	 * Used for determining the UCI 'isready' command.
-	 *
-	 * @return The UCI 'isready' command
-	 */
-	public String getIsready() {
-		return isready;
-	}
-
-	/**
 	 * Used for determining the {@code Engine} name.
 	 *
 	 * @return the {@code Engine} name
 	 */
 	public String getName() {
 		return name;
-	}
-
-	/**
-	 * Used for determining the UCI 'newgame' command.
-	 *
-	 * @return The UCI 'newgame' command
-	 */
-	public String getNewGame() {
-		return newGame;
-	}
-
-	/**
-	 * Used for determining the UCI 'readyok' response.
-	 *
-	 * @return The UCI 'readyok' response
-	 */
-	public String getReadyok() {
-		return readyok;
-	}
-
-	/**
-	 * Used for determining the UCI 'go depth ' command.
-	 *
-	 * @return The UCI 'go depth ' command
-	 */
-	public String getSearchDepth() {
-		return searchDepth;
-	}
-
-	/**
-	 * Used for determining the UCI 'go nodes ' command.
-	 *
-	 * @return The UCI 'go nodes ' command
-	 */
-	public String getSearchNodes() {
-		return searchNodes;
-	}
-
-	/**
-	 * Used for determining the UCI 'go movetime ' command (milliseconds).
-	 *
-	 * @return The UCI 'go movetime ' command
-	 */
-	public String getSearchTime() {
-		return searchTime;
-	}
-
-	/**
-	 * Used for determining the UCI command to enable Chess960.
-	 *
-	 * @return The UCI command to enable Chess960
-	 */
-	public String getSetChess960() {
-		return setChess960;
 	}
 
 	/**
@@ -579,16 +515,6 @@ public class Protocol {
 	}
 
 	/**
-	 * Used for determining the UCI command for setting the chess {@code Position}
-	 * as a FEN.
-	 *
-	 * @return The UCI command for setting the chess {@code Position} as a FEN
-	 */
-	public String getSetPosition() {
-		return setPosition;
-	}
-
-	/**
 	 * Used for determining the UCI command to set the thread amount used by the
 	 * {@code Engine}.
 	 *
@@ -599,57 +525,12 @@ public class Protocol {
 	}
 
 	/**
-	 * Used for determining the changes made to the {@code Engine}.
-	 *
-	 * @return The changes made to the {@code Engine}
-	 */
-	public String getSettings() {
-		return settings;
-	}
-
-	/**
-	 * Used for retrieving the value of showUci.
-	 *
-	 * @return the showUci value
-	 */
-	public String getShowUci() {
-		return showUci;
-	}
-
-	/**
-	 * Used for retrieving the UCI initialization response.
-	 *
-	 * @return the uciok response token
-	 */
-	public String getUciok() {
-		return uciok;
-	}
-
-	/**
 	 * Used for retrieving the value of showWinDrawLoss.
 	 *
 	 * @return the showWinDrawLoss value
 	 */
 	public String getShowWinDrawLoss() {
 		return showWinDrawLoss;
-	}
-
-	/**
-	 * Used for retrieving the value of stop.
-	 *
-	 * @return the stop value
-	 */
-	public String getStop() {
-		return stop;
-	}
-
-	/**
-	 * Used for retrieving the setup commands for the engine.
-	 *
-	 * @return the setup commands
-	 */
-	public String[] getSetup() {
-		return setup == null ? null : Arrays.copyOf(setup, setup.length);
 	}
 
 	/**
@@ -664,17 +545,6 @@ public class Protocol {
 	}
 
 	/**
-	 * Used for setting the isready command and returning this protocol instance.
-	 *
-	 * @param isready the UCI readiness check command
-	 * @return this Protocol instance
-	 */
-	public Protocol setIsready(String isready) {
-		this.isready = isready;
-		return this;
-	}
-
-	/**
 	 * Used for setting the engine name and returning this protocol instance.
 	 *
 	 * @param name the name of the engine
@@ -682,64 +552,6 @@ public class Protocol {
 	 */
 	public Protocol setName(String name) {
 		this.name = name;
-		return this;
-	}
-
-	/**
-	 * Used for setting the newGame command and returning this protocol instance.
-	 *
-	 * @param newGame the UCI new game command
-	 * @return this Protocol instance
-	 */
-	public Protocol setNewGame(String newGame) {
-		this.newGame = newGame;
-		return this;
-	}
-
-	/**
-	 * Used for setting the readyok response and returning this protocol instance.
-	 *
-	 * @param readyok the UCI ready response
-	 * @return this Protocol instance
-	 */
-	public Protocol setReadyok(String readyok) {
-		this.readyok = readyok;
-		return this;
-	}
-
-	/**
-	 * Used for setting the searchDepth command and returning this protocol
-	 * instance.
-	 *
-	 * @param searchDepth the UCI search depth command
-	 * @return this Protocol instance
-	 */
-	public Protocol setSearchDepth(String searchDepth) {
-		this.searchDepth = searchDepth;
-		return this;
-	}
-
-	/**
-	 * Used for setting the searchNodes command and returning this protocol
-	 * instance.
-	 *
-	 * @param searchNodes the UCI search nodes command
-	 * @return this Protocol instance
-	 */
-	public Protocol setSearchNodes(String searchNodes) {
-		this.searchNodes = searchNodes;
-		return this;
-	}
-
-	/**
-	 * Used for setting the searchTime command and returning this protocol instance.
-	 *
-	 * @param searchTime the UCI fixed-time search command (must contain exactly one
-	 *                   %d)
-	 * @return this Protocol instance
-	 */
-	public Protocol setSearchTime(String searchTime) {
-		this.searchTime = searchTime;
 		return this;
 	}
 
@@ -756,54 +568,6 @@ public class Protocol {
 	}
 
 	/**
-	 * Used for setting the setHashSize command and returning this protocol
-	 * instance.
-	 *
-	 * @param setHashSize the UCI hash size setting command
-	 * @return this Protocol instance
-	 */
-	public Protocol setSetHashSize(String setHashSize) {
-		this.setHashSize = setHashSize;
-		return this;
-	}
-
-	/**
-	 * Used for setting the setMultiPivotAmount command and returning this protocol
-	 * instance.
-	 *
-	 * @param setMultiPivotAmount the UCI multipv setting command
-	 * @return this Protocol instance
-	 */
-	public Protocol setSetMultiPivotAmount(String setMultiPivotAmount) {
-		this.setMultiPivotAmount = setMultiPivotAmount;
-		return this;
-	}
-
-	/**
-	 * Used for setting the setPosition command and returning this protocol
-	 * instance.
-	 *
-	 * @param setPosition the UCI set position command
-	 * @return this Protocol instance
-	 */
-	public Protocol setSetPosition(String setPosition) {
-		this.setPosition = setPosition;
-		return this;
-	}
-
-	/**
-	 * Used for setting the setThreadAmount command and returning this protocol
-	 * instance.
-	 *
-	 * @param setThreadAmount the UCI thread amount setting command
-	 * @return this Protocol instance
-	 */
-	public Protocol setSetThreadAmount(String setThreadAmount) {
-		this.setThreadAmount = setThreadAmount;
-		return this;
-	}
-
-	/**
 	 * Used for setting the engine settings and returning this protocol instance.
 	 *
 	 * @param engineSettings the custom engine settings
@@ -811,52 +575,6 @@ public class Protocol {
 	 */
 	public Protocol setSettings(String engineSettings) {
 		this.settings = engineSettings;
-		return this;
-	}
-
-	/**
-	 * Used for setting the showUci command and returning this protocol instance.
-	 *
-	 * @param showUci the UCI show options command
-	 * @return this Protocol instance
-	 */
-	public Protocol setShowUci(String showUci) {
-		this.showUci = showUci;
-		return this;
-	}
-
-	/**
-	 * Used for setting the UCI initialization response and returning this protocol
-	 * instance.
-	 *
-	 * @param uciok the UCI initialization response
-	 * @return this Protocol instance
-	 */
-	public Protocol setUciok(String uciok) {
-		this.uciok = uciok;
-		return this;
-	}
-
-	/**
-	 * Used for setting the showWinDrawLoss command and returning this protocol
-	 * instance.
-	 *
-	 * @param showWinDrawLoss the UCI ShowWDL setting command
-	 * @return this Protocol instance
-	 */
-	public Protocol setShowWinDrawLoss(String showWinDrawLoss) {
-		this.showWinDrawLoss = showWinDrawLoss;
-		return this;
-	}
-
-	/**
-	 * Used for setting the stop command and returning this protocol instance.
-	 *
-	 * @param stop the UCI stop command
-	 * @return this Protocol instance
-	 */
-	public Protocol setStop(String stop) {
-		this.stop = stop;
 		return this;
 	}
 
@@ -870,109 +588,6 @@ public class Protocol {
 	public Protocol setSetup(String[] setup) {
 		this.setup = setup == null ? null : Arrays.copyOf(setup, setup.length);
 		return this;
-	}
-
-	/**
-	 * Used for generating a TOML representation with aligned keys, values, and
-	 * comments.
-	 *
-	 * @return the formatted TOML string
-	 */
-	public String toTOML() {
-		StringBuilder sb = new StringBuilder();
-
-		// Header
-		sb.append("#\n");
-		sb.append("# Chess-Engine UCI Protocol configuration for '").append(name).append("'\n");
-		sb.append("# (created " + Dates.getTimestamp() + ")\n");
-		sb.append("#\n\n");
-		sb.append("# %d → integer      %s → string      %b → boolean\n");
-		sb.append("# Can only ever contain up to one %d, %s or %b\n\n");
-
-		// Collect entries: key constant, value, comment
-		List<String[]> entries = Arrays.asList(
-				new String[] { KEY_PATH, path, "Used for identifying the key for the engine executable path." },
-				new String[] { KEY_NAME, name, "Used for identifying the key for the engine name. (not essential)" },
-				new String[] { KEY_SETTINGS, settings,
-						"Used for identifying the key for the engine's configuration overrides. (not essential)" },
-				new String[] { KEY_ISREADY, isready, "Used for identifying the key for the UCI isready command." },
-				new String[] { KEY_READYOK, readyok, "Used for identifying the key for the UCI readyok response." },
-				new String[] { KEY_SEARCH_DEPTH, searchDepth,
-						"Used for identifying the key for the UCI search depth command." },
-				new String[] { KEY_SEARCH_NODES, searchNodes,
-						"Used for identifying the key for the UCI search nodes command." },
-				new String[] { KEY_SEARCH_TIME, searchTime,
-						"Used for identifying the key for the UCI fixed-time search command (milliseconds). (not essential)" },
-				new String[] { KEY_POSITION, setPosition,
-						"Used for identifying the key for the UCI position command." },
-				new String[] { KEY_STOP, stop, "Used for identifying the key for the UCI stop command." },
-				new String[] { KEY_NEW_GAME, newGame,
-						"Used for identifying the key for the UCI new game command. (not essential)" },
-				new String[] { KEY_SHOW_UCI, showUci,
-						"Used for identifying the key for displaying UCI options." },
-				new String[] { KEY_UCIOK, uciok,
-						"Used for identifying the key for the UCI initialization response." },
-				new String[] { KEY_CHESS960, setChess960,
-						"Used for identifying the key for enabling or disabling Chess960. (not essential)" },
-				new String[] { KEY_HASH_SIZE, setHashSize,
-						"Used for identifying the key for setting the transposition table size. (not essential)" },
-				new String[] { KEY_MULTI_PIVOT_AMOUNT, setMultiPivotAmount,
-						"Used for identifying the key for setting the number of multi-pivot variations. (not essential)" },
-				new String[] { KEY_THREAD_AMOUNT, setThreadAmount,
-						"Used for identifying the key for setting the thread count. (not essential)" },
-				new String[] { KEY_SHOW_WDL, showWinDrawLoss,
-						"Used for identifying the key for enabling or disabling WDL stats. (not essential)" });
-
-		// Determine max key length
-		int maxKeyLen = 0;
-		for (String[] e : entries) {
-			maxKeyLen = Math.max(maxKeyLen, e[0].length());
-		}
-
-		// Build prefixes and find max prefix length
-		List<String> prefixes = new ArrayList<>();
-		int maxPrefixLen = 0;
-		for (String[] e : entries) {
-			String key = e[0];
-			String val = e[1];
-			// pad between key and = for alignment (min 3 spaces + dynamic)
-			int padKey = (maxKeyLen - key.length()) + 3;
-			StringBuilder pfx = new StringBuilder();
-			pfx.append(key);
-			for (int i = 0; i < padKey; i++)
-				pfx.append(' ');
-			pfx.append("= \"").append(val).append("\"");
-			String prefix = pfx.toString();
-			prefixes.add(prefix);
-			maxPrefixLen = Math.max(maxPrefixLen, prefix.length());
-		}
-
-		// Append entries with aligned comments
-		for (int i = 0; i < entries.size(); i++) {
-			String prefix = prefixes.get(i);
-			sb.append(prefix);
-			int padComment = (maxPrefixLen - prefix.length()) + 3;
-			for (int j = 0; j < padComment; j++)
-				sb.append(' ');
-			sb.append("# ").append(entries.get(i)[2]).append("\n");
-		}
-
-		// Setup section
-		sb.append("\n# The inputs that will be fed into the Engine once it is ready (Optional)\n");
-		sb.append(KEY_SETUP).append(" = [\n");
-		if (setup != null) {
-			for (int i = 0; i < setup.length; i++) {
-				sb.append("   \"").append(setup[i]).append("\"");
-				if (i + 1 < setup.length) {
-					sb.append(",\n");
-				} else {
-					sb.append("\n");
-				}
-			}
-		}
-		sb.append("]\n");
-
-		return sb.toString();
 	}
 
 	/**

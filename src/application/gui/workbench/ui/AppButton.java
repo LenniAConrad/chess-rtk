@@ -8,7 +8,7 @@ import javax.swing.JButton;
 /**
  * Factory for the shared Workbench action button primitive.
  */
-public final class AppButton {
+final class AppButton {
 
     /**
      * Prevents instantiation.

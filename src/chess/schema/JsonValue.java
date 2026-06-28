@@ -156,16 +156,6 @@ public final class JsonValue {
 	}
 
 	/**
-	 * Returns a JSON integer wrapping the given long value.
-	 *
-	 * @param value integer payload
-	 * @return JSON number flagged as integer
-	 */
-	public static JsonValue ofInteger(long value) {
-		return new JsonValue(Kind.NUMBER, false, (double) value, true, null, null, null);
-	}
-
-	/**
 	 * Returns a JSON number wrapping the given double, marking the integer flag accordingly.
 	 *
 	 * @param value     numeric payload (must be finite)

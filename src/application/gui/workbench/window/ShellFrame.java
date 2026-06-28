@@ -2,7 +2,7 @@ package application.gui.workbench.window;
 
 import application.gui.workbench.layout.EditorSplitArea;
 import application.gui.workbench.layout.SplitPaneStyler;
-import application.gui.workbench.game.StudyRepository;
+import application.gui.workbench.study.StudyRepository;
 import application.gui.workbench.session.Job;
 import application.gui.workbench.session.JobStatus;
 import application.gui.workbench.session.Session;
@@ -57,6 +57,11 @@ final class ShellFrame extends JPanel {
      * Left navigator width in pixels.
      */
     private static final int NAVIGATOR_WIDTH = 236;
+
+    /**
+     * VS Code-style left activity bar width in pixels.
+     */
+    private static final int ACTIVITY_BAR_WIDTH = 48;
 
     /**
      * Right inspector width in pixels.
@@ -122,6 +127,11 @@ final class ShellFrame extends JPanel {
      * Navigator rows that mirror the selected editor tab.
      */
     private final List<NavigatorRow> navigatorRows = new ArrayList<>();
+
+    /**
+     * Activity-bar buttons that mirror the selected editor tab.
+     */
+    private final List<ActivityButton> activityButtons = new ArrayList<>();
 
     /**
      * Inspector key/value host.
@@ -213,6 +223,9 @@ final class ShellFrame extends JPanel {
         refreshChromeBackgrounds(this);
         latestOutput.setBackground(Theme.TERMINAL);
         latestOutput.setForeground(Theme.TERMINAL_TEXT);
+        for (ActivityButton button : activityButtons) {
+            button.repaint();
+        }
         for (NavigatorRow row : navigatorRows) {
             row.repaint();
         }
@@ -226,6 +239,9 @@ final class ShellFrame extends JPanel {
      */
     void refreshSelection() {
         int selected = tabs == null ? -1 : tabs.selectedIndex();
+        for (ActivityButton button : activityButtons) {
+            button.setSelected(button.selectedForTab() && button.tabIndex() == selected);
+        }
         for (NavigatorRow row : navigatorRows) {
             row.setSelected(row.selectedForTab() && row.tabIndex() == selected);
         }
@@ -326,21 +342,74 @@ final class ShellFrame extends JPanel {
      * @return shell component
      */
     private JComponent buildShell() {
-        JComponent navigator = buildNavigator();
+        JComponent sidebar = buildSidebar();
         JComponent inspector = buildInspector();
         JSplitPane editorAndInspector = SplitPaneStyler.styledHorizontalSplit(tabs, inspector, 0.78d);
         editorAndInspector.setResizeWeight(1.0d);
         editorAndInspector.setDividerLocation(0.78d);
 
-        JSplitPane withNavigator = SplitPaneStyler.styledHorizontalSplit(navigator, editorAndInspector, 0.16d);
+        JSplitPane withNavigator = SplitPaneStyler.styledHorizontalSplit(sidebar, editorAndInspector, 0.18d);
         withNavigator.setResizeWeight(0.0d);
-        withNavigator.setDividerLocation(NAVIGATOR_WIDTH);
+        withNavigator.setDividerLocation(ACTIVITY_BAR_WIDTH + NAVIGATOR_WIDTH);
 
         runDock = buildRunDock();
         mainAndRunSplit = SplitPaneStyler.styledVerticalSplit(withNavigator, runDock, 0.80d);
         mainAndRunSplit.setResizeWeight(1.0d);
         mainAndRunSplit.setDividerLocation(0.80d);
         return mainAndRunSplit;
+    }
+
+    /**
+     * Builds the left VS Code-style activity bar plus Explorer sidebar.
+     *
+     * @return sidebar component
+     */
+    private JComponent buildSidebar() {
+        JPanel panel = shellPanel();
+        panel.setPreferredSize(new Dimension(ACTIVITY_BAR_WIDTH + NAVIGATOR_WIDTH, 1));
+        panel.setMinimumSize(new Dimension(ACTIVITY_BAR_WIDTH + 188, 1));
+        panel.add(buildActivityBar(), BorderLayout.WEST);
+        panel.add(buildNavigator(), BorderLayout.CENTER);
+        panel.add(new SidebarSeparator(), BorderLayout.EAST);
+        return panel;
+    }
+
+    /**
+     * Builds the left activity bar.
+     *
+     * @return activity bar component
+     */
+    private JComponent buildActivityBar() {
+        JPanel bar = shellPanel();
+        bar.setPreferredSize(new Dimension(ACTIVITY_BAR_WIDTH, 1));
+        bar.setMinimumSize(new Dimension(ACTIVITY_BAR_WIDTH, 1));
+
+        JPanel content = verticalPanel();
+        content.add(Box.createVerticalStrut(Theme.SPACE_SM));
+        content.add(activityButton("Explorer", WindowBase.TAB_DASHBOARD, "Open Explorer",
+                this::emptyCount, true));
+        content.add(activityButton("Board", WindowBase.TAB_BOARD, "Open Board",
+                this::currentGameCount, true));
+        content.add(activityButton("Studies", WindowBase.TAB_STUDIES, "Open Studies",
+                this::studyCount, true, this::openStudyLibrary));
+        content.add(activityButton("Run", WindowBase.TAB_RUN, "Open Run Center",
+                this::activeRunCount, true));
+        content.add(activityButton("Engine", WindowBase.TAB_ENGINE, "Open Engine Lab",
+                this::activeRunCount, true));
+        content.add(activityButton("Data", WindowBase.TAB_DATASETS, "Open Datasets",
+                this::artifactCount, true));
+        content.add(activityButton("Publish", WindowBase.TAB_PUBLISH, "Open Publish",
+                this::artifactCount, true));
+        content.add(Box.createVerticalGlue());
+        content.add(activityButton("Console", WindowBase.TAB_CONSOLE, "Open Console",
+                this::emptyCount, true, showConsole));
+        content.add(activityButton("Logs", WindowBase.TAB_LOGS, "Open Logs",
+                this::jobHistoryCount, true, showLogs));
+        content.add(Box.createVerticalStrut(Theme.SPACE_SM));
+
+        bar.add(content, BorderLayout.CENTER);
+        bar.add(new SidebarSeparator(), BorderLayout.EAST);
+        return bar;
     }
 
     /**
@@ -362,11 +431,10 @@ final class ShellFrame extends JPanel {
         JPanel panel = shellPanel();
         panel.setPreferredSize(new Dimension(NAVIGATOR_WIDTH, 1));
         panel.setMinimumSize(new Dimension(188, 1));
-        panel.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, Theme.LINE));
 
         JPanel content = verticalPanel();
         content.setBorder(Theme.pad(Theme.SPACE_MD, Theme.SPACE_MD, Theme.SPACE_SM, Theme.SPACE_MD));
-        content.add(sectionLabel("NAVIGATOR"));
+        content.add(sectionLabel("EXPLORER"));
         content.add(navRow("Project Home", WindowBase.TAB_DASHBOARD, "Home",
                 this::emptyCount, true));
         content.add(Box.createVerticalStrut(Theme.SPACE_MD));
@@ -383,7 +451,7 @@ final class ShellFrame extends JPanel {
                         this::zeroCount, false)));
         content.add(Box.createVerticalStrut(Theme.SPACE_SM));
         content.add(navigatorSection("STUDIES", true,
-                navRow("My Studies", WindowBase.TAB_BOARD,
+                navRow("My Studies", WindowBase.TAB_STUDIES,
                         "Open local PGN-backed study books and create a starter study",
                         this::studyCount, false, this::openStudyLibrary),
                 navRow("Endgames", WindowBase.TAB_BOARD, "Endgame-oriented tags and tablebase state",
@@ -455,6 +523,41 @@ final class ShellFrame extends JPanel {
                 selectedForTab, action);
         navigatorRows.add(row);
         return row;
+    }
+
+    /**
+     * Builds one activity-bar button.
+     *
+     * @param text visible/accessibility label
+     * @param tabIndex target tab index
+     * @param tooltip tooltip text
+     * @param countSupplier badge count supplier
+     * @param selectedForTab whether this button mirrors tab selection
+     * @return activity button
+     */
+    private JComponent activityButton(String text, int tabIndex, String tooltip,
+            Supplier<String> countSupplier, boolean selectedForTab) {
+        return activityButton(text, tabIndex, tooltip, countSupplier, selectedForTab,
+                () -> selectTab.accept(tabIndex));
+    }
+
+    /**
+     * Builds one activity-bar button with a custom action.
+     *
+     * @param text visible/accessibility label
+     * @param tabIndex target tab index
+     * @param tooltip tooltip text
+     * @param countSupplier badge count supplier
+     * @param selectedForTab whether this button mirrors tab selection
+     * @param action click action
+     * @return activity button
+     */
+    private JComponent activityButton(String text, int tabIndex, String tooltip,
+            Supplier<String> countSupplier, boolean selectedForTab, Runnable action) {
+        ActivityButton button = new ActivityButton(text, tabIndex, tooltip, countSupplier,
+                selectedForTab, action);
+        activityButtons.add(button);
+        return button;
     }
 
     /**
@@ -647,6 +750,9 @@ final class ShellFrame extends JPanel {
         refreshRunRows();
         refreshLatestOutput();
         dockTabs.repaint();
+        for (ActivityButton button : activityButtons) {
+            button.repaint();
+        }
         refreshSelection();
     }
 
@@ -1366,6 +1472,339 @@ final class ShellFrame extends JPanel {
     }
 
     /**
+     * Full-height sidebar hairline separator.
+     */
+    private static final class SidebarSeparator extends JComponent {
+
+        /**
+         * Serialization identifier for Swing compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Returns preferred size.
+         *
+         * @return preferred size
+         */
+        @Override
+        public Dimension getPreferredSize() {
+            return new Dimension(1, 1);
+        }
+
+        /**
+         * Returns minimum size.
+         *
+         * @return minimum size
+         */
+        @Override
+        public Dimension getMinimumSize() {
+            return getPreferredSize();
+        }
+
+        /**
+         * Paints the separator.
+         *
+         * @param graphics graphics context
+         */
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            graphics.setColor(Theme.LINE);
+            graphics.fillRect(0, 0, 1, getHeight());
+        }
+    }
+
+    /**
+     * VS Code-style activity-bar button.
+     */
+    private static final class ActivityButton extends JComponent {
+
+        /**
+         * Serialization identifier for Swing compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Button label.
+         */
+        private final String text;
+
+        /**
+         * Target tab index.
+         */
+        private final int tabIndex;
+
+        /**
+         * Badge count supplier.
+         */
+        private final Supplier<String> countSupplier;
+
+        /**
+         * Whether this button mirrors tab selection.
+         */
+        private final boolean selectedForTab;
+
+        /**
+         * Click action.
+         */
+        private final Runnable action;
+
+        /**
+         * Whether pointer is over the button.
+         */
+        private boolean hovered;
+
+        /**
+         * Whether this button is selected.
+         */
+        private boolean selected;
+
+        /**
+         * Creates an activity button.
+         *
+         * @param text label
+         * @param tabIndex target tab
+         * @param tooltip tooltip
+         * @param countSupplier badge count supplier
+         * @param selectedForTab whether this button mirrors tab selection
+         * @param action click action
+         */
+        ActivityButton(String text, int tabIndex, String tooltip, Supplier<String> countSupplier,
+                boolean selectedForTab, Runnable action) {
+            this.text = text == null ? "" : text;
+            this.tabIndex = tabIndex;
+            this.countSupplier = countSupplier == null ? () -> "" : countSupplier;
+            this.selectedForTab = selectedForTab;
+            this.action = action == null ? () -> { } : action;
+            setName(actionId("workbench.activity", this.text));
+            putClientProperty("workbench.actionId", getName());
+            describe(this, tooltip == null ? this.text : tooltip);
+            getAccessibleContext().setAccessibleName(this.text);
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            setAlignmentX(Component.LEFT_ALIGNMENT);
+            addMouseListener(new MouseAdapter() {
+                /**
+                 * {@inheritDoc}
+                 */
+                @Override
+                public void mouseEntered(MouseEvent event) {
+                    hovered = true;
+                    repaint();
+                }
+
+                /**
+                 * {@inheritDoc}
+                 */
+                @Override
+                public void mouseExited(MouseEvent event) {
+                    hovered = false;
+                    repaint();
+                }
+
+                /**
+                 * {@inheritDoc}
+                 */
+                @Override
+                public void mousePressed(MouseEvent event) {
+                    if (SwingUtilities.isLeftMouseButton(event)) {
+                        ActivityButton.this.action.run();
+                    }
+                }
+            });
+        }
+
+        /**
+         * Returns the target tab index.
+         *
+         * @return tab index
+         */
+        int tabIndex() {
+            return tabIndex;
+        }
+
+        /**
+         * Returns whether this button mirrors tab selection.
+         *
+         * @return true when selected from tab state
+         */
+        boolean selectedForTab() {
+            return selectedForTab;
+        }
+
+        /**
+         * Sets selected state.
+         *
+         * @param value selected state
+         */
+        void setSelected(boolean value) {
+            if (selected != value) {
+                selected = value;
+                repaint();
+            }
+        }
+
+        /**
+         * Returns accessibility metadata for the custom-painted activity button.
+         *
+         * @return accessible context
+         */
+        @Override
+        public AccessibleContext getAccessibleContext() {
+            if (accessibleContext == null) {
+                accessibleContext = new AccessibleJComponent() {
+                    /**
+                     * Serialization identifier for Swing compatibility.
+                     */
+                    private static final long serialVersionUID = 1L;
+                };
+            }
+            return accessibleContext;
+        }
+
+        /**
+         * Returns preferred size.
+         *
+         * @return preferred size
+         */
+        @Override
+        public Dimension getPreferredSize() {
+            return new Dimension(ACTIVITY_BAR_WIDTH, 42);
+        }
+
+        /**
+         * Returns maximum size.
+         *
+         * @return maximum size
+         */
+        @Override
+        public Dimension getMaximumSize() {
+            return getPreferredSize();
+        }
+
+        /**
+         * Paints the activity button.
+         *
+         * @param graphics graphics context
+         */
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            Graphics2D g = (Graphics2D) graphics.create();
+            try {
+                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                int w = getWidth();
+                int h = getHeight();
+                if (hovered) {
+                    g.setColor(Theme.TAB_HOVER);
+                    g.fillRect(0, 0, w, h);
+                }
+                if (selected) {
+                    g.setColor(Theme.ACCENT);
+                    g.fillRoundRect(0, 8, 2, h - 16, 2, 2);
+                }
+                paintIcon(g, w / 2, h / 2);
+                paintBadge(g, w, h);
+            } finally {
+                g.dispose();
+            }
+        }
+
+        /**
+         * Paints a route icon.
+         *
+         * @param g graphics context
+         * @param cx center x
+         * @param cy center y
+         */
+        private void paintIcon(Graphics2D g, int cx, int cy) {
+            g.setColor(selected ? Theme.TEXT : Theme.withAlpha(Theme.MUTED, hovered ? 235 : 185));
+            g.setStroke(new BasicStroke(1.55f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            switch (text) {
+                case "Explorer" -> {
+                    g.drawRoundRect(cx - 8, cy - 9, 13, 17, 2, 2);
+                    g.drawLine(cx - 5, cy - 5, cx + 4, cy - 5);
+                    g.drawLine(cx - 5, cy - 1, cx + 2, cy - 1);
+                }
+                case "Board" -> {
+                    g.drawRect(cx - 8, cy - 8, 16, 16);
+                    g.drawLine(cx, cy - 8, cx, cy + 8);
+                    g.drawLine(cx - 8, cy, cx + 8, cy);
+                }
+                case "Run" -> {
+                    g.drawLine(cx - 6, cy - 8, cx + 7, cy);
+                    g.drawLine(cx + 7, cy, cx - 6, cy + 8);
+                    g.drawLine(cx - 6, cy + 8, cx - 6, cy - 8);
+                }
+                case "Engine" -> {
+                    g.drawOval(cx - 9, cy - 7, 8, 8);
+                    g.drawOval(cx + 1, cy - 1, 8, 8);
+                    g.drawLine(cx - 1, cy - 2, cx + 3, cy + 2);
+                    g.drawLine(cx + 4, cy - 7, cx + 8, cy - 10);
+                }
+                case "Data" -> {
+                    g.drawOval(cx - 8, cy - 8, 16, 6);
+                    g.drawLine(cx - 8, cy - 5, cx - 8, cy + 8);
+                    g.drawLine(cx + 8, cy - 5, cx + 8, cy + 8);
+                    g.drawOval(cx - 8, cy + 5, 16, 6);
+                }
+                case "Publish" -> {
+                    g.drawRoundRect(cx - 7, cy - 9, 13, 17, 2, 2);
+                    g.drawLine(cx - 4, cy - 4, cx + 3, cy - 4);
+                    g.drawLine(cx - 4, cy, cx + 3, cy);
+                    g.drawLine(cx - 4, cy + 4, cx + 1, cy + 4);
+                }
+                case "Console" -> {
+                    g.drawLine(cx - 8, cy - 5, cx - 3, cy);
+                    g.drawLine(cx - 3, cy, cx - 8, cy + 5);
+                    g.drawLine(cx - 1, cy + 6, cx + 8, cy + 6);
+                }
+                case "Logs" -> {
+                    g.drawRoundRect(cx - 8, cy - 8, 16, 16, 3, 3);
+                    g.drawLine(cx - 5, cy - 4, cx + 5, cy - 4);
+                    g.drawLine(cx - 5, cy, cx + 5, cy);
+                    g.drawLine(cx - 5, cy + 4, cx + 3, cy + 4);
+                }
+                default -> g.drawRoundRect(cx - 8, cy - 8, 16, 16, 4, 4);
+            }
+        }
+
+        /**
+         * Paints a compact count badge.
+         *
+         * @param g graphics context
+         * @param width button width
+         * @param height button height
+         */
+        private void paintBadge(Graphics2D g, int width, int height) {
+            String count = countText();
+            if (count.isBlank()) {
+                return;
+            }
+            Font badgeFont = Theme.font(Theme.FONT_MICRO, Font.BOLD);
+            FontMetrics metrics = g.getFontMetrics(badgeFont);
+            String label = Ui.elide(count, metrics, 24);
+            int badgeWidth = Math.max(16, metrics.stringWidth(label) + 7);
+            int badgeHeight = 14;
+            int x = width - badgeWidth - 4;
+            int y = Math.max(2, height / 2 + 2);
+            g.setColor(Theme.STATUS_INFO_TEXT);
+            g.fillRoundRect(x, y, badgeWidth, badgeHeight, badgeHeight, badgeHeight);
+            g.setColor(Theme.PRIMARY_BUTTON_TEXT);
+            int baseline = y + (badgeHeight + metrics.getAscent() - metrics.getDescent()) / 2;
+            new java.awt.font.TextLayout(label, badgeFont, g.getFontRenderContext())
+                    .draw(g, x + (badgeWidth - metrics.stringWidth(label)) / 2, baseline);
+        }
+
+        /**
+         * Returns current count text.
+         *
+         * @return count text, or blank for no badge
+         */
+        private String countText() {
+            String value = countSupplier.get();
+            return value == null || value.isBlank() || "0".equals(value) ? "" : value;
+        }
+    }
+
+    /**
      * Collapsible section in the left navigator.
      */
     private static final class NavigatorSection extends JPanel {
@@ -1833,6 +2272,11 @@ final class ShellFrame extends JPanel {
                 case WindowBase.TAB_RUN, WindowBase.TAB_CONSOLE, WindowBase.TAB_LOGS -> {
                     g.drawLine(cx - 4, cy - 5, cx + 5, cy);
                     g.drawLine(cx + 5, cy, cx - 4, cy + 5);
+                }
+                case WindowBase.TAB_STUDIES -> {
+                    g.drawRoundRect(cx - 5, cy - 5, 10, 10, 2, 2);
+                    g.drawLine(cx - 2, cy - 2, cx + 2, cy - 2);
+                    g.drawLine(cx - 2, cy + 1, cx + 2, cy + 1);
                 }
                 case WindowBase.TAB_ENGINE -> {
                     g.drawOval(cx - 5, cy - 5, 4, 4);

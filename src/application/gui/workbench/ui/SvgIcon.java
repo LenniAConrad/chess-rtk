@@ -16,7 +16,7 @@ import javax.swing.Icon;
 /**
  * Small native Java2D icons backed by embedded SVG-style vector geometry.
  */
-public final class SvgIcon implements Icon {
+final class SvgIcon implements Icon {
 
     /**
      * Diagnostic logger for unknown button labels.

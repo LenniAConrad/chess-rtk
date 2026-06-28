@@ -208,15 +208,6 @@ public final class Session {
     }
 
     /**
-     * Returns the latest batch-input summary text.
-     *
-     * @return batch summary
-     */
-    public String batchSummary() {
-        return batchSummary;
-    }
-
-    /**
      * Returns the latest environment-health snapshot.
      *
      * @return health snapshot

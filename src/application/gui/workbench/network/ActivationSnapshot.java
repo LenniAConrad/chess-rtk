@@ -61,15 +61,6 @@ public final class ActivationSnapshot implements chess.nn.ActivationSink {
         }
 
         /**
-         * Returns the total number of elements.
-         *
-         * @return size
-         */
-    int size() {
-            return data.length;
-        }
-
-        /**
          * Returns a compact shape label such as "32x64x64".
          *
          * @return shape label

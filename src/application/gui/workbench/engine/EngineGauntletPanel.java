@@ -2,7 +2,6 @@ package application.gui.workbench.engine;
 
 import application.gui.workbench.command.CommandRunner;
 import application.gui.workbench.command.CommandRunner.RunningCommand;
-import application.gui.workbench.ui.CardGrid;
 import application.gui.workbench.ui.FieldValidator;
 import application.gui.workbench.ui.HoldButton;
 import application.gui.workbench.ui.StatusBadge;
@@ -506,7 +505,7 @@ public final class EngineGauntletPanel extends SurfacePanel {
         JPanel page = transparentPanel(new BorderLayout(0, Theme.SPACE_MD));
         page.setBorder(Theme.pad(Theme.SPACE_MD));
 
-        CardGrid setup = new CardGrid(260, Theme.SPACE_MD);
+        JPanel setup = Ui.contentGrid(260);
         setup.add(createEngineConfigCard("Candidate A", true));
         setup.add(createEngineConfigCard("Baseline B", false));
         setup.add(createRunSettingsCard());
@@ -775,7 +774,7 @@ public final class EngineGauntletPanel extends SurfacePanel {
      * @return summary grid
      */
     private JComponent createResultCards() {
-        CardGrid grid = new CardGrid(150, Theme.SPACE_MD);
+        JPanel grid = Ui.contentGrid(150);
         grid.add(scoreMetric);
         grid.add(wdlMetric);
         grid.add(eloMetric);
@@ -791,7 +790,7 @@ public final class EngineGauntletPanel extends SurfacePanel {
      * @return lower result area
      */
     private JComponent createLowerResults() {
-        CardGrid charts = new CardGrid(300, Theme.SPACE_MD);
+        JPanel charts = Ui.contentGrid(300);
         charts.add(card("Result Distribution", distributionChart));
         charts.add(card("Cumulative Score", cumulativeChart));
 

@@ -54,15 +54,6 @@ public final class SavedGameStore {
     }
 
     /**
-     * Returns the backing file path.
-     *
-     * @return path
-     */
-    public Path path() {
-        return path;
-    }
-
-    /**
      * Creates a local id for a new saved game.
      *
      * @return id

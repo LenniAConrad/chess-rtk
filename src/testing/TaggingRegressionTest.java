@@ -1,7 +1,9 @@
 package testing;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
@@ -10,6 +12,10 @@ import java.util.logging.Logger;
 import chess.core.Move;
 import chess.core.MoveList;
 import chess.core.Position;
+import chess.core.SAN;
+import chess.core.Setup;
+import chess.eco.Encyclopedia;
+import chess.eco.Entry;
 import chess.eval.Evaluator;
 import chess.tag.Delta;
 import chess.tag.Sort;
@@ -39,6 +45,8 @@ public final class TaggingRegressionTest {
         testLc0AblationFallbackLogIsContextualAndDeduplicated();
         testStartPosition();
         testOpeningEcoTagsAndInheritance();
+        testBundledEcoBookCoversAllCodes();
+        testBongcloudEcoVariants();
         testBackRankMate();
         testDoubleCheckMatePattern();
         testCornerAndSupportMatePatterns();
@@ -219,6 +227,57 @@ public final class TaggingRegressionTest {
         assertContains(exactWins, "OPENING: name=\"King's Knight Opening: Normal Variation\"");
         assertNotContains(exactWins, "OPENING: eco=B00");
         assertCanonicalTags(exactWins);
+    }
+
+     /**
+     * Verifies every ECO code from A00 through E99 has at least one bundled row.
+     */
+     private static void testBundledEcoBookCoversAllCodes() {
+        Set<String> codes = new HashSet<>();
+        for (Entry entry : Encyclopedia.defaultBook().entries()) {
+            codes.add(entry.getECO());
+        }
+        for (char family = 'A'; family <= 'E'; family++) {
+            for (int number = 0; number <= 99; number++) {
+                String code = family + String.format("%02d", number);
+                if (!codes.contains(code)) {
+                    throw new AssertionError("missing ECO code in bundled book: " + code);
+                }
+            }
+        }
+
+        assertOpeningTag("D72",
+                "1. d4 Nf6 2. c4 g6 3. g3 d5 4. Bg2 Bg7 5. cxd5 Nxd5 6. e4 Nb6 7. Ne2",
+                "Neo-Grünfeld Defense: with g3");
+        assertOpeningTag("D73",
+                "1. d4 Nf6 2. c4 g6 3. g3 d5 4. Bg2 Bg7 5. Nf3",
+                "Neo-Grünfeld Defense: with g3");
+        assertOpeningTag("E57",
+                "1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. e3 O-O 5. Bd3 d5 6. Nf3 c5 7. O-O Nc6 8. a3 dxc4 9. Bxc4 cxd4",
+                "Nimzo-Indian Defense: Normal Variation, Gligoric System, Bernstein Defense");
+        assertOpeningTag("E88",
+                "1. d4 Nf6 2. c4 g6 3. Nc3 Bg7 4. e4 d6 5. f3 O-O 6. Be3 e5 7. d5 c6",
+                "King's Indian Defense: Sämisch Variation, Closed Variation");
+     }
+
+     /**
+     * Verifies Bongcloud ECO rows cover the base, accepted, and declined lines.
+     */
+     private static void testBongcloudEcoVariants() {
+        List<String> base = Generator.tags(afterSan("1. e4 e5 2. Ke2"));
+        assertContains(base, "OPENING: eco=C20");
+        assertContains(base, "OPENING: name=\"Bongcloud Attack\"");
+
+        List<String> accepted = Generator.tags(afterSan("1. e4 e5 2. Ke2 Ke7"));
+        assertContains(accepted, "OPENING: eco=C20");
+        assertContains(accepted, "OPENING: name=\"Bongcloud Attack: Accepted, Countergambit\"");
+
+        List<String> hotbox = Generator.tags(afterSan("1. e4 e5 2. Ke2 Ke7 3. Ke1 Ke8 4. Ke2 Ke7"));
+        assertContains(hotbox, "OPENING: name=\"Bongcloud Attack: Accepted, Countergambit, Hotbox Variation\"");
+
+        List<String> declined = Generator.tags(afterSan("1. e4 e5 2. Ke2 Nc6"));
+        assertContains(declined, "OPENING: eco=C20");
+        assertContains(declined, "OPENING: name=\"Bongcloud Attack: Declined, Two Knights Copacabana Tango\"");
     }
 
      /**
@@ -1332,6 +1391,18 @@ public final class TaggingRegressionTest {
     }
 
      /**
+     * Asserts the ECO tag and opening name for a SAN line.
+     * @param eco expected ECO code
+     * @param movetext SAN movetext from the standard position
+     * @param name expected opening name
+     */
+     private static void assertOpeningTag(String eco, String movetext, String name) {
+        List<String> tags = Generator.tags(afterSan(movetext));
+        assertContains(tags, "OPENING: eco=" + eco);
+        assertContains(tags, "OPENING: name=\"" + name + "\"");
+     }
+
+     /**
      * Asserts that a text contains a snippet.
      * @param text text to render or parse
      * @param expected expected snippet
@@ -1799,6 +1870,24 @@ public final class TaggingRegressionTest {
             }
         }
         throw new AssertionError("illegal move " + uci + " in " + fen);
+    }
+
+    /**
+     * Returns a position after applying SAN movetext from the standard start.
+     * @param movetext SAN movetext
+     * @return position after the SAN line
+     */
+    private static Position afterSan(String movetext) {
+        Position position = Setup.getStandardStartPosition();
+        String cleaned = SAN.cleanMoveString(movetext);
+        if (cleaned.isBlank()) {
+            return position;
+        }
+        for (String token : cleaned.split("\\s+")) {
+            short move = SAN.fromAlgebraic(position, token);
+            position = position.play(move);
+        }
+        return position;
     }
 
     /**

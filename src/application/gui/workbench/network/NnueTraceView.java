@@ -44,10 +44,10 @@ public abstract class NnueTraceView extends NnueOverviewView {
     @Override
     protected void paintDetailed(Graphics2D g, Rectangle body) {
         TensorViz.drawSectionHeader(g,
-    new Rectangle(body.x, body.y, body.width, TRACE_HEADER_H),
+                new Rectangle(body.x, body.y, body.width, TRACE_HEADER_H),
                 "detailed NNUE node graph",
                 isStockfishSnapshot()
-                        ? "Stockfish HalfKA -> transformer -> FC0 hidden + forward skip -> FC1 -> FC2 head"
+                        ? stockfishTraceShapeSummary()
                         : "30 active-feature lanes | raw accumulator -> clipped ReLU -> output contribution -> cp");
         Rectangle ribbon = new Rectangle(body.x, body.y + TRACE_HEADER_H + 8,
                 body.width, TRACE_RIBBON_H);
@@ -160,7 +160,8 @@ public abstract class NnueTraceView extends NnueOverviewView {
      */
     protected void drawStockfishTracePipelineRibbon(Graphics2D g, Rectangle r) {
         float[] usIndices = snapshot.data("nnue.features.us.indices");
-        float[] transformed = snapshot.data("nnue.stockfish.transformed.us");
+        float[] transformed = snapshot.data("nnue.stockfish.transformed");
+        float[] transformedUs = snapshot.data("nnue.stockfish.transformed.us");
         float[] fc0 = snapshot.data("nnue.stockfish.fc0.raw");
         float[] fc1 = snapshot.data("nnue.stockfish.fc1.clipped");
         float[] fc2 = snapshot.data("nnue.stockfish.fc2.contribution");
@@ -181,15 +182,16 @@ public abstract class NnueTraceView extends NnueOverviewView {
         }
 
         drawTraceStage(g, cards[0],
-                "HalfKA inputs",
+                "HalfKAv2_hm inputs",
                 safeLength(usIndices) + " side-to-move active",
                 usIndices, false, TensorViz.POSITIVE,
                 "nnue.features.us.indices", "Stockfish HalfKAv2_hm sparse features.");
         drawTraceStage(g, cards[1],
                 "transformer",
-                safeLength(transformed) + " stm lanes",
-                transformed, false, TensorViz.TRUNK,
-                "nnue.stockfish.transformed.us", "Feature-transformer output for side-to-move half.");
+                stockfishTransformerRibbonDetail(transformed, transformedUs),
+                transformed == null ? transformedUs : transformed, false, TensorViz.TRUNK,
+                transformed == null ? "nnue.stockfish.transformed.us" : "nnue.stockfish.transformed",
+                "Feature-transformer output: side-to-move half followed by opponent half.");
         drawTraceStage(g, cards[2],
                 "FC0",
                 Math.max(0, safeLength(fc0) - 1) + " hidden + fwd",
@@ -213,6 +215,52 @@ public abstract class NnueTraceView extends NnueOverviewView {
                 outputParts == null ? output : outputParts, true, TensorViz.VALUE,
                 outputParts == null ? "nnue.output.centipawns" : "nnue.stockfish.output.parts",
                 "Stockfish output parts: PSQT, FC2 bias, FC2 terms, and FC0 forward branch.");
+    }
+
+    /**
+     * Returns a compact transformer-stage dimension label.
+     *
+     * @param transformed full transformed vector
+     * @param transformedUs side-to-move half
+     * @return display label
+     */
+    protected String stockfishTransformerRibbonDetail(float[] transformed, float[] transformedUs) {
+        int total = safeLength(transformed);
+        int stm = safeLength(transformedUs);
+        if (total > 0 && stm > 0 && total != stm) {
+            return total + " lanes (" + stm + " stm)";
+        }
+        if (total > 0) {
+            return total + " lanes";
+        }
+        return stm + " stm lanes";
+    }
+
+    /**
+     * Returns the first available tensor by key.
+     *
+     * @param preferred preferred tensor key
+     * @param fallback fallback tensor key
+     * @return tensor data, or null
+     */
+    protected float[] preferredData(String preferred, String fallback) {
+        float[] out = snapshot == null ? null : snapshot.data(preferred);
+        return out == null && snapshot != null ? snapshot.data(fallback) : out;
+    }
+
+    /**
+     * Returns the first available tensor shape by key.
+     *
+     * @param preferred preferred tensor key
+     * @param fallback fallback tensor key
+     * @return tensor shape
+     */
+    protected int[] preferredShape(String preferred, String fallback) {
+        int[] out = snapshot == null ? new int[0] : snapshot.shape(preferred);
+        if (out.length == 0 && snapshot != null) {
+            return snapshot.shape(fallback);
+        }
+        return out;
     }
 
     /**
@@ -431,9 +479,13 @@ public abstract class NnueTraceView extends NnueOverviewView {
      */
     protected String stockfishTransformerStageDetail() {
         int stm = safeLength(snapshot.data("nnue.stockfish.transformed.us"));
+        int total = safeLength(snapshot.data("nnue.stockfish.transformed"));
         int shown = Math.min(visibleSlots.length, stm);
         if (stm > 0 && shown > 0 && shown < stm) {
-            return "top " + shown + "/" + stm + " stm";
+            return "top " + shown + "/" + stm + " stm · " + total + " total";
+        }
+        if (total > 0 && stm > 0 && total != stm) {
+            return stm + " stm / " + total + " total";
         }
         return stm + " stm lanes";
     }
@@ -708,6 +760,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
      */
     protected void drawStockfishTransformerColumn(Graphics2D g, NnueTraceLayout layout) {
         float[] transformed = snapshot.data("nnue.stockfish.transformed.us");
+        float[] transformedFull = snapshot.data("nnue.stockfish.transformed");
         if (transformed == null) {
             return;
         }
@@ -720,7 +773,8 @@ public abstract class NnueTraceView extends NnueOverviewView {
             int rad = layout.slotRadius + 2;
             hitRegions.add(new Rectangle(layout.accumCx - rad, y - rad, rad * 2, rad * 2),
                     "Transformer lane " + idx,
-                    "Stockfish feature-transformer output, side-to-move half",
+                    "Stockfish feature-transformer output, side-to-move half of "
+                            + safeLength(transformedFull) + " total lanes",
                     String.format("value %.1f", value));
         }
     }
@@ -913,7 +967,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
     protected void drawStockfishSlotZoom(Graphics2D g, Rectangle r) {
         TensorViz.drawCard(g, r,
                 "lane zoom",
-                selectedSlot >= 0 ? "incoming HalfKA weights and FC0 forward branch"
+                selectedSlot >= 0 ? "incoming HalfKAv2_hm weights and FC0 forward branch"
                         : "click any transformer lane to zoom",
                 TensorViz.FOCUS);
         if (selectedSlot < 0 || selectedSlot >= visibleSlots.length) {
@@ -925,7 +979,9 @@ public abstract class NnueTraceView extends NnueOverviewView {
 
         int lane = visibleSlots[selectedSlot];
         float[] transformed = snapshot.data("nnue.stockfish.transformed.us");
-        float[] fwdWeights = snapshot.data("nnue.stockfish.fc0.weights.fwd.us");
+        float[] fwdWeights = preferredData(
+                "nnue.stockfish.fc0.weights.fwd",
+                "nnue.stockfish.fc0.weights.fwd.us");
         float[] fwdCp = snapshot.data("nnue.stockfish.fc0.fwd.cp");
         float value = valueAt(transformed, lane);
         float fwdWeight = valueAt(fwdWeights, lane);
@@ -936,7 +992,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
         g.setFont(Theme.font(10, Font.PLAIN));
         g.setColor(Theme.MUTED);
         String detail = String.format("transformer %+6.1f   fwd w %+6.2f   fwd branch %+6.2f cp",
-    value, fwdWeight, valueAt(fwdCp, 0));
+                value, fwdWeight, valueAt(fwdCp, 0));
         g.drawString(Ui.elide(detail, g.getFontMetrics(), Math.max(12, r.width - 20)),
                 r.x + 10, r.y + 76);
 
@@ -960,7 +1016,7 @@ public abstract class NnueTraceView extends NnueOverviewView {
                 Math.max(12, r.width - 20), Math.max(20, r.height - 102));
         TensorViz.drawHeatmap(g, heat, column, 1, rows, scale, true);
         hitRegions.addInline(heat,
-                "Transformer lane " + lane + " incoming HalfKA weights",
+                "Transformer lane " + lane + " incoming HalfKAv2_hm weights",
                 "Zoomed feature->transformer column for the selected Stockfish lane",
                 String.format("%d active feature rows · range ±%.3f", rows, Math.max(scale, 1e-4f)),
                 column, rows + "x1");
@@ -1074,9 +1130,15 @@ public abstract class NnueTraceView extends NnueOverviewView {
     protected void drawStockfishEdges(Graphics2D g, NnueTraceLayout layout) {
         float[] featureWeights = snapshot.data("nnue.features.us.weights");
         int[] featureWeightShape = snapshot.shape("nnue.features.us.weights");
-        float[] fc0Weights = snapshot.data("nnue.stockfish.fc0.weights.us");
-        int[] fc0Shape = snapshot.shape("nnue.stockfish.fc0.weights.us");
-        float[] fc0FwdWeights = snapshot.data("nnue.stockfish.fc0.weights.fwd.us");
+        float[] fc0Weights = preferredData(
+                "nnue.stockfish.fc0.weights",
+                "nnue.stockfish.fc0.weights.us");
+        int[] fc0Shape = preferredShape(
+                "nnue.stockfish.fc0.weights",
+                "nnue.stockfish.fc0.weights.us");
+        float[] fc0FwdWeights = preferredData(
+                "nnue.stockfish.fc0.weights.fwd",
+                "nnue.stockfish.fc0.weights.fwd.us");
         float[] fc1Weights = snapshot.data("nnue.stockfish.fc1.weights.combined");
         int[] fc1Shape = snapshot.shape("nnue.stockfish.fc1.weights.combined");
         float[] fc2Contribution = snapshot.data("nnue.stockfish.fc2.contribution");
@@ -1200,7 +1262,8 @@ public abstract class NnueTraceView extends NnueOverviewView {
             g.setColor(Theme.MUTED);
             g.setFont(Theme.font(11, Font.PLAIN));
             String text = isStockfishSnapshot()
-                    ? "Stockfish trace: HalfKA -> transformer -> FC0 hidden + forward skip -> FC1 -> FC2/output | green raises, red lowers, opacity = weight size"
+                    ? "Stockfish trace: " + stockfishTraceShapeSummary()
+                            + " | green raises, red lowers, opacity = weight size"
                     : "Full trace: features -> raw accumulator -> clipped ReLU -> contribution -> cp | green raises, red lowers, opacity = weight size";
             g.drawString(text,
                     body.x + 8, body.y + body.height - 8);
@@ -1238,6 +1301,24 @@ public abstract class NnueTraceView extends NnueOverviewView {
     }
 
     /**
+     * Returns the user-facing Stockfish trace shape.
+     *
+     * @return compact shape summary
+     */
+    protected String stockfishTraceShapeSummary() {
+        int total = safeLength(snapshot == null ? null : snapshot.data("nnue.stockfish.transformed"));
+        int stm = safeLength(snapshot == null ? null : snapshot.data("nnue.stockfish.transformed.us"));
+        int fc0 = Math.max(0, safeLength(snapshot == null ? null : snapshot.data("nnue.stockfish.fc0.raw")) - 1);
+        int fc1 = safeLength(snapshot == null ? null : snapshot.data("nnue.stockfish.fc1.clipped"));
+        if (total > 0 && stm > 0 && fc0 > 0 && fc1 > 0) {
+            return "HalfKAv2_hm -> " + total + " transformer lanes (" + stm
+                    + " stm + " + (total - stm) + " opponent) -> FC0 " + fc0
+                    + " hidden + fwd -> FC1 " + fc1 + " clipped -> FC2 weighted sum -> cp";
+        }
+        return "HalfKAv2_hm -> transformer (stm + opponent) -> FC0 hidden + forward skip -> FC1 clipped -> FC2 weighted sum -> cp";
+    }
+
+    /**
      * Draws the Stockfish trace footer for the selected transformer lane.
      *
      * @param g graphics
@@ -1246,7 +1327,9 @@ public abstract class NnueTraceView extends NnueOverviewView {
     protected void drawStockfishDetailedReadout(Graphics2D g, Rectangle body) {
         int lane = visibleSlots[selectedSlot];
         float[] transformed = snapshot.data("nnue.stockfish.transformed.us");
-        float[] fwdWeights = snapshot.data("nnue.stockfish.fc0.weights.fwd.us");
+        float[] fwdWeights = preferredData(
+                "nnue.stockfish.fc0.weights.fwd",
+                "nnue.stockfish.fc0.weights.fwd.us");
         float[] fwdCp = snapshot.data("nnue.stockfish.fc0.fwd.cp");
         float[] output = snapshot.data("nnue.output.centipawns");
         float[] fc2 = snapshot.data("nnue.stockfish.fc2.contribution");

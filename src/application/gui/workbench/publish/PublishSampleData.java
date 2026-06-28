@@ -21,16 +21,6 @@ public final class PublishSampleData {
     public static final String SAMPLE_TITLE = "Art of Chess Puzzles";
 
     /**
-     * Sample subtitle.
-     */
-    public static final String SAMPLE_SUBTITLE = "Legacy Opening Selection";
-
-    /**
-     * Sample author.
-     */
-    public static final String SAMPLE_AUTHOR = "Lennart A. Conrad";
-
-    /**
      * Creates the publish sample data.
      */
     private PublishSampleData() {

@@ -406,7 +406,12 @@ run_core() {
     java:testing.TagFixtureRegressionTest \
     java:testing.SortFamilyOrderRegressionTest \
     java:testing.WorkbenchStructureRegressionTest \
+    java:testing.GuiArchitectureRegressionTest \
+    java:testing.DatasetFeatureRegressionTest \
+    java:testing.ReportFeatureRegressionTest \
+    java:testing.PublishingFeatureRegressionTest \
     java:testing.BooleansRegressionTest \
+    headless:testing.GuiComponentGallery \
     headless:testing.WorkbenchRegressionTest
 }
 

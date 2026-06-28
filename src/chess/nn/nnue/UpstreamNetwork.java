@@ -289,24 +289,6 @@ public final class UpstreamNetwork implements AutoCloseable {
     }
 
     /**
-     * Creates a synthetic network from already-decoded parts. Intended for tests.
-     *
-     * @param variant architecture variant
-     * @param size big/small size
-     * @param transformer feature transformer
-     * @param stacks layer stacks
-     * @return network
-     */
-    static UpstreamNetwork createSynthetic(
-            Variant variant,
-            Size size,
-            FeatureTransformer transformer,
-            Architecture[] stacks) {
-        Layout layout = Layout.of(variant, size);
-        return new UpstreamNetwork(variant, size, "synthetic", layout.networkHash(), transformer, stacks);
-    }
-
-    /**
      * Evaluates a position.
      *
      * @param position position to evaluate
@@ -398,10 +380,18 @@ public final class UpstreamNetwork implements AutoCloseable {
         sink.put("nnue.stockfish.fc0.raw", new int[] { l2 + 1 }, toFloats(scratch.fc0Out));
         sink.put("nnue.stockfish.fc0.sqr", new int[] { l2 }, toFloats(scratch.fc1Input, 0, l2));
         sink.put("nnue.stockfish.fc0.crelu", new int[] { l2 }, toFloats(scratch.fc1Input, l2, l2));
+        sink.put("nnue.stockfish.fc0.weights", new int[] { l2, hidden },
+                affineWeights(architecture.fc0, l2, 0, hidden));
         sink.put("nnue.stockfish.fc0.weights.us", new int[] { l2, half },
                 affineWeights(architecture.fc0, l2, 0, half));
+        sink.put("nnue.stockfish.fc0.weights.them", new int[] { l2, half },
+                affineWeights(architecture.fc0, l2, half, half));
+        sink.put("nnue.stockfish.fc0.weights.fwd", new int[] { hidden },
+                affineWeightRow(architecture.fc0, l2, 0, hidden));
         sink.put("nnue.stockfish.fc0.weights.fwd.us", new int[] { half },
                 affineWeightRow(architecture.fc0, l2, 0, half));
+        sink.put("nnue.stockfish.fc0.weights.fwd.them", new int[] { half },
+                affineWeightRow(architecture.fc0, l2, half, half));
         sink.put("nnue.stockfish.fc1.input", new int[] { l2 * 2 }, toFloats(scratch.fc1Input));
         sink.put("nnue.stockfish.fc1.raw", new int[] { l3 }, toFloats(scratch.fc1Out));
         sink.put("nnue.stockfish.fc1.clipped", new int[] { l3 }, toFloats(scratch.fc2Input));
@@ -1729,15 +1719,6 @@ public final class UpstreamNetwork implements AutoCloseable {
          */
         public int centipawns() {
             return psqt + positional;
-        }
-
-        /**
-         * Returns total score in pawns.
-         *
-         * @return pawn score
-         */
-        public float pawns() {
-            return centipawns() / 100.0f;
         }
     }
 

@@ -227,15 +227,6 @@ final class NpyFloat32Writer implements Closeable {
     }
 
     /**
-     * Returns the number of rows written so far.
-     *
-     * @return row count
-     */
-    long rows() {
-        return rows;
-    }
-
-    /**
      * Patches the header and closes the file.
      *
      * @throws IOException if flushing or closing fails

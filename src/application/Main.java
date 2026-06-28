@@ -21,7 +21,7 @@ import utility.Argv;
  * <p>
  * The dispatcher exposes the current top-level command families:
  * {@code record}, {@code fen}, {@code move}, {@code engine}, {@code book},
- * {@code puzzle}, plus operational commands such as {@code gui},
+ * {@code puzzle}, {@code eco}, plus operational commands such as {@code gui},
  * {@code config}, {@code doctor}, {@code clean}, and {@code help}.
  * </p>
  *

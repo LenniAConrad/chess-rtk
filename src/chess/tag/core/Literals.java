@@ -98,11 +98,6 @@ public final class Literals {
     public static final String OPEN_PAREN_PREFIX = " (";
 
     /**
-     * The format string for two-decimal rendering.
-     */
-    public static final String FORMAT_TWO_DECIMALS = "%.2f";
-
-    /**
      * The name of the shared evaluator shutdown hook thread.
      */
     public static final String CRTK_TAG_EVALUATOR_SHUTDOWN = "crtk-tag-evaluator-shutdown";
@@ -136,16 +131,6 @@ public final class Literals {
      * The SAN notation for queenside castling.
      */
     public static final String CASTLE_SAN_QUEENSIDE = "O-O-O";
-
-    /**
-     * The textual prefix used when displaying difficulty.
-     */
-    public static final String DIFFICULTY_DISPLAY_PREFIX = "difficulty: ";
-
-    /**
-     * The leading text for parenthesized output fragments.
-     */
-    public static final String OPEN_PAREN_TEXT = " (";
 
     /**
      * The required parameter name for a position.
@@ -348,11 +333,6 @@ public final class Literals {
     public static final String FACT_HEADER = FACT + ":";
 
     /**
-     * The META header without trailing space.
-     */
-    public static final String META_HEADER = META + ":";
-
-    /**
      * The status fact prefix.
      */
     public static final String STATUS_PREFIX = FACT_PREFIX + "status=";
@@ -456,11 +436,6 @@ public final class Literals {
      * The islands field key.
      */
     public static final String ISLANDS = "islands";
-
-    /**
-     * The rook-side field key.
-     */
-    public static final String ROOK_SIDE = "rook_side";
 
     /**
      * The ECO field key.
@@ -728,11 +703,6 @@ public final class Literals {
      public static final String CENTER_CONTROL = "center_control";
 
     /**
-     * The space-advantage field key.
-     */
-    public static final String SPACE_ADVANTAGE = "space_advantage";
-
-    /**
      * The center-state field key.
      */
     public static final String CENTER_STATE = "center_state";
@@ -866,21 +836,6 @@ public final class Literals {
      * The very-hard difficulty label.
      */
     public static final String VERY_HARD = "very_hard";
-
-    /**
-     * The human-readable very-easy text.
-     */
-    public static final String VERY_EASY_TEXT = "very easy";
-
-    /**
-     * The human-readable hard text.
-     */
-    public static final String HARD_TEXT = "hard";
-
-    /**
-     * The human-readable very-hard text.
-     */
-    public static final String VERY_HARD_TEXT = "very hard";
 
     /**
      * The human-readable very-strong text.
@@ -1419,11 +1374,6 @@ public final class Literals {
     public static final String SKEWER_PREFIX = "skewer: ";
 
     /**
-     * The discovered-attack prefix used for raw tactical text.
-     */
-    public static final String DISCOVERED_ATTACK_PREFIX = "discovered attack: ";
-
-    /**
      * The overloaded-defender prefix used for raw tactical text.
      */
     public static final String OVERLOADED_DEFENDER_PREFIX = "overloaded defender: ";
@@ -1765,11 +1715,6 @@ public final class Literals {
     public static final String CAND_EVAL_CP_FIELD = SPACE_TEXT + EVAL_CP + "=";
 
     /**
-     * The empty candidate note field.
-     */
-    public static final String CAND_EMPTY_NOTE_FIELD = SPACE_TEXT + NOTE + "=\"\"";
-
-    /**
      * The principal-variation prefix.
      */
     public static final String PV_PREFIX = PV + COLON_SPACE;
@@ -1839,16 +1784,6 @@ public final class Literals {
     public static final String HIGH_MOBILITY_PREFIX = "high mobility ";
 
     /**
-     * The attacks phrase used in raw tactical text.
-     */
-    public static final String ATTACKS = " attacks ";
-
-    /**
-     * The forking phrase used in raw tactical text.
-     */
-    public static final String IS_FORKING = " is forking ";
-
-    /**
      * The pins phrase used in raw tactical text.
      */
     public static final String PINS = " pins ";
@@ -1862,21 +1797,6 @@ public final class Literals {
      * The skewers phrase used in raw tactical text.
      */
     public static final String SKEWERS = " skewers ";
-
-    /**
-     * The moving prefix used in raw tactical text.
-     */
-    public static final String MOVING = "moving ";
-
-    /**
-     * The reveals phrase used in raw tactical text.
-     */
-    public static final String REVEALS = " reveals ";
-
-    /**
-     * The attack-on phrase used in raw tactical text.
-     */
-    public static final String ATTACK_ON = " attack on ";
 
     /**
      * The defends phrase used in raw tactical text.
@@ -1937,11 +1857,6 @@ public final class Literals {
      * The dot character.
      */
     public static final char DOT = '.';
-
-    /**
-     * The opening parenthesis character.
-     */
-    public static final char OPEN_PAREN = '(';
 
     /**
      * The closing parenthesis character.

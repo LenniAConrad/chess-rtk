@@ -159,24 +159,6 @@ public final class Network implements AutoCloseable {
          */
         float logit
     ) {
-
-        /**
-         * Returns the sigmoid probability implied by {@link #logit()}.
-         *
-         * @return probability in {@code [0,1]}
-         */
-        public float probability() {
-            return sigmoid(logit);
-        }
-
-        /**
-         * Returns the default binary decision at threshold 0.5 / logit 0.
-         *
-         * @return true when the prediction is positive
-         */
-        public boolean isPositive() {
-            return logit >= 0f;
-        }
     }
 
     /**

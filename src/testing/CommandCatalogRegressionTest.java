@@ -2,7 +2,6 @@ package testing;
 
 import static testing.TestSupport.*;
 
-import java.util.List;
 
 import application.cli.CliCommand;
 import application.cli.CliRegistry;
@@ -79,9 +78,12 @@ public final class CommandCatalogRegressionTest {
 		assertTrue(catalog.contains(PATH_KEY + "engine bestmove\""), "catalog includes engine bestmove");
 		assertTrue(catalog.contains(PATH_KEY + "record export training-jsonl\""),
 				"catalog includes nested record export training-jsonl");
+		assertTrue(catalog.contains(PATH_KEY + "eco continuations\""),
+				"catalog includes eco continuations");
 		assertTrue(catalog.contains("\"flags\": ["), "catalog emits parsed flags");
 		assertTrue(catalog.contains("\"optionsHelp\":"), "catalog emits verbatim option text");
 		assertTrue(catalog.contains("\"--multipv\""), "catalog parses a known engine analyze flag");
+		assertTrue(catalog.contains("\"--book\""), "catalog parses a known eco flag");
 		assertTrue(catalog.contains("\"find-mate\""), "catalog records command aliases");
 	}
 

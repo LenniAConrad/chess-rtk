@@ -94,15 +94,6 @@ public final class Emitter {
     }
 
     /**
-     * Returns an immutable snapshot in insertion order.
-     *
-     * @return insertion-order tag list
-     */
-    public List<String> snapshot() {
-        return List.copyOf(tags);
-    }
-
-    /**
      * Returns the mutable sink for detector orchestration.
      *
      * @return mutable tag list

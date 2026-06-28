@@ -22,16 +22,10 @@ import java.awt.geom.Path2D;
 final class BoardArrowPainter {
 
     /**
-     * Cached suggested-arrow color matching chessboard-arrows' canvas opacity.
-     */
-    private static final Color ARROW_FILL =
-            Theme.withAlpha(Theme.BOARD_ARROW, BoardStyle.BOARD_ARROW_OPACITY);
-
-    /**
      * Cached suggested-arrow stroke.
      */
     private static final BasicStroke ARROW_STROKE =
-            new BasicStroke(8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_MITER);
+            new BasicStroke(BoardStyle.SUGGESTED_ARROW_LINE_WIDTH, BasicStroke.CAP_ROUND, BasicStroke.JOIN_MITER);
 
     /**
      * Reusable path buffer for the unified arrow outline.
@@ -51,7 +45,7 @@ final class BoardArrowPainter {
     private float outlineStrokeWidth = -1f;
 
     /**
-     * Draws a suggested-move arrow.
+     * Draws a suggested-move arrow with the shared pastel fill and no outline.
      *
      * @param graphics graphics context
      * @param from origin point
@@ -59,26 +53,35 @@ final class BoardArrowPainter {
      * @param gap distance to keep from each piece centre (a quarter square)
      */
     void drawSuggested(Graphics2D graphics, Point from, Point to, double gap) {
-        drawColored(graphics, from, to, gap, ARROW_FILL);
+        drawSuggested(graphics, from, to, ARROW_STROKE.getLineWidth(), gap);
     }
 
     /**
-     * Draws a board arrow with the supplied fill.
+     * Draws a suggested-move arrow with a caller-supplied width.
      *
      * @param graphics graphics context
      * @param from origin point
      * @param to destination point
-     * @param gap distance to keep from each piece centre (a quarter square)
-     * @param fill arrow fill
+     * @param lineWidth arrow line width in pixels
+     * @param gap distance to keep from each piece centre
      */
-    private void drawColored(Graphics2D graphics, Point from, Point to, double gap, Color fill) {
+    void drawSuggested(Graphics2D graphics, Point from, Point to, float lineWidth, double gap) {
         Color savedColor = graphics.getColor();
         try {
-            graphics.setColor(fill);
-            draw(graphics, from, to, ARROW_STROKE.getLineWidth(), gap);
+            graphics.setColor(suggestedArrowFill());
+            draw(graphics, from, to, lineWidth, gap, null, 0f);
         } finally {
             graphics.setColor(savedColor);
         }
+    }
+
+    /**
+     * Returns the suggested-arrow fill at the shared board-arrow opacity.
+     *
+     * @return suggested-arrow fill
+     */
+    private static Color suggestedArrowFill() {
+        return Theme.withAlpha(Theme.BOARD_ARROW, BoardStyle.BOARD_ARROW_OPACITY);
     }
 
     /**

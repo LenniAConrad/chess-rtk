@@ -11,9 +11,8 @@ import application.gui.workbench.session.Job;
 import application.gui.workbench.session.JobTableModel;
 import application.gui.workbench.session.Session;
 import application.gui.workbench.session.SessionListener;
-import application.gui.workbench.ui.CardGrid;
-import application.gui.workbench.ui.CommandBlock;
 import application.gui.workbench.ui.StatusBadge;
+import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import application.gui.workbench.ui.WorkspaceHeader;
@@ -41,9 +40,9 @@ import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import application.gui.workbench.ui.SurfacePanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
+import javax.swing.JTextArea;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
@@ -78,7 +77,7 @@ public final class DashboardPanel extends SurfacePanel implements SessionListene
     /**
      * Current-position card: readable FEN preview.
      */
-    private final CommandBlock fenValue = Ui.commandBlock("");
+    private final JTextArea fenValue = Ui.commandBlock("");
 
     /**
      * Current-position card: side to move.
@@ -198,12 +197,12 @@ public final class DashboardPanel extends SurfacePanel implements SessionListene
         this.jobModel = new JobTableModel(session.jobs());
         this.jobTable = new JTable(jobModel);
 
-        CardGrid summaryGrid = Ui.contentGrid(300);
+        JPanel summaryGrid = Ui.contentGrid(300);
         summaryGrid.add(buildPositionCard());
         summaryGrid.add(buildEngineCard());
         summaryGrid.add(buildHealthCard());
 
-        CardGrid lowerGrid = Ui.contentGrid(420);
+        JPanel lowerGrid = Ui.contentGrid(420);
         lowerGrid.add(buildQuickActionsCard());
         lowerGrid.add(buildNetworkRuntimeCard());
         lowerGrid.add(buildWarningsCard());

@@ -45,6 +45,16 @@ public final class WorkbenchStructureRegressionTest {
     private static final String WORKBENCH_PACKAGE = "application.gui.workbench";
 
     /**
+     * Source root for the shared Swing UI layer.
+     */
+    private static final Path UI_SOURCE_ROOT = WORKBENCH_ROOT.resolve("ui");
+
+    /**
+     * Java package for the shared Swing UI layer.
+     */
+    private static final String UI_PACKAGE = WORKBENCH_PACKAGE + ".ui";
+
+    /**
      * Workbench name token that should not be repeated in file names.
      */
     private static final String WORKBENCH_NAME_TOKEN = "Workbench";
@@ -86,6 +96,18 @@ public final class WorkbenchStructureRegressionTest {
             Pattern.compile("new\\s+RegisteredView\\(\"([^\"]+)\"");
 
     /**
+     * Pattern that extracts public top-level UI types.
+     */
+    private static final Pattern PUBLIC_TOP_LEVEL_UI_TYPE =
+            Pattern.compile("(?m)^public\\s+(?:final\\s+)?(?:class|interface|enum)\\s+([A-Za-z0-9_]+)\\b");
+
+    /**
+     * Pattern that extracts imports from the shared UI package.
+     */
+    private static final Pattern UI_IMPORT =
+            Pattern.compile("import\\s+" + Pattern.quote(UI_PACKAGE) + "\\.([A-Za-z0-9_]+)\\s*;");
+
+    /**
      * Feature packages expected after the workbench refactor.
      */
     private static final Set<String> EXPECTED_FEATURE_PACKAGES = Set.of(
@@ -108,6 +130,104 @@ public final class WorkbenchStructureRegressionTest {
             "window");
 
     /**
+     * Public reusable UI primitives that feature packages may import directly.
+     * New public classes must be added here intentionally; otherwise helpers
+     * should stay package-private behind {@code Ui} or {@code Theme}.
+     */
+    private static final Set<String> UI_PUBLIC_API_CLASSES = Set.of(
+            "AnalysisGraph",
+            "AppIcon",
+            "BackdropPanel",
+            "ChipGroup",
+            "EvalBar",
+            "FieldValidator",
+            "FileDialogs",
+            "HitRegions",
+            "HoldButton",
+            "InspectorDialog",
+            "InspectorPanel",
+            "LoadingOverlay",
+            "ModalOverlay",
+            "NotationPainter",
+            "RenderAcceleration",
+            "SegmentedSwitcher",
+            "SettingsChipRow",
+            "StatusBadge",
+            "SurfacePanel",
+            "SwingTasks",
+            "SwitchedWorkspace",
+            "TagCloud",
+            "Theme",
+            "Toast",
+            "ToggleBox",
+            "Ui",
+            "WorkspaceHeader",
+            "WorkspaceMode",
+            "WrappingFlowLayout");
+
+    /**
+     * Implementation-only UI helpers that feature packages must not import.
+     */
+    private static final Set<String> UI_INTERNAL_IMPLEMENTATION_CLASSES = Set.of(
+            "AppButton",
+            "ArrowButton",
+            "CenteredViewportPanel",
+            "Card",
+            "CheckBoxGlyph",
+            "CollapsibleSection",
+            "ComponentTreeStyler",
+            "ControlStyler",
+            "CardGrid",
+            "CommandBlock",
+            "DataTableStyler",
+            "DocumentChangeSupport",
+            "EmptyState",
+            "FieldRow",
+            "FileChooserIcons",
+            "FileChooserStyler",
+            "IconButton",
+            "InputChrome",
+            "InspectorText",
+            "MiniChart",
+            "MenuGlyphs",
+            "OptionPaneStyler",
+            "PlaceholderPainter",
+            "PlaceholderTextAreaUI",
+            "PlaceholderTextFieldUI",
+            "PopupMenuStyler",
+            "ProgressBarChrome",
+            "RoundedInputBorder",
+            "ScrollPaneStyler",
+            "SectionHeader",
+            "Spinner",
+            "StyledButton",
+            "StyledComboBoxUI",
+            "StyledComboRenderer",
+            "StyledScrollBarUI",
+            "StyledSliderUI",
+            "StyledSpinnerUI",
+            "SvgIcon",
+            "Tabs",
+            "ThemeBorders",
+            "ThemeColors",
+            "ThemeComponents",
+            "ThemeFonts",
+            "ThemeForeground",
+            "ThemeInstaller",
+            "ThemePalette",
+            "ThemeRefresh",
+            "ThemeState",
+            "Tooltip",
+            "TomlHighlighter",
+            "TreeStyler",
+            "UiFormControls",
+            "UiLayout",
+            "UiMotion",
+            "UiSurfaces",
+            "UiText",
+            "ViewportPanel");
+
+    /**
      * Prevents instantiation.
      */
     private WorkbenchStructureRegressionTest() {
@@ -125,6 +245,8 @@ public final class WorkbenchStructureRegressionTest {
         testWorkbenchFileNamesStayPackageScoped();
         testWorkbenchPackageLayoutStaysSplit();
         testWorkbenchPackageDeclarationsMatchPaths();
+        testWorkbenchUiPublicSurfaceStaysIntentional();
+        testWorkbenchUiInternalsStayPrivateToUiPackage();
         testWorkbenchDocsMatchRegisteredViews();
         System.out.println("WorkbenchStructureRegressionTest: all checks passed");
     }
@@ -191,6 +313,44 @@ public final class WorkbenchStructureRegressionTest {
     }
 
     /**
+     * Verifies the reusable UI package exposes only intentional public entry
+     * points. Most helper classes should stay package-private behind the
+     * {@code Ui} and {@code Theme} facades.
+     */
+    private static void testWorkbenchUiPublicSurfaceStaysIntentional() {
+        for (Path file : uiJavaFiles()) {
+            Matcher matcher = PUBLIC_TOP_LEVEL_UI_TYPE.matcher(readUtf8(file));
+            while (matcher.find()) {
+                String typeName = matcher.group(1);
+                assertTrue(UI_PUBLIC_API_CLASSES.contains(typeName),
+                        WORKBENCH_ROOT.relativize(file) + " exposes intentional UI API " + typeName);
+            }
+        }
+    }
+
+    /**
+     * Verifies feature packages do not couple to implementation-only UI helpers.
+     */
+    private static void testWorkbenchUiInternalsStayPrivateToUiPackage() {
+        for (Path file : workbenchJavaFiles()) {
+            if (file.startsWith(UI_SOURCE_ROOT)) {
+                continue;
+            }
+            String source = readUtf8(file);
+            Matcher matcher = UI_IMPORT.matcher(source);
+            while (matcher.find()) {
+                String typeName = matcher.group(1);
+                assertFalse(UI_INTERNAL_IMPLEMENTATION_CLASSES.contains(typeName),
+                        WORKBENCH_ROOT.relativize(file) + " does not import UI internal " + typeName);
+            }
+            for (String typeName : UI_INTERNAL_IMPLEMENTATION_CLASSES) {
+                assertFalse(source.contains(UI_PACKAGE + "." + typeName),
+                        WORKBENCH_ROOT.relativize(file) + " does not fully qualify UI internal " + typeName);
+            }
+        }
+    }
+
+    /**
      * Verifies the user-facing Workbench view table follows the registered shell
      * instead of drifting back to older flat-tab names.
      */
@@ -242,6 +402,17 @@ public final class WorkbenchStructureRegressionTest {
         } catch (IOException ex) {
             throw new AssertionError("could not list workbench Java files", ex);
         }
+    }
+
+    /**
+     * Lists Java files under the shared UI source root.
+     *
+     * @return sorted shared UI Java files
+     */
+    private static List<Path> uiJavaFiles() {
+        return workbenchJavaFiles().stream()
+                .filter(file -> file.startsWith(UI_SOURCE_ROOT))
+                .toList();
     }
 
     /**

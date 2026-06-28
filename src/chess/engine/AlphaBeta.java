@@ -623,7 +623,8 @@ public final class AlphaBeta implements AutoCloseable {
     /**
      * Creates a searcher with an explicit set of enabled search features, so a
      * self-play harness can measure a single technique's contribution. Production
-     * code should use the two-argument constructor, which enables every feature.
+     * code should use the two-argument constructor, which enables the stable
+     * default feature set measured for this searcher.
      *
      * @param evaluator static evaluator
      * @param persistentTable true to keep one transposition table across moves

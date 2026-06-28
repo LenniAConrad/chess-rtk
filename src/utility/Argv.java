@@ -190,17 +190,6 @@ public final class Argv {
     }
 
     /**
-     * Used for retrieving a required {@code int} value for an option.
-     *
-     * @param keys the accepted key aliases
-     * @return the parsed integer
-     * @throws IllegalArgumentException if the key is missing or invalid
-     */
-    public int integerRequired(String... keys) {
-        return parseInt(stringRequired(keys), null, join(keys));
-    }
-
-    /**
      * Used for retrieving an {@code int} value with a default.
      *
      * @param def  the default value to return if the key is missing
@@ -224,17 +213,6 @@ public final class Argv {
     }
 
     /**
-     * Used for retrieving a required {@code long} value for an option.
-     *
-     * @param keys the accepted key aliases
-     * @return the parsed long
-     * @throws IllegalArgumentException if the key is missing or invalid
-     */
-    public long lngRequired(String... keys) {
-        return parseLong(stringRequired(keys), null, join(keys));
-    }
-
-    /**
      * Used for retrieving a {@code long} value with a default.
      *
      * @param def  the default value to return if the key is missing
@@ -255,17 +233,6 @@ public final class Argv {
      */
     public Double dbl(String... keys) {
         return parseDouble(opt(keys), null, join(keys));
-    }
-
-    /**
-     * Used for retrieving a required {@code double} value for an option.
-     *
-     * @param keys the accepted key aliases
-     * @return the parsed double
-     * @throws IllegalArgumentException if the key is missing or invalid
-     */
-    public double dblRequired(String... keys) {
-        return parseDouble(stringRequired(keys), null, join(keys));
     }
 
     /**
@@ -317,20 +284,6 @@ public final class Argv {
     public Duration duration(String... keys) {
         String v = opt(keys);
         return v == null ? null : parseDuration(v, join(keys));
-    }
-
-    /**
-     * Used for parsing a required duration value from an option.
-     * Accepts {@code 500ms}, {@code 60s}, {@code 2m}, {@code 1h}, or a plain number
-     * (milliseconds).
-     *
-     * @param keys the accepted key aliases
-     * @return the parsed duration
-     * @throws IllegalArgumentException if missing or invalid
-     */
-    public Duration durationRequired(String... keys) {
-        String v = stringRequired(keys);
-        return parseDuration(v, join(keys));
     }
 
     /**

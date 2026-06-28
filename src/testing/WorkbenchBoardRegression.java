@@ -80,6 +80,7 @@ final class WorkbenchBoardRegression {
         testBoardLastMoveAndBestArrowCanBeHidden();
         testBoardInstantPositionShowsLastMoveWithoutAnimation();
         testBoardNotationAndAnimationsCanBeHidden();
+        testBoardTacticalBadgesCanBeShown();
         testBoardReverseMoveAnimationStarts();
         testBoardCheckHighlightPaintsCheckedKingMarker();
         testBoardTextureCachesRenderedLayer();
@@ -862,7 +863,20 @@ final class WorkbenchBoardRegression {
         int boardX = (640 - size) / 2;
         int boardY = (640 - size) / 2;
         Color arrowBody = new Color(image.getRGB(boardX + 4 * cell + cell / 2, boardY + 5 * cell + cell / 2), true);
-        assertTrue(arrowBody.getBlue() > arrowBody.getRed(), "suggested move arrow is blue");
+        assertTrue(arrowBody.getGreen() > arrowBody.getRed() && arrowBody.getGreen() > arrowBody.getBlue(),
+                "suggested move arrow uses the legal-move green");
+        assertTrue(readWorkbenchSource("board/BoardArrowPainter.java")
+                        .contains("draw(graphics, from, to, lineWidth, gap, null, 0f);"),
+                "suggested move arrow is painted without an outline border");
+        assertTrue(readWorkbenchSource("board/BoardStyle.java").contains("SUGGESTED_ARROW_LINE_WIDTH = 10f"),
+                "suggested move arrow keeps the larger shared width");
+        assertTrue(readWorkbenchSource("board/BoardArrowPainter.java")
+                        .contains("new BasicStroke(BoardStyle.SUGGESTED_ARROW_LINE_WIDTH"),
+                "live suggested arrows use the shared larger width");
+        assertTrue(readWorkbenchSource("board/BoardExporter.java").contains("arrows.drawSuggested(g,"),
+                "raster board exports use the borderless suggested-arrow path");
+        assertTrue(readWorkbenchSource("board/BoardExporter.java").contains("board.width / 64f"),
+                "raster board exports scale suggested arrows at the larger width");
         Color moveHighlight = themeColor("LAST_MOVE_EDGE");
         Color e4Edge = new Color(image.getRGB(boardX + 4 * cell + 2, boardY + 4 * cell + 2), true);
         assertFalse(e4Edge.equals(moveHighlight), "best arrow does not add square highlight");
@@ -915,12 +929,25 @@ final class WorkbenchBoardRegression {
                 baseBoardColor(Field.toIndex('e', '5')), 30.0,
                 "quiet legal move dot is visible");
 
-        BufferedImage image = paint(component, 640, 640);
-        Point captureCenter = boardPoint(Field.toIndex('d', '5'), true, 640, 640);
-        int cell = boardCellSize(640, 640);
-        Color captureHalo = new Color(image.getRGB(captureCenter.x - cell / 2 + 8, captureCenter.y), true);
-        assertColorDistanceAtLeast(captureHalo, baseBoardColor(Field.toIndex('d', '5')), 18.0,
-                "capture target halo is visible around the piece");
+        BufferedImage marker = new BufferedImage(120, 120, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = marker.createGraphics();
+        Color base = new Color(0xD4, 0xB0, 0x78);
+        try {
+            graphics.setColor(base);
+            graphics.fillRect(0, 0, marker.getWidth(), marker.getHeight());
+            BoardStyle.drawLegalTarget(graphics, new Rectangle(10, 10, 100, 100), true);
+        } finally {
+            graphics.dispose();
+        }
+        assertEquals(base, new Color(marker.getRGB(60, 60), true),
+                "capture target keeps the center transparent");
+        assertColorDistanceAtLeast(new Color(marker.getRGB(17, 60), true), base, 18.0,
+                "capture target still draws an outline ring");
+        String exporter = readWorkbenchSource("board/BoardExporter.java");
+        assertTrue(exporter.contains("fill=\\\"none\\\""),
+                "SVG capture target exports without an infill");
+        assertFalse(exporter.contains("colorCss(Theme.LEGAL_CAPTURE_FILL)"),
+                "SVG capture target no longer exports a capture fill");
     }
 
     /**
@@ -1010,6 +1037,55 @@ final class WorkbenchBoardRegression {
         invoke(board, "setPosition", new Class<?>[] { Position.class, short.class }, start.copy().play(move), move);
         assertFalse((Boolean) invoke(boardAnimation(board), "moveAnimationActive", new Class<?>[0]),
                 "move animation suppressed");
+    }
+
+    /**
+     * Verifies the display-menu tactical board badges are real paintable overlays.
+     */
+    private static void testBoardTacticalBadgesCanBeShown() {
+        Object board = construct(type("BoardPanel"), new Class<?>[0]);
+        Component component = (Component) board;
+        component.setSize(640, 640);
+        invoke(board, "setPosition", new Class<?>[] { Position.class, short.class },
+                new Position("4r1k1/8/8/8/2n5/8/4B3/4K2R w - - 0 1"), Move.NO_MOVE);
+        BufferedImage hidden = paint(component, 640, 640);
+
+        invoke(board, "setShowUndefendedPieces", new Class<?>[] { boolean.class }, Boolean.TRUE);
+        invoke(board, "setShowPinnedPieces", new Class<?>[] { boolean.class }, Boolean.TRUE);
+        invoke(board, "setShowCheckableKing", new Class<?>[] { boolean.class }, Boolean.TRUE);
+        assertTrue((Boolean) invoke(board, "isShowUndefendedPieces", new Class<?>[0]),
+                "undefended-piece badges enabled");
+        assertTrue((Boolean) invoke(board, "isShowPinnedPieces", new Class<?>[0]),
+                "pinned-piece badges enabled");
+        assertTrue((Boolean) invoke(board, "isShowCheckableKing", new Class<?>[0]),
+                "checkable-king badge enabled");
+        BufferedImage visible = paint(component, 640, 640);
+        assertTrue(changedPixelCount(hidden, visible) > 80,
+                "tactical board badges paint visible pixels");
+        assertTrue(regionChanged(hidden, visible, badgeRegion(Field.toIndex('e', '2'), 640, 640)),
+                "pinned-piece badge appears on the pinned bishop");
+        assertTrue(whiteDominantPixels(visible, badgeRegion(Field.toIndex('e', '2'), 640, 640)) > 12,
+                "pinned-piece badge paints a visible white pin glyph");
+        assertTrue(regionChanged(hidden, visible, badgeRegion(Field.toIndex('c', '4'), 640, 640)),
+                "undefended-piece badge appears on the loose knight");
+        assertTrue(redDominantPixels(visible, badgeRegion(Field.toIndex('c', '4'), 640, 640)) > 16,
+                "undefended-piece badge uses a red circular shield marker");
+        assertTrue(whiteDominantPixels(visible, badgeRegion(Field.toIndex('c', '4'), 640, 640)) > 8,
+                "undefended-piece shield paints a visible white shield glyph");
+        assertTrue(regionChanged(hidden, visible, badgeRegion(Field.toIndex('g', '8'), 640, 640)),
+                "checkable-king badge appears on the opponent king");
+        assertTrue(blueDominantPixels(visible, badgeRegion(Field.toIndex('g', '8'), 640, 640)) > 16,
+                "checkable-king badge uses a blue circular marker");
+        assertTrue(whiteDominantPixels(visible, badgeRegion(Field.toIndex('g', '8'), 640, 640)) > 8,
+                "checkable-king badge paints a visible white plus glyph");
+        String painter = readWorkbenchSource("board/BoardPanelPainter.java");
+        assertTrue(painter.contains("drawLichessPinGlyph") && painter.contains("moveTo(31.0, 21.0)")
+                        && painter.contains("Color.decode(\"#333333\")"),
+                "pinned-piece badge uses the requested SVG pin geometry");
+        assertTrue(painter.contains("drawLichessShieldGlyph") && painter.contains("moveTo(50.0, 17.0)"),
+                "undefended-piece badge uses the requested SVG shield geometry");
+        assertTrue(painter.contains("drawLichessCheckGlyph") && painter.contains("moveTo(46.0, 28.0)"),
+                "checkable-king badge uses the requested SVG plus geometry");
     }
 
     /**
@@ -1199,6 +1275,113 @@ final class WorkbenchBoardRegression {
         int size = Math.min(width - 64, height - 64);
         size = Math.max(64, size - size % 8);
         return size / 8;
+    }
+
+    /**
+     * Returns the top-right badge sample region for one test-board square.
+     *
+     * @param square board square
+     * @param width component width
+     * @param height component height
+     * @return badge sample region
+     */
+    private static Rectangle badgeRegion(byte square, int width, int height) {
+        int cell = boardCellSize(width, height);
+        Point center = boardPoint(square, true, width, height);
+        int left = center.x - cell / 2;
+        int top = center.y - cell / 2;
+        int size = Math.max(14, Math.round(cell * 0.50f));
+        int badgeCenterX = left + Math.round(cell * 0.75f);
+        int badgeCenterY = top + Math.round(cell * 0.25f);
+        int badgeX = Math.round(badgeCenterX - size / 2.0f);
+        int badgeY = Math.round(badgeCenterY - size / 2.0f);
+        return new Rectangle(badgeX - 2, badgeY - 2, size + 4, size + 4);
+    }
+
+    /**
+     * Returns whether any pixel changed inside a sampled region.
+     *
+     * @param before image before paint change
+     * @param after image after paint change
+     * @param region image region
+     * @return true when the region changed
+     */
+    private static boolean regionChanged(BufferedImage before, BufferedImage after, Rectangle region) {
+        for (int y = region.y; y < region.y + region.height; y++) {
+            for (int x = region.x; x < region.x + region.width; x++) {
+                if (before.getRGB(x, y) != after.getRGB(x, y)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Counts pixels whose color is clearly red-dominant inside a sampled region.
+     *
+     * @param image rendered image
+     * @param region image region
+     * @return red-dominant pixel count
+     */
+    private static int redDominantPixels(BufferedImage image, Rectangle region) {
+        int count = 0;
+        for (int y = region.y; y < region.y + region.height; y++) {
+            for (int x = region.x; x < region.x + region.width; x++) {
+                Color color = new Color(image.getRGB(x, y), true);
+                if (color.getAlpha() > 180
+                        && color.getRed() > color.getGreen() + 40
+                        && color.getRed() > color.getBlue() + 40) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Counts pixels whose color is clearly blue-dominant inside a sampled region.
+     *
+     * @param image rendered image
+     * @param region image region
+     * @return blue-dominant pixel count
+     */
+    private static int blueDominantPixels(BufferedImage image, Rectangle region) {
+        int count = 0;
+        for (int y = region.y; y < region.y + region.height; y++) {
+            for (int x = region.x; x < region.x + region.width; x++) {
+                Color color = new Color(image.getRGB(x, y), true);
+                if (color.getAlpha() > 180
+                        && color.getBlue() > color.getRed() + 55
+                        && color.getBlue() > color.getGreen() + 30) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Counts pixels whose color is clearly white-dominant inside a sampled region.
+     *
+     * @param image rendered image
+     * @param region image region
+     * @return white-dominant pixel count
+     */
+    private static int whiteDominantPixels(BufferedImage image, Rectangle region) {
+        int count = 0;
+        for (int y = region.y; y < region.y + region.height; y++) {
+            for (int x = region.x; x < region.x + region.width; x++) {
+                Color color = new Color(image.getRGB(x, y), true);
+                if (color.getAlpha() > 180
+                        && color.getRed() > 210
+                        && color.getGreen() > 210
+                        && color.getBlue() > 210) {
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 
     /**

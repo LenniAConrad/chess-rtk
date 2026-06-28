@@ -8,7 +8,7 @@ import javax.swing.JPanel;
 /**
  * Shared compact label/control row for inspector and settings forms.
  */
-public final class FieldRow extends JPanel {
+final class FieldRow extends JPanel {
 
     /**
      * Serialization identifier for Swing component compatibility.

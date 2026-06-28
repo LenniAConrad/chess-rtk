@@ -9,9 +9,11 @@ import java.awt.Graphics2D;
 import java.awt.Graphics;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.Shape;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
+import java.awt.geom.RoundRectangle2D;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
@@ -49,6 +51,11 @@ public final class SegmentedSwitcher extends JComponent {
      * switcher lines up with combos and toggles on a toolbar row.
      */
     private static final int HEIGHT = Theme.CONTROL_HEIGHT;
+
+    /**
+     * Font size used for both preferred-size measurement and painting.
+     */
+    private static final int FONT_SIZE = 12;
 
     /**
      * Animation frame cadence for the active segment underline.
@@ -259,12 +266,8 @@ public final class SegmentedSwitcher extends JComponent {
      */
     @Override
     public Dimension getPreferredSize() {
-        FontMetrics fm = getFontMetrics(Theme.font(13, Font.BOLD));
-        int total = 0;
-        for (String label : labels) {
-            total += fm.stringWidth(label) + PAD_X * 2;
-        }
-        return new Dimension(total, HEIGHT);
+        FontMetrics fm = getFontMetrics(controlFont());
+        return new Dimension(totalSegmentWidth(fm), HEIGHT);
     }
 
     /**
@@ -279,22 +282,31 @@ public final class SegmentedSwitcher extends JComponent {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
                     RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-            g.setFont(Theme.font(12, Font.BOLD));
+            g.setFont(controlFont());
             FontMetrics fm = g.getFontMetrics();
-            int x = 0;
-            segmentBounds = new Rectangle[labels.length];
             int height = getHeight();
+            segmentBounds = layoutSegments(fm, height);
+            int stripWidth = totalSegmentWidth(segmentBounds);
+            if (stripWidth <= 0 || height <= 0) {
+                return;
+            }
+            paintStripBackground(g, stripWidth, height);
+            Shape clip = new RoundRectangle2D.Float(0, 0, stripWidth, height,
+                    Theme.RADIUS * 2, Theme.RADIUS * 2);
+            Shape oldClip = g.getClip();
+            g.clip(clip);
             for (int i = 0; i < labels.length; i++) {
-                int w = fm.stringWidth(labels[i]) + PAD_X * 2;
-                Rectangle r = new Rectangle(x, 0, w, height);
-                segmentBounds[i] = r;
-                paintSegment(g, r, i, fm);
-                x += w;
+                paintSegmentFill(g, segmentBounds[i], i);
+            }
+            g.setClip(oldClip);
+            for (int i = 0; i < labels.length; i++) {
+                paintSegmentText(g, segmentBounds[i], i, fm);
             }
             paintSelectionIndicator(g, height);
+            paintStripBorder(g, stripWidth, height);
             if (isFocusOwner()) {
                 g.setColor(Theme.FOCUS_RING);
-                g.drawRoundRect(1, 1, Math.max(0, getWidth() - 3), Math.max(0, getHeight() - 3),
+                g.drawRoundRect(1, 1, Math.max(0, stripWidth - 3), Math.max(0, height - 3),
                         Theme.RADIUS, Theme.RADIUS);
             }
         } finally {
@@ -303,31 +315,39 @@ public final class SegmentedSwitcher extends JComponent {
     }
 
     /**
-     * Paints one segment cell.
+     * Paints one segment cell background.
+     *
+     * @param g graphics
+     * @param r segment rectangle
+     * @param index segment index
+     */
+    private void paintSegmentFill(Graphics2D g, Rectangle r, int index) {
+        boolean isSelected = index == selected;
+        boolean isHovered = index == hovered;
+        boolean isEnabled = segmentEnabled[index];
+        Color fill = null;
+        if (isSelected) {
+            fill = Theme.SELECTION_SOLID;
+        } else if (isHovered && isEnabled) {
+            fill = Theme.TAB_HOVER;
+        }
+        if (fill != null) {
+            g.setColor(fill);
+            g.fillRect(r.x, r.y, r.width, r.height);
+        }
+    }
+
+    /**
+     * Paints one segment label.
      *
      * @param g graphics
      * @param r segment rectangle
      * @param index segment index
      * @param fm font metrics for label centering
      */
-    private void paintSegment(Graphics2D g, Rectangle r, int index, FontMetrics fm) {
+    private void paintSegmentText(Graphics2D g, Rectangle r, int index, FontMetrics fm) {
         boolean isSelected = index == selected;
-        boolean isHovered = index == hovered;
         boolean isEnabled = segmentEnabled[index];
-        // Match the workbench tab look: a quiet strip where the active
-        // segment is a light accent-tinted pill rather than a solid block.
-        Color fill = Theme.ELEVATED_SOLID;
-        if (isSelected) {
-            fill = Theme.SELECTION_SOLID;
-        } else if (isHovered && isEnabled) {
-            fill = Theme.TAB_HOVER;
-        }
-        g.setColor(fill);
-        int arcLeft = index == 0 ? Theme.RADIUS : 0;
-        int arcRight = index == labels.length - 1 ? Theme.RADIUS : 0;
-        fillRoundedSegment(g, r, arcLeft, arcRight);
-        g.setColor(Theme.LINE);
-        drawRoundedSegmentBorder(g, r, arcLeft, arcRight, index == labels.length - 1);
         Color textColor;
         if (!isEnabled) {
             textColor = Theme.BUTTON_DISABLED_TEXT;
@@ -365,52 +385,98 @@ public final class SegmentedSwitcher extends JComponent {
     }
 
     /**
-     * Fills a segment with the right-side corners rounded only for the
-     * trailing segment so the strip reads as a single connected control.
+     * Paints the shared segmented-control background.
      *
      * @param g graphics
-     * @param r segment rectangle
-     * @param arcLeft arc radius on the left side (0 for non-leading)
-     * @param arcRight arc radius on the right side (0 for non-trailing)
+     * @param width strip width
+     * @param height strip height
      */
-    private static void fillRoundedSegment(Graphics2D g, Rectangle r, int arcLeft, int arcRight) {
-        if (arcLeft == 0 && arcRight == 0) {
-            g.fillRect(r.x, r.y, r.width, r.height);
-            return;
-        }
-        g.fillRoundRect(r.x, r.y, r.width, r.height,
-                Math.max(arcLeft, arcRight) * 2, Math.max(arcLeft, arcRight) * 2);
-        if (arcLeft == 0) {
-            g.fillRect(r.x, r.y, (r.width + 1) / 2, r.height);
-        } else if (arcRight == 0) {
-            g.fillRect(r.x + r.width / 2, r.y, (r.width + 1) / 2, r.height);
-        }
+    private static void paintStripBackground(Graphics2D g, int width, int height) {
+        g.setColor(Theme.ELEVATED_SOLID);
+        g.fillRoundRect(0, 0, width, height, Theme.RADIUS * 2, Theme.RADIUS * 2);
     }
 
     /**
-     * Draws the border around a segment. Internal seams (between segments)
-     * are drawn as a single line so adjacent segments share their edge.
+     * Paints the shared border and internal seams.
      *
      * @param g graphics
-     * @param r segment rectangle
-     * @param arcLeft arc radius on the left side
-     * @param arcRight arc radius on the right side
-     * @param last true for the trailing segment
+     * @param width strip width
+     * @param height strip height
      */
-    private static void drawRoundedSegmentBorder(Graphics2D g, Rectangle r,
-            int arcLeft, int arcRight, boolean last) {
-        if (arcLeft == 0 && arcRight == 0) {
-            g.drawLine(r.x + r.width - 1, r.y, r.x + r.width - 1, r.y + r.height - 1);
-            g.drawLine(r.x, r.y, r.x + r.width - 1, r.y);
-            g.drawLine(r.x, r.y + r.height - 1, r.x + r.width - 1, r.y + r.height - 1);
-            return;
+    private void paintStripBorder(Graphics2D g, int width, int height) {
+        g.setColor(Theme.LINE);
+        for (int i = 1; i < segmentBounds.length; i++) {
+            int x = segmentBounds[i].x;
+            g.drawLine(x, 1, x, Math.max(1, height - 2));
         }
-        g.drawRoundRect(r.x, r.y, r.width - 1, r.height - 1,
-                Math.max(arcLeft, arcRight) * 2, Math.max(arcLeft, arcRight) * 2);
-        if (!last) {
-            // Right edge: draw a straight seam to join the next segment.
-            g.drawLine(r.x + r.width - 1, r.y, r.x + r.width - 1, r.y + r.height - 1);
+        g.drawRoundRect(0, 0, Math.max(0, width - 1), Math.max(0, height - 1),
+                Theme.RADIUS * 2, Theme.RADIUS * 2);
+    }
+
+    /**
+     * Returns the font used by the segmented control.
+     *
+     * @return control font
+     */
+    private static Font controlFont() {
+        return Theme.font(FONT_SIZE, Font.BOLD);
+    }
+
+    /**
+     * Returns one segment width.
+     *
+     * @param metrics font metrics
+     * @param label segment label
+     * @return segment width
+     */
+    private static int segmentWidth(FontMetrics metrics, String label) {
+        return metrics.stringWidth(label) + PAD_X * 2;
+    }
+
+    /**
+     * Returns the total width for all labels using the supplied metrics.
+     *
+     * @param metrics font metrics
+     * @return total segment width
+     */
+    private int totalSegmentWidth(FontMetrics metrics) {
+        int total = 0;
+        for (String label : labels) {
+            total += segmentWidth(metrics, label);
         }
+        return total;
+    }
+
+    /**
+     * Returns the total width of laid-out segment bounds.
+     *
+     * @param bounds segment bounds
+     * @return total segment width
+     */
+    private static int totalSegmentWidth(Rectangle[] bounds) {
+        if (bounds == null || bounds.length == 0) {
+            return 0;
+        }
+        Rectangle last = bounds[bounds.length - 1];
+        return last.x + last.width;
+    }
+
+    /**
+     * Lays out segment rectangles.
+     *
+     * @param metrics font metrics
+     * @param height segment height
+     * @return segment bounds
+     */
+    private Rectangle[] layoutSegments(FontMetrics metrics, int height) {
+        Rectangle[] bounds = new Rectangle[labels.length];
+        int x = 0;
+        for (int i = 0; i < labels.length; i++) {
+            int width = segmentWidth(metrics, labels[i]);
+            bounds[i] = new Rectangle(x, 0, width, height);
+            x += width;
+        }
+        return bounds;
     }
 
     /**

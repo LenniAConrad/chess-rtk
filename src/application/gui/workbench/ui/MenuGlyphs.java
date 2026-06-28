@@ -20,7 +20,7 @@ import javax.swing.plaf.basic.BasicMenuItemUI;
 /**
  * Theme-aware glyphs for popup menu selection controls.
  */
-public final class MenuGlyphs {
+final class MenuGlyphs {
 
     /**
      * Shared radio menu icon.

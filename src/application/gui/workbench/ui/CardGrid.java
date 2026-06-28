@@ -1,5 +1,6 @@
 package application.gui.workbench.ui;
 
+import application.gui.foundation.layout.ScrollableSupport;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Insets;
@@ -20,7 +21,7 @@ import javax.swing.Scrollable;
  * any other surface that should use the full desktop canvas rather than a
  * narrow centred column.</p>
  */
-public final class CardGrid extends JPanel implements Scrollable {
+final class CardGrid extends JPanel implements Scrollable {
 
     /**
      * Serialization identifier for Swing panel compatibility.

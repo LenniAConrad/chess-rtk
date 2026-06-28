@@ -1,5 +1,6 @@
 package application.gui.workbench.ui;
 
+import application.gui.foundation.layout.ScrollableSupport;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;

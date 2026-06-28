@@ -150,23 +150,6 @@ public class Record {
     }
 
     /**
-     * Used for creating a deep copy of this evaluation record.
-     *
-     * @return cloned {@code Record} with independent field copies
-     */
-    public Record copyOf() {
-        return new Record(
-                schemaVersion,
-                created,
-                engine,
-                parent != null ? parent.copy() : null,
-                position != null ? position.copy() : null,
-                description != null ? description : "",
-                Arrays.copyOf(tags, tags.length),
-                analysis != null ? analysis.copyOf() : new Analysis());
-    }
-
-    /**
      * Used for returning the serialized record schema identifier.
      *
      * @return schema identifier; historical unversioned rows parse as
@@ -186,17 +169,6 @@ public class Record {
             throw new IllegalArgumentException("schemaVersion must be non-empty");
         }
         this.schemaVersion = schemaVersion;
-    }
-
-    /**
-     * Used for fluently setting the serialized record schema identifier.
-     *
-     * @param schemaVersion schema identifier, e.g. {@code crtk.record.v2}
-     * @return this record
-     */
-    public Record withSchemaVersion(String schemaVersion) {
-        setSchemaVersion(schemaVersion);
-        return this;
     }
 
     /**
@@ -270,17 +242,6 @@ public class Record {
      */
     public void setDescription(String description) {
         this.description = description != null ? description : "";
-    }
-
-    /**
-     * Used for fluently setting the description on this record.
-     *
-     * @param description free-form description; {@code null} → empty string
-     * @return this record
-     */
-    public Record withDescription(String description) {
-        setDescription(description);
-        return this;
     }
 
     /**

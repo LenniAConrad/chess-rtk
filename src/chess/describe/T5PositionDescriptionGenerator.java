@@ -44,24 +44,6 @@ public final class T5PositionDescriptionGenerator {
     }
 
     /**
-     * Returns the token budget.
-     *
-     * @return max new tokens
-     */
-    public int maxNewTokens() {
-        return maxNewTokens;
-    }
-
-    /**
-     * Returns whether a trained model is currently available.
-     *
-     * @return always false until a trained position-description export exists
-     */
-    public boolean available() {
-        return false;
-    }
-
-    /**
      * Builds the compact feature prompt intended for future T5 training/inference.
      *
      * @param input structured input
@@ -74,17 +56,6 @@ public final class T5PositionDescriptionGenerator {
                 + " max_new=" + maxNewTokens
                 + "\nfeatures: " + input.toJson()
                 + "\ntext:";
-    }
-
-    /**
-     * Refuses to generate T5 text until a trained model path is defined.
-     *
-     * @param input structured input
-     * @param detail requested detail
-     * @return never returns
-     */
-    public String generate(PositionDescriptionInput input, PositionDescriptionDetail detail) {
-        throw new IllegalStateException(unavailableMessage());
     }
 
     /**

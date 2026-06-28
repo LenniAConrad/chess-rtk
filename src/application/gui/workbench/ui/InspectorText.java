@@ -3,7 +3,7 @@ package application.gui.workbench.ui;
 /**
  * Shared text formatting helpers for tensor inspector readouts.
  */
-public final class InspectorText {
+final class InspectorText {
 
     /**
      * Maximum number of entries shown when rendering a flat slice.

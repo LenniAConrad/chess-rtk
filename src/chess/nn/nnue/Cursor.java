@@ -48,28 +48,6 @@ final class Cursor {
     }
 
     /**
-     * Reads a signed little-endian int16.
-     *
-     * @return value
-     */
-    short readShort() {
-        require(2);
-        int value = (data[offset] & 0xff) | ((data[offset + 1] & 0xff) << 8);
-        offset += 2;
-        return (short) value;
-    }
-
-    /**
-     * Reads one byte.
-     *
-     * @return byte value
-     */
-    byte readByte() {
-        require(1);
-        return data[offset++];
-    }
-
-    /**
      * Reads a byte array.
      *
      * @param length byte count

@@ -240,15 +240,6 @@ public abstract class NetworkView extends JComponent {
     }
 
     /**
-     * Returns whether the diagram mode is active.
-     *
-     * @return true in diagram mode
-     */
-    protected final boolean isDiagram() {
-        return mode == ViewMode.DIAGRAM;
-    }
-
-    /**
      * Returns the colour-scale for a heatmap bucket. With fixed-scale off the
      * bucket is cleared and the dynamic max is returned; with fixed-scale on
      * the bucket's pinned scale grows monotonically across position changes so

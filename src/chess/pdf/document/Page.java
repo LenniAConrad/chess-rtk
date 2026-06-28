@@ -81,15 +81,6 @@ public final class Page {
 	}
 
 	/**
-	 * Returns the page size.
-	 *
-	 * @return page size
-	 */
-	public PageSize getSize() {
-		return size;
-	}
-
-	/**
 	 * Returns the page width in points.
 	 *
 	 * @return page width

@@ -3,19 +3,12 @@ package utility;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
-import java.awt.geom.Area;
-import java.awt.geom.Path2D;
 import java.awt.image.BufferedImage;
 import java.awt.image.Raster;
 import java.awt.image.WritableRaster;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-
-import javax.imageio.ImageIO;
 
 /**
- * Minimal image helpers for loading from and writing to byte arrays.
+ * Minimal image helpers for adding a blurred drop shadow to a {@link BufferedImage}.
  *
  * @since 2024
  * @author Lennart A. Conrad
@@ -27,35 +20,6 @@ public final class Images {
 	 */
 	private Images() {
 		// utility holder
-	}
-
-	/**
-	 * Converts encoded image bytes (PNG/JPEG/etc.) into a {@link BufferedImage}.
-	 *
-	 * @param array encoded image bytes
-	 * @return decoded image or null on error
-	 */
-	public static BufferedImage bufferedImageFromByteArray(byte[] array) {
-		try {
-			return ImageIO.read(new ByteArrayInputStream(array));
-		} catch (IOException e) {
-			throw new IllegalArgumentException("Failed to decode image bytes", e);
-		}
-	}
-
-	/**
-	 * Encodes a {@link BufferedImage} as PNG bytes.
-	 *
-	 * @param bufferedimage source image
-	 * @return encoded bytes or empty array on error
-	 */
-	public static byte[] bufferedImageToByteArray(BufferedImage bufferedimage) {
-		try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-			ImageIO.write(bufferedimage, "png", out);
-			return out.toByteArray();
-		} catch (IOException e) {
-			return new byte[0];
-		}
 	}
 
 	/**
@@ -401,100 +365,4 @@ public final class Images {
 		}
 	}
 
-	/**
-	 * Wraps an image with a heart-shaped frame using percentage stroke thickness.
-	 *
-	 * @param bufferedimage source image
-	 * @param framecolor    frame color
-	 * @param strokePct     stroke thickness relative to min dimension
-	 * @return framed image
-	 */
-	public static BufferedImage heartFrame(BufferedImage bufferedimage, Color framecolor, double strokePct) {
-		int stroke = (int) (Math.min(bufferedimage.getWidth(), bufferedimage.getHeight()) * strokePct);
-		return heartFrame(bufferedimage, framecolor, Math.max(1, stroke));
-	}
-
-	/**
-	 * Wraps an image with a heart-shaped frame.
-	 *
-	 * @param bufferedimage source image
-	 * @param framecolor    frame color
-	 * @param stroke        stroke thickness in pixels
-	 * @return framed image
-	 */
-	public static BufferedImage heartFrame(BufferedImage bufferedimage, Color framecolor, int stroke) {
-		int width = bufferedimage.getWidth();
-		int height = bufferedimage.getHeight();
-		int half = stroke / 2;
-
-		BufferedImage heart = new BufferedImage(width + stroke, height + stroke, BufferedImage.TYPE_INT_ARGB);
-		Graphics2D g2d = heart.createGraphics();
-		Path2D.Double path = heartPath(width, height, half, half);
-
-		g2d.setStroke(new java.awt.BasicStroke(
-				stroke,
-				java.awt.BasicStroke.CAP_BUTT,
-				java.awt.BasicStroke.JOIN_MITER));
-		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-		g2d.setColor(framecolor);
-		g2d.setClip(new Area(path));
-		g2d.drawImage(bufferedimage, half, half, null);
-		g2d.draw(path);
-		g2d.dispose();
-		return heart;
-	}
-
-	/**
-	 * Masks an image with a heart-shaped cutout.
-	 *
-	 * @param bufferedImage source image
-	 * @return heart-masked image
-	 */
-	public static BufferedImage heartCutout(BufferedImage bufferedImage) {
-		int width = bufferedImage.getWidth();
-		int height = bufferedImage.getHeight();
-
-		BufferedImage heartImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-		Graphics2D g2d = heartImage.createGraphics();
-		Path2D.Double heart = heartPath(width, height, 0, 0);
-
-		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-		g2d.setClip(new Area(heart));
-		g2d.drawImage(bufferedImage, 0, 0, null);
-		g2d.dispose();
-		return heartImage;
-	}
-
-	/**
-	 * Builds a heart-shaped {@link Path2D} scaled to the given dimensions.
-	 *
-	 * @param width   target width
-	 * @param height  target height
-	 * @param xOffset x offset applied to the path
-	 * @param yOffset y offset applied to the path
-	 * @return heart-shaped path
-	 */
-	private static Path2D.Double heartPath(int width, int height, int xOffset, int yOffset) {
-		Path2D.Double heart = new Path2D.Double();
-		double cx = width / 2.0;
-		double cy = height / 2.0;
-		double offsetY = -(cy * 0.55);
-
-		double left = xOffset + cx - cx;
-		double right = xOffset + cx + cx;
-		double top = yOffset + cy - (cy * 0.60) + offsetY;
-		double midTop = yOffset + cy + offsetY;
-		double midBottom = yOffset + cy + (cy * 0.70) + offsetY + (cy * 0.20);
-		double bottom = yOffset + cy + (cy * 1.20) - (cy * 0.20);
-		double lowerTop = yOffset + cy + (cy * 0.60) + offsetY;
-
-		heart.moveTo(xOffset + cx, midTop);
-		heart.curveTo(xOffset + cx, top, left, top, left, midTop);
-		heart.curveTo(left, lowerTop, xOffset + cx, midBottom, xOffset + cx, bottom);
-		heart.curveTo(xOffset + cx, midBottom, right, lowerTop, right, midTop);
-		heart.curveTo(right, top, xOffset + cx, top, xOffset + cx, midTop);
-
-		heart.closePath();
-		return heart;
-	}
 }

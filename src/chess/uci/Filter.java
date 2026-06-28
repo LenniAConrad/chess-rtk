@@ -166,21 +166,6 @@ public final class Filter {
     private final List<PredicateSpec> predicateSpecs;
 
     /**
-     * Used for exposing an immutable snapshot of predicate specifications for DSL
-     * round-trip.
-     *
-     * <p>
-     * The returned list reflects builder-time declarations rather than executable
-     * predicates.
-     * </p>
-     *
-     * @return Used for returning an unmodifiable list of predicate specs.
-     */
-    List<PredicateSpec> getPredicateSpecs() {
-        return predicateSpecs;
-    }
-
-    /**
      * Used for building a new Arguments.Builder instance.
      *
      * @return new builder object

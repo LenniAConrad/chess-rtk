@@ -32,7 +32,6 @@ import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
 import application.gui.workbench.ui.SurfacePanel;
 import javax.swing.JScrollPane;

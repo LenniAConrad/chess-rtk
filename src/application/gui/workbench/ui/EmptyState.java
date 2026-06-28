@@ -30,7 +30,7 @@ import javax.swing.JPanel;
  * is a quiet inline placeholder (e.g. "No setup issues") and stays compact: no
  * mark, no height floor, so it does not overweight a small card.</p>
  */
-public final class EmptyState extends JPanel {
+final class EmptyState extends JPanel {
 
     /**
      * Serialization identifier for Swing component compatibility.

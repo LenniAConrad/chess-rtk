@@ -56,15 +56,6 @@ public record PageSize(
 	}
 
 	/**
-	 * Returns the size name.
-	 *
-	 * @return page size name
-	 */
-	public String getName() {
-		return name;
-	}
-
-	/**
 	 * Returns the page width in points.
 	 *
 	 * @return page width

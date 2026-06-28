@@ -100,6 +100,10 @@ final class StyledScrollBarUI extends BasicScrollBarUI {
     private static JButton invisibleButton() {
         JButton button = new JButton();
         Dimension size = new Dimension(0, 0);
+        button.setOpaque(false);
+        button.setContentAreaFilled(false);
+        button.setBorderPainted(false);
+        button.setFocusable(false);
         button.setPreferredSize(size);
         button.setMinimumSize(size);
         button.setMaximumSize(size);

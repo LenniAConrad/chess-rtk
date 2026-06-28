@@ -1,6 +1,14 @@
 package application.gui.workbench.window;
 
 import application.Config;
+import application.gui.app.LegacyWorkbenchComposition;
+import application.gui.feature.dataset.DatasetDependencies;
+import application.gui.feature.dataset.DatasetView;
+import application.gui.feature.publishing.PublishingDependencies;
+import application.gui.feature.publishing.PublishingView;
+import application.gui.feature.publishing.ReportDependencies;
+import application.gui.feature.publishing.ReportView;
+import application.gui.platform.NotificationKind;
 import application.gui.workbench.Defaults;
 import application.gui.workbench.board.BoardPanel;
 import application.gui.workbench.command.CommandForm;
@@ -10,7 +18,6 @@ import application.gui.workbench.command.CommandTemplates.CommandTemplate;
 import application.gui.workbench.command.CommandTemplates.TemplateContext;
 import application.gui.workbench.command.Console;
 import application.gui.workbench.dashboard.DashboardPanel;
-import application.gui.workbench.dataset.DatasetPanel;
 import application.gui.workbench.game.EngineEval;
 import application.gui.workbench.game.GameModel;
 import application.gui.workbench.game.MovesModel;
@@ -20,6 +27,7 @@ import application.gui.workbench.game.PuzzlePanel;
 import application.gui.workbench.game.SavedGame;
 import application.gui.workbench.game.SavedGameStore;
 import application.gui.workbench.game.SavedGamesPanel;
+import application.gui.workbench.library.GameLibrary;
 import application.gui.workbench.layout.EditorSplitArea;
 import application.gui.workbench.mcts.MctsPanel;
 import application.gui.workbench.mcts.MctsSession;
@@ -29,8 +37,6 @@ import application.gui.workbench.play.PlayPanel;
 import application.gui.workbench.play.PlaySession;
 import application.gui.workbench.play.StrengthModel;
 import application.gui.workbench.network.NetworkPanel;
-import application.gui.workbench.publish.PublishingPanel;
-import application.gui.workbench.publish.ReportPanel;
 import application.gui.workbench.session.Job;
 import application.gui.workbench.session.LogPanel;
 import application.gui.workbench.session.RunArtifacts;
@@ -44,6 +50,8 @@ import application.gui.workbench.ui.Toast;
 import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.WorkspaceHeader;
 import chess.core.Position;
+import chess.struct.Game;
+import chess.struct.Pgn;
 import java.awt.FlowLayout;
 import java.util.ArrayList;
 import java.util.List;
@@ -136,15 +144,15 @@ public abstract class WindowBase extends JFrame {
     protected static final int TAB_LOGS = 7;
 
     /**
+     * Studies tab index — PGN-backed local study books and chapters.
+     */
+    protected static final int TAB_STUDIES = 8;
+
+    /**
      * Position description tab sentinel. The panel exists, but the Workbench
      * shell does not register it until the feature is ready for navigation.
      */
     protected static final int TAB_DESCRIBE = -1;
-
-    /**
-     * Legacy title for the command console surface (a Run mode title).
-     */
-    protected static final String DOCK_CONSOLE = "Console";
 
     /**
      * Legacy title for the persisted logs surface (a Run mode title).
@@ -316,7 +324,7 @@ public abstract class WindowBase extends JFrame {
     /**
      * Dataset inspection and visualization tab.
      */
-    protected DatasetPanel datasetPanel;
+    protected DatasetView datasetPanel;
 
     /**
      * PGN puzzle trainer tab, created on first use.
@@ -377,8 +385,8 @@ public abstract class WindowBase extends JFrame {
     /**
      * Position report panel used by the publishing tab and command palette.
      */
-    protected final ReportPanel reportPanel =
-    new ReportPanel(new WindowReportHost(this));
+    protected final ReportView reportPanel =
+            LegacyWorkbenchComposition.reportView(reportDependencies());
 
     /**
      * Console output with carriage-return handling and line highlighting. This
@@ -652,12 +660,12 @@ public abstract class WindowBase extends JFrame {
     /**
      * Materialized publishing workflow panels, including duplicates.
      */
-    protected final List<PublishingPanel> publishingPanels = new ArrayList<>();
+    protected final List<PublishingView> publishingPanels = new ArrayList<>();
 
     /**
      * Publishing workflow panel.
      */
-    protected PublishingPanel publishingPanel;
+    protected PublishingView publishingPanel;
 
     /**
      * Returns the network visualizer, creating it only when the Network tab is
@@ -851,7 +859,7 @@ public abstract class WindowBase extends JFrame {
      *
      * @return dataset panel
      */
-    protected DatasetPanel datasetPanel() {
+    protected DatasetView datasetPanel() {
         if (datasetPanel == null) {
             datasetPanel = createDatasetPanelInstance(true);
         }
@@ -863,7 +871,7 @@ public abstract class WindowBase extends JFrame {
      *
      * @return new dataset panel
      */
-    protected DatasetPanel createDetachedDatasetPanel() {
+    protected DatasetView createDetachedDatasetPanel() {
         return createDatasetPanelInstance(false);
     }
 
@@ -873,15 +881,24 @@ public abstract class WindowBase extends JFrame {
      * @param primary true when this is the canonical Datasets tab
      * @return dataset panel
      */
-    private DatasetPanel createDatasetPanelInstance(boolean primary) {
+    private DatasetView createDatasetPanelInstance(boolean primary) {
         if (primary && datasetPanel != null) {
             return datasetPanel;
         }
-        DatasetPanel panel = new DatasetPanel(this::openFenInBoard, this::openFenInNewBoard);
+        DatasetView panel = LegacyWorkbenchComposition.datasetView(datasetDependencies());
         if (primary) {
             datasetPanel = panel;
         }
         return panel;
+    }
+
+    /**
+     * Builds the narrow dependency set for a Dataset view instance.
+     *
+     * @return dataset dependencies
+     */
+    private DatasetDependencies datasetDependencies() {
+        return new DatasetDependencies(this::openFenInBoard, this::openFenInNewBoard);
     }
 
     /**
@@ -917,7 +934,7 @@ public abstract class WindowBase extends JFrame {
      *
      * @return publishing panel
      */
-    protected PublishingPanel publishingPanel() {
+    protected PublishingView publishingPanel() {
         if (publishingPanel == null) {
             publishingPanel = createPublishingPanelInstance(true);
         }
@@ -929,7 +946,7 @@ public abstract class WindowBase extends JFrame {
      *
      * @return new publishing panel
      */
-    protected PublishingPanel createDetachedPublishingPanel() {
+    protected PublishingView createDetachedPublishingPanel() {
         return createPublishingPanelInstance(false);
     }
 
@@ -939,16 +956,85 @@ public abstract class WindowBase extends JFrame {
      * @param primary true when this is the canonical Publish tab
      * @return publishing panel
      */
-    private PublishingPanel createPublishingPanelInstance(boolean primary) {
+    private PublishingView createPublishingPanelInstance(boolean primary) {
         if (primary && publishingPanel != null) {
             return publishingPanel;
         }
-        PublishingPanel panel = new PublishingPanel(new WindowPublishingHost(this));
+        PublishingView panel = LegacyWorkbenchComposition.publishingView(publishingDependencies());
         publishingPanels.add(panel);
         if (primary) {
             publishingPanel = panel;
         }
         return panel;
+    }
+
+    /**
+     * Builds the narrow dependency set for a Publishing workflow instance.
+     *
+     * @return publishing dependencies
+     */
+    private PublishingDependencies publishingDependencies() {
+        ReportView reportPanel = LegacyWorkbenchComposition.reportView(reportDependencies());
+        return new PublishingDependencies(
+                this,
+                this::currentFen,
+                () -> gameModel,
+                () -> commandForm.positionsText(),
+                reportPanel,
+                this::runCommand,
+                this::copyText,
+                new PublishingDependencies.CommandControl() {
+                    /**
+                     * {@inheritDoc}
+                     */
+                    @Override
+                    public void stopCommand() {
+                        WindowBase.this.stopCommand();
+                    }
+
+                    /**
+                     * {@inheritDoc}
+                     */
+                    @Override
+                    public JComponent stopButton() {
+                        return createCommandStopButton();
+                    }
+                },
+                (kind, message) -> toast(toastKind(kind), message),
+                this::showError);
+    }
+
+    /**
+     * Builds the narrow dependency set for a report view instance.
+     *
+     * @return report dependencies
+     */
+    private ReportDependencies reportDependencies() {
+        return new ReportDependencies(
+                this,
+                () -> currentPosition,
+                () -> visibleMoves,
+                () -> gameModel,
+                () -> tagModel,
+                this::copyText,
+                this::appendConsole,
+                (kind, message) -> toast(toastKind(kind), message),
+                this::showError);
+    }
+
+    /**
+     * Maps platform notification severities to the current Workbench toast API.
+     *
+     * @param kind notification kind
+     * @return toast kind
+     */
+    private static Toast.Kind toastKind(NotificationKind kind) {
+        return switch (kind) {
+            case SUCCESS -> Toast.Kind.SUCCESS;
+            case WARNING -> Toast.Kind.WARNING;
+            case ERROR -> Toast.Kind.ERROR;
+            case INFO -> Toast.Kind.INFO;
+        };
     }
 
     /**
@@ -990,6 +1076,21 @@ public abstract class WindowBase extends JFrame {
      * Whether board transitions are animated.
      */
     protected boolean boardAnimationsEnabled = true;
+
+    /**
+     * Whether attacked, undefended pieces are marked on the board.
+     */
+    protected boolean showUndefendedPieces;
+
+    /**
+     * Whether pieces pinned to their own king are marked on the board.
+     */
+    protected boolean showPinnedPieces;
+
+    /**
+     * Whether the opponent king is marked when a legal checking move exists.
+     */
+    protected boolean showCheckableKing;
 
     /**
      * Whether the eval bar automatically runs short engine analysis.
@@ -1140,6 +1241,7 @@ public abstract class WindowBase extends JFrame {
             SavedGame game = SavedGame.capture(id, created, now, status, gameModel);
             savedGameStore.save(game);
             activeSavedGameId = game.id();
+            maybePersistLibraryGame(status);
             refreshSavedGamesPanel();
             if (notify) {
                 toast(Toast.Kind.SUCCESS, "Saved game");
@@ -1159,6 +1261,79 @@ public abstract class WindowBase extends JFrame {
      */
     protected void saveCurrentGameFromUi() {
         persistCurrentGame("Saved", true);
+    }
+
+    /**
+     * Loads recent PGN-backed library entries for the library panel.
+     *
+     * @return library entries
+     */
+    protected List<GameLibrary.Entry> libraryGames() {
+        try {
+            return new GameLibrary().recent(500);
+        } catch (java.io.IOException ex) {
+            appendConsole("Game library load failed: " + ex.getMessage() + System.lineSeparator());
+            return List.of();
+        }
+    }
+
+    /**
+     * Imports the current game into the PGN-backed library for durable lookup.
+     *
+     * @param status saved-game status
+     */
+    protected void maybePersistLibraryGame(String status) {
+        if (!shouldPersistLibraryGame(status)) {
+            return;
+        }
+        try {
+            new GameLibrary().saveCurrent(gameModel, "Workbench " + status);
+            refreshGameLibraryPanel();
+        } catch (java.io.IOException | RuntimeException ex) {
+            appendConsole("Game library write failed: " + ex.getMessage() + System.lineSeparator());
+        }
+    }
+
+    /**
+     * Returns whether one saved-game status should be copied to the PGN library.
+     *
+     * @param status saved-game status
+     * @return true when the PGN library should receive the game
+     */
+    private static boolean shouldPersistLibraryGame(String status) {
+        if (status == null) {
+            return false;
+        }
+        return switch (status) {
+            case "Saved", "Finished", "Imported" -> true;
+            default -> false;
+        };
+    }
+
+    /**
+     * Opens one PGN-backed library entry on the board.
+     *
+     * @param entry selected library entry
+     */
+    protected void openLibraryGame(GameLibrary.Entry entry) {
+        if (entry == null || entry.pgn().isBlank()) {
+            return;
+        }
+        try {
+            List<Game> games = Pgn.parseGames(entry.pgn());
+            if (games.isEmpty()) {
+                showError("Open library game failed", "Stored PGN contains no game.");
+                return;
+            }
+            if (playSession != null && playSession.isActive()) {
+                playSession.stop();
+            }
+            loadGame(games.get(0));
+            appendConsole("Opened library game " + entry.label() + System.lineSeparator());
+            toast(Toast.Kind.SUCCESS, "Opened library game");
+        } catch (IllegalArgumentException ex) {
+            showError("Open library game failed", ex.getMessage());
+        }
     }
 
     /**
@@ -1199,6 +1374,14 @@ public abstract class WindowBase extends JFrame {
         if (savedGamesPanel != null) {
             savedGamesPanel.refresh();
         }
+        refreshGameLibraryPanel();
+    }
+
+    /**
+     * Refreshes the PGN-backed library panel when present.
+     */
+    protected void refreshGameLibraryPanel() {
+        // implemented by the board layer once the library panel exists
     }
 
     /**
@@ -1668,6 +1851,20 @@ public abstract class WindowBase extends JFrame {
     protected abstract JComponent createDetachedLogTab();
 
     /**
+     * Creates the primary Studies surface.
+     *
+     * @return studies surface
+     */
+    protected abstract JComponent createStudiesWorkspaceTab();
+
+    /**
+     * Creates an independent duplicate Studies surface.
+     *
+     * @return duplicate studies surface
+     */
+    protected abstract JComponent createDetachedStudiesWorkspaceTab();
+
+    /**
      * Returns the primary persisted-log browser.
      *
      * @return log browser
@@ -1776,6 +1973,13 @@ public abstract class WindowBase extends JFrame {
      * @param ply game ply index
      */
     protected abstract void showGamePly(int ply);
+
+    /**
+     * Loads a parsed PGN game on the shared board.
+     *
+     * @param game parsed game
+     */
+    protected abstract void loadGame(Game game);
 
     /**
      * Updates the legal-move table.

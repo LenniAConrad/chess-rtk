@@ -329,15 +329,6 @@ public final class CliCommand {
 	}
 
 	/**
-	 * Returns the parent node.
-	 *
-	 * @return parent or {@code null}
-	 */
-	public CliCommand parent() {
-		return parent;
-	}
-
-	/**
 	 * Resolves a child token, including aliases.
 	 *
 	 * @param token child token

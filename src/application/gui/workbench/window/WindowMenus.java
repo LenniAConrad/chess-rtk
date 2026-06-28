@@ -40,7 +40,7 @@ final class WindowMenus {
              */
             @Override
             public void setThemeMode(Theme.Mode mode) {
-                owner.setDarkMode(mode == Theme.Mode.DARK);
+                owner.setThemeMode(mode);
             }
 
             /**
@@ -478,6 +478,46 @@ final class WindowMenus {
             @Override
             public int visibleGroupCount() {
                 return owner.tabs == null ? 0 : owner.tabs.visibleGroupCount();
+            }
+
+            /**
+             * Returns whether the selected tab can split into another editor group.
+             *
+             * @return true when split actions are available
+             */
+            @Override
+            public boolean canSplitActiveTab() {
+                return owner.tabs != null && owner.tabs.canSplitSelectedTab();
+            }
+
+            /**
+             * Returns whether the selected tab can detach.
+             *
+             * @return true when a tab is selected
+             */
+            @Override
+            public boolean canDetachActiveTab() {
+                return owner.tabs != null && owner.tabs.canDetachSelectedTab();
+            }
+
+            /**
+             * Returns whether closing other tabs would change the layout.
+             *
+             * @return true when another tab exists
+             */
+            @Override
+            public boolean canCloseOtherTabs() {
+                return owner.tabs != null && owner.tabs.canCloseOtherTabs();
+            }
+
+            /**
+             * Returns whether closed or detached tabs can be restored.
+             *
+             * @return true when restore can change layout state
+             */
+            @Override
+            public boolean hasRestorableTabs() {
+                return owner.tabs != null && owner.tabs.hasRestorableTabs();
             }
         });
     }

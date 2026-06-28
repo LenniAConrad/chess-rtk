@@ -594,30 +594,12 @@ public final class PuzzleSession {
     }
 
     /**
-     * Returns the start FEN.
-     *
-     * @return root FEN
-     */
-    public String startFen() {
-        return startFen;
-    }
-
-    /**
      * Returns whether the solver plays white.
      *
      * @return true when the solver side is white
      */
     public boolean userWhite() {
         return userWhite;
-    }
-
-    /**
-     * Returns normalized puzzle nodes.
-     *
-     * @return immutable node list
-     */
-    public List<PuzzleNode> nodes() {
-        return nodes;
     }
 
     /**
@@ -672,15 +654,6 @@ public final class PuzzleSession {
      */
     public Cursor cursor() {
         return cursor;
-    }
-
-    /**
-     * Returns whether all branches are solved.
-     *
-     * @return true when complete
-     */
-    public boolean solved() {
-        return solved;
     }
 
     /**

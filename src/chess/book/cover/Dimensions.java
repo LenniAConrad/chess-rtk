@@ -163,23 +163,5 @@ public record Dimensions(
 				throw new IllegalArgumentException("area coordinates cannot be negative");
 			}
 		}
-
-		/**
-		 * Returns the right edge.
-		 *
-		 * @return right edge in centimeters
-		 */
-		public double rightCm() {
-			return xCm + widthCm;
-		}
-
-		/**
-		 * Returns the bottom edge.
-		 *
-		 * @return bottom edge in centimeters
-		 */
-		public double bottomCm() {
-			return yCm + heightCm;
-		}
 	}
 }

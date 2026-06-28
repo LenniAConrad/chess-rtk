@@ -147,15 +147,6 @@ public final class Delta {
     }
 
     /**
-     * Checks whether the delta contains any additions, removals, or changes.
-     *
-     * @return {@code true} when no differences were detected
-     */
-    public boolean isEmpty() {
-        return added.isEmpty() && removed.isEmpty() && changed.isEmpty();
-    }
-
-    /**
      * Serializes this delta to a compact JSON object.
      *
      * @return the JSON representation of this delta

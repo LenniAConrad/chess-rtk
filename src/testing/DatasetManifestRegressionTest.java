@@ -23,7 +23,6 @@ import chess.io.Provenance;
 import chess.schema.JsonParser;
 import chess.schema.JsonValue;
 import chess.schema.Schemas;
-import chess.schema.Validator;
 import chess.schema.Violation;
 
 /**

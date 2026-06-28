@@ -20,7 +20,7 @@ import javax.swing.Timer;
  * (resume-safe across repaints) that is stopped on detach and whenever the
  * spinner is idle, so it costs nothing while not spinning.</p>
  */
-public final class Spinner extends JComponent {
+final class Spinner extends JComponent {
 
     /**
      * Serialization identifier for Swing component compatibility.

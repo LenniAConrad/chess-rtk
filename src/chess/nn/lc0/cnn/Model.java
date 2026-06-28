@@ -58,25 +58,6 @@ public final class Model implements AutoCloseable {
     }
 
     /**
-     * Loads {@link #DEFAULT_WEIGHTS}.
-     *
-     * @return model wrapper
-     * @throws IOException if the weights cannot be read/parsed, or if CUDA is forced and initialization fails
-     */
-    public static Model loadDefault() throws IOException {
-        return load(DEFAULT_WEIGHTS);
-    }
-
-    /**
-     * Returns basic network metadata (shape and parameter count).
-     *
-     * @return network metadata
-     */
-    public Network.Info info() {
-        return network.info();
-    }
-
-    /**
      * Returns the active backend name ({@code "cpu"}, {@code "cuda"}, {@code "rocm"}, or {@code "oneapi"}).
      *
      * @return active backend identifier
@@ -120,26 +101,6 @@ public final class Model implements AutoCloseable {
             encoded.add(planes);
         }
         return network.predictEncodedBatch(encoded);
-    }
-
-    /**
-     * Runs inference on already-encoded LC0 planes.
-     *
-     * @param encodedPlanes encoded planes, length {@code inputChannels * 64}
-     * @return policy logits, WDL probabilities, and scalar {@code W-L} value
-     */
-    public Network.Prediction predictEncoded(float[] encodedPlanes) {
-        return network.predictEncoded(encodedPlanes);
-    }
-
-    /**
-     * Runs inference on already-encoded LC0 plane batches.
-     *
-     * @param encodedPlanes encoded plane arrays
-     * @return predictions aligned with {@code encodedPlanes}
-     */
-    public List<Network.Prediction> predictEncodedBatch(List<float[]> encodedPlanes) {
-        return network.predictEncodedBatch(encodedPlanes);
     }
 
     /**

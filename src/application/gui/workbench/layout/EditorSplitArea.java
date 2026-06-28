@@ -590,6 +590,42 @@ public final class EditorSplitArea extends JPanel {
     }
 
     /**
+     * Returns whether the active tab can be split into another editor group.
+     *
+     * @return true when the selected tab can split
+     */
+    public boolean canSplitSelectedTab() {
+        return canSplitTab(selectedIndex());
+    }
+
+    /**
+     * Returns whether a visible tab can be detached into its own window.
+     *
+     * @return true when a selected tab exists
+     */
+    public boolean canDetachSelectedTab() {
+        return validPanel(selectedIndex());
+    }
+
+    /**
+     * Returns whether closing all non-selected tabs would do useful work.
+     *
+     * @return true when another docked or detached tab exists
+     */
+    public boolean canCloseOtherTabs() {
+        return validPanel(selectedIndex()) && open.size() + detachedTabCount() > 1;
+    }
+
+    /**
+     * Returns whether closed or detached registered tabs can be restored.
+     *
+     * @return true when restore/reattach would change tab state
+     */
+    public boolean hasRestorableTabs() {
+        return open.size() < panels.size() || detachedTabCount() > 0;
+    }
+
+    /**
      * Returns the number of tabs currently hosted in detached OS windows.
      *
      * @return detached tab count
@@ -1083,30 +1119,32 @@ public final class EditorSplitArea extends JPanel {
         JPopupMenu menu = new JPopupMenu();
         PopupMenus.style(menu);
         boolean canSplit = canSplitTab(panelIndex);
-        menu.add(PopupMenus.item("Split Tab Right", EditorLayoutCommands.TAB_SPLIT_RIGHT,
+        menu.add(PopupMenus.item(EditorLayoutCommands.TAB_SPLIT_RIGHT_LABEL, EditorLayoutCommands.TAB_SPLIT_RIGHT,
                 () -> splitTabCopy(panelIndex, DROP_RIGHT), canSplit, EditorLayoutCommands.SPLIT_DISABLED_TOOLTIP));
-        menu.add(PopupMenus.item("Split Tab Down", EditorLayoutCommands.TAB_SPLIT_DOWN,
+        menu.add(PopupMenus.item(EditorLayoutCommands.TAB_SPLIT_DOWN_LABEL, EditorLayoutCommands.TAB_SPLIT_DOWN,
                 () -> splitTabCopy(panelIndex, DROP_BOTTOM), canSplit, EditorLayoutCommands.SPLIT_DISABLED_TOOLTIP));
-        menu.add(PopupMenus.item("Split Tab Left", EditorLayoutCommands.TAB_SPLIT_LEFT,
+        menu.add(PopupMenus.item(EditorLayoutCommands.TAB_SPLIT_LEFT_LABEL, EditorLayoutCommands.TAB_SPLIT_LEFT,
                 () -> splitTabCopy(panelIndex, DROP_LEFT), canSplit, EditorLayoutCommands.SPLIT_DISABLED_TOOLTIP));
-        menu.add(PopupMenus.item("Split Tab Up", EditorLayoutCommands.TAB_SPLIT_UP,
+        menu.add(PopupMenus.item(EditorLayoutCommands.TAB_SPLIT_UP_LABEL, EditorLayoutCommands.TAB_SPLIT_UP,
                 () -> splitTabCopy(panelIndex, DROP_TOP), canSplit, EditorLayoutCommands.SPLIT_DISABLED_TOOLTIP));
         if (validPanel(panelIndex) && panelFactories.get(panelIndex) != null) {
-            menu.add(PopupMenus.item("Duplicate Tab", EditorLayoutCommands.TAB_DUPLICATE,
+            menu.add(PopupMenus.item(EditorLayoutCommands.TAB_DUPLICATE_LABEL, EditorLayoutCommands.TAB_DUPLICATE,
                     () -> duplicate(panelIndex), true, null));
         }
-        menu.add(PopupMenus.item("Detach to New Window", EditorLayoutCommands.TAB_DETACH,
+        menu.add(PopupMenus.item(EditorLayoutCommands.TAB_DETACH_LABEL, EditorLayoutCommands.TAB_DETACH,
                 () -> detachTab(panelIndex), true, null));
-        menu.add(PopupMenus.item("Close", EditorLayoutCommands.TAB_CLOSE, () -> closeTab(panelIndex), true, null));
-        menu.add(PopupMenus.item("Close Other Tabs", EditorLayoutCommands.TAB_CLOSE_OTHERS,
+        menu.add(PopupMenus.item(EditorLayoutCommands.TAB_CLOSE_LABEL, EditorLayoutCommands.TAB_CLOSE,
+                () -> closeTab(panelIndex), true, null));
+        menu.add(PopupMenus.item(EditorLayoutCommands.TAB_CLOSE_OTHERS_LABEL, EditorLayoutCommands.TAB_CLOSE_OTHERS,
                 () -> closeOtherTabs(panelIndex), open.size() > 1,
                 EditorLayoutCommands.CLOSE_OTHERS_DISABLED_TOOLTIP));
         if (open.size() < panels.size()) {
-            menu.add(PopupMenus.item("Restore Closed Tabs", EditorLayoutCommands.TABS_RESTORE_CLOSED,
+            menu.add(PopupMenus.item(EditorLayoutCommands.TABS_RESTORE_CLOSED_LABEL,
+                    EditorLayoutCommands.TABS_RESTORE_CLOSED,
                     () -> reopenAllTabs(pane), true, null));
         }
         if (isSplitActive()) {
-            menu.add(PopupMenus.item("Collapse Editor Groups", EditorLayoutCommands.GROUPS_COLLAPSE,
+            menu.add(PopupMenus.item(EditorLayoutCommands.GROUPS_COLLAPSE_LABEL, EditorLayoutCommands.GROUPS_COLLAPSE,
                     this::collapseAndRelayout, true, null));
         }
         return menu;

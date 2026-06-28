@@ -92,7 +92,7 @@ public final class Console extends JTextPane implements Theme.ConsoleLike {
      */
     @Override
     public boolean getScrollableTracksViewportWidth() {
-    return getParent() == null || getUI().getPreferredSize(this).width <= getParent().getWidth();
+        return getParent() == null || getUI().getPreferredSize(this).width <= getParent().getWidth();
     }
 
     /**
@@ -127,7 +127,7 @@ public final class Console extends JTextPane implements Theme.ConsoleLike {
             doc.insertString(start, line + "\n", sectionHeaderStyle());
             int end = doc.getLength();
             getHighlighter().addHighlight(start, Math.max(start, end - 1),
-                    new FullLineHighlightPainter(Theme.withAlpha(Theme.ACCENT, 42)));
+                    new FullLineHighlightPainter(Theme.withAlpha(Theme.LINE, Theme.isDark() ? 80 : 55)));
             currentLine.setLength(0);
             column = 0;
             lineStart = doc.getLength();
@@ -240,23 +240,181 @@ public final class Console extends JTextPane implements Theme.ConsoleLike {
     private SimpleAttributeSet styleFor(String line) {
         String trimmed = line.strip();
         String lower = trimmed.toLowerCase(Locale.ROOT);
+        String padded = ' ' + lower + ' ';
         if (trimmed.startsWith("$ ")) {
-    return badge(Theme.STATUS_INFO_TEXT);
+            return badge(Theme.STATUS_INFO_TEXT);
         }
         if (trimmed.startsWith("[exit 0")) {
-    return badge(Theme.STATUS_SUCCESS_TEXT);
+            return badge(Theme.STATUS_SUCCESS_TEXT);
         }
         if (trimmed.startsWith("[exit ") || trimmed.startsWith("[error")) {
-    return badge(Theme.STATUS_ERROR_TEXT);
+            return badge(Theme.STATUS_ERROR_TEXT);
         }
         if (trimmed.startsWith("[stopped]") || trimmed.startsWith("[")) {
-    return badge(Theme.STATUS_WARNING_TEXT);
+            return badge(Theme.STATUS_WARNING_TEXT);
+        }
+        SimpleAttributeSet levelStyle = styleForLogLevel(trimmed);
+        if (levelStyle != null) {
+            return levelStyle;
         }
         if (lower.contains("error") || lower.contains("exception")
                 || lower.contains("failed") || lower.contains("invalid")) {
-    return style(Theme.STATUS_ERROR_TEXT, false);
+            return style(Theme.STATUS_ERROR_TEXT, false);
         }
-    return style(Theme.TERMINAL_TEXT, false);
+        if (padded.contains(" warning ") || padded.contains(" warn ")) {
+            return style(Theme.STATUS_WARNING_TEXT, false);
+        }
+        if (padded.contains(" info ") || padded.contains(" debug ") || padded.contains(" trace ")) {
+            return style(Theme.MUTED, false);
+        }
+        return style(Theme.TERMINAL_TEXT, false);
+    }
+
+    /**
+     * Returns a style for Java log-level lines, including continuation lines
+     * that start directly with the level token.
+     *
+     * @param trimmed line text without surrounding whitespace
+     * @return style for a known log level, or null when none is present
+     */
+    private static SimpleAttributeSet styleForLogLevel(String trimmed) {
+        String level = firstLogLevel(trimmed);
+        if (level == null) {
+            return null;
+        }
+        return switch (level) {
+            case "SEVERE", "ERROR" -> style(Theme.STATUS_ERROR_TEXT, false);
+            case "WARNING", "WARN" -> style(Theme.STATUS_WARNING_TEXT, false);
+            case "INFO", "CONFIG", "FINE", "FINER", "FINEST", "DEBUG", "TRACE" -> style(Theme.MUTED, false);
+            default -> null;
+        };
+    }
+
+    /**
+     * Extracts a log level from either a plain level-prefixed line or a
+     * timestamped Java log line.
+     *
+     * @param trimmed line text without surrounding whitespace
+     * @return uppercase log level token, or null when no token is found
+     */
+    private static String firstLogLevel(String trimmed) {
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        String first = firstToken(trimmed, 0);
+        if (isLogLevel(first)) {
+            return first;
+        }
+        if (looksLikeTimestamp(first)) {
+            int secondStart = nextTokenStart(trimmed, first.length());
+            String second = firstToken(trimmed, secondStart);
+            if (looksLikeClock(second)) {
+                int levelStart = nextTokenStart(trimmed, secondStart + second.length());
+                String level = firstToken(trimmed, levelStart);
+                if (isLogLevel(level)) {
+                    return level;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Reads the next non-whitespace token as uppercase text.
+     *
+     * @param text source text
+     * @param start starting offset
+     * @return uppercase token, or an empty string when none exists
+     */
+    private static String firstToken(String text, int start) {
+        int begin = Math.max(0, start);
+        while (begin < text.length() && Character.isWhitespace(text.charAt(begin))) {
+            begin++;
+        }
+        int end = begin;
+        while (end < text.length() && !Character.isWhitespace(text.charAt(end))) {
+            end++;
+        }
+        return text.substring(begin, end).toUpperCase(Locale.ROOT);
+    }
+
+    /**
+     * Finds the start of the next token after {@code offset}.
+     *
+     * @param text source text
+     * @param offset offset after a previous token
+     * @return next token start, or {@code text.length()}
+     */
+    private static int nextTokenStart(String text, int offset) {
+        int index = Math.max(0, offset);
+        while (index < text.length() && Character.isWhitespace(text.charAt(index))) {
+            index++;
+        }
+        return index;
+    }
+
+    /**
+     * Tests whether {@code token} is a supported log level.
+     *
+     * @param token uppercase token
+     * @return true when the token names a log level
+     */
+    private static boolean isLogLevel(String token) {
+        return switch (token) {
+            case "SEVERE", "ERROR", "WARNING", "WARN", "INFO", "CONFIG", "FINE", "FINER", "FINEST", "DEBUG",
+                    "TRACE" -> true;
+            default -> false;
+        };
+    }
+
+    /**
+     * Recognizes the date part of the workbench log timestamp.
+     *
+     * @param token first line token
+     * @return true for {@code yyyy-MM-dd}
+     */
+    private static boolean looksLikeTimestamp(String token) {
+        return token.length() == 10
+                && token.charAt(4) == '-'
+                && token.charAt(7) == '-'
+                && isDigit(token, 0)
+                && isDigit(token, 1)
+                && isDigit(token, 2)
+                && isDigit(token, 3)
+                && isDigit(token, 5)
+                && isDigit(token, 6)
+                && isDigit(token, 8)
+                && isDigit(token, 9);
+    }
+
+    /**
+     * Recognizes the time part of the workbench log timestamp.
+     *
+     * @param token second line token
+     * @return true for {@code HH:mm:ss}
+     */
+    private static boolean looksLikeClock(String token) {
+        return token.length() == 8
+                && token.charAt(2) == ':'
+                && token.charAt(5) == ':'
+                && isDigit(token, 0)
+                && isDigit(token, 1)
+                && isDigit(token, 3)
+                && isDigit(token, 4)
+                && isDigit(token, 6)
+                && isDigit(token, 7);
+    }
+
+    /**
+     * Tests one character offset for an ASCII digit.
+     *
+     * @param text source text
+     * @param index character offset
+     * @return true when the character is a digit
+     */
+    private static boolean isDigit(String text, int index) {
+        char ch = text.charAt(index);
+        return ch >= '0' && ch <= '9';
     }
 
     /**
@@ -281,7 +439,7 @@ public final class Console extends JTextPane implements Theme.ConsoleLike {
      * @return attribute set
      */
     private static SimpleAttributeSet sectionHeaderStyle() {
-        return style(Theme.TERMINAL_TEXT, true);
+        return style(Theme.MUTED, true);
     }
 
     /**
@@ -428,6 +586,6 @@ public final class Console extends JTextPane implements Theme.ConsoleLike {
     @Override
     public Dimension getPreferredSize() {
         Dimension preferred = super.getPreferredSize();
-    return new Dimension(Math.max(preferred.width, 480), Math.max(preferred.height, 240));
+        return new Dimension(Math.max(preferred.width, 480), Math.max(preferred.height, 240));
     }
 }

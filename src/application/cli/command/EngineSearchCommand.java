@@ -17,7 +17,6 @@ import chess.engine.Mcts;
 import chess.engine.Result;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import utility.Argv;

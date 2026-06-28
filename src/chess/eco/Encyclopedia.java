@@ -251,28 +251,6 @@ public final class Encyclopedia {
     }
 
     /**
-     * Used for quickly obtaining an ECO code from the default ECO book.
-     *
-     * @see #getECO(Position)
-     * @param pos position value
-     * @return ECO code from the default ECO book
-     */
-    public static String eco(Position pos) {
-        return defaultBook().getECO(pos);
-    }
-
-    /**
-     * Used for quickly obtaining a full {@link Entry} from the default ECO book.
-     *
-     * @see #getNode(Position)
-     * @param pos position value
-     * @return ECO entry from the default ECO book
-     */
-    public static Entry node(Position pos) {
-        return defaultBook().getNode(pos);
-    }
-
-    /**
      * Returns an immutable view of all parsed ECO entries in book order.
      *
      * @return list of {@link Entry} items

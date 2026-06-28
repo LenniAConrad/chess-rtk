@@ -249,15 +249,6 @@ public final class EcoExplorerPanel extends JPanel {
     }
 
     /**
-     * Returns a compact current-opening summary.
-     *
-     * @return current opening summary
-     */
-    public String currentOpeningSummary() {
-        return codeLabel.getText() + " " + nameLabel.getText();
-    }
-
-    /**
      * Selects the first visible row when one exists.
      *
      * @return true when a row was selected

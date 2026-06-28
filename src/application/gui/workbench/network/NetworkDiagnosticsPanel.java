@@ -3,7 +3,6 @@ package application.gui.workbench.network;
 import application.Config;
 import application.gui.workbench.ui.RenderAcceleration;
 import application.gui.workbench.ui.Theme;
-import application.gui.workbench.ui.TomlHighlighter;
 import application.gui.workbench.ui.Ui;
 import java.awt.BorderLayout;
 import java.awt.Component;
@@ -31,7 +30,6 @@ import javax.swing.JPanel;
 import application.gui.workbench.ui.SurfacePanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextPane;
-import javax.swing.ScrollPaneConstants;
 
 /**
  * Runtime diagnostics surface for the Network workbench tab.
@@ -317,12 +315,12 @@ public final class NetworkDiagnosticsPanel extends SurfacePanel {
             String text = Files.readString(configPath, StandardCharsets.UTF_8);
             configPathLabel.setText(pathLabel(configPath));
             configPathLabel.setToolTipText(configPath.toAbsolutePath().toString());
-            TomlHighlighter.apply(configPane, text);
+            Ui.applyTomlHighlighting(configPane, text);
             configThemeMode = Theme.mode();
         } catch (IOException | RuntimeException ex) {
             configPathLabel.setText("Cannot read " + configPath);
             configPathLabel.setToolTipText(configPath.toAbsolutePath().toString());
-            TomlHighlighter.apply(configPane,
+            Ui.applyTomlHighlighting(configPane,
                     "# Failed to read config\n# " + ex.getMessage());
             configThemeMode = Theme.mode();
         }
@@ -340,7 +338,7 @@ public final class NetworkDiagnosticsPanel extends SurfacePanel {
         configPane.setForeground(Theme.TEXT);
         configPane.setSelectionColor(Theme.TEXT_SELECTION);
         configPane.setSelectedTextColor(Theme.TEXT);
-        TomlHighlighter.apply(configPane, configPane.getText());
+        Ui.applyTomlHighlighting(configPane, configPane.getText());
     }
 
     /**

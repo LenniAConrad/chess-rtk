@@ -208,26 +208,6 @@ public final class Tokenizer {
   }
 
   /**
-   * Checks if any piece starts with the given character.
-   *
-   * @param ch character to test
-   * @return true if at least one piece matches the prefix
-   */
-  public boolean hasPrefix(char ch) {
-    return prefixMap.containsKey((int) ch);
-  }
-
-  /**
-   * Returns the score for a piece id.
-   *
-   * @param id piece id
-   * @return score
-   */
-  public float score(int id) {
-    return scores[id];
-  }
-
-  /**
    * Builds the prefix map used for efficient candidate lookup.
    *
    * @param pieces vocabulary pieces

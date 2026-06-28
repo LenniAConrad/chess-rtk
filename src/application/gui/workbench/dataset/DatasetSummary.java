@@ -126,15 +126,6 @@ public record DatasetSummary(
     }
 
     /**
-     * Returns the invalid-row ratio.
-     *
-     * @return ratio in {@code 0..1}
-     */
-    public double invalidRatio() {
-        return rows <= 0L ? 0.0d : (double) invalidRows / (double) rows;
-    }
-
-    /**
      * Returns the duplicate-row ratio among valid rows.
      *
      * @return ratio in {@code 0..1}

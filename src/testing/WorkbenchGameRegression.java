@@ -6,10 +6,13 @@ import java.awt.Component;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.Point;
+import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.IntConsumer;
 
 import javax.swing.JComponent;
 import javax.swing.JTable;
@@ -35,8 +38,10 @@ import application.gui.workbench.game.SavedGame;
 import application.gui.workbench.game.SavedGameStore;
 import application.gui.workbench.game.SanRenderer;
 import application.gui.workbench.game.StudyAuthorPanel;
-import application.gui.workbench.game.StudyRepository;
+import application.gui.workbench.study.StudyRepository;
+import application.gui.workbench.study.StudyWorkspacePanel;
 import application.gui.workbench.game.TablebasePanel;
+import application.gui.workbench.library.GameLibrary;
 import application.gui.workbench.ui.NotationPainter;
 import application.gui.workbench.ui.Theme;
 
@@ -53,11 +58,19 @@ import chess.review.ReviewRow.Ply;
 import chess.review.ReviewRow.Repro;
 import chess.review.ReviewRow.Tags;
 import chess.review.ReviewRow.Wdl;
+import chess.review.StudyUnit;
 import chess.review.StudyUnitFactory;
 import chess.core.Move;
 import chess.core.Field;
 import chess.core.Position;
 import chess.core.Setup;
+import chess.study.ShapeCommentCodec;
+import chess.study.StudyChapter;
+import chess.study.StudyChapterMode;
+import chess.study.StudyNodePath;
+import chess.study.StudyProject;
+import chess.study.StudyShape;
+import chess.study.StudyTreeModel;
 import chess.struct.Game;
 import chess.struct.Pgn;
 import chess.uci.Output;
@@ -81,7 +94,10 @@ final class WorkbenchGameRegression {
         testWorkbenchSanRendererUsesNeutralPieceSvgs();
         testInlineNotationPainterHandlesFeatureLabels();
         testGameModelLoadsPgnVariations();
+        testAnalyzeVariationTreeUsesVisibleVariationRows();
+        testAnalyzeVariationTreeUsesCompactBlackMoveLabels();
         testGameModelNavigatesSelectedVariationLine();
+        testGameModelCreatesAndExtendsEditableVariations();
         testPlayMoveHistoryModelPairsSanMoves();
         testPuzzleSessionExploresOpponentVariationBranches();
         testPuzzlePanelStartsStandardWithoutLoadedLibrary();
@@ -102,9 +118,16 @@ final class WorkbenchGameRegression {
         testEcoExplorerFiltersAndLoadsLines();
         testGameReviewPanelFindsStaticSwings();
         testGameReviewPanelLoadsProducedReviewArtifacts();
+        testGameReviewPanelUsesLichessReviewModes();
         testGameReviewPanelBuildsStudyArtifactsViaCli();
         testSavedGameStoreRoundTripsAndValidatesMoves();
+        testGameLibraryStoresCurrentAndImportedPgnGames();
         testStudyRepositoryCreatesStarterPgnBook();
+        testStudyShapeCommentCodecRoundTrips();
+        testStudyTreeModelEditsFullPgnTree();
+        testStudyRepositorySavesPgnBackedProject();
+        testStudyRepositoryImportsReviewStudyUnits();
+        testStudyWorkspacePanelSmoke();
         testStudyAuthorPanelBuildsManifestFromGameLine();
         testAccessibilityLabelsForNewWorkbenchPanels();
         testEvalBarMapping();
@@ -238,6 +261,15 @@ final class WorkbenchGameRegression {
         assertEquals(Integer.valueOf(4), Integer.valueOf(model.getRowCount()), "variation rows visible");
         assertEquals(Integer.valueOf(2), Integer.valueOf(model.lastPly()), "mainline ply count");
         assertEquals(Integer.valueOf(2), Integer.valueOf(model.variationRowCount()), "variation ply count");
+        List<GameModel.VisibleMoveSnapshot> rows = model.visibleMoveSnapshots();
+        assertEquals(Integer.valueOf(4), Integer.valueOf(rows.size()), "visible variation tree rows");
+        assertTrue(rows.get(0).mainline(), "visible tree starts with the mainline move");
+        assertFalse(rows.get(1).mainline(), "visible tree includes the PGN variation row");
+        assertEquals("d4", rows.get(1).san(), "visible variation row keeps trimmed SAN");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(rows.get(1).variationDepth()),
+                "visible variation row carries branch depth");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(rows.get(1).rowIndex()),
+                "visible variation row keeps table navigation index");
         assertTrue(model.pgn().contains("(1. d4 d5)"), "PGN export preserves variation");
 
         Position afterD4 = new Position(START_FEN);
@@ -255,6 +287,92 @@ final class WorkbenchGameRegression {
         assertEquals(afterMainline.toString(), model.currentPosition().toString(), "mainline navigation restored");
         assertEquals(List.of(Short.valueOf(Move.parse("e2e4")), Short.valueOf(Move.parse("e7e5"))),
                 model.currentPath(), "mainline path");
+    }
+
+    /**
+     * Verifies the Analyze-side variation tree paints and clicks visible PGN
+     * variation rows, not only editable mainline plies.
+     */
+    private static void testAnalyzeVariationTreeUsesVisibleVariationRows() {
+        GameModel model = new GameModel();
+        Game game = Pgn.parseGame("1. e4 (1. d4 d5) e5 *");
+        model.loadGame(game.getStartPosition(), game);
+        List<Integer> jumps = new ArrayList<>();
+        JComponent tree = (JComponent) construct(type("AnalyzeVariationTreePanel"),
+                new Class<?>[] { GameModel.class, IntConsumer.class },
+                model, (IntConsumer) jumps::add);
+
+        assertTrue(tree.getPreferredSize().width >= 236,
+                "analyze variation tree reserves room for branch text");
+        assertTrue(tree.getToolTipText().contains("PGN variations"),
+                "analyze variation tree tooltip explains branch navigation");
+        tree.setSize(260, 180);
+        paint(tree, 260, 180);
+        Point variationPoint = variationTreePointForRow(tree, 1);
+        tree.dispatchEvent(mouse(tree, MouseEvent.MOUSE_CLICKED, 1L,
+                variationPoint.x, variationPoint.y, 1));
+        assertEquals(Integer.valueOf(1), jumps.get(0),
+                "analyze variation tree clicks through to the variation display row");
+    }
+
+    /**
+     * Verifies the Analyze-side variation tree keeps black replies compact by
+     * omitting repeated {@code N...} labels.
+     */
+    private static void testAnalyzeVariationTreeUsesCompactBlackMoveLabels() {
+        GameModel model = new GameModel();
+        Game game = Pgn.parseGame("1. e4 e5 (1... d5 2. exd5 Qxd5) 2. Nf3 Nc6 *");
+        model.loadGame(game.getStartPosition(), game);
+        JComponent tree = (JComponent) construct(type("AnalyzeVariationTreePanel"),
+                new Class<?>[] { GameModel.class, IntConsumer.class },
+                model, (IntConsumer) row -> {
+                    // no-op
+                });
+
+        List<String> texts = variationTreeTokenTexts(tree);
+        assertTrue(texts.contains("1. e4"), "tree keeps white move-number prefix");
+        assertTrue(texts.contains("d5"), "tree shows black branch reply without move number");
+        assertTrue(texts.contains("2. exd5"), "tree starts the next white pair with a move number");
+        assertTrue(texts.contains("Qxd5"), "tree shows black continuation without move number");
+        assertFalse(texts.contains("1... d5"), "tree omits repeated black branch move number");
+        assertFalse(texts.contains("2... Qxd5"), "tree omits repeated black continuation move number");
+    }
+
+    /**
+     * Finds any clickable point for a visible variation-tree row.
+     *
+     * @param tree variation tree component
+     * @param row visible row
+     * @return clickable point
+     */
+    private static Point variationTreePointForRow(JComponent tree, int row) {
+        for (int y = 56; y < tree.getHeight(); y++) {
+            for (int x = 0; x < tree.getWidth(); x++) {
+                Integer hit = (Integer) invoke(tree, "rowAt",
+                        new Class<?>[] { int.class, int.class },
+                        Integer.valueOf(x), Integer.valueOf(y));
+                if (hit.intValue() == row) {
+                    return new Point(x, y);
+                }
+            }
+        }
+        throw new AssertionError("missing variation tree hit target for row " + row);
+    }
+
+    /**
+     * Reads displayed variation-tree token text through the package-private
+     * component API.
+     *
+     * @param tree variation tree component
+     * @return token texts in display order
+     */
+    private static List<String> variationTreeTokenTexts(JComponent tree) {
+        List<?> tokens = (List<?>) invoke(tree, "notationTokens", new Class<?>[0]);
+        List<String> texts = new ArrayList<>();
+        for (Object token : tokens) {
+            texts.add((String) invoke(token, "text", new Class<?>[0]));
+        }
+        return texts;
     }
 
     /**
@@ -285,6 +403,91 @@ final class WorkbenchGameRegression {
         assertFalse(singleMoveVariation.navigate(1), "short variation cannot step into unrelated mainline");
         assertEquals("d2d4", Move.toString(singleMoveVariation.currentLastMove()),
                 "failed forward keeps selected variation position");
+    }
+
+    /**
+     * Verifies alternate board moves become editable PGN variations instead of
+     * replacing the mainline.
+     */
+    private static void testGameModelCreatesAndExtendsEditableVariations() {
+        GameModel model = new GameModel();
+        Position cursor = new Position(START_FEN);
+        short e4 = Move.parse("e2e4");
+        Position afterE4 = cursor.copy();
+        afterE4.play(e4);
+        model.append(cursor, e4, afterE4);
+        cursor = afterE4;
+        short e5 = Move.parse("e7e5");
+        Position afterE5 = cursor.copy();
+        afterE5.play(e5);
+        model.append(cursor, e5, afterE5);
+
+        model.jumpToPly(1);
+        short d5 = Move.parse("d7d5");
+        Position afterD5 = afterE4.copy();
+        afterD5.play(d5);
+        model.append(afterE4, d5, afterD5);
+        assertEquals(Integer.valueOf(2), Integer.valueOf(model.lastPly()),
+                "mainline length remains unchanged after branch creation");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(model.variationRowCount()),
+                "alternate move becomes a variation row");
+        assertEquals("d7d5", Move.toString(model.currentLastMove()),
+                "new variation is selected");
+        assertEquals(afterD5.toString(), model.currentPosition().toString(),
+                "selected variation position is current");
+        assertTrue(model.pgn().contains("(1... d5)"),
+                "PGN export preserves editable black variation");
+        assertTrue(model.canBack(), "new variation can navigate back");
+        assertFalse(model.canForward(), "new one-move variation has no continuation yet");
+
+        short exd5 = Move.parse("e4d5");
+        Position afterExd5 = afterD5.copy();
+        afterExd5.play(exd5);
+        model.append(afterD5, exd5, afterExd5);
+        assertEquals(Integer.valueOf(2), Integer.valueOf(model.variationRowCount()),
+                "variation continuation is kept as a visible variation row");
+        assertEquals("e4d5", Move.toString(model.currentLastMove()),
+                "variation continuation is selected");
+        assertTrue(model.pgn().contains("(1... d5 2. exd5)"),
+                "PGN export preserves variation continuation");
+        assertTrue(model.navigate(-1), "variation continuation navigates back");
+        assertEquals("d7d5", Move.toString(model.currentLastMove()),
+                "variation back stays inside branch");
+        assertTrue(model.navigate(1), "variation can move forward again");
+        assertEquals("e4d5", Move.toString(model.currentLastMove()),
+                "variation forward restores branch continuation");
+
+        model.jumpToPly(1);
+        short c5 = Move.parse("c7c5");
+        Position afterC5 = afterE4.copy();
+        afterC5.play(c5);
+        model.append(afterE4, c5, afterC5);
+        assertEquals(Integer.valueOf(3), Integer.valueOf(model.variationRowCount()),
+                "second alternate move keeps the first variation line");
+        assertEquals("c7c5", Move.toString(model.currentLastMove()),
+                "second alternate move is selected");
+        String branchPgn = model.pgn();
+        assertTrue(branchPgn.contains("(1... d5 2. exd5)"),
+                "PGN keeps the first editable variation");
+        assertTrue(branchPgn.contains("(1... c5)"),
+                "PGN adds the second editable variation");
+
+        GameModel rootBranch = new GameModel();
+        Position root = new Position(START_FEN);
+        Position rootE4 = root.copy();
+        rootE4.play(e4);
+        rootBranch.append(root, e4, rootE4);
+        rootBranch.jumpToPly(0);
+        short d4 = Move.parse("d2d4");
+        Position rootD4 = root.copy();
+        rootD4.play(d4);
+        rootBranch.append(root, d4, rootD4);
+        assertEquals(Integer.valueOf(1), Integer.valueOf(rootBranch.lastPly()),
+                "root branch leaves mainline intact");
+        assertEquals(Integer.valueOf(1), Integer.valueOf(rootBranch.variationRowCount()),
+                "root alternate move becomes variation");
+        assertTrue(rootBranch.pgn().contains("(1. d4)"),
+                "PGN export preserves editable root variation");
     }
 
     /**
@@ -920,6 +1123,44 @@ final class WorkbenchGameRegression {
     }
 
     /**
+     * Verifies the Review panel exposes the Lichess-like analysis tabs and
+     * notation/export panes.
+     */
+    private static void testGameReviewPanelUsesLichessReviewModes() {
+        try {
+            Position root = new Position("k2r4/8/8/8/8/8/8/3QK3 w - - 0 1");
+            GameModel model = new GameModel();
+            model.loadLine(root, List.of(Short.valueOf(Move.parse("d1h5"))));
+            ReviewRow row = reviewArtifactFixture();
+            StudyUnitFactory.Output artifacts = StudyUnitFactory.fromRows(List.of(row));
+            Path dir = Files.createTempDirectory("crtk-workbench-lichess-review-");
+            Path reviewJsonl = dir.resolve("review.jsonl");
+            Path studyJsonl = dir.resolve("study.jsonl");
+            Files.writeString(reviewJsonl, row.toJson() + System.lineSeparator());
+            Files.writeString(studyJsonl, artifacts.units().get(0).toJson() + System.lineSeparator());
+
+            GameReviewPanel panel = new GameReviewPanel(() -> model, ply -> { }, value -> { });
+            panel.loadReviewArtifacts(reviewJsonl, studyJsonl);
+            assertEquals(List.of("Computer analysis", "Move times", "Crosstable", "Share & export"),
+                    panel.reviewModeLabels(), "review panel exposes Lichess-style mode labels");
+            assertTrue(panel.selectReviewMode(0), "review panel selects analysis mode");
+            assertTrue(panel.selectReviewMode(1), "review panel selects move-times mode");
+            assertTrue(panel.selectReviewMode(2), "review panel selects crosstable mode");
+            assertTrue(panel.selectReviewMode(3), "review panel selects export mode");
+            assertTrue(panel.exportText().contains("Qh5"), "review export keeps PGN text");
+            assertTrue(panel.notationText().contains("Blunder"), "review notation includes verdict");
+            assertTrue(panel.notationText().contains("Qxd8 was best"), "review notation includes best move");
+            panel.setSize(520, 560);
+            panel.doLayout();
+            BufferedImage image = paint(panel, 520, 560);
+            assertTrue(alphaSum(image, 0, 0, image.getWidth(), image.getHeight()) > 0,
+                    "Lichess-style review panel paints");
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("Lichess review fixture failed", ex);
+        }
+    }
+
+    /**
      * Verifies the Review panel can produce study artifacts through the real
      * {@code crtk review game --to-study} CLI path and render the result.
      */
@@ -983,6 +1224,58 @@ final class WorkbenchGameRegression {
             assertTrue(rejected, "saved game replay rejects illegal UCI");
         } catch (java.io.IOException ex) {
             throw new AssertionError("saved-game fixture failed", ex);
+        }
+    }
+
+    /**
+     * Verifies the Workbench library persists current and imported PGN games.
+     */
+    private static void testGameLibraryStoresCurrentAndImportedPgnGames() {
+        try {
+            Path dir = Files.createTempDirectory("crtk-workbench-game-library-");
+            GameLibrary library = new GameLibrary(dir.resolve("pgn-store"));
+            GameModel model = new GameModel();
+            Position cursor = new Position(START_FEN);
+            for (String uci : List.of("e2e4", "e7e5", "g1f3")) {
+                short move = Move.parse(uci);
+                Position next = cursor.copy();
+                next.play(move);
+                model.append(cursor, move, next);
+                cursor = next;
+            }
+
+            chess.pgn.PgnStore.ImportReport saved = library.saveCurrent(model, "Workbench Saved");
+            assertEquals(Integer.valueOf(1), Integer.valueOf(saved.imported()),
+                    "library imports current game");
+            assertEquals(Integer.valueOf(1), Integer.valueOf(library.recent(10).size()),
+                    "library current game row count");
+            GameLibrary.Entry current = library.recent(10).get(0);
+            assertTrue(current.pgn().contains("1. e4 e5 2. Nf3"),
+                    "library stores current game PGN");
+            assertTrue(current.searchableText().contains("workbench saved"),
+                    "library search includes source");
+
+            Path pgnFile = dir.resolve("import.pgn");
+            Files.writeString(pgnFile, """
+                    [Event "Imported Fixture"]
+                    [Site "?"]
+                    [White "Ada"]
+                    [Black "Grace"]
+                    [Result "*"]
+
+                    1. d4 d5 *
+                    """);
+            chess.pgn.PgnStore.ImportReport imported = library.importPgn(pgnFile);
+            assertEquals(Integer.valueOf(1), Integer.valueOf(imported.imported()),
+                    "library imports PGN file");
+            List<GameLibrary.Entry> rows = library.recent(10);
+            assertEquals(Integer.valueOf(2), Integer.valueOf(rows.size()),
+                    "library imported row count");
+            assertEquals("Imported Fixture", rows.get(0).event(), "newest imported game first");
+            assertTrue(rows.get(0).searchableText().contains("ada"),
+                    "library search includes player tags");
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("game-library fixture failed", ex);
         }
     }
 
@@ -1072,6 +1365,192 @@ final class WorkbenchGameRegression {
             assertTrue(studies.get(0).empty(), "starter study chapter has no moves");
         } catch (java.io.IOException ex) {
             throw new AssertionError("study repository setup failed", ex);
+        }
+    }
+
+    /**
+     * Verifies graphical PGN comments preserve text and round-trip shapes.
+     */
+    private static void testStudyShapeCommentCodecRoundTrips() {
+        ShapeCommentCodec.DecodedComment decoded = ShapeCommentCodec.parse(
+                "Critical square [%csl Gb4,Yd5,Rf6] with tactic [%cal Ge2e4,Ye2d4,Re2g4]");
+        assertEquals("Critical square with tactic", decoded.text(),
+                "shape codec preserves non-shape comment text");
+        assertEquals(Integer.valueOf(6), Integer.valueOf(decoded.shapes().size()),
+                "shape codec parses circles and arrows");
+        String rendered = ShapeCommentCodec.render(decoded);
+        assertTrue(rendered.contains("[%csl Gb4,Yd5,Rf6]"),
+                "shape codec renders circles");
+        assertTrue(rendered.contains("[%cal Ge2e4,Ye2d4,Re2g4]"),
+                "shape codec renders arrows");
+        ShapeCommentCodec.DecodedComment reparsed = ShapeCommentCodec.parse(rendered);
+        assertEquals(decoded.shapes(), reparsed.shapes(), "shape codec round-trips shape list");
+    }
+
+    /**
+     * Verifies the local study tree edits full PGN trees without truncating
+     * variations, comments, NAGs, or shapes.
+     */
+    private static void testStudyTreeModelEditsFullPgnTree() {
+        StudyTreeModel tree = new StudyTreeModel(new Game());
+        StudyNodePath e4 = tree.addLegalMove("e2e4");
+        StudyNodePath e5 = tree.addLegalMove("e7e5");
+        tree.select(e4);
+        StudyNodePath c5 = tree.addLegalMove("c7c5");
+        tree.select(e4);
+        StudyNodePath nf6 = tree.addLegalMove("g8f6");
+
+        tree.setCommentBefore(e4, "Root idea");
+        tree.setCommentAfter(e4, "Take the center");
+        tree.setShapes(e4, List.of(
+                StudyShape.arrow(StudyShape.Brush.GREEN, "e2", "e4"),
+                StudyShape.circle(StudyShape.Brush.YELLOW, "d5")));
+        tree.toggleNag(e4, 1);
+        tree.toggleNag(e4, 2);
+        tree.toggleNag(e4, 146);
+        tree.toggleNag(e4, 32);
+        List<Integer> e4Nags = tree.rows().stream()
+                .filter(row -> row.path().equals(e4))
+                .findFirst()
+                .orElseThrow()
+                .nags();
+        String annotated = tree.toPgn();
+        assertTrue(annotated.contains("$2"), "study tree keeps latest move assessment NAG");
+        assertFalse(e4Nags.contains(Integer.valueOf(1)), "study tree enforces one move assessment");
+        assertTrue(annotated.contains("$146") && annotated.contains("$32"),
+                "study tree allows multiple observation NAGs");
+        assertTrue(annotated.contains("[%csl Yd5]"), "study tree stores circles in PGN comments");
+        assertTrue(annotated.contains("[%cal Ge2e4]"), "study tree stores arrows in PGN comments");
+        assertTrue(annotated.contains("(1... c5)") && annotated.contains("(1... Nf6)"),
+                "study tree keeps sibling variations");
+
+        tree.select(c5);
+        assertTrue(tree.promoteVariation(), "study tree promotes selected variation");
+        StudyTreeModel.Row c5Row = tree.rows().stream()
+                .filter(row -> row.path().equals(c5))
+                .findFirst()
+                .orElseThrow();
+        StudyTreeModel.Row e5Row = tree.rows().stream()
+                .filter(row -> row.path().equals(e5))
+                .findFirst()
+                .orElseThrow();
+        assertTrue(c5Row.mainline() && !e5Row.mainline(),
+                "promoted variation becomes mainline and old line becomes variation");
+
+        tree.select(nf6);
+        assertTrue(tree.deleteBranch(), "study tree deletes selected branch");
+        assertFalse(tree.toPgn().contains("Nf6"), "deleted branch is removed from PGN");
+
+        Game roundTrip = Pgn.parseGame(tree.toPgn());
+        assertTrue(Pgn.toPgn(roundTrip).contains("[%cal Ge2e4]"),
+                "study tree save/reopen preserves graphical annotations");
+        assertEquals("Take the center", new StudyTreeModel(roundTrip).commentAfter(e4),
+                "study tree save/reopen preserves comments");
+    }
+
+    /**
+     * Verifies StudyRepository saves and reopens PGN-backed projects with sidecar
+     * chapter metadata.
+     */
+    private static void testStudyRepositorySavesPgnBackedProject() {
+        try {
+            Path dir = Files.createTempDirectory("crtk-study-crud-");
+            StudyRepository repository = new StudyRepository(dir);
+            StudyProject project = repository.createStudy("Local Study");
+            Game imported = Pgn.parseGame("""
+                    [Event "Chapter Import"]
+                    [Result "*"]
+
+                    {Root note} 1. e4 $1 {Center [%cal Ge2e4]} (1. d4 d5) e5 *
+                    """);
+            StudyChapter chapter = repository.addChapterFromGame(project, "Imported Chapter", imported);
+            chapter.setMode(StudyChapterMode.PRACTICE);
+            chapter.setOrientation("black");
+            chapter.setDescription("Practice the imported chapter.");
+            repository.addChapterFromFen(project, "FEN Chapter", "8/8/8/8/8/8/8/K6k w - - 0 1");
+            repository.saveStudy(project);
+
+            StudyProject reopened = repository.openStudy(project.pgnPath());
+            assertEquals(Integer.valueOf(3), Integer.valueOf(reopened.chapters().size()),
+                    "study repository reopens all chapters");
+            StudyChapter reopenedImported = reopened.chapter(chapter.id()).orElseThrow();
+            assertEquals(StudyChapterMode.PRACTICE, reopenedImported.mode(),
+                    "study repository preserves sidecar mode");
+            assertEquals("black", reopenedImported.orientation(),
+                    "study repository preserves sidecar orientation");
+            assertTrue(Pgn.toPgn(reopenedImported.game()).contains("(1. d4 d5)"),
+                    "study repository preserves PGN variations");
+            assertTrue(Pgn.toPgn(reopenedImported.game()).contains("[%cal Ge2e4]"),
+                    "study repository preserves graphical comments");
+            assertTrue(Files.exists(project.pgnPath().resolveSibling("local-study.crtk-study.json")),
+                    "study repository writes sidecar metadata");
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("study repository CRUD failed", ex);
+        }
+    }
+
+    /**
+     * Verifies study-unit JSONL imports become PGN-backed chapters with the
+     * reviewed move kept as an annotated variation.
+     */
+    private static void testStudyRepositoryImportsReviewStudyUnits() {
+        try {
+            Path dir = Files.createTempDirectory("crtk-study-review-import-");
+            StudyRepository repository = new StudyRepository(dir);
+            StudyProject project = repository.createStudy("Review Import Study");
+            String parentFen = "7k/8/8/8/8/8/4P3/4K3 w - - 0 1";
+            Path jsonl = dir.resolve("unit.study.jsonl");
+            Files.writeString(jsonl, """
+                    {"schemaVersion":"%s","id":"review-unit-001","game_id":"g1","source":"fixture","event":"Training","white":"White","black":"Black","ply":12,"move_number":7,"color":"white","parent_fen":"%s","position_fen":"7k/8/8/8/4P3/8/8/4K3 b - - 0 1","played_uci":"e2e3","played_san":"e3","best_uci":"e2e4","best_san":"e4","refutation_line":["e2e4","h8g8"],"mistake_category":"blunder","mistake_motif":"tactic","recommended_action":"drill_puzzle","severity":0.75,"cp_loss":420,"wdl_loss":0.2,"difficulty":"hard","tags":["tactical","META: study_unit_id=review-unit-001"],"repro":{"engine":"fixture","protocol_path":null,"max_nodes":1,"max_duration_ms":0,"multipv":1,"threads":1,"hash":16,"search_mode":"offline","crtk_version":"test","deterministic":true}}
+                    """.formatted(StudyUnit.SCHEMA_VERSION, parentFen));
+
+            assertEquals(Integer.valueOf(1), Integer.valueOf(repository.importStudyUnitsFromJsonl(project, jsonl)),
+                    "study repository imports one review study-unit row");
+            StudyChapter imported = project.chapters().get(project.chapters().size() - 1);
+            String pgn = Pgn.toPgn(imported.game());
+            assertTrue(pgn.contains("[FEN \"" + parentFen + "\"]"),
+                    "review import roots chapter at parent FEN");
+            assertTrue(pgn.contains("1. e4 $1"),
+                    "review import uses best move as mainline");
+            assertTrue(pgn.contains("Kg8"),
+                    "review import keeps refutation continuation");
+            assertTrue(pgn.contains("(1. e3 $4"),
+                    "review import keeps played blunder as variation");
+            assertTrue(pgn.contains("category blunder") && pgn.contains("difficulty hard"),
+                    "review import carries verdict metadata into comments");
+            repository.saveStudy(project);
+            StudyProject reopened = repository.openStudy(project.pgnPath());
+            assertTrue(Pgn.toPgn(reopened.chapters().get(reopened.chapters().size() - 1).game()).contains("$4"),
+                    "review import survives save and reopen");
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("study-unit import failed", ex);
+        }
+    }
+
+    /**
+     * Verifies the Study Workspace can be constructed and painted headlessly.
+     */
+    private static void testStudyWorkspacePanelSmoke() {
+        try {
+            Path dir = Files.createTempDirectory("crtk-study-workspace-");
+            List<String> positions = new ArrayList<>();
+            StudyWorkspacePanel panel = new StudyWorkspacePanel(new StudyRepository(dir),
+                    GameModel::new, () -> START_FEN, position -> positions.add(position.toString()),
+                    value -> { });
+            assertEquals("Study Workspace", panel.getAccessibleContext().getAccessibleName(),
+                    "study workspace has accessible name");
+            assertEquals(Integer.valueOf(1), Integer.valueOf(panel.chapterCount()),
+                    "study workspace starts with one chapter");
+            panel.setSize(900, 620);
+            panel.doLayout();
+            BufferedImage image = paint(panel, 900, 620);
+            assertTrue(alphaSum(image, 0, 0, 900, 620) > 0,
+                    "study workspace paints a non-empty surface");
+            assertTrue(panel.exportPgnText().contains("[Event \"Workbench Study\"]"),
+                    "study workspace exports PGN text");
+            assertFalse(positions.isEmpty(), "study workspace publishes selected board position");
+        } catch (java.io.IOException ex) {
+            throw new AssertionError("study workspace smoke failed", ex);
         }
     }
 

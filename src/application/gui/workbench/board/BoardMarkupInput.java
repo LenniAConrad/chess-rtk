@@ -350,6 +350,10 @@ final class BoardMarkupInput {
      * @param markup completed annotation markup
      */
     private void toggle(BoardMarkup markup) {
+        if (markup.isGlyph()) {
+            toggleGlyph(markup);
+            return;
+        }
         boolean foundSameEndpoints = false;
         boolean foundSameBrush = false;
         for (int i = markups.size() - 1; i >= 0; i--) {
@@ -363,6 +367,31 @@ final class BoardMarkupInput {
         if (!foundSameEndpoints || !foundSameBrush) {
             markups.add(markup);
         }
+    }
+
+    /**
+     * Toggles one glyph annotation. Most glyphs can stack on the same square, but
+     * mutually exclusive notation groups replace their siblings.
+     *
+     * @param markup completed glyph markup
+     */
+    private void toggleGlyph(BoardMarkup markup) {
+        String replacementGroup = MarkupBrush.exclusiveGlyphGroup(markup.brush().glyph());
+        for (int i = markups.size() - 1; i >= 0; i--) {
+            BoardMarkup existing = markups.get(i);
+            if (!sameEndpoints(existing, markup)) {
+                continue;
+            }
+            if (sameBrush(existing, markup)) {
+                markups.remove(i);
+                return;
+            }
+            String existingGroup = MarkupBrush.exclusiveGlyphGroup(existing.brush().glyph());
+            if (replacementGroup != null && replacementGroup.equals(existingGroup)) {
+                markups.remove(i);
+            }
+        }
+        markups.add(markup);
     }
 
     /**

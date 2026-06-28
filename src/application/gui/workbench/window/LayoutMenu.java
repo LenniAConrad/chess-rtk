@@ -2,8 +2,8 @@ package application.gui.workbench.window;
 
 import application.gui.workbench.audio.SoundCue;
 import application.gui.workbench.audio.SoundService;
+import application.gui.workbench.layout.EditorLayoutCommands;
 import application.gui.workbench.ui.Theme;
-import application.gui.workbench.ui.MenuGlyphs;
 import application.gui.workbench.ui.Ui;
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -115,6 +115,42 @@ public final class LayoutMenu {
          * @return editor group count
          */
         int visibleGroupCount();
+
+        /**
+         * Returns whether the active tab can be split into another editor group.
+         *
+         * @return true when a split action is available
+         */
+        default boolean canSplitActiveTab() {
+            return openTabCount() > 1;
+        }
+
+        /**
+         * Returns whether the active tab can be detached.
+         *
+         * @return true when a tab is selected
+         */
+        default boolean canDetachActiveTab() {
+            return openTabCount() > 0;
+        }
+
+        /**
+         * Returns whether closing other tabs would do useful work.
+         *
+         * @return true when another tab exists
+         */
+        default boolean canCloseOtherTabs() {
+            return openTabCount() > 1;
+        }
+
+        /**
+         * Returns whether hidden or detached tabs can be restored.
+         *
+         * @return true when restore can change layout state
+         */
+        default boolean hasRestorableTabs() {
+            return false;
+        }
     }
 
     /**
@@ -133,6 +169,21 @@ public final class LayoutMenu {
     private final ChromeButton customizeButton;
 
     /**
+     * Toolbar split-right action.
+     */
+    private final ChromeButton splitRightButton;
+
+    /**
+     * Toolbar split-down action.
+     */
+    private final ChromeButton splitDownButton;
+
+    /**
+     * Toolbar restore-tabs action.
+     */
+    private final ChromeButton restoreTabsButton;
+
+    /**
      * Creates layout controls.
      *
      * @param controller callback controller
@@ -142,9 +193,15 @@ public final class LayoutMenu {
         customizeButton = button("Customize layout and visibility",
                 LayoutIcon.Kind.CUSTOMIZE, this::showPopup);
         toolbar.add(customizeButton);
-        toolbar.add(button("Split active tab right", LayoutIcon.Kind.SPLIT_RIGHT, controller::splitRight));
-        toolbar.add(button("Split active tab down", LayoutIcon.Kind.SPLIT_DOWN, controller::splitDown));
-        toolbar.add(button("Restore closed tabs", LayoutIcon.Kind.RESTORE, controller::reopenAllTabs));
+        splitRightButton = button(EditorLayoutCommands.SPLIT_RIGHT_TOOLTIP,
+                LayoutIcon.Kind.SPLIT_RIGHT, controller::splitRight);
+        splitDownButton = button(EditorLayoutCommands.SPLIT_DOWN_TOOLTIP,
+                LayoutIcon.Kind.SPLIT_DOWN, controller::splitDown);
+        restoreTabsButton = button(EditorLayoutCommands.TABS_RESTORE_CLOSED_LABEL,
+                LayoutIcon.Kind.RESTORE, controller::reopenAllTabs);
+        toolbar.add(splitRightButton);
+        toolbar.add(splitDownButton);
+        toolbar.add(restoreTabsButton);
         refreshTheme();
     }
 
@@ -168,8 +225,44 @@ public final class LayoutMenu {
                 button.refreshTheme();
             }
         }
+        refreshControlStates();
         toolbar.revalidate();
         toolbar.repaint();
+    }
+
+    /**
+     * Updates layout-toolbar enabled states from the live editor state.
+     */
+    public void refreshControlStates() {
+        updateButtonState(splitRightButton, controller.canSplitActiveTab(),
+                EditorLayoutCommands.SPLIT_RIGHT_ACCESSIBLE_NAME,
+                EditorLayoutCommands.SPLIT_RIGHT_TOOLTIP,
+                EditorLayoutCommands.SPLIT_RIGHT_DISABLED_TOOLTIP);
+        updateButtonState(splitDownButton, controller.canSplitActiveTab(),
+                EditorLayoutCommands.SPLIT_DOWN_ACCESSIBLE_NAME,
+                EditorLayoutCommands.SPLIT_DOWN_TOOLTIP,
+                EditorLayoutCommands.SPLIT_DOWN_DISABLED_TOOLTIP);
+        updateButtonState(restoreTabsButton, controller.hasRestorableTabs(),
+                EditorLayoutCommands.TABS_RESTORE_CLOSED_LABEL,
+                EditorLayoutCommands.TABS_RESTORE_CLOSED_LABEL,
+                EditorLayoutCommands.RESTORE_CLOSED_DISABLED_TOOLTIP);
+    }
+
+    /**
+     * Applies state, tooltip, and accessibility text to one chrome button.
+     *
+     * @param button target button
+     * @param enabled whether the action is currently available
+     * @param accessibleName stable accessible action name
+     * @param enabledTooltip tooltip while enabled
+     * @param disabledTooltip tooltip while disabled
+     */
+    private static void updateButtonState(ChromeButton button, boolean enabled, String accessibleName,
+            String enabledTooltip, String disabledTooltip) {
+        button.setEnabled(enabled);
+        button.setToolTipText(enabled ? enabledTooltip : disabledTooltip);
+        button.getAccessibleContext().setAccessibleName(accessibleName);
+        button.getAccessibleContext().setAccessibleDescription(enabled ? enabledTooltip : disabledTooltip);
     }
 
     /**
@@ -180,7 +273,7 @@ public final class LayoutMenu {
      * @param action action to run
      * @return button
      */
-    private static ChromeButton button(String tooltip, LayoutIcon.Kind kind, Runnable action) {
+    private ChromeButton button(String tooltip, LayoutIcon.Kind kind, Runnable action) {
         ChromeButton button = new ChromeButton();
         button.setToolTipText(tooltip);
         button.setActionCommand(actionCommand(kind));
@@ -189,8 +282,13 @@ public final class LayoutMenu {
         button.getAccessibleContext().setAccessibleDescription(tooltip);
         button.setIcon(new LayoutIcon(kind));
         button.addActionListener(event -> {
+            if (!button.isEnabled()) {
+                return;
+            }
             SoundService.play(SoundCue.UI_CLICK);
             action.run();
+            refreshControlStates();
+            button.repaint();
         });
         return button;
     }
@@ -202,19 +300,19 @@ public final class LayoutMenu {
      * @return action command
      */
     private static String actionCommand(LayoutIcon.Kind kind) {
-        String suffix = switch (kind) {
-            case CUSTOMIZE -> "customize";
-            case SPLIT_RIGHT -> "splitRight";
-            case SPLIT_DOWN -> "splitDown";
-            case RESTORE -> "restoreTabs";
+        return switch (kind) {
+            case CUSTOMIZE -> "workbench.layout.customize";
+            case SPLIT_RIGHT -> EditorLayoutCommands.SPLIT_RIGHT;
+            case SPLIT_DOWN -> EditorLayoutCommands.SPLIT_DOWN;
+            case RESTORE -> EditorLayoutCommands.TABS_RESTORE_CLOSED;
         };
-        return "workbench.layout." + suffix;
     }
 
     /**
      * Shows the customize-layout popup below the layout button.
      */
     private void showPopup() {
+        refreshControlStates();
         JPopupMenu popup = buildPopup();
         customizeButton.setMenuOpen(true);
         popup.addPopupMenuListener(new PopupMenuListener() {
@@ -260,19 +358,38 @@ public final class LayoutMenu {
         JPopupMenu popup = new JPopupMenu();
         popup.add(header());
         popup.add(section("Visibility"));
-        popup.add(checkItem("Menu Bar", true, false, ignored -> { }));
-        popup.add(checkItem("Editor Tabs", true, false, ignored -> { }));
-        popup.add(checkItem("Status Bar", controller.statusBarVisible(), true,
+        popup.add(checkItem("Menu Bar", "workbench.layout.menuBar.visible", true, false,
+                "The menu bar is always visible.", ignored -> { }));
+        popup.add(checkItem("Editor Tabs", "workbench.layout.editorTabs.visible", true, false,
+                "Editor tabs are always visible.", ignored -> { }));
+        popup.add(checkItem("Status Bar", "workbench.layout.statusBar.visible",
+                controller.statusBarVisible(), true, "Show or hide the bottom status bar.",
                 controller::setStatusBarVisible));
         popup.add(new JSeparator());
         popup.add(section("Editor Groups"));
-        popup.add(actionItem("Split Tab Right", "Ctrl + \\", controller::splitRight));
-        popup.add(actionItem("Split Tab Down", "Ctrl + Shift + \\", controller::splitDown));
-        popup.add(actionItem("Split Tab Left", null, controller::splitLeft));
-        popup.add(actionItem("Split Tab Up", null, controller::splitUp));
-        popup.add(actionItem("Detach Tab to New Window", null, controller::detachTab));
-        popup.add(actionItem("Close Other Tabs", null, controller::closeOtherTabs));
-        popup.add(actionItem("Restore Closed Tabs", null, controller::reopenAllTabs));
+        boolean canSplit = controller.canSplitActiveTab();
+        popup.add(actionItem(EditorLayoutCommands.TAB_SPLIT_RIGHT_LABEL, EditorLayoutCommands.TAB_SPLIT_RIGHT,
+                "Ctrl + \\", canSplit, EditorLayoutCommands.SPLIT_DISABLED_TOOLTIP,
+                controller::splitRight));
+        popup.add(actionItem(EditorLayoutCommands.TAB_SPLIT_DOWN_LABEL, EditorLayoutCommands.TAB_SPLIT_DOWN,
+                "Ctrl + Shift + \\", canSplit, EditorLayoutCommands.SPLIT_DISABLED_TOOLTIP,
+                controller::splitDown));
+        popup.add(actionItem(EditorLayoutCommands.TAB_SPLIT_LEFT_LABEL, EditorLayoutCommands.TAB_SPLIT_LEFT,
+                null, canSplit, EditorLayoutCommands.SPLIT_DISABLED_TOOLTIP,
+                controller::splitLeft));
+        popup.add(actionItem(EditorLayoutCommands.TAB_SPLIT_UP_LABEL, EditorLayoutCommands.TAB_SPLIT_UP,
+                null, canSplit, EditorLayoutCommands.SPLIT_DISABLED_TOOLTIP,
+                controller::splitUp));
+        popup.add(actionItem(EditorLayoutCommands.TAB_DETACH_LABEL, EditorLayoutCommands.TAB_DETACH,
+                null, controller.canDetachActiveTab(), EditorLayoutCommands.DETACH_DISABLED_TOOLTIP,
+                controller::detachTab));
+        popup.add(actionItem(EditorLayoutCommands.TAB_CLOSE_OTHERS_LABEL, EditorLayoutCommands.TAB_CLOSE_OTHERS,
+                null, controller.canCloseOtherTabs(), EditorLayoutCommands.CLOSE_OTHERS_DISABLED_TOOLTIP,
+                controller::closeOtherTabs));
+        popup.add(actionItem(EditorLayoutCommands.TABS_RESTORE_CLOSED_LABEL,
+                EditorLayoutCommands.TABS_RESTORE_CLOSED,
+                null, controller.hasRestorableTabs(), EditorLayoutCommands.RESTORE_CLOSED_DISABLED_TOOLTIP,
+                controller::reopenAllTabs));
         popup.add(new JSeparator());
         popup.add(summary());
         stylePopupTree(popup);
@@ -319,11 +436,18 @@ public final class LayoutMenu {
      * @param action action receiving the selected state
      * @return checkbox item
      */
-    private static JCheckBoxMenuItem checkItem(String text, boolean selected, boolean enabled,
-            Consumer<Boolean> action) {
+    private static JCheckBoxMenuItem checkItem(String text, String command, boolean selected, boolean enabled,
+            String detail, Consumer<Boolean> action) {
         JCheckBoxMenuItem item = new JCheckBoxMenuItem(text, selected);
+        item.setActionCommand(command);
         item.setEnabled(enabled);
+        item.setToolTipText(detail);
+        item.getAccessibleContext().setAccessibleName(text);
+        item.getAccessibleContext().setAccessibleDescription(detail);
         item.addActionListener(event -> {
+            if (!item.isEnabled()) {
+                return;
+            }
             SoundService.play(SoundCue.UI_CLICK);
             action.accept(Boolean.valueOf(item.isSelected()));
         });
@@ -338,9 +462,18 @@ public final class LayoutMenu {
      * @param action action to run
      * @return menu item
      */
-    private static JMenuItem actionItem(String text, String shortcut, Runnable action) {
+    private static JMenuItem actionItem(String text, String command, String shortcut,
+            boolean enabled, String disabledTooltip, Runnable action) {
         JMenuItem item = new ShortcutItem(text, shortcut);
+        item.setActionCommand(command);
+        item.setEnabled(enabled);
+        item.setToolTipText(enabled ? text : disabledTooltip);
+        item.getAccessibleContext().setAccessibleName(text);
+        item.getAccessibleContext().setAccessibleDescription(enabled ? text : disabledTooltip);
         item.addActionListener(event -> {
+            if (!item.isEnabled()) {
+                return;
+            }
             SoundService.play(SoundCue.UI_CLICK);
             action.run();
         });
@@ -353,8 +486,13 @@ public final class LayoutMenu {
      * @return summary item
      */
     private JMenuItem summary() {
-        JMenuItem item = new JMenuItem(controller.openTabCount() + " tabs, "
-                + controller.visibleGroupCount() + " editor group(s)");
+        String text = controller.openTabCount() + " tabs, "
+                + controller.visibleGroupCount() + " editor group(s)";
+        JMenuItem item = new JMenuItem(text);
+        item.setActionCommand("workbench.layout.summary");
+        item.setToolTipText("Current layout: " + text);
+        item.getAccessibleContext().setAccessibleName("Current layout summary");
+        item.getAccessibleContext().setAccessibleDescription("Current layout: " + text);
         item.setEnabled(false);
         return item;
     }
@@ -391,9 +529,9 @@ public final class LayoutMenu {
      */
     private static void styleMenuItem(JMenuItem item) {
         if (item instanceof JCheckBoxMenuItem checkbox) {
-            MenuGlyphs.styleCheckItem(checkbox);
+            Ui.styleCheckMenuItem(checkbox);
         } else {
-            MenuGlyphs.styleItem(item);
+            Ui.styleMenuItem(item);
         }
     }
 

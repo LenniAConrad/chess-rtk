@@ -44,36 +44,6 @@ public class Evaluation implements Comparable<Evaluation> {
 	private int value = 0;
 
 	/**
-	 * Used for figuring out how different two {@code Evaluations} are from one and
-	 * another.
-	 * <ul>
-	 * <li>{@code Discrepancy.TOTAL} means, that both {@code Evaluations} have
-	 * mate.</li>
-	 * <li>{@code Discrepancy.ABSOLUTE} means, that one {@code Evaluation} contains
-	 * a mate.</li>
-	 * <li>{@code Discrepancy.NORMAL} means, that no {@code Evaluation} contains a
-	 * mate.</li>
-	 * </ul>
-	 */
-	public enum Discrepancy {
-
-		/**
-		 * If two {@code Evaluations} are not mate.
-		 */
-		NORMAL,
-
-		/**
-		 * If one out of two {@code Evaluations} is a mate.
-		 */
-		ABSOLUTE,
-
-		/**
-		 * If two out of two {@code Evaluations} are mate.
-		 */
-		TOTAL
-	}
-
-	/**
 	 * Used for creating a {@code Evaluation} from a mate {@code Boolean} and a
 	 * {@code Integer} value.
 	 *
@@ -109,72 +79,6 @@ public class Evaluation implements Comparable<Evaluation> {
 	}
 
 	/**
-	 * Used for inverting the current {@code Evaluation}.
-	 *
-	 * <p>
-	 * Inverting a {@code Evaluation} can be useful if you want to skip evaluating
-	 * certain positions. The following {@code Position}
-	 * '8/p1p5/1p4r1/8/6p1/P7/1P1Q1k2/K7 b - - 0 11' is evaluated with:
-	 * </p>
-	 *
-	 * <pre> info depth 32 seldepth 69 multipv 1 score cp 544 wdl 1000 0 0
-	 * nodes 17065467 nps 1333656 hashfull 998 tbhits 0 time 12796 pv g7h8 f4f3 h2h5
-	 * g5f4 h8d4 f5e4 d4d2 e4e3 d2h2 f4e4 h2e5 e4d3 e5c3 d3e2 c3c2 e3d2 h5e5 e2f1
-	 * c2d2 f3f2 d2d3 f1g2 d3e4 g2g1 e4g6 f2f1q a1a2 f1c4 b2b3 c4f4 g6b1 g1f2 b1c2
-	 * f2g3 e5e2 c7c5 c2d3 g3h4 d3h7 h4g5 h7a7 f4d6 a7g7 g5h4 g7h8 h4g5 h8g8 g5h4
-	 * g8c4 h4g5 c4c1 g5g6 c1e3 d6d4 </pre>
-	 *
-	 * <p>
-	 * A chess {@code Engine}, that is perfect would only ever evaluate a position
-	 * with <i>Mate for White</i>, <i>Draw</i> or <i>Mate for Black</i>. Chess
-	 * {@code Engines}, however, are not perfect. If we now play the move Qh8, we
-	 * reach the {@code Position} ' 7Q/p1p5/1p4r1/5qk1/5pp1/P7/1P5R/K7 b - - 1 1'
-	 * and can conclude that our synthesized {@code Evaluation} should look like
-	 * this:
-	 * </p>
-	 *
-	 * <pre> info depth 31 seldepth 53 multipv 1 score cp -544 wdl 0 0 1000
-	 * nodes ??? nps 1333656 hashfull 998 tbhits 0 time 12796 pv f4f3 h2h5 g5f4 h8d4
-	 * f5e4 d4d2 e4e3 d2h2 f4e4 h2e5 e4d3 e5c3 d3e2 c3c2 e3d2 h5e5 e2f1 c2d2 f3f2
-	 * d2d3 f1g2 d3e4 g2g1 e4g6 f2f1q a1a2 f1c4 b2b3 c4f4 g6b1 g1f2 b1c2 f2g3 e5e2
-	 * c7c5 c2d3 g3h4 d3h7 h4g5 h7a7 f4d6 a7g7 g5h4 g7h8 h4g5 h8g8 g5h4 g8c4 h4g5
-	 * c4c1 g5g6 c1e3 d6d4 </pre>
-	 *
-	 * <p>
-	 * The {@code Evaluation} has just switched, a {@code Position} that is good for
-	 * White must be bad for Black. The {@code Evaluation} however, is not perfect.
-	 * It is just a conclusion made from the {@code Engine} {@code Output}.
-	 * </p>
-	 *
-	 * <p>
-	 * Inversion examples:
-	 * </p>
-	 *
-	 * <style> table { border-collapse: collapse; } th, td { padding: 3px; }
-	 * </style>
-	 *
-	 * <pre>
-	 * 	<table border=1>
-	 * 		<tr> <th> Original </th> <th> Inverted </th> </tr>
-	 * 		<tr> <td> M1 </td> <td> M-1 </td> </tr>
-	 *   	<tr> <td> M10 </td> <td> M-10 </td> </tr>
-	 *    	<tr> <td> 1000 </td> <td> -1000 </td> </tr>
-	 *     	<tr> <td> 100 </td> <td> -100 </td> </tr>
-	 *      <tr> <td> 0 </td> <td> 0 </td> </tr>
-	 *      <tr> <td> -100 </td> <td> 100 </td> </tr>
-	 *      <tr> <td> -1000 </td> <td> 1000 </td> </tr>
-	 *      <tr> <td> M-10 </td> <td> M10 </td> </tr>
-	 *      <tr> <td> M-1 </td> <td> M1 </td> </tr>
-	 * 	</table>
-	 * </pre>
-	 * @return invert
-	 */
-	public Evaluation invert() {
-		value = - value;
-		return this;
-	}
-
-	/**
 	 * Used for retrieving the validity {@code boolean} of the current
 	 * {@code Evaluation}.
 	 *
@@ -201,34 +105,6 @@ public class Evaluation implements Comparable<Evaluation> {
 	 */
 	public int getValue() {
 		return value;
-	}
-
-	/**
-	 * Used for comparing {@code Evaluations} to one and another.
-	 *
-	 * <ul>
-	 * <li>If one has mate and the other one does not, it will return
-	 * {@code Discrepancy.Absolute}.</li>
-	 * <li>If both have mate, it will return {@code Discrepancy.Total}.</li>
-	 * <li>If none apply, it will return {@code Discrepancy.Normal}.</li>
-	 * </ul>
-	 * This is especially useful when trying to figure out, if two evaluations are
-	 * not too similar.
-	 *
-	 * @param evaluation evaluation payload
-	 * @return The {@code Discrepancy} of the two {@code Evaluations}
-	 */
-	public Discrepancy getDiscrepancy(Evaluation evaluation) {
-		if (mate) {
-			if (evaluation.mate) {
-				return Discrepancy.TOTAL;
-			}
-			return Discrepancy.ABSOLUTE;
-		}
-		if (evaluation.mate) {
-			return Discrepancy.ABSOLUTE;
-		}
-		return Discrepancy.NORMAL;
 	}
 
 	/**

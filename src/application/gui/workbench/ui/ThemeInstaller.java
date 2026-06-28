@@ -57,6 +57,12 @@ final class ThemeInstaller {
         UIManager.put("Tree.selectionForeground", Theme.TEXT);
         UIManager.put("ScrollPane.background", Theme.BG);
         UIManager.put("Viewport.background", Theme.PANEL_SOLID);
+        UIManager.put("ScrollBar.background", Theme.PANEL_SOLID);
+        UIManager.put("ScrollBar.track", Theme.PANEL_SOLID);
+        UIManager.put("ScrollBar.thumb", Theme.SCROLLBAR_THUMB);
+        UIManager.put("ScrollBar.thumbHighlight", Theme.SCROLLBAR_THUMB_HOVER);
+        UIManager.put("ScrollBar.thumbShadow", Theme.SCROLLBAR_THUMB);
+        UIManager.put("ScrollBar.thumbDarkShadow", Theme.SCROLLBAR_THUMB);
         UIManager.put("TextField.background", Theme.INPUT);
         UIManager.put("TextField.foreground", Theme.TEXT);
         UIManager.put("TextField.caretForeground", Theme.ACCENT);

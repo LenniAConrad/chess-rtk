@@ -170,22 +170,6 @@ public final class Model implements AutoCloseable {
     }
 
     /**
-     * Returns the underlying CRTK-format network, or {@code null} when this
-     * model wraps a Stockfish-format upstream network.
-     *
-     * <p>
-     * The accessor exists for tooling that needs activation-capture hooks on
-     * the inner network (e.g. the workbench visualizer); production callers
-     * should continue to use {@link #predict(Position)}.
-     * </p>
-     *
-     * @return underlying CRTK network, or {@code null} for upstream networks
-     */
-    public Network crtkNetwork() {
-        return network;
-    }
-
-    /**
      * Returns model metadata.
      *
      * @return network metadata
@@ -295,31 +279,6 @@ public final class Model implements AutoCloseable {
             return upstreamNetwork.newSearchState(root, searchPlies);
         }
         return network.newSearchState(root, searchPlies);
-    }
-
-    /**
-     * Creates an accumulator for repeated or incremental evaluation.
-     *
-     * @return fresh accumulator
-     */
-    public Accumulator newAccumulator() {
-        if (upstreamNetwork != null) {
-            throw new UnsupportedOperationException("Stockfish NNUE accumulators are internal to UpstreamNetwork.");
-        }
-        return network.newAccumulator();
-    }
-
-    /**
-     * Creates an accumulator initialized from a position.
-     *
-     * @param position position to encode
-     * @return initialized accumulator
-     */
-    public Accumulator newAccumulator(Position position) {
-        if (upstreamNetwork != null) {
-            throw new UnsupportedOperationException("Stockfish NNUE accumulators are internal to UpstreamNetwork.");
-        }
-        return network.newAccumulator(position);
     }
 
     /**

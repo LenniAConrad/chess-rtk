@@ -384,38 +384,6 @@ public final class Move {
 	}
 
 	/**
-	 * Used for checking if a move is any type of castling.
-	 *
-	 * @param position the current board position
-	 * @param move     the encoded move
-	 * @return {@code true} if the move is a kingside or queenside castle
-	 */
-	protected static boolean isCastle(Position position, short move) {
-		return isKingsideCastle(position, move) || isQueensideCastle(position, move);
-	}
-
-	/**
-	 * Used for checking if a move is an en passant capture.
-	 *
-	 * @param position the current board position
-	 * @param move     the encoded move
-	 * @return {@code true} if the move is an en passant capture
-	 */
-	protected static boolean isEnPassantCapture(Position position, short move) {
-		return position.isEnPassantCapture(move);
-	}
-
-	/**
-	 * Used for figuring out the Euclidean distance a piece travels in a move.
-	 *
-	 * @param move the encoded move
-	 * @return the distance moved
-	 */
-	public static double getDistance(short move) {
-		return Math.hypot(getHorizontalDistance(move), getVerticalDistance(move));
-	}
-
-	/**
 	 * Used for returning the horizontal (file) distance between from and to.
 	 *
 	 * @param move the encoded move
@@ -505,16 +473,6 @@ public final class Move {
 	 */
 	public static int hash(short move) {
 		return move & 0xFFFF;
-	}
-
-	/**
-	 * Used for reversing a move by swapping origin and destination.
-	 *
-	 * @param move the encoded move
-	 * @return a new move with from/to swapped, promotion preserved
-	 */
-	public static short reverse(short move) {
-		return of(getToIndex(move), getFromIndex(move), getPromotion(move));
 	}
 
 }

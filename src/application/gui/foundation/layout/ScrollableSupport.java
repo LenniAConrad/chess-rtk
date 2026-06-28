@@ -1,4 +1,4 @@
-package application.gui.workbench.ui;
+package application.gui.foundation.layout;
 
 import java.awt.Component;
 import java.awt.Container;
@@ -8,13 +8,11 @@ import javax.swing.JViewport;
 import javax.swing.SwingConstants;
 
 /**
- * Shared helpers for Workbench components that implement Swing's
- * {@link javax.swing.Scrollable} contract.
+ * Shared helpers for components that implement Swing's {@link javax.swing.Scrollable}
+ * contract.
  *
- * <p>Several custom-painted workbench surfaces scroll vertically while tracking
- * their viewport width. Keeping the common increment and short-content
- * calculations here prevents small layout surfaces from carrying subtly
- * different copies of the same scroll math.</p>
+ * <p>The foundation layer owns layout math that has no dependency on Workbench
+ * feature state, commands, chess rules, or theme colors.</p>
  */
 public final class ScrollableSupport {
 

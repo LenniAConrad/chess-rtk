@@ -13,11 +13,11 @@ import static application.gui.workbench.ui.Ui.styleFields;
 import static application.gui.workbench.ui.Ui.transparentPanel;
 
 import application.gui.workbench.layout.SplitPaneStyler;
+import application.gui.feature.dataset.DatasetView;
 import application.gui.workbench.board.BoardPanel;
 import application.gui.workbench.ui.FieldValidator;
 import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.HoldButton;
-import application.gui.workbench.ui.Spinner;
 import application.gui.workbench.ui.StatusBadge;
 import application.gui.workbench.ui.SurfacePanel;
 import application.gui.workbench.ui.WrappingFlowLayout;
@@ -69,7 +69,7 @@ import javax.swing.table.TableRowSorter;
 /**
  * Workbench panel dedicated to dataset inspection and quality analysis.
  */
-public final class DatasetPanel extends SurfacePanel {
+public final class DatasetPanel extends SurfacePanel implements DatasetView {
 
     /**
      * Serialization identifier for Swing component compatibility.
@@ -82,16 +82,10 @@ public final class DatasetPanel extends SurfacePanel {
     private static final int DEFAULT_ROW_LIMIT = 50_000;
 
     /**
-     * Fixed body width for the scan-progress layout; keeps spinner, title,
-     * detail card, and cancel action aligned as one centered unit.
+     * Fixed body width for the scan-progress layout; keeps spinner, title, and
+     * cancel action aligned as one centered unit.
      */
-    private static final int LOADING_CONTENT_WIDTH = 680;
-
-    /**
-     * Maximum visible characters for the scan-progress file row before the full
-     * path moves to the tooltip.
-     */
-    private static final int LOADING_FILE_TEXT_CHARS = 60;
+    private static final int LOADING_CONTENT_WIDTH = 520;
 
     /**
      * Initial height for the loaded analytics band before the table / inspector.
@@ -190,7 +184,7 @@ public final class DatasetPanel extends SurfacePanel {
     /**
      * Circular activity indicator shown while scanning.
      */
-    private final Spinner spinner = new Spinner();
+    private final JComponent spinner = Ui.spinner();
 
     /**
      * Callback that opens a FEN in the shared Board tab, or {@code null} when
@@ -207,7 +201,7 @@ public final class DatasetPanel extends SurfacePanel {
     /**
      * Larger spinner shown on the body's loading card during a scan.
      */
-    private final Spinner loadingSpinner = new Spinner(44);
+    private final JComponent loadingSpinner = Ui.spinner(44);
 
     /**
      * Loading-card headline; carries the dataset currently being scanned.
@@ -217,18 +211,7 @@ public final class DatasetPanel extends SurfacePanel {
     /**
      * Loading-card hint line.
      */
-    private final JLabel loadingHint =
-            new JLabel("Profiling every position — this can take a moment. No need to browse again.");
-
-    /**
-     * Loading-card scan details.
-     */
-    private final JLabel loadingFileValue = detailValueLabel(),
-            loadingPhaseValue = detailValueLabel(),
-            loadingRowsValue = detailValueLabel(),
-            loadingValidValue = detailValueLabel(),
-            loadingDuplicateValue = detailValueLabel(),
-            loadingElapsedValue = detailValueLabel();
+    private final JLabel loadingHint = new JLabel("Checking positions...");
 
     /**
      * Timer used only to keep elapsed scan time visible.
@@ -300,11 +283,6 @@ public final class DatasetPanel extends SurfacePanel {
      * Material insight label.
      */
     private final JLabel materialInsight = insightLabel();
-
-    /**
-     * Row-health composition donut (unique / duplicate / invalid).
-     */
-    private final DonutChart qualityChart = new DonutChart();
 
     /**
      * Side-to-move composition donut (white / black).
@@ -465,6 +443,7 @@ public final class DatasetPanel extends SurfacePanel {
      *
      * @return panel component
      */
+    @Override
     public JComponent component() {
         return this;
     }
@@ -490,6 +469,7 @@ public final class DatasetPanel extends SurfacePanel {
     /**
      * Starts analysis for the current source path.
      */
+    @Override
     public void analyzeCurrentSource() {
         String text = sourceField.getText() == null ? "" : sourceField.getText().trim();
         if (text.isEmpty()) {
@@ -524,7 +504,7 @@ public final class DatasetPanel extends SurfacePanel {
         cancelAnalysis();
         setLoadingTarget(source);
         setBusy(true);
-        setStatus("Scanning " + source, Theme.ForegroundRole.INFO);
+        setStatus("Scanning dataset", Theme.ForegroundRole.INFO);
         worker = new SwingWorker<>() {
             /**
              * Runs the dataset scan away from the event-dispatch thread.
@@ -796,12 +776,8 @@ public final class DatasetPanel extends SurfacePanel {
         header.add(loadingTitle, BorderLayout.CENTER);
         header.add(loadingHint, BorderLayout.SOUTH);
 
-        JComponent progressCard = card("Scan Progress", createLoadingDetails());
-        fixPreferredWidth(progressCard, Theme.scaledPx(LOADING_CONTENT_WIDTH));
-
         HoldButton cancel = new HoldButton("Cancel Scan", this::cancelAnalysis, true);
-        JPanel actions = transparentPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
-        actions.add(cancel);
+        cancel.setMinimumSize(cancel.getPreferredSize());
 
         JPanel stack = transparentPanel(new java.awt.GridBagLayout());
         java.awt.GridBagConstraints constraints = new java.awt.GridBagConstraints();
@@ -811,37 +787,16 @@ public final class DatasetPanel extends SurfacePanel {
         constraints.weightx = 1.0d;
         stack.add(header, constraints);
         constraints.gridy++;
-        constraints.insets = new java.awt.Insets(Theme.SPACE_MD, 0, 0, 0);
-        stack.add(progressCard, constraints);
-        constraints.gridy++;
         constraints.insets = new java.awt.Insets(Theme.SPACE_SM, 0, 0, 0);
-        stack.add(actions, constraints);
+        constraints.fill = java.awt.GridBagConstraints.NONE;
+        constraints.weightx = 0.0d;
+        constraints.anchor = java.awt.GridBagConstraints.CENTER;
+        stack.add(cancel, constraints);
+        fixPreferredWidth(stack, Theme.scaledPx(LOADING_CONTENT_WIDTH));
 
         JPanel center = transparentPanel(new java.awt.GridBagLayout());
         center.add(stack);
         return center;
-    }
-
-    /**
-     * Creates scan detail rows for the loading state.
-     *
-     * @return detail panel
-     */
-    private JComponent createLoadingDetails() {
-        JPanel details = transparentPanel(new java.awt.GridLayout(0, 2, Theme.SPACE_MD, Theme.SPACE_XS));
-        details.add(detailKeyLabel("File"));
-        details.add(loadingFileValue);
-        details.add(detailKeyLabel("Phase"));
-        details.add(loadingPhaseValue);
-        details.add(detailKeyLabel("Rows"));
-        details.add(loadingRowsValue);
-        details.add(detailKeyLabel("Valid"));
-        details.add(loadingValidValue);
-        details.add(detailKeyLabel("Duplicates"));
-        details.add(loadingDuplicateValue);
-        details.add(detailKeyLabel("Elapsed"));
-        details.add(loadingElapsedValue);
-        return details;
     }
 
     /**
@@ -850,17 +805,10 @@ public final class DatasetPanel extends SurfacePanel {
      * @param source dataset path being scanned
      */
     private void setLoadingTarget(Path source) {
-        String name = source == null ? "dataset"
-                : source.getFileName() == null ? source.toString() : source.getFileName().toString();
-        loadingTitle.setText("Scanning " + compactText(name, 40) + "…");
-        String path = source == null ? "" : source.toString();
-        loadingFileValue.setText(path.isBlank() ? "-" : compactText(path, LOADING_FILE_TEXT_CHARS));
-        loadingFileValue.setToolTipText(path.isBlank() ? null : path);
-        loadingPhaseValue.setText("reading / validating");
-        loadingRowsValue.setText("row limit " + cleanRowLimitText());
-        loadingValidValue.setText("available after scan");
-        loadingDuplicateValue.setText("available after scan");
-        loadingElapsedValue.setText("0.0s");
+        loadingTitle.setText("Scanning dataset");
+        loadingTitle.setToolTipText(null);
+        loadingHint.setText("Checking positions...");
+        loadingHint.setToolTipText(null);
     }
 
     /**
@@ -871,7 +819,8 @@ public final class DatasetPanel extends SurfacePanel {
             return;
         }
         long elapsedMillis = Math.max(0L, System.currentTimeMillis() - loadingStartedAt);
-        loadingElapsedValue.setText(String.format(Locale.ROOT, "%.1fs", elapsedMillis / 1000.0d));
+        loadingHint.setText(String.format(Locale.ROOT, "Checking positions · %.1fs",
+                elapsedMillis / 1000.0d));
     }
 
     /**
@@ -912,7 +861,6 @@ public final class DatasetPanel extends SurfacePanel {
         // them restated the same numbers, so it was dropped — each insight now
         // rides as a hover tooltip on its related tile (see updateInsights).
         overview.add(createMetrics(), BorderLayout.NORTH);
-        qualityChart.setEmpty("No dataset loaded", "Choose a .pgn or .jsonl file, then Analyze");
         sideChart.setEmpty("No dataset loaded", "Side-to-move balance appears after a scan");
         positionMixChart.setEmpty("No dataset loaded", "Quiet / check / mate mix appears after a scan");
         materialChart.setEmpty("No dataset loaded", "Material spread appears after a scan");
@@ -927,9 +875,7 @@ public final class DatasetPanel extends SurfacePanel {
         // strip above, with a slightly larger gap for breathing room. A smaller
         // minimum column keeps them in several columns (rather than collapsing to
         // one tall stack) as the panel narrows, so they "extend" like the tiles.
-        application.gui.workbench.ui.CardGrid charts =
-                new application.gui.workbench.ui.CardGrid(240, Theme.SPACE_MD);
-        charts.add(card("Dataset Health", qualityChart));
+        JPanel charts = Ui.contentGrid(240);
         charts.add(card("Side Balance", sideChart));
         charts.add(card("Position Mix", positionMixChart));
         charts.add(card("Material Bands", materialChart));
@@ -951,8 +897,7 @@ public final class DatasetPanel extends SurfacePanel {
         // Responsive KPI strip: tiles flow across the width and wrap on narrow
         // windows instead of being squeezed thin in a fixed 1x7 row. Same gap as
         // the chart grid below so the whole overview shares one rhythm.
-        application.gui.workbench.ui.CardGrid metrics =
-                new application.gui.workbench.ui.CardGrid(132, Theme.SPACE_MD);
+        JPanel metrics = Ui.contentGrid(132);
         metrics.add(filesMetric);
         metrics.add(rowsMetric);
         metrics.add(validMetric);
@@ -1489,15 +1434,8 @@ public final class DatasetPanel extends SurfacePanel {
      * Updates chart components.
      */
     private void updateCharts() {
-        // Compositional metrics read as donuts: row health is a clean/dup/invalid
-        // whole, side-to-move is a white/black whole. Semantic green/amber/red is
-        // reserved for the health ring where it means clean vs. bad.
-        qualityChart.setSegments(List.of(
-                new DonutChart.Segment("unique valid", Math.max(0L,
-                        summary.validPositions() - summary.duplicatePositions()), DatasetChart.Role.SUCCESS),
-                new DonutChart.Segment("duplicate", summary.duplicatePositions(), DatasetChart.Role.WARNING),
-                new DonutChart.Segment("invalid", summary.invalidRows(), DatasetChart.Role.ERROR)),
-                "rows");
+        // Side-to-move remains a donut because white/black partitions the valid
+        // position set cleanly; row validity stays in the KPI strip and verdict.
         sideChart.setSegments(List.of(
                 new DonutChart.Segment("white to move", summary.whiteToMove(), DatasetChart.Role.ACCENT),
                 new DonutChart.Segment("black to move", summary.blackToMove(), DatasetChart.Role.NEUTRAL)),
@@ -1562,8 +1500,8 @@ public final class DatasetPanel extends SurfacePanel {
         analyzeButton.setEnabled(!busy);
         stopButton.setEnabled(busy);
         copyReportButton.setEnabled(!busy && hasReport());
-        spinner.setSpinning(busy);
-        loadingSpinner.setSpinning(busy);
+        Ui.setSpinnerActive(spinner, busy);
+        Ui.setSpinnerActive(loadingSpinner, busy);
         if (busy) {
             loadingStartedAt = System.currentTimeMillis();
             updateLoadingElapsed();
@@ -1584,7 +1522,7 @@ public final class DatasetPanel extends SurfacePanel {
      */
     private String datasetContext() {
         if (busy) {
-            return sourceTargetName() + " · Scanning · row limit " + cleanRowLimitText();
+            return "Scanning dataset";
         }
         if (summary.rows() > 0L) {
             return sourceName() + " · " + format(summary.rows()) + " rows · "
@@ -1617,26 +1555,6 @@ public final class DatasetPanel extends SurfacePanel {
             return Theme.ForegroundRole.MUTED;
         }
         return summary.invalidRows() == 0L ? Theme.ForegroundRole.SUCCESS : Theme.ForegroundRole.WARNING;
-    }
-
-    /**
-     * Returns the currently typed source target, compacted for header use.
-     *
-     * @return source target name
-     */
-    private String sourceTargetName() {
-        String text = sourceField.getText() == null ? "" : sourceField.getText().trim();
-        if (text.isEmpty()) {
-            return "dataset";
-        }
-        Path path;
-        try {
-            path = Path.of(text);
-        } catch (InvalidPathException ex) {
-            return compactText(visibleToken(text), 42);
-        }
-        Path name = path.getFileName();
-        return compactText(name == null ? text : name.toString(), 42);
     }
 
     /**

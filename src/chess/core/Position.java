@@ -597,21 +597,6 @@ public class Position implements Comparable<Position> {
     }
 
     /**
-     * Generates pseudo-legal moves for the side to move.
-     *
-     * <p>
-     * Pseudo-legal moves obey piece movement but may leave the moving side's
-     * king in check. This is mainly useful for diagnostics and lightweight
-     * feature extraction.
-     * </p>
-     *
-     * @return pseudo-legal move list
-     */
-    public MoveList pseudoLegalMoves() {
-        return MoveGenerator.generatePseudoLegalMoves(this);
-    }
-
-    /**
      * Counts legal moves for the side to move.
      *
      * @return legal move count
@@ -656,33 +641,6 @@ public class Position implements Comparable<Position> {
         for (int i = 0; i < all.size(); i++) {
             short move = all.raw(i);
             if ((move & 0x3F) == square) {
-                out.add(move);
-            }
-        }
-        return out;
-    }
-
-    /**
-     * Returns all legal moves between one origin and one encoded target square.
-     *
-     * <p>
-     * Promotion moves can return multiple entries for the same square pair. For
-     * Chess960 castling, the target is the encoded rook source square, matching
-     * the compact move representation.
-     * </p>
-     *
-     * @param from origin square, 0..63
-     * @param to encoded target square, 0..63
-     * @return legal moves from {@code from} to {@code to}
-     */
-    public MoveList legalMovesBetween(int from, int to) {
-        Bits.requireSquare(from);
-        Bits.requireSquare(to);
-        MoveList candidates = legalMovesFrom(from);
-        MoveList out = new MoveList(Math.max(1, candidates.size()));
-        for (int i = 0; i < candidates.size(); i++) {
-            short move = candidates.raw(i);
-            if (((move >>> 6) & 0x3F) == to) {
                 out.add(move);
             }
         }
@@ -844,20 +802,6 @@ public class Position implements Comparable<Position> {
     }
 
     /**
-     * Returns a defensive board snapshot using internal piece indexes.
-     *
-     * <p>
-     * Empty squares contain {@code -1}. Occupied squares contain one of this
-     * class's public piece-index constants.
-     * </p>
-     *
-     * @return 64-entry internal board copy
-     */
-    public byte[] pieceIndexes() {
-        return Arrays.copyOf(board, board.length);
-    }
-
-    /**
      * Returns whether a square is empty.
      *
      * @param square board square, 0..63
@@ -866,52 +810,6 @@ public class Position implements Comparable<Position> {
     public boolean isEmpty(int square) {
         Bits.requireSquare(square);
         return board[square] < 0;
-    }
-
-    /**
-     * Returns whether any piece occupies a square.
-     *
-     * @param square board square, 0..63
-     * @return true when occupied
-     */
-    public boolean hasPiece(int square) {
-        return !isEmpty(square);
-    }
-
-    /**
-     * Returns whether a specific internal piece occupies a square.
-     *
-     * @param square board square, 0..63
-     * @param pieceIndex one of the public piece-index constants
-     * @return true when that piece occupies the square
-     */
-    public boolean hasPiece(int square, int pieceIndex) {
-        Bits.requireSquare(square);
-        PositionRules.requirePieceIndex(pieceIndex);
-        return board[square] == pieceIndex;
-    }
-
-    /**
-     * Returns whether a White piece occupies a square.
-     *
-     * @param square board square, 0..63
-     * @return true when the square holds a White piece
-     */
-    public boolean isWhitePieceAt(int square) {
-        Bits.requireSquare(square);
-        int piece = board[square];
-        return piece >= WHITE_PAWN && piece <= WHITE_KING;
-    }
-
-    /**
-     * Returns whether a Black piece occupies a square.
-     *
-     * @param square board square, 0..63
-     * @return true when the square holds a Black piece
-     */
-    public boolean isBlackPieceAt(int square) {
-        Bits.requireSquare(square);
-        return board[square] >= BLACK_PAWN;
     }
 
     /**
@@ -961,15 +859,6 @@ public class Position implements Comparable<Position> {
      */
     public int countTotalPieces() {
         return Long.bitCount(occupancy);
-    }
-
-    /**
-     * Returns the piece-count balance from White's perspective.
-     *
-     * @return White piece count minus Black piece count
-     */
-    public int countPieceDiscrepancy() {
-        return countWhitePieces() - countBlackPieces();
     }
 
     /**

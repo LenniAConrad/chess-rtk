@@ -1,6 +1,5 @@
 package application.gui.workbench.window;
 
-import application.cli.PathOps;
 import application.gui.workbench.audio.SoundCue;
 import application.gui.workbench.audio.SoundService;
 import application.gui.workbench.board.BoardEditorPanel;
@@ -12,13 +11,14 @@ import application.gui.workbench.game.GameReviewPanel;
 import application.gui.workbench.game.PlayMoveHistoryModel;
 import application.gui.workbench.game.ReviewCliArtifactProducer;
 import application.gui.workbench.game.SavedGame;
-import application.gui.workbench.game.SavedGamesPanel;
 import application.gui.workbench.game.SanRenderer;
 import application.gui.workbench.game.StudyAuthorPanel;
+import application.gui.workbench.study.StudyRepository;
+import application.gui.workbench.study.StudyWorkspacePanel;
 import application.gui.workbench.game.TablebasePanel;
+import application.gui.workbench.library.GameLibrary;
+import application.gui.workbench.library.GameLibraryPanel;
 import application.gui.workbench.layout.SplitPaneStyler;
-import application.gui.workbench.session.LogPanel;
-import application.gui.workbench.command.Console;
 import application.gui.workbench.ui.FieldValidator;
 import application.gui.workbench.ui.FileDialogs;
 import application.gui.workbench.ui.WrappingFlowLayout;
@@ -30,9 +30,9 @@ import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.ToggleBox;
 import application.gui.workbench.ui.Toast;
 import application.gui.workbench.ui.Ui;
-import application.gui.workbench.ui.WorkspaceHeader;
 import application.gui.workbench.ui.WorkspaceMode;
 import chess.images.assets.PieceSet;
+import chess.core.Position;
 import chess.core.Setup;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
@@ -46,14 +46,14 @@ import java.awt.Insets;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.util.List;
+import java.util.Locale;
+import java.util.function.Consumer;
+import javax.accessibility.AccessibleContext;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
-import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
@@ -92,7 +92,6 @@ import static application.gui.workbench.ui.Ui.stylePopupMenuItem;
 import static application.gui.workbench.ui.Ui.styleSlider;
 import static application.gui.workbench.ui.Ui.styleSpinners;
 import static application.gui.workbench.ui.Ui.tabbedPane;
-import static application.gui.workbench.ui.Ui.titled;
 import static application.gui.workbench.ui.Ui.transparentPanel;
 
 /**
@@ -112,9 +111,24 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     private static final Dimension SIDE_RAIL_SIZE = new Dimension(360, 560);
 
     /**
+     * Preferred width of the Analyze variation tree rail.
+     */
+    private static final int VARIATION_TREE_WIDTH = 236;
+
+    /**
      * Vertical-only row padding shared by every settings-group row.
      */
     private static final Insets SETTINGS_ROW_INSETS = new Insets(3, 0, 3, 0);
+
+    /**
+     * Read-only FEN preview for the selected game/variation position.
+     */
+    private final JTextArea gameFenPreview = Ui.commandBlock("");
+
+    /**
+     * Read-only PGN preview for the current game line.
+     */
+    private final JTextArea gamePgnPreview = Ui.commandBlock("");
 
     /**
      * Board / Analyze position validity badge.
@@ -190,6 +204,16 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * Study authoring panel, created lazily with the board detail tabs.
      */
     protected StudyAuthorPanel studyAuthorPanel;
+
+    /**
+     * PGN-backed local Study Workspace panel, created lazily with board detail tabs.
+     */
+    protected StudyWorkspacePanel studyWorkspacePanel;
+
+    /**
+     * PGN-backed game library panel, created lazily with the board detail tabs.
+     */
+    protected GameLibraryPanel gameLibraryPanel;
 
     /**
      * Setup editor panel, created lazily with the board detail tabs.
@@ -586,15 +610,15 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         analyzeBoardSlot = boardSlotPanel();
 
         JComponent lineTree = createVariationTreePanel();
-        lineTree.setPreferredSize(new Dimension(184, 1));
-        lineTree.setMinimumSize(new Dimension(144, 1));
+        lineTree.setPreferredSize(new Dimension(VARIATION_TREE_WIDTH, 1));
+        lineTree.setMinimumSize(new Dimension(176, 1));
 
         JComponent side = createAnalyzeInspector();
         side.setPreferredSize(SIDE_RAIL_SIZE);
 
         JSplitPane boardAndLine = SplitPaneStyler.styledHorizontalSplit(lineTree, analyzeBoardSlot, 0.22);
         boardAndLine.setResizeWeight(0.0d);
-        boardAndLine.setDividerLocation(184);
+        boardAndLine.setDividerLocation(VARIATION_TREE_WIDTH);
         JSplitPane boardPage = SplitPaneStyler.styledHorizontalSplit(boardAndLine, side, 0.68);
 
         analysisCards = transparentPanel(new CardLayout());
@@ -609,9 +633,17 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
      * @return variation tree component
      */
     private JComponent createVariationTreePanel() {
-        analyzeVariationTree = new AnalyzeVariationTreePanel(gameModel, this::jumpGameTo);
-        return analyzeVariationTree;
+        analyzeVariationTree = new AnalyzeVariationTreePanel(gameModel, this::showGameRow);
+        return scroll(analyzeVariationTree, () -> Theme.BG);
     }
+
+    /**
+     * Shows a visible game-history row on the board, including imported PGN
+     * variation rows.
+     *
+     * @param row visible game-history row
+     */
+    protected abstract void showGameRow(int row);
 
     /**
      * Creates the Board / Analyze right inspector.
@@ -741,7 +773,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         opening.setToolTipText("Show ECO opening tree and candidate line explorer");
         JButton review = button("Review", false, event -> runCurrentGameReview());
         review.setToolTipText("Review the current game line and retry critical moves");
-        JButton games = button("Games", false, event -> showBoardDetail("Games"));
+        JButton games = button("Library", false, event -> showBoardDetail("Library"));
         games.setToolTipText("Open saved Workbench games for resume or review");
         JButton endgame = button("Endgame", false, event -> showBoardDetail("Endgame"));
         endgame.setToolTipText("Show tablebase-eligibility and fixed-node endgame analysis");
@@ -756,6 +788,20 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         row.add(study);
         row.add(gauntlet);
         return row;
+    }
+
+    /**
+     * Returns theme option labels in {@link Theme.Mode} ordinal order.
+     *
+     * @return theme labels
+     */
+    private static String[] themeModeLabels() {
+        Theme.Mode[] modes = Theme.Mode.values();
+        String[] labels = new String[modes.length];
+        for (int i = 0; i < modes.length; i++) {
+            labels[i] = modes[i].label();
+        }
+        return labels;
     }
 
     /**
@@ -1096,6 +1142,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         }
         refreshAnalysisResult();
         if (analyzeVariationTree != null) {
+            analyzeVariationTree.revalidate();
             analyzeVariationTree.repaint();
         }
     }
@@ -1239,7 +1286,8 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         boardDetailTabs.addTab("Tags", scroll(tagCloud));
         boardDetailTabs.addTab("ECO", createEcoExplorerPanel());
         boardDetailTabs.addTab("Review", createGameReviewPanel());
-        boardDetailTabs.addTab("Games", createSavedGamesPanel());
+        boardDetailTabs.addTab("Library", createGameLibraryPanel());
+        boardDetailTabs.addTab("Study Workspace", createStudyWorkspacePanel());
         boardDetailTabs.addTab("Study", createStudyAuthorPanel());
         boardDetailTabs.addTab("Endgame", createTablebasePanel());
         boardDetailTabs.addTab("Raw", createAnalysisDataPanel());
@@ -1279,14 +1327,48 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
-     * Creates the saved-game library detail tab.
+     * Creates the PGN-backed game library detail tab.
      *
-     * @return saved-game library component
+     * @return game library component
      */
-    protected JComponent createSavedGamesPanel() {
-        savedGamesPanel = new SavedGamesPanel(this::savedGames, this::resumeSavedGame,
-                this::reviewSavedGame, this::copyText, this::saveCurrentGameFromUi);
-        return scroll(fillViewport(savedGamesPanel));
+    protected JComponent createGameLibraryPanel() {
+        gameLibraryPanel = new GameLibraryPanel(this::libraryGames, this::openLibraryGame,
+                this::copyText, this::importPgnIntoLibrary, this::saveCurrentGameFromUi);
+        return scroll(fillViewport(gameLibraryPanel));
+    }
+
+    /**
+     * Refreshes the PGN-backed library panel when present.
+     */
+    @Override
+    protected void refreshGameLibraryPanel() {
+        if (gameLibraryPanel != null) {
+            gameLibraryPanel.refresh();
+        }
+    }
+
+    /**
+     * Imports one PGN file into the local game library.
+     */
+    protected void importPgnIntoLibrary() {
+        JFileChooser chooser = FileDialogs.createFileChooser(null, null,
+                new FileNameExtensionFilter("PGN files", "pgn"));
+        int result = chooser.showOpenDialog(this);
+        if (result != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        java.nio.file.Path path = chooser.getSelectedFile().toPath();
+        runAsync(
+                () -> new GameLibrary().importPgn(path),
+                report -> {
+                    appendConsole("Imported PGN library file " + path
+                            + " (new " + report.imported()
+                            + ", duplicate " + report.duplicates()
+                            + ", malformed " + report.malformed() + ")\n");
+                    toast(Toast.Kind.SUCCESS, "Imported " + report.imported() + " library games");
+                    refreshGameLibraryPanel();
+                },
+                ex -> showError("PGN library import failed", ex.getMessage()));
     }
 
     /**
@@ -1334,6 +1416,73 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     protected JComponent createStudyAuthorPanel() {
         studyAuthorPanel = new StudyAuthorPanel(() -> gameModel, this::currentFen, this::copyText);
         return scroll(fillViewport(studyAuthorPanel));
+    }
+
+    /**
+     * Creates the PGN-backed local study workspace.
+     *
+     * @return study workspace component
+     */
+    protected JComponent createStudyWorkspacePanel() {
+        studyWorkspacePanel = new StudyWorkspacePanel(StudyRepository.defaultRepository(),
+                () -> gameModel, this::currentFen,
+                this::showStudyWorkspacePosition,
+                this::copyText);
+        return scroll(fillViewport(studyWorkspacePanel));
+    }
+
+    /**
+     * Creates the top-level Studies workspace.
+     *
+     * @return studies workspace component
+     */
+    @Override
+    protected JComponent createStudiesWorkspaceTab() {
+        return createDetachedStudiesWorkspaceTab();
+    }
+
+    /**
+     * Creates an independent top-level Studies workspace instance.
+     *
+     * @return studies workspace component
+     */
+    @Override
+    protected JComponent createDetachedStudiesWorkspaceTab() {
+        StudyWorkspacePanel panel = new StudyWorkspacePanel(StudyRepository.defaultRepository(),
+                () -> gameModel, this::currentFen,
+                this::showStudyWorkspacePosition,
+                this::copyText);
+        return scroll(fillViewport(panel));
+    }
+
+    /**
+     * Shows a Study Workspace position on the shared board.
+     *
+     * @param position study position
+     */
+    protected abstract void showStudyWorkspacePosition(Position position);
+
+    /**
+     * Returns whether the PGN Study Workspace tab is active.
+     *
+     * @return true when active
+     */
+    protected boolean isStudyWorkspaceActive() {
+        return boardDetailTabs != null
+                && boardDetailTabs.getSelectedIndex() >= 0
+                && "Study Workspace".equals(boardDetailTabs.getTitleAt(boardDetailTabs.getSelectedIndex()));
+    }
+
+    /**
+     * Records a board move in the active Study Workspace.
+     *
+     * @param before position before move
+     * @param move encoded move
+     */
+    protected void recordStudyWorkspaceMove(Position before, short move) {
+        if (isStudyWorkspaceActive() && studyWorkspacePanel != null) {
+            studyWorkspacePanel.addBoardMove(before, move);
+        }
     }
 
     /**
@@ -1463,25 +1612,175 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     protected JComponent createDisplaySettingsPanel() {
         JPanel panel = new SurfacePanel(new GridBagLayout());
         GridBagConstraints c = constraints();
-        c.insets = new Insets(6, 6, 6, 6);
+        c.insets = new Insets(6, 6, 10, 6);
+        c.fill = GridBagConstraints.BOTH;
+        c.weightx = 1.0;
+        c.weighty = 1.0;
 
+        grid(panel, settingsColumn(
+                Ui.card("Keyboard shortcuts", createKeyboardShortcutSettings()),
+                Ui.card("General", createGeneralSettings()),
+                Ui.card("Appearance", createAppearanceSettings())), c, 0, 0, 1, 1);
+        grid(panel, settingsColumn(
+                Ui.card("Move list", createMoveListSettings()),
+                Ui.card("Board", createBoardMenuSettings()),
+                Ui.card("Sound", createSoundSettings())), c, 1, 0, 1, 1);
+        return panel;
+    }
+
+    /**
+     * Creates one column in the lichess-style settings sheet.
+     *
+     * @param groups section groups
+     * @return vertical column
+     */
+    private static JPanel settingsColumn(JComponent... groups) {
+        JPanel column = verticalBody();
+        for (int i = 0; i < groups.length; i++) {
+            column.add(groups[i]);
+            if (i + 1 < groups.length) {
+                column.add(Box.createVerticalStrut(Theme.SPACE_MD));
+            }
+        }
+        return column;
+    }
+
+    /**
+     * Creates the display keyboard-shortcut reference group.
+     *
+     * @return shortcut group
+     */
+    private JComponent createKeyboardShortcutSettings() {
+        JPanel panel = settingsGroupPanel();
+        GridBagConstraints c = constraints();
+        c.insets = SETTINGS_ROW_INSETS;
+        grid(panel, shortcutRow("Flip board", "f",
+                "Planned shortcut for flipping the shared board"), c, 0, 0, 1, 1);
+        grid(panel, shortcutRow("Toggle local engine", "l",
+                "Planned shortcut for local-engine analysis"), c, 0, 1, 1, 1);
+        grid(panel, shortcutRow("Show server analysis", "z",
+                "Planned shortcut for live external-engine analysis"), c, 0, 2, 1, 1);
+        grid(panel, shortcutRow("Inline notation", "shift + i",
+                "Inline notation is the current Workbench move-list presentation"), c, 0, 3, 1, 1);
+        grid(panel, shortcutRow("Show best move arrows", "a",
+                "Planned shortcut for best-move board arrows"), c, 0, 4, 1, 1);
+        grid(panel, shortcutRow("Show variation arrows", "v",
+                "Planned shortcut for variation arrows once that overlay exists"), c, 0, 5, 1, 1);
+        grid(panel, button("Show all", false, event ->
+                toast(Toast.Kind.INFO, "Keyboard shortcuts will expand as Workbench actions gain bindings")),
+                c, 0, 6, 1, 1);
+        return panel;
+    }
+
+    /**
+     * Creates the general analysis preferences group.
+     *
+     * @return general settings group
+     */
+    private JComponent createGeneralSettings() {
+        JPanel panel = settingsGroupPanel();
+        GridBagConstraints c = constraints();
+        c.insets = SETTINGS_ROW_INSETS;
+        grid(panel, menuToggleRow("Show server analysis",
+                "Keep the configured external engine analyzing the visible board",
+                liveExternalEngineEnabled, this::setLiveExternalEngineEnabled), c, 0, 0, 1, 1);
+        grid(panel, menuToggleRow("Show evaluation gauge",
+                "Automatically refresh the side evaluation bar after position changes",
+                autoEvalBarEnabled,
+                selected -> updateDisplaySetting(() -> autoEvalBarEnabled = selected, true)), c, 0, 1, 1, 1);
+        return panel;
+    }
+
+    /**
+     * Creates the move-list preferences group.
+     *
+     * @return move-list settings group
+     */
+    private JComponent createMoveListSettings() {
+        JPanel panel = settingsGroupPanel();
+        GridBagConstraints c = constraints();
+        c.insets = SETTINGS_ROW_INSETS;
+        grid(panel, disabledMenuToggleRow("Inline notation",
+                "Inline notation is the current Workbench move-list default", true), c, 0, 0, 1, 1);
+        grid(panel, disabledMenuToggleRow("Enable variation hiding",
+                "Variation hiding is not a separate Workbench setting yet", false), c, 0, 1, 1, 1);
+        grid(panel, disabledMenuToggleRow("Live engine annotations",
+                "Per-move live annotations are not split from the analysis pane yet", false), c, 0, 2, 1, 1);
+        return panel;
+    }
+
+    /**
+     * Creates the board overlay preferences group.
+     *
+     * @return board settings group
+     */
+    private JComponent createBoardMenuSettings() {
+        JPanel panel = settingsGroupPanel();
+        GridBagConstraints c = constraints();
+        c.insets = SETTINGS_ROW_INSETS;
+        grid(panel, menuToggleRow("Legal move preview",
+                "Show selected-piece destinations and legal drag targets on the board",
+                showLegalMovePreview,
+                selected -> updateDisplaySetting(() -> showLegalMovePreview = selected, false)), c, 0, 0, 1, 1);
+        grid(panel, menuToggleRow("Last move highlight",
+                "Show the previous move on the board",
+                showLastMoveHighlight,
+                selected -> updateDisplaySetting(() -> showLastMoveHighlight = selected, false)), c, 0, 1, 1, 1);
+        grid(panel, menuToggleRow("Show best move arrows",
+                "Show engine best-move and analysis suggestions as board arrows",
+                showBestMoveArrows,
+                selected -> updateDisplaySetting(() -> showBestMoveArrows = selected, false)), c, 0, 2, 1, 1);
+        grid(panel, menuToggleRow("Coordinates",
+                "Show file and rank notation on the board",
+                showBoardCoordinates,
+                selected -> updateDisplaySetting(() -> showBoardCoordinates = selected, false)), c, 0, 3, 1, 1);
+        grid(panel, menuToggleRow("Board animations",
+                "Animate moves, snaps, snapbacks, and board flips",
+                boardAnimationsEnabled,
+                selected -> updateDisplaySetting(() -> boardAnimationsEnabled = selected, false)), c, 0, 4, 1, 1);
+        grid(panel, disabledMenuToggleRow("Show variation arrows",
+                "Variation arrows are not a separate board overlay yet", false), c, 0, 5, 1, 1);
+        grid(panel, disabledMenuToggleRow("Show maneuver arrows",
+                "Maneuver arrows are not a separate board overlay yet", false), c, 0, 6, 1, 1);
+        grid(panel, disabledMenuToggleRow("Show move annotations",
+                "Move annotations are shown in analysis text, not as a board overlay yet", false), c, 0, 7, 1, 1);
+        grid(panel, menuToggleRow("Show undefended pieces",
+                "Mark attacked pieces that have no same-side defender",
+                showUndefendedPieces,
+                selected -> updateDisplaySetting(() -> showUndefendedPieces = selected, false)), c, 0, 8, 1, 1);
+        grid(panel, menuToggleRow("Show pinned pieces",
+                "Mark pieces pinned to their own king by an enemy slider",
+                showPinnedPieces,
+                selected -> updateDisplaySetting(() -> showPinnedPieces = selected, false)), c, 0, 9, 1, 1);
+        grid(panel, menuToggleRow("Show checkable king",
+                "Mark the king when the side to move has a legal check available",
+                showCheckableKing,
+                selected -> updateDisplaySetting(() -> showCheckableKing = selected, false)), c, 0, 10, 1, 1);
+        return panel;
+    }
+
+    /**
+     * Creates the appearance preferences group.
+     *
+     * @return appearance settings group
+     */
+    private JComponent createAppearanceSettings() {
         JPanel appearance = settingsGroupPanel();
-        GridBagConstraints appearanceC = constraints();
-        appearanceC.insets = SETTINGS_ROW_INSETS;
-        // VS Code-style horizontal chip picker for the workbench theme.
-        // Replaces the previous single Dark-mode toggle so users see both
-        // choices at a glance and can flip with one click.
+        GridBagConstraints c = constraints();
+        c.insets = SETTINGS_ROW_INSETS;
+        Theme.Mode[] themeModes = Theme.Mode.values();
         application.gui.workbench.ui.ChipGroup themePicker =
-                new application.gui.workbench.ui.ChipGroup(java.util.List.of("Light", "Dark"));
-        themePicker.setSelectedIndex(isDarkMode() ? 1 : 0);
-        themePicker.setOnSelect(index -> setDarkMode(index == 1));
+                new application.gui.workbench.ui.ChipGroup(java.util.List.of(themeModeLabels()));
+        themePicker.setSelectedIndex(Theme.mode().ordinal());
+        themePicker.setOnSelect(index -> {
+            if (index >= 0 && index < themeModes.length) {
+                setThemeMode(themeModes[index]);
+            }
+        });
         themePicker.setToolTipText("Switch the workbench palette");
         grid(appearance, createLabelDetailRow("Theme", "Pick the workbench colour palette",
-                themePicker), appearanceC, 0, 0, 1, 1);
+                themePicker), c, 0, 0, 1, 1);
 
-        // Piece artwork picker. Shares state with the board-toolbar switcher via
-        // applyPieceSet so the two never drift; consolidating the preference here
-        // is what makes the Settings dialog the one home for display choices.
         application.gui.workbench.ui.ChipGroup piecePicker =
                 new application.gui.workbench.ui.ChipGroup(java.util.List.of(pieceSetLabels()));
         piecePicker.setSelectedIndex(pieceSet.ordinal());
@@ -1489,11 +1788,19 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         piecePicker.setToolTipText("Choose the chess piece artwork set");
         pieceSetChips = piecePicker;
         grid(appearance, createLabelDetailRow("Pieces", "Artwork used to draw the pieces",
-                piecePicker), appearanceC, 0, 1, 1, 1);
+                piecePicker), c, 0, 1, 1, 1);
+        return appearance;
+    }
 
+    /**
+     * Creates the sound preferences group.
+     *
+     * @return sound settings group
+     */
+    private JComponent createSoundSettings() {
         JPanel soundSettings = settingsGroupPanel();
-        GridBagConstraints soundC = constraints();
-        soundC.insets = SETTINGS_ROW_INSETS;
+        GridBagConstraints c = constraints();
+        c.insets = SETTINGS_ROW_INSETS;
         grid(soundSettings, settingsToggle("Sound effects",
                 "Play procedural feedback for controls, moves, loaded positions, puzzles, MCTS, and long jobs",
                 !SoundService.isMuted(), selected -> {
@@ -1501,45 +1808,111 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                     if (settingsMenu != null) {
                         settingsMenu.syncMode();
                     }
-                }), soundC, 0, 0, 1, 1);
+                }), c, 0, 0, 1, 1);
         grid(soundSettings, labeledControl("Volume", createSoundVolumeSlider()),
-                soundC, 0, 1, 1, 1);
+                c, 0, 1, 1, 1);
         grid(soundSettings, button("Preview", false, event -> SoundService.play(SoundCue.POSITION_LOAD)),
-                soundC, 0, 2, 1, 1);
+                c, 0, 2, 1, 1);
+        return soundSettings;
+    }
 
-        JPanel boardSettings = settingsGroupPanel();
-        GridBagConstraints boardC = constraints();
-        boardC.insets = SETTINGS_ROW_INSETS;
-        addSettingsToggle(boardSettings, boardC, 0, "Legal move preview",
-                "Show selected-piece destinations and legal drag targets on the board",
-                showLegalMovePreview, selected -> showLegalMovePreview = selected, false);
-        addSettingsToggle(boardSettings, boardC, 1, "Last move highlight",
-                "Show the previous move on the board",
-                showLastMoveHighlight, selected -> showLastMoveHighlight = selected, false);
-        addSettingsToggle(boardSettings, boardC, 2, "Best move arrows",
-                "Show engine best-move and analysis suggestions as board arrows",
-                showBestMoveArrows, selected -> showBestMoveArrows = selected, false);
-        addSettingsToggle(boardSettings, boardC, 3, "Coordinates",
-                "Show file and rank notation on the board",
-                showBoardCoordinates, selected -> showBoardCoordinates = selected, false);
-        addSettingsToggle(boardSettings, boardC, 4, "Board animations",
-                "Animate moves, snaps, snapbacks, and board flips",
-                boardAnimationsEnabled, selected -> boardAnimationsEnabled = selected, false);
+    /**
+     * Creates one display-menu toggle row.
+     *
+     * @param text visible row text
+     * @param tooltip tooltip and accessible description
+     * @param selected selected state
+     * @param onChange change callback
+     * @return row component
+     */
+    private static JComponent menuToggleRow(String text, String tooltip, boolean selected,
+            Consumer<Boolean> onChange) {
+        return menuToggleRow(text, tooltip, selected, true, onChange);
+    }
 
-        JPanel analysisSettings = settingsGroupPanel();
-        GridBagConstraints analysisC = constraints();
-        analysisC.insets = SETTINGS_ROW_INSETS;
-        addSettingsToggle(analysisSettings, analysisC, 0, "Auto eval bar",
-                "Automatically refresh the side evaluation bar after position changes",
-                autoEvalBarEnabled, selected -> autoEvalBarEnabled = selected, true);
+    /**
+     * Creates one disabled display-menu toggle row.
+     *
+     * @param text visible row text
+     * @param tooltip disabled-state explanation
+     * @param selected selected state to display
+     * @return row component
+     */
+    private static JComponent disabledMenuToggleRow(String text, String tooltip, boolean selected) {
+        return menuToggleRow(text, tooltip, selected, false, value -> {
+            // disabled placeholder for planned Workbench display options
+        });
+    }
 
-        int row = 0;
-        grid(panel, collapsible("Appearance", appearance, true), c, 0, row++, 1, 1);
-        grid(panel, collapsible("Sound", soundSettings, true), c, 0, row++, 1, 1);
-        grid(panel, collapsible("Board", boardSettings, true), c, 0, row++, 1, 1);
-        grid(panel, collapsible("Analysis", analysisSettings, false), c, 0, row++, 1, 1);
-        addVerticalFiller(panel, c, row, 1);
-        return panel;
+    /**
+     * Creates one display-menu toggle row.
+     *
+     * @param text visible row text
+     * @param tooltip tooltip and accessible description
+     * @param selected selected state
+     * @param enabled whether the row is interactive
+     * @param onChange change callback
+     * @return row component
+     */
+    private static JComponent menuToggleRow(String text, String tooltip, boolean selected,
+            boolean enabled, Consumer<Boolean> onChange) {
+        JPanel row = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        row.setToolTipText(tooltip);
+        JLabel title = new JLabel(text);
+        Theme.foreground(title, enabled ? Theme.ForegroundRole.TEXT : Theme.ForegroundRole.MUTED);
+        title.setEnabled(enabled);
+        title.setToolTipText(tooltip);
+        ToggleBox toggle = new ToggleBox("", true);
+        toggle.setSelected(selected);
+        toggle.setEnabled(enabled);
+        toggle.setToolTipText(tooltip);
+        toggle.setActionCommand(displaySettingActionId(text));
+        AccessibleContext context = toggle.getAccessibleContext();
+        if (context != null) {
+            context.setAccessibleName(text);
+            context.setAccessibleDescription(tooltip);
+        }
+        if (enabled) {
+            toggle.addActionListener(event -> onChange.accept(toggle.isSelected()));
+        }
+        row.add(title, BorderLayout.CENTER);
+        row.add(toggle, BorderLayout.EAST);
+        return row;
+    }
+
+    /**
+     * Creates one keyboard-shortcut display row.
+     *
+     * @param text shortcut label
+     * @param shortcut keycap text
+     * @param tooltip row tooltip
+     * @return row component
+     */
+    private static JComponent shortcutRow(String text, String shortcut, String tooltip) {
+        JPanel row = transparentPanel(new BorderLayout(Theme.SPACE_SM, 0));
+        row.setToolTipText(tooltip);
+        JLabel title = new JLabel(text);
+        Theme.foreground(title, Theme.ForegroundRole.MUTED);
+        title.setToolTipText(tooltip);
+        JLabel key = Ui.caption(shortcut);
+        key.setHorizontalAlignment(JLabel.CENTER);
+        key.setPreferredSize(new Dimension(Math.max(28, shortcut.length() * 8 + 12), Theme.CONTROL_HEIGHT));
+        key.setToolTipText(tooltip);
+        row.add(title, BorderLayout.CENTER);
+        row.add(key, BorderLayout.EAST);
+        return row;
+    }
+
+    /**
+     * Returns a stable action id for one display setting.
+     *
+     * @param text visible label
+     * @return action id
+     */
+    private static String displaySettingActionId(String text) {
+        String key = text.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-");
+        key = key.replaceAll("^-|-$", "");
+        return "workbench.display." + key;
     }
 
     /**
@@ -1702,7 +2075,10 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         gameStateLabel.setFont(Theme.font(12, Font.PLAIN));
         top.add(gameStateLabel, BorderLayout.CENTER);
         panel.add(top, BorderLayout.NORTH);
-        panel.add(scroll(gameTable), BorderLayout.CENTER);
+        JPanel content = transparentPanel(new BorderLayout(0, Theme.SPACE_SM));
+        content.add(createGameNotationPreview(), BorderLayout.NORTH);
+        content.add(scroll(gameTable), BorderLayout.CENTER);
+        panel.add(content, BorderLayout.CENTER);
 
         panel.add(buttonRow(FlowLayout.LEFT,
                 button("Start", false, event -> jumpGameTo(0)),
@@ -1713,6 +2089,64 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
                 button("Copy SAN", false, event -> copyText(gameModel.sanLine())),
                 button("Copy UCI", false, event -> copyText(gameModel.uciLine()))), BorderLayout.SOUTH);
         return panel;
+    }
+
+    /**
+     * Creates the read-only FEN / PGN preview block for the selected game line.
+     *
+     * @return notation preview component
+     */
+    private JComponent createGameNotationPreview() {
+        gameFenPreview.setEditable(false);
+        gameFenPreview.setRows(1);
+        gameFenPreview.setColumns(42);
+        gameFenPreview.setLineWrap(false);
+        gameFenPreview.setToolTipText("Current selected position FEN");
+        gameFenPreview.getAccessibleContext().setAccessibleName("Selected position FEN");
+        gamePgnPreview.setEditable(false);
+        gamePgnPreview.setRows(2);
+        gamePgnPreview.setLineWrap(true);
+        gamePgnPreview.setWrapStyleWord(true);
+        gamePgnPreview.setToolTipText("Current game PGN with variations");
+        gamePgnPreview.getAccessibleContext().setAccessibleName("Current game PGN");
+
+        JPanel panel = transparentPanel(new GridBagLayout());
+        GridBagConstraints c = constraints();
+        c.insets = new Insets(0, 0, Theme.SPACE_SM, Theme.SPACE_SM);
+        c.weightx = 0.0d;
+        c.fill = GridBagConstraints.NONE;
+        grid(panel, label("FEN"), c, 0, 0, 1, 1);
+        c.weightx = 1.0d;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        JScrollPane fenScroll = scroll(gameFenPreview, () -> Theme.INPUT);
+        fenScroll.setPreferredSize(new Dimension(260, 36));
+        grid(panel, fenScroll, c, 1, 0, 1, 1);
+
+        GridBagConstraints pgnC = constraints();
+        pgnC.insets = new Insets(0, 0, 0, Theme.SPACE_SM);
+        pgnC.weightx = 0.0d;
+        pgnC.fill = GridBagConstraints.NONE;
+        grid(panel, label("PGN"), pgnC, 0, 1, 1, 1);
+        pgnC.weightx = 1.0d;
+        pgnC.fill = GridBagConstraints.BOTH;
+        JScrollPane pgnScroll = scroll(gamePgnPreview, () -> Theme.INPUT);
+        pgnScroll.setPreferredSize(new Dimension(260, 64));
+        grid(panel, pgnScroll, pgnC, 1, 1, 1, 1);
+        refreshGameNotationPreview();
+        return panel;
+    }
+
+    /**
+     * Refreshes read-only FEN / PGN previews for the active game selection.
+     */
+    protected void refreshGameNotationPreview() {
+        if (gameFenPreview == null || gamePgnPreview == null) {
+            return;
+        }
+        gameFenPreview.setText(gameModel.currentPosition().toString());
+        gameFenPreview.setCaretPosition(0);
+        gamePgnPreview.setText(gameModel.pgn());
+        gamePgnPreview.setCaretPosition(0);
     }
 
     /**
@@ -1746,7 +2180,7 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         JComponent studyTools = buttonRow(FlowLayout.LEFT,
                 button("Opening Tree", false, event -> showBoardDetail("ECO")),
                 button("Review Game", false, event -> runCurrentGameReview()),
-                button("Saved Games", false, event -> showBoardDetail("Games")),
+                button("Library", false, event -> showBoardDetail("Library")),
                 button("Author Study", false, event -> showBoardDetail("Study")),
                 button("PGN Database", false, event -> showPgnExplorer()));
 
@@ -1847,30 +2281,12 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     }
 
     /**
-     * Creates the live search-tree graph tab.
-     *
-     * @return tree tab
-     */
-    protected JComponent createTreeTab() {
-        return treePanel();
-    }
-
-    /**
      * Creates the engine self-play gauntlet tab.
      *
      * @return gauntlet tab
      */
     protected JComponent createGauntletTab() {
         return new EngineGauntletPanel(this::copyText);
-    }
-
-    /**
-     * Creates an independent search-tree graph tab instance.
-     *
-     * @return tree tab
-     */
-    protected JComponent createDetachedTreeTab() {
-        return createDetachedTreePanel();
     }
 
     /**

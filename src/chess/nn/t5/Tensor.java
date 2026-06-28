@@ -32,29 +32,6 @@ public final class Tensor {
   }
 
   /**
-   * Returns a dimension size.
-   *
-   * @param idx dimension index
-   * @return size of the dimension
-   */
-  public int dim(int idx) {
-    return shape[idx];
-  }
-
-  /**
-   * Returns the total number of elements.
-   *
-   * @return element count
-   */
-  public int size() {
-    int total = 1;
-    for (int d : shape) {
-      total *= d;
-    }
-    return total;
-  }
-
-  /**
    * Allocates a zero-filled tensor.
    *
    * @param shape tensor shape
@@ -66,24 +43,6 @@ public final class Tensor {
       total *= d;
     }
     return new Tensor(new float[total], shape);
-  }
-
-  /**
-   * Returns a new tensor view with a different shape.
-   *
-   * @param newShape source new shape
-   * @return reshaped tensor
-   * @throws IllegalArgumentException if the element count changes
-   */
-  public Tensor reshape(int... newShape) {
-    int total = 1;
-    for (int d : newShape) {
-      total *= d;
-    }
-    if (total != data.length) {
-      throw new IllegalArgumentException("Invalid reshape size");
-    }
-    return new Tensor(data, newShape);
   }
 
   /**

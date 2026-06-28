@@ -150,10 +150,18 @@ public final class UpstreamRegressionTest {
             assertEquals(6, model.predict(ONE_PAWN, sink).roundedCentipawns(), "captured upstream prediction");
             assertEquals(64, sink.data("nnue.stockfish.transformed.us").length,
                     "Stockfish transformed side-to-move half");
+            assertEquals(128, sink.data("nnue.stockfish.transformed").length,
+                    "Stockfish transformed full vector");
             assertEquals(16, sink.data("nnue.stockfish.fc0.raw").length,
                     "Stockfish FC0 raw includes forward output");
+            assertShape(sink.shape("nnue.stockfish.fc0.weights"), new int[] { 15, 128 },
+                    "Stockfish FC0 full input weights");
+            assertShape(sink.shape("nnue.stockfish.fc0.weights.us"), new int[] { 15, 64 },
+                    "Stockfish FC0 side-to-move input weights");
+            assertEquals(128, sink.data("nnue.stockfish.fc0.weights.fwd").length,
+                    "Stockfish FC0 forward row full input weights are captured");
             assertEquals(64, sink.data("nnue.stockfish.fc0.weights.fwd.us").length,
-                    "Stockfish FC0 forward row weights are captured");
+                    "Stockfish FC0 forward row side-to-move weights are captured");
             assertEquals(1, sink.data("nnue.stockfish.fc0.fwd.cp").length,
                     "Stockfish FC0 forward contribution is captured");
             assertEquals(32, sink.data("nnue.stockfish.fc1.clipped").length,
@@ -850,6 +858,26 @@ public final class UpstreamRegressionTest {
     }
 
     /**
+     * Verifies an integer shape exactly.
+     *
+     * @param actual actual tensor shape
+     * @param expected expected tensor shape
+     * @param label display label
+     */
+    private static void assertShape(int[] actual, int[] expected, String label) {
+        if (actual.length != expected.length) {
+            throw new AssertionError(label + ": expected rank " + expected.length
+                    + ", got " + actual.length);
+        }
+        for (int i = 0; i < expected.length; i++) {
+            if (actual[i] != expected[i]) {
+                throw new AssertionError(label + ": expected dimension " + expected[i]
+                        + " at axis " + i + ", got " + actual[i]);
+            }
+        }
+    }
+
+    /**
      * Verifies non-null value.
      *
      * @param value candidate value
@@ -872,11 +900,31 @@ public final class UpstreamRegressionTest {
         private final Map<String, float[]> values = new HashMap<>();
 
         /**
+         * Captured tensor shapes by key.
+         */
+        private final Map<String, int[]> shapes = new HashMap<>();
+
+        /**
          * {@inheritDoc}
          */
         @Override
         public void put(String key, int[] shape, float[] data) {
+            shapes.put(key, shape.clone());
             values.put(key, data.clone());
+        }
+
+        /**
+         * Returns one captured tensor shape.
+         *
+         * @param key lookup key
+         * @return tensor shape
+         */
+        private int[] shape(String key) {
+            int[] out = shapes.get(key);
+            if (out == null) {
+                throw new AssertionError("missing activation shape " + key);
+            }
+            return out;
         }
 
         /**

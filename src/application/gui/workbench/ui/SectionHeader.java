@@ -8,7 +8,7 @@ import javax.swing.JPanel;
 /**
  * Shared compact section header with optional detail text and trailing controls.
  */
-public final class SectionHeader extends JPanel {
+final class SectionHeader extends JPanel {
 
     /**
      * Serialization identifier for Swing component compatibility.

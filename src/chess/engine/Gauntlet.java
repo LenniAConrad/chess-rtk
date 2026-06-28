@@ -990,15 +990,6 @@ public final class Gauntlet {
     }
 
     /**
-     * Returns the number of openings in the curated default set.
-     *
-     * @return curated opening count
-     */
-    public static int curatedOpeningCount() {
-        return OPENINGS.length;
-    }
-
-    /**
      * Runs the gauntlet over the supplied openings.
      *
      * <p>

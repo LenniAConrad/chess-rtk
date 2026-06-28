@@ -100,67 +100,6 @@ public class Chances implements Comparable<Chances> {
 	}
 
 	/**
-	 * Used for inverting the current {@code Chances}.
-	 * 
-	 * <p>
-	 * Inverting {@code Chances} can be useful if you want to skip evaluating
-	 * certain positions. The following {@code Position}
-	 * '8/p1p5/1p4r1/8/6p1/P7/1P1Q1k2/K7 b - - 0 11' is evaluated with:
-	 * </p>
-	 * 
-	 * <blockquote> info depth 32 seldepth 69 multipv 1 score cp 544 wdl 1000 0 0
-	 * nodes 17065467 nps 1333656 hashfull 998 tbhits 0 time 12796 pv g7h8 f4f3 h2h5
-	 * g5f4 h8d4 f5e4 d4d2 e4e3 d2h2 f4e4 h2e5 e4d3 e5c3 d3e2 c3c2 e3d2 h5e5 e2f1
-	 * c2d2 f3f2 d2d3 f1g2 d3e4 g2g1 e4g6 f2f1q a1a2 f1c4 b2b3 c4f4 g6b1 g1f2 b1c2
-	 * f2g3 e5e2 c7c5 c2d3 g3h4 d3h7 h4g5 h7a7 f4d6 a7g7 g5h4 g7h8 h4g5 h8g8 g5h4
-	 * g8c4 h4g5 c4c1 g5g6 c1e3 d6d4 </blockquote>
-	 * 
-	 * <p>
-	 * A chess {@code Engine}, that is perfect would only ever evaluate a position
-	 * with <i>Mate for White</i>, <i>Draw</i> or <i>Mate for Black</i>. Chess
-	 * {@code Engines}, however, are not perfect. If we now play the move Qh8, we
-	 * reach the {@code Position} ' 7Q/p1p5/1p4r1/5qk1/5pp1/P7/1P5R/K7 b - - 1 1'
-	 * and can conclude that our synthesized {@code Chances} should look like this:
-	 * </p>
-	 * 
-	 * <blockquote> info depth 31 seldepth 53 multipv 1 score cp -544 wdl 0 0 1000
-	 * nodes ??? nps 1333656 hashfull 998 tbhits 0 time 12796 pv f4f3 h2h5 g5f4 h8d4
-	 * f5e4 d4d2 e4e3 d2h2 f4e4 h2e5 e4d3 e5c3 d3e2 c3c2 e3d2 h5e5 e2f1 c2d2 f3f2
-	 * d2d3 f1g2 d3e4 g2g1 e4g6 f2f1q a1a2 f1c4 b2b3 c4f4 g6b1 g1f2 b1c2 f2g3 e5e2
-	 * c7c5 c2d3 g3h4 d3h7 h4g5 h7a7 f4d6 a7g7 g5h4 g7h8 h4g5 h8g8 g5h4 g8c4 h4g5
-	 * c4c1 g5g6 c1e3 d6d4 </blockquote>
-	 * 
-	 * <p>
-	 * The {@code Chances} have just switched, a {@code Position} that is good for
-	 * White must be bad for Black. The {@code Chances} however, is not perfect. It
-	 * is just a conclusion made from the {@code Engine} {@code Output}.
-	 * <p>
-	 * 
-	 * <p>
-	 * Inversion examples:
-	 * </p>
-	 * 
-	 * <style> table { border-collapse: collapse; } th, td { padding: 3px; }
-	 * </style>
-	 * 
-	 * <pre>
-	 * 	<table border=1>
-	 * 		<tr> <th colspan="3"> Original </th> <th colspan=
-	"3"> Inverted </th> </tr>
-	 * 		<tr> <th> Win </th> <th> Draw </th> <th> Loss </th> <th> Win </th> <th> Draw </th> <th> Loss </th> </tr>
-	 * 		<tr> <td> 1000 </td> <td> 0 </td> <td> 0 </td> <td> 0 </td> <td> 0 </td> <td> 1000 </td> </tr>
-	 *   	<tr> <td> 100 </td> <td> 400 </td> <td> 500 </td> <td> 500 </td> <td> 400 </td> <td> 100 </td> </tr>
-	 *    	<tr> <td> 0 </td> <td> 300 </td> <td> 700 </td> <td> 700 </td> <td> 300 </td> <td> 0 </td> </tr> 
-	 * 	</table>
-	 * </pre>
-	 */
-	public void invert() {
-		short buffer = win;
-		win = loss;
-		loss = buffer;
-	}
-
-	/**
 	 * Used for constructing a {@code Chances} instance from individual win, draw
 	 * and loss
 	 * values.
@@ -241,42 +180,6 @@ public class Chances implements Comparable<Chances> {
 	 */
 	public double drawChanceToDouble() {
 		return draw / TOTAL_CHANCES;
-	}
-
-	/**
-	 * Used for turning the loss chance into a {@code Double}.
-	 * 
-	 * @return A {@code Double} between 0 and 1 that represents the loss chance.
-	 */
-	public double lossChanceToDouble() {
-		return loss / TOTAL_CHANCES;
-	}
-
-	/**
-	 * Used for turning the win chance into a {@code String}.
-	 * 
-	 * @return A {@code String} displaying the win chance.
-	 */
-	public String winChanceToString() {
-		return win / PERCENTILE_DIVIDER + "%";
-	}
-
-	/**
-	 * Used for turning the draw chance into a {@code String}.
-	 * 
-	 * @return A {@code String} displaying the draw chance.
-	 */
-	public String drawChanceToString() {
-		return draw / PERCENTILE_DIVIDER + "%";
-	}
-
-	/**
-	 * Used for turning the loss chance into a {@code String}.
-	 * 
-	 * @return A {@code String} displaying the loss chance.
-	 */
-	public String lossChanceToString() {
-		return loss / PERCENTILE_DIVIDER + "%";
 	}
 
 	/**

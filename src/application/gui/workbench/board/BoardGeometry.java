@@ -1,7 +1,6 @@
 package application.gui.workbench.board;
 
 import chess.core.Field;
-import java.awt.Color;
 import java.awt.Point;
 import java.awt.Rectangle;
 
@@ -15,17 +14,6 @@ final class BoardGeometry {
      */
     private BoardGeometry() {
         // utility
-    }
-
-    /**
-     * Returns the square color for a visual board cell.
-     *
-     * @param row visual row
-     * @param col visual column
-     * @return board square color
-     */
-    static Color squareColor(int row, int col) {
-        return BoardStyle.squareColor(row, col);
     }
 
     /**

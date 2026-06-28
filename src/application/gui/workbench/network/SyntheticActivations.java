@@ -21,12 +21,12 @@ public final class SyntheticActivations {
     /**
      * Synthetic Stockfish transformed feature width.
      */
-    private static final int STOCKFISH_TRANSFORMED = 128;
+    private static final int STOCKFISH_TRANSFORMED = 1024;
 
     /**
      * Synthetic Stockfish FC0 hidden width.
      */
-    private static final int STOCKFISH_FC0 = 15;
+    private static final int STOCKFISH_FC0 = 31;
 
     /**
      * Synthetic Stockfish FC1 hidden width.
@@ -195,19 +195,23 @@ public final class SyntheticActivations {
             transformed[half + i] = transformedThem[i];
         }
 
-        float[] fc0Weights = gaussian(rng, STOCKFISH_FC0 * half, 0.45f);
-        float[] fc0FwdWeights = gaussian(rng, half, 0.45f);
+        float[] fc0Weights = gaussian(rng, STOCKFISH_FC0 * STOCKFISH_TRANSFORMED, 0.45f);
+        float[] fc0FwdWeights = gaussian(rng, STOCKFISH_TRANSFORMED, 0.45f);
+        float[] fc0WeightsUs = sliceRows(fc0Weights, STOCKFISH_FC0, STOCKFISH_TRANSFORMED, 0, half);
+        float[] fc0WeightsThem = sliceRows(fc0Weights, STOCKFISH_FC0, STOCKFISH_TRANSFORMED, half, half);
+        float[] fc0FwdWeightsUs = slice(fc0FwdWeights, 0, half);
+        float[] fc0FwdWeightsThem = slice(fc0FwdWeights, half, half);
         float[] fc0Raw = new float[STOCKFISH_FC0 + 1];
         for (int row = 0; row < STOCKFISH_FC0; row++) {
             float sum = (float) (rng.nextGaussian() * 12.0);
-            for (int col = 0; col < half; col++) {
-                sum += fc0Weights[row * half + col] * transformedUs[col] * 0.02f;
+            for (int col = 0; col < STOCKFISH_TRANSFORMED; col++) {
+                sum += fc0Weights[row * STOCKFISH_TRANSFORMED + col] * transformed[col] * 0.02f;
             }
             fc0Raw[row] = sum;
         }
         float fwdRaw = (float) (rng.nextGaussian() * 4.0);
-        for (int col = 0; col < half; col++) {
-            fwdRaw += fc0FwdWeights[col] * transformedUs[col] * 0.02f;
+        for (int col = 0; col < STOCKFISH_TRANSFORMED; col++) {
+            fwdRaw += fc0FwdWeights[col] * transformed[col] * 0.02f;
         }
         fc0Raw[STOCKFISH_FC0] = fwdRaw;
 
@@ -255,8 +259,12 @@ public final class SyntheticActivations {
         out.put("nnue.stockfish.fc0.raw", new int[] { STOCKFISH_FC0 + 1 }, fc0Raw);
         out.put("nnue.stockfish.fc0.sqr", new int[] { STOCKFISH_FC0 }, fc0Sqr);
         out.put("nnue.stockfish.fc0.crelu", new int[] { STOCKFISH_FC0 }, fc0Crelu);
-        out.put("nnue.stockfish.fc0.weights.us", new int[] { STOCKFISH_FC0, half }, fc0Weights);
-        out.put("nnue.stockfish.fc0.weights.fwd.us", new int[] { half }, fc0FwdWeights);
+        out.put("nnue.stockfish.fc0.weights", new int[] { STOCKFISH_FC0, STOCKFISH_TRANSFORMED }, fc0Weights);
+        out.put("nnue.stockfish.fc0.weights.us", new int[] { STOCKFISH_FC0, half }, fc0WeightsUs);
+        out.put("nnue.stockfish.fc0.weights.them", new int[] { STOCKFISH_FC0, half }, fc0WeightsThem);
+        out.put("nnue.stockfish.fc0.weights.fwd", new int[] { STOCKFISH_TRANSFORMED }, fc0FwdWeights);
+        out.put("nnue.stockfish.fc0.weights.fwd.us", new int[] { half }, fc0FwdWeightsUs);
+        out.put("nnue.stockfish.fc0.weights.fwd.them", new int[] { half }, fc0FwdWeightsThem);
         out.put("nnue.stockfish.fc1.input", new int[] { STOCKFISH_FC0 * 2 }, fc1Input);
         out.put("nnue.stockfish.fc1.raw", new int[] { STOCKFISH_FC1 }, fc1Raw);
         out.put("nnue.stockfish.fc1.clipped", new int[] { STOCKFISH_FC1 }, fc1Clipped);
@@ -275,13 +283,49 @@ public final class SyntheticActivations {
         out.putScalar("nnue.output.centipawns", cp);
 
         int[] shape = out.shape("nnue.features.us.weights");
-        if (shape.length >= 2 && shape[1] != half && activeWeightsUs.length >= shape[0] * shape[1]) {
+        if (shape.length >= 2 && shape[1] != half) {
             float[] clippedRows = new float[shape[0] * half];
+            int copyStride = Math.min(shape[1], half);
             for (int row = 0; row < shape[0]; row++) {
-                System.arraycopy(activeWeightsUs, row * shape[1], clippedRows, row * half, half);
+                System.arraycopy(activeWeightsUs, row * shape[1], clippedRows, row * half, copyStride);
+                for (int col = copyStride; col < half; col++) {
+                    clippedRows[row * half + col] = (float) (rng.nextGaussian() * 0.03);
+                }
             }
             out.put("nnue.features.us.weights", new int[] { shape[0], half }, clippedRows);
         }
+    }
+
+    /**
+     * Copies a contiguous vector slice.
+     *
+     * @param values source values
+     * @param offset first source index
+     * @param length copied length
+     * @return copied slice
+     */
+    private static float[] slice(float[] values, int offset, int length) {
+        float[] out = new float[length];
+        System.arraycopy(values, offset, out, 0, length);
+        return out;
+    }
+
+    /**
+     * Copies a column slice from each row of a row-major matrix.
+     *
+     * @param values source row-major matrix
+     * @param rows row count
+     * @param stride source row stride
+     * @param offset first source column
+     * @param cols copied column count
+     * @return copied row-major matrix slice
+     */
+    private static float[] sliceRows(float[] values, int rows, int stride, int offset, int cols) {
+        float[] out = new float[rows * cols];
+        for (int row = 0; row < rows; row++) {
+            System.arraycopy(values, row * stride + offset, out, row * cols, cols);
+        }
+        return out;
     }
 
     /**

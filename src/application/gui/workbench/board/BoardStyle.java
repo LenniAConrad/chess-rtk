@@ -29,6 +29,11 @@ public final class BoardStyle {
     public static final int BOARD_ARROW_OPACITY = 204;
 
     /**
+     * Suggested best-move arrow width in pixels on the live board.
+     */
+    public static final float SUGGESTED_ARROW_LINE_WIDTH = 10f;
+
+    /**
      * Distance, as a fraction of one square, that board arrows are pulled inward
      * from each piece centre so they keep a clear gap instead of touching the
      * start and target pieces (a quarter square, matching the legacy renderer).
@@ -243,8 +248,6 @@ public final class BoardStyle {
             if (capture) {
                 int diameter = Math.max(24, Math.round(cell * 0.86f));
                 int strokeWidth = Math.max(2, Math.round(cell * 0.035f));
-                g.setColor(Theme.LEGAL_CAPTURE_FILL);
-                g.fillOval(centerX - diameter / 2, centerY - diameter / 2, diameter, diameter);
                 g.setColor(Theme.LEGAL_CAPTURE_EDGE);
                 g.setStroke(new BasicStroke(strokeWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
                 g.drawOval(centerX - diameter / 2, centerY - diameter / 2, diameter, diameter);

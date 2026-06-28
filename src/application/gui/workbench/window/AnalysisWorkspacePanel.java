@@ -43,7 +43,6 @@ import javax.swing.SpinnerNumberModel;
 import static application.gui.workbench.ui.Ui.button;
 import static application.gui.workbench.ui.Ui.card;
 import static application.gui.workbench.ui.Ui.controlRow;
-import static application.gui.workbench.ui.Ui.fillViewport;
 import static application.gui.workbench.ui.Ui.iconButton;
 import static application.gui.workbench.ui.Ui.optionGroup;
 import static application.gui.workbench.ui.Ui.scroll;

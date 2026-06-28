@@ -454,20 +454,6 @@ public final class Toml {
     }
 
     /**
-     * Like {@link #getString(String)} but returns {@code dflt} when the value is
-     * missing or not coercible.
-     *
-     * @param k    key
-     * @param dflt default value to return when missing/mismatch
-     * @return string value or {@code dflt}
-     * @since 2025
-     */
-    public String getStringOr(String k, String dflt) {
-        String v = getString(k);
-        return v != null ? v : dflt;
-    }
-
-    /**
      * Retrieves the value associated with a key as a long with safe coercion.
      * <p>
      * <b>Coercion rules:</b>

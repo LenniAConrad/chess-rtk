@@ -129,7 +129,8 @@ public final class SettingsDialog extends JPanel {
         titleColumn.add(title, BorderLayout.NORTH);
         titleColumn.add(subtitle, BorderLayout.CENTER);
         header.add(titleColumn, BorderLayout.WEST);
-        JButton close = Ui.button("Close", false, event -> overlay.hide());
+        JButton close = Ui.iconButton("x", "Close settings", event -> overlay.hide());
+        close.setActionCommand("workbench.settings.close");
         JPanel closeWrap = Ui.transparentPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         closeWrap.add(close);
         header.add(closeWrap, BorderLayout.EAST);

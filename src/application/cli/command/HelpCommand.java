@@ -4,6 +4,7 @@ import static application.cli.Constants.CMD_BOOK;
 import static application.cli.Constants.CMD_CLEAN;
 import static application.cli.Constants.CMD_CONFIG;
 import static application.cli.Constants.CMD_DOCTOR;
+import static application.cli.Constants.CMD_ECO;
 import static application.cli.Constants.CMD_ENGINE;
 import static application.cli.Constants.CMD_FEN;
 import static application.cli.Constants.CMD_HELP;
@@ -71,6 +72,31 @@ public final class HelpCommand {
 	 * Help marker for {@code position}.
 	 */
 	private static final String POSITION_SUBCOMMANDS_MARKER = "position subcommands:";
+
+	/**
+	 * Help marker for {@code eco}.
+	 */
+	private static final String ECO_SUBCOMMANDS_MARKER = "eco subcommands:";
+
+	/**
+	 * Help marker for {@code eco lookup}.
+	 */
+	private static final String ECO_LOOKUP_OPTIONS_MARKER = "eco lookup options:";
+
+	/**
+	 * Help marker for {@code eco search}.
+	 */
+	private static final String ECO_SEARCH_OPTIONS_MARKER = "eco search options:";
+
+	/**
+	 * Help marker for {@code eco continuations}.
+	 */
+	private static final String ECO_CONTINUATIONS_OPTIONS_MARKER = "eco continuations options:";
+
+	/**
+	 * Help marker for {@code eco validate}.
+	 */
+	private static final String ECO_VALIDATE_OPTIONS_MARKER = "eco validate options:";
 
 	/**
 	 * Help marker for {@code book}.
@@ -629,6 +655,12 @@ public final class HelpCommand {
 			Map.entry("position diff", POSITION_DIFF_OPTIONS_MARKER),
 			Map.entry("position describe", POSITION_DESCRIBE_OPTIONS_MARKER),
 			Map.entry("position text", POSITION_DESCRIBE_OPTIONS_MARKER),
+			Map.entry(CMD_ECO, ECO_SUBCOMMANDS_MARKER),
+			Map.entry("eco lookup", ECO_LOOKUP_OPTIONS_MARKER),
+			Map.entry("eco search", ECO_SEARCH_OPTIONS_MARKER),
+			Map.entry("eco continuations", ECO_CONTINUATIONS_OPTIONS_MARKER),
+			Map.entry("eco moves", ECO_CONTINUATIONS_OPTIONS_MARKER),
+			Map.entry("eco validate", ECO_VALIDATE_OPTIONS_MARKER),
 			Map.entry(CMD_BOOK, BOOK_SUBCOMMANDS_MARKER),
 			Map.entry("book collection", PUZZLE_COLLECTION_OPTIONS_MARKER),
 			Map.entry("book study", PUZZLE_STUDY_OPTIONS_MARKER),
@@ -1103,6 +1135,12 @@ public final class HelpCommand {
 			position subcommands:
 			  diff                       Compare two FEN positions
 			  describe                   Describe a position with deterministic text
+
+			eco subcommands:
+			  lookup                     Resolve a FEN or SAN line to an ECO entry
+			  search                     Search ECO codes, names, and movetext
+			  continuations              List ECO next moves from a FEN or SAN line
+			  validate                   Validate loaded ECO code coverage
 
 			book subcommands:
 			  collection                 Build a dense puzzle collection from record JSON/JSONL
@@ -2092,6 +2130,37 @@ public final class HelpCommand {
 			  --output|-o PATH           Write output to a file
 			  --model PATH               Training-jsonl prompt model-path metadata
 			  --max-new N                Training-jsonl prompt token-budget metadata
+			  --verbose|-v               Print stack trace on failure
+
+			eco lookup options:
+			  --fen FEN                  Position to resolve; positional FEN is also accepted
+			  --line SAN                 SAN movetext from the standard start position
+			  --book PATH                ECO TOML file (default: config/book.eco.toml)
+			  --json                     Emit one JSON object with fen and match
+			  --jsonl                    Emit one JSON object line with eco/name fields
+			  --verbose|-v               Print stack trace on failure
+
+			eco search options:
+			  --query|-q TEXT            Search text; positional query is also accepted
+			  --book PATH                ECO TOML file (default: config/book.eco.toml)
+			  --limit N                  Maximum rows to emit (default: 20; 0 = no cap)
+			  --json                     Emit a JSON array of entries
+			  --jsonl                    Emit one JSON object per matched entry
+			  --verbose|-v               Print stack trace on failure
+
+			eco continuations options:
+			  --fen FEN                  Position to inspect; positional FEN is also accepted
+			  --line SAN                 SAN movetext from the standard start position
+			  --startpos                 Use the standard chess start position (default when no selector is given)
+			  --book PATH                ECO TOML file (default: config/book.eco.toml)
+			  --limit N                  Maximum moves to emit (default: 20; 0 = no cap)
+			  --json                     Emit one JSON object with continuation rows
+			  --jsonl                    Emit one JSON object per continuation
+			  --verbose|-v               Print stack trace on failure
+
+			eco validate options:
+			  --book PATH                ECO TOML file (default: config/book.eco.toml)
+			  --json                     Emit one JSON validation report
 			  --verbose|-v               Print stack trace on failure
 
 			fen pgn options:

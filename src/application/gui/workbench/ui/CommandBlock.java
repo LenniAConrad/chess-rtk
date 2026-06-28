@@ -5,7 +5,7 @@ import javax.swing.JTextArea;
 /**
  * Read-only monospace command/code preview.
  */
-public final class CommandBlock extends JTextArea {
+final class CommandBlock extends JTextArea {
 
     /**
      * Serialization identifier for Swing text component compatibility.

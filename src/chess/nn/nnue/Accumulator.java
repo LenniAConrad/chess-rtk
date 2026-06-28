@@ -1,7 +1,5 @@
 package chess.nn.nnue;
 
-import java.util.Arrays;
-
 import chess.core.Position;
 
 /**
@@ -124,16 +122,6 @@ public final class Accumulator {
             weights.addFeature(target, feature, 1.0f);
         }
         return this;
-    }
-
-    /**
-     * Returns a defensive copy of one perspective's hidden sums.
-     *
-     * @param whitePerspective true for White's perspective, false for Black's
-     * @return hidden accumulator values
-     */
-    public float[] copyValues(boolean whitePerspective) {
-        return Arrays.copyOf(values(whitePerspective), weights.hiddenSize);
     }
 
     /**

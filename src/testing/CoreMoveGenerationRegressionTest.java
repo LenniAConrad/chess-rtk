@@ -15,6 +15,7 @@ import chess.core.Move;
 import chess.core.MoveList;
 import chess.core.Piece;
 import chess.core.Position;
+import chess.core.PremoveGeometry;
 import chess.debug.Perft;
 
 /**
@@ -171,7 +172,60 @@ public final class CoreMoveGenerationRegressionTest {
         testCpwPerftResults();
         testChess960CastlingSupport();
         testInvalidFenMetadataRejected();
+        testPremoveGeometry();
         System.out.println("CoreMoveGenerationRegressionTest: all checks passed");
+    }
+
+    /**
+     * Verifies premove geometry lives in the shared core instead of Swing board
+     * event handling.
+     */
+    private static void testPremoveGeometry() {
+        Position start = new Position(START_FEN);
+        byte g1 = Field.toIndex('g', '1');
+        byte f3 = Field.toIndex('f', '3');
+        byte g3 = Field.toIndex('g', '3');
+        byte e2 = Field.toIndex('e', '2');
+        byte e4 = Field.toIndex('e', '4');
+        byte f2 = Field.toIndex('f', '2');
+        byte e1 = Field.toIndex('e', '1');
+        byte c1 = Field.toIndex('c', '1');
+        byte g8 = Field.toIndex('g', '8');
+        byte a7 = Field.toIndex('a', '7');
+        byte a8 = Field.toIndex('a', '8');
+
+        assertTrue(PremoveGeometry.isEncodedShape(Move.parse("g1f3")),
+                "premove encoded shape");
+        assertTrue(!PremoveGeometry.isEncodedShape(Move.NO_MOVE),
+                "premove no move rejected");
+        assertTrue(PremoveGeometry.isTarget(start, g1, Piece.WHITE_KNIGHT, f3),
+                "knight premove target");
+        assertTrue(!PremoveGeometry.isTarget(start, g1, Piece.WHITE_KNIGHT, g3),
+                "knight non-target rejected");
+        assertTrue(PremoveGeometry.isTarget(start, e2, Piece.WHITE_PAWN, e4),
+                "white pawn double push target");
+        assertTrue(PremoveGeometry.isTarget(start, e2, Piece.WHITE_PAWN, f3),
+                "white pawn capture target ignores occupancy");
+        assertTrue(!PremoveGeometry.isTarget(start, e2, Piece.WHITE_PAWN, f2),
+                "white pawn sideways target rejected");
+        assertTrue(PremoveGeometry.isTarget(start, e1, Piece.WHITE_KING, c1),
+                "white castle target requires rook");
+        assertTrue(!PremoveGeometry.isTarget(start, e1, Piece.WHITE_KING, g8),
+                "king non-castle slider rejected");
+        assertTrue(!PremoveGeometry.isTarget(
+                new Position("7k/8/8/8/8/8/8/4K3 w - - 0 1"), e1, Piece.WHITE_KING, c1),
+                "missing rook prevents castle target");
+        assertEquals(4, PremoveGeometry.promotion(Piece.WHITE_PAWN, a8),
+                "queen promotion default");
+        assertEquals(0, PremoveGeometry.promotion(Piece.WHITE_PAWN, a7),
+                "non-promotion default");
+
+        Set<String> targets = new TreeSet<>();
+        for (byte target : PremoveGeometry.targets(start, g1, Piece.WHITE_KNIGHT)) {
+            targets.add(String.valueOf(Field.getFile(target)) + Field.getRank(target));
+        }
+        assertTrue(targets.contains("f3"), "knight premove targets include f3");
+        assertTrue(!targets.contains("g3"), "knight premove targets exclude g3");
     }
 
     /**

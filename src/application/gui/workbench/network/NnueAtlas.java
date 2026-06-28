@@ -65,16 +65,6 @@ public final class NnueAtlas {
     }
 
     /**
-     * Picks a per-tile pixel width matching the row height.
-     *
-     * @param hidden hidden-layer dimension
-     * @return tile width
-     */
-    public static int pickAtlasTileWidth(int hidden) {
-        return pickAtlasRowHeight(hidden);
-    }
-
-    /**
      * Parses the slot index from an atlas tile region title of the form
      * "Slot 12 · own pawn".
      *

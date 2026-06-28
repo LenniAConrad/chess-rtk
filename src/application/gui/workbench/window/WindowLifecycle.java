@@ -134,6 +134,21 @@ public abstract class WindowLifecycle extends WindowBase {
     protected static final String PREF_BOARD_ANIMATIONS = "display.boardAnimations";
 
     /**
+     * Preference key for undefended-piece board badges.
+     */
+    protected static final String PREF_SHOW_UNDEFENDED_PIECES = "display.showUndefendedPieces";
+
+    /**
+     * Preference key for pinned-piece board badges.
+     */
+    protected static final String PREF_SHOW_PINNED_PIECES = "display.showPinnedPieces";
+
+    /**
+     * Preference key for checkable-king board badges.
+     */
+    protected static final String PREF_SHOW_CHECKABLE_KING = "display.showCheckableKing";
+
+    /**
      * Preference key for automatic eval-bar updates.
      */
     protected static final String PREF_AUTO_EVAL_BAR = "display.autoEvalBar";
@@ -356,6 +371,9 @@ public abstract class WindowLifecycle extends WindowBase {
         showBestMoveArrows = WORKBENCH_PREFS.getBoolean(PREF_SHOW_BEST_ARROWS, true);
         showBoardCoordinates = WORKBENCH_PREFS.getBoolean(PREF_SHOW_COORDINATES, true);
         boardAnimationsEnabled = WORKBENCH_PREFS.getBoolean(PREF_BOARD_ANIMATIONS, true);
+        showUndefendedPieces = WORKBENCH_PREFS.getBoolean(PREF_SHOW_UNDEFENDED_PIECES, false);
+        showPinnedPieces = WORKBENCH_PREFS.getBoolean(PREF_SHOW_PINNED_PIECES, false);
+        showCheckableKing = WORKBENCH_PREFS.getBoolean(PREF_SHOW_CHECKABLE_KING, false);
         autoEvalBarEnabled = WORKBENCH_PREFS.getBoolean(PREF_AUTO_EVAL_BAR, true);
         liveExternalEngineEnabled = WORKBENCH_PREFS.getBoolean(PREF_LIVE_EXTERNAL_ENGINE, false);
     }
@@ -377,6 +395,9 @@ public abstract class WindowLifecycle extends WindowBase {
         WORKBENCH_PREFS.putBoolean(PREF_SHOW_BEST_ARROWS, showBestMoveArrows);
         WORKBENCH_PREFS.putBoolean(PREF_SHOW_COORDINATES, showBoardCoordinates);
         WORKBENCH_PREFS.putBoolean(PREF_BOARD_ANIMATIONS, boardAnimationsEnabled);
+        WORKBENCH_PREFS.putBoolean(PREF_SHOW_UNDEFENDED_PIECES, showUndefendedPieces);
+        WORKBENCH_PREFS.putBoolean(PREF_SHOW_PINNED_PIECES, showPinnedPieces);
+        WORKBENCH_PREFS.putBoolean(PREF_SHOW_CHECKABLE_KING, showCheckableKing);
         WORKBENCH_PREFS.putBoolean(PREF_AUTO_EVAL_BAR, autoEvalBarEnabled);
         WORKBENCH_PREFS.putBoolean(PREF_LIVE_EXTERNAL_ENGINE, liveExternalEngineEnabled);
     }
@@ -384,17 +405,17 @@ public abstract class WindowLifecycle extends WindowBase {
     /**
      * Applies and persists the requested theme mode.
      *
-     * @param dark true to use dark mode
+     * @param next requested theme mode
      */
-    protected void setDarkMode(boolean dark) {
-        Theme.Mode next = dark ? Theme.Mode.DARK : Theme.Mode.LIGHT;
-        if (Theme.mode() == next) {
+    protected void setThemeMode(Theme.Mode next) {
+        Theme.Mode resolved = next == null ? Theme.Mode.LIGHT : next;
+        if (Theme.mode() == resolved) {
             if (settingsMenu != null) {
                 settingsMenu.syncMode();
             }
             return;
         }
-        Theme.setMode(next);
+        Theme.setMode(resolved);
         TensorViz.refreshPalette();
         WORKBENCH_PREFS.put(PREF_THEME_MODE, Theme.mode().id());
         Theme.install();
@@ -423,6 +444,15 @@ public abstract class WindowLifecycle extends WindowBase {
         }
         repaint();
         toast(Toast.Kind.INFO, Theme.mode().label() + " mode");
+    }
+
+    /**
+     * Applies and persists a legacy light/dark toggle.
+     *
+     * @param dark true to use the neutral dark mode
+     */
+    protected void setDarkMode(boolean dark) {
+        setThemeMode(dark ? Theme.Mode.DARK : Theme.Mode.LIGHT);
     }
 
     /**
@@ -511,6 +541,9 @@ public abstract class WindowLifecycle extends WindowBase {
         board.setShowSuggestedMoveArrow(showBestMoveArrows);
         board.setShowNotation(showBoardCoordinates);
         board.setAnimationsEnabled(boardAnimationsEnabled);
+        board.setShowUndefendedPieces(showUndefendedPieces);
+        board.setShowPinnedPieces(showPinnedPieces);
+        board.setShowCheckableKing(showCheckableKing);
         liveEngineToggle.setSelected(liveExternalEngineEnabled);
         if (liveExternalEngineEnabled) {
             evalDebounceTimer.stop();
@@ -644,7 +677,9 @@ public abstract class WindowLifecycle extends WindowBase {
                 // command output has a live target before the first run.
                 .add(new RegisteredView("Console", createConsolePanel(), this::createDetachedConsolePanel))
                 .add(new RegisteredView("Logs", new LazyPanel("Logs", this::createLogTab),
-                        () -> new LazyPanel("Logs", this::createDetachedLogTab)));
+                        () -> new LazyPanel("Logs", this::createDetachedLogTab)))
+                .add(new RegisteredView("Studies", new LazyPanel("Studies", this::createStudiesWorkspaceTab),
+                        () -> new LazyPanel("Studies", this::createDetachedStudiesWorkspaceTab)));
         tabs.addViews(registry);
         tabs.install();
         tabs.setSelectionListener(index -> onWorkbenchTabVisibilityChanged());
@@ -652,7 +687,7 @@ public abstract class WindowLifecycle extends WindowBase {
 
         shellFrame = new ShellFrame(tabs, session, this::selectTab,
                 this::showConsoleDock, this::showLogsDock, this::openLatestJobLogOrLogs,
-                () -> showBoardDetail("Study"));
+                () -> selectTab(TAB_STUDIES));
         root.add(shellFrame, BorderLayout.CENTER);
         statusBar = createStatusBar();
         statusBar.setVisible(statusBarVisible);
@@ -1270,11 +1305,6 @@ public abstract class WindowLifecycle extends WindowBase {
         getContentPane().revalidate();
         getContentPane().repaint();
     }
-
-    /**
-     * Maximum compact FEN characters shown in the status bar.
-     */
-    protected static final int STATUS_FEN_BUDGET = 60;
 
     /**
      * Refreshes status-bar text from the current game state.

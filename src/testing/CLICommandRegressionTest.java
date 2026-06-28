@@ -114,6 +114,7 @@ public final class CLICommandRegressionTest {
 		testFenGenerateFilterValidation();
 		testFenTagsLegalMoveTactics();
 		testFenTagsAnalyzeGame();
+		testEcoCommands();
 		testPuzzleTagsAnalyzeFlagConflict();
 		testMovesFormatOption();
 		testGroupedFenAndMoveCommands();
@@ -134,6 +135,32 @@ public final class CLICommandRegressionTest {
 		testHelpListsNewCommands();
 		testContextualHelpForms();
 		System.out.println("CLICommandRegressionTest: all checks passed");
+	}
+
+	/**
+	 * Verifies the ECO CLI resolves, searches, continues, and validates the bundled book.
+	 */
+	private static void testEcoCommands() {
+		String d72Line = "1. d4 Nf6 2. c4 g6 3. g3 d5 4. Bg2 Bg7 5. cxd5 Nxd5 6. e4 Nb6 7. Ne2";
+		String lookup = TestSupport.runMain("eco", "lookup", "--line", d72Line);
+		assertTrue(lookup.contains("D72\tNeo-Grünfeld Defense: with g3"),
+				"eco lookup resolves D72");
+
+		String lookupJson = TestSupport.runMain("eco", "lookup", "--line", d72Line, "--json");
+		assertTrue(lookupJson.contains("\"eco\":\"D72\""), "eco lookup JSON includes D72");
+		assertTrue(lookupJson.contains("\"match\":"), "eco lookup JSON wraps match");
+
+		String search = TestSupport.runMain("eco", "search", "E88", "--limit", "1");
+		assertTrue(search.contains("E88\tKing's Indian Defense: Sämisch Variation, Closed Variation"),
+				"eco search finds E88");
+
+		String continuations = TestSupport.runMain("eco", "continuations",
+				"--line", "1. d4 Nf6 2. c4 g6", "--limit", "8");
+		assertTrue(continuations.contains("g3\tg2g3"), "eco continuations list g3");
+
+		String validation = TestSupport.runMain("eco", "validate");
+		assertTrue(validation.contains("ok"), "eco validate ok");
+		assertTrue(validation.contains("unique_codes: 500"), "eco validate covers A00-E99");
 	}
 
 	/**
@@ -1206,6 +1233,7 @@ public final class CLICommandRegressionTest {
 		assertTrue(summary.contains("move"), "help lists move group");
 		assertTrue(summary.contains(ENGINE_COMMAND), "help lists engine group");
 		assertTrue(summary.contains("position"), "help lists position group");
+		assertTrue(summary.contains("eco"), "help lists eco group");
 		assertTrue(summary.contains("book"), "help lists book group");
 		assertTrue(summary.contains("puzzle"), "help lists puzzle group");
 		assertTrue(summary.contains("review"), "help lists review group");
@@ -1248,6 +1276,14 @@ public final class CLICommandRegressionTest {
 				"help position describe options");
 		assertTrue(positionDescribeHelp.contains("--audience MODE"),
 				"help position describe audience option");
+
+		String ecoHelp = TestSupport.runMain("help", "eco");
+		assertTrue(ecoHelp.contains("eco subcommands:"), "help eco subcommands");
+		assertTrue(ecoHelp.contains("continuations"), "help eco lists continuations");
+
+		String ecoLookupHelp = TestSupport.runMain("help", "eco", "lookup");
+		assertTrue(ecoLookupHelp.contains("eco lookup options:"), "help eco lookup options");
+		assertTrue(ecoLookupHelp.contains("--line SAN"), "help eco lookup line option");
 
 		String reviewHelp = TestSupport.runMain("help", "review");
 		assertTrue(reviewHelp.contains("review subcommands:"), "help review subcommands");

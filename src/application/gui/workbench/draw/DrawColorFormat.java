@@ -85,35 +85,6 @@ final class DrawColorFormat {
     }
 
     /**
-     * Parses A,R,G,B integer components.
-     *
-     * @param raw raw field text
-     * @return parsed color, or null when invalid
-     */
-    static Color parseArgbColor(String raw) {
-        String text = raw == null ? "" : raw.trim();
-        if (text.regionMatches(true, 0, "argb(", 0, 5) && text.endsWith(")")) {
-            text = text.substring(5, text.length() - 1);
-        }
-        String[] parts = text.split("[,;/\\s]+");
-        if (parts.length != 4) {
-            return null;
-        }
-        int[] channels = new int[4];
-        for (int i = 0; i < channels.length; i++) {
-            try {
-                channels[i] = Integer.parseInt(parts[i]);
-            } catch (NumberFormatException ex) {
-                return null;
-            }
-            if (channels[i] < 0 || channels[i] > 255) {
-                return null;
-            }
-        }
-        return new Color(channels[1], channels[2], channels[3], channels[0]);
-    }
-
-    /**
      * Parses the parse short hex color.
      *
      * @param text text to render or parse

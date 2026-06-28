@@ -731,15 +731,6 @@ public final class Network implements AutoCloseable {
         public int roundedCentipawns() {
             return Math.round(centipawns);
         }
-
-        /**
-         * Returns the score in pawns.
-         *
-         * @return pawn score
-         */
-        public float pawns() {
-            return centipawns / 100.0f;
-        }
     }
 
     /**

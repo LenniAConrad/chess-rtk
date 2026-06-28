@@ -39,8 +39,8 @@ final class WindowPaletteActions {
                         () -> owner.showBoardDetail("ECO")),
                 new PaletteAction("View", "Review game", "Run deterministic post-game review and retry tools",
                         owner::runCurrentGameReview),
-                new PaletteAction("View", "Saved games", "Open saved Workbench games for resume or review",
-                        () -> owner.showBoardDetail("Games")),
+                new PaletteAction("View", "Game library", "Open imported and played PGN games",
+                        () -> owner.showBoardDetail("Library")),
                 new PaletteAction("View", "Author study", "Show study/repertoire TOML authoring",
                         () -> owner.showBoardDetail("Study")),
                 new PaletteAction("View", "Endgame tablebase", "Show tablebase eligibility and endgame analysis",
@@ -80,8 +80,8 @@ final class WindowPaletteActions {
                 new PaletteAction("Copy", "Copy report", "Copy the current report output", owner::copyReport),
                 new PaletteAction("Copy", "Copy FEN", "Copy the current board FEN",
                         () -> owner.copyText(owner.fenField.getText())),
-                new PaletteAction("View", "Toggle dark mode", "Switch the workbench appearance palette",
-                        () -> owner.setDarkMode(!Theme.isDark())),
+                new PaletteAction("View", "Cycle theme mode", "Switch the workbench appearance palette",
+                        () -> cycleThemeMode(owner)),
                 new PaletteAction("Settings", "Board settings",
                         "Adjust board highlights, arrows, notation, animations, and eval",
                         owner::showDisplaySettings),
@@ -143,5 +143,16 @@ final class WindowPaletteActions {
                         owner.tabs::reopenAllTabs),
                 new PaletteAction("File", "Open logs folder", "Show persisted workbench command logs",
                         owner::openLogsDockAndDirectory));
+    }
+
+    /**
+     * Advances to the next workbench theme mode.
+     *
+     * @param owner owning workbench window
+     */
+    private static void cycleThemeMode(WindowLifecycle owner) {
+        Theme.Mode[] modes = Theme.Mode.values();
+        int next = (Theme.mode().ordinal() + 1) % modes.length;
+        owner.setThemeMode(modes[next]);
     }
 }

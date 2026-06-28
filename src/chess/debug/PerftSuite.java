@@ -126,22 +126,6 @@ public final class PerftSuite {
     }
 
     /**
-     * Runs the validation suite and prints an aligned result table.
-     *
-     * @param maxDepth validation depth to include
-     * @param progress optional progress callback after each row
-     * @return immutable validation summary
-     * @throws InterruptedException when interrupted while waiting for workers
-     */
-    public static Summary printValidation(
-            int maxDepth,
-            Runnable progress) throws InterruptedException {
-        Summary summary = validate(maxDepth, progress);
-        print(summary);
-        return summary;
-    }
-
-    /**
      * Runs the validation suite without printing the result table.
      *
      * @param maxDepth validation depth to include

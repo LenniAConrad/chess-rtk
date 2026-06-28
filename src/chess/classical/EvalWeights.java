@@ -247,16 +247,6 @@ public final class EvalWeights {
     }
 
     /**
-     * Reads one parameter by flat index.
-     *
-     * @param index parameter index
-     * @return its value
-     */
-    public static int getParameter(int index) {
-        return params()[index].get();
-    }
-
-    /**
      * Writes one parameter by flat index.
      *
      * @param index parameter index

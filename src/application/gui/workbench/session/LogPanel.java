@@ -10,10 +10,10 @@ import application.gui.workbench.ui.WorkspaceHeader;
 import chess.debug.SessionCache;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.GridLayout;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
 import java.io.File;
@@ -34,21 +34,26 @@ import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
-import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
+import javax.swing.Box;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JSplitPane;
+import javax.swing.JTextField;
+import javax.swing.ListCellRenderer;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingWorker;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 import static application.gui.workbench.ui.Ui.button;
 import static application.gui.workbench.ui.Ui.caption;
 import static application.gui.workbench.ui.Ui.controlRow;
+import static application.gui.workbench.ui.Ui.placeholder;
 import static application.gui.workbench.ui.Ui.scroll;
 import static application.gui.workbench.ui.Ui.transparentPanel;
 
@@ -119,6 +124,11 @@ public final class LogPanel extends SurfacePanel {
     private final JList<LogEntry> logList = new JList<>(logModel);
 
     /**
+     * Local file-list filter.
+     */
+    private final JTextField filterField = new JTextField();
+
+    /**
      * Terminal-style log text renderer.
      */
     private final Console logView = new Console();
@@ -174,6 +184,31 @@ public final class LogPanel extends SurfacePanel {
     private final JLabel statusLabel = caption("No logs scanned yet.");
 
     /**
+     * Opens the session folder.
+     */
+    private final JButton openFolderButton = button("Open Folder", false, event -> openSessionFolder());
+
+    /**
+     * Opens the selected individual log file.
+     */
+    private final JButton openSelectedButton = button("Open Selected", false, event -> openSelected());
+
+    /**
+     * Copies the selected log path or session root.
+     */
+    private final JButton copyPathButton = button("Copy Path", false, event -> copySelectedPath());
+
+    /**
+     * Refreshes the file scan.
+     */
+    private final JButton refreshButton = button("Refresh", false, event -> refreshLogs());
+
+    /**
+     * Destructive hold-to-confirm log cleanup.
+     */
+    private final HoldButton cleanButton = new HoldButton("Clean logs", this::cleanLogs, true);
+
+    /**
      * Clipboard callback supplied by the owning window.
      */
     private final transient Consumer<String> copyText;
@@ -182,6 +217,11 @@ public final class LogPanel extends SurfacePanel {
      * Currently scanned individual log entries, excluding the aggregate item.
      */
     private transient List<LogEntry> currentLogs = List.of();
+
+    /**
+     * Current list after the local filter is applied.
+     */
+    private transient List<LogEntry> visibleLogs = List.of();
 
     /**
      * Generation counter that discards stale scan workers.
@@ -262,7 +302,7 @@ public final class LogPanel extends SurfacePanel {
      * gesture rather than a single click.
      */
     private void cleanLogs() {
-        showStatus("Cleaning logs…", Theme.ForegroundRole.MUTED);
+        showStatus("Cleaning logs...", Theme.ForegroundRole.MUTED);
         new SwingWorker<Integer, Void>() {
 
             /**
@@ -327,13 +367,83 @@ public final class LogPanel extends SurfacePanel {
      * Applies the static Swing layout and component styling.
      */
     private void configure() {
+        configureActions();
+        configureFilter();
         add(header(), BorderLayout.NORTH);
         JPanel body = transparentPanel(new BorderLayout(0, Theme.SPACE_MD));
         body.setBorder(Theme.pad(Theme.SPACE_MD));
         body.add(splitPane(), BorderLayout.CENTER);
-        statusLabel.setHorizontalAlignment(SwingConstants.LEFT);
-        body.add(statusLabel, BorderLayout.SOUTH);
+        body.add(statusStrip(), BorderLayout.SOUTH);
         add(body, BorderLayout.CENTER);
+    }
+
+    /**
+     * Applies stable button metadata and initial enabled state.
+     */
+    private void configureActions() {
+        openFolderButton.setActionCommand("logs.openFolder");
+        openSelectedButton.setActionCommand("logs.openSelected");
+        copyPathButton.setActionCommand("logs.copyPath");
+        refreshButton.setActionCommand("logs.refresh");
+        openFolderButton.setName("logs.openFolder");
+        openSelectedButton.setName("logs.openSelected");
+        copyPathButton.setName("logs.copyPath");
+        refreshButton.setName("logs.refresh");
+        cleanButton.setName("logs.clean");
+        openFolderButton.getAccessibleContext().setAccessibleName("Open logs folder");
+        openSelectedButton.getAccessibleContext().setAccessibleName("Open selected log");
+        copyPathButton.getAccessibleContext().setAccessibleName("Copy log path");
+        refreshButton.getAccessibleContext().setAccessibleName("Refresh logs");
+        cleanButton.getAccessibleContext().setAccessibleName("Clean logs");
+        describe(openFolderButton, "Open the session log folder.");
+        describe(openSelectedButton, "Select an individual log to open it.");
+        describe(copyPathButton, "Copy the selected log path, or the session folder for All logs.");
+        describe(refreshButton, "Rescan persisted logs.");
+        describe(cleanButton, "Hold to delete persisted log files.");
+        updateActionStates();
+    }
+
+    /**
+     * Configures the local log-list filter.
+     */
+    private void configureFilter() {
+        Theme.field(filterField);
+        placeholder(filterField, "Filter logs");
+        filterField.setToolTipText("Filter logs by filename, folder, size, or modified time.");
+        filterField.getAccessibleContext().setAccessibleName("Filter logs");
+        filterField.getAccessibleContext().setAccessibleDescription(
+                "Filter logs by filename, folder, size, or modified time.");
+        filterField.getDocument().addDocumentListener(new DocumentListener() {
+            /**
+             * Handles inserted text.
+             *
+             * @param event document event
+             */
+            @Override
+            public void insertUpdate(DocumentEvent event) {
+                applyLogFilter();
+            }
+
+            /**
+             * Handles removed text.
+             *
+             * @param event document event
+             */
+            @Override
+            public void removeUpdate(DocumentEvent event) {
+                applyLogFilter();
+            }
+
+            /**
+             * Handles attribute changes.
+             *
+             * @param event document event
+             */
+            @Override
+            public void changedUpdate(DocumentEvent event) {
+                applyLogFilter();
+            }
+        });
     }
 
     /**
@@ -342,13 +452,10 @@ public final class LogPanel extends SurfacePanel {
      * @return header component
      */
     private JComponent header() {
-        JButton refresh = button("Refresh", false, event -> refreshLogs());
-        JButton openFolder = button("Open Folder", false, event -> openSessionFolder());
-        JButton openSelected = button("Open Selected", false, event -> openSelected());
-        JButton copyPath = button("Copy Path", false, event -> copySelectedPath());
-        HoldButton clean = new HoldButton("Clean logs", this::cleanLogs, true);
+        Box.Filler gap = (Box.Filler) Box.createHorizontalStrut(Theme.SPACE_SM);
         return new WorkspaceHeader("Logs", "Persisted application and command logs",
-                controlRow(FlowLayout.RIGHT, openFolder, openSelected, copyPath, clean, refresh));
+                controlRow(FlowLayout.RIGHT, openFolderButton, openSelectedButton, copyPathButton,
+                        refreshButton, gap, cleanButton));
     }
 
     /**
@@ -366,8 +473,11 @@ public final class LogPanel extends SurfacePanel {
             }
         });
 
+        JPanel fileHeader = transparentPanel(new BorderLayout(0, Theme.SPACE_XS));
+        fileHeader.add(Theme.section("Files"), BorderLayout.NORTH);
+        fileHeader.add(filterField, BorderLayout.CENTER);
         JPanel filePanel = new SurfacePanel(new BorderLayout(0, Theme.SPACE_SM));
-        filePanel.add(Theme.section("Files"), BorderLayout.NORTH);
+        filePanel.add(fileHeader, BorderLayout.NORTH);
         filePanel.add(scroll(logList), BorderLayout.CENTER);
 
         logView.setPlaceholder("Select a log file to view its contents.");
@@ -392,24 +502,112 @@ public final class LogPanel extends SurfacePanel {
      */
     private void installEntries(List<LogEntry> entries) {
         currentLogs = List.copyOf(entries);
-        logModel.clear();
         if (currentLogs.isEmpty()) {
             loadingOverlay.stop();
             viewerCards.show(viewerBody, "view");
+            visibleLogs = List.of();
+            logModel.clear();
             showText(NO_LOGS_TEXT);
             updateSelectionSummary(null);
             updateLoadedSummary(NO_LOGS_TEXT);
+            updateActionStates();
             showStatus("No log files in " + rootLabel() + ".", Theme.ForegroundRole.MUTED);
             return;
         }
 
-        logModel.addElement(aggregateEntry(currentLogs));
-        for (LogEntry entry : currentLogs) {
+        applyLogFilter();
+    }
+
+    /**
+     * Applies the local filter to the scanned log list.
+     */
+    private void applyLogFilter() {
+        if (currentLogs.isEmpty()) {
+            return;
+        }
+        LogEntry previous = logList.getSelectedValue();
+        String query = filterQuery();
+        visibleLogs = currentLogs.stream()
+                .filter(entry -> matchesFilter(entry, query))
+                .toList();
+        logModel.clear();
+        if (visibleLogs.isEmpty()) {
+            loadingOverlay.stop();
+            viewerCards.show(viewerBody, "view");
+            updateSelectionSummary(null);
+            selectedNameLabel.setText("No matching logs");
+            showText("No logs match \"" + filterField.getText().trim() + "\".\n");
+            updateLoadedSummary("");
+            updateActionStates();
+            showStatus("No logs match the current filter.", Theme.ForegroundRole.WARNING);
+            return;
+        }
+
+        logModel.addElement(aggregateEntry(visibleLogs));
+        for (LogEntry entry : visibleLogs) {
             logModel.addElement(entry);
         }
+        selectAfterFilter(previous);
+        updateActionStates();
+        showStatus(filterStatus(query), Theme.ForegroundRole.MUTED);
+    }
+
+    /**
+     * Selects the previous row when it survives filtering, otherwise the
+     * aggregate visible-log row.
+     *
+     * @param previous previous selection, may be null
+     */
+    private void selectAfterFilter(LogEntry previous) {
+        if (previous != null && !previous.aggregate()) {
+            for (int i = 0; i < logModel.size(); i++) {
+                LogEntry candidate = logModel.get(i);
+                if (!candidate.aggregate() && candidate.path().equals(previous.path())) {
+                    logList.setSelectedIndex(i);
+                    return;
+                }
+            }
+        }
         logList.setSelectedIndex(0);
-        showStatus(currentLogs.size() + " log files found in " + rootLabel() + ".",
-                Theme.ForegroundRole.MUTED);
+    }
+
+    /**
+     * Returns a normalized filter query.
+     *
+     * @return lower-case query
+     */
+    private String filterQuery() {
+        return filterField.getText().trim().toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * Returns whether an entry matches the local file-list filter.
+     *
+     * @param entry candidate entry
+     * @param query normalized query
+     * @return true when visible
+     */
+    private static boolean matchesFilter(LogEntry entry, String query) {
+        if (query == null || query.isBlank()) {
+            return true;
+        }
+        String haystack = (entry.label() + ' ' + humanSize(entry.size()) + ' '
+                + TIME_FORMAT.format(entry.modified())).toLowerCase(Locale.ROOT);
+        return haystack.contains(query);
+    }
+
+    /**
+     * Returns status copy for the current filter state.
+     *
+     * @param query normalized query
+     * @return status text
+     */
+    private String filterStatus(String query) {
+        if (query == null || query.isBlank()) {
+            return currentLogs.size() + " log files found in " + rootLabel() + ".";
+        }
+        return visibleLogs.size() + " of " + currentLogs.size()
+                + " log files match \"" + filterField.getText().trim() + "\".";
     }
 
     /**
@@ -441,11 +639,12 @@ public final class LogPanel extends SurfacePanel {
         selectedLinesValue.setText("loading");
         selectedSignalsValue.setText("loading");
         showStatus("Loading " + selected.label() + "...", Theme.ForegroundRole.MUTED);
+        updateActionStates();
         logView.clearOutput();
         logView.setPlaceholder("Loading " + selected.label() + "...");
         // The aggregate "All logs" read can take a moment; show a clear loading
         // indicator over the viewer until the text arrives.
-        loadingOverlay.start("Loading " + selected.label() + "…");
+        loadingOverlay.start("Loading " + selected.label() + "...");
         viewerCards.show(viewerBody, "loading");
         viewerBody.revalidate();
         viewerBody.repaint();
@@ -460,7 +659,7 @@ public final class LogPanel extends SurfacePanel {
             @Override
             protected String doInBackground() throws IOException {
                 return selected.aggregate()
-                        ? aggregateText(currentLogs)
+                        ? aggregateText(visibleLogs)
                         : singleLogText(selected);
             }
 
@@ -480,11 +679,13 @@ public final class LogPanel extends SurfacePanel {
                     showText(text);
                     updateLoadedSummary(text);
                     showStatus(statusForSelection(selected), Theme.ForegroundRole.MUTED);
+                    updateActionStates();
                 } catch (Exception ex) {
                     logView.setPlaceholder("Select a log file to view its contents.");
                     showText("Log load failed: " + ex.getMessage() + '\n');
                     selectedLinesValue.setText("-");
                     selectedSignalsValue.setText("-");
+                    updateActionStates();
                     showStatus("Log load failed.", Theme.ForegroundRole.ERROR);
                 }
             }
@@ -681,8 +882,11 @@ public final class LogPanel extends SurfacePanel {
      * @param entry selected entry
      * @return status text
      */
-    private static String statusForSelection(LogEntry entry) {
+    private String statusForSelection(LogEntry entry) {
         if (entry.aggregate()) {
+            if (visibleLogs.size() != currentLogs.size()) {
+                return "Showing " + visibleLogs.size() + " filtered logs from " + rootLabel() + ".";
+            }
             return "Showing newest-first combined logs from " + rootLabel() + ".";
         }
         return entry.label() + " · " + humanSize(entry.size())
@@ -809,11 +1013,11 @@ public final class LogPanel extends SurfacePanel {
         title.add(selectedNameLabel, BorderLayout.NORTH);
         title.add(selectedPathLabel, BorderLayout.CENTER);
 
-        JPanel metrics = transparentPanel(new GridLayout(1, 4, Theme.SPACE_SM, 0));
-        metrics.add(metricTile("Files", selectedFilesValue));
-        metrics.add(metricTile("Size", selectedSizeValue));
-        metrics.add(metricTile("Lines", selectedLinesValue));
-        metrics.add(metricTile("Signals", selectedSignalsValue));
+        JPanel metrics = transparentPanel(new FlowLayout(FlowLayout.LEFT, Theme.SPACE_SM, 0));
+        metrics.add(metricPill("Files", selectedFilesValue));
+        metrics.add(metricPill("Size", selectedSizeValue));
+        metrics.add(metricPill("Lines", selectedLinesValue));
+        metrics.add(metricPill("Signals", selectedSignalsValue));
 
         header.add(Theme.section("Selected log"), BorderLayout.NORTH);
         header.add(title, BorderLayout.CENTER);
@@ -843,7 +1047,7 @@ public final class LogPanel extends SurfacePanel {
         selectedPathLabel.setText(entry.aggregate() ? compactRootLabel() : "File: " + entry.label());
         selectedPathLabel.setToolTipText(entry.aggregate() ? rootLabel() : entry.path().toString());
         selectedFilesValue.setText(entry.aggregate()
-                ? String.format(Locale.ROOT, "%,d", currentLogs.size())
+                ? String.format(Locale.ROOT, "%,d", visibleLogs.size())
                 : "1");
         selectedSizeValue.setText(humanSize(entry.size()));
     }
@@ -866,18 +1070,18 @@ public final class LogPanel extends SurfacePanel {
      * @param value metric value label
      * @return metric tile component
      */
-    private static JComponent metricTile(String title, JLabel value) {
-        JPanel tile = transparentPanel(new BorderLayout(0, 2));
+    private static JComponent metricPill(String title, JLabel value) {
+        JPanel tile = transparentPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
         tile.setOpaque(true);
-        tile.setBackground(Theme.PANEL_SOLID);
+        tile.setBackground(Theme.ELEVATED_SOLID);
         tile.setBorder(javax.swing.BorderFactory.createCompoundBorder(
-                Theme.lineBorder(Theme.LINE),
-                Theme.pad(Theme.SPACE_XS, Theme.SPACE_SM, Theme.SPACE_XS, Theme.SPACE_SM)));
+                Theme.lineBorder(Theme.withAlpha(Theme.LINE, Theme.isDark() ? 160 : 120)),
+                Theme.pad(3, 8, 3, 8)));
         JLabel label = new JLabel(title);
         label.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
         Theme.foreground(label, Theme.ForegroundRole.MUTED);
-        tile.add(label, BorderLayout.NORTH);
-        tile.add(value, BorderLayout.CENTER);
+        tile.add(label);
+        tile.add(value);
         return tile;
     }
 
@@ -918,6 +1122,55 @@ public final class LogPanel extends SurfacePanel {
     private void showStatus(String text, Theme.ForegroundRole role) {
         statusLabel.setText(text);
         Theme.foreground(statusLabel, role);
+    }
+
+    /**
+     * Builds the status strip below the log browser.
+     *
+     * @return status strip
+     */
+    private JComponent statusStrip() {
+        JPanel strip = transparentPanel(new BorderLayout());
+        strip.setOpaque(true);
+        strip.setBackground(Theme.BG);
+        strip.setBorder(javax.swing.BorderFactory.createCompoundBorder(
+                javax.swing.BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.LINE),
+                Theme.pad(Theme.SPACE_XS, 0, 0, 0)));
+        statusLabel.setHorizontalAlignment(SwingConstants.LEFT);
+        strip.add(statusLabel, BorderLayout.CENTER);
+        return strip;
+    }
+
+    /**
+     * Updates command availability from the current list and selection.
+     */
+    private void updateActionStates() {
+        LogEntry selected = logList.getSelectedValue();
+        boolean hasLogs = !currentLogs.isEmpty();
+        boolean individual = selected != null && !selected.aggregate();
+        openSelectedButton.setEnabled(individual);
+        describe(openSelectedButton, individual
+                ? "Open " + selected.label() + "."
+                : "Select an individual log file to open it.");
+        copyPathButton.setEnabled(selected != null || hasLogs);
+        describe(copyPathButton, selected == null
+                ? "Copy the session log folder path."
+                : "Copy " + (selected.aggregate() ? "the session log folder" : selected.label()) + " path.");
+        cleanButton.setEnabled(hasLogs);
+        describe(cleanButton, hasLogs
+                ? "Hold to delete persisted log files."
+                : "No persisted log files to clean.");
+    }
+
+    /**
+     * Keeps mouse and assistive descriptions in sync.
+     *
+     * @param component described component
+     * @param description current state description
+     */
+    private static void describe(JComponent component, String description) {
+        component.setToolTipText(description);
+        component.getAccessibleContext().setAccessibleDescription(description);
     }
 
     /**
@@ -1050,12 +1303,35 @@ public final class LogPanel extends SurfacePanel {
     /**
      * List renderer that keeps log entries aligned with the active theme.
      */
-    private static final class LogEntryRenderer extends DefaultListCellRenderer {
+    private static final class LogEntryRenderer extends JPanel implements ListCellRenderer<LogEntry> {
 
         /**
          * Serialization identifier for Swing renderer compatibility.
          */
         private static final long serialVersionUID = 1L;
+
+        /**
+         * Primary filename label.
+         */
+        private final JLabel title = new JLabel();
+
+        /**
+         * Secondary metadata label.
+         */
+        private final JLabel meta = new JLabel();
+
+        /**
+         * Creates a log-entry renderer.
+         */
+        LogEntryRenderer() {
+            super(new BorderLayout(0, 2));
+            setOpaque(true);
+            setBorder(Theme.pad(5, 8, 5, 8));
+            title.setFont(Theme.mono(12));
+            meta.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
+            add(title, BorderLayout.NORTH);
+            add(meta, BorderLayout.CENTER);
+        }
 
         /**
          * Renders one log-list row.
@@ -1069,21 +1345,45 @@ public final class LogPanel extends SurfacePanel {
          */
         @Override
         public Component getListCellRendererComponent(
-                JList<?> list,
-                Object value,
+                JList<? extends LogEntry> list,
+                LogEntry value,
                 int index,
                 boolean selected,
                 boolean focused) {
-            JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, selected, focused);
-            if (value instanceof LogEntry entry) {
-                label.setText(entry.aggregate()
-                        ? ALL_LOGS_LABEL + " · " + humanSize(entry.size())
-                        : entry.label() + " · " + humanSize(entry.size()));
-                label.setToolTipText(entry.aggregate() ? rootLabel() : entry.path().toString());
-                label.setFont(entry.aggregate() ? Theme.font(12, Font.BOLD) : Theme.mono(12));
+            LogEntry entry = value == null ? aggregateEntry(List.of()) : value;
+            title.setText(entry.aggregate() ? ALL_LOGS_LABEL : entry.label());
+            title.setFont(entry.aggregate() ? Theme.font(12, Font.BOLD) : Theme.mono(12));
+            meta.setText(metaText(entry));
+            setToolTipText(entry.aggregate() ? rootLabel() : entry.path().toString());
+            applyRowColors(selected);
+            return this;
+        }
+
+        /**
+         * Applies row colors for the active state.
+         *
+         * @param selected whether the row is selected
+         */
+        private void applyRowColors(boolean selected) {
+            Color background = selected ? Theme.SELECTION_SOLID : Theme.PANEL_SOLID;
+            Color foreground = selected ? Theme.TEXT : Theme.TEXT;
+            Color secondary = selected ? Theme.TEXT : Theme.MUTED;
+            setBackground(background);
+            title.setForeground(foreground);
+            meta.setForeground(secondary);
+        }
+
+        /**
+         * Builds compact secondary metadata.
+         *
+         * @param entry row entry
+         * @return metadata text
+         */
+        private static String metaText(LogEntry entry) {
+            if (entry.aggregate()) {
+                return humanSize(entry.size()) + " · session folder";
             }
-            label.setBorder(Theme.pad(2, 8, 2, 8));
-            return label;
+            return humanSize(entry.size()) + " · modified " + TIME_FORMAT.format(entry.modified());
         }
     }
 }

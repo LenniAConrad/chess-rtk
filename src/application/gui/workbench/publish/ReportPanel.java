@@ -1,6 +1,7 @@
 package application.gui.workbench.publish;
 
 import application.cli.PathOps;
+import application.gui.feature.publishing.ReportView;
 import application.gui.workbench.game.GameModel;
 import application.gui.workbench.game.PositionText;
 import application.gui.workbench.ui.FileDialogs;
@@ -44,7 +45,7 @@ import static application.gui.workbench.ui.Ui.trimmed;
 /**
  * Position and game-line report builder for the publishing workflow.
  */
-public final class ReportPanel {
+public final class ReportPanel implements ReportView {
 
     /**
      * Services supplied by the frame.
@@ -152,6 +153,7 @@ public final class ReportPanel {
      *
      * @return root component
      */
+    @Override
     public JComponent component() {
         return component;
     }
@@ -159,6 +161,7 @@ public final class ReportPanel {
     /**
      * Generates a report for the current position and game line.
      */
+    @Override
     public void generateReport() {
         preview.setText(buildReportText());
         preview.setCaretPosition(0);
@@ -167,6 +170,7 @@ public final class ReportPanel {
     /**
      * Copies the current report, generating it first when empty.
      */
+    @Override
     public void copyReport() {
         if (preview.getText() == null || preview.getText().isBlank()) {
             generateReport();
@@ -177,6 +181,7 @@ public final class ReportPanel {
     /**
      * Saves the current report to a text file.
      */
+    @Override
     public void saveReportFile() {
         if (preview.getText() == null || preview.getText().isBlank()) {
             generateReport();

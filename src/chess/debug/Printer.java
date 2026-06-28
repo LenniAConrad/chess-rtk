@@ -3,7 +3,6 @@ package chess.debug;
 import java.io.PrintStream;
 
 import chess.core.Field;
-import chess.core.Move;
 import chess.core.MoveList;
 import chess.core.Piece;
 import chess.core.Position;
@@ -270,79 +269,6 @@ public class Printer {
 		}
 		if (!lineBuilder.isEmpty()) {
 			metaLines.add(lineBuilder.toString());
-		}
-	}
-
-	/**
-	 * Used for performing a perft search and printing detailed statistics for each
-	 * move.
-	 * <p>
-	 * This method iterates through all legal moves, plays each move on a copy
-	 * of the position, and counts the nodes searched at the specified depth.
-	 * It also measures per-move and total execution time, computes
-	 * nodes-per-second,
-	 * percentage contribution, and average branching factor.
-	 * </p>
-	 *
-	 * @param depth the depth to search down to
-	 * @param position chess position
-	 */
-	public static void perft(Position position, int depth) {
-		depth = Math.max(depth, 1);
-		Position root = position.copy();
-		Perft.DivideResult result = Perft.divide(root, depth);
-		int maxMoveLen = Math.max("Move".length(), result.entries().stream()
-				.mapToInt(entry -> Move.toString(entry.move()).length())
-				.max()
-				.orElse(0));
-		String headerFmt = String.format("%%-%ds %%12s %%10s %%10s %%10s %%10s %%10s%n", maxMoveLen);
-		String rowFmt = String.format("%%-%ds %%12d %%10d %%10d %%10d %%10d %%10d%n", maxMoveLen);
-		System.out.printf(headerFmt, "Move", "Nodes", "Captures", "EP", "Castles", "Promos", "Checks");
-		for (Perft.DivideEntry entry : result.entries()) {
-			Perft.Stats stats = entry.stats();
-			System.out.printf(rowFmt,
-					Move.toString(entry.move()),
-					stats.nodes(),
-					stats.captures(),
-					stats.enPassant(),
-					stats.castles(),
-					stats.promotions(),
-					stats.checks());
-		}
-		System.out.println("\nPerft for position '" + position + "'");
-		System.out.printf(
-				"Total at depth %d: %d nodes in %.3f s, branches: %d, nps: %.0f%n",
-				depth,
-				result.total().nodes(),
-				result.nanos() / 1_000_000_000.0,
-				result.entries().size(),
-				result.nodesPerSecond());
-	}
-
-	/**
-	 * Verifies the perft implementation at depth 6 against known reference
-	 * positions and prints a neatly aligned comparison table.
-	 */
-	public static void testPerft() {
-		testPerft(null);
-	}
-
-	/**
-	 * Verifies the perft implementation at depth 6 while reporting progress once
-	 * per completed reference position.
-	 *
-	 * @param progress optional callback invoked after each reference position
-	 */
-	public static void testPerft(Runnable progress) {
-		try {
-			PerftSuite.Summary summary = PerftSuite.validate(
-					PerftSuite.DEFAULT_MAX_DEPTH,
-					1,
-					progress);
-			PerftSuite.print(summary);
-		} catch (InterruptedException ex) {
-			Thread.currentThread().interrupt();
-			throw new IllegalStateException("perft validation interrupted", ex);
 		}
 	}
 

@@ -6,7 +6,7 @@ import javax.swing.JTabbedPane;
 /**
  * Shared Workbench tabbed-pane primitive.
  */
-public final class Tabs {
+final class Tabs {
 
     /**
      * Prevents instantiation.

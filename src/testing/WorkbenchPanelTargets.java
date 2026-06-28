@@ -20,7 +20,7 @@ final class WorkbenchPanelTargets {
      * Live-window targets accepted by preview/capture helpers.
      */
     static final String LIVE_TARGETS = "dashboard,board,analyze,play,solve,puzzle,relations,draw,run,commands,"
-            + "datasets,publish,engine,evaluator,network,search,mcts,tree,gauntlet,console,logs,"
+            + "studies,study,datasets,publish,engine,evaluator,network,search,mcts,tree,gauntlet,console,logs,"
             + "board:analyze,board:play,board:solve,board:relations,board:draw,engine:evaluator,"
             + "engine:search,engine:tree,engine:gauntlet";
 
@@ -53,6 +53,11 @@ final class WorkbenchPanelTargets {
      * Top-level logs tab index.
      */
     private static final int TAB_LOGS = 7;
+
+    /**
+     * Top-level studies tab index.
+     */
+    private static final int TAB_STUDIES = 8;
 
     /**
      * Board analysis mode index.
@@ -126,6 +131,7 @@ final class WorkbenchPanelTargets {
                     openBoard(frame, BOARD_RELATIONS);
             case "draw", "annotate", "board:draw", "board-draw" -> openBoard(frame, BOARD_DRAW);
             case "run", "commands", "command", "build", "run:build", "run-build" -> selectTab(frame, TAB_RUN);
+            case "studies", "study" -> selectTab(frame, TAB_STUDIES);
             case "datasets", "dataset", "data" -> selectTab(frame, TAB_DATASETS);
             case "publish", "publishing" -> selectTab(frame, TAB_PUBLISH);
             case "engine", "engine-lab", "evaluator", "network", "engine:evaluator", "engine:network",

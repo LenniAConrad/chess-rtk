@@ -39,7 +39,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -723,14 +722,5 @@ public final class PositionRelationsCommand {
 			return size;
 		}
 		return fallback;
-	}
-
-	/**
-	 * Returns the relation channel names, for help and tests.
-	 *
-	 * @return channel names in order
-	 */
-	public static String[] channelNames() {
-		return Arrays.copyOf(Model.RELATION_NAMES, Model.RELATION_NAMES.length);
 	}
 }

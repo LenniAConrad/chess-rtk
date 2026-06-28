@@ -11,6 +11,8 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import javax.accessibility.AccessibleContext;
+import javax.accessibility.AccessibleRole;
 import javax.swing.JComponent;
 import javax.swing.Timer;
 
@@ -167,6 +169,19 @@ public final class HoldButton extends JComponent {
     }
 
     /**
+     * Returns the accessible context for this custom hold button.
+     *
+     * @return accessible context
+     */
+    @Override
+    public AccessibleContext getAccessibleContext() {
+        if (accessibleContext == null) {
+            accessibleContext = new AccessibleHoldButton();
+        }
+        return accessibleContext;
+    }
+
+    /**
      * Updates the enabled state, swapping the pointer cursor and cancelling any
      * in-progress hold so a disabled button neither invites a click nor lets a
      * hold complete after it was disabled.
@@ -307,6 +322,27 @@ public final class HoldButton extends JComponent {
             g.drawString(label, textX, textY);
         } finally {
             g.dispose();
+        }
+    }
+
+    /**
+     * Minimal accessible peer for the custom hold-to-confirm button.
+     */
+    private final class AccessibleHoldButton extends AccessibleJComponent {
+
+        /**
+         * Serialization identifier for Swing accessibility compatibility.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Returns the interactive role exposed to assistive technologies.
+         *
+         * @return push-button role
+         */
+        @Override
+        public AccessibleRole getAccessibleRole() {
+            return AccessibleRole.PUSH_BUTTON;
         }
     }
 }

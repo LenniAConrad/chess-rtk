@@ -30,9 +30,14 @@ public final class Theme {
         LIGHT("light", "Light"),
 
         /**
-         * VS Code-inspired dark palette.
+         * Low-saturation neutral dark palette.
          */
-        DARK("dark", "Dark");
+        DARK("dark", "Dark"),
+
+        /**
+         * Cold blue dark palette.
+         */
+        DARK_BLUE("dark-blue", "Dark Blue");
 
         /**
          * Stable preference value.
@@ -71,6 +76,15 @@ public final class Theme {
          */
         public String label() {
             return label;
+        }
+
+        /**
+         * Returns whether this mode uses dark surfaces.
+         *
+         * @return true for dark modes
+         */
+        public boolean isDark() {
+            return this != LIGHT;
         }
 
         /**
@@ -373,39 +387,39 @@ public final class Theme {
     static final Color PASTEL_PURPLE = new Color(204, 154, 245);
 
     /**
-     * VS Code macOS dark primary foreground.
+     * Neutral dark primary foreground.
      */
-    static final Color DARK_INK = new Color(0xDDE6EE);
+    static final Color DARK_INK = new Color(0xD4D4D4);
 
     /**
-     * VS Code macOS dark secondary foreground.
+     * Neutral dark secondary foreground.
      */
-    static final Color DARK_MUTED = new Color(0x8FA1B2);
+    static final Color DARK_MUTED = new Color(0xA0A0A0);
 
     /**
-     * VS Code macOS dark title/sidebar chrome background.
+     * Neutral dark title/sidebar chrome background.
      */
-    static final Color DARK_CHROME = new Color(0x11171D);
+    static final Color DARK_CHROME = new Color(0x181818);
 
     /**
-     * VS Code macOS dark widget border.
+     * Neutral dark widget border.
      */
-    static final Color DARK_SUBTLE = new Color(0x26313B);
+    static final Color DARK_SUBTLE = new Color(0x333333);
 
     /**
-     * VS Code Dark (Visual Studio) editor surface.
+     * Neutral dark editor surface.
      */
-    static final Color DARK_DOCUMENT = new Color(0x0F151A);
+    static final Color DARK_DOCUMENT = new Color(0x1E1E1E);
 
     /**
-     * VS Code macOS dark popup/dropdown surface.
+     * Neutral dark popup/dropdown surface.
      */
-    static final Color DARK_ELEVATED = new Color(0x161D23);
+    static final Color DARK_ELEVATED = new Color(0x252526);
 
     /**
-     * VS Code macOS dark menu separator and input border.
+     * Neutral dark menu separator and input border.
      */
-    static final Color DARK_BORDER = new Color(0x2D3944);
+    static final Color DARK_BORDER = new Color(0x3C3C3C);
 
     /**
      * macOS-style action blue for dark mode: brighter than the light accent so
@@ -785,7 +799,7 @@ public final class Theme {
     /**
      * Suggested-move arrow color.
      */
-    public static Color BOARD_ARROW = new Color(143, 189, 232);
+    public static Color BOARD_ARROW = LEGAL_TARGET;
 
     /**
      * Check highlight radial core.
@@ -1210,11 +1224,6 @@ public final class Theme {
     public static final int FONT_DENSE_TABLE = 12;
 
     /**
-     * Caption / helper-text size.
-     */
-    public static final int FONT_CAPTION = 11;
-
-    /**
      * Metadata text size.
      */
     public static final int FONT_METADATA = 11;
@@ -1245,21 +1254,9 @@ public final class Theme {
     public static final int Z_MODAL = 200;
 
     /**
-     * Command palette z-order layer.
-     */
-    public static final int Z_PALETTE = 300;
-
-    /**
      * Toast z-order layer.
      */
     public static final int Z_TOAST = 400;
-
-    /**
-     * Maximum content width for report-style tabs that read better as a column
-     * than stretched edge-to-edge. Operational surfaces (the dashboard grid,
-     * data tables) deliberately ignore this and use the full canvas.
-     */
-    public static final int CONTENT_MAX_WIDTH = 1440;
 
     // ------------------------------------------------------------------
     // Neural-network visualization palette

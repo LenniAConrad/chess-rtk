@@ -419,15 +419,6 @@ public final class Classifier {
         }
 
         /**
-         * Returns rapid thresholds.
-         *
-         * @return rapid thresholds
-         */
-        public static Thresholds rapid() {
-            return forProfile(Profile.RAPID);
-        }
-
-        /**
          * Returns blitz thresholds.
          *
          * @return blitz thresholds

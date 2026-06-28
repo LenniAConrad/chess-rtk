@@ -180,17 +180,6 @@ public final class Shapes {
     public static final BufferedImage Logo = renderSvg(LOGO_DOCUMENT, LOGO_SIZE, LOGO_SIZE);
 
     /**
-     * Renders one embedded SVG by file name.
-     *
-     * @param fileName embedded SVG file name
-     * @return rendered piece image
-     */
-    public static BufferedImage render(String fileName) {
-        int size = "board.svg".equals(fileName) ? BOARD_SIZE : PIECE_SIZE;
-        return renderSvg(document(fileName), size, size);
-    }
-
-    /**
      * Renders a parsed embedded SVG document at the default piece size.
      *
      * @param doc parsed SVG document
@@ -339,30 +328,6 @@ public final class Shapes {
             return;
         }
         Svg.draw(doc, g, x, y, width, height);
-    }
-
-    /**
-     * Resolves a chess piece code to its rendered SVG-backed image.
-     *
-     * @param piece piece code from {@link Piece}
-     * @return rendered image or null for an empty/unknown piece
-     */
-    public static BufferedImage forPiece(byte piece) {
-        return switch (piece) {
-            case Piece.BLACK_BISHOP -> BlackBishop;
-            case Piece.BLACK_KING -> BlackKing;
-            case Piece.BLACK_KNIGHT -> BlackKnight;
-            case Piece.BLACK_PAWN -> BlackPawn;
-            case Piece.BLACK_QUEEN -> BlackQueen;
-            case Piece.BLACK_ROOK -> BlackRook;
-            case Piece.WHITE_BISHOP -> WhiteBishop;
-            case Piece.WHITE_KING -> WhiteKing;
-            case Piece.WHITE_KNIGHT -> WhiteKnight;
-            case Piece.WHITE_PAWN -> WhitePawn;
-            case Piece.WHITE_QUEEN -> WhiteQueen;
-            case Piece.WHITE_ROOK -> WhiteRook;
-            default -> null;
-        };
     }
 
     /**

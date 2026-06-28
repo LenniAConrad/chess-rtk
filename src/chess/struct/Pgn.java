@@ -476,7 +476,7 @@ public final class Pgn {
     private static void appendRootVariations(StringBuilder sb, Game game, PlyTracker tracker) {
         for (Game.Node rootVariation : game.getRootVariations()) {
             sb.append('(');
-            appendSequence(rootVariation, tracker.copy(), sb);
+            appendSequence(rootVariation, tracker.copyForVariation(), sb);
             sb.append(") ");
         }
     }
@@ -530,7 +530,7 @@ public final class Pgn {
             for (Game.Node variation : cur.getVariations()) {
                 appendSpaceIfNeeded(sb);
                 sb.append('(');
-                appendSequence(variation, tracker.copy(), sb);
+                appendSequence(variation, tracker.copyForVariation(), sb);
                 sb.append(')');
             }
 
@@ -1071,13 +1071,15 @@ public final class Pgn {
         }
 
         /**
-         * Returns a copy of this tracker with the same counters.
-         * Used when branching into variations.
+         * Returns a copy suitable for a variation branch. If the branch starts
+         * with Black to move, the first token should include the move number
+         * with an ellipsis, e.g. {@code 1... d5}, because the surrounding
+         * mainline context is visually separated by parentheses.
          *
-         * @return copied tracker state
+         * @return copied tracker state for a branch
          */
-        PlyTracker copy() {
-            return new PlyTracker(ply, moveNumber, printBlackNumbers);
+        PlyTracker copyForVariation() {
+            return new PlyTracker(ply, moveNumber, printBlackNumbers || ply % 2 == 1);
         }
 
         /**

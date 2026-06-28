@@ -14,24 +14,9 @@ public final class Config {
   public final String name;
 
   /**
-   * Vocabulary size used for lookup tables and embedding layers.
-   */
-  public final int vocabSize;
-
-  /**
-   * Model width used across attention and projection layers.
-   */
-  public final int dModel;
-
-  /**
    * Dimension of the query/key/value projections per head.
    */
   public final int dKv;
-
-  /**
-   * Hidden size of the feed-forward network.
-   */
-  public final int dFf;
 
   /**
    * Number of encoder layers.
@@ -59,11 +44,6 @@ public final class Config {
   public final int relMaxDistance;
 
   /**
-   * Token id used for padding values.
-   */
-  public final int padId;
-
-  /**
    * Token id used to mark the end of a sequence.
    */
   public final int eosId;
@@ -77,11 +57,6 @@ public final class Config {
    * Token id returned for unknown inputs.
    */
   public final int unkId;
-
-  /**
-   * Whether the FFN uses gated GELU variants.
-   */
-  public final boolean gatedGelu;
 
   /**
    * Epsilon used for layer normalization stability.
@@ -101,20 +76,15 @@ public final class Config {
    */
   Config(String name, Sizes sizes, Layers layers, RelPos relPos, SpecialTokens tokens, boolean gatedGelu, float layerNormEps) {
     this.name = name;
-    this.vocabSize = sizes.vocabSize;
-    this.dModel = sizes.dModel;
     this.dKv = sizes.dKv;
-    this.dFf = sizes.dFf;
     this.numLayers = layers.numLayers;
     this.numDecoderLayers = layers.numDecoderLayers;
     this.numHeads = layers.numHeads;
     this.relBuckets = relPos.relBuckets;
     this.relMaxDistance = relPos.relMaxDistance;
-    this.padId = tokens.padId;
     this.eosId = tokens.eosId;
     this.decoderStartId = tokens.decoderStartId;
     this.unkId = tokens.unkId;
-    this.gatedGelu = gatedGelu;
     this.layerNormEps = layerNormEps;
   }
 

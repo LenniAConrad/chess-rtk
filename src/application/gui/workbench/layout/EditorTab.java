@@ -15,6 +15,7 @@ import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.function.Consumer;
+import javax.accessibility.AccessibleContext;
 import javax.swing.JComponent;
 import javax.swing.SwingUtilities;
 
@@ -206,7 +207,10 @@ final class EditorTab extends JComponent {
         };
         addMouseListener(mouse);
         addMouseMotionListener(mouse);
-        setToolTipText(name + " - right-click for tab actions");
+        setToolTipText(restingTooltip());
+        getAccessibleContext().setAccessibleName(name + " workbench tab");
+        getAccessibleContext().setAccessibleDescription("Select " + name
+                + "; right-click for split, detach, restore, and close actions.");
     }
 
     /**
@@ -262,6 +266,19 @@ final class EditorTab extends JComponent {
     }
 
     /**
+     * Returns the accessible context for this custom-painted tab.
+     *
+     * @return accessible context
+     */
+    @Override
+    public AccessibleContext getAccessibleContext() {
+        if (accessibleContext == null) {
+            accessibleContext = new AccessibleEditorTab();
+        }
+        return accessibleContext;
+    }
+
+    /**
      * Updates hover state.
      *
      * @param overTab true when the pointer is over the tab
@@ -271,8 +288,18 @@ final class EditorTab extends JComponent {
         if (hover != overTab || closeHover != overClose) {
             hover = overTab;
             closeHover = overClose;
+            setToolTipText(closeHover ? "Close " + name : restingTooltip());
             repaint();
         }
+    }
+
+    /**
+     * Returns the normal tab tooltip.
+     *
+     * @return tooltip text
+     */
+    private String restingTooltip() {
+        return name + " - right-click for split, detach, restore, and close actions";
     }
 
     /**
@@ -281,7 +308,7 @@ final class EditorTab extends JComponent {
      * @return close region rectangle
      */
     private Rectangle closeRegion() {
-    return new Rectangle(getWidth() - PAD - CLOSE, (HEIGHT - CLOSE) / 2, CLOSE, CLOSE);
+        return new Rectangle(getWidth() - PAD - CLOSE, (HEIGHT - CLOSE) / 2, CLOSE, CLOSE);
     }
 
     /**
@@ -293,7 +320,7 @@ final class EditorTab extends JComponent {
     public Dimension getPreferredSize() {
         FontMetrics fm = getFontMetrics(Theme.font(12, Font.PLAIN));
         int width = PAD + fm.stringWidth(name) + 8 + CLOSE + PAD;
-    return new Dimension(width, HEIGHT);
+        return new Dimension(width, HEIGHT);
     }
 
     /**
@@ -304,7 +331,7 @@ final class EditorTab extends JComponent {
      */
     @Override
     public Dimension getMaximumSize() {
-    return getPreferredSize();
+        return getPreferredSize();
     }
 
     /**
@@ -315,7 +342,7 @@ final class EditorTab extends JComponent {
      */
     @Override
     public Dimension getMinimumSize() {
-    return getPreferredSize();
+        return getPreferredSize();
     }
 
     /**
@@ -390,5 +417,16 @@ final class EditorTab extends JComponent {
         int r = 3;
         g.drawLine(cx - r, cy - r, cx + r, cy + r);
         g.drawLine(cx - r, cy + r, cx + r, cy - r);
+    }
+
+    /**
+     * Minimal accessible peer for the custom tab component.
+     */
+    private final class AccessibleEditorTab extends AccessibleJComponent {
+
+        /**
+         * Serialization identifier for Swing accessibility compatibility.
+         */
+        private static final long serialVersionUID = 1L;
     }
 }

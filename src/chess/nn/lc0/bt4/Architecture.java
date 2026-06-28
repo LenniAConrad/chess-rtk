@@ -83,33 +83,6 @@ public record Architecture(
     public static final int ATTENTION_POLICY_SIZE = 1858;
 
     /**
-     * Default BT4 architecture descriptor for the full 1024x15x32h LC0 net.
-     */
-    public static final Architecture BT4_1024X15X32H = new Architecture(
-            "lc0-bt4-1024x15x32h",
-            InputFormat.BT4_CANONICAL_112,
-            InputEmbedding.PE_DENSE,
-            INPUT_CHANNELS,
-            BOARD_TOKENS,
-            1024,
-            15,
-            32,
-            ATTENTION_POLICY_SIZE,
-            1.0e-3f,
-            1536,
-            32,
-            256,
-            256,
-            BOARD_TOKENS * BOARD_TOKENS,
-            Network.Activation.MISH,
-            Network.Activation.SWISH,
-            Network.Activation.MISH,
-            true,
-            true,
-            true,
-            true);
-
-    /**
      * Validates architecture metadata.
      * @param name display name
      * @param inputFormat input encoding format

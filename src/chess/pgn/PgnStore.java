@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
@@ -168,7 +167,7 @@ public final class PgnStore {
 		int imported = 0;
 		int duplicates = 0;
 		for (Game game : games) {
-			ImportOutcome outcome = importGame(game, pgnFile.toString());
+			ImportOutcome outcome = importGameInternal(game, pgnFile.toString());
 			switch (outcome) {
 				case IMPORTED -> imported++;
 				case DUPLICATE -> duplicates++;
@@ -177,6 +176,63 @@ public final class PgnStore {
 		}
 		writeManifest();
 		return new ImportReport(pgnFile.toString(), games.size(), imported, duplicates, malformed);
+	}
+
+	/**
+	 * Imports every game contained in a PGN text block.
+	 *
+	 * @param pgnText     PGN content
+	 * @param sourceLabel label recorded as the {@code importedFrom} field
+	 * @return import report
+	 * @throws IOException when writing fails
+	 */
+	public ImportReport importPgnText(String pgnText, String sourceLabel) throws IOException {
+		List<Game> games;
+		int malformed = 0;
+		try {
+			games = Pgn.parseGames(pgnText);
+		} catch (RuntimeException ex) {
+			return new ImportReport(cleanSourceLabel(sourceLabel), 0, 0, 0, 1);
+		}
+		int imported = 0;
+		int duplicates = 0;
+		for (Game game : games) {
+			ImportOutcome outcome = importGameInternal(game, cleanSourceLabel(sourceLabel));
+			switch (outcome) {
+				case IMPORTED -> imported++;
+				case DUPLICATE -> duplicates++;
+				case MALFORMED -> malformed++;
+			}
+		}
+		writeManifest();
+		return new ImportReport(cleanSourceLabel(sourceLabel), games.size(), imported, duplicates, malformed);
+	}
+
+	/**
+	 * Lists stored games in append order, newest first.
+	 *
+	 * @param limit maximum number of rows to return; non-positive means all
+	 * @return visible stored games, excluding tombstones
+	 * @throws IOException when reading fails
+	 */
+	public List<StoredGame> listGames(int limit) throws IOException {
+		if (!Files.exists(gamesFile)) {
+			return List.of();
+		}
+		List<StoredGame> games = new ArrayList<>();
+		try (var lines = Files.lines(gamesFile, StandardCharsets.UTF_8)) {
+			lines.forEach(line -> {
+				StoredGame stored = parseStoredGame(line);
+				if (stored != null && !stored.tombstone() && gameOffsets.containsKey(stored.gameId())) {
+					games.add(stored);
+				}
+			});
+		}
+		Collections.reverse(games);
+		if (limit > 0 && games.size() > limit) {
+			return List.copyOf(games.subList(0, limit));
+		}
+		return List.copyOf(games);
 	}
 
 	/**
@@ -432,7 +488,7 @@ public final class PgnStore {
 	 * @return import outcome for the game
 	 * @throws IOException when writing fails
 	 */
-	private ImportOutcome importGame(Game game, String sourceLabel) throws IOException {
+	private ImportOutcome importGameInternal(Game game, String sourceLabel) throws IOException {
 		String gameId;
 		String pgnBlob;
 		List<PositionWalker.PositionObservation> observations;
@@ -452,6 +508,16 @@ public final class PgnStore {
 		appendIndexLine(gamesIndexFile, gameId + INDEX_SEPARATOR + offset);
 		appendObservations(gameId, observations);
 		return ImportOutcome.IMPORTED;
+	}
+
+	/**
+	 * Normalizes optional source labels for reports and stored metadata.
+	 *
+	 * @param sourceLabel raw label
+	 * @return non-null trimmed label
+	 */
+	private static String cleanSourceLabel(String sourceLabel) {
+		return sourceLabel == null ? "" : sourceLabel.trim();
 	}
 
 	/**
@@ -710,15 +776,6 @@ public final class PgnStore {
 		 * The game could not be normalised or its identifier could not be computed.
 		 */
 		MALFORMED;
-
-		/**
-		 * Locale-stable string form for error messages.
-		 *
-		 * @return outcome name in lower case
-		 */
-		public String label() {
-			return name().toLowerCase(Locale.ROOT);
-		}
 	}
 
 	/**

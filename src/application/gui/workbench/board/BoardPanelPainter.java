@@ -7,13 +7,19 @@ import chess.core.Piece;
 import java.awt.AlphaComposite;
 import java.awt.BasicStroke;
 import java.awt.Color;
+import java.awt.geom.Area;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.Ellipse2D;
+import java.awt.geom.Path2D;
+import java.awt.geom.Point2D;
 import java.awt.Graphics2D;
 import java.awt.RadialGradientPaint;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.Shape;
 import java.awt.Stroke;
-import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -35,6 +41,36 @@ final class BoardPanelPainter {
      * Radial gradient stops for the checked-king highlight.
      */
     private static final float[] CHECK_GRADIENT_FRACTIONS = { 0.0f, 0.24f, 0.42f, 0.74f, 1.0f };
+
+    /**
+     * Tactical shield center matching board glyph badge composition.
+     */
+    private static final float TACTICAL_BADGE_CENTER_X_FRACTION = 0.75f;
+
+    /**
+     * Tactical shield center matching board glyph badge composition.
+     */
+    private static final float TACTICAL_BADGE_CENTER_Y_FRACTION = 0.25f;
+
+    /**
+     * Tactical shield diameter matching board glyph badge composition.
+     */
+    private static final float TACTICAL_BADGE_DIAMETER_FRACTION = 0.50f;
+
+    /**
+     * Badge fill for undefended-piece shield markers.
+     */
+    private static final Color TACTICAL_UNDEFENDED_FILL = Theme.withAlpha(Color.decode("#DF5353"), 224);
+
+    /**
+     * Badge fill for pinned-piece pushpin markers.
+     */
+    private static final Color TACTICAL_PINNED_FILL = Color.decode("#333333");
+
+    /**
+     * Badge fill for checkable-king plus markers.
+     */
+    private static final Color TACTICAL_CHECKABLE_KING_FILL = Theme.withAlpha(Color.decode("#2660A4"), 224);
 
     /**
      * Board panel state source.
@@ -130,6 +166,7 @@ final class BoardPanelPainter {
                 drawAnimatedCapture(copy, board);
                 drawAnimatedMove(copy, board);
                 drawSnapAnimation(copy, board);
+                drawTacticalBadges(copy, board);
                 drawSuggestedMove(copy, board);
                 if (boardPanel.showSpecialMoveHints) {
                     boardPanel.markupPainter.drawSpecialMoveHints(copy, board,
@@ -537,6 +574,244 @@ final class BoardPanelPainter {
         boardPanel.arrowPainter.drawSuggested(g,
                 boardPanel.center(board, Move.getFromIndex(boardPanel.suggestedMove)),
                 boardPanel.center(board, Move.getToIndex(boardPanel.suggestedMove)), gap);
+    }
+
+    /**
+     * Draws tactical piece and king badges above the pieces.
+     *
+     * @param g graphics context
+     * @param board board state
+     */
+    private void drawTacticalBadges(Graphics2D g, Rectangle board) {
+        List<BoardTacticalOverlay.Badge> badges = BoardTacticalOverlay.badges(boardPanel.position,
+                boardPanel.showUndefendedPieces, boardPanel.showPinnedPieces, boardPanel.showCheckableKing);
+        if (badges.isEmpty()) {
+            return;
+        }
+        Rectangle clip = g.getClipBounds();
+        for (BoardTacticalOverlay.Badge badge : badges) {
+            Rectangle bounds = boardPanel.squareBounds(board, badge.square());
+            if (BoardPanel.intersectsClip(clip, bounds)) {
+                drawTacticalBadge(g, bounds, badge.kind());
+            }
+        }
+    }
+
+    /**
+     * Draws one circular tactical badge in a square's upper-right quadrant.
+     *
+     * @param g graphics context
+     * @param square square bounds
+     * @param kind badge kind
+     */
+    private void drawTacticalBadge(Graphics2D g, Rectangle square, BoardTacticalOverlay.Kind kind) {
+        int size = Math.max(14, Math.round(square.width * TACTICAL_BADGE_DIAMETER_FRACTION));
+        int x = tacticalBadgeX(square, size);
+        int y = tacticalBadgeY(square, size);
+        Color fill = switch (kind) {
+            case UNDEFENDED -> TACTICAL_UNDEFENDED_FILL;
+            case PINNED -> TACTICAL_PINNED_FILL;
+            case CHECKABLE_KING -> TACTICAL_CHECKABLE_KING_FILL;
+        };
+        java.awt.Composite savedComposite = g.getComposite();
+        Color savedColor = g.getColor();
+        try {
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.98f));
+            Shape badgeShape = new Ellipse2D.Double(x, y, size, size);
+            g.setColor(fill);
+            g.fill(badgeShape);
+            g.setColor(Theme.withAlpha(Color.WHITE, 235));
+            if (kind == BoardTacticalOverlay.Kind.UNDEFENDED) {
+                drawLichessShieldGlyph(g, x, y, size);
+            } else if (kind == BoardTacticalOverlay.Kind.CHECKABLE_KING) {
+                drawLichessCheckGlyph(g, x, y, size);
+            } else {
+                g.setColor(Theme.withAlpha(Color.WHITE, 235));
+                drawLichessPinGlyph(g, x, y, size);
+            }
+        } finally {
+            g.setComposite(savedComposite);
+            g.setColor(savedColor);
+        }
+    }
+
+    /**
+     * Draws the requested Lichess-style shield glyph from the 100x100 SVG
+     * geometry:
+     * {@code M50 17 80 27v25c0 25-30 36-30 36S20 77 20 52V27Z}
+     * plus the X subpath, shown as a cutout over the red badge circle.
+     *
+     * @param g graphics context
+     * @param x badge x coordinate
+     * @param y badge y coordinate
+     * @param size badge size
+     */
+    private static void drawLichessShieldGlyph(Graphics2D g, int x, int y, int size) {
+        AffineTransform savedTransform = g.getTransform();
+        try {
+            g.translate(x, y);
+            g.scale(size / 100.0, size / 100.0);
+            Area shield = new Area(lichessShieldPath());
+            shield.subtract(new Area(lichessShieldXPath()));
+            g.fill(shield);
+        } finally {
+            g.setTransform(savedTransform);
+        }
+    }
+
+    /**
+     * Creates the white shield silhouette from the requested SVG path.
+     *
+     * @return shield path
+     */
+    private static Path2D.Double lichessShieldPath() {
+        Path2D.Double shield = new Path2D.Double();
+        shield.moveTo(50.0, 17.0);
+        shield.lineTo(80.0, 27.0);
+        shield.lineTo(80.0, 52.0);
+        shield.curveTo(80.0, 77.0, 50.0, 88.0, 50.0, 88.0);
+        shield.curveTo(50.0, 88.0, 20.0, 77.0, 20.0, 52.0);
+        shield.lineTo(20.0, 27.0);
+        shield.closePath();
+        return shield;
+    }
+
+    /**
+     * Creates the X cutout from the requested SVG path.
+     *
+     * @return X cutout path
+     */
+    private static Path2D.Double lichessShieldXPath() {
+        Path2D.Double x = new Path2D.Double();
+        x.moveTo(44.0, 51.0);
+        x.lineTo(34.0, 61.0);
+        x.lineTo(40.0, 67.0);
+        x.lineTo(50.0, 57.0);
+        x.lineTo(60.0, 67.0);
+        x.lineTo(66.0, 61.0);
+        x.lineTo(56.0, 51.0);
+        x.lineTo(66.0, 41.0);
+        x.lineTo(60.0, 35.0);
+        x.lineTo(50.0, 45.0);
+        x.lineTo(40.0, 35.0);
+        x.lineTo(34.0, 41.0);
+        x.closePath();
+        return x;
+    }
+
+    /**
+     * Draws the requested Lichess-style check glyph from the 100x100 SVG path
+     * {@code M46 28H54V46H72V54H54V72H46V54H28V46H46Z}.
+     *
+     * @param g graphics context
+     * @param x badge x coordinate
+     * @param y badge y coordinate
+     * @param size badge size
+     */
+    private static void drawLichessCheckGlyph(Graphics2D g, int x, int y, int size) {
+        AffineTransform savedTransform = g.getTransform();
+        try {
+            g.translate(x, y);
+            g.scale(size / 100.0, size / 100.0);
+            g.fill(lichessCheckPath());
+        } finally {
+            g.setTransform(savedTransform);
+        }
+    }
+
+    /**
+     * Creates the white plus silhouette from the requested SVG path.
+     *
+     * @return plus path
+     */
+    private static Path2D.Double lichessCheckPath() {
+        Path2D.Double plus = new Path2D.Double();
+        plus.moveTo(46.0, 28.0);
+        plus.lineTo(54.0, 28.0);
+        plus.lineTo(54.0, 46.0);
+        plus.lineTo(72.0, 46.0);
+        plus.lineTo(72.0, 54.0);
+        plus.lineTo(54.0, 54.0);
+        plus.lineTo(54.0, 72.0);
+        plus.lineTo(46.0, 72.0);
+        plus.lineTo(46.0, 54.0);
+        plus.lineTo(28.0, 54.0);
+        plus.lineTo(28.0, 46.0);
+        plus.lineTo(46.0, 46.0);
+        plus.closePath();
+        return plus;
+    }
+
+    /**
+     * Draws the requested Lichess-style pin glyph from the 100x100 SVG path
+     * {@code M31 21V28L37 30 34 47 27 50V57H45V77L50 86 55 77V57H73V50L66 47 63 30 69 28V21Z}.
+     *
+     * @param g graphics context
+     * @param x badge x coordinate
+     * @param y badge y coordinate
+     * @param size badge size
+     */
+    private static void drawLichessPinGlyph(Graphics2D g, int x, int y, int size) {
+        AffineTransform savedTransform = g.getTransform();
+        try {
+            g.translate(x, y);
+            g.scale(size / 100.0, size / 100.0);
+            g.fill(lichessPinPath());
+        } finally {
+            g.setTransform(savedTransform);
+        }
+    }
+
+    /**
+     * Creates the white pin silhouette from the requested SVG path.
+     *
+     * @return pin path
+     */
+    private static Path2D.Double lichessPinPath() {
+        Path2D.Double pin = new Path2D.Double();
+        pin.moveTo(31.0, 21.0);
+        pin.lineTo(31.0, 28.0);
+        pin.lineTo(37.0, 30.0);
+        pin.lineTo(34.0, 47.0);
+        pin.lineTo(27.0, 50.0);
+        pin.lineTo(27.0, 57.0);
+        pin.lineTo(45.0, 57.0);
+        pin.lineTo(45.0, 77.0);
+        pin.lineTo(50.0, 86.0);
+        pin.lineTo(55.0, 77.0);
+        pin.lineTo(55.0, 57.0);
+        pin.lineTo(73.0, 57.0);
+        pin.lineTo(73.0, 50.0);
+        pin.lineTo(66.0, 47.0);
+        pin.lineTo(63.0, 30.0);
+        pin.lineTo(69.0, 28.0);
+        pin.lineTo(69.0, 21.0);
+        pin.closePath();
+        return pin;
+    }
+
+    /**
+     * Returns the tactical shield x coordinate from glyph-badge composition.
+     *
+     * @param square square bounds
+     * @param size badge size
+     * @return left x coordinate
+     */
+    private static int tacticalBadgeX(Rectangle square, int size) {
+        int center = square.x + Math.round(square.width * TACTICAL_BADGE_CENTER_X_FRACTION);
+        return Math.round(center - size / 2.0f);
+    }
+
+    /**
+     * Returns the tactical shield y coordinate from glyph-badge composition.
+     *
+     * @param square square bounds
+     * @param size badge size
+     * @return top y coordinate
+     */
+    private static int tacticalBadgeY(Rectangle square, int size) {
+        int center = square.y + Math.round(square.height * TACTICAL_BADGE_CENTER_Y_FRACTION);
+        return Math.round(center - size / 2.0f);
     }
 
     /**

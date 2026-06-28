@@ -2,7 +2,6 @@ package application.gui.workbench.network;
 
 import application.gui.workbench.ui.HitRegions;
 import application.gui.workbench.ui.InspectorDialog;
-import application.gui.workbench.ui.ScrollableSupport;
 import application.gui.workbench.ui.Theme;
 import application.gui.workbench.ui.Ui;
 import chess.nn.nnue.FeatureEncoder;
@@ -368,17 +367,6 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
         repaint();
     }
 
-    /**
-     * Sets the selected board square for bidirectional linking. Pass -1 to
-     * clear the selection.
-     *
-     * @param square 0..63 LERF index or -1
-     */
-    public void setSelectedBoardSquare(int square) {
-        this.selectedBoardSquare = (square >= 0 && square < 64) ? square : -1;
-        repaint();
-    }
-
     // ---------- Scrollable plumbing ----------
 
     /**
@@ -388,7 +376,7 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
      */
     @Override
     public Dimension getPreferredScrollableViewportSize() {
-        return ScrollableSupport.preferredViewportSize(this);
+        return Ui.preferredScrollableViewportSize(this);
     }
 
     /**
@@ -401,7 +389,7 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
      */
     @Override
     public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction) {
-        return ScrollableSupport.DEFAULT_UNIT_INCREMENT;
+        return Ui.defaultScrollableUnitIncrement();
     }
 
     /**
@@ -414,7 +402,7 @@ public abstract class NnueViewBase extends NetworkView implements Scrollable {
      */
     @Override
     public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) {
-        return ScrollableSupport.blockIncrement(visibleRect, orientation, 48);
+        return Ui.scrollableBlockIncrement(visibleRect, orientation, 48);
     }
 
     /**

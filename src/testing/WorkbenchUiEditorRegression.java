@@ -27,6 +27,7 @@ import javax.swing.JToggleButton;
 import javax.swing.SwingUtilities;
 
 import application.gui.workbench.dataset.DatasetChart;
+import application.gui.workbench.layout.EditorLayoutCommands;
 import application.gui.workbench.layout.LazyPanel;
 import application.gui.workbench.ui.Theme;
 import chess.core.Move;
@@ -476,23 +477,31 @@ final class WorkbenchUiEditorRegression {
         Component firstTab = primaryStrip.getComponent(0);
         JPopupMenu menu = ((JComponent) firstTab).getComponentPopupMenu();
         assertTrue(menu != null, "tab exposes a context action menu");
-        assertEquals("Split Tab Right", ((JMenuItem) menu.getComponent(0)).getText(),
+        assertEquals("Tab 0 workbench tab", ((JComponent) firstTab).getAccessibleContext().getAccessibleName(),
+                "tab component exposes an accessible name");
+        assertTrue(((JComponent) firstTab).getToolTipText().contains("split, detach, restore, and close"),
+                "tab tooltip explains the available tab actions");
+        invoke(firstTab, "updateHover", new Class<?>[] { boolean.class, boolean.class },
+                Boolean.TRUE, Boolean.TRUE);
+        assertEquals("Close Tab 0", ((JComponent) firstTab).getToolTipText(),
+                "tab close affordance exposes a hover-specific tooltip");
+        assertEquals(EditorLayoutCommands.TAB_SPLIT_RIGHT_LABEL, ((JMenuItem) menu.getComponent(0)).getText(),
                 "tab menu starts with split actions");
-        assertEquals("workbench.editor.tab.split.right", ((JMenuItem) menu.getComponent(0)).getActionCommand(),
+        assertEquals(EditorLayoutCommands.TAB_SPLIT_RIGHT, ((JMenuItem) menu.getComponent(0)).getActionCommand(),
                 "tab split-right action has a stable command id");
-        assertEquals("workbench.editor.tab.split.down", ((JMenuItem) menu.getComponent(1)).getActionCommand(),
+        assertEquals(EditorLayoutCommands.TAB_SPLIT_DOWN, ((JMenuItem) menu.getComponent(1)).getActionCommand(),
                 "tab split-down action has a stable command id");
-        assertEquals("workbench.editor.tab.split.left", ((JMenuItem) menu.getComponent(2)).getActionCommand(),
+        assertEquals(EditorLayoutCommands.TAB_SPLIT_LEFT, ((JMenuItem) menu.getComponent(2)).getActionCommand(),
                 "tab split-left action has a stable command id");
-        assertEquals("workbench.editor.tab.split.up", ((JMenuItem) menu.getComponent(3)).getActionCommand(),
+        assertEquals(EditorLayoutCommands.TAB_SPLIT_UP, ((JMenuItem) menu.getComponent(3)).getActionCommand(),
                 "tab split-up action has a stable command id");
-        assertEquals("Detach to New Window", ((JMenuItem) menu.getComponent(4)).getText(),
+        assertEquals(EditorLayoutCommands.TAB_DETACH_LABEL, ((JMenuItem) menu.getComponent(4)).getText(),
                 "tab menu exposes detach action");
-        assertEquals("workbench.editor.tab.detach", ((JMenuItem) menu.getComponent(4)).getActionCommand(),
+        assertEquals(EditorLayoutCommands.TAB_DETACH, ((JMenuItem) menu.getComponent(4)).getActionCommand(),
                 "tab detach action has a stable command id");
-        assertEquals("Close Other Tabs", ((JMenuItem) menu.getComponent(6)).getText(),
+        assertEquals(EditorLayoutCommands.TAB_CLOSE_OTHERS_LABEL, ((JMenuItem) menu.getComponent(6)).getText(),
                 "tab menu exposes close-others action");
-        assertEquals("workbench.editor.tab.closeOthers", ((JMenuItem) menu.getComponent(6)).getActionCommand(),
+        assertEquals(EditorLayoutCommands.TAB_CLOSE_OTHERS, ((JMenuItem) menu.getComponent(6)).getActionCommand(),
                 "close-others action has a stable command id");
 
         invoke(area, "closeOtherTabs", new Class<?>[0]);
@@ -526,11 +535,11 @@ final class WorkbenchUiEditorRegression {
         JPopupMenu disabledMenu = ((JComponent) primaryStrip.getComponent(0)).getComponentPopupMenu();
         JMenuItem disabledSplit = (JMenuItem) disabledMenu.getComponent(0);
         assertFalse(disabledSplit.isEnabled(), "single non-duplicable tab cannot run split menu actions");
-        assertEquals("workbench.editor.tab.split.right", disabledSplit.getActionCommand(),
+        assertEquals(EditorLayoutCommands.TAB_SPLIT_RIGHT, disabledSplit.getActionCommand(),
                 "disabled split menu item keeps stable command id");
         assertTrue(disabledSplit.getToolTipText().contains("duplicate-capable"),
                 "disabled split menu item explains recovery");
-        assertEquals("Split Tab Right", disabledSplit.getAccessibleContext().getAccessibleName(),
+        assertEquals(EditorLayoutCommands.TAB_SPLIT_RIGHT_LABEL, disabledSplit.getAccessibleContext().getAccessibleName(),
                 "disabled split menu item exposes accessible action name");
 
         Object area = splitFixture();

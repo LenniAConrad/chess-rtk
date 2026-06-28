@@ -15,7 +15,7 @@ import javax.swing.JPanel;
  * suits grouped content that simply wants the shared card surface — chart
  * panels, setup forms, summaries — in either theme.
  */
-public final class Card extends JComponent {
+final class Card extends JComponent {
 
     /**
      * Serialization identifier for Swing component compatibility.

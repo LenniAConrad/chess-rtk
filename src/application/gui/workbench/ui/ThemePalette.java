@@ -252,6 +252,108 @@ final class ThemePalette {
     }
 
     /**
+     * Applies cold blue dark.
+     */
+    static void applyDarkBlue() {
+        applyDark();
+        Color bg = new Color(0x0A1118);
+        Color panel = new Color(0x0D1822);
+        Color elevated = new Color(0x122131);
+        Color line = new Color(0x203449);
+        Color border = new Color(0x2A4560);
+        Color accent = new Color(0x2E74D0);
+        Color hoverAccent = new Color(0x2B6FBE);
+        Color pressedAccent = new Color(0x255D9F);
+
+        Theme.BG = bg;
+        Theme.TRANSPARENT = new Color(panel.getRed(), panel.getGreen(), panel.getBlue(), 0);
+        Theme.PANEL = panel;
+        Theme.PANEL_SOLID = Theme.blendOver(Theme.PANEL, Theme.BG);
+        Theme.GLASS_HIGHLIGHT = new Color(255, 255, 255, 28);
+        Theme.BACKDROP_TOP = new Color(0x16283A);
+        Theme.BACKDROP_BOTTOM = new Color(0x081018);
+        Theme.ELEVATED = elevated;
+        Theme.ELEVATED_SOLID = Theme.blendOver(Theme.ELEVATED, Theme.BG);
+        Theme.CARD = new Color(0x122436);
+        Theme.CARD_BORDER = border;
+        Theme.LINE = line;
+        Theme.TEXT = new Color(0xDDEBFA);
+        Theme.MUTED = new Color(0x91A5B8);
+        Theme.ACCENT = accent;
+        Theme.SELECTION = new Color(0x1D4E78);
+        Theme.SELECTION_SOLID = Theme.blendOver(Theme.SELECTION, Theme.BG);
+        Theme.ACCENT_HOVER = hoverAccent;
+        Theme.ACCENT_PRESSED = pressedAccent;
+        Theme.SECONDARY_BUTTON = new Color(0x172737);
+        Theme.SECONDARY_BUTTON_HOVER = new Color(0x203449);
+        Theme.SECONDARY_BUTTON_PRESSED = new Color(0x29435D);
+        Theme.SECONDARY_BUTTON_TEXT = Theme.TEXT;
+        Theme.GHOST_BUTTON = new Color(0, 0, 0, 0);
+        Theme.GHOST_BUTTON_HOVER = new Color(0x172737);
+        Theme.GHOST_BUTTON_PRESSED = new Color(0x203449);
+        Theme.GHOST_BUTTON_TEXT = Theme.TEXT;
+        Theme.BUTTON_DISABLED_BG = panel;
+        Theme.BUTTON_DISABLED_BORDER = line;
+        Theme.BUTTON_DISABLED_TEXT = new Color(0x63778A);
+        Theme.INPUT_BORDER = border;
+        Theme.INPUT_FOCUS = accent;
+        Theme.FOCUS_RING = Theme.withAlpha(Theme.INPUT_FOCUS, 122);
+        Theme.INPUT_DISABLED = new Color(0x16212C);
+        Theme.TOGGLE_BG = elevated;
+        Theme.TOGGLE_BORDER = border;
+        Theme.TOGGLE_TRACK = Theme.MUTED;
+        Theme.TOGGLE_ON_BG = Theme.withAlpha(accent, 145);
+        Theme.TOGGLE_ON_TRACK = accent;
+        Theme.TOGGLE_THUMB = Theme.TEXT;
+        Theme.INPUT = elevated;
+        Theme.TEXT_AREA = panel;
+        Theme.TERMINAL = panel;
+        Theme.TERMINAL_TEXT = Theme.TEXT;
+        Theme.TEXT_SELECTION = Theme.SELECTION;
+        Theme.PRIMARY_BUTTON_TEXT = Color.WHITE;
+        Theme.TAB_ACCENT_UNDERLINE = Theme.withAlpha(Theme.ACCENT, 255);
+        Theme.TAB_HOVER = line;
+        Theme.TAB_IDLE = new Color(bg.getRed(), bg.getGreen(), bg.getBlue(), 255);
+        Theme.SCROLLBAR_TRACK = new Color(bg.getRed(), bg.getGreen(), bg.getBlue(), 0);
+        Theme.SCROLLBAR_THUMB = new Color(Theme.MUTED.getRed(), Theme.MUTED.getGreen(),
+                Theme.MUTED.getBlue(), 88);
+        Theme.SCROLLBAR_THUMB_HOVER = new Color(Theme.MUTED.getRed(), Theme.MUTED.getGreen(),
+                Theme.MUTED.getBlue(), 156);
+        Theme.TOOLTIP_BG = elevated;
+        Theme.TOOLTIP_TEXT = Theme.TEXT;
+        Theme.TOOLTIP_BORDER = border;
+        Theme.STATUS_SUCCESS_BG = elevated;
+        Theme.STATUS_WARNING_BG = elevated;
+        Theme.STATUS_ERROR_BG = elevated;
+        Theme.STATUS_INFO_BG = elevated;
+        Theme.STATUS_INFO_BORDER = accent;
+        Theme.STATUS_INFO_TEXT = new Color(0x66B7FF);
+        Theme.STATUS_READY_BG = Theme.STATUS_INFO_BG;
+        Theme.STATUS_READY_BORDER = Theme.STATUS_INFO_BORDER;
+        Theme.STATUS_READY_TEXT = Theme.STATUS_INFO_TEXT;
+        Theme.STATUS_RUNNING_BG = Theme.STATUS_INFO_BG;
+        Theme.STATUS_RUNNING_BORDER = Theme.STATUS_INFO_BORDER;
+        Theme.STATUS_RUNNING_TEXT = Theme.STATUS_INFO_TEXT;
+        Theme.STATUS_COMPLETE_BG = Theme.STATUS_SUCCESS_BG;
+        Theme.STATUS_MISSING_BG = Theme.STATUS_WARNING_BG;
+        Theme.STATUS_NOT_RUN_BG = elevated;
+        Theme.STATUS_NOT_RUN_BORDER = border;
+        Theme.STATUS_NOT_RUN_TEXT = Theme.MUTED;
+        Theme.STATUS_PAUSED_BG = Theme.STATUS_WARNING_BG;
+        Theme.STATUS_STALE_BG = Theme.STATUS_WARNING_BG;
+        Theme.CODE_BLOCK_BG = panel;
+        Theme.CODE_BLOCK_BORDER = border;
+        Theme.CODE_BLOCK_TEXT = Theme.TEXT;
+        Theme.LOGO_BACKGROUND = new Color(Theme.DARK_PURPLE.getRed(), Theme.DARK_PURPLE.getGreen(),
+                Theme.DARK_PURPLE.getBlue(), 220);
+        Theme.TOGGLE_FOCUS = Theme.withAlpha(Theme.INPUT_FOCUS, 122);
+        Theme.NN_TRUNK = accent;
+        Theme.NN_FOCUS = accent;
+        Theme.NN_NEUTRAL = line;
+        Theme.NN_HEAT_ZERO = line;
+    }
+
+    /**
      * Updates the fixed board and eval colors.
      */
     private static void setFixedBoardAndEvalColors() {
@@ -267,7 +369,7 @@ final class ThemePalette {
         Theme.LEGAL_TARGET = new Color(77, 103, 50, 158);
         Theme.LEGAL_CAPTURE_FILL = new Color(77, 103, 50, 58);
         Theme.LEGAL_CAPTURE_EDGE = new Color(77, 103, 50, 132);
-        Theme.BOARD_ARROW = new Color(143, 189, 232);
+        Theme.BOARD_ARROW = Theme.LEGAL_TARGET;
         Color check = Theme.isDark() ? Theme.DARK_CORAL : Theme.PASTEL_CORAL;
         Theme.CHECK_CORE = new Color(check.getRed(), check.getGreen(), check.getBlue(), 245);
         Theme.CHECK_GLOW = Theme.withAlpha(check, 209);

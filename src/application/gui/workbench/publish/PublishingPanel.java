@@ -21,6 +21,7 @@ import static application.cli.Constants.OPT_TITLE;
 import static application.cli.Constants.OPT_WATERMARK_ID;
 
 import application.cli.PathOps;
+import application.gui.feature.publishing.PublishingView;
 import application.gui.workbench.Defaults;
 import application.gui.workbench.command.CommandRunner;
 import application.gui.workbench.game.GameModel;
@@ -91,7 +92,7 @@ import static application.gui.workbench.ui.Ui.withTooltip;
 /**
  * Publishing command builder and preview panel.
  */
-public final class PublishingPanel {
+public final class PublishingPanel implements PublishingView {
 
     /**
      * Placeholder path used in command previews for generated PGN files.
@@ -587,6 +588,7 @@ public final class PublishingPanel {
      *
      * @return root component
      */
+    @Override
     public JComponent component() {
         return component;
     }
@@ -594,6 +596,7 @@ public final class PublishingPanel {
     /**
      * Refreshes the command preview immediately.
      */
+    @Override
     public void updateCommand() {
         updatePublishCommand();
     }
@@ -601,6 +604,7 @@ public final class PublishingPanel {
     /**
      * Queues a command preview refresh.
      */
+    @Override
     public void requestCommandUpdate() {
         requestPublishCommandUpdate();
     }
@@ -608,6 +612,7 @@ public final class PublishingPanel {
     /**
      * Runs the current publishing workflow.
      */
+    @Override
     public void runCommand() {
         runPublishingCommand();
     }

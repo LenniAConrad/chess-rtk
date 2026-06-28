@@ -6,7 +6,7 @@ package application.gui.workbench.ui;
 final class ThemeState {
 
     /**
-     * Active light/dark theme mode.
+     * Active theme mode.
      */
     private static Theme.Mode mode = Theme.Mode.LIGHT;
     /**
@@ -22,7 +22,7 @@ final class ThemeState {
     }
 
     /**
-     * Returns the active light/dark mode.
+     * Returns the active mode.
      *
      * @return theme mode
      */
@@ -31,12 +31,12 @@ final class ThemeState {
     }
 
     /**
-     * Returns whether the active theme mode is dark.
+     * Returns whether the active mode is dark.
      *
      * @return true in dark mode
      */
     static boolean isDark() {
-        return mode == Theme.Mode.DARK;
+        return mode.isDark();
     }
 
     /**
@@ -71,10 +71,10 @@ final class ThemeState {
      */
     static void setMode(Theme.Mode value) {
         mode = value == null ? Theme.Mode.LIGHT : value;
-        if (isDark()) {
-            ThemePalette.applyDark();
-        } else {
-            ThemePalette.applyLight();
+        switch (mode) {
+            case LIGHT -> ThemePalette.applyLight();
+            case DARK -> ThemePalette.applyDark();
+            case DARK_BLUE -> ThemePalette.applyDarkBlue();
         }
     }
 }

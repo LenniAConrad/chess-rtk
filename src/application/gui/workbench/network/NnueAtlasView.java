@@ -2,7 +2,6 @@ package application.gui.workbench.network;
 
 import application.gui.workbench.ui.NotationPainter;
 import application.gui.workbench.ui.Theme;
-import application.gui.workbench.ui.Ui;
 import java.awt.BasicStroke;
 import java.awt.Font;
 import java.awt.FontMetrics;
@@ -363,88 +362,6 @@ public abstract class NnueAtlasView extends NnueViewBase {
     }
 
     /**
-     * Paints the sorted slot thumbnail gallery.
-     *
-     * @param g graphics context
-     * @param r drawing bounds
-     * @param order slot render order
-     * @param atlas atlas values
-     * @param output output weights
-     * @param hidden hidden slot count
-     * @param planes plane count
-     * @param squares squares per plane
-     * @param perNeuronScale scale per hidden slot
-     * @param overlayMag overlay magnitudes
-     * @param selectedSlot selected hidden slot
-     */
-    protected void paintAtlasSlotGallery(Graphics2D g, Rectangle r, Integer[] order,
-            float[] atlas, float[] output, int hidden, int planes, int squares,
-            float[] perNeuronScale, float[] overlayMag, int selectedSlot) {
-        TensorViz.drawCard(g, r,
-                "slot gallery",
-                selectedBoardSquare >= 0
-                        ? "ranked by " + TensorViz.squareLabel(selectedBoardSquare)
-                        : "sorted by " + atlasSort,
-                TensorViz.FOCUS);
-        Rectangle inner = new Rectangle(r.x + 10, r.y + 38,
-                Math.max(1, r.width - 20), Math.max(1, r.height - 48));
-        int cardW = Math.max(82, Math.min(118, inner.width / Math.max(1, inner.width / 96)));
-        int cardH = 78;
-        int gap = 8;
-        int cols = Math.max(1, (inner.width + gap) / (cardW + gap));
-        int rows = Math.max(1, (inner.height + gap) / (cardH + gap));
-        int show = Math.min(order.length, rows * cols);
-        float overlayMax = maxAbs(overlayMag);
-        for (int i = 0; i < show; i++) {
-            int slot = order[i];
-            int col = i % cols;
-            int row = i / cols;
-            Rectangle card = new Rectangle(inner.x + col * (cardW + gap),
-                    inner.y + row * (cardH + gap), cardW, cardH);
-            boolean selected = slot == selectedSlot;
-            drawSelectableSurface(g, card, selected);
-            if (atlasOverlay && overlayMag != null && slot < overlayMag.length && overlayMax > 0.0f) {
-                float t = Math.min(1.0f, Math.abs(overlayMag[slot]) / overlayMax);
-                g.setColor(Theme.withAlpha(
-                        overlayMag[slot] >= 0.0f ? TensorViz.POSITIVE : TensorViz.NEGATIVE,
-                        Math.round(160.0f * t)));
-                g.fillRoundRect(card.x + 4, card.y + 4, 4, card.height - 8, 4, 4);
-            }
-            Rectangle thumb = new Rectangle(card.x + 8, card.y + 21,
-                    Math.min(44, card.width - 16), Math.min(44, card.height - 30));
-            paintAtlasCompositeTile(g, thumb, atlas, slot, planes, squares, perNeuronScale[slot]);
-            if (selectedBoardSquare >= 0) {
-                overlaySelectedSquare(g, thumb, selectedBoardSquare);
-            }
-            g.setColor(Theme.TEXT);
-            g.setFont(Theme.font(11, Font.BOLD));
-            g.drawString("#" + slot, card.x + 8, card.y + 15);
-            g.setColor(valueAt(output, slot) >= 0.0f ? TensorViz.POSITIVE : TensorViz.NEGATIVE);
-            g.setFont(Theme.font(10, Font.BOLD));
-            String value = atlasSlotBadge(output, slot, atlas, planes, squares);
-            FontMetrics fm = g.getFontMetrics();
-            g.drawString(Ui.elide(value, fm, Math.max(20, card.width - thumb.width - 18)),
-                    thumb.x + thumb.width + 8, card.y + 38);
-            g.setColor(Theme.MUTED);
-            g.setFont(Theme.font(9, Font.PLAIN));
-            String label = atlasSlotArchetype(atlas, slot, planes, squares);
-            fm = g.getFontMetrics();
-            NotationPainter.draw(g, label, thumb.x + thumb.width + 8, card.y + 54,
-                    Math.max(20, card.width - thumb.width - 18), Theme.MUTED);
-            hitRegions.add(card,
-                    "Slot " + slot + " · gallery",
-                    "Select this accumulator slot in the atlas browser.",
-                    atlasSlotDetail(output, slot, atlas, planes, squares));
-        }
-        if (show < order.length) {
-            g.setColor(Theme.MUTED);
-            g.setFont(Theme.font(10, Font.ITALIC));
-            g.drawString("showing top " + show + " of " + hidden + " slots",
-                    inner.x + 4, r.y + r.height - 8);
-        }
-    }
-
-    /**
      * Fills and outlines a rounded selectable surface (atlas slot card or plane
      * chip): accent fill + focus edge when selected, elevated fill + hairline
      * otherwise. Shared by the gallery and the plane selector.
@@ -715,30 +632,6 @@ public abstract class NnueAtlasView extends NnueViewBase {
                 Math.max(1, layout.overview.width - 20), Math.max(1, layout.overview.height - 48));
         int rowAreaH = Math.max(1, inner.height - 14);
         return atlasWholeRowsPerColumn(inner.width, rowAreaH, hidden, planes);
-    }
-
-    /**
-     * Computes per-neuron overlay magnitude — the current activation × output
-     * weight if both are available, falling back to |output| only when not.
-     *
-     * @param hidden hidden size
-     * @return per-slot signed magnitude or null when nothing useful is known
-     */
-    protected float[] computeOverlayMagnitudes(int hidden) {
-        if (snapshot == null) {
-            return null;
-        }
-        float[] contrib = totalContribution();
-        if (contrib != null && contrib.length == hidden) {
-            return contrib;
-        }
-        float[] output = snapshot.data("nnue.atlas.output");
-        if (output == null || output.length != hidden) {
-            return null;
-        }
-        // Without per-position contribution we can still tint by static
-        // output weight magnitude; the sign degrades to "+".
-        return output;
     }
 
     /**

@@ -198,16 +198,6 @@ public final class DatasetChart extends JComponent {
     }
 
     /**
-     * Sets placeholder text.
-     *
-     * @param value placeholder text
-     */
-    public void setEmptyText(String value) {
-        emptyText = value == null ? "" : value;
-        repaint();
-    }
-
-    /**
      * Sets a richer two-line empty state: a title and a one-line hint on how to
      * populate the chart.
      *

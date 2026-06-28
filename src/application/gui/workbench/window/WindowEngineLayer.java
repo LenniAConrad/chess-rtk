@@ -194,6 +194,16 @@ public abstract class WindowEngineLayer extends WindowBoardLayer {
     }
 
     /**
+     * Shows a Study Workspace position without animating a synthetic move.
+     *
+     * @param position study position
+     */
+    @Override
+    protected void showStudyWorkspacePosition(Position position) {
+        setPosition(position, Move.NO_MOVE, false, false);
+    }
+
+    /**
      * Pushes the current position into the shared {@link #session} so the
      * Dashboard tab updates without scraping Swing components. Tags arrive
      * later, asynchronously, via {@link #updateTagsAsync()}.

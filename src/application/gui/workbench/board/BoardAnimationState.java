@@ -170,15 +170,6 @@ final class BoardAnimationState {
     }
 
     /**
-     * Returns the move animation duration.
-     *
-     * @return duration in milliseconds
-     */
-    int moveAnimationMs() {
-        return moveAnimationMs;
-    }
-
-    /**
      * Returns the snapback animation duration.
      *
      * @return duration in milliseconds

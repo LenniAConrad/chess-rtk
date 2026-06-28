@@ -503,34 +503,12 @@ public final class Book {
 	}
 
 	/**
-	 * Sets the paper width in centimeters.
-	 *
-	 * @param paperWidthCm width in centimeters
-	 * @return this book for chaining
-	 */
-	public Book setPaperWidthCm(double paperWidthCm) {
-		this.paperWidthCm = positiveOrDefault(paperWidthCm, DEFAULT_PAPER_WIDTH_CM);
-		return this;
-	}
-
-	/**
 	 * Returns the paper height in centimeters.
 	 *
 	 * @return height in centimeters
 	 */
 	public double getPaperHeightCm() {
 		return paperHeightCm;
-	}
-
-	/**
-	 * Sets the paper height in centimeters.
-	 *
-	 * @param paperHeightCm height in centimeters
-	 * @return this book for chaining
-	 */
-	public Book setPaperHeightCm(double paperHeightCm) {
-		this.paperHeightCm = positiveOrDefault(paperHeightCm, DEFAULT_PAPER_HEIGHT_CM);
-		return this;
 	}
 
 	/**
@@ -543,34 +521,12 @@ public final class Book {
 	}
 
 	/**
-	 * Sets the inner margin in centimeters.
-	 *
-	 * @param innerMarginCm inner margin
-	 * @return this book for chaining
-	 */
-	public Book setInnerMarginCm(double innerMarginCm) {
-		this.innerMarginCm = nonNegativeOrDefault(innerMarginCm, DEFAULT_INNER_MARGIN_CM);
-		return this;
-	}
-
-	/**
 	 * Returns the outer margin in centimeters.
 	 *
 	 * @return outer margin
 	 */
 	public double getOuterMarginCm() {
 		return outerMarginCm;
-	}
-
-	/**
-	 * Sets the outer margin in centimeters.
-	 *
-	 * @param outerMarginCm outer margin
-	 * @return this book for chaining
-	 */
-	public Book setOuterMarginCm(double outerMarginCm) {
-		this.outerMarginCm = nonNegativeOrDefault(outerMarginCm, DEFAULT_OUTER_MARGIN_CM);
-		return this;
 	}
 
 	/**
@@ -583,34 +539,12 @@ public final class Book {
 	}
 
 	/**
-	 * Sets the top margin in centimeters.
-	 *
-	 * @param topMarginCm top margin
-	 * @return this book for chaining
-	 */
-	public Book setTopMarginCm(double topMarginCm) {
-		this.topMarginCm = nonNegativeOrDefault(topMarginCm, DEFAULT_TOP_MARGIN_CM);
-		return this;
-	}
-
-	/**
 	 * Returns the bottom margin in centimeters.
 	 *
 	 * @return bottom margin
 	 */
 	public double getBottomMarginCm() {
 		return bottomMarginCm;
-	}
-
-	/**
-	 * Sets the bottom margin in centimeters.
-	 *
-	 * @param bottomMarginCm bottom margin
-	 * @return this book for chaining
-	 */
-	public Book setBottomMarginCm(double bottomMarginCm) {
-		this.bottomMarginCm = nonNegativeOrDefault(bottomMarginCm, DEFAULT_BOTTOM_MARGIN_CM);
-		return this;
 	}
 
 	/**

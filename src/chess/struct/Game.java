@@ -156,6 +156,38 @@ public class Game {
     }
 
     /**
+     * Inserts a root-level variation at a deterministic position.
+     *
+     * @param index requested insertion index
+     * @param variation variation node to register
+     */
+    public void addRootVariation(int index, Node variation) {
+        if (variation != null) {
+            rootVariations.add(Math.max(0, Math.min(index, rootVariations.size())), variation);
+        }
+    }
+
+    /**
+     * Removes a root-level variation.
+     *
+     * @param variation variation head to remove
+     * @return true when the variation was present
+     */
+    public boolean removeRootVariation(Node variation) {
+        return rootVariations.remove(variation);
+    }
+
+    /**
+     * Returns the root-variation index for a node.
+     *
+     * @param variation variation head to inspect
+     * @return zero-based index, or {@code -1}
+     */
+    public int rootVariationIndex(Node variation) {
+        return rootVariations.indexOf(variation);
+    }
+
+    /**
      * Returns comments that appear before the first move.
      *
      * <p>These are commonly used for game-wide notes or metadata.</p>
@@ -174,6 +206,21 @@ public class Game {
     public void addPreambleComment(String comment) {
         if (comment != null && !comment.isEmpty()) {
             preambleComments.add(comment);
+        }
+    }
+
+    /**
+     * Replaces comments that appear before the first move.
+     *
+     * @param comments replacement comments
+     */
+    public void setPreambleComments(List<String> comments) {
+        preambleComments.clear();
+        if (comments == null) {
+            return;
+        }
+        for (String comment : comments) {
+            addPreambleComment(comment);
         }
     }
 
@@ -292,6 +339,39 @@ public class Game {
         }
 
         /**
+         * Inserts a variation at a deterministic position.
+         *
+         * @param index requested insertion index
+         * @param node variation head node
+         */
+        public void addVariation(int index, Node node) {
+            if (node == null) {
+                return;
+            }
+            variations.add(Math.max(0, Math.min(index, variations.size())), node);
+        }
+
+        /**
+         * Removes a variation head from this node.
+         *
+         * @param node variation head to remove
+         * @return true when the variation was present
+         */
+        public boolean removeVariation(Node node) {
+            return variations.remove(node);
+        }
+
+        /**
+         * Returns the mutable variation index for package consumers.
+         *
+         * @param node variation head
+         * @return zero-based index, or {@code -1}
+         */
+        public int variationIndex(Node node) {
+            return variations.indexOf(node);
+        }
+
+        /**
          * Comments that appear immediately before this move.
          *
          * @return unmodifiable list of pre-move comments
@@ -321,6 +401,21 @@ public class Game {
         }
 
         /**
+         * Replaces all comments before this move.
+         *
+         * @param comments replacement comments
+         */
+        public void setCommentsBefore(List<String> comments) {
+            commentsBefore.clear();
+            if (comments == null) {
+                return;
+            }
+            for (String comment : comments) {
+                addCommentBefore(comment);
+            }
+        }
+
+        /**
          * Adds a comment that appears after this move.
          *
          * @param comment comment text (ignored when {@code null} or empty)
@@ -328,6 +423,21 @@ public class Game {
         public void addCommentAfter(String comment) {
             if (comment != null && !comment.isEmpty()) {
                 commentsAfter.add(comment);
+            }
+        }
+
+        /**
+         * Replaces all comments after this move.
+         *
+         * @param comments replacement comments
+         */
+        public void setCommentsAfter(List<String> comments) {
+            commentsAfter.clear();
+            if (comments == null) {
+                return;
+            }
+            for (String comment : comments) {
+                addCommentAfter(comment);
             }
         }
 
@@ -347,6 +457,33 @@ public class Game {
          */
         public void addNag(int nag) {
             nags.add(nag);
+        }
+
+        /**
+         * Removes one numeric annotation glyph.
+         *
+         * @param nag NAG code
+         * @return true when the glyph was present
+         */
+        public boolean removeNag(int nag) {
+            return nags.remove(Integer.valueOf(nag));
+        }
+
+        /**
+         * Replaces all numeric annotation glyphs.
+         *
+         * @param values replacement NAG codes
+         */
+        public void setNags(List<Integer> values) {
+            nags.clear();
+            if (values == null) {
+                return;
+            }
+            for (Integer value : values) {
+                if (value != null) {
+                    nags.add(value);
+                }
+            }
         }
     }
 }

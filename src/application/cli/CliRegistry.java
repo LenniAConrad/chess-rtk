@@ -1,5 +1,6 @@
 package application.cli;
 
+import static application.cli.Constants.CMD_ECO;
 import static application.cli.Constants.CMD_GUI;
 import static application.cli.Constants.CMD_REVIEW;
 import static application.cli.Constants.CMD_SERVE;
@@ -14,6 +15,7 @@ import application.cli.command.Chess960Command;
 import application.cli.command.CleanCommand;
 import application.cli.command.ConfigCommand;
 import application.cli.command.DoctorCommand;
+import application.cli.command.EcoCommand;
 import application.cli.command.EvalCommand;
 import application.cli.command.EngineBatchCommand;
 import application.cli.command.EngineBenchmarkCommand;
@@ -163,6 +165,7 @@ public final class CliRegistry {
 				.example("crtk gauntlet --searchA mcts --evalA cnn --searchB alpha-beta --movetime 200 --workers 4")
 				.related("engine gauntlet"));
 		root.add(positionGroup());
+		root.add(ecoGroup());
 		root.add(bookGroup());
 		root.add(puzzleGroup());
 		root.add(reviewGroup());
@@ -216,6 +219,60 @@ public final class CliRegistry {
 				.example("crtk version")
 				.example("crtk version --json"));
 		return root;
+	}
+
+	/**
+	 * Builds the ECO opening-encyclopedia command group.
+	 *
+	 * @return ECO group
+	 */
+	private static CliCommand ecoGroup() {
+		CliCommand eco = CliCommand.group(CMD_ECO,
+				"Look up, search, and validate the bundled ECO opening book")
+				.detailHelpKey(CMD_ECO)
+				.usage("<action> [options] [args]")
+				.about("Scriptable access to the same ECO encyclopedia used by tagging, Play, "
+						+ "and the Workbench. Position matching uses the shared chess core and "
+						+ "counter-insensitive position signatures.")
+				.example("crtk eco lookup --line \"1. e4 e5 2. Nf3 Nc6 3. Bb5\"")
+				.example("crtk eco search --query Najdorf --limit 5")
+				.example("crtk eco continuations --line \"1. d4 Nf6 2. c4 g6\"")
+				.example("crtk eco validate --json");
+		eco.add(CliCommand.leaf("lookup", "Resolve a FEN or SAN line to an ECO entry",
+				EcoCommand::runLookup)
+				.detailHelpKey("eco lookup")
+				.usage("[options] [FEN]")
+				.about("Resolve one position to the exact or transposition-collapsed ECO entry "
+						+ "known by the bundled encyclopedia. Use --line for a SAN movetext prefix "
+						+ "from the standard start position.")
+				.example("crtk eco lookup --fen \"<FEN>\"")
+				.example("crtk eco lookup --line \"1. e4 e5 2. Nf3 Nc6 3. Bb5\" --json"));
+		eco.add(CliCommand.leaf("search", "Search ECO codes, names, and movetext",
+				EcoCommand::runSearch)
+				.detailHelpKey("eco search")
+				.usage("[options] QUERY")
+				.about("Search the loaded ECO book in deterministic book order. The query is "
+						+ "matched case-insensitively against the ECO code, opening name, and SAN movetext.")
+				.example("crtk eco search --query Najdorf --limit 10")
+				.example("crtk eco search D72 --jsonl"));
+		eco.add(CliCommand.leaf("continuations", "List ECO next moves from a FEN or SAN line",
+				EcoCommand::runContinuations)
+				.detailHelpKey("eco continuations")
+				.alias("moves")
+				.usage("[options] [FEN]")
+				.about("Replay the bundled ECO lines and aggregate legal next moves from the selected "
+						+ "position. With no selector, starts from the standard initial position.")
+				.example("crtk eco continuations --startpos")
+				.example("crtk eco continuations --line \"1. d4 Nf6 2. c4 g6\" --json"));
+		eco.add(CliCommand.leaf("validate", "Validate loaded ECO code coverage",
+				EcoCommand::runValidate)
+				.detailHelpKey("eco validate")
+				.usage("[options]")
+				.about("Load the ECO book through the production parser and fail if any code from "
+						+ "A00 through E99 is missing from the parsed entries.")
+				.example("crtk eco validate")
+				.example("crtk eco validate --book config/book.eco.toml --json"));
+		return eco;
 	}
 
 	/**

@@ -71,11 +71,14 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
             return;
         }
         SoundCue cue = soundCueForMove(currentPosition, move);
+        List<Short> previousPath = gameModel.currentPath();
+        short previousLastMove = gameModel.currentLastMove();
         Position before = currentPosition.copy();
         Position next = currentPosition.copy();
         next.play(move);
         gameModel.append(before, move, next);
-        showGamePly(gameModel.currentPly());
+        recordStudyWorkspaceMove(before, move);
+        showNavigatedGamePosition(previousPath, previousLastMove);
         SoundService.play(cue);
         // In Play mode, let the session react to the move just applied (human
         // or engine) and schedule the engine reply or end the game. Outside a
@@ -160,6 +163,7 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
      *
      * @param row table row
      */
+    @Override
     protected void showGameRow(int row) {
         if (playPositionLocked) {
             return;
@@ -260,6 +264,7 @@ public abstract class WindowGameLayer extends WindowEngineLayer {
      * Updates game-line status text.
      */
     protected void updateGameState() {
+        refreshGameNotationPreview();
         int variations = gameModel.variationRowCount();
         gameStateLabel.setText("Ply " + gameModel.currentPly() + " / " + gameModel.lastPly()
                 + (gameModel.canBack() ? "  |  back" : "")

@@ -140,12 +140,12 @@ final class ScrollPaneStyler {
         if (bar == null) {
             return;
         }
+        bar.setUI(new StyledScrollBarUI());
         bar.setOpaque(true);
         bar.setBackground(background);
         bar.setBorder(BorderFactory.createEmptyBorder());
         bar.setPreferredSize(new Dimension(SCROLLBAR_THICKNESS, SCROLLBAR_THICKNESS));
         bar.setUnitIncrement(18);
-        bar.setUI(new StyledScrollBarUI());
     }
 
     /**

@@ -657,15 +657,6 @@ public final class MctsSession implements AutoCloseable {
     }
 
     /**
-     * Returns the traversal controls applied to published tree snapshots.
-     *
-     * @return current tree options
-     */
-    public MctsSearch.TreeOptions treeOptions() {
-        return publishTreeOptions;
-    }
-
-    /**
      * Updates the selected node id inside the latest bounded snapshot.
      *
      * @param nodeId source node id

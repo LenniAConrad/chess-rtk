@@ -31,13 +31,4 @@ public final class JsonParseException extends RuntimeException {
 		super("JSON parse error at offset " + offset + ": " + message);
 		this.offset = offset;
 	}
-
-	/**
-	 * Returns the byte offset at which parsing failed.
-	 *
-	 * @return failure offset
-	 */
-	public int offset() {
-		return offset;
-	}
 }

@@ -95,11 +95,6 @@ public final class Bits {
     public static final long RANK_8 = rankMask(7);
 
     /**
-     * Empty bitboard value with no occupied squares.
-     */
-    public static final long EMPTY = 0L;
-
-    /**
      * Prevents instantiation of this stateless utility class.
      */
     private Bits() {
@@ -115,17 +110,6 @@ public final class Bits {
     public static long bit(int square) {
         requireSquare(square);
         return 1L << square;
-    }
-
-    /**
-     * Returns whether a bitboard contains a square.
-     *
-     * @param bitboard bitboard mask
-     * @param square square to test
-     * @return true when occupied
-     */
-    public static boolean contains(long bitboard, int square) {
-        return (bitboard & bit(square)) != 0L;
     }
 
     /**

@@ -355,7 +355,7 @@ public final class RealActivations {
         try {
             chess.nn.nnue.UpstreamNetwork.Info up = nnueModel.upstreamInfo();
             if (up != null) {
-                sb.append("  ·  Stockfish HalfKP (").append(up.variant().label()).append(")")
+                sb.append("  ·  Stockfish HalfKAv2_hm (").append(up.variant().label()).append(")")
                   .append("  ·  ").append(up.inputFeatures()).append(" features")
                   .append("  ·  L1=").append(up.transformedDimensions())
                   .append("  ·  L2=").append(up.l2())
@@ -774,42 +774,6 @@ public final class RealActivations {
             // method. Sharing the immutable arrays avoids cloning the whole
             // weight atlas into every cached per-position snapshot.
             out.put(e.getKey(), entry.shape(), entry.data());
-        }
-    }
-
-    /**
-     * Returns the cached atlas for an arbitrary NNUE file path, loading and
-     * caching the network on first call. Used by diff and grid views.
-     *
-     * @param path path to a .nnue file or null for the current network
-     * @return atlas snapshot or null on load failure
-     */
-    public synchronized ActivationSnapshot atlasFor(Path path) {
-        if (path == null || path.equals(nnuePath)) {
-            // Use the live cache when asked about the current network so we
-            // pay no extra cost for the most common case.
-            if (nnueAtlasCache != null) {
-                return nnueAtlasCache;
-            }
-            return null;
-        }
-        ActivationSnapshot hit = atlasCacheByPath.get(path);
-        if (hit != null) {
-            return hit;
-        }
-        if (!Files.exists(path)) {
-            return null;
-        }
-        try (chess.nn.nnue.Model side = chess.nn.nnue.Model.load(path)) {
-            ActivationSnapshot snap = new ActivationSnapshot();
-            if (!side.dumpFeatureAtlas(snap)) {
-                return null;
-            }
-            snap.seal();
-            atlasCacheByPath.put(path, snap);
-            return snap;
-        } catch (IOException | RuntimeException ex) {
-            return null;
         }
     }
 

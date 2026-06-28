@@ -347,24 +347,6 @@ public final class Evaluator implements AutoCloseable {
     }
 
     /**
-     * Returns the backend used for the most recent {@link #evaluate(Position)} call.
-     *
-     * @return backend used for the last evaluation, or {@code null} if never used
-     */
-    public Backend lastBackend() {
-        return lastBackend;
-    }
-
-    /**
-     * Returns the stored LC0 failure (if LC0 has been disabled).
-     *
-     * @return failure cause, or {@code null} if LC0 is still considered usable
-     */
-    public Throwable lc0Failure() {
-        return lc0Failure.get();
-    }
-
-    /**
      * Close the LC0 model if it was loaded.
      */
     @Override

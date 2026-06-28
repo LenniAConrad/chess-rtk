@@ -450,15 +450,6 @@ public final class Render {
 	}
 
 	/**
-	 * Returns the currently configured board accent color, if any.
-	 *
-	 * @return accent hex or {@code null}
-	 */
-	public String getBoardAccent() {
-		return boardAccentHex;
-	}
-
-	/**
 	 * Sets a scale factor and vertical offset for piece rendering.
 	 *
 	 * @param scale scale multiplier (1.0 = default size)
@@ -471,60 +462,6 @@ public final class Render {
 		}
 		this.pieceScale = scale;
 		this.pieceYOffset = (int) Math.round(tileHeight * yOffsetFraction);
-		return this;
-	}
-
-	/**
-	 * Removes explicit arrows and disables automatic special-move hint arrows.
-	 *
-	 * @return this renderer for chaining
-	 */
-	public Render clearArrows() {
-		arrows.clear();
-		showSpecialMoveHints = false;
-		return this;
-	}
-
-	/**
-	 * Removes all circles.
-	 *
-	 * @return this renderer for chaining
-	 */
-	public Render clearCircles() {
-		circles.clear();
-		return this;
-	}
-
-	/**
-	 * Removes all per-square text overlays.
-	 *
-	 * @return this renderer for chaining
-	 */
-	public Render clearSquareTexts() {
-		for (int i = 0; i < squareTexts.length; i++) {
-			squareTexts[i] = null;
-		}
-		return this;
-	}
-
-	/**
-	 * Sets a small centered text overlay for a square using default styling.
-	 * <p>
-	 * Passing {@code null} or blank {@code text} clears the overlay for the square.
-	 *
-	 * @param index square index (0..63)
-	 * @param text  label to draw (e.g. "+1.5")
-	 * @return this renderer for chaining
-	 */
-	public Render setSquareText(byte index, String text) {
-		int idx = toSquareIndex(index);
-		if (text == null || text.isBlank()) {
-			squareTexts[idx] = null;
-			return this;
-		}
-		// Auto-colors: White pieces get dark text on light background; Black pieces get inverted.
-		squareTexts[idx] = new SquareText(index, text, null, null, null, DEFAULT_SQUARE_TEXT_STROKE, null, false,
-				false);
 		return this;
 	}
 
@@ -545,51 +482,6 @@ public final class Render {
 		}
 		// Auto-colors: White pieces get dark text on light background; Black pieces get inverted.
 		squareTexts[idx] = new SquareText(index, text, null, null, null, DEFAULT_SQUARE_TEXT_STROKE, null, true,
-				false);
-		return this;
-	}
-
-	/**
-	 * Sets a small centered detail overlay for a square using Times New Roman gray styling.
-	 * <p>
-	 * Passing {@code null} or blank {@code text} clears the overlay for the square.
-	 *
-	 * @param index square index (0..63)
-	 * @param text  label to draw (e.g. "a", "1")
-	 * @return this renderer for chaining
-	 */
-	public Render setSquareDetail(byte index, String text) {
-		int idx = toSquareIndex(index);
-		if (text == null || text.isBlank()) {
-			squareTexts[idx] = null;
-			return this;
-		}
-		squareTexts[idx] = new SquareText(index, text, DEFAULT_DETAIL_TEXT_COLOR, DEFAULT_DETAIL_TEXT_BACKGROUND,
-				DEFAULT_DETAIL_TEXT_BORDER, DEFAULT_SQUARE_TEXT_STROKE, detailTextBaseFont, false, true);
-		return this;
-	}
-
-	/**
-	 * Sets a small centered text overlay for a square with custom styling.
-	 * <p>
-	 * Passing {@code null} or blank {@code text} clears the overlay for the square.
-	 *
-	 * @param index       square index (0..63)
-	 * @param text        label to draw (e.g. "+1.5")
-	 * @param textColor   source text color
-	 * @param background  background fill color (use alpha for transparency)
-	 * @param border      background border color (use alpha for transparency)
-	 * @param borderStroke background border stroke
-	 * @return this renderer for chaining
-	 */
-	public Render setSquareText(byte index, String text, Color textColor, Color background, Color border,
-			Stroke borderStroke) {
-		int idx = toSquareIndex(index);
-		if (text == null || text.isBlank()) {
-			squareTexts[idx] = null;
-			return this;
-		}
-		squareTexts[idx] = new SquareText(index, text, textColor, background, border, borderStroke, null, false,
 				false);
 		return this;
 	}

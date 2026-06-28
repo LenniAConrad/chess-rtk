@@ -51,6 +51,11 @@ public final class Constants {
 	public static final String CMD_PUZZLE = "puzzle";
 
 	/**
+	 * {@code eco} grouped subcommand token.
+	 */
+	public static final String CMD_ECO = "eco";
+
+	/**
 	 * {@code review} grouped subcommand token.
 	 */
 	public static final String CMD_REVIEW = "review";
@@ -64,21 +69,6 @@ public final class Constants {
 	 * {@code uci-smoke} subcommand token.
 	 */
 	public static final String CMD_UCI_SMOKE = "uci-smoke";
-
-	/**
-	 * {@code print} subcommand token.
-	 */
-	public static final String CMD_PRINT = "print";
-
-	/**
-	 * {@code display} subcommand token.
-	 */
-	public static final String CMD_DISPLAY = "display";
-
-	/**
-	 * {@code render} subcommand token.
-	 */
-	public static final String CMD_RENDER = "render";
 
 	/**
 	 * {@code chess960} subcommand token.
@@ -184,16 +174,6 @@ public final class Constants {
 	 * {@code perft} subcommand token.
 	 */
 	public static final String CMD_PERFT = "perft";
-
-	/**
-	 * {@code perft-suite} subcommand token.
-	 */
-	public static final String CMD_PERFT_SUITE = "perft-suite";
-
-	/**
-	 * {@code eval} subcommand token.
-	 */
-	public static final String CMD_EVAL = "eval";
 
 	/**
 	 * Short help flag alias.
@@ -356,6 +336,26 @@ public final class Constants {
 	public static final String OPT_LIMIT = "--limit";
 
 	/**
+	 * {@code --line} option flag.
+	 */
+	public static final String OPT_LINE = "--line";
+
+	/**
+	 * {@code --query} option flag.
+	 */
+	public static final String OPT_QUERY = "--query";
+
+	/**
+	 * Short {@code --query} flag alias.
+	 */
+	public static final String OPT_QUERY_SHORT = "-q";
+
+	/**
+	 * {@code --book} option flag.
+	 */
+	public static final String OPT_BOOK = "--book";
+
+	/**
 	 * {@code --pages} option flag.
 	 */
 	public static final String OPT_PAGES = "--pages";
@@ -424,11 +424,6 @@ public final class Constants {
 	 * {@code --analyze} option flag.
 	 */
 	public static final String OPT_ANALYZE = "--analyze";
-
-	/**
-	 * {@code --no-analyze} option flag.
-	 */
-	public static final String OPT_NO_ANALYZE = "--no-analyze";
 
 	/**
 	 * {@code --offline} option flag.
@@ -780,11 +775,6 @@ public final class Constants {
 	 * {@code --dark} option flag.
 	 */
 	public static final String OPT_DARK = "--dark";
-
-	/**
-	 * {@code --light} option flag.
-	 */
-	public static final String OPT_LIGHT = "--light";
 
 	/**
 	 * {@code --dark-mode} option flag (alias for {@link #OPT_DARK}).

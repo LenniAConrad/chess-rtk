@@ -269,29 +269,6 @@ public class Converter {
     }
 
     /**
-     * Converts a {@code .record} JSON array file into PGN games by linking records via their {@code parent} and
-     * {@code position} FENs.
-     *
-     * <p>
-     * The exporter connects records directly when a record's {@code parent} equals another record's {@code position},
-     * and also bridges positions by generating legal subpositions to find matching {@code parent} nodes.
-     * </p>
-     *
-     * @param recordFile input JSON (array) path.
-     * @param pgnFile    output PGN path; if {@code null}, derived from {@code recordFile}.
-     * @throws IllegalArgumentException if {@code recordFile} is {@code null}.
-     */
-    public static void recordToPgn(Path recordFile, Path pgnFile) {
-        if (recordFile == null) {
-            throw new IllegalArgumentException("recordfile is null");
-        }
-        if (pgnFile == null) {
-            pgnFile = deriveOutputPath(recordFile, ".pgn");
-        }
-        RecordPgnExporter.export(recordFile, pgnFile);
-    }
-
-    /**
      * Converts a mixed puzzle/non-puzzle record file into PGN games by first
      * filtering the input JSON objects.
      *

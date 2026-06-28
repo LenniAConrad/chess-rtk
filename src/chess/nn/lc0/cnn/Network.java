@@ -546,27 +546,6 @@ public final class Network implements AutoCloseable {
     }
 
     /**
-     * Debug helper: returns the raw value-head WDL probabilities and the
-     * side-to-move flag.
-     *
-     * <p>
-     * This is only supported for the CPU backend (GPU backends do not
-     * currently expose this hook).
-     *
-     * @param encodedPlanes encoded LC0 planes (length {@code inputChannels * 64})
-     * @return raw value-head output and side-to-move information
-     */
-    public DebugValue debugValue(float[] encodedPlanes) {
-        if (cuda != null || rocm != null || oneapi != null) {
-            throw new UnsupportedOperationException("debugValue() not supported for GPU backends.");
-        }
-        if (encodedPlanes.length != weights.inputChannels * 64) {
-            throw new IllegalArgumentException("Encoded input must be " + (weights.inputChannels * 64) + " floats.");
-        }
-        return Evaluator.debugValue(weights, encodedPlanes);
-    }
-
-    /**
      * Runs one forward pass on an already-encoded LC0 112-plane input.
      *
      * @param encodedPlanes encoded planes (length {@code inputChannels * 64})

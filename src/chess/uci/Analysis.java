@@ -35,26 +35,6 @@ public class Analysis {
 	private boolean completed = false;
 
 	/**
-	 * Marks this analysis as completed so callers can skip redundant engine runs.
-	 *
-	 * @param completed whether the analysis has already been completed
-	 * @return this {@code Analysis} instance for chaining
-	 */
-	public Analysis setCompleted(boolean completed) {
-		this.completed = completed;
-		return this;
-	}
-
-	/**
-	 * Checks whether the analysis has been marked as completed.
-	 *
-	 * @return {@code true} if this analysis contains finalized results
-	 */
-	public boolean isCompleted() {
-		return completed;
-	}
-
-	/**
 	 * Parses and adds multiple engine output lines to this analysis.
 	 *
 	 * <p>
@@ -122,27 +102,6 @@ public class Analysis {
 		row[depth] = output;
 		pvOutputs.set(pvIdx, row);
 		return this;
-	}
-
-	/**
-	 * Retrieves the last {@code Output} from the deepest principal variation available.
-	 *
-	 * @return deepest {@code Output}, or {@code null} if none stored
-	 */
-	public Output getWorstOutput() {
-		if (pvOutputs.isEmpty()) {
-			return null;
-		}
-		Output[] lastPv = pvOutputs.get(pvOutputs.size() - 1);
-		if (lastPv == null) {
-			return null;
-		}
-		for (int i = lastPv.length - 1; i >= 0; i--) {
-			if (lastPv[i] != null) {
-				return lastPv[i];
-			}
-		}
-		return null;
 	}
 
 	/**

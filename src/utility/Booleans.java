@@ -1,7 +1,6 @@
 package utility;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Utility methods for boolean algebra, mutable boolean collection helpers, and
@@ -16,15 +15,6 @@ public class Booleans {
 	 * This is a utility class. Do not instantiate it.
 	 */
 	private Booleans() {
-	}
-
-	/**
-	 * Used for gathering a randomized {@code boolean}.
-	 *
-	 * @return a {@code boolean} with a random value.
-	 */
-	public static boolean randomBoolean() {
-		return ThreadLocalRandom.current().nextBoolean();
 	}
 
 	/**

@@ -290,28 +290,6 @@ public final class SAN {
     }
 
     /**
-     * Cleans PGN move text while preserving variation parentheses.
-     *
-     * @param movetext raw PGN move text
-     * @return cleaned text with variation grouping preserved
-     */
-    public static String cleanMoveStringKeepVariationsRegex(String movetext) {
-        if (movetext == null || movetext.isEmpty()) {
-            return "";
-        }
-        return movetext
-                .replaceAll("\\{[^}]*\\}", " ")
-                .replaceAll("(?m);[^\\r\\n]*", " ")
-                .replaceAll("\\$\\d+", " ")
-                .replaceAll("\\d+\\.(?:\\.\\.)?", " ")
-                .replaceAll("(?<!\\S)(?:1-0|0-1|1/2-1/2|\\*)(?!\\S)", " ")
-                .replaceAll("\\s*\\(\\s*", " ( ")
-                .replaceAll("\\s*\\)\\s*", " ) ")
-                .replaceAll("\\s+", " ")
-                .trim();
-    }
-
-    /**
      * Appends a normalized token unless it is PGN metadata.
      *
      * @param result cleaned movetext builder

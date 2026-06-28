@@ -188,15 +188,6 @@ public record PositionDescriptionInput(
         private static final long serialVersionUID = 1L;
 
         /**
-         * Formats major/minor/pawn counts compactly for text.
-         *
-         * @return compact material text
-         */
-        public String compact() {
-            return "Q" + queens + " R" + rooks + " B" + bishops + " N" + knights + " P" + pawns;
-        }
-
-        /**
          * Serializes this piece-count summary.
          *
          * @return JSON object
@@ -283,15 +274,6 @@ public record PositionDescriptionInput(
          * Serialization identifier for stable record serialization.
          */
         private static final long serialVersionUID = 2L;
-
-        /**
-         * Returns whether this evaluation reports a forced mate.
-         *
-         * @return true when a forced mate is known
-         */
-        public boolean hasMate() {
-            return mateIn != 0;
-        }
 
         /**
          * Serializes this evaluation.

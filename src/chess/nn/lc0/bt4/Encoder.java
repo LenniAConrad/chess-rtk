@@ -87,15 +87,6 @@ public final class Encoder {
                 throw new IllegalArgumentException("planes length must be " + (INPUT_CHANNELS * TOKENS));
             }
         }
-
-        /**
-         * Returns token-major features without positional one-hot channels.
-         *
-         * @return {@code [64][112]} token-major features
-         */
-        public float[] tokenMajor() {
-            return toTokenMajor(planes, INPUT_CHANNELS, TOKENS);
-        }
     }
 
     /**

@@ -275,16 +275,6 @@ public record ReviewRow(
 		}
 
 		/**
-		 * Creates a centipawn eval without mate or WDL context.
-		 *
-		 * @param cp centipawn score
-		 * @return eval block
-		 */
-		public static Eval centipawns(int cp) {
-			return new Eval(cp, null, null);
-		}
-
-		/**
 		 * Emits this eval block as deterministic JSON.
 		 *
 		 * @return compact JSON object
