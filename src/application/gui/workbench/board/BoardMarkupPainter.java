@@ -341,21 +341,24 @@ final class BoardMarkupPainter {
     private static final Map<Integer, BufferedImage> SHADOW_SPRITES = new ConcurrentHashMap<>();
 
     /**
-     * Glyph drop-shadow geometry, matching Lichess (feDropShadow dx=4 dy=7
-     * stdDeviation=5 in the badge's 0..100 box, 50% opacity) as fractions of the
-     * badge diameter.
+     * Glyph drop-shadow geometry as fractions of the badge diameter: a centered
+     * (not offset) soft shadow whose disc is slightly larger than the badge so a
+     * soft, even halo peeks out all the way around it.
      */
-    private static final double SHADOW_DX_FRACTION = 0.04,
-            SHADOW_DY_FRACTION = 0.07,
-            SHADOW_BLUR_FRACTION = 0.05;
+    private static final double SHADOW_SPREAD_FRACTION = 0.05,
+            SHADOW_BLUR_FRACTION = 0.06;
 
     /**
-     * Paints a soft Lichess-style drop shadow behind a glyph badge circle.
+     * Glyph drop-shadow opacity.
+     */
+    private static final float SHADOW_OPACITY = 0.45f;
+
+    /**
+     * Paints a soft, centered drop shadow behind a glyph badge circle.
      *
-     * <p>Renders the badge silhouette as a real Gaussian-blurred black sprite
-     * (cached per size), offset down and to the right at 50% opacity — the same
-     * blur+offset Lichess applies via {@code feDropShadow}. The opaque badge drawn
-     * on top hides the centre, so only the soft fringe reads as a shadow.</p>
+     * <p>Renders a Gaussian-blurred black disc (cached per size) slightly larger
+     * than the badge, centered on it, so a soft even halo shows all around the
+     * opaque badge drawn on top — not an offset crescent.</p>
      *
      * @param g graphics context
      * @param x badge left edge
@@ -367,32 +370,36 @@ final class BoardMarkupPainter {
             return;
         }
         BufferedImage sprite = SHADOW_SPRITES.computeIfAbsent(diameter, BoardMarkupPainter::buildShadowSprite);
-        int margin = (sprite.getWidth() - diameter) / 2;
-        int dx = (int) Math.round(diameter * SHADOW_DX_FRACTION);
-        int dy = (int) Math.round(diameter * SHADOW_DY_FRACTION);
+        int centerX = x + Math.round(diameter / 2f);
+        int centerY = y + Math.round(diameter / 2f);
+        int half = sprite.getWidth() / 2;
         Composite savedComposite = g.getComposite();
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
-        g.drawImage(sprite, x - margin + dx, y - margin + dy, null);
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, SHADOW_OPACITY));
+        g.drawImage(sprite, centerX - half, centerY - half, null);
         g.setComposite(savedComposite);
     }
 
     /**
-     * Builds a Gaussian-blurred black disc sprite for one badge diameter.
+     * Builds a centered Gaussian-blurred black disc sprite for one badge diameter.
+     * The disc is larger than the badge by {@link #SHADOW_SPREAD_FRACTION} on each
+     * side and centered in the square sprite, so it reads as an even halo.
      *
      * @param diameter badge diameter
      * @return blurred black disc on a transparent, padded canvas
      */
     private static BufferedImage buildShadowSprite(int diameter) {
+        double spread = diameter * SHADOW_SPREAD_FRACTION;
         double sigma = Math.max(0.6, diameter * SHADOW_BLUR_FRACTION);
+        int discDiameter = Math.max(1, (int) Math.round(diameter + 2.0 * spread));
         int radius = (int) Math.ceil(sigma * 3.0);
         int margin = radius + 1;
-        int size = diameter + margin * 2;
+        int size = discDiameter + margin * 2;
         BufferedImage disc = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
         Graphics2D ig = disc.createGraphics();
         try {
             ig.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             ig.setColor(Color.BLACK);
-            ig.fill(new Ellipse2D.Double(margin, margin, diameter, diameter));
+            ig.fill(new Ellipse2D.Double(margin, margin, discDiameter, discDiameter));
         } finally {
             ig.dispose();
         }

@@ -11,6 +11,8 @@ import chess.core.MoveList;
 import chess.core.Piece;
 import chess.core.Position;
 import chess.core.PremoveGeometry;
+import chess.struct.Game;
+import chess.struct.Pgn;
 import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Graphics2D;
@@ -945,6 +947,44 @@ public final class BoardPanel extends JPanel {
         recordMarkupEdit(before);
         notifyMarkupChanged();
         repaint();
+    }
+
+    /**
+     * Serializes the current position and drawn annotations as a single-position
+     * PGN document: the position as {@code [FEN]}/{@code [SetUp]} tags (omitted for
+     * the standard start) and the annotations as graphical directives in a comment
+     * on the start position. Inverse of {@link #loadAnnotatedPgn(String)}.
+     *
+     * @return PGN text capturing the board position and annotations
+     */
+    public String toAnnotatedPgn() {
+        String comment = markupComment();
+        String fen = position == null ? null : position.toString();
+        StringBuilder pgn = new StringBuilder();
+        if (fen != null && !fen.equals(Game.STANDARD_START_FEN)) {
+            pgn.append("[SetUp \"1\"]\n[FEN \"").append(fen).append("\"]\n\n");
+        }
+        if (!comment.isEmpty()) {
+            pgn.append('{').append(comment).append("} ");
+        }
+        return pgn.append("*\n").toString();
+    }
+
+    /**
+     * Loads a single-position PGN document produced by {@link #toAnnotatedPgn()}:
+     * sets the board to the document's start position and replaces the drawn
+     * annotations with those parsed from its start-position comment.
+     *
+     * @param pgn PGN text to load
+     */
+    public void loadAnnotatedPgn(String pgn) {
+        Game game = Pgn.parseGame(pgn);
+        Position start = game.getStartPosition();
+        if (start != null) {
+            setPositionInstant(start, Move.NO_MOVE);
+        }
+        List<String> preamble = game.getPreambleComments();
+        applyMarkupComment(preamble.isEmpty() ? "" : String.join(" ", preamble));
     }
 
     /**

@@ -948,16 +948,15 @@ public final class BoardExporter {
      */
     private static void appendGlyphShadowFilter(StringBuilder svg, int size) {
         double diameter = size / 8.0 * GLYPH_DIAMETER_FRACTION;
-        // Classic blur+offset+merge drop shadow (feDropShadow is not reliably
-        // composited by every SVG renderer, e.g. Inkscape drops the source).
-        // Geometry matches Lichess: dx 0.04, dy 0.07, blur 0.05 of the badge, 50%.
+        // Centered soft shadow: blur the badge silhouette and merge it back UNDER
+        // the badge with no offset, so an even halo shows all around it. Uses the
+        // classic blur+merge (feDropShadow is not reliably composited by every SVG
+        // renderer, e.g. Inkscape drops the source graphic).
         svg.append("  <defs><filter id=\"glyph-shadow\" x=\"-50%\" y=\"-50%\" width=\"200%\" height=\"200%\">")
-                .append("<feGaussianBlur in=\"SourceAlpha\" stdDeviation=\"").append(format(diameter * 0.05))
+                .append("<feGaussianBlur in=\"SourceAlpha\" stdDeviation=\"").append(format(diameter * 0.07))
                 .append("\" result=\"b\"/>")
-                .append("<feOffset in=\"b\" dx=\"").append(format(diameter * 0.04))
-                .append("\" dy=\"").append(format(diameter * 0.07)).append("\" result=\"o\"/>")
-                .append("<feComponentTransfer in=\"o\" result=\"s\">")
-                .append("<feFuncA type=\"linear\" slope=\"0.5\"/></feComponentTransfer>")
+                .append("<feComponentTransfer in=\"b\" result=\"s\">")
+                .append("<feFuncA type=\"linear\" slope=\"0.55\"/></feComponentTransfer>")
                 .append("<feMerge><feMergeNode in=\"s\"/><feMergeNode in=\"SourceGraphic\"/></feMerge>")
                 .append("</filter></defs>\n");
     }

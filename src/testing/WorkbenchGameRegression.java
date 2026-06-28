@@ -131,6 +131,7 @@ final class WorkbenchGameRegression {
         testStudyRepositoryCreatesStarterPgnBook();
         testStudyShapeCommentCodecRoundTrips();
         testBoardMarkupCommentRoundTrips();
+        testBoardAnnotatedPgnRoundTrips();
         testStudyTreeModelEditsFullPgnTree();
         testStudyRepositorySavesPgnBackedProject();
         testStudyRepositoryImportsReviewStudyUnits();
@@ -1428,6 +1429,35 @@ final class WorkbenchGameRegression {
         BoardMarkup rect = decoded.stream().filter(BoardMarkup::isRectangle).findFirst().orElseThrow();
         assertEquals("a1", Field.toString(rect.from()), "rectangle origin square survives");
         assertEquals("c3", Field.toString(rect.to()), "rectangle corner square survives");
+    }
+
+    /**
+     * Verifies a board's position and drawn annotations save to a single-position PGN document
+     * and load back onto a fresh board (end-to-end save / store / load).
+     */
+    private static void testBoardAnnotatedPgnRoundTrips() {
+        String fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1";
+        BoardPanel board = new BoardPanel();
+        board.setPositionInstant(new Position(fen), Move.NO_MOVE);
+        board.applyMarkupComment("[%cal Ge2e4] [%cgl e4/" + AnnotationGlyphs.BRILLIANT_MOVE + "/8B4CE0]");
+        assertEquals(Integer.valueOf(2), Integer.valueOf(board.boardMarkups().size()),
+                "board carries the two drawn annotations before saving");
+
+        String pgn = board.toAnnotatedPgn();
+        assertTrue(pgn.contains("[FEN \"" + fen + "\"]"), "saved PGN carries the position FEN");
+        assertTrue(pgn.contains("[%cal Ge2e4]"), "saved PGN carries the arrow directive");
+        assertTrue(pgn.contains("[%cgl e4/" + AnnotationGlyphs.BRILLIANT_MOVE + "/8B4CE0]"),
+                "saved PGN carries the glyph directive");
+
+        BoardPanel loaded = new BoardPanel();
+        loaded.loadAnnotatedPgn(pgn);
+        assertEquals(fen, loaded.position(), "loaded board restores the saved position");
+        List<BoardMarkup> markups = loaded.boardMarkups();
+        assertEquals(Integer.valueOf(2), Integer.valueOf(markups.size()),
+                "loaded board restores both annotations");
+        BoardMarkup glyph = markups.stream().filter(BoardMarkup::isGlyph).findFirst().orElseThrow();
+        assertEquals(AnnotationGlyphs.BRILLIANT_MOVE, glyph.brush().glyph(), "loaded glyph token matches");
+        assertEquals("e4", Field.toString(glyph.from()), "loaded glyph square matches");
     }
 
     /**
