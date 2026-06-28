@@ -33,6 +33,7 @@ For end-user workflows see [Getting Started](getting-started.md) and the [Comman
 - `application.cli.Constants` holds the canonical command tokens. The plumbing every command shares — engine setup, eval setup, record I/O, FEN/PGN parsing, output formatting, validation — lives in sibling classes like `EngineOps`, `EvalOps`, `RecordIO`, `PgnOps`, and `Format`, so a new command rarely has to reinvent any of it.
 - `application.gui.workbench` is the Swing Workbench launched by `workbench` (alias `gui`): board view, play-vs-engine, command forms, batch jobs, dataset tools, logs, publishing previews, puzzles, and neural-net visualizers.
 - Workbench UI changes should follow the [Workbench Design Guide](workbench-design-guide.md): use `Theme`, `Ui`, shared layout primitives, and focused Workbench regressions instead of local styling copies.
+- Workbench architecture changes should follow [GUI Architecture](gui-architecture.md): use foundation/platform packages for reusable contracts, feature packages for vertical seams, and architecture baselines for existing Swing debt.
 
 ### `src/chess/` — the shared core and everything built on it
 

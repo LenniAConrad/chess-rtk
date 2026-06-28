@@ -64,6 +64,12 @@ Rows are written as JSONL so long reviews can be streamed and diffed line by lin
 
 The review row's `study_unit_id` is set only when `--to-study` is active and a matching study unit is emitted.
 
+## Workbench Study Import
+
+The Workbench Study Workspace can import the `crtk.review.study_unit.v1` JSONL file directly into a local PGN-backed study. Open Board -> Analyze -> Study Workspace, choose Import Review, and select the `*.study.jsonl` artifact. Each study unit becomes a chapter rooted at `parent_fen`; the recommended best move starts the mainline, the refutation line becomes the continuation, and the played move is kept as a marked variation with mistake/blunder NAGs.
+
+Swing does not recompute review verdicts. The import consumes the existing JSONL fields: `played_san`, `best_san`, `mistake_category`, `difficulty`, and `tags` are written into comments, while the exported PGN remains normal PGN with comments, NAGs, and variations.
+
 ## Record Handoff
 
 The Record sidecar uses the existing `crtk.record.v2` shape so record, puzzle, mining, and publishing tools can read it without a new parser. For each study unit:

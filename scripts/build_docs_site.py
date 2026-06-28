@@ -72,6 +72,7 @@ NAVIGATION: list[tuple[str, list[tuple[str, str]]]] = [
         [
             ("workbench.md", "Workbench"),
             ("workbench-design-guide.md", "Design Guide"),
+            ("gui-architecture.md", "GUI Architecture"),
         ],
     ),
     (

@@ -432,7 +432,8 @@ blockquote p:last-child {
 <li><a href="#chapter-configuration">Configuration</a></li>
 <li><a href="#chapter-outputs-and-logs">Outputs &amp; Logs</a></li></ol></section>
 <section><h2>Desktop Workbench</h2><ol><li><a href="#chapter-workbench">Workbench</a></li>
-<li><a href="#chapter-workbench-design-guide">Design Guide</a></li></ol></section>
+<li><a href="#chapter-workbench-design-guide">Design Guide</a></li>
+<li><a href="#chapter-gui-architecture">GUI Architecture</a></li></ol></section>
 <section><h2>Engines &amp; Models</h2><ol><li><a href="#chapter-in-house-engine">Built-in Engine</a></li>
 <li><a href="#chapter-lc0">LC0 Networks</a></li>
 <li><a href="#chapter-gpu">GPU Acceleration</a></li>
@@ -531,6 +532,11 @@ crtk workbench</code></pre>
 <td><a href="#chapter-workbench-design-guide">Workbench Design Guide</a></td>
 <td><code>java -Djava.awt.headless=true -cp out testing.WorkbenchRegressionTest</code></td>
 </tr>
+<tr>
+<td>Extend GUI architecture</td>
+<td><a href="#chapter-gui-architecture">GUI Architecture</a></td>
+<td><code>java -cp out testing.GuiArchitectureRegressionTest</code></td>
+</tr>
 </tbody></table></div>
 <h2 id="chapter-home-documentation-map">Documentation Map</h2>
 <div class="table-wrap"><table>
@@ -556,7 +562,7 @@ crtk workbench</code></pre>
 </tr>
 <tr>
 <td>Project</td>
-<td><a href="#chapter-architecture">Architecture</a>, <a href="#chapter-quality-and-testing">Quality and Testing</a>, <a href="#chapter-development-notes">Development Notes</a>, <a href="#chapter-workbench-design-guide">Workbench Design Guide</a>, <a href="#chapter-releasing">Releasing</a></td>
+<td><a href="#chapter-architecture">Architecture</a>, <a href="#chapter-quality-and-testing">Quality and Testing</a>, <a href="#chapter-development-notes">Development Notes</a>, <a href="#chapter-workbench-design-guide">Workbench Design Guide</a>, <a href="#chapter-gui-architecture">GUI Architecture</a>, <a href="#chapter-releasing">Releasing</a></td>
 </tr>
 </tbody></table></div>
 <p>For bug reports, start with <a href="#chapter-troubleshooting">Troubleshooting</a>. Include the command, input FEN or file, Java version, operating system, and engine protocol TOML when an external engine is involved.</p>
@@ -1892,6 +1898,10 @@ crtk engine perft-suite --depth 5                   # movegen correctness regres
 <tr>
 <td><code>position</code></td>
 <td>Inspect and compare positions</td>
+</tr>
+<tr>
+<td><code>eco</code></td>
+<td>Query and validate the bundled Encyclopedia of Chess Openings</td>
 </tr>
 <tr>
 <td><code>book</code></td>
@@ -4093,6 +4103,137 @@ crtk find-mate --fen &quot;&lt;FEN&gt;&quot; --mate 6 --max-nodes 5000000 --thre
 </tr>
 </tbody></table></div>
 <pre><code class="language-bash">crtk position describe --fen &quot;&lt;FEN&gt;&quot; --detail full --format text</code></pre>
+<h2 id="chapter-command-reference-eco">eco</h2>
+<p>Query the bundled Encyclopedia of Chess Openings without going through the tagger. The shipped <code>config/book.eco.toml</code> is a complete A00-E99 table with 3,412 parsed rows and 500 unique ECO codes; <code>eco validate</code> is the quick check that the loaded book still covers every code.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Subcommand</th>
+<th>Purpose</th>
+</tr></thead><tbody>
+<tr>
+<td><code>eco lookup</code></td>
+<td>Resolve a FEN or SAN line to the deepest matching ECO entry</td>
+</tr>
+<tr>
+<td><code>eco search</code></td>
+<td>Search ECO codes, opening names, and movetext</td>
+</tr>
+<tr>
+<td><code>eco continuations</code></td>
+<td>List ECO next moves from a FEN or SAN line</td>
+</tr>
+<tr>
+<td><code>eco moves</code></td>
+<td>Alias for <code>eco continuations</code></td>
+</tr>
+<tr>
+<td><code>eco validate</code></td>
+<td>Validate parsed ECO code coverage</td>
+</tr>
+</tbody></table></div>
+<h3 id="chapter-command-reference-eco-lookup">eco lookup</h3>
+<p>Resolve a position to the ECO entry stored for that position. Use <code>--line</code> for SAN movetext from the standard start position, or <code>--fen</code> for an exact position.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Option</th>
+<th>Description</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--fen FEN</code></td>
+<td>Position to resolve; a positional FEN is also accepted</td>
+</tr>
+<tr>
+<td><code>--line SAN</code></td>
+<td>SAN movetext from the standard start position</td>
+</tr>
+<tr>
+<td><code>--book PATH</code></td>
+<td>ECO TOML file (default <code>config/book.eco.toml</code>)</td>
+</tr>
+<tr>
+<td><code>--json</code> / <code>--jsonl</code></td>
+<td>Emit structured output</td>
+</tr>
+</tbody></table></div>
+<pre><code class="language-bash">crtk eco lookup --line &quot;1. d4 Nf6 2. c4 g6 3. g3 Bg7 4. Bg2 O-O&quot;
+crtk eco lookup --fen &quot;&lt;FEN&gt;&quot; --json</code></pre>
+<h3 id="chapter-command-reference-eco-search">eco search</h3>
+<p>Search the loaded book by code, name, or movetext. Results stay in book order, capped by <code>--limit</code> unless you pass <code>0</code>.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Option</th>
+<th>Description</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--query</code>/<code>-q TEXT</code></td>
+<td>Search text; a positional query is also accepted</td>
+</tr>
+<tr>
+<td><code>--book PATH</code></td>
+<td>ECO TOML file (default <code>config/book.eco.toml</code>)</td>
+</tr>
+<tr>
+<td><code>--limit N</code></td>
+<td>Maximum rows to emit (default <code>20</code>; <code>0</code> means no cap)</td>
+</tr>
+<tr>
+<td><code>--json</code> / <code>--jsonl</code></td>
+<td>Emit structured output</td>
+</tr>
+</tbody></table></div>
+<pre><code class="language-bash">crtk eco search --query Najdorf --limit 5
+crtk eco search D72 --jsonl</code></pre>
+<h3 id="chapter-command-reference-eco-continuations">eco continuations</h3>
+<p>List next moves that occur in ECO lines from the selected position. Rows are sorted by frequency, then SAN, then UCI. With no selector it uses the standard start position.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Option</th>
+<th>Description</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--fen FEN</code></td>
+<td>Position to inspect; a positional FEN is also accepted</td>
+</tr>
+<tr>
+<td><code>--line SAN</code></td>
+<td>SAN movetext from the standard start position</td>
+</tr>
+<tr>
+<td><code>--startpos</code></td>
+<td>Use the standard start position</td>
+</tr>
+<tr>
+<td><code>--book PATH</code></td>
+<td>ECO TOML file (default <code>config/book.eco.toml</code>)</td>
+</tr>
+<tr>
+<td><code>--limit N</code></td>
+<td>Maximum moves to emit (default <code>20</code>; <code>0</code> means no cap)</td>
+</tr>
+<tr>
+<td><code>--json</code> / <code>--jsonl</code></td>
+<td>Emit structured output</td>
+</tr>
+</tbody></table></div>
+<pre><code class="language-bash">crtk eco continuations --startpos
+crtk eco continuations --line &quot;1. d4 Nf6 2. c4 g6&quot; --json</code></pre>
+<h3 id="chapter-command-reference-eco-validate">eco validate</h3>
+<p>Load an ECO book and verify that every code from <code>A00</code> through <code>E99</code> is present.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Option</th>
+<th>Description</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--book PATH</code></td>
+<td>ECO TOML file (default <code>config/book.eco.toml</code>)</td>
+</tr>
+<tr>
+<td><code>--json</code></td>
+<td>Emit one validation report</td>
+</tr>
+</tbody></table></div>
+<pre><code class="language-bash">crtk eco validate --json</code></pre>
 <h2 id="chapter-command-reference-book">book</h2>
 <p>Turn records and manifests into print-ready PDFs. The renderer writes vector PDFs directly — interiors and covers, no external typesetter — with figurine algebraic notation in the captions and solution tables.</p>
 <div class="table-wrap"><table>
@@ -5751,11 +5892,14 @@ java -jar crtk.jar config show</code></pre>
 </ul>
 <p>Treat these as research evaluators, not bit-exact clones of the engines they&#x27;re modeled on. The LC0 path reads crtk&#x27;s compact <code>.bin</code> format instead of LC0&#x27;s protobuf, and the BT4 transformer is simplified and experimental — it is not LC0-bit-equivalent, so don&#x27;t expect matching output. For filenames, architectures, and download links, see the in-repo <code>models/README.md</code>; the evaluators that consume them are documented in <a href="#chapter-in-house-engine">In-House Engine</a> and <a href="#chapter-lc0">LC0</a>.</p>
 <h2 id="chapter-configuration-optional-eco-book-config-book-eco-toml">Optional ECO book: <code>config/book.eco.toml</code></h2>
-<p>An Encyclopedia of Chess Openings dictionary: it maps move sequences to ECO codes and opening names. An entry reads:</p>
+<p>An Encyclopedia of Chess Openings dictionary: it maps move sequences to ECO codes and opening names. The bundled book is a complete A00-E99 table with 3,412 parsed rows and 500 unique ECO codes. An entry reads:</p>
 <pre><code class="language-text">[[A00]]
 name     = &quot;Amar Opening&quot;
 movetext = &quot;1. Nh3&quot;</code></pre>
-<p>With the file present, the tagging subsystem — <code>fen tags</code>, <code>puzzle tags</code>, and mined records — annotates positions reachable through book lines with tags like <code>eco: A00</code> and <code>opening: Amar Opening</code>. Without it, opening tags drop out and nothing else changes; the book is enrichment, not a dependency. Lines starting with <code>#</code> are comments.</p>
+<p>With the file present, the tagging subsystem — <code>fen tags</code>, <code>puzzle tags</code>, and mined records — annotates positions reachable through book lines with tags like <code>eco: A00</code> and <code>opening: Amar Opening</code>. The same book is queryable from the CLI through <code>eco lookup</code>, <code>eco search</code>, <code>eco continuations</code>, and <code>eco validate</code>.</p>
+<pre><code class="language-bash">crtk eco validate --json
+crtk eco lookup --line &quot;1. d4 Nf6 2. c4 g6&quot;</code></pre>
+<p>Without the file, opening tags drop out and nothing else changes; the book is enrichment, not a dependency. Lines starting with <code>#</code> are comments.</p>
 <h2 id="chapter-configuration-resolution-order">Resolution order</h2>
 <p>Every setting passes through three layers, each overriding the last:</p>
 <ol>
@@ -6279,6 +6423,7 @@ crtk workbench --flip</code></pre>
   <div class="chapter-body">
     <p>The ChessRTK Workbench is a dense desktop research tool, not a landing page and not a decorative demo. Design new UI as VS Code on macOS applied to chess tooling: compact editor chrome, clear hierarchy, quiet surfaces, high information density, and a small amount of restrained frosted-glass influence only where it improves orientation. The goal is that a researcher can scan a position, command, dataset, or engine run quickly and trust that the GUI is showing the same deterministic system as the CLI.</p>
 <p>This page is the standard for Workbench UI changes. It covers visual direction, layout, controls, copy, accessibility, and verification.</p>
+<p>For package boundaries, feature extraction rules, and the migration ledger, see <a href="#chapter-gui-architecture">GUI Architecture</a>.</p>
 <h2 id="chapter-workbench-design-guide-core-principles">Core Principles</h2>
 <ul>
 <li><strong>Use the shared chess core.</strong> UI affordances may be visual, but legality, FEN, SAN, UCI, tags, engine settings, and command text still come from the same code paths the CLI uses.</li>
@@ -6339,6 +6484,25 @@ crtk workbench --flip</code></pre>
 </tr>
 </tbody></table></div>
 <p>Do not ship a panel that looks &quot;close enough&quot; but uses local colors, raw Swing control styling, arbitrary spacing, or a new layout language.</p>
+<h2 id="chapter-workbench-design-guide-ui-layer-ownership">UI Layer Ownership</h2>
+<p>The shared Swing layer lives in <code>application.gui.workbench.ui</code>. Treat it as a design-system boundary, not as a miscellaneous helper folder.</p>
+<p>The UI layer owns:</p>
+<ul>
+<li>Theme tokens: colors, typography, spacing, borders, radii, surfaces, and state colors.</li>
+<li>Reusable controls: buttons, toggles, badges, segmented controls, chips, headers, surfaces, overlays, and empty states.</li>
+<li>Generic Swing styling: table, tree, scroll pane, combo box, spinner, slider, popup, tooltip, dialog, and file-chooser chrome.</li>
+<li>Generic rendering helpers: icons, hit regions, acceleration hints, and small non-domain painters.</li>
+<li>Facades that feature packages should prefer: <code>Ui</code>, <code>Theme</code>, <code>Toast</code>, <code>FileDialogs</code>, and <code>SwingTasks</code>.</li>
+</ul>
+<p>The UI layer does not own:</p>
+<ul>
+<li>Chess legality, FEN, SAN, UCI, or move generation.</li>
+<li>Board state, game state, engine state, MCTS state, or session workflows.</li>
+<li>Feature-specific models, command execution semantics, neural-network fidelity claims, or artifact formats.</li>
+<li>One-off local styling for a single screen.</li>
+</ul>
+<p>Most feature packages should import <code>Ui</code>, <code>Theme</code>, and a small number of public primitives such as <code>SurfacePanel</code>, <code>WorkspaceHeader</code>, <code>StatusBadge</code>, <code>ToggleBox</code>, <code>HoldButton</code>, or <code>SegmentedSwitcher</code>. Styling internals such as palette installers, Swing UI delegates, input chrome, and helper factories stay package-private. If a feature needs a new visual pattern, first add a reusable primitive or facade method in the UI layer, then use that primitive from the feature package.</p>
+<p>Do not split <code>application.gui.workbench.ui</code> into subpackages until the public API is stable. Java subpackages do not share package-private access, so splitting too early usually forces internals to become public. When a split is justified, move one group at a time: <code>ui.components</code> for reusable controls, <code>ui.layout</code> for surfaces and layout helpers, <code>ui.theme</code> for palette and installer internals, <code>ui.paint</code> for generic painters, and <code>ui.dialogs</code> for modal/toast/file-dialog helpers.</p>
 <h2 id="chapter-workbench-design-guide-reference-model">Reference Model</h2>
 <p>The Workbench should not copy VS Code or macOS pixel-for-pixel. It should translate their useful rules into ChessRTK&#x27;s Java Swing implementation.</p>
 <div class="table-wrap"><table>
@@ -9200,7 +9364,306 @@ git diff --check</code></pre>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Engines &amp; Models · Chapter 15</p>
+  <p class="chapter-kicker">Desktop Workbench · Chapter 15</p>
+  <h1 id="chapter-gui-architecture">GUI Architecture</h1>
+  <div class="chapter-body">
+    <p>The Swing GUI is being moved toward explicit packages and narrow feature contracts. The goal is long-term maintainability without changing the visible Workbench behavior: keep the deterministic chess core, keep Swing, keep the existing look and workflows, and make each new slice easier to test without a full frame.</p>
+<p>This page defines the target boundaries for GUI code. It complements the <a href="#chapter-workbench-design-guide">Workbench design guide</a>, which covers visual and interaction rules.</p>
+<h2 id="chapter-gui-architecture-package-boundaries">Package Boundaries</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Package</th>
+<th>Owns</th>
+<th>Must not own</th>
+</tr></thead><tbody>
+<tr>
+<td><code>application.gui.app</code></td>
+<td>Composition roots that wire application shells to features</td>
+<td>Feature logic, Swing styling internals, chess rules</td>
+</tr>
+<tr>
+<td><code>application.gui.foundation</code></td>
+<td>GUI primitives with no Workbench, feature, CLI, or chess dependency</td>
+<td>Theme colors, Workbench state, command dispatch</td>
+</tr>
+<tr>
+<td><code>application.gui.foundation.layout</code></td>
+<td>Reusable layout and scroll math</td>
+<td>Feature-specific layout decisions</td>
+</tr>
+<tr>
+<td><code>application.gui.platform</code></td>
+<td>Platform-service contracts such as clipboard, dialogs, notifications, UI-thread dispatch, and background execution</td>
+<td>Workbench frame state or feature workflows</td>
+</tr>
+<tr>
+<td><code>application.gui.platform.swing</code></td>
+<td>Swing-backed implementations of platform contracts</td>
+<td>Feature-specific behavior</td>
+</tr>
+<tr>
+<td><code>application.gui.feature.&lt;name&gt;</code></td>
+<td>Feature contracts, controllers, feature state, dependency ports, and legacy adapters during migration</td>
+<td>Direct <code>WindowBase</code> access, sibling feature implementations</td>
+</tr>
+<tr>
+<td><code>application.gui.workbench.ui</code></td>
+<td>Workbench design-system facade, theme, controls, icons, dialogs, toasts, and Swing styling internals</td>
+<td>Chess rules, command execution semantics, feature models</td>
+</tr>
+<tr>
+<td><code>application.gui.workbench.window</code></td>
+<td>Legacy shell, registered views, split/dock behavior, compatibility adapters</td>
+<td>New feature logic when a feature package can own it</td>
+</tr>
+</tbody></table></div>
+<h2 id="chapter-gui-architecture-dependency-direction">Dependency Direction</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>From</th>
+<th>May depend on</th>
+</tr></thead><tbody>
+<tr>
+<td><code>foundation</code></td>
+<td>JDK and Swing only</td>
+</tr>
+<tr>
+<td><code>platform</code></td>
+<td>JDK and generic Swing types when needed for contracts</td>
+</tr>
+<tr>
+<td><code>platform.swing</code></td>
+<td><code>platform</code>, JDK, Swing</td>
+</tr>
+<tr>
+<td><code>feature.&lt;name&gt;</code></td>
+<td><code>foundation</code>, <code>platform</code>, shared domain models required by the feature, its own package, and temporary legacy Swing panels only inside compatibility controllers</td>
+</tr>
+<tr>
+<td><code>app</code></td>
+<td>feature packages, platform implementations, legacy shell types while wiring compatibility slices</td>
+</tr>
+<tr>
+<td><code>workbench.ui</code></td>
+<td><code>foundation</code>, Swing, generic Workbench visual primitives</td>
+</tr>
+<tr>
+<td><code>workbench.window</code></td>
+<td>app composition, feature view contracts, legacy Workbench panels during migration</td>
+</tr>
+</tbody></table></div>
+<p>Feature packages must not receive <code>WindowBase</code> or <code>WindowHost</code>. If a feature needs something from the shell, add a narrow dependency port and pass exactly that service.</p>
+<h2 id="chapter-gui-architecture-current-slice">Current Slice</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Area</th>
+<th>Change</th>
+</tr></thead><tbody>
+<tr>
+<td>Foundation</td>
+<td><code>ScrollableSupport</code> moved to <code>application.gui.foundation.layout</code></td>
+</tr>
+<tr>
+<td>Platform</td>
+<td>Added clipboard, dialog, notification, UI-executor, and background-executor contracts</td>
+</tr>
+<tr>
+<td>Swing platform</td>
+<td>Added Swing implementations for clipboard, dialogs, UI executor, and background executor</td>
+</tr>
+<tr>
+<td>Feature</td>
+<td>Added <code>application.gui.feature.publishing</code></td>
+</tr>
+<tr>
+<td>Feature</td>
+<td>Added <code>application.gui.feature.dataset</code></td>
+</tr>
+<tr>
+<td>Dataset</td>
+<td>Added <code>DatasetView</code>, <code>DatasetDependencies</code>, and <code>DatasetController</code></td>
+</tr>
+<tr>
+<td>Publishing</td>
+<td>Added <code>PublishingView</code>, <code>PublishingDependencies</code>, and <code>PublishingController</code></td>
+</tr>
+<tr>
+<td>Report</td>
+<td>Added <code>ReportView</code>, <code>ReportDependencies</code>, and <code>ReportController</code></td>
+</tr>
+<tr>
+<td>Composition</td>
+<td>Added <code>LegacyWorkbenchComposition.datasetView(...)</code></td>
+</tr>
+<tr>
+<td>Composition</td>
+<td>Added <code>LegacyWorkbenchComposition.publishingView(...)</code></td>
+</tr>
+<tr>
+<td>Composition</td>
+<td>Added <code>LegacyWorkbenchComposition.reportView(...)</code></td>
+</tr>
+<tr>
+<td>Shell</td>
+<td><code>WindowBase</code> now stores <code>DatasetView</code> and creates Dataset through the composition helper</td>
+</tr>
+<tr>
+<td>Shell</td>
+<td><code>WindowBase</code> now stores <code>PublishingView</code> and creates Publishing through the composition helper</td>
+</tr>
+<tr>
+<td>Shell</td>
+<td><code>WindowBase</code> now stores the main report as <code>ReportView</code> and creates report views through the composition helper</td>
+</tr>
+<tr>
+<td>Gallery</td>
+<td>Added <code>testing.GuiComponentGallery</code> for headless light/dark shared-control rendering</td>
+</tr>
+<tr>
+<td>Regression</td>
+<td>Added <code>testing.GuiArchitectureRegressionTest</code>, <code>testing.DatasetFeatureRegressionTest</code>, <code>testing.ReportFeatureRegressionTest</code>, and <code>testing.PublishingFeatureRegressionTest</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="chapter-gui-architecture-publishing-pilot">Publishing Pilot</h2>
+<p>Publishing is the first vertical feature seam because it already had a host contract and a coherent workflow. The migration keeps <code>PublishingPanel</code> as the concrete Swing implementation, but the Workbench shell now depends on <code>PublishingView</code>.</p>
+<p>The new dependency bundle names the services Publishing actually uses: owner component, current FEN, game model, batch input, report service, command runner, clipboard, command control, notifications, and dialogs. <code>PublishingController</code> adapts those ports to the existing <code>PublishingPanel.Host</code>, so the panel can move gradually instead of being rewritten at once.</p>
+<p>Remaining compatibility debt is intentional and smaller than before. <code>PublishingPanel</code> implements <code>PublishingView</code>, <code>ReportPanel</code> implements <code>ReportView</code>, and both <code>WindowPublishingHost</code> and <code>WindowReportHost</code> have been removed. The next safe slice is to start a second vertical feature seam.</p>
+<h2 id="chapter-gui-architecture-dataset-seam">Dataset Seam</h2>
+<p>Dataset is the second vertical feature seam because its shell needs are narrow: it only needs callbacks to open a selected FEN in the shared Board tab or a detached Board tab. The migration keeps <code>DatasetPanel</code> as the concrete Swing implementation, but the Workbench shell now depends on <code>DatasetView</code>.</p>
+<p><code>DatasetController</code> creates the legacy panel from <code>DatasetDependencies</code>, and <code>WindowBase</code> now routes Dataset construction through <code>LegacyWorkbenchComposition.datasetView(...)</code>. The command palette still calls <code>analyzeCurrentSource()</code>, but it does so through the feature view contract.</p>
+<h2 id="chapter-gui-architecture-architecture-baseline">Architecture Baseline</h2>
+<p><code>testdata/gui/architecture-baseline.tsv</code> records current GUI debt for direct Swing construction and local decorating calls. The baseline exists because the old Workbench has a lot of direct Swing code. The rule is not &quot;fix all of it now&quot;; the rule is &quot;do not grow it accidentally.&quot;</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Rule</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>raw-swing-construction</code></td>
+<td>Direct construction of common Swing controls outside shared factories</td>
+</tr>
+<tr>
+<td><code>direct-color-construction</code></td>
+<td>Direct <code>new Color(...)</code> usage</td>
+</tr>
+<tr>
+<td><code>direct-set-font</code></td>
+<td>Direct <code>setFont(...)</code> usage</td>
+</tr>
+<tr>
+<td><code>direct-set-border</code></td>
+<td>Direct <code>setBorder(...)</code> usage</td>
+</tr>
+<tr>
+<td><code>ui-manager-access</code></td>
+<td>Direct <code>UIManager</code> access</td>
+</tr>
+<tr>
+<td><code>window-base-field</code></td>
+<td>Non-static field count in <code>WindowBase</code></td>
+</tr>
+</tbody></table></div>
+<p>When a cleanup reduces a count, regenerate the baseline with:</p>
+<pre><code class="language-bash">java -cp out testing.GuiArchitectureRegressionTest --write-baseline</code></pre>
+<p>Do this only after reviewing the diff. A baseline increase should be rare and explained in the commit or report.</p>
+<h2 id="chapter-gui-architecture-regression-rules">Regression Rules</h2>
+<p><code>testing.GuiArchitectureRegressionTest</code> enforces these constraints:</p>
+<ul>
+<li>GUI packages with Java source must include <code>package-info.java</code>.</li>
+<li>GUI package declarations must match source paths.</li>
+<li>Foundation code must not import app, feature, Workbench, CLI, or chess packages.</li>
+<li>Feature packages must not import sibling feature implementations.</li>
+<li>Feature packages must not depend on <code>WindowBase</code> or <code>WindowHost</code>.</li>
+<li>The legacy <code>Window*Layer</code> inheritance chain and <code>WindowHost</code> adapter set must not grow outside the allowlist.</li>
+<li><code>WindowBase</code> must create Dataset through <code>LegacyWorkbenchComposition.datasetView(...)</code>.</li>
+<li><code>WindowBase</code> must create Publishing through <code>LegacyWorkbenchComposition.publishingView(...)</code>.</li>
+<li><code>WindowPublishingHost</code> must stay removed.</li>
+<li><code>WindowBase</code> must create reports through <code>LegacyWorkbenchComposition.reportView(...)</code>.</li>
+<li><code>WindowReportHost</code> must stay removed.</li>
+<li>Baseline-tracked Swing construction and decorating debt must not increase.</li>
+</ul>
+<p><code>testing.PublishingFeatureRegressionTest</code> verifies the Publishing compatibility adapter delegates through the narrow feature dependencies.</p>
+<p><code>testing.DatasetFeatureRegressionTest</code> verifies the Dataset controller creates the current panel behind the feature view contract and validates its dependency bundle.</p>
+<p><code>testing.ReportFeatureRegressionTest</code> verifies the report compatibility adapter delegates through the narrow feature dependencies.</p>
+<p><code>testing.GuiComponentGallery</code> verifies representative shared controls paint in light and dark modes under headless Swing.</p>
+<h2 id="chapter-gui-architecture-migration-rules">Migration Rules</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Rule</th>
+<th>Rationale</th>
+</tr></thead><tbody>
+<tr>
+<td>Move one vertical feature at a time</td>
+<td>Big-bang GUI rewrites are too risky in this codebase</td>
+</tr>
+<tr>
+<td>Keep concrete Swing panels working while adding view contracts</td>
+<td>This preserves behavior and avoids visual churn</td>
+</tr>
+<tr>
+<td>Prefer narrow dependency records over host inheritance</td>
+<td>Tests can fake records without constructing a frame</td>
+</tr>
+<tr>
+<td>Move pure helpers to foundation only when they have no Workbench dependency</td>
+<td>Foundation must stay reusable and low-level</td>
+</tr>
+<tr>
+<td>Keep <code>workbench.ui</code> as the design-system boundary</td>
+<td>Feature packages should use <code>Ui</code>, <code>Theme</code>, and public primitives, not package-private helpers</td>
+</tr>
+<tr>
+<td>Update architecture tests before adding exceptions</td>
+<td>The tests are the long-term design contract</td>
+</tr>
+</tbody></table></div>
+<h2 id="chapter-gui-architecture-migration-ledger">Migration Ledger</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Date</th>
+<th>Slice</th>
+<th>Result</th>
+</tr></thead><tbody>
+<tr>
+<td class="numeric">2026-06-25</td>
+<td>Initial architecture slice</td>
+<td>Added foundation, platform, feature, app packages; moved <code>ScrollableSupport</code>; created Publishing seam; added architecture baseline, component gallery, and focused regressions</td>
+</tr>
+<tr>
+<td class="numeric">2026-06-25</td>
+<td>Report seam</td>
+<td>Added <code>ReportView</code>, <code>ReportDependencies</code>, and <code>ReportController</code>; routed report creation through the composition helper; removed <code>WindowPublishingHost</code> and <code>WindowReportHost</code>; added report seam regression</td>
+</tr>
+<tr>
+<td class="numeric">2026-06-25</td>
+<td>Dataset seam</td>
+<td>Added <code>DatasetView</code>, <code>DatasetDependencies</code>, and <code>DatasetController</code>; routed Dataset creation through the composition helper; added dataset seam regression</td>
+</tr>
+</tbody></table></div>
+<h2 id="chapter-gui-architecture-next-steps">Next Steps</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Priority</th>
+<th>Work</th>
+</tr></thead><tbody>
+<tr>
+<td class="numeric">1</td>
+<td>Add a Play feature seam after Dataset and Publishing are stable</td>
+</tr>
+<tr>
+<td class="numeric">2</td>
+<td>Move feature state out of <code>WindowBase</code> where a feature package can own it</td>
+</tr>
+<tr>
+<td class="numeric">3</td>
+<td>Reduce baseline debt counts as shared factories absorb direct Swing styling</td>
+</tr>
+</tbody></table></div>
+  </div>
+</section>
+
+<section class="chapter">
+  <p class="chapter-kicker">Engines &amp; Models · Chapter 16</p>
   <h1 id="chapter-in-house-engine">Built-in Engine</h1>
   <div class="chapter-body">
     <p>Everything here runs inside the same process that issued the command — no UCI subprocess to spawn, no socket to configure, no background engine to outlive its job. The core built-in command (<code>engine builtin</code> / <code>engine java</code>) now defaults to deterministic alpha-beta for the classical and NNUE evaluators, while LC0 CNN and OTIS still default to the PUCT-style MCTS search that can use their policy priors. Around it sit a standalone exhaustive forced-mate prover (<code>engine mate</code>), one-shot position evaluation (<code>engine eval</code> / <code>engine static</code>), an opponent-threat analyzer (<code>engine threats</code>), and a move-generator benchmark (<code>engine benchmark</code>). All of them share crtk&#x27;s one chess core, return the same answer for the same inputs and budget, and stop only where you tell them to — via explicit <code>--depth</code>, <code>--nodes</code>, and <code>--max-duration</code> limits. That combination is what makes it pleasant in scripts, CI, and research you need to reproduce.</p>
@@ -9493,7 +9956,7 @@ crtk engine benchmark --fen &quot;&lt;FEN&gt;&quot; --depth 4 --json</code></pre
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Engines &amp; Models · Chapter 16</p>
+  <p class="chapter-kicker">Engines &amp; Models · Chapter 17</p>
   <h1 id="chapter-lc0">LC0 Networks</h1>
   <div class="chapter-body">
     <p>There are two ways to put a Leela Chess Zero network to work here, and they answer different questions. Run upstream <code>lc0</code> as an <strong>external UCI engine</strong> against its own <code>.pb.gz</code> weights when you want LC0 itself, exactly. Or use the <strong>built-in Java LC0 CNN evaluator</strong>, which loads compact ChessRTK <code>.bin</code> weights and runs policy/value inference in-process on the CPU or an optional native GPU backend. The in-process evaluator sits on the same deterministic chess core as everything else, so the position you score (<code>engine eval --lc0</code>), search (<code>engine builtin --lc0</code>), visualize in the Workbench, or export as training tensors (<code>record dataset lc0</code>) is one and the same object. The catch worth stating up front: these are honest, usable evaluators, <strong>not</strong> bit-exact reproductions of upstream LC0. The transformer (BT4) path is more experimental still. When fidelity is the point, run real <code>lc0</code>.</p>
@@ -9674,7 +10137,7 @@ java -jar crtk.jar puzzle mine --input seeds.txt --output dump/lc0.json --engine
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Engines &amp; Models · Chapter 17</p>
+  <p class="chapter-kicker">Engines &amp; Models · Chapter 18</p>
   <h1 id="chapter-gpu">GPU Acceleration</h1>
   <div class="chapter-body">
     <p>Everything in crtk runs on the CPU, and most of it stays there. GPU acceleration is an <strong>optional</strong> add-on aimed at the two workloads that actually saturate a device: <strong>perft</strong> move-enumeration and <strong>OTIS / LC0 neural-network inference</strong>. It ships as native JNI shared libraries — CUDA for NVIDIA, ROCm for AMD, oneAPI for Intel — loaded at runtime if they happen to be on the path. When a backend is missing or refuses to initialize, crtk <strong>falls back to the CPU</strong> without comment and returns the same answer. You opt in deliberately: <code>--gpu</code> for perft, a backend property for the evaluators. The device only ever sees the heavy batches.</p>
@@ -9933,7 +10396,7 @@ cmake --build native/oneapi/build -j</code></pre>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Engines &amp; Models · Chapter 18</p>
+  <p class="chapter-kicker">Engines &amp; Models · Chapter 19</p>
   <h1 id="chapter-t5">T5 Text</h1>
   <div class="chapter-body">
     <p>Tags tell you what is on the board; they don&#x27;t read like a human talking about it. The T5 path closes that last gap. Give it a position or a whole puzzle line, and crtk pulls tags — material balance, king safety, the tactical motif that matters — from the <a href="#chapter-architecture">one shared chess core</a>, wraps them in a fixed prompt, and runs a sequence-to-sequence T5 model end to end to return two to four sentences of commentary. The whole runtime is self-contained, dependency-free, and runs in-process. Decoding runs on the CPU, with optional CUDA / ROCm / oneAPI backends that fall back to CPU automatically. It works, but it is a research feature — read <a href="#chapter-t5-status-and-quality">Status and quality</a> before you trust the prose.</p>
@@ -10221,7 +10684,7 @@ crtk puzzle text --fen &quot;&lt;FEN&gt;&quot; --model models/t5.bin --include-f
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Workflows · Chapter 19</p>
+  <p class="chapter-kicker">Workflows · Chapter 20</p>
   <h1 id="chapter-mining">Puzzle Mining</h1>
   <div class="chapter-body">
     <p>Mining is how a heap of positions becomes a labeled corpus of tactical and defensive puzzles. The <code>puzzle mine</code> command feeds seed positions to a pool of UCI engines, runs each candidate through a set of Filter DSL <strong>gates</strong>, and writes two parallel record files: the accepted puzzles and the rejected non-puzzles. Keeping both sides is deliberate. One run yields ready-to-use material for study books <em>and</em> the balanced positive/negative split a classifier wants. Nothing about the process is magic — you choose the seeds, the per-position node and time budgets, and the exact gate definitions, then read the result back with <code>record stats</code> and <code>record tag-stats</code>. Same inputs, same corpus.</p>
@@ -10415,7 +10878,7 @@ crtk record dataset classifier \
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Workflows · Chapter 20</p>
+  <p class="chapter-kicker">Workflows · Chapter 21</p>
   <h1 id="chapter-filter-dsl">Filter DSL</h1>
   <div class="chapter-body">
     <p>Engine analysis is a firehose of numbers — depth, nodes, evaluations, win/draw/loss estimates across several lines. The Filter DSL is how you ask a sharp question of that data and get back a single <code>true</code> or <code>false</code>. A filter is a tree of boolean checks over a position&#x27;s principal variations (PVs), joined by a logical gate. The same machinery decides which analyzed positions become puzzles, picks rows out of <code>.record</code> files when you export or split them, and labels rows for ML datasets. It lives in <code>chess.uci.Filter</code>, round-trips through parse and serialize without loss, and is deterministic to the bit: identical filter, identical analysis, identical verdict.</p>
@@ -10722,7 +11185,7 @@ leaf[gate=OR;eval&lt;0;leaf[break=2;eval&gt;-300]];</code></pre>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Workflows · Chapter 21</p>
+  <p class="chapter-kicker">Workflows · Chapter 22</p>
   <h1 id="chapter-datasets">ML Datasets</h1>
   <div class="chapter-body">
     <p>The hard part of building a training set is rarely the math — it&#x27;s trusting that the planes you feed the model are the ones you think you&#x27;re feeding it. <code>record dataset</code> and <code>record export</code> close that gap. They read <code>.record</code> JSON (or the <code>*.puzzles.json</code> / <code>*.nonpuzzles.json</code> from <a href="#chapter-mining">puzzle mining</a>) and write NumPy <code>.npy</code> tensors, JSONL label streams, and JSON metadata, with no Python and no external toolchain in the way. The writers run on the same chess core as the CLI and Workbench, so a position&#x27;s planes, labels, and tags are identical to what those tools display — there is no second encoding to drift out of sync. What follows: what each export emits, the layouts that are fixed, the inputs each command expects, and two pipelines run end to end.</p>
@@ -10936,7 +11399,7 @@ crtk record dataset lc0 \
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Workflows · Chapter 22</p>
+  <p class="chapter-kicker">Workflows · Chapter 23</p>
   <h1 id="chapter-review-to-study">Review To Study</h1>
   <div class="chapter-body">
     <p><code>crtk review game</code> turns a PGN mainline into two durable artifacts: a per-ply review stream and, when requested, study material for drillable mistakes. The command is meant to answer &quot;what did I get wrong, and what should I practice from this game?&quot; without adding a GUI-only review model or an ungrounded coach layer.</p>
@@ -11078,7 +11541,7 @@ crtk record validate --input dump/rapid.study.record.json --strict</code></pre>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Workflows · Chapter 23</p>
+  <p class="chapter-kicker">Workflows · Chapter 24</p>
   <h1 id="chapter-piece-tags">Tagging</h1>
   <div class="chapter-body">
     <p>A position holds a lot of truths at once — who moves, who&#x27;s up material, where the pawns lock, whether the king is exposed, what tactic is hanging in the air. <strong>Tags</strong> are how ChessRTK names each of those truths as a single structured string, so a position becomes a stream of facts you can sort, count, and reason over instead of a board you have to re-read. The same schema feeds three consumers: the <a href="#chapter-filter-dsl">Filter DSL</a> that gates puzzle mining, the dataset exporters, and the T5 summaries. Every tag traces back to one chess core and a fixed set of deterministic taggers, so the same FEN always produces the same tags. That is the property that makes them worth filtering on, diffing, and handing to an LLM as grounded evidence — the strings don&#x27;t drift under you.</p>
@@ -11256,7 +11719,7 @@ crtk record tag-stats -i dump/run.puzzles.json --top 50</code></pre>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Workflows · Chapter 24</p>
+  <p class="chapter-kicker">Workflows · Chapter 25</p>
   <h1 id="chapter-tag-reference">Tag Reference</h1>
   <div class="chapter-body">
     <p>A tag is crtk&#x27;s answer to a recurring problem: how do you let a language model talk about a chess position without letting it hallucinate the moves? You don&#x27;t hand it prose. You hand it facts. A tag such as <code>MATERIAL: balance=white_up_exchange</code> or <code>TACTIC: motif=fork side=white move=e4c5</code> is a short, parseable string that states only what is verifiably true of the board, derived from the same chess core that generates moves, converts FEN/SAN/UCI, and runs perft. Feed the tagger the same FEN twice and you get the same tags in the same canonical order, every time. This page is the catalogue: every family, every field, every value, so you — or a model downstream — can quote them without guessing. Tags come out of <code>fen tags</code> and <code>puzzle tags</code>, get summarized by <code>record tag-stats</code>, and feed both the classical <code>position describe</code> pipeline and the optional T5 summaries behind <code>fen text</code> / <code>puzzle text</code>.</p>
@@ -11937,7 +12400,7 @@ CHECKMATE: pattern=smothered_mate -&gt; CHECKMATE:pattern:smothered_mate</code><
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Workflows · Chapter 25</p>
+  <p class="chapter-kicker">Workflows · Chapter 26</p>
   <h1 id="chapter-book-publishing">Book Publishing</h1>
   <div class="chapter-body">
     <p>Most chess-book pipelines bolt SAN rendering onto a TeX stack and hope the two agree. The <code>book</code> area skips that entirely: it writes print-ready books, covers, and diagram sheets straight to native vector PDF, with no LaTeX, no TeX distribution, and nothing to install beyond the runtime. Feed it a JSON or TOML manifest (or a <code>.record</code> dump) and it emits a finished PDF through the same chess core that backs every other command, so the SAN, the diagrams, and the figurine notation are the ones you already trust. Five subcommands span the path from raw material to a press-ready product. <code>book collection</code> turns a record dump into a dense puzzle book, <code>book study</code> renders deeply annotated studies, <code>book render</code> typesets a manifest into the interior, <code>book cover</code> builds the matching wraparound, and <code>book pdf</code> cuts quick diagram sheets. Each one takes a <code>--check</code> dry run that validates geometry, FENs, and solution moves before a single byte hits disk.</p>
@@ -12451,7 +12914,7 @@ java -Djava.awt.headless=true -cp out testing.PuzzleCollectionCommandRegressionT
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Workflows · Chapter 26</p>
+  <p class="chapter-kicker">Workflows · Chapter 27</p>
   <h1 id="chapter-ai-agents">AI Agents &amp; Automation</h1>
   <div class="chapter-body">
     <p>A program driving <code>crtk</code> should never have to guess. Every command is a noun-verb invocation (<code>crtk move list</code>, <code>crtk engine bestmove</code>, <code>crtk fen validate</code>) that takes its inputs through named flags, writes a stable line-based or JSON/JSONL shape to stdout, and exits with a code that means what it says. One chess core handles legality, notation, and search for the entire toolkit, so the FEN/SAN/UCI semantics an agent learns from one command hold everywhere else. What follows: where the machine-readable contracts live, how to keep a run from going open-ended, and how to push a whole plan through in a single process.</p>
@@ -12714,7 +13177,7 @@ crtk record export training-jsonl -i dump/puzzles.json -o training/run.jsonl --m
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Project · Chapter 27</p>
+  <p class="chapter-kicker">Project · Chapter 28</p>
   <h1 id="chapter-architecture">Architecture</h1>
   <div class="chapter-body">
     <p>Most chess tools accrete a second, third, and fourth notion of &quot;what is legal&quot; as they grow, and then spend their lives reconciling them. ChessRTK (&quot;crtk&quot;) refuses to. There is <strong>one shared chess core</strong>, and every part of the tool asks it the same questions. A FEN that is legal for <code>move list</code> is legal in exactly the same way for <code>engine perft</code>, <code>fen tags</code>, <code>record dataset npy</code>, <code>book render</code>, and the Swing <code>workbench</code>. Notation, search, evaluation, tagging, datasets, rendering, publishing — all of it sits on the single <code>chess.core</code> model of the board and the rules. That is why two commands never quietly disagree. This page maps the layers, names the real packages, and follows a command from a CLI flag down to its output.</p>
@@ -12866,7 +13329,7 @@ crtk record export training-jsonl -i dump/puzzles.json -o training/run.jsonl --m
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Project · Chapter 28</p>
+  <p class="chapter-kicker">Project · Chapter 29</p>
   <h1 id="chapter-quality-and-testing">Quality &amp; Testing</h1>
   <div class="chapter-body">
     <p>Because everything in crtk routes through one chess core — legal move generation, make/undo, attack detection, FEN/SAN/UCI conversion, Chess960, perft — a single regression suite can guard parsing, engine analysis, datasets, rendering, and PDF publishing in one pass. Correctness isn&#x27;t a phase here; it&#x27;s the product. The suite is a plain Bash script with named targets: <code>./scripts/run_regression_suite.sh &lt;target&gt;</code>. Each target is deterministic and builds with <code>javac --release 17</code> (no Maven, no Gradle). The same script drives your laptop and GitHub Actions, which is the whole point — a green local run is the same checks that gate CI, so it means a green CI run.</p>
@@ -13075,7 +13538,7 @@ crtk doctor --strict</code></pre>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Project · Chapter 29</p>
+  <p class="chapter-kicker">Project · Chapter 30</p>
   <h1 id="chapter-development-notes">Development Notes</h1>
   <div class="chapter-body">
     <p>One rule shapes everything in this codebase: there is exactly one chess core, and everyone uses it. Commands, the desktop Workbench, the puzzle miner, the dataset exporters — all of them route legality, FEN/SAN/UCI, and Chess960 through the same code, so the same input produces the same output every time. Protecting that property is the thing to keep in mind as you read the rest of this page, which covers the repository layout, the build (and the one compiler flag you cannot skip), the regression suite, regenerating the docs site and manual PDF, re-rendering the diagrams, and the conventions the source follows.</p>
@@ -13141,6 +13604,7 @@ crtk doctor --strict</code></pre>
 <li><code>application.cli.Constants</code> holds the canonical command tokens. The plumbing every command shares — engine setup, eval setup, record I/O, FEN/PGN parsing, output formatting, validation — lives in sibling classes like <code>EngineOps</code>, <code>EvalOps</code>, <code>RecordIO</code>, <code>PgnOps</code>, and <code>Format</code>, so a new command rarely has to reinvent any of it.</li>
 <li><code>application.gui.workbench</code> is the Swing Workbench launched by <code>workbench</code> (alias <code>gui</code>): board view, play-vs-engine, command forms, batch jobs, dataset tools, logs, publishing previews, puzzles, and neural-net visualizers.</li>
 <li>Workbench UI changes should follow the <a href="#chapter-workbench-design-guide">Workbench Design Guide</a>: use <code>Theme</code>, <code>Ui</code>, shared layout primitives, and focused Workbench regressions instead of local styling copies.</li>
+<li>Workbench architecture changes should follow <a href="#chapter-gui-architecture">GUI Architecture</a>: use foundation/platform packages for reusable contracts, feature packages for vertical seams, and architecture baselines for existing Swing debt.</li>
 </ul>
 <h3 id="chapter-development-notes-src-chess-the-shared-core-and-everything-built-on-it"><code>src/chess/</code> — the shared core and everything built on it</h3>
 <ul>
@@ -13277,7 +13741,7 @@ bash scripts/run_regression_suite.sh engine       # engine / NN / GPU perft test
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Project · Chapter 30</p>
+  <p class="chapter-kicker">Project · Chapter 31</p>
   <h1 id="chapter-releasing">Releasing</h1>
   <div class="chapter-body">
     <p>A release is one runnable jar, a thin launcher, and — if you want the GPU — a native library beside it. There is <strong>no Maven or Gradle</strong>: <code>javac --release 17</code>, <code>jar</code>, and CMake produce every artifact, full stop. That austerity is the point. The same sources through the same three tools yield the same <code>crtk</code> binary, which is what lets the packager ship checksums and mean them.</p>
@@ -13533,7 +13997,7 @@ jar --create --file crtk.jar --main-class application.Main -C out .</code></pre>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Project · Chapter 31</p>
+  <p class="chapter-kicker">Project · Chapter 32</p>
   <h1 id="chapter-glossary">Glossary</h1>
   <div class="chapter-body">
     <p>Chess research has its own dense vocabulary, and crtk borrows freely from all of it: the notations players use to write moves, the algorithms engines use to choose them, the network pieces that score positions, and a handful of formats crtk invented for itself. Because everything sits on one shared core, a term means the same thing at the CLI, in a batch script, and in the Workbench. The definitions below are deliberately terse. When one term deserves a chapter, the cross-link points to it.</p>
@@ -13635,7 +14099,7 @@ jar --create --file crtk.jar --main-class application.Main -C out .</code></pre>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Project · Chapter 32</p>
+  <p class="chapter-kicker">Project · Chapter 33</p>
   <h1 id="chapter-support">Support</h1>
   <div class="chapter-body">
     <p>When crtk misbehaves, the good news is that it almost always misbehaves the same way twice. Determinism means a problem reproduces from one command plus its input, so a report that hands a maintainer that command rarely needs a follow-up. The self-checks below resolve the usual suspects — runtime version, config, protocol TOML, engine path, movegen — on their own, which is why they come before the issue tracker.</p>
@@ -13782,7 +14246,7 @@ crtk fen text --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Project · Chapter 33</p>
+  <p class="chapter-kicker">Project · Chapter 34</p>
   <h1 id="chapter-readme">Wiki Index</h1>
   <div class="chapter-body">
     <p>Everything in ChessRTK (&quot;crtk&quot;) runs through one chess core. A single legal move generator, one make/undo, one attack detector, one FEN/SAN/UCI/Chess960 codepath — and every command above it inherits the same answers. That is what makes the noun-verb CLI (<code>move list</code>, <code>engine bestmove</code>, <code>puzzle mine</code>) agree with the search, the tagger, the datasets, and the GUI down to the last bit. On top of the core sit external UCI analysis (Stockfish, LC0), built-in alpha-beta/MCTS search with a forced-mate prover, classical/NNUE/LC0/OTIS evaluators, position and tactic tagging, optional T5 summaries, puzzle mining driven by a Filter DSL, ML dataset export, native PDF publishing with no LaTeX, optional GPU backends for perft and OTIS, and a Swing desktop Workbench. This page is the index. Pick a section and follow the one-line descriptions to the page that goes deeper.</p>
@@ -13818,6 +14282,7 @@ crtk fen text --fen &quot;&lt;FEN&gt;&quot;</code></pre>
 <ul>
 <li><a href="#chapter-workbench">Desktop workbench</a> - the native Swing GUI: board, play-vs-engine, command forms, batch jobs, datasets, logs, publishing previews, puzzles, and neural-net visualizers. Launch it with <code>workbench</code> (alias <code>gui</code>).</li>
 <li><a href="#chapter-workbench-design-guide">Workbench design guide</a> - visual direction, layout rules, shared UI primitives, copy, accessibility, and verification for Workbench contributors.</li>
+<li><a href="#chapter-gui-architecture">GUI architecture</a> - package boundaries, feature seams, platform services, architecture guards, and the migration ledger for Workbench extraction.</li>
 </ul>
 <h2 id="chapter-readme-engines-models">Engines &amp; Models</h2>
 <ul>
@@ -13955,7 +14420,7 @@ java -cp out application.Main engine builtin --startpos --depth 3 --format summa
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Reference · Chapter 34</p>
+  <p class="chapter-kicker">Reference · Chapter 35</p>
   <h1 id="chapter-engine-strength-tuning">Engine Strength Tuning — What Worked, What Didn&#x27;t</h1>
   <div class="chapter-body">
     <p>A running log of attempts to make the in-house <code>AlphaBeta</code> engine stronger, with the measured outcome of each. The point is to <strong>not relearn the same lessons</strong>: which techniques paid off, which didn&#x27;t, and — more importantly — the <em>methodology and gotchas</em> that decide whether a measurement can be trusted at all.</p>
@@ -14129,7 +14594,7 @@ java -cp &quot;$OUT&quot; testing.SelfPlayGauntlet --a SEE_PRUNING,SEARCH_REPETI
 </section>
 
 <section class="chapter">
-  <p class="chapter-kicker">Reference · Chapter 35</p>
+  <p class="chapter-kicker">Reference · Chapter 36</p>
   <h1 id="chapter-serve">Local JSON-RPC Daemon</h1>
   <div class="chapter-body">
     <p><code>crtk serve</code> starts a localhost-only HTTP wrapper around the existing command dispatcher. It is for agents, editors, and scripts that need many small <code>crtk</code> calls without paying JVM startup every time. It is not an online service, not a play server, and not a social or matchmaking endpoint.</p>

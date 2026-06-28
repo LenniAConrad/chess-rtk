@@ -4,6 +4,8 @@ The ChessRTK Workbench is a dense desktop research tool, not a landing page and 
 
 This page is the standard for Workbench UI changes. It covers visual direction, layout, controls, copy, accessibility, and verification.
 
+For package boundaries, feature extraction rules, and the migration ledger, see [GUI Architecture](gui-architecture.md).
+
 ## Core Principles
 
 - **Use the shared chess core.** UI affordances may be visual, but legality, FEN, SAN, UCI, tags, engine settings, and command text still come from the same code paths the CLI uses.
@@ -33,6 +35,29 @@ Every Workbench change must satisfy these rules before it is considered finished
 | Verification | UI code changes need headless Workbench regression plus visual inspection or screenshots for affected surfaces. |
 
 Do not ship a panel that looks "close enough" but uses local colors, raw Swing control styling, arbitrary spacing, or a new layout language.
+
+## UI Layer Ownership
+
+The shared Swing layer lives in `application.gui.workbench.ui`. Treat it as a design-system boundary, not as a miscellaneous helper folder.
+
+The UI layer owns:
+
+- Theme tokens: colors, typography, spacing, borders, radii, surfaces, and state colors.
+- Reusable controls: buttons, toggles, badges, segmented controls, chips, headers, surfaces, overlays, and empty states.
+- Generic Swing styling: table, tree, scroll pane, combo box, spinner, slider, popup, tooltip, dialog, and file-chooser chrome.
+- Generic rendering helpers: icons, hit regions, acceleration hints, and small non-domain painters.
+- Facades that feature packages should prefer: `Ui`, `Theme`, `Toast`, `FileDialogs`, and `SwingTasks`.
+
+The UI layer does not own:
+
+- Chess legality, FEN, SAN, UCI, or move generation.
+- Board state, game state, engine state, MCTS state, or session workflows.
+- Feature-specific models, command execution semantics, neural-network fidelity claims, or artifact formats.
+- One-off local styling for a single screen.
+
+Most feature packages should import `Ui`, `Theme`, and a small number of public primitives such as `SurfacePanel`, `WorkspaceHeader`, `StatusBadge`, `ToggleBox`, `HoldButton`, or `SegmentedSwitcher`. Styling internals such as palette installers, Swing UI delegates, input chrome, and helper factories stay package-private. If a feature needs a new visual pattern, first add a reusable primitive or facade method in the UI layer, then use that primitive from the feature package.
+
+Do not split `application.gui.workbench.ui` into subpackages until the public API is stable. Java subpackages do not share package-private access, so splitting too early usually forces internals to become public. When a split is justified, move one group at a time: `ui.components` for reusable controls, `ui.layout` for surfaces and layout helpers, `ui.theme` for palette and installer internals, `ui.paint` for generic painters, and `ui.dialogs` for modal/toast/file-dialog helpers.
 
 ## Reference Model
 

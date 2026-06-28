@@ -36,7 +36,9 @@ The same content reaches you three ways, depending on whether you want to browse
 ## Workbench
 
 - [Desktop workbench](workbench.md) - the native Swing GUI: board, play-vs-engine, command forms, batch jobs, datasets, logs, publishing previews, puzzles, and neural-net visualizers. Launch it with `workbench` (alias `gui`).
+- [Study Workspace](study-workspace.md) - offline PGN-backed local study projects with chapters, variations, comments, NAGs, and arrows/circles.
 - [Workbench design guide](workbench-design-guide.md) - visual direction, layout rules, shared UI primitives, copy, accessibility, and verification for Workbench contributors.
+- [GUI architecture](gui-architecture.md) - package boundaries, feature seams, platform services, architecture guards, and the migration ledger for Workbench extraction.
 
 ## Engines & Models
 
@@ -83,7 +85,7 @@ The same content reaches you three ways, depending on whether you want to browse
 | Describe positions deterministically | `position describe` | [Command reference](command-reference.md) |
 | Export training data | `record dataset npy`, `record dataset lc0`, `record dataset classifier` | [Datasets](datasets.md) |
 | Render diagrams and books | `fen render`, `book render`, `book cover`, `book pdf` | [Book publishing](book-publishing.md) |
-| Use the desktop GUI | `workbench`, `gui` | [Desktop workbench](workbench.md) |
+| Use the desktop GUI | `workbench`, `gui` | [Desktop workbench](workbench.md), [Study Workspace](study-workspace.md) |
 | Automate command use | `serve`, `batch run`, `doctor`, `config validate` | [AI agents and automation](ai-agents.md), [Local JSON-RPC daemon](serve.md) |
 
 ## Quick Verification

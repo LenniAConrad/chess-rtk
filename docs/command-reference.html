@@ -78,6 +78,7 @@
 <section class="nav-section"><h2>Desktop Workbench</h2>
 <a class="" href="workbench.html" data-title="workbench">Workbench</a>
 <a class="" href="workbench-design-guide.html" data-title="design guide">Design Guide</a>
+<a class="" href="gui-architecture.html" data-title="gui architecture">GUI Architecture</a>
 </section>
 <section class="nav-section"><h2>Engines &amp; Models</h2>
 <a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
@@ -160,6 +161,10 @@
 <tr>
 <td><code>position</code></td>
 <td>Inspect and compare positions</td>
+</tr>
+<tr>
+<td><code>eco</code></td>
+<td>Query and validate the bundled Encyclopedia of Chess Openings</td>
 </tr>
 <tr>
 <td><code>book</code></td>
@@ -2361,6 +2366,137 @@ crtk find-mate --fen &quot;&lt;FEN&gt;&quot; --mate 6 --max-nodes 5000000 --thre
 </tr>
 </tbody></table></div>
 <pre><code class="language-bash">crtk position describe --fen &quot;&lt;FEN&gt;&quot; --detail full --format text</code></pre>
+<h2 id="eco">eco</h2>
+<p>Query the bundled Encyclopedia of Chess Openings without going through the tagger. The shipped <code>config/book.eco.toml</code> is a complete A00-E99 table with 3,412 parsed rows and 500 unique ECO codes; <code>eco validate</code> is the quick check that the loaded book still covers every code.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Subcommand</th>
+<th>Purpose</th>
+</tr></thead><tbody>
+<tr>
+<td><code>eco lookup</code></td>
+<td>Resolve a FEN or SAN line to the deepest matching ECO entry</td>
+</tr>
+<tr>
+<td><code>eco search</code></td>
+<td>Search ECO codes, opening names, and movetext</td>
+</tr>
+<tr>
+<td><code>eco continuations</code></td>
+<td>List ECO next moves from a FEN or SAN line</td>
+</tr>
+<tr>
+<td><code>eco moves</code></td>
+<td>Alias for <code>eco continuations</code></td>
+</tr>
+<tr>
+<td><code>eco validate</code></td>
+<td>Validate parsed ECO code coverage</td>
+</tr>
+</tbody></table></div>
+<h3 id="eco-lookup">eco lookup</h3>
+<p>Resolve a position to the ECO entry stored for that position. Use <code>--line</code> for SAN movetext from the standard start position, or <code>--fen</code> for an exact position.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Option</th>
+<th>Description</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--fen FEN</code></td>
+<td>Position to resolve; a positional FEN is also accepted</td>
+</tr>
+<tr>
+<td><code>--line SAN</code></td>
+<td>SAN movetext from the standard start position</td>
+</tr>
+<tr>
+<td><code>--book PATH</code></td>
+<td>ECO TOML file (default <code>config/book.eco.toml</code>)</td>
+</tr>
+<tr>
+<td><code>--json</code> / <code>--jsonl</code></td>
+<td>Emit structured output</td>
+</tr>
+</tbody></table></div>
+<pre><code class="language-bash">crtk eco lookup --line &quot;1. d4 Nf6 2. c4 g6 3. g3 Bg7 4. Bg2 O-O&quot;
+crtk eco lookup --fen &quot;&lt;FEN&gt;&quot; --json</code></pre>
+<h3 id="eco-search">eco search</h3>
+<p>Search the loaded book by code, name, or movetext. Results stay in book order, capped by <code>--limit</code> unless you pass <code>0</code>.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Option</th>
+<th>Description</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--query</code>/<code>-q TEXT</code></td>
+<td>Search text; a positional query is also accepted</td>
+</tr>
+<tr>
+<td><code>--book PATH</code></td>
+<td>ECO TOML file (default <code>config/book.eco.toml</code>)</td>
+</tr>
+<tr>
+<td><code>--limit N</code></td>
+<td>Maximum rows to emit (default <code>20</code>; <code>0</code> means no cap)</td>
+</tr>
+<tr>
+<td><code>--json</code> / <code>--jsonl</code></td>
+<td>Emit structured output</td>
+</tr>
+</tbody></table></div>
+<pre><code class="language-bash">crtk eco search --query Najdorf --limit 5
+crtk eco search D72 --jsonl</code></pre>
+<h3 id="eco-continuations">eco continuations</h3>
+<p>List next moves that occur in ECO lines from the selected position. Rows are sorted by frequency, then SAN, then UCI. With no selector it uses the standard start position.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Option</th>
+<th>Description</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--fen FEN</code></td>
+<td>Position to inspect; a positional FEN is also accepted</td>
+</tr>
+<tr>
+<td><code>--line SAN</code></td>
+<td>SAN movetext from the standard start position</td>
+</tr>
+<tr>
+<td><code>--startpos</code></td>
+<td>Use the standard start position</td>
+</tr>
+<tr>
+<td><code>--book PATH</code></td>
+<td>ECO TOML file (default <code>config/book.eco.toml</code>)</td>
+</tr>
+<tr>
+<td><code>--limit N</code></td>
+<td>Maximum moves to emit (default <code>20</code>; <code>0</code> means no cap)</td>
+</tr>
+<tr>
+<td><code>--json</code> / <code>--jsonl</code></td>
+<td>Emit structured output</td>
+</tr>
+</tbody></table></div>
+<pre><code class="language-bash">crtk eco continuations --startpos
+crtk eco continuations --line &quot;1. d4 Nf6 2. c4 g6&quot; --json</code></pre>
+<h3 id="eco-validate">eco validate</h3>
+<p>Load an ECO book and verify that every code from <code>A00</code> through <code>E99</code> is present.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Option</th>
+<th>Description</th>
+</tr></thead><tbody>
+<tr>
+<td><code>--book PATH</code></td>
+<td>ECO TOML file (default <code>config/book.eco.toml</code>)</td>
+</tr>
+<tr>
+<td><code>--json</code></td>
+<td>Emit one validation report</td>
+</tr>
+</tbody></table></div>
+<pre><code class="language-bash">crtk eco validate --json</code></pre>
 <h2 id="book">book</h2>
 <p>Turn records and manifests into print-ready PDFs. The renderer writes vector PDFs directly — interiors and covers, no external typesetter — with figurine algebraic notation in the captions and solution tables.</p>
 <div class="table-wrap"><table>

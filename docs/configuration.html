@@ -78,6 +78,7 @@
 <section class="nav-section"><h2>Desktop Workbench</h2>
 <a class="" href="workbench.html" data-title="workbench">Workbench</a>
 <a class="" href="workbench-design-guide.html" data-title="design guide">Design Guide</a>
+<a class="" href="gui-architecture.html" data-title="gui architecture">GUI Architecture</a>
 </section>
 <section class="nav-section"><h2>Engines &amp; Models</h2>
 <a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
@@ -433,11 +434,14 @@ java -jar crtk.jar config show</code></pre>
 </ul>
 <p>Treat these as research evaluators, not bit-exact clones of the engines they&#x27;re modeled on. The LC0 path reads crtk&#x27;s compact <code>.bin</code> format instead of LC0&#x27;s protobuf, and the BT4 transformer is simplified and experimental — it is not LC0-bit-equivalent, so don&#x27;t expect matching output. For filenames, architectures, and download links, see the in-repo <code>models/README.md</code>; the evaluators that consume them are documented in <a href="in-house-engine.html">In-House Engine</a> and <a href="lc0.html">LC0</a>.</p>
 <h2 id="optional-eco-book-config-book-eco-toml">Optional ECO book: <code>config/book.eco.toml</code></h2>
-<p>An Encyclopedia of Chess Openings dictionary: it maps move sequences to ECO codes and opening names. An entry reads:</p>
+<p>An Encyclopedia of Chess Openings dictionary: it maps move sequences to ECO codes and opening names. The bundled book is a complete A00-E99 table with 3,412 parsed rows and 500 unique ECO codes. An entry reads:</p>
 <pre><code class="language-text">[[A00]]
 name     = &quot;Amar Opening&quot;
 movetext = &quot;1. Nh3&quot;</code></pre>
-<p>With the file present, the tagging subsystem — <code>fen tags</code>, <code>puzzle tags</code>, and mined records — annotates positions reachable through book lines with tags like <code>eco: A00</code> and <code>opening: Amar Opening</code>. Without it, opening tags drop out and nothing else changes; the book is enrichment, not a dependency. Lines starting with <code>#</code> are comments.</p>
+<p>With the file present, the tagging subsystem — <code>fen tags</code>, <code>puzzle tags</code>, and mined records — annotates positions reachable through book lines with tags like <code>eco: A00</code> and <code>opening: Amar Opening</code>. The same book is queryable from the CLI through <code>eco lookup</code>, <code>eco search</code>, <code>eco continuations</code>, and <code>eco validate</code>.</p>
+<pre><code class="language-bash">crtk eco validate --json
+crtk eco lookup --line &quot;1. d4 Nf6 2. c4 g6&quot;</code></pre>
+<p>Without the file, opening tags drop out and nothing else changes; the book is enrichment, not a dependency. Lines starting with <code>#</code> are comments.</p>
 <h2 id="resolution-order">Resolution order</h2>
 <p>Every setting passes through three layers, each overriding the last:</p>
 <ol>

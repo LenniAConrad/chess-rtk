@@ -170,7 +170,7 @@ Treat these as research evaluators, not bit-exact clones of the engines they're 
 
 ## Optional ECO book: `config/book.eco.toml`
 
-An Encyclopedia of Chess Openings dictionary: it maps move sequences to ECO codes and opening names. An entry reads:
+An Encyclopedia of Chess Openings dictionary: it maps move sequences to ECO codes and opening names. The bundled book is a complete A00-E99 table with 3,412 parsed rows and 500 unique ECO codes. An entry reads:
 
 ```text
 [[A00]]
@@ -178,7 +178,14 @@ name     = "Amar Opening"
 movetext = "1. Nh3"
 ```
 
-With the file present, the tagging subsystem — `fen tags`, `puzzle tags`, and mined records — annotates positions reachable through book lines with tags like `eco: A00` and `opening: Amar Opening`. Without it, opening tags drop out and nothing else changes; the book is enrichment, not a dependency. Lines starting with `#` are comments.
+With the file present, the tagging subsystem — `fen tags`, `puzzle tags`, and mined records — annotates positions reachable through book lines with tags like `eco: A00` and `opening: Amar Opening`. The same book is queryable from the CLI through `eco lookup`, `eco search`, `eco continuations`, and `eco validate`.
+
+```bash
+crtk eco validate --json
+crtk eco lookup --line "1. d4 Nf6 2. c4 g6"
+```
+
+Without the file, opening tags drop out and nothing else changes; the book is enrichment, not a dependency. Lines starting with `#` are comments.
 
 ## Resolution order
 

@@ -4,7 +4,7 @@ The Workbench is the same chess core as the CLI, with a board in front of it. Th
 
 ## What you can do
 
-- Analyze positions and PGNs on an interactive board with legal-move overlays, deterministic tags, an ECO opening tree, post-game review, endgame tablebase status, and study authoring.
+- Analyze positions and PGNs on an interactive board with legal-move overlays, deterministic tags, an ECO opening tree, post-game review, endgame tablebase status, PGN-backed study editing, and study authoring.
 - Play full games against in-process alpha-beta/classical preset opponents, with Custom controls for MCTS and neural-evaluator experiments.
 - Run deterministic built-in engine gauntlets from the Engine surface.
 - Build any `crtk` command as a guided form, with validation and a live preview of the exact command text.
@@ -62,7 +62,7 @@ Board is the shared position and game workspace. Its mode switcher hosts Analyze
 Play, Solve, Relations, and Draw. The board sits in the middle, surrounded by
 the mode-specific tools for the current task: move navigation, the legal-move
 list, deterministic tags, an ECO opening tree, deterministic post-game review
-with retry jumps, study TOML authoring from the current line,
+with retry jumps, an offline PGN-backed Study Workspace, study TOML authoring from the current line,
 endgame/tablebase-hit status, a board editor for arbitrary setups, puzzle
 practice, tactical-incidence overlays, and freehand annotation/export controls.
 Load a PGN in Analyze mode and you step through the game from the same shared
@@ -84,9 +84,16 @@ The PGN explorer doubles as a lightweight database workspace. It indexes player/
 | Player prep report | PGN Database -> Prep Report after loading/searching PGNs |
 | Engine gauntlet manager | Engine Lab -> Gauntlet |
 | Endgame/tablebase panel | Board -> Analyze -> Tools -> Endgame, or the side rail Endgame tab |
+| PGN Study Workspace | Board -> Analyze -> Tools -> Study, then the Study Workspace side-rail tab |
 | Study/repertoire authoring | Board -> Analyze -> Tools -> Study, or Board -> Analyze -> Game -> Study / Review / Database -> Author Study |
 
 The command palette also exposes the same workflows by name: Opening tree, Review game, Author study, Endgame tablebase, PGN database, Player prep report, and Open engine gauntlet.
+
+### Study Workspace
+
+The Study Workspace is the local desktop study editor. It is deliberately PGN-backed: one `.pgn` file is one study book, and each PGN game is a chapter. A sidecar named `<study-stem>.crtk-study.json` is optional and stores only CRTK-only state such as chapter ids, order, mode, orientation, and descriptions. Ordinary PGN files still open without a sidecar.
+
+Use it for ChessBase-style local authoring: create/open/save studies, import PGNs, add chapters from the current line or current FEN, edit a full move tree with nested variations, promote or delete branches, add comments, toggle Lichess-compatible NAGs, and store arrows/circles through standard `[%cal]` and `[%csl]` PGN comments. The existing Study tab remains the TOML publishing exporter; Study Workspace is the editable PGN project surface. See [Study Workspace](study-workspace.md) for the data model and workflow.
 
 ## Board / Play
 

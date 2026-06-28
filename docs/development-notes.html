@@ -78,6 +78,7 @@
 <section class="nav-section"><h2>Desktop Workbench</h2>
 <a class="" href="workbench.html" data-title="workbench">Workbench</a>
 <a class="" href="workbench-design-guide.html" data-title="design guide">Design Guide</a>
+<a class="" href="gui-architecture.html" data-title="gui architecture">GUI Architecture</a>
 </section>
 <section class="nav-section"><h2>Engines &amp; Models</h2>
 <a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
@@ -172,6 +173,7 @@
 <li><code>application.cli.Constants</code> holds the canonical command tokens. The plumbing every command shares — engine setup, eval setup, record I/O, FEN/PGN parsing, output formatting, validation — lives in sibling classes like <code>EngineOps</code>, <code>EvalOps</code>, <code>RecordIO</code>, <code>PgnOps</code>, and <code>Format</code>, so a new command rarely has to reinvent any of it.</li>
 <li><code>application.gui.workbench</code> is the Swing Workbench launched by <code>workbench</code> (alias <code>gui</code>): board view, play-vs-engine, command forms, batch jobs, dataset tools, logs, publishing previews, puzzles, and neural-net visualizers.</li>
 <li>Workbench UI changes should follow the <a href="workbench-design-guide.html">Workbench Design Guide</a>: use <code>Theme</code>, <code>Ui</code>, shared layout primitives, and focused Workbench regressions instead of local styling copies.</li>
+<li>Workbench architecture changes should follow <a href="gui-architecture.html">GUI Architecture</a>: use foundation/platform packages for reusable contracts, feature packages for vertical seams, and architecture baselines for existing Swing debt.</li>
 </ul>
 <h3 id="src-chess-the-shared-core-and-everything-built-on-it"><code>src/chess/</code> — the shared core and everything built on it</h3>
 <ul>

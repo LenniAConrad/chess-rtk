@@ -31,6 +31,7 @@ Most of the surface never touches an external engine. The in-process commands (`
 | `engine` | Analyze, evaluate, search, prove mates, and validate move generation |
 | `mate` | Brute-force prove a forced mate without NN evaluation (shortcut for `engine mate`) |
 | `position` | Inspect and compare positions |
+| `eco` | Query and validate the bundled Encyclopedia of Chess Openings |
 | `book` | Render chess books, covers, studies, and diagram PDFs |
 | `puzzle` | Mine, convert, tag, and summarize puzzle lines |
 | `config` | Show and validate configuration |
@@ -1115,6 +1116,81 @@ Describe one FEN or a FEN list as deterministic classical text, structured featu
 
 ```bash
 crtk position describe --fen "<FEN>" --detail full --format text
+```
+
+## eco
+
+Query the bundled Encyclopedia of Chess Openings without going through the tagger. The shipped `config/book.eco.toml` is a complete A00-E99 table with 3,412 parsed rows and 500 unique ECO codes; `eco validate` is the quick check that the loaded book still covers every code.
+
+| Subcommand | Purpose |
+| --- | --- |
+| `eco lookup` | Resolve a FEN or SAN line to the deepest matching ECO entry |
+| `eco search` | Search ECO codes, opening names, and movetext |
+| `eco continuations` | List ECO next moves from a FEN or SAN line |
+| `eco moves` | Alias for `eco continuations` |
+| `eco validate` | Validate parsed ECO code coverage |
+
+### eco lookup
+
+Resolve a position to the ECO entry stored for that position. Use `--line` for SAN movetext from the standard start position, or `--fen` for an exact position.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Position to resolve; a positional FEN is also accepted |
+| `--line SAN` | SAN movetext from the standard start position |
+| `--book PATH` | ECO TOML file (default `config/book.eco.toml`) |
+| `--json` / `--jsonl` | Emit structured output |
+
+```bash
+crtk eco lookup --line "1. d4 Nf6 2. c4 g6 3. g3 Bg7 4. Bg2 O-O"
+crtk eco lookup --fen "<FEN>" --json
+```
+
+### eco search
+
+Search the loaded book by code, name, or movetext. Results stay in book order, capped by `--limit` unless you pass `0`.
+
+| Option | Description |
+| --- | --- |
+| `--query`/`-q TEXT` | Search text; a positional query is also accepted |
+| `--book PATH` | ECO TOML file (default `config/book.eco.toml`) |
+| `--limit N` | Maximum rows to emit (default `20`; `0` means no cap) |
+| `--json` / `--jsonl` | Emit structured output |
+
+```bash
+crtk eco search --query Najdorf --limit 5
+crtk eco search D72 --jsonl
+```
+
+### eco continuations
+
+List next moves that occur in ECO lines from the selected position. Rows are sorted by frequency, then SAN, then UCI. With no selector it uses the standard start position.
+
+| Option | Description |
+| --- | --- |
+| `--fen FEN` | Position to inspect; a positional FEN is also accepted |
+| `--line SAN` | SAN movetext from the standard start position |
+| `--startpos` | Use the standard start position |
+| `--book PATH` | ECO TOML file (default `config/book.eco.toml`) |
+| `--limit N` | Maximum moves to emit (default `20`; `0` means no cap) |
+| `--json` / `--jsonl` | Emit structured output |
+
+```bash
+crtk eco continuations --startpos
+crtk eco continuations --line "1. d4 Nf6 2. c4 g6" --json
+```
+
+### eco validate
+
+Load an ECO book and verify that every code from `A00` through `E99` is present.
+
+| Option | Description |
+| --- | --- |
+| `--book PATH` | ECO TOML file (default `config/book.eco.toml`) |
+| `--json` | Emit one validation report |
+
+```bash
+crtk eco validate --json
 ```
 
 ## book

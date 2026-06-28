@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GUI Architecture | ChessRTK</title>
+  <meta name="description" content="The deterministic chess research toolkit — GUI Architecture.">
+  <link rel="icon" href="assets/logo/crtk-logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      var key = "crtk-theme";
+      var isTheme = function (value) { return value === "light" || value === "dark"; };
+      var urlTheme = "";
+      var stored = "";
+      try { urlTheme = new URLSearchParams(window.location.search).get("theme"); } catch (e) {}
+      try { stored = localStorage.getItem(key); } catch (e) {}
+      var theme = isTheme(urlTheme) ? urlTheme : (isTheme(stored) ? stored : "");
+      if (!theme) {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      if (isTheme(urlTheme)) {
+        try { localStorage.setItem(key, urlTheme); } catch (e) {}
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+  <script defer src="search-index.js"></script>
+  <script defer src="site.js"></script>
+</head>
+<body class="is-doc">
+
+  <header class="topnav">
+    <div class="topnav-inner">
+      <a class="topnav-brand" href="index.html">
+        <img src="assets/logo/crtk-logo.svg" alt="" width="32" height="32">
+        <span>ChessRTK</span>
+      </a>
+      <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="topnav-links">
+        <a class="" href="getting-started.html">Get started</a>
+        <a class="" href="command-reference.html">Commands</a>
+        <a class="" href="workbench.html">Workbench</a>
+        <a class="" href="wiki-index.html">Docs</a>
+        <a class="" href="chessrtk-manual.pdf">Manual</a>
+        <a class="topnav-gh" href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="doc-shell">
+    <aside class="sidebar" id="sidebar">
+      <label class="search-label" for="doc-search">Search the docs</label>
+      <input id="doc-search" class="search" type="search" placeholder="Search pages..." autocomplete="off">
+      <div id="search-results" class="search-results" hidden></div>
+      <nav class="nav"><section class="nav-section"><h2>Start Here</h2>
+<a class="" href="index.html" data-title="overview">Overview</a>
+<a class="" href="getting-started.html" data-title="getting started">Getting Started</a>
+<a class="" href="build-and-install.html" data-title="build &amp; install">Build &amp; Install</a>
+<a class="" href="use-cases.html" data-title="use cases">Use Cases</a>
+<a class="" href="faq.html" data-title="faq">FAQ</a>
+<a class="" href="troubleshooting.html" data-title="troubleshooting">Troubleshooting</a>
+</section>
+<section class="nav-section"><h2>Commands</h2>
+<a class="" href="command-cheatsheet.html" data-title="cheatsheet">Cheatsheet</a>
+<a class="" href="command-reference.html" data-title="command reference">Command Reference</a>
+<a class="" href="cli-command-guide.html" data-title="command guide">Command Guide</a>
+<a class="" href="example-commands.html" data-title="example commands">Example Commands</a>
+<a class="" href="configuration.html" data-title="configuration">Configuration</a>
+<a class="" href="outputs-and-logs.html" data-title="outputs &amp; logs">Outputs &amp; Logs</a>
+</section>
+<section class="nav-section"><h2>Desktop Workbench</h2>
+<a class="" href="workbench.html" data-title="workbench">Workbench</a>
+<a class="" href="workbench-design-guide.html" data-title="design guide">Design Guide</a>
+<a class="active" href="gui-architecture.html" data-title="gui architecture">GUI Architecture</a>
+</section>
+<section class="nav-section"><h2>Engines &amp; Models</h2>
+<a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
+<a class="" href="lc0.html" data-title="lc0 networks">LC0 Networks</a>
+<a class="" href="gpu.html" data-title="gpu acceleration">GPU Acceleration</a>
+<a class="" href="t5.html" data-title="t5 text">T5 Text</a>
+</section>
+<section class="nav-section"><h2>Workflows</h2>
+<a class="" href="mining.html" data-title="puzzle mining">Puzzle Mining</a>
+<a class="" href="filter-dsl.html" data-title="filter dsl">Filter DSL</a>
+<a class="" href="datasets.html" data-title="ml datasets">ML Datasets</a>
+<a class="" href="review-to-study.html" data-title="review to study">Review To Study</a>
+<a class="" href="piece-tags.html" data-title="tagging">Tagging</a>
+<a class="" href="tag-reference.html" data-title="tag reference">Tag Reference</a>
+<a class="" href="book-publishing.html" data-title="book publishing">Book Publishing</a>
+<a class="" href="ai-agents.html" data-title="ai agents &amp; automation">AI Agents &amp; Automation</a>
+</section>
+<section class="nav-section"><h2>Project</h2>
+<a class="" href="architecture.html" data-title="architecture">Architecture</a>
+<a class="" href="quality-and-testing.html" data-title="quality &amp; testing">Quality &amp; Testing</a>
+<a class="" href="development-notes.html" data-title="development notes">Development Notes</a>
+<a class="" href="releasing.html" data-title="releasing">Releasing</a>
+<a class="" href="glossary.html" data-title="glossary">Glossary</a>
+<a class="" href="support.html" data-title="support">Support</a>
+<a class="" href="wiki-index.html" data-title="wiki index">Wiki Index</a>
+</section></nav>
+    </aside>
+    <main class="doc-main">
+      <article class="content">
+        <p class="content-kicker">Desktop Workbench</p>
+        <h1 id="gui-architecture">GUI Architecture</h1>
+<p>The Swing GUI is being moved toward explicit packages and narrow feature contracts. The goal is long-term maintainability without changing the visible Workbench behavior: keep the deterministic chess core, keep Swing, keep the existing look and workflows, and make each new slice easier to test without a full frame.</p>
+<p>This page defines the target boundaries for GUI code. It complements the <a href="workbench-design-guide.html">Workbench design guide</a>, which covers visual and interaction rules.</p>
+<h2 id="package-boundaries">Package Boundaries</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Package</th>
+<th>Owns</th>
+<th>Must not own</th>
+</tr></thead><tbody>
+<tr>
+<td><code>application.gui.app</code></td>
+<td>Composition roots that wire application shells to features</td>
+<td>Feature logic, Swing styling internals, chess rules</td>
+</tr>
+<tr>
+<td><code>application.gui.foundation</code></td>
+<td>GUI primitives with no Workbench, feature, CLI, or chess dependency</td>
+<td>Theme colors, Workbench state, command dispatch</td>
+</tr>
+<tr>
+<td><code>application.gui.foundation.layout</code></td>
+<td>Reusable layout and scroll math</td>
+<td>Feature-specific layout decisions</td>
+</tr>
+<tr>
+<td><code>application.gui.platform</code></td>
+<td>Platform-service contracts such as clipboard, dialogs, notifications, UI-thread dispatch, and background execution</td>
+<td>Workbench frame state or feature workflows</td>
+</tr>
+<tr>
+<td><code>application.gui.platform.swing</code></td>
+<td>Swing-backed implementations of platform contracts</td>
+<td>Feature-specific behavior</td>
+</tr>
+<tr>
+<td><code>application.gui.feature.&lt;name&gt;</code></td>
+<td>Feature contracts, controllers, feature state, dependency ports, and legacy adapters during migration</td>
+<td>Direct <code>WindowBase</code> access, sibling feature implementations</td>
+</tr>
+<tr>
+<td><code>application.gui.workbench.ui</code></td>
+<td>Workbench design-system facade, theme, controls, icons, dialogs, toasts, and Swing styling internals</td>
+<td>Chess rules, command execution semantics, feature models</td>
+</tr>
+<tr>
+<td><code>application.gui.workbench.window</code></td>
+<td>Legacy shell, registered views, split/dock behavior, compatibility adapters</td>
+<td>New feature logic when a feature package can own it</td>
+</tr>
+</tbody></table></div>
+<h2 id="dependency-direction">Dependency Direction</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>From</th>
+<th>May depend on</th>
+</tr></thead><tbody>
+<tr>
+<td><code>foundation</code></td>
+<td>JDK and Swing only</td>
+</tr>
+<tr>
+<td><code>platform</code></td>
+<td>JDK and generic Swing types when needed for contracts</td>
+</tr>
+<tr>
+<td><code>platform.swing</code></td>
+<td><code>platform</code>, JDK, Swing</td>
+</tr>
+<tr>
+<td><code>feature.&lt;name&gt;</code></td>
+<td><code>foundation</code>, <code>platform</code>, shared domain models required by the feature, its own package, and temporary legacy Swing panels only inside compatibility controllers</td>
+</tr>
+<tr>
+<td><code>app</code></td>
+<td>feature packages, platform implementations, legacy shell types while wiring compatibility slices</td>
+</tr>
+<tr>
+<td><code>workbench.ui</code></td>
+<td><code>foundation</code>, Swing, generic Workbench visual primitives</td>
+</tr>
+<tr>
+<td><code>workbench.window</code></td>
+<td>app composition, feature view contracts, legacy Workbench panels during migration</td>
+</tr>
+</tbody></table></div>
+<p>Feature packages must not receive <code>WindowBase</code> or <code>WindowHost</code>. If a feature needs something from the shell, add a narrow dependency port and pass exactly that service.</p>
+<h2 id="current-slice">Current Slice</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Area</th>
+<th>Change</th>
+</tr></thead><tbody>
+<tr>
+<td>Foundation</td>
+<td><code>ScrollableSupport</code> moved to <code>application.gui.foundation.layout</code></td>
+</tr>
+<tr>
+<td>Platform</td>
+<td>Added clipboard, dialog, notification, UI-executor, and background-executor contracts</td>
+</tr>
+<tr>
+<td>Swing platform</td>
+<td>Added Swing implementations for clipboard, dialogs, UI executor, and background executor</td>
+</tr>
+<tr>
+<td>Feature</td>
+<td>Added <code>application.gui.feature.publishing</code></td>
+</tr>
+<tr>
+<td>Feature</td>
+<td>Added <code>application.gui.feature.dataset</code></td>
+</tr>
+<tr>
+<td>Dataset</td>
+<td>Added <code>DatasetView</code>, <code>DatasetDependencies</code>, and <code>DatasetController</code></td>
+</tr>
+<tr>
+<td>Publishing</td>
+<td>Added <code>PublishingView</code>, <code>PublishingDependencies</code>, and <code>PublishingController</code></td>
+</tr>
+<tr>
+<td>Report</td>
+<td>Added <code>ReportView</code>, <code>ReportDependencies</code>, and <code>ReportController</code></td>
+</tr>
+<tr>
+<td>Composition</td>
+<td>Added <code>LegacyWorkbenchComposition.datasetView(...)</code></td>
+</tr>
+<tr>
+<td>Composition</td>
+<td>Added <code>LegacyWorkbenchComposition.publishingView(...)</code></td>
+</tr>
+<tr>
+<td>Composition</td>
+<td>Added <code>LegacyWorkbenchComposition.reportView(...)</code></td>
+</tr>
+<tr>
+<td>Shell</td>
+<td><code>WindowBase</code> now stores <code>DatasetView</code> and creates Dataset through the composition helper</td>
+</tr>
+<tr>
+<td>Shell</td>
+<td><code>WindowBase</code> now stores <code>PublishingView</code> and creates Publishing through the composition helper</td>
+</tr>
+<tr>
+<td>Shell</td>
+<td><code>WindowBase</code> now stores the main report as <code>ReportView</code> and creates report views through the composition helper</td>
+</tr>
+<tr>
+<td>Gallery</td>
+<td>Added <code>testing.GuiComponentGallery</code> for headless light/dark shared-control rendering</td>
+</tr>
+<tr>
+<td>Regression</td>
+<td>Added <code>testing.GuiArchitectureRegressionTest</code>, <code>testing.DatasetFeatureRegressionTest</code>, <code>testing.ReportFeatureRegressionTest</code>, and <code>testing.PublishingFeatureRegressionTest</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="publishing-pilot">Publishing Pilot</h2>
+<p>Publishing is the first vertical feature seam because it already had a host contract and a coherent workflow. The migration keeps <code>PublishingPanel</code> as the concrete Swing implementation, but the Workbench shell now depends on <code>PublishingView</code>.</p>
+<p>The new dependency bundle names the services Publishing actually uses: owner component, current FEN, game model, batch input, report service, command runner, clipboard, command control, notifications, and dialogs. <code>PublishingController</code> adapts those ports to the existing <code>PublishingPanel.Host</code>, so the panel can move gradually instead of being rewritten at once.</p>
+<p>Remaining compatibility debt is intentional and smaller than before. <code>PublishingPanel</code> implements <code>PublishingView</code>, <code>ReportPanel</code> implements <code>ReportView</code>, and both <code>WindowPublishingHost</code> and <code>WindowReportHost</code> have been removed. The next safe slice is to start a second vertical feature seam.</p>
+<h2 id="dataset-seam">Dataset Seam</h2>
+<p>Dataset is the second vertical feature seam because its shell needs are narrow: it only needs callbacks to open a selected FEN in the shared Board tab or a detached Board tab. The migration keeps <code>DatasetPanel</code> as the concrete Swing implementation, but the Workbench shell now depends on <code>DatasetView</code>.</p>
+<p><code>DatasetController</code> creates the legacy panel from <code>DatasetDependencies</code>, and <code>WindowBase</code> now routes Dataset construction through <code>LegacyWorkbenchComposition.datasetView(...)</code>. The command palette still calls <code>analyzeCurrentSource()</code>, but it does so through the feature view contract.</p>
+<h2 id="architecture-baseline">Architecture Baseline</h2>
+<p><code>testdata/gui/architecture-baseline.tsv</code> records current GUI debt for direct Swing construction and local decorating calls. The baseline exists because the old Workbench has a lot of direct Swing code. The rule is not &quot;fix all of it now&quot;; the rule is &quot;do not grow it accidentally.&quot;</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Rule</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr>
+<td><code>raw-swing-construction</code></td>
+<td>Direct construction of common Swing controls outside shared factories</td>
+</tr>
+<tr>
+<td><code>direct-color-construction</code></td>
+<td>Direct <code>new Color(...)</code> usage</td>
+</tr>
+<tr>
+<td><code>direct-set-font</code></td>
+<td>Direct <code>setFont(...)</code> usage</td>
+</tr>
+<tr>
+<td><code>direct-set-border</code></td>
+<td>Direct <code>setBorder(...)</code> usage</td>
+</tr>
+<tr>
+<td><code>ui-manager-access</code></td>
+<td>Direct <code>UIManager</code> access</td>
+</tr>
+<tr>
+<td><code>window-base-field</code></td>
+<td>Non-static field count in <code>WindowBase</code></td>
+</tr>
+</tbody></table></div>
+<p>When a cleanup reduces a count, regenerate the baseline with:</p>
+<pre><code class="language-bash">java -cp out testing.GuiArchitectureRegressionTest --write-baseline</code></pre>
+<p>Do this only after reviewing the diff. A baseline increase should be rare and explained in the commit or report.</p>
+<h2 id="regression-rules">Regression Rules</h2>
+<p><code>testing.GuiArchitectureRegressionTest</code> enforces these constraints:</p>
+<ul>
+<li>GUI packages with Java source must include <code>package-info.java</code>.</li>
+<li>GUI package declarations must match source paths.</li>
+<li>Foundation code must not import app, feature, Workbench, CLI, or chess packages.</li>
+<li>Feature packages must not import sibling feature implementations.</li>
+<li>Feature packages must not depend on <code>WindowBase</code> or <code>WindowHost</code>.</li>
+<li>The legacy <code>Window*Layer</code> inheritance chain and <code>WindowHost</code> adapter set must not grow outside the allowlist.</li>
+<li><code>WindowBase</code> must create Dataset through <code>LegacyWorkbenchComposition.datasetView(...)</code>.</li>
+<li><code>WindowBase</code> must create Publishing through <code>LegacyWorkbenchComposition.publishingView(...)</code>.</li>
+<li><code>WindowPublishingHost</code> must stay removed.</li>
+<li><code>WindowBase</code> must create reports through <code>LegacyWorkbenchComposition.reportView(...)</code>.</li>
+<li><code>WindowReportHost</code> must stay removed.</li>
+<li>Baseline-tracked Swing construction and decorating debt must not increase.</li>
+</ul>
+<p><code>testing.PublishingFeatureRegressionTest</code> verifies the Publishing compatibility adapter delegates through the narrow feature dependencies.</p>
+<p><code>testing.DatasetFeatureRegressionTest</code> verifies the Dataset controller creates the current panel behind the feature view contract and validates its dependency bundle.</p>
+<p><code>testing.ReportFeatureRegressionTest</code> verifies the report compatibility adapter delegates through the narrow feature dependencies.</p>
+<p><code>testing.GuiComponentGallery</code> verifies representative shared controls paint in light and dark modes under headless Swing.</p>
+<h2 id="migration-rules">Migration Rules</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Rule</th>
+<th>Rationale</th>
+</tr></thead><tbody>
+<tr>
+<td>Move one vertical feature at a time</td>
+<td>Big-bang GUI rewrites are too risky in this codebase</td>
+</tr>
+<tr>
+<td>Keep concrete Swing panels working while adding view contracts</td>
+<td>This preserves behavior and avoids visual churn</td>
+</tr>
+<tr>
+<td>Prefer narrow dependency records over host inheritance</td>
+<td>Tests can fake records without constructing a frame</td>
+</tr>
+<tr>
+<td>Move pure helpers to foundation only when they have no Workbench dependency</td>
+<td>Foundation must stay reusable and low-level</td>
+</tr>
+<tr>
+<td>Keep <code>workbench.ui</code> as the design-system boundary</td>
+<td>Feature packages should use <code>Ui</code>, <code>Theme</code>, and public primitives, not package-private helpers</td>
+</tr>
+<tr>
+<td>Update architecture tests before adding exceptions</td>
+<td>The tests are the long-term design contract</td>
+</tr>
+</tbody></table></div>
+<h2 id="migration-ledger">Migration Ledger</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Date</th>
+<th>Slice</th>
+<th>Result</th>
+</tr></thead><tbody>
+<tr>
+<td class="numeric">2026-06-25</td>
+<td>Initial architecture slice</td>
+<td>Added foundation, platform, feature, app packages; moved <code>ScrollableSupport</code>; created Publishing seam; added architecture baseline, component gallery, and focused regressions</td>
+</tr>
+<tr>
+<td class="numeric">2026-06-25</td>
+<td>Report seam</td>
+<td>Added <code>ReportView</code>, <code>ReportDependencies</code>, and <code>ReportController</code>; routed report creation through the composition helper; removed <code>WindowPublishingHost</code> and <code>WindowReportHost</code>; added report seam regression</td>
+</tr>
+<tr>
+<td class="numeric">2026-06-25</td>
+<td>Dataset seam</td>
+<td>Added <code>DatasetView</code>, <code>DatasetDependencies</code>, and <code>DatasetController</code>; routed Dataset creation through the composition helper; added dataset seam regression</td>
+</tr>
+</tbody></table></div>
+<h2 id="next-steps">Next Steps</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Priority</th>
+<th>Work</th>
+</tr></thead><tbody>
+<tr>
+<td class="numeric">1</td>
+<td>Add a Play feature seam after Dataset and Publishing are stable</td>
+</tr>
+<tr>
+<td class="numeric">2</td>
+<td>Move feature state out of <code>WindowBase</code> where a feature package can own it</td>
+</tr>
+<tr>
+<td class="numeric">3</td>
+<td>Reduce baseline debt counts as shared factories absorb direct Swing styling</td>
+</tr>
+</tbody></table></div>
+      </article>
+      <aside class="toc"><h2>On this page</h2>
+<a class="toc-h2" href="#package-boundaries">Package Boundaries</a>
+<a class="toc-h2" href="#dependency-direction">Dependency Direction</a>
+<a class="toc-h2" href="#current-slice">Current Slice</a>
+<a class="toc-h2" href="#publishing-pilot">Publishing Pilot</a>
+<a class="toc-h2" href="#dataset-seam">Dataset Seam</a>
+<a class="toc-h2" href="#architecture-baseline">Architecture Baseline</a>
+<a class="toc-h2" href="#regression-rules">Regression Rules</a>
+<a class="toc-h2" href="#migration-rules">Migration Rules</a>
+<a class="toc-h2" href="#migration-ledger">Migration Ledger</a>
+<a class="toc-h2" href="#next-steps">Next Steps</a></aside>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a class="footer-logo" href="index.html">
+          <img src="assets/logo/crtk-logo.svg" alt="" width="40" height="40">
+          <span>ChessRTK</span>
+        </a>
+        <p>The deterministic chess research toolkit. Free, open-source, and built on one shared Java chess core.</p>
+        <p class="footer-license">Licensed under GPL-3.0-only.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col"><h3>Documentation</h3><ul>
+          <li><a href="getting-started.html">Getting Started</a></li>
+          <li><a href="command-reference.html">Command Reference</a></li>
+          <li><a href="configuration.html">Configuration</a></li>
+          <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          <li><a href="chessrtk-manual.pdf">Manual (PDF)</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Workflows</h3><ul>
+          <li><a href="mining.html">Puzzle Mining</a></li>
+          <li><a href="datasets.html">ML Datasets</a></li>
+          <li><a href="piece-tags.html">Tagging</a></li>
+          <li><a href="book-publishing.html">Book Publishing</a></li>
+          <li><a href="ai-agents.html">AI Agents</a></li>
+        </ul></div>
+        <div class="footer-col"><h3>Project</h3><ul>
+          <li><a href="architecture.html">Architecture</a></li>
+          <li><a href="quality-and-testing.html">Quality &amp; Testing</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/LenniAConrad/chess-rtk/issues" target="_blank" rel="noopener">Issues</a></li>
+        </ul></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; ChessRTK contributors &middot; GPL-3.0-only</span>
+      <span>Documentation generated from the repository <a href="wiki-index.html">wiki</a>.</span>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -78,6 +78,7 @@
 <section class="nav-section"><h2>Desktop Workbench</h2>
 <a class="" href="workbench.html" data-title="workbench">Workbench</a>
 <a class="active" href="workbench-design-guide.html" data-title="design guide">Design Guide</a>
+<a class="" href="gui-architecture.html" data-title="gui architecture">GUI Architecture</a>
 </section>
 <section class="nav-section"><h2>Engines &amp; Models</h2>
 <a class="" href="in-house-engine.html" data-title="built-in engine">Built-in Engine</a>
@@ -111,6 +112,7 @@
         <h1 id="workbench-design-guide">Workbench Design Guide</h1>
 <p>The ChessRTK Workbench is a dense desktop research tool, not a landing page and not a decorative demo. Design new UI as VS Code on macOS applied to chess tooling: compact editor chrome, clear hierarchy, quiet surfaces, high information density, and a small amount of restrained frosted-glass influence only where it improves orientation. The goal is that a researcher can scan a position, command, dataset, or engine run quickly and trust that the GUI is showing the same deterministic system as the CLI.</p>
 <p>This page is the standard for Workbench UI changes. It covers visual direction, layout, controls, copy, accessibility, and verification.</p>
+<p>For package boundaries, feature extraction rules, and the migration ledger, see <a href="gui-architecture.html">GUI Architecture</a>.</p>
 <h2 id="core-principles">Core Principles</h2>
 <ul>
 <li><strong>Use the shared chess core.</strong> UI affordances may be visual, but legality, FEN, SAN, UCI, tags, engine settings, and command text still come from the same code paths the CLI uses.</li>
@@ -171,6 +173,25 @@
 </tr>
 </tbody></table></div>
 <p>Do not ship a panel that looks &quot;close enough&quot; but uses local colors, raw Swing control styling, arbitrary spacing, or a new layout language.</p>
+<h2 id="ui-layer-ownership">UI Layer Ownership</h2>
+<p>The shared Swing layer lives in <code>application.gui.workbench.ui</code>. Treat it as a design-system boundary, not as a miscellaneous helper folder.</p>
+<p>The UI layer owns:</p>
+<ul>
+<li>Theme tokens: colors, typography, spacing, borders, radii, surfaces, and state colors.</li>
+<li>Reusable controls: buttons, toggles, badges, segmented controls, chips, headers, surfaces, overlays, and empty states.</li>
+<li>Generic Swing styling: table, tree, scroll pane, combo box, spinner, slider, popup, tooltip, dialog, and file-chooser chrome.</li>
+<li>Generic rendering helpers: icons, hit regions, acceleration hints, and small non-domain painters.</li>
+<li>Facades that feature packages should prefer: <code>Ui</code>, <code>Theme</code>, <code>Toast</code>, <code>FileDialogs</code>, and <code>SwingTasks</code>.</li>
+</ul>
+<p>The UI layer does not own:</p>
+<ul>
+<li>Chess legality, FEN, SAN, UCI, or move generation.</li>
+<li>Board state, game state, engine state, MCTS state, or session workflows.</li>
+<li>Feature-specific models, command execution semantics, neural-network fidelity claims, or artifact formats.</li>
+<li>One-off local styling for a single screen.</li>
+</ul>
+<p>Most feature packages should import <code>Ui</code>, <code>Theme</code>, and a small number of public primitives such as <code>SurfacePanel</code>, <code>WorkspaceHeader</code>, <code>StatusBadge</code>, <code>ToggleBox</code>, <code>HoldButton</code>, or <code>SegmentedSwitcher</code>. Styling internals such as palette installers, Swing UI delegates, input chrome, and helper factories stay package-private. If a feature needs a new visual pattern, first add a reusable primitive or facade method in the UI layer, then use that primitive from the feature package.</p>
+<p>Do not split <code>application.gui.workbench.ui</code> into subpackages until the public API is stable. Java subpackages do not share package-private access, so splitting too early usually forces internals to become public. When a split is justified, move one group at a time: <code>ui.components</code> for reusable controls, <code>ui.layout</code> for surfaces and layout helpers, <code>ui.theme</code> for palette and installer internals, <code>ui.paint</code> for generic painters, and <code>ui.dialogs</code> for modal/toast/file-dialog helpers.</p>
 <h2 id="reference-model">Reference Model</h2>
 <p>The Workbench should not copy VS Code or macOS pixel-for-pixel. It should translate their useful rules into ChessRTK&#x27;s Java Swing implementation.</p>
 <div class="table-wrap"><table>
@@ -3032,6 +3053,7 @@ git diff --check</code></pre>
       <aside class="toc"><h2>On this page</h2>
 <a class="toc-h2" href="#core-principles">Core Principles</a>
 <a class="toc-h2" href="#uniformity-contract">Uniformity Contract</a>
+<a class="toc-h2" href="#ui-layer-ownership">UI Layer Ownership</a>
 <a class="toc-h2" href="#reference-model">Reference Model</a>
 <a class="toc-h2" href="#workbench-north-star">Workbench North Star</a>
 <a class="toc-h2" href="#current-registered-shell">Current Registered Shell</a>
@@ -3048,8 +3070,7 @@ git diff --check</code></pre>
 <a class="toc-h2" href="#source-of-truth">Source Of Truth</a>
 <a class="toc-h2" href="#spacing-and-sizing">Spacing And Sizing</a>
 <a class="toc-h2" href="#layout">Layout</a>
-<a class="toc-h3" href="#canonical-surface-layout">Canonical Surface Layout</a>
-<a class="toc-h3" href="#region-rules">Region Rules</a></aside>
+<a class="toc-h3" href="#canonical-surface-layout">Canonical Surface Layout</a></aside>
     </main>
   </div>
 
