@@ -542,6 +542,18 @@ public final class GameModel extends AbstractTableModel {
     }
 
     /**
+     * Returns the bound comment body for a main-line ply (so the move list can
+     * surface which moves carry annotations), or an empty string. Returns empty
+     * while an imported tree is active (those comments live on the tree nodes).
+     *
+     * @param ply main-line ply (1-based; 0 = root)
+     * @return comment body for that ply
+     */
+    public String commentForPly(int ply) {
+        return importedGame == null ? plyComments.getOrDefault(Integer.valueOf(ply), "") : "";
+    }
+
+    /**
      * Returns the row count.
      *
      * @return row count

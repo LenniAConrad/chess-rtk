@@ -8,7 +8,6 @@ import application.gui.workbench.draw.DrawPanel;
 import application.gui.workbench.engine.EngineGauntletPanel;
 import application.gui.workbench.game.EcoExplorerPanel;
 import application.gui.workbench.game.GameReviewPanel;
-import application.gui.workbench.game.MoveListPanel;
 import application.gui.workbench.game.ReviewCliArtifactProducer;
 import application.gui.workbench.game.SavedGame;
 import application.gui.workbench.game.SanRenderer;
@@ -1179,7 +1178,9 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         panel.add(Box.createVerticalStrut(Theme.SPACE_SM));
         panel.add(collapsible("Advanced / raw command settings", createAdvancedAnalysisControls(), false));
         refreshAnalysisCommandState();
-        return Ui.card("Engine / Search Settings", panel);
+        // Collapsed by default: the rail leads with the position and analysis;
+        // depth / time / MultiPV / threads are tucked behind an options header.
+        return collapsible("Engine / Search settings", panel, false);
     }
 
     /**
@@ -2270,7 +2271,9 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
     private JComponent createBoardActionsRow() {
         return controlRow(FlowLayout.LEFT,
                 button("Continue vs bot", false, event -> continueVsBotFromHere()),
-                button("Make into study", false, event -> makeIntoStudyFromHere()));
+                button("Make into study", false, event -> makeIntoStudyFromHere()),
+                button("Copy PGN", false, event -> copyText(gameModel.pgn())),
+                button("Copy FEN", false, event -> copyText(gameModel.currentPosition().toString())));
     }
 
     /**
@@ -2319,11 +2322,9 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         JPanel body = transparentPanel(new BorderLayout(0, Theme.SPACE_XS));
         body.add(scroll(boardFenPeek, () -> Theme.INPUT), BorderLayout.NORTH);
         body.add(scroll(boardPgnPeek, () -> Theme.INPUT), BorderLayout.CENTER);
-        body.add(controlRow(FlowLayout.LEFT,
-                button("Copy PGN", false, event -> copyText(gameModel.pgn())),
-                button("Copy FEN", false, event -> copyText(gameModel.currentPosition().toString()))),
-                BorderLayout.SOUTH);
-        return collapsible("PGN / FEN", body, true);
+        // Collapsed by default to reclaim board height; the Copy actions live in
+        // the always-visible footer row, so the PGN is one click away.
+        return collapsible("PGN / FEN", body, false);
     }
 
     /**
@@ -2486,12 +2487,11 @@ public abstract class WindowBoardLayer extends WindowLifecycle {
         playBoardSlot.add(controls.playerIdentityStrip(), BorderLayout.SOUTH);
 
         // The rail is the shared board-inspector seam: a status header above the
-        // Play setup form above the shared move list, the form/list boundary
-        // filling the canvas height so the column tracks the window instead of
-        // stranding a fixed block. The move list is the reusable MoveListPanel
-        // over the same game line Analyze shows.
+        // Play setup form above the one shared move list (the same inline,
+        // annotation-aware list Analyze uses), so every mode shows moves the
+        // same compact way.
         JComponent rail = new BoardInspectorRail(controls.playStatusHeader(), controls,
-                new MoveListPanel(gameModel, this::jumpGameTo));
+                scroll(new AnalyzeVariationTreePanel(gameModel, this::showGameRow), () -> Theme.BG));
 
         return boardPageSplit(playBoardSlot, rail);
     }

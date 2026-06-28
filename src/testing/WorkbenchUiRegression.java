@@ -1152,21 +1152,16 @@ final class WorkbenchUiRegression {
     }
 
     /**
-     * Verifies Play mode docks the shared compact White/Black move list (the
-     * reusable {@code MoveListPanel}) rather than exposing the raw shared game
-     * table beside the board.
+     * Verifies Play mode docks the one shared inline move list (the same
+     * annotation-aware {@code AnalyzeVariationTreePanel} the Analyze tree uses)
+     * rather than a separate move-list component.
      */
     private static void testPlayTabUsesCompactMoveHistory() {
-        String moveList = readSource(Path.of("src/application/gui/workbench/game/MoveListPanel.java"));
-        assertTrue(moveList.contains("new PlayMoveHistoryModel(gameModel)"),
-                "shared move list uses the compact move-history model");
-        assertTrue(moveList.contains("Ui.card(\"Moves\""),
-                "shared move list uses an inspector card");
-        assertTrue(moveList.contains("Start a game to record moves here."),
-                "shared move list has a designed empty state");
         String board = readSource(Path.of("src/application/gui/workbench/window/WindowBoardLayer.java"));
-        assertTrue(board.contains("new MoveListPanel(gameModel, this::jumpGameTo)"),
-                "Play tab docks the shared move list");
+        assertTrue(board.contains("new AnalyzeVariationTreePanel(gameModel, this::showGameRow)"),
+                "Play tab docks the one shared inline move list");
+        assertFalse(board.contains("new MoveListPanel("),
+                "Play tab no longer uses a separate move-list component");
     }
 
     /**

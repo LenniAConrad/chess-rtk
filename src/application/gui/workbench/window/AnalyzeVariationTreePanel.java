@@ -154,7 +154,7 @@ final class AnalyzeVariationTreePanel extends JComponent {
         g.setFont(Theme.font(Theme.FONT_MICRO, Font.BOLD));
         g.setColor(Theme.STATUS_INFO_TEXT);
         FontMetrics titleMetrics = g.getFontMetrics();
-        g.drawString("VARIATION TREE", Theme.SPACE_MD, Theme.SPACE_MD + titleMetrics.getAscent());
+        g.drawString("MOVES", Theme.SPACE_MD, Theme.SPACE_MD + titleMetrics.getAscent());
 
         g.setFont(Theme.font(Theme.FONT_METADATA, Font.PLAIN));
         g.setColor(Theme.MUTED);
@@ -274,10 +274,39 @@ final class AnalyzeVariationTreePanel extends JComponent {
                 }
             }
             tokens.add(moveToken(row, previous));
+            appendAnnotationMarker(tokens, row);
             previous = row;
         }
         closeVariations(tokens, openDepth, 0);
         return tokens;
+    }
+
+    /**
+     * Appends a muted annotation marker after a main-line move that carries a
+     * bound annotation (Phase 2): the free-text comment in braces, or a small
+     * pencil glyph when the move only carries drawn shapes. This is what makes
+     * board annotations visible in the move list, not just the raw PGN.
+     *
+     * @param tokens destination token list
+     * @param row visible move row
+     */
+    private void appendAnnotationMarker(List<InlineToken> tokens, GameModel.VisibleMoveSnapshot row) {
+        if (!row.mainline()) {
+            return;
+        }
+        String comment = gameModel.commentForPly(row.pathPly());
+        if (comment == null || comment.isBlank()) {
+            return;
+        }
+        String text = application.gui.workbench.board.BoardMarkupComment.plainText(comment).trim();
+        if (text.isEmpty()) {
+            tokens.add(marker("✎"));
+        } else {
+            if (text.length() > 32) {
+                text = text.substring(0, 31) + "…";
+            }
+            tokens.add(marker("{" + text + "}"));
+        }
     }
 
     /**
