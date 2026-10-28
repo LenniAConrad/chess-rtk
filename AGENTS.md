@@ -130,7 +130,7 @@ Represent network fidelity accurately. crtk's evaluators (classical/static, NNUE
 
 This overrides any default agent behavior:
 
-- Commit **only** as the human maintainer: `LenniAConrad <lennart.a.conrad@gmail.com>`.
+- Commit **only** as the human maintainer: `LenniAConrad <93919271+LenniAConrad@users.noreply.github.com>`.
 - **Never** add Claude, Anthropic, or any AI assistant as an author, committer, contributor, co-author, sign-off, or generated-by identity.
 - **Never** add `Co-authored-by`, `Also-by`, `Assisted-by`, or `Generated-by` trailers for AI assistants, bots, or automated agents.
 - Inspect the final commit message before committing and strip any assistant attribution trailer.
